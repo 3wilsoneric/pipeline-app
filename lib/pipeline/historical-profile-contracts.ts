@@ -90,6 +90,9 @@ export type HistoricalProfileDocument = {
   status: string;
   previewStatus: string;
   sourceSystem: string | null;
+  thumbnailUrl?: string;
+  previewUrl?: string;
+  downloadUrl?: string;
 };
 
 export type HistoricalProfileSection = {

@@ -7,7 +7,8 @@ import { buildAssessmentSummaryReport } from "@/lib/assessment/assessment-summar
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ReferralCanvasPacketField } from "@/lib/pipeline/referral-canvas-extraction";
-import type { Referral } from "@/lib/pipeline/referral-types";
+import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
+import { ClientDocumentGallery } from "@/components/pipeline/ClientProfileView";
 
 // Pre-launch Pipeline records retain their actual intake and saved assessments,
 // rather than being projected onto the ALLO source format or a new workflow.
@@ -19,6 +20,20 @@ export default function TransferredWorkspaceChart({ referral, fields }: {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [files, setFiles] = useState<ReferralFile[]>([]);
+  const [fileError, setFileError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchPipelineJson<{ pipeline: { documents: ReferralFile[] } }>(
+      `/api/profiles/${encodeURIComponent(`pipeline:${referral.clientId}`)}`,
+      { signal: controller.signal, cache: "no-store" },
+      { cacheTtlMs: 30_000 },
+    ).then((profile) => {
+      if (!controller.signal.aborted) setFiles(profile.pipeline.documents.filter((file) => file.referralId === referralId));
+    }).catch(() => { if (!controller.signal.aborted) setFileError("Chart files could not be loaded."); });
+    return () => controller.abort();
+  }, [referral.clientId, referralId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -42,9 +57,11 @@ export default function TransferredWorkspaceChart({ referral, fields }: {
   return (
     <div className="space-y-6" data-testid="transferred-workspace-chart">
       <RecordedFields title="Client information" fields={fields} />
+      {files.length ? <section aria-label="Chart files"><h2 className="mb-2 text-[13px] font-bold text-[#202522]">Files</h2><ClientDocumentGallery documents={files} /></section> : null}
+      {fileError ? <p role="alert" className="text-[12px] text-[#a4473c]">{fileError}</p> : null}
       {loading ? <p role="status" className="text-[12px] text-[#68716d]">Loading assessment records...</p> : null}
       {error ? <p role="alert" className="text-[12px] text-[#a4473c]">{error}</p> : null}
-      {assessments.map((assessment) => (
+      {assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at).map((assessment) => (
         <section key={assessment.assessment_id}>
           <p className="mb-2 text-[11px] text-[#68716d]">
             {assessment.signed_at ? "Signed" : "Saved, unsigned"} · {assessment.updated_by.name} · {new Date(assessment.updated_at).toLocaleDateString("en-US")}

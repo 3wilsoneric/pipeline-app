@@ -349,8 +349,8 @@ export default function ClientProfileDirectory({
           {visibleClients.length > 0 ? (
             <div role="list" className="grid gap-4 md:grid-cols-2">
               {visibleClients.map((client) => (
-                <div role="listitem" key={client.canonical_client_id} className="min-w-0">
-                  <ClientDirectoryCard client={client} onOpen={() => onOpenProfile(client.canonical_client_id)} />
+                <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
+                  <ClientDirectoryCard client={client} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
                 </div>
               ))}
             </div>
@@ -396,7 +396,7 @@ function readInitialDirectory() {
   const user = readCachedPipelineSessionUser();
   if (!user) return undefined;
   return readDirectoryCache(directoryCacheKey(user.id ?? user.email, ""))
-    ?? readPipelineJsonCache<ClientDirectoryPayload>("/api/profiles/directory?limit=200");
+    ?? readPipelineJsonCache<ClientDirectoryPayload>("/api/profiles/directory?limit=200&scope=current");
 }
 
 function needsDirectoryLoading(previousQuery: string, query: string, initial: ClientDirectoryPayload | null | undefined) {
@@ -460,8 +460,8 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
       onClick={onOpen}
-      onPointerEnter={() => prefetchClientProfile(client.canonical_client_id)}
-      onFocus={() => prefetchClientProfile(client.canonical_client_id)}
+      onPointerEnter={() => prefetchClientProfile(client.profile_key ?? client.canonical_client_id)}
+      onFocus={() => prefetchClientProfile(client.profile_key ?? client.canonical_client_id)}
       className="group w-full min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
       <span aria-hidden="true" className="block min-h-[156px] border-b border-[#dfe5e2] bg-[#f4f8f6] p-4">
@@ -524,7 +524,7 @@ function RosterSkeleton() {
 }
 
 async function fetchClientPage(query: string, cursor: string | null, signal: AbortSignal, refresh = false) {
-  const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+  const params = new URLSearchParams({ limit: String(PAGE_SIZE), scope: "current" });
   if (query) params.set("q", query);
   if (cursor) params.set("cursor", cursor);
   return fetchPipelineJson<ClientDirectoryPayload>(`/api/profiles/directory?${params}`, {
@@ -548,8 +548,8 @@ function collectCommunities(clients: DirectoryClient[]) {
 }
 
 function mergeClients(current: DirectoryClient[], incoming: DirectoryClient[]) {
-  const merged = new Map(current.map((client) => [client.canonical_client_id, client]));
-  for (const client of incoming) merged.set(client.canonical_client_id, client);
+  const merged = new Map(current.map((client) => [client.profile_key ?? client.canonical_client_id, client]));
+  for (const client of incoming) merged.set(client.profile_key ?? client.canonical_client_id, client);
   return [...merged.values()];
 }
 

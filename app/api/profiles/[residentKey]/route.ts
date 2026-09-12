@@ -7,6 +7,7 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import {
   getUnifiedClientProfile,
+  getCurrentCensusClientProfile,
   unifiedProfileErrorResponse,
 } from "@/lib/pipeline/unified-profile";
 
@@ -22,8 +23,9 @@ export async function GET(
     const canonicalClientId = await parseCanonicalClientId(context);
     if (!canonicalClientId) return jsonError("canonical client identifier is invalid.");
     try {
+      const loadProfile = canonicalClientId.startsWith("resident:") ? getCurrentCensusClientProfile : getUnifiedClientProfile;
       return Response.json(
-        await getUnifiedClientProfile(request, canonicalClientId, {
+        await loadProfile(request, canonicalClientId, {
           can_create_identity_candidate: auth.user.roles.some((role) =>
             ["admin", "assessment_coordinator", "reviewer"].includes(role),
           ),

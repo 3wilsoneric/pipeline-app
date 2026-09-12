@@ -8,6 +8,8 @@ import type { HistoricalProfileResponse } from "@/lib/pipeline/historical-profil
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { getWorkspaceCounty } from "@/lib/pipeline/workspace-presentation";
 import { formatClientIdentityTitle, resolveClientCommunity, resolveClientGender } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { DocumentThumbnail } from "@/components/pipeline/ClientProfileView";
+import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 
 export default function ImportedWorkspaceProfile({ referral }: { referral: Referral }) {
   const [profile, setProfile] = useState<HistoricalProfileResponse | null>(null);
@@ -45,6 +47,7 @@ function HistoricalProfileHeader({ referral, county, dob, gender }: { referral: 
   const identityTitle = formatClientIdentityTitle({ name: referral.name, gender, community: referral.community });
   const facts = [
     { label: "Community", value: resolveClientCommunity(referral.community) ?? "" },
+    { label: "Owner", value: normalizeOwnerName(referral.owner) },
     { label: "Gender", value: gender },
     { label: "County", value: county },
     { label: "Date of birth", value: dob },
@@ -116,7 +119,7 @@ function HistoricalFacts({ facts }: { facts: HistoricalProfileResponse["facts"] 
       <div className="grid border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-3">
         {facts.map((fact) => (
           <div key={fact.factId} className="min-w-0 border-b border-r border-[#d7ddd9] px-4 py-3">
-            <div className="text-[9px] font-black uppercase tracking-[0.07em] text-[#68716d]">{fact.label}</div>
+            <div className="text-[9px] font-black uppercase tracking-[0.07em] text-[#68716d]">{fact.key === "assessment_date" ? "ALLO assessment date (imported)" : fact.label}</div>
             <div className="mt-1 whitespace-pre-wrap text-[12px] font-semibold leading-5 text-[#202522]">{fact.value}</div>
             <div className="mt-2 truncate text-[9px] text-[#8a918d]" title={sourceDescription(fact.source)}>{sourceDescription(fact.source)}</div>
           </div>
@@ -131,9 +134,11 @@ function HistoricalDocuments({ documents }: { documents: HistoricalProfileRespon
   return (
     <section aria-labelledby="historical-documents">
       <SectionHeading id="historical-documents" title="Files" detail="Documents linked to this workspace" count={documents.length} />
-      <div className="divide-y divide-[#e1e5e2] border border-[#d7ddd9] bg-white">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {documents.map((document) => (
-          <article key={document.documentId} className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_180px_130px] sm:items-center">
+          <article key={document.documentId} className="overflow-hidden border border-[#d7ddd9] bg-white">
+            <DocumentThumbnail document={{ id: document.documentId, name: document.name, category: "Other", referralId: null, referralName: "", community: "", uploadedAt: document.uploadedAt, status: "Uploaded", previewStatus: document.previewStatus === "ready" ? "ready" : "unavailable", thumbnailUrl: document.thumbnailUrl, previewUrl: document.previewUrl, downloadUrl: document.downloadUrl }} />
+            <div className="space-y-2 p-3">
             <div className="flex min-w-0 items-start gap-2.5">
               <Paperclip size={14} className="mt-0.5 shrink-0 text-[#0c705f]" aria-hidden="true" />
               <div className="min-w-0">
@@ -143,6 +148,7 @@ function HistoricalDocuments({ documents }: { documents: HistoricalProfileRespon
             </div>
             <p className="text-[9px] text-[#737b77]">{formatDocumentExtent(document)}</p>
             <p className="text-[9px] text-[#737b77]">Added {formatDate(document.uploadedAt)}</p>
+            </div>
           </article>
         ))}
       </div>

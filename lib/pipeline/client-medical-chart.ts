@@ -47,7 +47,9 @@ export function buildClientMedicalChart(
   sections: ClientProfileSection[],
   assessments: PipelineAssessmentRecord[],
 ): ClientMedicalChartModel {
-  const latestAssessment = assessments[0] ?? null;
+  // A draft is working material, not a completed encounter or an authority
+  // for overwriting the platform's current clinical facts.
+  const latestAssessment = assessments.find((assessment) => assessment.status === "complete" && assessment.signed_at) ?? null;
   const chartValue = (...labels: string[]) => findProfileValue(sections, labels);
   const assessmentValue = (...values: unknown[]) => firstReadableValue(values);
 

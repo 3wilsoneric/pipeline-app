@@ -120,7 +120,7 @@ export default function PipelineOverviewRoute() {
         // GET-only reads use the same cache as navigation; no charts or files
         // are downloaded in bulk and no background user session is created.
         void fetchPipelineJson(`/api/referrals/directory?${buildReferralParams({ kind: "all" }, "")}`, {}, { cacheTtlMs: 30_000 }).catch(() => undefined);
-        void fetchPipelineJson("/api/profiles/directory?limit=200", {}, { cacheTtlMs: 60_000 }).catch(() => undefined);
+        void fetchPipelineJson("/api/profiles/directory?limit=200&scope=current", {}, { cacheTtlMs: 60_000 }).catch(() => undefined);
       })
       .catch(() => {
         if (!cancelled) setReportAccess(false);

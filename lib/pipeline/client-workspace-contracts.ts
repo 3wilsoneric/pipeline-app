@@ -4,6 +4,8 @@ import type {
 } from "@/lib/clinical/clinical-contracts";
 
 export type ClientWorkspaceDirectoryItem = ClinicalClientDirectoryItem & {
+  /** Current census locator; never a guessed canonical identity or referral link. */
+  profile_key?: string;
   workspace_origin: "alamo_platform" | "pipeline";
   pipeline_client_id: string | null;
   referral_count: number;

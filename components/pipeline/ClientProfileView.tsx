@@ -83,12 +83,12 @@ function ClientProfileLoader({
       .then((payload) => {
         const identity = profileIdentity(payload);
         recordRecentDestination({
-          id: `profile:${payload.client.canonical_client_id}`,
+          id: `profile:${payload.client.canonical_client_id || residentKey}`,
           kind: "profile",
           screen: "profile",
           title: identity.title.slice(0, 200),
           detail: identity.community || "Client profile",
-          clientId: payload.client.canonical_client_id,
+          clientId: payload.client.canonical_client_id || residentKey,
         });
         setProfile(payload);
       })
@@ -202,7 +202,7 @@ function ResidentProfile({
     chart.sections,
     profile.pipeline.assessments,
   );
-  const hasPipelineHistory = ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status);
+  const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at);
 
   return (
     <main aria-label={`Client profile for ${identity.title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-white text-[#111111] [scrollbar-gutter:stable]">
@@ -241,10 +241,10 @@ function ResidentProfile({
             </ProfileSection>
           ) : null}
 
-          {hasPipelineHistory || profile.pipeline.assessments.length > 0 ? (
+          {completedAssessments.length > 0 ? (
             <ProfileSection title="Assessments">
               <ClientAssessmentSummary
-                assessments={profile.pipeline.assessments}
+                assessments={completedAssessments}
                 connection={profile.pipeline.connection}
               />
             </ProfileSection>
@@ -570,7 +570,7 @@ function ClientHistorySummary({ history }: { history: UnifiedClientProfileRespon
   );
 }
 
-function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
+export function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
   if (documents.length === 0) {
     return (
       <div className="border-l-2 border-[#d9d9d9] bg-[#f8f8f8] px-4 py-3 text-[12px] leading-5 text-[#595959]">
@@ -1050,7 +1050,7 @@ function ClinicalSourceThumbnail({
   );
 }
 
-function DocumentThumbnail({ document }: { document: ReferralFile }) {
+export function DocumentThumbnail({ document }: { document: ReferralFile }) {
   const [failed, setFailed] = useState(false);
   const available = Boolean(document.thumbnailUrl) && !failed;
   const content = available ? (

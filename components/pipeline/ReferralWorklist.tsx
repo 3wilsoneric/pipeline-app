@@ -175,7 +175,7 @@ function CompactReferralRow({
   );
 }
 
-function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; progress: ReferralProgress }) {
+export function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; progress: ReferralProgress }) {
   const seed = Math.abs(referral.id) % 13;
   const firstLine = 15 + seed;
   const secondLine = 10 + ((seed * 3) % 17);

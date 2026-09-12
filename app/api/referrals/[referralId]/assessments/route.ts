@@ -74,7 +74,6 @@ export async function POST(
       resident_name: seed.data.resident_name,
       date_of_birth: seed.data.date_of_birth,
       community: seed.data.community,
-      assessment_date: seed.data.assessment_date,
       assessor: seed.data.assessor,
       referral_received_date: seed.data.referral_received_date,
       referrer_name: seed.data.referrer_name,

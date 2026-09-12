@@ -1,7 +1,9 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import {
   ClinicalDataError,
+  clinicalDataErrorResponse,
   getClinicalClients,
+  getClinicalRoster,
 } from "@/lib/clinical/clinical-data";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import type {
@@ -15,9 +17,10 @@ import {
 
 export const runtime = "nodejs";
 
-type DirectoryCursor = { phase: "clinical"; cursor: string } | { phase: "pipeline"; offset: number };
+type DirectoryCursor = { phase: "clinical" | "current"; cursor: string } | { phase: "pipeline"; offset: number };
 
 export async function GET(request: Request) {
+  if (new URL(request.url).searchParams.get("scope") === "current") return currentCensusResponse(request);
   return withApiLogging(request, "/api/profiles/directory", async () => {
     const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer", "viewer"]);
     if (!auth.ok) return auth.response;
@@ -138,18 +141,89 @@ async function pipelinePage(
   };
 }
 
+function currentCensusResponse(request: Request) {
+  return withApiLogging(request, "/api/profiles/directory", async () => {
+    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer", "viewer"]);
+    if (!auth.ok) return auth.response;
+    const url = new URL(request.url);
+    const query = url.searchParams.get("q")?.trim() ?? "";
+    const community = url.searchParams.get("community")?.trim() ?? "";
+    const cursor = decodeCursor(url.searchParams.get("cursor"), "current");
+    if (currentSearchTooLong(query, community)) return jsonError("Search and community must be 128 characters or fewer.");
+    if (cursor && cursor.phase !== "current") return jsonError("cursor is invalid for the current census.");
+    if (url.searchParams.get("cursor") && !cursor) return jsonError("cursor is invalid for the current census.");
+    const limit = boundedInteger(url.searchParams.get("limit"), 200, 1, 200);
+    try {
+      return Response.json(await currentCensusPage(request, auth.user, query, community, limit, cursor?.cursor), { headers: privateHeaders() });
+    } catch (error) {
+      return clinicalDataErrorResponse(error);
+    }
+  });
+}
+
+function currentSearchTooLong(query: string, community: string) {
+  return query.length > 128 || community.length > 128;
+}
+
+async function currentCensusPage(
+  request: Request,
+  user: Parameters<typeof listPipelineClientWorkspaces>[0],
+  query: string,
+  community: string,
+  limit: number,
+  cursor?: string,
+): Promise<ClientWorkspaceDirectoryResponse> {
+  const roster = await getClinicalRoster(request, { query, community, limit, cursor });
+  const summaries = await getClinicalClientWorkspaceSummaries(user, roster.residents.flatMap((resident) =>
+    resident.canonical_client_id ? [{ canonicalClientId: resident.canonical_client_id, residentNumbers: resident.resident_number ? [resident.resident_number] : [] }] : [],
+  )).catch(() => new Map());
+  return {
+    total: roster.total,
+    limit: roster.limit,
+    query: roster.query,
+    community: roster.community,
+    data_as_of: roster.data_as_of,
+    freshness: roster.freshness,
+    clients: roster.residents.map((resident) => {
+      const summary = summaries.get(resident.canonical_client_id ?? "");
+      return {
+        canonical_client_id: resident.canonical_client_id ?? "",
+        profile_key: `resident:${resident.resident_key}`,
+        display_name: resident.display_name,
+        gender: null,
+        resident_numbers: resident.resident_number ? [resident.resident_number] : [],
+        current_resident: true,
+        community_names: [resident.community_name],
+        current_community: resident.community_name,
+        unit: resident.unit,
+        admit_date: resident.admit_date,
+        care_level: resident.care_level,
+        episode_count: 1,
+        workspace_origin: "alamo_platform" as const,
+        pipeline_client_id: null,
+        referral_count: summary?.referralCount ?? 0,
+        active_referral_count: summary?.activeReferralCount ?? 0,
+        historical_workspace_count: summary?.historicalWorkspaceCount ?? 0,
+        document_count: summary?.documentCount ?? 0,
+      };
+    }),
+    next_cursor: roster.next_cursor ? encodeCursor({ phase: "current", cursor: roster.next_cursor }) : null,
+    clinical_warning: roster.freshness.warning,
+  };
+}
+
 function encodeCursor(cursor: DirectoryCursor) {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
-function decodeCursor(value: string | null): DirectoryCursor | null {
+function decodeCursor(value: string | null, phase: "clinical" | "current" = "clinical"): DirectoryCursor | null {
   if (!value) return null;
   try {
     const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<DirectoryCursor>;
-    if (parsed.phase === "clinical" && typeof parsed.cursor === "string" && parsed.cursor.length <= 2_000) {
-      return { phase: "clinical", cursor: parsed.cursor };
+    if (parsed.phase === phase && typeof parsed.cursor === "string" && parsed.cursor.length <= 2_000) {
+      return { phase: parsed.phase, cursor: parsed.cursor };
     }
-    if (parsed.phase === "pipeline" && Number.isSafeInteger(parsed.offset) && Number(parsed.offset) >= 0) {
+    if (phase === "clinical" && parsed.phase === "pipeline" && Number.isSafeInteger(parsed.offset) && Number(parsed.offset) >= 0) {
       return { phase: "pipeline", offset: Number(parsed.offset) };
     }
   } catch {
