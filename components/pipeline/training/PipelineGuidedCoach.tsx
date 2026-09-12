@@ -50,12 +50,6 @@ type TargetView = {
   available: boolean;
 };
 
-type TargetInteraction = {
-  element: HTMLElement | null;
-  handler: EventListener | null;
-  event: "click" | "input" | "change" | "pipeline:guide-complete" | null;
-};
-
 type ProgressSyncState = "idle" | "server" | "browser" | "guide";
 
 const emptyTarget: TargetView = { element: null, rect: null, available: false };
@@ -96,7 +90,7 @@ export default function PipelineGuidedCoach() {
       return next;
     });
     queueProgressSync(tutorialId, { status: "started", currentStep: stepIndex, startedAt: now, updatedAt: now });
-    openGuideRoute(selected.steps[stepIndex].route);
+    openGuideRoute(selected.steps[stepIndex].route, true);
   }
 
   function startTutorialSequence(requestedIds: readonly string[]) {
@@ -110,7 +104,7 @@ export default function PipelineGuidedCoach() {
       return next;
     });
     queueProgressSync(first.id, { status: "started", currentStep: 0, startedAt: now, updatedAt: now });
-    openGuideRoute(first.steps[0].route);
+    openGuideRoute(first.steps[0].route, true);
   }
 
   function advance(expectedStepId?: string) {
@@ -128,6 +122,7 @@ export default function PipelineGuidedCoach() {
         completedAt: now,
       };
       commit({ type: "finish" });
+      if (step.target === "assessment-guided-exit" && !nextTutorial) commit({ type: "close" });
       queueProgressSync(tutorial.id, completed);
       window.dispatchEvent(new CustomEvent("pipeline:guided-tutorial-completed", { detail: { tutorialId: tutorial.id } }));
       if (nextTutorial) {
@@ -186,7 +181,7 @@ export default function PipelineGuidedCoach() {
       const stored = readGuideState();
       const next = shouldResumeGuideNavigation()
         ? stored
-        : { ...stored, mode: "closed" as const };
+        : emptyOperatorGuideState();
       writeGuideState(next);
       setState(next);
       setLocationKey(currentGuideLocationKey());
@@ -205,8 +200,17 @@ export default function PipelineGuidedCoach() {
     };
   }, []);
 
+  const handleLocationChange = useEffectEvent(() => {
+    setLocationKey(currentGuideLocationKey());
+    if (state.mode !== "active") {
+      const next = emptyOperatorGuideState();
+      writeGuideState(next);
+      setState(next);
+    }
+  });
+
   useEffect(() => {
-    const changed = () => setLocationKey(currentGuideLocationKey());
+    const changed = () => handleLocationChange();
     window.addEventListener(PIPELINE_NAVIGATION_EVENT, changed);
     window.addEventListener("popstate", changed);
     return () => {
@@ -220,14 +224,22 @@ export default function PipelineGuidedCoach() {
       return;
     }
 
-    let interaction: TargetInteraction = { element: null, handler: null, event: null };
     let frame = 0;
     let didScroll = false;
+
+    // Capture against the current target before React replaces a question screen.
+    const detectInteraction = (event: Event) => {
+      const candidate = findVisibleGuideTarget(step.target);
+      if (candidate && event.target instanceof Node && candidate.contains(event.target) && guideAdvanceEvent(step, candidate) === event.type) {
+        window.setTimeout(() => advanceFromTarget(step.id), 0);
+      }
+    };
+    const interactionEvents = ["click", "input", "change", "pipeline:guide-complete"] as const;
+    for (const event of interactionEvents) document.addEventListener(event, detectInteraction, true);
 
     const measure = () => {
       revealCollapsedGuideTarget(step.target);
       const candidate = findVisibleGuideTarget(step.target);
-      interaction = rebindGuideInteraction(interaction, candidate, step, advanceFromTarget);
       didScroll = scrollGuideTargetIntoView(candidate, didScroll);
       setTarget(targetView(candidate));
     };
@@ -245,7 +257,7 @@ export default function PipelineGuidedCoach() {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", scheduleMeasure);
       window.removeEventListener("scroll", scheduleMeasure, true);
-      detachGuideInteraction(interaction);
+      for (const event of interactionEvents) document.removeEventListener(event, detectInteraction, true);
     };
   }, [locationKey, state.mode, state.stepIndex, step]);
 
@@ -267,22 +279,6 @@ function findPreviousGuideStep(state: OperatorGuideState, tutorial: OperatorGuid
   if (state.stepIndex > 0) return tutorial.steps[state.stepIndex - 1];
   const previousTutorial = getOperatorGuidedTutorial(state.sequenceTutorialIds[state.sequenceIndex - 1]);
   return previousTutorial?.steps.at(-1);
-}
-
-function rebindGuideInteraction(current: TargetInteraction, candidate: HTMLElement | null, step: OperatorGuideStep, onAdvance: (expectedStepId: string) => void): TargetInteraction {
-  if (candidate === current.element) return current;
-  detachGuideInteraction(current);
-  const event = candidate ? guideAdvanceEvent(step, candidate) : null;
-  if (!candidate || !event) return { element: candidate, handler: null, event };
-  const handler = () => window.setTimeout(() => onAdvance(step.id), 0);
-  candidate.addEventListener(event, handler);
-  return { element: candidate, handler, event };
-}
-
-function detachGuideInteraction(interaction: TargetInteraction) {
-  if (interaction.element && interaction.handler && interaction.event) {
-    interaction.element.removeEventListener(interaction.event, interaction.handler);
-  }
 }
 
 function scrollGuideTargetIntoView(candidate: HTMLElement | null, alreadyScrolled: boolean) {
@@ -390,7 +386,7 @@ function compactGuideInstruction(step: OperatorGuideStep) {
   if (step.id === "referral-packet") return "Upload the referral packet here.";
   if (step.id === "assessment-answer") return "Enter the finding, source, timeframe, and useful detail.";
   if (step.id === "assessment-help") return "Open Language Lab for a field-specific format.";
-  if (step.id.startsWith("assessment-section-")) return "Review this section, then select it to continue.";
+  if (step.id.startsWith("assessment-section-")) return "Review these questions, then continue. Use Next for more questions in this section.";
   if (step.advance === "target-input") return "Type in the highlighted field.";
   if (step.advance === "target-change") return "Set the highlighted field.";
   if (step.advance === "target-click") return "Select the highlighted control.";
@@ -531,9 +527,14 @@ function currentGuideLocationKey() {
   return `${window.location.pathname}${window.location.search}`;
 }
 
-function openGuideRoute(route: string) {
-  if (guideRouteMatches(route)) return;
+function openGuideRoute(route: string, freshPractice = false) {
+  if (guideRouteMatches(route) && !freshPractice) return;
   const destination = new URL(route, window.location.origin);
+  if (destination.searchParams.has("trainingAssessment") || destination.searchParams.has("trainingIntake")) {
+    const current = new URLSearchParams(window.location.search);
+    const draftId = !freshPractice && (current.has("trainingAssessment") || current.has("trainingIntake")) ? current.get("draftId") : null;
+    destination.searchParams.set("draftId", draftId ?? crypto.randomUUID());
+  }
   const currentPath = fromPipelinePath(window.location.pathname);
   if (currentPath === "/" && destination.pathname === "/") {
     pushPipelineHistory(`${destination.pathname}${destination.search}`);
@@ -563,7 +564,7 @@ function shouldResumeGuideNavigation() {
 
 function readGuideState() {
   try {
-    return normalizeOperatorGuideState(JSON.parse(window.localStorage.getItem(OPERATOR_GUIDE_STORAGE_KEY) ?? "null"));
+    return normalizeOperatorGuideState(JSON.parse(window.sessionStorage.getItem(OPERATOR_GUIDE_STORAGE_KEY) ?? "null"));
   } catch {
     return emptyOperatorGuideState();
   }
@@ -571,7 +572,7 @@ function readGuideState() {
 
 function writeGuideState(state: OperatorGuideState) {
   try {
-    window.localStorage.setItem(OPERATOR_GUIDE_STORAGE_KEY, JSON.stringify(state));
+    window.sessionStorage.setItem(OPERATOR_GUIDE_STORAGE_KEY, JSON.stringify(state));
   } catch {
     // The active in-memory guide remains usable when browser storage is unavailable.
   }

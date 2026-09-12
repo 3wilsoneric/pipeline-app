@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:0830bffb59f66033",
-  "fingerprint": "0830bffb59f66033c5d2d2bea3d3df765ec468ba4d8cad7b3f08b8471c124a46",
+  "generatedAt": "source-fingerprint:0e4206b227529acc",
+  "fingerprint": "0e4206b227529acc9df0b9126de04eb35a18abd73afa9c16ec257f3e97ca8c98",
   "totals": {
     "files": 1005,
-    "lines": 316745,
+    "lines": 316987,
     "coveredFiles": 1005
   },
   "entries": [
@@ -1869,7 +1869,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1799,
+      "lines": 1846,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2001,7 +2001,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 662,
+      "lines": 678,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2193,7 +2193,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 106,
+      "lines": 90,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -2205,7 +2205,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 510,
+      "lines": 509,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2673,7 +2673,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 687,
+      "lines": 688,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5991,7 +5991,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 582,
+      "lines": 593,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8332,7 +8332,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 38,
+      "lines": 49,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8596,7 +8596,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 373,
+      "lines": 377,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10672,7 +10672,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 108,
+      "lines": 114,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10684,7 +10684,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 86,
+      "lines": 90,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11573,7 +11573,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 556,
+      "lines": 572,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11778,7 +11778,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 420,
+      "lines": 525,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11814,7 +11814,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 427,
+      "lines": 465,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

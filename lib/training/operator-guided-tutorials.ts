@@ -61,7 +61,7 @@ const simpleStepTitles: Readonly<Record<string, string>> = {
   "assessment-help": "Open Language Lab",
   "assessment-next": "Open the next section",
   "assessment-save": "Check saved",
-  "assessment-sign": "Review before signing",
+  "assessment-sign": "Review the full assessment",
   "supervisor-home": "Check the team queue",
   "supervisor-workspaces": "Open Workspaces",
   "supervisor-open-calendar": "Open Calendar",
@@ -119,7 +119,7 @@ const assessorRoles = writeRoles;
 const supervisorRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator"];
 
 const assessmentSchedulingRoute = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule";
-const assessmentWorkspaceRoute = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview";
+const assessmentWorkspaceRoute = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=guided";
 
 function assessmentSectionRoute(section: AssessmentToolSection) {
   return `${assessmentWorkspaceRoute}&assessmentSection=${section}`;
@@ -212,9 +212,13 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
     audiences: assessorRoles,
     moduleIds: ["assessment-start", "assessment-demographics", "assessment-questionnaire", "assessment-complete-sign"],
     steps: [
-      ...assessmentSectionGuideSteps,
-      step("assessment-save", assessmentWorkspaceRoute, "assessment-save-status", "Save and sign", "Confirm autosave status", "The save indicator distinguishes a saved draft from work that is pending or failed to persist.", "Confirm that the highlighted status says Practice changes saved locally before continuing.", "The training assessment has a visible locally saved state.", "Visible persistence status protects work during interruptions and handoffs.", "In live work, do not leave or sign while save failure, queued changes, or unresolved conflicts are visible.", "confirm", "left"),
-      step("assessment-sign", assessmentWorkspaceRoute, "assessment-sign", "Save and sign", "Stop at assessment signature", "Signing locks the completed assessment as an accountable clinical artifact and enables supervisor review and Chart generation.", "Resolve required gaps and review the complete assessment. Finish this guide; sign authorized work yourself only when ready.", "The assessment is deliberately signed by you or left unsigned for correction.", "Signature is a clinical accountability boundary and must remain a deliberate human action.", "The guide never clicks Sign assessment or records a signature for you.", "confirm", "left", true),
+      ...assessmentSectionGuideSteps.map((item): OperatorGuideStep => item.id.startsWith("assessment-section-") ? {
+        ...item,
+        advance: "confirm",
+        instruction: "Review the questions in this section. Use Next for more questions, then Continue to move to the next section of the guide.",
+      } : item),
+      step("assessment-save", assessmentSectionRoute("provenance_qc"), "assessment-save-status", "Save and sign", "Confirm autosave status", "The save indicator distinguishes a saved draft from work that is pending or failed to persist.", "Confirm that the highlighted status says Practice changes saved locally before continuing.", "The training assessment has a visible locally saved state.", "Visible persistence status protects work during interruptions and handoffs.", "In live work, do not leave or sign while save failure, queued changes, or unresolved conflicts are visible.", "confirm", "left"),
+      step("assessment-sign", assessmentSectionRoute("provenance_qc"), "assessment-guided-exit", "Save and sign", "Review the full assessment", "The full assessment shows missing answers and the signature controls.", "Select the X to leave the guided interview and review the full assessment. Sign authorized work only when ready.", "The full assessment is open for review.", "Signature is a clinical accountability boundary and must remain a deliberate human action.", "The guide never clicks Sign assessment or records a signature for you.", "target-click", "left"),
     ],
   }),
   tutorial({
@@ -297,7 +301,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
 ];
 
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "calendar-view", "workspace-results", "assessment-stage", "assessment-section-identity", "assessment-section-prior-placement", "assessment-section-history", "assessment-answer-help", "assessment-section-clinical", "assessment-section-function", "assessment-section-medication", "assessment-section-substance-use", "assessment-section-behavior-safety", "assessment-section-physical-health", "assessment-section-legal", "assessment-section-support-goals", "assessment-section-review", "chart-stage", "chart-meet-client-tab", "operations-report-select"],
+  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "calendar-view", "workspace-results", "assessment-stage", "assessment-section-identity", "assessment-section-prior-placement", "assessment-section-history", "assessment-answer-help", "assessment-section-clinical", "assessment-section-function", "assessment-section-medication", "assessment-section-substance-use", "assessment-section-behavior-safety", "assessment-section-physical-health", "assessment-section-legal", "assessment-section-support-goals", "assessment-section-review", "assessment-guided-exit", "chart-stage", "chart-meet-client-tab", "operations-report-select"],
   "target-input": ["workspace-search", "intake-identity", "intake-medications", "assessment-answer"],
   "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "assessment-schedule-method", "operations-report-month"],
 };
@@ -321,6 +325,7 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "intake-medications": "components/pipeline/ReferralPacketCanvas.tsx",
   "create-workspace": "components/pipeline/ReferralPacketCanvas.tsx",
   "assessment-stage": "components/pipeline/ReferralPacketCanvas.tsx",
+  "assessment-guided-exit": "components/pipeline/GuidedAssessmentInterview.tsx",
   "assessment-schedule-fields": "components/pipeline/AssessmentSchedulingDialogs.tsx",
   "assessment-schedule-method": "components/pipeline/AssessmentSchedulingDialogs.tsx",
   "assessment-schedule-save": "components/pipeline/AssessmentSchedulingDialogs.tsx",
@@ -339,7 +344,6 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "assessment-answer": "components/pipeline/AssessmentInterviewFields.tsx",
   "assessment-answer-help": "components/pipeline/AssessmentInterviewFields.tsx",
   "assessment-save-status": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-sign": "components/pipeline/AssessmentWorkspace.tsx",
   "chart-stage": "components/pipeline/ReferralPacketCanvas.tsx",
   "chart-complete-record": "components/pipeline/AssessmentChartWorkspace.tsx",
   "chart-meet-client-tab": "components/pipeline/AssessmentChartWorkspace.tsx",

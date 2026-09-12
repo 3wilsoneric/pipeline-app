@@ -689,7 +689,7 @@ function workspaceFocusLabel(state: WorkspaceStateProjection) {
     if (state.focus === "assessment") return "Reassessment in progress";
   }
   return {
-    ready_to_schedule: state.assignment === "unassigned" ? "Needs assignment" : "Ready to schedule",
+    ready_to_schedule: state.assignment === "unassigned" ? "Needs assignment" : state.documents === "none" ? "Needs initial documents" : state.profile === "incomplete" ? "Finish intake" : "Ready to schedule",
     scheduled: "Scheduled",
     assessment: "Assessment in progress",
     follow_up: state.outcome === "accepted" ? "Accepted · follow-up" : "Follow-up",

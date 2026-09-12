@@ -167,7 +167,7 @@ type AssessmentEscapeContext = {
   setAssessmentView: (view: "guided" | "chart") => void;
   setShowBeginDialog: (show: boolean) => void;
   setShowScheduleDialog: (show: boolean) => void;
-  setIsFocused: (focused: boolean) => void;
+  closeAssessment: () => void;
 };
 
 type AssessmentFocusState = {
@@ -195,7 +195,7 @@ function handleAssessmentEscape(event: KeyboardEvent, context: AssessmentEscapeC
     context.setAssessmentView("chart");
     return;
   }
-  context.setIsFocused(false);
+  context.closeAssessment();
 }
 
 function resolveAssessmentAutoFocus(
@@ -295,6 +295,8 @@ export default function AssessmentWorkspace({
   const remoteChangeRef = useRef<AssessmentRemoteChange | null>(remoteChange);
   const draftVersionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const recoveryQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const closingRef = useRef(false);
   const initializedAssessmentIdRef = useRef("");
   const focusedAssessmentIdRef = useRef("");
   const schedulingRequestedRef = useRef(false);
@@ -336,10 +338,7 @@ export default function AssessmentWorkspace({
     );
   };
 
-  const continueToWorkflow = () => {
-    setIsFocused(false);
-    onContinueToWorkflow?.();
-  };
+  const continueToWorkflow = () => void closeAssessment(onContinueToWorkflow);
 
   useEffect(() => {
     const routedSection = initialSection ?? trainingAssessmentSection;
@@ -464,50 +463,59 @@ export default function AssessmentWorkspace({
       data: pickAssessmentToolData(draftRef.current),
       baseData: pickAssessmentToolData(baseDataRef.current),
     };
-    if (offlinePrincipal) {
-      try {
-        await saveOfflineAssessmentDraft(offlinePrincipal, assessment.assessment_id, recovery);
-      } catch {
-        // The server draft remains authoritative when browser storage is unavailable.
-      }
-    }
-    if (usesServerUserWorkspaceState()) {
-      try {
-        const payload = await fetchPipelineJson<{ version: number }>(
-          `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
-          {
-            method: "PUT",
-            body: JSON.stringify({ if_match: draftVersionRef.current, draft: recovery }),
-          },
-        );
-        draftVersionRef.current = payload.version;
-      } catch (draftError) {
-        if (draftError instanceof PipelineApiError && draftError.status === 409) {
-          const payload = draftError.payload as { version?: unknown } | undefined;
-          if (Number.isSafeInteger(payload?.version)) draftVersionRef.current = Number(payload?.version);
+    const next = recoveryQueueRef.current.then(async () => {
+      if (offlinePrincipal) {
+        try {
+          await saveOfflineAssessmentDraft(offlinePrincipal, assessment.assessment_id, recovery);
+        } catch {
+          // The server draft remains authoritative when browser storage is unavailable.
         }
       }
-    }
+      if (usesServerUserWorkspaceState()) {
+        try {
+          const payload = await fetchPipelineJson<{ version: number }>(
+            `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
+            {
+              method: "PUT",
+              body: JSON.stringify({ if_match: draftVersionRef.current, draft: recovery }),
+            },
+          );
+          draftVersionRef.current = payload.version;
+        } catch (draftError) {
+          if (draftError instanceof PipelineApiError && draftError.status === 409) {
+            const payload = draftError.payload as { version?: unknown } | undefined;
+            if (Number.isSafeInteger(payload?.version)) draftVersionRef.current = Number(payload?.version);
+          }
+        }
+      }
+    });
+    recoveryQueueRef.current = next.catch(() => undefined);
+    await next;
   }, [activeSection, offlinePrincipal, referralId]);
 
-  const clearRecoveryDraft = useCallback(async (assessmentId: string) => {
-    if (offlinePrincipal) {
-      try {
-        await removeOfflineAssessmentDraft(offlinePrincipal, assessmentId);
-      } catch {
-        // The expiring encrypted recovery copy is harmless if cleanup is unavailable.
+  const clearRecoveryDraft = useCallback((assessmentId: string) => {
+    const next = recoveryQueueRef.current.then(async () => {
+      if (dirtySectionsRef.current.size > 0) return;
+      if (offlinePrincipal) {
+        try {
+          await removeOfflineAssessmentDraft(offlinePrincipal, assessmentId);
+        } catch {
+          // The expiring encrypted recovery copy is harmless if cleanup is unavailable.
+        }
       }
-    }
-    if (draftVersionRef.current < 1) return;
-    try {
-      await fetchPipelineJson(`/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, {
-        method: "DELETE",
-        body: JSON.stringify({ if_match: draftVersionRef.current }),
-      });
-      draftVersionRef.current = 0;
-    } catch {
-      // Expiring server drafts are harmless once the canonical assessment is saved.
-    }
+      if (draftVersionRef.current < 1) return;
+      try {
+        await fetchPipelineJson(`/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, {
+          method: "DELETE",
+          body: JSON.stringify({ if_match: draftVersionRef.current }),
+        });
+        draftVersionRef.current = 0;
+      } catch {
+        // Expiring server drafts are harmless once the canonical assessment is saved.
+      }
+    });
+    recoveryQueueRef.current = next.catch(() => undefined);
+    return next;
   }, [offlinePrincipal]);
 
   useEffect(() => {
@@ -657,6 +665,8 @@ export default function AssessmentWorkspace({
     });
   }, [initialSection, nextRequiredTarget, selected, trainingAssessmentMode]);
 
+  const closeFromEscape = useEffectEvent(() => void closeAssessment());
+
   useEffect(() => {
     if (!isFocused) return;
     const previousOverflow = document.body.style.overflow;
@@ -667,7 +677,7 @@ export default function AssessmentWorkspace({
       setAssessmentView,
       setShowBeginDialog,
       setShowScheduleDialog,
-      setIsFocused,
+      closeAssessment: closeFromEscape,
     });
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
@@ -812,15 +822,14 @@ export default function AssessmentWorkspace({
 
     const sentData = editableSectionData(draftRef.current, section);
     if (trainingAssessmentMode) {
-      const saved = updateTrainingAssessment(current, sentData);
+      const saved = updateTrainingAssessment(current, pickAssessmentToolData(draftRef.current));
       selectedRef.current = saved;
       baseDataRef.current = pickAssessmentToolData(saved);
       draftRef.current = pickAssessmentToolData(saved);
       setDraft(draftRef.current);
       setAssessments((items) => [saved, ...items.filter((item) => item.assessment_id !== saved.assessment_id)]);
-      setDirtySections((sections) => {
-        const next = new Set(sections);
-        next.delete(section);
+      setDirtySections(() => {
+        const next = new Set<AssessmentToolSection>();
         dirtySectionsRef.current = next;
         return next;
       });
@@ -858,6 +867,7 @@ export default function AssessmentWorkspace({
       setDraft(nextDraft);
       setAssessments((items) => [saved, ...items.filter((item) => item.assessment_id !== saved.assessment_id)]);
       const nextDirty = dirtyAssessmentSections(nextDraft, savedData);
+      dirtySectionsRef.current = nextDirty;
       setDirtySections(nextDirty);
       setMessage(nextDirty.size > 0 ? "Saving changes..." : "All changes saved");
       setError("");
@@ -951,6 +961,40 @@ export default function AssessmentWorkspace({
     for (const section of [...dirtySectionsRef.current]) await queueSectionSave(section);
     await saveQueueRef.current;
   }, [queueSectionSave]);
+
+  const saveBeforeExit = async () => {
+    const current = selectedRef.current;
+    if (current && dirtySectionsRef.current.size > 0 && !trainingAssessmentMode) {
+      await persistRecoveryDraft(current);
+      await persistOfflineWorkingSet(current).catch(() => undefined);
+    }
+    await flushDirtySections();
+    await recoveryQueueRef.current;
+  };
+
+  const closeAssessment = async (onClosed?: () => void) => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setIsBusy(true);
+    try {
+      await saveBeforeExit();
+      setShowScheduleDialog(false);
+      setShowBeginDialog(false);
+      setIsFocused(false);
+      onClosed?.();
+    } catch (saveError) {
+      setError(messageFor(saveError, "Your last changes could not be saved. Keep this assessment open and try again."));
+    } finally {
+      closingRef.current = false;
+      setIsBusy(false);
+    }
+  };
+
+  const saveOnUnmount = useEffectEvent(() => {
+    if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
+  });
+
+  useEffect(() => () => saveOnUnmount(), []);
 
   const reviewExtractedField = async (
     field: AssessmentToolFieldKey,
@@ -1131,7 +1175,8 @@ export default function AssessmentWorkspace({
     setDraft(next);
     const section = assessmentToolFieldDefinitions.find((definition) => definition.key === key)?.section;
     if (section) {
-      setDirtySections((current) => new Set(current).add(section));
+      dirtySectionsRef.current = new Set(dirtySectionsRef.current).add(section);
+      setDirtySections(dirtySectionsRef.current);
     }
     setMessage("Saving changes...");
     setError("");
@@ -1161,7 +1206,7 @@ export default function AssessmentWorkspace({
     const timer = window.setTimeout(() => {
       for (const section of dirtySections) {
         if (!remoteChangeRef.current?.conflicts.some((conflict) => conflict.section === section)) {
-          void queueSectionSave(section);
+          void queueSectionSave(section).catch(() => undefined);
         }
       }
     }, 400);
@@ -1307,8 +1352,10 @@ export default function AssessmentWorkspace({
         assessment={selected}
         data={draft}
         activeSection={activeSection}
+        sectionGuideTarget={assessmentSectionGuideTargets[activeSection]}
+        startAtSectionBeginning={Boolean(trainingAssessmentMode)}
         requiredFields={requiredInterviewFields}
-        disabled={!canEditClinical}
+        disabled={isBusy || !canEditClinical}
         reviewDisabled={isBusy || !canEditClinical}
         saveStatus={saveStatus}
         saveTone={error ? "error" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "pending" : "saved"}
@@ -1358,7 +1405,7 @@ export default function AssessmentWorkspace({
         ) : selected.started_at && canEditClinical ? (
           <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 shrink-0 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35 sm:px-4"><span className="hidden sm:inline">Sign assessment</span><span className="sm:hidden">Sign</span></button>
         ) : null}
-        <button type="button" onClick={() => { setShowScheduleDialog(false); setShowBeginDialog(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>
+        <button type="button" onClick={() => void closeAssessment()} disabled={isBusy} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>
       </header>
       <TrainingAssessmentBanner mode={trainingAssessmentMode} />
 
@@ -1504,7 +1551,7 @@ export default function AssessmentWorkspace({
                       required={requiredInterviewFields.has(question.field)}
                       pending={pendingFields.includes(question.field)}
                       pendingProvenance={latestPendingProvenance(selected, question.field)}
-                      disabled={Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
+                      disabled={isBusy || Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
                       reviewDisabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
                       onChange={(value) => updateField(question.field, value)}
                       onReview={(action) => void reviewExtractedField(question.field, action)}

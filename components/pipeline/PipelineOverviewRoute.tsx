@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
 import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
@@ -33,7 +33,7 @@ import {
   replacePipelineHistory,
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
-import { recordLastPipelineWorkspace } from "@/lib/pipeline/work-continuity-client";
+import { loadPipelineWorkspaceResumeLocation, recordLastPipelineWorkspace } from "@/lib/pipeline/work-continuity-client";
 import {
   applyPipelineWorkspaceLocation,
   pipelineWorkspaceLocationFromSearchParams,
@@ -92,15 +92,6 @@ function DeferredScreenLoading() {
       <div className="mt-6 h-px w-full bg-[#e5e5e5]" />
     </main>
   );
-}
-
-function renderDeferredWorkSurface<Props extends object>(
-  Surface: ComponentType<Props> | undefined,
-  props: Props,
-  key?: string,
-) {
-  if (!Surface) return <DeferredScreenLoading />;
-  return <Surface key={key} {...props} />;
 }
 
 function referralWorkspaceKey(referral: ReferralSelection | undefined, created: { id: number; key: string } | null, draftKey: string | undefined) {
@@ -177,14 +168,22 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
   }, [activeSearchParams, reportAccess, screen]);
 
-  const navigate = (
+  const navigationRequestRef = useRef(0);
+  const navigate = async (
     nextScreen: PipelineScreen,
     referral?: ReferralSelection,
     clientId?: string,
     location?: PipelineWorkspaceLocation,
+    resume = true,
   ) => {
     if (nextScreen === "operations" && reportAccess !== true) return;
-    const workspaceLocation = defaultWorkspaceLocation(location);
+    const requestId = ++navigationRequestRef.current;
+    const sourceLocation = `${window.location.pathname}${window.location.search}`;
+    const savedLocation = nextScreen === "packet" && referral?.id && resume
+      ? await loadPipelineWorkspaceResumeLocation(referral.id).catch(() => undefined)
+      : undefined;
+    if (requestId !== navigationRequestRef.current || sourceLocation !== `${window.location.pathname}${window.location.search}`) return;
+    const workspaceLocation = defaultWorkspaceLocation(savedLocation ?? location);
     setEntryBriefing(null);
     setSearchOpen(false);
     const params = new URLSearchParams(activeSearchParams.toString());
@@ -330,14 +329,14 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       onReferralDeleted: () => navigate("referrals"),
       onOpenProfile: (clientId) => navigate("profile", undefined, clientId),
     };
-    page = renderDeferredWorkSurface(deferredWorkSurfaces?.ReferralPacketCanvas, packetProps, workspaceKey);
+    page = deferredWorkSurfaces ? <deferredWorkSurfaces.ReferralPacketCanvas key={workspaceKey} {...packetProps} /> : <DeferredScreenLoading />;
   } else if (screen === "profile" && selectedClientId) {
     const profileProps: ComponentProps<DeferredWorkSurfaces["ClientProfileView"]> = {
       residentKey: selectedClientId,
       onBack: () => navigate("profiles"),
       onOpenWorkspace: (referral) => navigate("packet", referral),
     };
-    page = renderDeferredWorkSurface(deferredWorkSurfaces?.ClientProfileView, profileProps);
+    page = deferredWorkSurfaces ? <deferredWorkSurfaces.ClientProfileView {...profileProps} /> : <DeferredScreenLoading />;
   } else if (screen === "operations") {
     page = reportAccess === true ? (
       <OperationsDashboard
@@ -347,7 +346,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       />
     ) : null;
   } else if (screen === "calendar") {
-    page = <PipelineCalendar onOpenPacket={(referral, location) => navigate("packet", referral, undefined, location)} />;
+    page = <PipelineCalendar onOpenPacket={(referral, location) => void navigate("packet", referral, undefined, location, false)} />;
   } else if (screen === "trash") {
     page = <PipelineTrash />;
   } else if (screen === "profiles") {
