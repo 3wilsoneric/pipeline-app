@@ -33,7 +33,7 @@ test.describe("role-scoped home and reports", () => {
       if (allowed) {
         await expect(page.getByRole("button", { name: "Open reports", exact: true })).toBeVisible();
         await expect(page.getByLabel("Report", { exact: true })).toBeVisible();
-        expect(reportRequests).toBeGreaterThan(0);
+        await expect.poll(() => reportRequests).toBeGreaterThan(0);
       } else {
         await expect(page).not.toHaveURL(/screen=operations/);
         await expect(page.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
@@ -207,6 +207,11 @@ test.describe("role-scoped home and reports", () => {
   });
 
   test("keeps the assessor home personal and omits supervisor metrics", async ({ page }) => {
+    await page.route("**/api/me/home-layout", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ layout: null }),
+    }));
     await page.route("**/api/operations/home", async (route) => {
       await route.fulfill({
         status: 200,
@@ -443,83 +448,18 @@ test.describe("role-scoped home and reports", () => {
     await expect.poll(() => new URL(page.url()).searchParams.get("clientId")).toBe("resident-42");
   });
 
-  test("maps active work into explainable assessment patterns without changing the workflow", async ({ page }) => {
+  test("keeps experimental assessment patterns out of Reports", async ({ page }) => {
+    let graphRequests = 0;
     await page.route("**/api/operations/work-assessment-graph", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          schema_version: 1,
-          transformation_version: "work-assessment-graph-v1",
-          generated_at: "2026-09-10T17:00:00.000Z",
-          source: "operational_projection",
-          total: 1,
-          truncated: false,
-          summary: {
-            archetypes: {
-              unassigned: 0,
-              records_blocked: 0,
-              assessment_active: 0,
-              decision_ready: 1,
-              placement_follow_up: 0,
-              intake_incomplete: 0,
-              workflow_active: 0,
-            },
-            needs_attention: 0,
-            ready_for_decision: 1,
-          },
-          cases: [{
-            referral_id: 424243,
-            client_id: "pipeline-client-424243",
-            client_name: "Morgan Rivera",
-            community: "San Francisco",
-            owner: "Annette Everhart",
-            workflow_status: "assessment_complete",
-            flow_state: "decision_pending",
-            archetype: "decision_ready",
-            vector: {
-              intake_completeness: 1,
-              document_readiness: 1,
-              assessment_progress: 1,
-              queue_urgency: 0.7,
-              collision_pressure: 0,
-            },
-            why: ["Assessment evidence is ready for supervisor review."],
-            inspect_next: "Review the signed assessment and recommendation.",
-            evidence: [{
-              source_type: "operational_work_item",
-              source_id: "referral:424243:progress",
-              observed_at: "2026-09-10T17:00:00.000Z",
-              transformation_version: "work-assessment-graph-v1",
-            }],
-            similar_work: [],
-            collision_signal: "not_observed",
-          }],
-          graph: { nodes: [], edges: [] },
-          assurance: {
-            projection_only: true,
-            retrieval_excludes_direct_identifiers: true,
-            retrieval_excludes_free_text: true,
-            automated_admission_decisions: false,
-          },
-        }),
-      });
+      graphRequests += 1;
+      await route.abort();
     });
 
     await page.goto("/?screen=operations");
-    const graph = page.getByRole("region", { name: "Work assessment graph" });
-    await expect(graph).toBeVisible();
-    await expect(graph.getByText("Morgan Rivera", { exact: true })).toBeVisible();
-    await expect(graph.getByText("Review the signed assessment and recommendation.")).toBeVisible();
-    await expect(graph.getByTitle("Collision: not observed")).toBeVisible();
-    await graph.getByRole("button", { name: "Decision ready" }).click();
-    await expect(graph.getByRole("button", { name: "Decision ready" })).toHaveAttribute("aria-pressed", "true");
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    expect(await graph.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-
-    await graph.getByRole("button", { name: "Open Morgan Rivera" }).click();
-    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424243");
+    await expect(page.getByRole("article", { name: "Completed assessments report" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Work assessment graph" })).toHaveCount(0);
+    expect(graphRequests).toBe(0);
   });
 
   test("keeps the report workflow available when the command-center queue is unavailable", async ({ page }) => {

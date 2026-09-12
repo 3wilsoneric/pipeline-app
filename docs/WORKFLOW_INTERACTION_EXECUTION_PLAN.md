@@ -202,6 +202,14 @@ month, workflow, and dashboard reconciliation remains intact. The corrected
 100-user product-day test passed locally against the rebuilt candidate. Academy
 source indexes were refreshed after reviewing these bounded source changes.
 
+Demo and Home/Reports browser tests now use a synthetic roster where clinical
+delegation is outside their scope, current practice/Zoom control labels, scoped
+save-status assertions, and an awaited report request. The retired experimental
+graph UI expectation is replaced by a guard against mounting or fetching that
+graph in Reports; its domain fixtures remain separate. The personal Home case
+has a default-layout fixture rather than inheriting another case's customization.
+All 29 cases passed locally with a fresh disposable desktop-state path.
+
 Initial failures were retained as diagnostic evidence during iteration: invalid
 synthetic PDF/name fixtures, stale tutorial selectors, missing synthetic roster
 and desktop-state setup, and faint resumed-intake metadata. Fixes address the
