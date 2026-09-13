@@ -84,11 +84,11 @@ const stubs = {
   "@/lib/pipeline/workspace-members": { touchWorkspaceMember: async () => undefined },
 };
 const filename = "app/api/referrals/[referralId]/new-intake/route.ts";
-const module = { exports: {} };
+const routeModule = { exports: {} };
 vm.runInNewContext(ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
-  { module, exports: module.exports, require: (id) => stubs[id] ?? require(id), Request, Response, Date, Number, Object, JSON });
+  { module: routeModule, exports: routeModule.exports, require: (id) => stubs[id] ?? require(id), Request, Response, Date, Number, Object, JSON });
 const requestBody = { client_mutation_id: "65f07840-d28a-478d-a892-0b73591a0f99", clientId: "different-person", referral: { name: "Injected", stage: "Accepted / Admitted" } };
-const post = (body = requestBody, id = "71") => module.exports.POST(new Request("https://pipeline.invalid/api/referrals/71/new-intake", { method: "POST", body: JSON.stringify(body) }), { params: Promise.resolve({ referralId: id }) });
+const post = (body = requestBody, id = "71") => routeModule.exports.POST(new Request("https://pipeline.invalid/api/referrals/71/new-intake", { method: "POST", body: JSON.stringify(body) }), { params: Promise.resolve({ referralId: id }) });
 for (const roles of [["viewer"], []]) {
   user = { ...user, roles };
   assert.equal((await post()).status, 403);
