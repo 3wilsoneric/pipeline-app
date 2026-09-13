@@ -122,7 +122,7 @@ export function CalendarHeader(props: CalendarHeaderProps) {
     props.onOwner("");
   };
   return (
-    <header className="sticky top-0 z-20 bg-white/95 py-3 backdrop-blur">
+    <header className="pipeline-commands sticky top-0 z-20 bg-white/95 py-3 backdrop-blur">
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1.5">
           <IconButton label="Previous calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, -1))}><ChevronLeft size={17} /></IconButton>
@@ -352,7 +352,7 @@ function CalendarDrawerDetails({ model }: { model: CalendarDrawerModel }) {
 
 function CalendarDrawerActions({ model, busy, onOpenWorkspace, onSchedule, onStatus }: { model: CalendarDrawerModel; busy: boolean; onOpenWorkspace: () => void; onSchedule: () => void; onStatus: (status: "cancelled" | "no_show") => void }) {
   return (
-    <div className="space-y-2 border-t border-[#d8dedb] p-4">
+    <div className="pipeline-commands space-y-2 border-t border-[#d8dedb] p-4">
       {model.zoomUrl ? <a href={model.zoomUrl} target="_blank" rel="noreferrer" className="flex h-10 w-full items-center justify-center gap-2 bg-[#4b68ad] text-[12px] font-extrabold text-white hover:bg-[#3d578f]"><Video size={15} /> Join Zoom <ExternalLink size={13} /></a> : null}
       {model.canSchedule ? <button type="button" onClick={onSchedule} className="flex h-10 w-full items-center justify-center gap-2 bg-[#167f6b] text-[12px] font-extrabold text-white hover:bg-[#116b5a]"><CalendarClock size={15} /> {model.isAppointment ? "Reschedule" : "Schedule assessment"}</button> : null}
       <button type="button" onClick={onOpenWorkspace} className="flex h-10 w-full items-center justify-center gap-2 border border-[#cfd5d2] text-[12px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]"><FolderOpen size={15} /> Open workspace</button>
@@ -379,7 +379,7 @@ function OwnerFilter({ value, onChange, options }: { value: string; onChange: (v
 }
 
 function IconButton({ label, onClick, disabled = false, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
-  return <button type="button" aria-label={label} onClick={onClick} disabled={disabled} className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#cfd5d2] text-[#626a66] hover:border-[#167f6b] hover:text-[#116b5a] disabled:opacity-50">{children}</button>;
+  return <button type="button" aria-label={label} onClick={onClick} disabled={disabled} className="pipeline-command flex h-9 w-9 shrink-0 items-center justify-center border border-[#cfd5d2] text-[#626a66] hover:border-[#167f6b] hover:text-[#116b5a] disabled:opacity-50">{children}</button>;
 }
 
 function CalendarSkeleton() {

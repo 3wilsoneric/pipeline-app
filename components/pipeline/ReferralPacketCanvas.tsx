@@ -2441,7 +2441,7 @@ function WorkspaceSaveControl({
       onClick={onSave}
       disabled={control.disabled}
       aria-busy={saving}
-      className="flex h-10 shrink-0 items-center gap-2 bg-[#0b6f5d] px-3 text-[12px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
+      className="pipeline-command flex h-10 shrink-0 items-center gap-2 bg-[#0b6f5d] px-3 text-[12px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
     >
       <Icon size={15} aria-hidden="true" className={saving ? "motion-safe:animate-spin" : undefined} />
       <span className="hidden sm:inline">{control.expandedLabel}</span>

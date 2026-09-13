@@ -78,6 +78,15 @@ test.describe("Pipeline calendar characterization", () => {
     await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();
     const queue = page.getByRole("dialog", { name: "Scheduling queue" });
     await expect(queue).toBeVisible();
+    const closeQueue = queue.getByRole("button", { name: "Close scheduling queue" });
+    await expect(closeQueue.locator("xpath=ancestor::body")).toHaveClass(/pipeline-interactions/);
+    await closeQueue.hover();
+    await page.mouse.down();
+    await expect(closeQueue).toHaveCSS("background-image", /linear-gradient/);
+    await expect(closeQueue).toHaveCSS("scale", "0.97");
+    await page.screenshot({ path: testInfo.outputPath("calendar-portal-pressed.png") });
+    await page.mouse.move(1, 1);
+    await page.mouse.up();
     await page.mouse.click(10, 10);
     await expect(queue).toHaveCount(0);
 

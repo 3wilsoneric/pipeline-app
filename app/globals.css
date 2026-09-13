@@ -210,10 +210,6 @@ textarea {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :where(.pipeline-interactions, [data-assessment-view], [data-guided-assessment]) :where(button:not(:disabled):not([aria-disabled="true"]):not([draggable="true"]), summary):active {
-    translate: 0 1px;
-  }
-
   .pipeline-control-enter,
   [data-feedback-reveal="true"] {
     animation: pipeline-control-enter 140ms ease-out;

@@ -18,7 +18,7 @@ export default function PipelineActionNav({
   const destinationSize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 xl:h-[50px] xl:w-[136px] xl:px-3";
   const workspaceDestinationSize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 xl:h-[50px] xl:w-[152px] xl:px-3";
   const navItem =
-    "group flex shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border-2 outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
+    "pipeline-command group flex shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border-2 outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
   const labelClass = "hidden xl:inline";
   const inactiveReferrals =
     "border-transparent bg-transparent hover:border-[#0f8b73] hover:bg-[#e7f3ee] hover:shadow-[0_4px_14px_rgba(15,139,115,0.14)]";

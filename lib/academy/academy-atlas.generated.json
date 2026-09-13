@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:2abfe6c5b5e8dd05",
-  "fingerprint": "2abfe6c5b5e8dd052218b8dc2702faf655e450f136dc0552ea40493f54c98c81",
+  "generatedAt": "source-fingerprint:f01c4046c5cd2343",
+  "fingerprint": "f01c4046c5cd2343db0c65ae33595c8c7c3e329620ac65bae230474de1028288",
   "totals": {
-    "files": 1007,
-    "lines": 317405,
-    "coveredFiles": 1007
+    "files": 1009,
+    "lines": 317571,
+    "coveredFiles": 1009
   },
   "entries": [
     {
@@ -1576,6 +1576,18 @@
       ]
     },
     {
+      "path": "app/control-polish.css",
+      "subsystem": "App Router",
+      "kind": "repository-file",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 83,
+      "moduleIds": [
+        "developer-toolchain",
+        "system-map"
+      ]
+    },
+    {
       "path": "app/desktop-manifest.webmanifest/route.ts",
       "subsystem": "App Router",
       "kind": "route-handler",
@@ -1629,7 +1641,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 277,
+      "lines": 273,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1641,7 +1653,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 55,
+      "lines": 56,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -11862,7 +11874,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 348,
+      "lines": 357,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11995,6 +12007,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 195,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/tactile-controls.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 75,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12162,7 +12186,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 81,
+      "lines": 83,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
