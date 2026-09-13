@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c65891f572b8b117",
-  "fingerprint": "c65891f572b8b1175b77ab6eb4ebf3f0678b617d303ecdc29c6b4ac551648408",
+  "generatedAt": "source-fingerprint:236316217438bd00",
+  "fingerprint": "236316217438bd00a08ba933450635469a3bb15b71633b431d3cda3b06921a09",
   "totals": {
-    "files": 1034,
-    "lines": 321876,
-    "coveredFiles": 1034
+    "files": 1035,
+    "lines": 322122,
+    "coveredFiles": 1035
   },
   "entries": [
     {
@@ -1098,7 +1098,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 248,
+      "lines": 255,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -1666,7 +1666,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 341,
+      "lines": 397,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1990,7 +1990,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 696,
+      "lines": 710,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -7633,7 +7633,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 28,
+      "lines": 31,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9744,6 +9744,18 @@
       ]
     },
     {
+      "path": "scripts/client-card-summary-fixtures.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 69,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/client-data-reports.postgres.test.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -11826,7 +11838,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 195,
+      "lines": 209,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11862,7 +11874,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 114,
+      "lines": 197,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
