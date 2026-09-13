@@ -51,7 +51,7 @@ function HistoricalProfileHeader({ referral, county, dob, gender }: { referral: 
     { label: "Gender", value: gender },
     { label: "County", value: county },
     { label: "Date of birth", value: dob },
-    { label: "Source period", value: sourcePeriod(referral) },
+    { label: "Period", value: sourcePeriod(referral) },
   ].filter((fact) => fact.value);
   return (
     <section className="border border-[#cfd7d4] bg-[#f7faf9] px-4 py-4 sm:px-5">
@@ -61,9 +61,6 @@ function HistoricalProfileHeader({ referral, county, dob, gender }: { referral: 
             <FolderOpen size={14} aria-hidden="true" /> Client chart
           </div>
           <h2 className="mt-2 text-[18px] font-black tracking-[-0.02em] text-[#111111]">{identityTitle}</h2>
-          <p className="mt-1 text-[11px] leading-5 text-[#59635f]">
-            Client information, notes, and documents carried into Pipeline from the original workspace.
-          </p>
         </div>
         {facts.length > 0 ? <div className="grid min-w-[260px] grid-cols-2 border-l border-t border-[#d7ddd9] bg-white">{facts.map((fact) => <ProfileFact key={fact.label} {...fact} />)}</div> : null}
       </div>
@@ -91,9 +88,6 @@ function HistoricalProfileContent({ profile }: { profile: HistoricalProfileRespo
       <HistoricalAssessmentEvidence sections={profile.sections} />
       <HistoricalUnmappedEvidence evidence={profile.unmappedEvidence} />
       <HistoricalSourceDetails sections={profile.sourceSections} />
-      <p className="border-t border-[#d7ddd9] pt-3 text-[9px] leading-4 text-[#68716d]">
-        Source information keeps its original provenance. Verify facts that may have changed before using them in a new assessment.
-      </p>
     </>
   );
 }
@@ -115,11 +109,11 @@ function HistoricalFacts({ facts }: { facts: HistoricalProfileResponse["facts"] 
   if (!facts.length) return null;
   return (
     <section aria-labelledby="historical-facts">
-      <SectionHeading id="historical-facts" title="Client information" detail="Values carried into this workspace" count={facts.length} />
+      <SectionHeading id="historical-facts" title="Client information" detail="" count={facts.length} />
       <div className="grid border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-3">
         {facts.map((fact) => (
           <div key={fact.factId} className="min-w-0 border-b border-r border-[#d7ddd9] px-4 py-3">
-            <div className="text-[9px] font-black uppercase tracking-[0.07em] text-[#68716d]">{fact.key === "assessment_date" ? "ALLO assessment date (imported)" : fact.label}</div>
+            <div className="text-[9px] font-black uppercase tracking-[0.07em] text-[#68716d]">{fact.key === "assessment_date" ? "Assessment date" : fact.label}</div>
             <div className="mt-1 whitespace-pre-wrap text-[12px] font-semibold leading-5 text-[#202522]">{fact.value}</div>
             <div className="mt-2 truncate text-[9px] text-[#8a918d]" title={sourceDescription(fact.source)}>{sourceDescription(fact.source)}</div>
           </div>
@@ -269,8 +263,7 @@ function ProfileFact({ label, value }: { label: string; value: string }) {
 }
 
 function sourcePeriod(referral: Referral) {
-  const source = referral.sourceProjectName?.trim() || referral.sourceWorkspaceName?.trim();
-  return source || formatDate(referral.createdAt);
+  return referral.workspaceMonth || formatDate(referral.createdAt);
 }
 
 function profileFact(profile: HistoricalProfileResponse | null, key: HistoricalProfileResponse["facts"][number]["key"]) {

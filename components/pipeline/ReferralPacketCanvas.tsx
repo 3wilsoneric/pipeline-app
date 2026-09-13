@@ -2978,7 +2978,6 @@ function EditablePacketField({
     <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
         <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{field.label}</label>
-        {field.sourceFile ? <span className="text-[9px] font-black uppercase text-[#317f8f]">Imported</span> : null}
       </div>
       {options ? (
         <select
@@ -3031,7 +3030,6 @@ function MedicationProfileField({
             {medicationCount ? `${medicationCount} medication${medicationCount === 1 ? "" : "s"} captured` : "No medications captured yet"}
           </p>
         </div>
-        {field.sourceFile ? <span className="text-[9px] font-black uppercase text-[#317f8f]">Imported</span> : null}
       </div>
       <textarea
         aria-label={field.label}

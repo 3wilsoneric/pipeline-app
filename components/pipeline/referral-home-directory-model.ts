@@ -139,7 +139,7 @@ export function calendarMonthBounds(month: string) {
   return { from: `${month}-01`, to: last.toISOString().slice(0, 10) };
 }
 
-export function buildReferralParams(filter: ReferralFilter, searchTerm: string, cursor?: string, scope: WorkspaceScope = "mine") {
+export function buildReferralParams(filter: ReferralFilter, searchTerm: string, cursor?: string, scope: WorkspaceScope = "team") {
   const params = new URLSearchParams({ limit: String(workspacePageSize), sort: "updated_desc", scope });
   const query = searchTerm.trim();
   if (query) {

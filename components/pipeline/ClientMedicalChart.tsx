@@ -4,7 +4,6 @@ import ReadableChartText from "@/components/pipeline/ReadableChartText";
 export default function ClientMedicalChart({
   chart,
   dataAsOf,
-  sourceLabel,
 }: {
   chart: ClientMedicalChartModel;
   dataAsOf: string;
@@ -13,7 +12,6 @@ export default function ClientMedicalChart({
   return (
     <ClientChartFrame label="Client medical chart">
       <ClientChartHeader title="Client chart">
-        <ChartHeaderCell label="Source" value={sourceLabel} />
         <ChartHeaderCell label="Data through" value={formatDate(dataAsOf)} />
       </ClientChartHeader>
 
@@ -46,8 +44,8 @@ export function ClientChartFrame({ label, children }: { label: string; children:
 }
 
 export function ClientChartHeader({ title, children }: { title: string; children: React.ReactNode }) {
-  return <header className="grid grid-cols-2 border-b-2 border-[#aebbb5] bg-[#f3f7f5] sm:grid-cols-[1fr_minmax(9rem,auto)_minmax(9rem,auto)]">
-    <div className="col-span-2 flex items-center gap-2.5 px-5 py-3.5 sm:col-span-1 sm:px-6">
+  return <header className="grid grid-cols-1 border-b-2 border-[#aebbb5] bg-[#f3f7f5] sm:grid-cols-[1fr_auto_auto]">
+    <div className="flex items-center gap-2.5 px-5 py-3.5 sm:px-6">
       <span aria-hidden="true" className="h-6 w-1 bg-[#2f8475]" />
       <h1 className="text-[16px] font-black tracking-[-0.02em] text-[#1d2924] sm:text-[17px]">{title}</h1>
     </div>
