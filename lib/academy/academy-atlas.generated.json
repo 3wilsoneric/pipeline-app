@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:4b96f086d9fc75ca",
-  "fingerprint": "4b96f086d9fc75cac9ba864b3fbb61d6267d77d6e1128211100303912382c95e",
+  "generatedAt": "source-fingerprint:a7e7f629952f7054",
+  "fingerprint": "a7e7f629952f7054ec61822f25ce4780bbf52d006fc914b1ba8f43d375757d52",
   "totals": {
-    "files": 1010,
-    "lines": 317768,
-    "coveredFiles": 1010
+    "files": 1020,
+    "lines": 319336,
+    "coveredFiles": 1020
   },
   "entries": [
     {
@@ -537,12 +537,24 @@
       ]
     },
     {
+      "path": "app/api/contacts/import/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 62,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
       "path": "app/api/contacts/route.ts",
       "subsystem": "API routes",
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 61,
+      "lines": 66,
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
@@ -1929,7 +1941,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 119,
+      "lines": 117,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1957,6 +1969,30 @@
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
+      ]
+    },
+    {
+      "path": "components/pipeline/ContactDirectoryImport.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 203,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/ContactDirectorySuggestion.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 132,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
       ]
     },
     {
@@ -2037,7 +2073,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 306,
+      "lines": 299,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2397,7 +2433,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 520,
+      "lines": 516,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2409,7 +2445,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 511,
+      "lines": 507,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2421,7 +2457,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3841,
+      "lines": 3862,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2469,7 +2505,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 151,
+      "lines": 170,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2505,7 +2541,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 292,
+      "lines": 300,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2517,7 +2553,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 230,
+      "lines": 229,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -7356,7 +7392,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 23,
+      "lines": 35,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7567,12 +7603,24 @@
       ]
     },
     {
+      "path": "lib/pipeline/contact-import.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 211,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/contact-store.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 681,
+      "lines": 786,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -7932,7 +7980,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 201,
+      "lines": 199,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7944,7 +7992,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 158,
+      "lines": 169,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8151,7 +8199,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 537,
+      "lines": 543,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -9856,7 +9904,55 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 153,
+      "lines": 154,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/contact-import-fixtures.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 90,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/contact-import-postgres.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 130,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/contact-import-ui.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 145,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/contact-import.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 246,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11111,6 +11207,18 @@
       ]
     },
     {
+      "path": "scripts/referral-intake-usability.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 61,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/referral-journey-replay.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -11778,6 +11886,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 191,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/referral-intake-usability.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 120,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
