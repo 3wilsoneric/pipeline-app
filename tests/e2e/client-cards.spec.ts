@@ -25,7 +25,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 
     for (const width of [1920, 1440, 834, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await expect(card.locator("strong")).toHaveCSS("font-size", "18px");
+      await expect(card.locator("strong")).toHaveCSS("font-size", "16px");
       await expect(card.locator("strong")).toHaveCSS("font-weight", "700");
       await expect(card.getByText("Community", { exact: true })).toHaveCSS("font-size", "10px");
       await expect(card.getByText("Level 2", { exact: true })).toHaveCSS("font-size", "13px");
@@ -33,6 +33,11 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await expect(tab).toHaveCSS("background-color", "rgb(237, 228, 208)");
       await expect(body).toHaveCSS("background-color", "rgb(237, 228, 208)");
       const tabBounds = await tab.boundingBox();
+      const label = tab.locator(":scope > span");
+      await expect(label).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      const labelBounds = await label.boundingBox();
+      expect(labelBounds!.width).toBeLessThan(tabBounds!.width);
+      expect(labelBounds!.height).toBeLessThan(tabBounds!.height);
       const bodyBounds = await body.boundingBox();
       expect(tabBounds!.y + tabBounds!.height - bodyBounds!.y).toBe(1);
       expect(tabBounds!.width).toBeLessThan(bodyBounds!.width);

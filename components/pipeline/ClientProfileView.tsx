@@ -316,7 +316,7 @@ function ClientChartContainer({ embedded, title, onBack, children }: { embedded:
     <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1800px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">
       <BackButton onClick={onBack} />
       <div data-testid="client-profile-folder" className={folderStyles.recordFolder}>
-        <strong className={folderStyles.tab}>{title}</strong>
+        <strong className={folderStyles.tab}><span className={folderStyles.tabLabel}>{title}</span></strong>
         <div className={folderStyles.body}>
           <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>{children}</div>
         </div>

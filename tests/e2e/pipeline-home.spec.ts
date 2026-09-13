@@ -423,7 +423,8 @@ test.describe("Pipeline home", () => {
     const folderTab = folder.locator(":scope > strong");
     const folderBody = folder.locator(":scope > div");
     await expect(folderTab).toHaveText("Avery Example");
-    await expect(folderTab).toHaveCSS("font-size", "20px");
+    await expect(folderTab).toHaveCSS("font-size", "16px");
+    await expect(folderTab.locator(":scope > span")).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(folderTab).toHaveCSS("background-color", "rgb(237, 228, 208)");
     await expect(folderBody).toHaveCSS("background-color", "rgb(237, 228, 208)");
     await expect(folderBody).toHaveCSS("overflow-y", "visible");

@@ -478,7 +478,7 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       onBlur={cancelPipelineWarmup}
       className={styles.folder}
     >
-      <strong className={styles.tab}>{identityTitle}</strong>
+      <strong className={styles.tab}><span className={styles.tabLabel}>{identityTitle}</span></strong>
       <span className={styles.body}>
         <span className={styles.paper}>
           <span className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#e4e7e4] px-4 py-3">
