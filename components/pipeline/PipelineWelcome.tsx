@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ArrowRight, CalendarClock, CalendarPlus } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
+import { WorkflowCardSkeleton } from "@/components/pipeline/ReferralWorkflowTracker";
 import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
@@ -214,11 +215,14 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
       <SectionHeader
-        title="My work"
+        title={briefing.scope === "team" ? "Team work" : "My work"}
         detail={unavailable ? "Unavailable" : `${briefing.current_work.total.toLocaleString()} requiring action`}
       />
       {unavailable ? <UnavailableLine /> : items.length === 0 ? (
-        <EmptyLine>No assigned referrals require action right now.</EmptyLine>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <p className="sr-only">No assigned referrals require action right now.</p>
+          <WorkflowCardSkeleton /><WorkflowCardSkeleton />
+        </div>
       ) : (
         <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
           {items.slice(0, 5).map((item) => (
@@ -258,7 +262,7 @@ function UpcomingAssessmentsPanel({ briefing, onOpenPacket }: BriefingPanelProps
       {briefing.unavailable_sections.includes("upcoming") ? (
         <UnavailableLine />
       ) : briefing.upcoming.length === 0 ? (
-        <EmptyLine>The next seven days are clear. No assessments are scheduled.</EmptyLine>
+        <div className="space-y-3"><p className="sr-only">No assessments are scheduled in the next seven days.</p><WorkflowCardSkeleton /><WorkflowCardSkeleton /></div>
       ) : (
         <div className="divide-y divide-[#e5e9e7]">
           {briefing.upcoming.slice(0, 6).map((event) => <ScheduleRow key={event.id} event={event} onOpenPacket={onOpenPacket} />)}
@@ -280,7 +284,7 @@ function SchedulingQueuePanel({ briefing, onOpenPacket }: BriefingPanelProps) {
       {unavailable ? (
         <UnavailableLine />
       ) : briefing.unscheduled.length === 0 ? (
-        <EmptyLine>No assessment-ready referrals are waiting to be scheduled.</EmptyLine>
+        <div className="space-y-3"><p className="sr-only">No referrals are waiting to be scheduled.</p><WorkflowCardSkeleton /><WorkflowCardSkeleton /></div>
       ) : (
         <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
           {briefing.unscheduled.slice(0, 6).map((item) => (
@@ -346,10 +350,6 @@ function SectionHeader({ title, detail, icon }: { title: string; detail: string;
       <span className="text-[11px] font-bold text-[#626a65]">{detail}</span>
     </div>
   );
-}
-
-function EmptyLine({ children }: { children: ReactNode }) {
-  return <div className="border border-[#e0e5e2] px-5 py-10 text-center text-[13px] font-medium text-[#626a65]">{children}</div>;
 }
 
 function UnavailableLine() {

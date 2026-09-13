@@ -172,7 +172,7 @@ function AssessorSessionDialog({
               className="mb-2 flex min-h-[58px] w-full items-center gap-3 rounded-md border border-[#dedede] px-4 py-3 text-left outline-none transition-colors last:mb-0 hover:border-[#77b8a8] hover:bg-[#f3faf7] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:cursor-wait disabled:opacity-55"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e6f5ef] text-[#0f8b73]"><UserRound size={17} strokeWidth={1.8} aria-hidden="true" /></span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-black text-[#111111]">{member.display_name}</span><span className="mt-0.5 block text-[10px] text-[#737373]">{member.identity_status === "provisional" ? "Imported Allo account" : "Microsoft-linked account"}</span></span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-black text-[#111111]">{member.display_name}</span><span className="mt-0.5 block text-[10px] text-[#737373]">{member.identity_status === "provisional" ? "Account setup pending" : "Microsoft-linked account"}</span></span>
               <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0f8b73]">{pendingId === member.principal_id ? "Opening…" : "Open"}</span>
             </button>
           ))}

@@ -34,10 +34,6 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
         <div className="px-4 py-12 text-center text-[13px] font-medium text-[#8a5a10]">
           Current work is temporarily unavailable. Close this view and try again.
         </div>
-      ) : items.length === 0 ? (
-        <div className="flex min-h-[240px] items-center justify-center border border-[#dfe4e1] px-4 py-12 text-center text-[13px] font-semibold text-[#626a65]">
-          No active referral work.
-        </div>
       ) : (
         <>
           <label className="relative mb-4 block lg:hidden">
@@ -76,8 +72,9 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
                       ))}
                     </div>
                   ) : (
-                    <div className="border border-[#e1e6e3] px-4 py-8 text-center text-[11px] font-medium text-[#7b837e]">
-                      {state.emptyLabel}
+                    <div className="space-y-2">
+                      <p className="sr-only">{state.emptyLabel}</p>
+                      {Array.from({ length: state.key === "ready_to_schedule" ? 3 : 2 }, (_, index) => <WorkflowCardSkeleton key={index} />)}
                     </div>
                   )}
                 </div>
@@ -87,6 +84,28 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
         </>
       )}
     </section>
+  );
+}
+
+export function WorkflowCardSkeleton() {
+  return (
+    <div aria-hidden="true" data-home-layout-placeholder className="min-w-0 rounded-[4px] border border-[#e0e6e2] bg-white p-4 shadow-[0_2px_8px_rgba(32,35,32,0.03)]">
+      <div className="flex items-start gap-3">
+        <div className="flex h-12 w-10 shrink-0 flex-col gap-1.5 border border-[#d7dfda] bg-[#fafcfb] p-1.5">
+          <div className="h-1.5 bg-[#cadbd2]" />
+          <div className="h-1 bg-[#e1e7e3]" /><div className="h-1 w-3/4 bg-[#e1e7e3]" /><div className="h-1 bg-[#e1e7e3]" />
+        </div>
+        <div className="min-w-0 flex-1 pt-1">
+          <div className="h-3 w-3/4 max-w-40 rounded-sm bg-[#dce4df]" />
+          <div className="mt-2.5 h-2 w-1/2 rounded-sm bg-[#edf0ee]" />
+        </div>
+      </div>
+      <div className="mt-4 h-2 w-5/6 rounded-sm bg-[#e9eeeb]" />
+      <div className="mt-2 h-2 w-2/3 rounded-sm bg-[#edf0ee]" />
+      <div className="mt-4 flex items-center justify-between gap-4">
+        <div className="h-2 w-16 rounded-sm bg-[#e3eae5]" /><div className="h-2 w-8 rounded-sm bg-[#edf0ee]" />
+      </div>
+    </div>
   );
 }
 

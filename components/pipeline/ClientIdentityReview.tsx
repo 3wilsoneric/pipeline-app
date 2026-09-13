@@ -168,7 +168,7 @@ function IdentityEvidenceComparison({
       : "Date of birth matches";
   const matchMethod = link.match_method === "resident_number_exact"
     ? "Resident number"
-    : link.match_method === "imported" ? "Imported candidate" : "Manual review";
+    : link.match_method === "imported" ? "Suggested match" : "Manual review";
 
   return (
     <div aria-label="Identity evidence comparison">

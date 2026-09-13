@@ -57,7 +57,6 @@ export default function StructuredNarrativeField({
             <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</h3>
             <p className="mt-1 text-[11px] font-semibold text-[#737373]">{completedSections} of {sections.length} sections</p>
           </div>
-          {field.sourceFile ? <span className="text-[9px] font-black uppercase text-[#317f8f]">Imported</span> : null}
         </div>
 
         <div className="mt-4 flex-1 space-y-3">

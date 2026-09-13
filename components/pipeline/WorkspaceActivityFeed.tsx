@@ -327,7 +327,7 @@ function activityVerb(action: string) {
     referral_stage_changed: "changed the workflow stage for",
     manual_intake_authorized: "authorized manual intake for",
     assessment_created: "started an assessment for",
-    assessment_imported: "imported an assessment for",
+    assessment_imported: "added an assessment for",
     assessment_updated: "updated the assessment for",
     assessment_assigned: "changed the assessor for",
     assessment_scheduled: "scheduled the assessment for",

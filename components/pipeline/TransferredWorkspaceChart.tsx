@@ -118,8 +118,8 @@ function sourceDescription(source: HistoricalProfileSource) {
 export function workspaceSourceSections(source: HistoricalProfileResponse | null): ClientProfileSection[] {
   if (!source) return [];
   return [
-    { key: "imported-facts", label: "Recorded source information", facts: source.facts.map((fact) => ({
-      label: fact.key === "assessment_date" ? "ALLO assessment date (imported)" : fact.label,
+    { key: "imported-facts", label: "Client information", facts: source.facts.map((fact) => ({
+      label: fact.key === "assessment_date" ? "Assessment date" : fact.label,
       value: `${fact.value}\nSource: ${sourceDescription(fact.source)}`,
     })) },
     ...source.sections.map((section) => ({ key: `source:${section.section}`, label: section.label,
@@ -136,5 +136,5 @@ export function workspaceSourceSections(source: HistoricalProfileResponse | null
 }
 
 function workspaceSourceLabel(referral: Referral) {
-  return isImportedWorkspace(referral) ? "ALLO (imported)" : "Pipeline";
+  return referral.admissionDate ? "Client" : "Potential client";
 }

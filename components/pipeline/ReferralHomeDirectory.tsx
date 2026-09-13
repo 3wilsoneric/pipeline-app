@@ -102,8 +102,6 @@ type ReferralHomeDirectoryProps = {
   onFileOwnerChange: (value: string) => void;
   fileMonth: string;
   onFileMonthChange: (value: string) => void;
-  fileSource: string;
-  onFileSourceChange: (value: string) => void;
   onClearFileFilters: () => void;
   visibleReferrals: Referral[];
   progressByReferral: Record<number, ReferralProgress>;
@@ -203,7 +201,7 @@ function WorkspaceScopeSelector(props: ReferralHomeDirectoryProps) {
   return (
     <div className="mb-2 flex items-center gap-3">
       <div role="group" aria-label="Workspace scope" className="pipeline-segmented flex border border-[#cfd7d3] bg-white p-0.5">
-        {scopes.map((scope) => <button key={scope} type="button" aria-pressed={props.scope === scope} onClick={() => props.onScopeChange(scope)} className={`h-8 px-3 text-[11px] font-bold ${props.scope === scope ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}>{scope === "mine" ? "Mine" : "Team"}</button>)}
+        {scopes.map((scope) => <button key={scope} type="button" aria-pressed={props.scope === scope} onClick={() => props.onScopeChange(scope)} className={`h-8 px-3 text-[11px] font-bold ${props.scope === scope ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}>{scope === "mine" ? "Mine" : "All"}</button>)}
       </div>
       <span className="text-[10px] text-[#68716c]">Recently updated first</span>
     </div>
@@ -299,7 +297,7 @@ function ReferralFilterControls(props: ReferralHomeDirectoryProps) {
 }
 
 function FileFilterToolbar(props: ReferralHomeDirectoryProps) {
-  const hasFilters = Boolean(props.fileCategory || props.fileCommunity || props.fileOwner || props.fileMonth || props.fileSource);
+  const hasFilters = Boolean(props.fileCategory || props.fileCommunity || props.fileOwner || props.fileMonth);
   return (
     <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2.5">
       <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Files</span>
@@ -318,7 +316,6 @@ function FileFilterSelects(props: ReferralHomeDirectoryProps) {
       <select aria-label="Filter files by community" value={props.fileCommunity} onChange={(event) => props.onFileCommunityChange(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">All communities</option>{pipelineCommunities.map((community) => <option key={community} value={community}>{community}</option>)}</select>
       <select aria-label="Filter files by owner" value={props.fileOwner} onChange={(event) => props.onFileOwnerChange(event.target.value)} className="h-9 max-w-[160px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">All owners</option>{props.fileOwnerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select>
       <select aria-label="Filter files by upload month" value={props.fileMonth} onChange={(event) => props.onFileMonthChange(event.target.value)} className="h-9 max-w-[170px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">All months</option>{props.fileMonthOptions.map((month) => <option key={month} value={month}>{formatMonthKey(month)}</option>)}</select>
-      <select aria-label="Filter files by source" value={props.fileSource} onChange={(event) => props.onFileSourceChange(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">All sources</option><option value="pipeline">Pipeline</option><option value="allo">Allo import</option><option value="alamo_platform">Alamo Platform</option><option value="import">Other import</option></select>
     </>
   );
 }
@@ -377,7 +374,6 @@ function IdentityReviewResults(props: ReferralHomeDirectoryProps) {
     return (
       <div className="px-5 py-16 text-center">
         <div className="text-[15px] font-black text-[#111111]">{props.isImportLoading ? "Loading identity review" : "No files need identity review"}</div>
-        {!props.isImportLoading ? <p className="mx-auto mt-2 max-w-[440px] text-[12px] leading-5 text-[#737373]">Staged imports appear here until a person confirms the correct client workspace.</p> : null}
       </div>
     );
   }
@@ -386,7 +382,7 @@ function IdentityReviewResults(props: ReferralHomeDirectoryProps) {
       {props.visibleImportItems.map((item) => (
         <div key={item.import_item_id} className="flex items-center gap-4 px-5 py-4 hover:bg-[#fffaf0]">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#e2ca9f] bg-[#fffaf0] text-[#8a5a10]"><Link2 size={16} /></span>
-          <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-black text-[#111111]">{item.source_file_name}</span><span className="mt-1 block truncate text-[11px] text-[#737373]">{formatClientIdentityTitle({ name: item.source_client_name, community: item.source_community })}{item.source_community ? ` · ${item.source_community}` : ""} · {item.source_system}</span></span>
+          <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-black text-[#111111]">{item.source_file_name}</span><span className="mt-1 block truncate text-[11px] text-[#737373]">{formatClientIdentityTitle({ name: item.source_client_name, community: item.source_community })}{item.source_community ? ` · ${item.source_community}` : ""}</span></span>
           <button type="button" onClick={() => props.onReviewItem(item)} className="h-9 border border-[#b07b21] px-3 text-[10px] font-black text-[#8a5a10] hover:bg-white">Review identity</button>
         </div>
       ))}

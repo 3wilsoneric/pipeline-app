@@ -67,7 +67,7 @@ type ReferralHomeProps = {
 };
 
 export default function ScopedReferralHome(props: ReferralHomeProps) {
-  const [selectedScope, setSelectedScope] = useState<WorkspaceScope>("mine");
+  const [selectedScope, setSelectedScope] = useState<WorkspaceScope>("team");
   const scope = props.canViewTeam ? selectedScope : "mine";
   return <ReferralHome key={scope} {...props} scope={scope} onScopeChange={setSelectedScope} />;
 }
@@ -104,7 +104,6 @@ function ReferralHome({
   const [fileCommunity, setFileCommunity] = useState("");
   const [fileOwner, setFileOwner] = useState("");
   const [fileMonth, setFileMonth] = useState("");
-  const [fileSource, setFileSource] = useState("");
   const [reviewIdentity, setReviewIdentity] = useState(false);
   const [importItems, setImportItems] = useState<ClientFileImportReviewItem[] | null>(null);
   const [importTotal, setImportTotal] = useState(0);
@@ -238,7 +237,6 @@ function ReferralHome({
       params.set("uploaded_after", bounds.from);
       params.set("uploaded_before", bounds.to);
     }
-    if (fileSource) params.set("source_system", fileSource);
     fetchPipelineJson<{ files?: ReferralFile[]; total?: number; next_cursor?: string }>(`/api/files?${params.toString()}`, { cache: "no-store" })
       .then((payload) => {
         if (!cancelled) {
@@ -255,7 +253,7 @@ function ReferralHome({
         }
       });
     return () => { cancelled = true; };
-  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, fileSource, filter.kind, requestSearchTerm, reviewIdentity, scope]);
+  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, filter.kind, requestSearchTerm, reviewIdentity, scope]);
 
   useEffect(() => {
     if (filter.kind !== "files" || !reviewIdentity) return;
@@ -281,7 +279,7 @@ function ReferralHome({
     setFilePage(0);
     setFileCursors([""]);
     setFiles(null);
-  }, [fileCategory, fileCommunity, fileMonth, fileOwner, fileSource, filter.kind, requestSearchTerm, reviewIdentity]);
+  }, [fileCategory, fileCommunity, fileMonth, fileOwner, filter.kind, requestSearchTerm, reviewIdentity]);
 
   const monthOptions = useMemo(() => facets.months.map((entry) => entry.value), [facets.months]);
   const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
@@ -362,9 +360,7 @@ function ReferralHome({
       onFileOwnerChange={setFileOwner}
       fileMonth={fileMonth}
       onFileMonthChange={setFileMonth}
-      fileSource={fileSource}
-      onFileSourceChange={setFileSource}
-      onClearFileFilters={() => { setFileCategory(""); setFileCommunity(""); setFileOwner(""); setFileMonth(""); setFileSource(""); }}
+      onClearFileFilters={() => { setFileCategory(""); setFileCommunity(""); setFileOwner(""); setFileMonth(""); }}
       visibleReferrals={visibleReferrals}
       progressByReferral={progressByReferral}
       visibleFiles={visibleFiles}
@@ -480,7 +476,7 @@ function ImportIdentityReviewDialog({ item, onClose, onSaved }: {
           <div className="min-w-0">
             <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8a5a10]">Identity review</div>
             <h2 className="mt-2 truncate text-[20px] font-black text-[#111111]">{item.source_file_name}</h2>
-            <p className="mt-1 text-[12px] text-[#737373]">Exported for {formatClientIdentityTitle({ name: item.source_client_name, community: item.source_community })}{item.source_community ? ` · ${item.source_community}` : ""}</p>
+            <p className="mt-1 text-[12px] text-[#737373]">{formatClientIdentityTitle({ name: item.source_client_name, community: item.source_community })}{item.source_community ? ` · ${item.source_community}` : ""}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close identity review" className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9]"><X size={16} /></button>
         </div>
@@ -495,7 +491,7 @@ function ImportIdentityReviewDialog({ item, onClose, onSaved }: {
               <button key={client.canonical_client_id} type="button" onClick={() => setSelected(client)} className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-4 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}>
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-black" title={formatClientIdentityTitle({ name: client.display_name, gender: client.gender, community: client.current_community || client.community_names[0] })}>{formatClientIdentityTitle({ name: client.display_name, gender: client.gender, community: client.current_community || client.community_names[0] })}</span>
-                  <span className="mt-1 block truncate text-[10px] text-[#737373]">{formatClientIdentityDetail(resolveClientGender(client.gender), resolveClientCommunity(client.current_community, client.community_names[0]), client.workspace_origin === "pipeline" ? "Pipeline client workspace" : "Alamo client")}</span>
+                  <span className="mt-1 block truncate text-[10px] text-[#737373]">{formatClientIdentityDetail(resolveClientGender(client.gender), resolveClientCommunity(client.current_community, client.community_names[0]))}</span>
                 </span>
                 {active ? <Check size={16} className="shrink-0 text-[#0f8b73]" /> : null}
               </button>
@@ -506,7 +502,7 @@ function ImportIdentityReviewDialog({ item, onClose, onSaved }: {
         </div>
         {error ? <div className="mt-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-3 py-2 text-[11px] text-[#59332d]" role="alert">{error}</div> : null}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <button type="button" disabled={saving} onClick={() => void save("reject")} className="h-10 border border-[#a63d2f] px-3 text-[11px] font-black text-[#a63d2f] disabled:opacity-50">Reject import item</button>
+          <button type="button" disabled={saving} onClick={() => void save("reject")} className="h-10 border border-[#a63d2f] px-3 text-[11px] font-black text-[#a63d2f] disabled:opacity-50">Reject match</button>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" disabled={saving || Boolean(selected)} onClick={() => void save("create_client")} className="h-10 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0c705f] disabled:border-[#d9d9d9] disabled:text-[#a0a0a0]">Create client workspace</button>
             <button type="button" disabled={!selected || saving} onClick={() => void save("confirm")} className="h-10 bg-[#0f8b73] px-4 text-[11px] font-black text-white disabled:bg-[#d9d9d9]">{saving ? "Saving..." : "Confirm client"}</button>
