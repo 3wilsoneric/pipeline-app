@@ -28,7 +28,13 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await expect(card.locator("strong")).toHaveCSS("font-size", "16px");
       await expect(card.locator("strong")).toHaveCSS("font-weight", "700");
       await expect(card.getByText("Community", { exact: true })).toHaveCSS("font-size", "10px");
-      await expect(card.getByText("Level 2", { exact: true })).toHaveCSS("font-size", "13px");
+      await expect(card.getByText("Community", { exact: true })).toHaveCSS("font-weight", "700");
+      await expect(card.getByText("Level 2", { exact: true })).toHaveCSS("font-size", "14px");
+      await expect(card.getByText("Level 2", { exact: true })).toHaveCSS("font-weight", "600");
+      const chartLabel = card.getByText("Client chart", { exact: true });
+      await expect(chartLabel).toHaveCSS("font-weight", "800");
+      await expect(chartLabel).toHaveCSS("border-left-width", "3px");
+      await expect(body.locator(":scope > span > span").first()).toHaveCSS("background-color", "rgb(241, 247, 243)");
       await expect(body).not.toHaveCSS("box-shadow", "none");
       await expect(tab).toHaveCSS("background-color", "rgb(237, 228, 208)");
       await expect(body).toHaveCSS("background-color", "rgb(237, 228, 208)");

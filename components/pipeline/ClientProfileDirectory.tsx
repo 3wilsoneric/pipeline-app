@@ -481,20 +481,20 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       <strong className={styles.tab}><span className={styles.tabLabel}>{identityTitle}</span></strong>
       <span className={styles.body}>
         <span className={styles.paper}>
-          <span className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#e4e7e4] px-4 py-3">
+          <span className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#d8e1da] bg-[#f1f7f3] px-4 py-3">
             <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
-              {gender ? <span className="text-[12px] text-[#59635d]">{gender}</span> : null}
+              <span className="border-l-[3px] border-[#0f8b73] pl-2.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
+              {gender ? <span className="text-[12px] font-medium text-[#59635d]">{gender}</span> : null}
             </span>
-            <span aria-hidden="true" className={styles.open}>Open chart <ArrowRight size={16} /></span>
+            <span aria-hidden="true" className={styles.open}>Open chart <ArrowRight size={16} strokeWidth={2.5} /></span>
           </span>
-          <span className="grid grid-cols-2 gap-px bg-[#e4e7e4]">
+          <span className="grid grid-cols-2 gap-px bg-[#dde3de]">
             <ChartPreviewCell label="Community" value={community} />
             <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
             <ChartPreviewCell label="Admitted" value={client.admit_date ? formatDate(client.admit_date) : null} />
             <ChartPreviewCell label="Care level" value={client.care_level} />
           </span>
-          {!client.profile_key ? <span className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#e4e7e4] px-4 py-2.5 text-[11px] tabular-nums text-[#626e67]">
+          {!client.profile_key ? <span className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#dde3de] px-4 py-2.5 text-[11px] font-medium tabular-nums text-[#626e67]">
             <span className="flex items-center gap-1.5"><FileText size={12} className="shrink-0" />{countNoun(client.document_count, "document")}</span>
             <span className="flex items-center gap-1.5"><FolderOpen size={12} className="shrink-0" />{countNoun(client.referral_count, "workspace")}</span>
             <span className="ml-auto">{countNoun(client.episode_count, "stay")}</span>
@@ -507,9 +507,9 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
 
 function ChartPreviewCell({ label, value }: { label: string; value: string | null }) {
   return (
-    <span className="min-w-0 bg-white px-4 py-3">
-      <span className="block text-[10px] font-semibold uppercase tracking-[0.06em] text-[#626d67]">{label}</span>
-      <span className={`mt-1 block text-[13px] font-medium leading-5 [overflow-wrap:anywhere] ${value ? "text-[#26302c]" : "text-[#69736e]"}`}>{value || "—"}</span>
+    <span className="min-w-0 bg-white px-4 py-3.5">
+      <span className="block text-[10px] font-bold uppercase tracking-[0.07em] text-[#59685f]">{label}</span>
+      <span className={`mt-1.5 block text-[14px] leading-5 [overflow-wrap:anywhere] ${value ? "font-semibold text-[#25382e]" : "font-medium text-[#69736e]"}`}>{value || "—"}</span>
     </span>
   );
 }
