@@ -52,25 +52,48 @@ textarea {
 
 /* Keep native selection and an unchanged fallback where styled pickers are unavailable. */
 @supports (appearance: base-select) and selector(select::picker(select)) {
-  .pipeline-directory-select select,
-  .pipeline-directory-select select::picker(select) {
+  select:not([multiple]):not([size]),
+  select:not([multiple]):not([size])::picker(select) {
     appearance: base-select;
   }
 
-  .pipeline-directory-select select {
-    border: 0;
-    border-radius: 0;
+  select:not([multiple]):not([size]) {
+    border-radius: 2px;
     cursor: pointer;
+    font-weight: 700;
+    align-items: center;
+    column-gap: 8px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
 
-  .pipeline-directory-select select::picker-icon {
+  select:not([multiple]):not([size])::picker-icon {
+    flex-shrink: 0;
+    color: #66706b;
+    font-size: 14px;
+  }
+
+  select:not([multiple]):not([size]):enabled:is(:hover, :focus-visible, :open) {
+    border-color: #0f8b73;
+  }
+
+  select:not([multiple]):not([size]):focus-visible {
+    outline: 2px solid #0f8b73;
+    outline-offset: 2px;
+  }
+
+  .pipeline-directory-select select {
+    border: 0;
+    border-radius: 0;
+  }
+
+  .pipeline-directory-select select::picker-icon,
+  select[class~="appearance-none"]::picker-icon {
     display: none;
   }
 
-  .pipeline-directory-select select::picker(select) {
+  select:not([multiple]):not([size])::picker(select) {
     width: max-content;
     min-width: anchor-size(width);
     max-width: min(440px, calc(100vw - 24px));
@@ -89,7 +112,7 @@ textarea {
     overflow: auto;
   }
 
-  .pipeline-directory-select option {
+  select:not([multiple]):not([size]) option {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -99,23 +122,56 @@ textarea {
     overflow-wrap: anywhere;
   }
 
-  .pipeline-directory-select option:checked {
+  select:not([multiple]):not([size]) option:checked {
     background: #effaf5;
     color: #0c705f;
     font-weight: 700;
   }
 
-  .pipeline-directory-select option:is(:hover, :focus-visible) {
+  select:not([multiple]):not([size]) option:enabled:is(:hover, :focus-visible) {
     background: #e3f2eb;
     outline: 2px solid #0f8b73;
     outline-offset: -2px;
   }
 
-  .pipeline-directory-select option::checkmark {
+  select:not([multiple]):not([size]) option:disabled {
+    cursor: not-allowed;
+    color: #737373;
+  }
+
+  select:not([multiple]):not([size]) option::checkmark {
     order: 1;
     margin-inline-start: auto;
     color: #0f8b73;
   }
+
+  select:not([multiple]):not([size]) optgroup {
+    padding: 4px;
+    color: #66706b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+}
+
+.pipeline-dropdown-suggestions {
+  padding: 4px;
+  border: 1px solid #c9d0cd;
+  border-radius: 2px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(17 49 36 / 12%);
+}
+
+.pipeline-dropdown-suggestions [role="option"] {
+  min-height: 42px;
+  padding: 10px 12px;
+  color: #27302c;
+  overflow-wrap: anywhere;
+}
+
+.pipeline-dropdown-suggestions [role="option"]:is(:hover, [aria-selected="true"]) {
+  background: #effaf5;
+  outline: 2px solid #0f8b73;
+  outline-offset: -2px;
 }
 
 .app-gradient-button {
