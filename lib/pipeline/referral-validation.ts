@@ -1,5 +1,5 @@
 import { pipelineCommunities } from "./community-config";
-import { normalizeCalendarDate } from "./calendar-date";
+import { calendarToday, normalizeCalendarDate } from "./calendar-date";
 import { boardStages } from "./referral-workflow";
 import type {
   AdmissionRequirement,
@@ -50,7 +50,7 @@ const requirementStatuses = [
 ] as const;
 const requirementGates = ["profile_completion", "pre_assessment", "admission_decision", "move_in", "ehr_export"] as const;
 
-const stringLimits = {
+export const stringLimits = {
   name: 200,
   date: 40,
   source: 200,
@@ -130,6 +130,9 @@ export function validateReferralCreateInput(
   }
   if (value.stage !== "New") {
     return invalid("New referrals must start in the New stage.");
+  }
+  if (typeof value.admissionDate === "string" && value.admissionDate.trim()) {
+    return invalid("A new referral cannot have an actual admission date.");
   }
 
   const timestampResult = validateTimestamp(value.createdAt, "createdAt");
@@ -508,6 +511,9 @@ function validateCalendarDates(
     if (!(field in value) || value[field] === undefined || value[field] === "") continue;
     if (typeof value[field] !== "string" || normalizeCalendarDate(value[field]) === null) {
       return invalid(`${field} must be a real calendar date in YYYY-MM-DD or M/D/YYYY format.`);
+    }
+    if (field === "dob" && normalizeCalendarDate(value[field] as string)! > calendarToday()) {
+      return invalid("Date of birth cannot be in the future.");
     }
   }
   return valid();

@@ -1,6 +1,7 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
+import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { createContact, requireContactStore, searchContacts } from "@/lib/pipeline/contact-store";
@@ -16,10 +17,14 @@ export async function GET(request: Request) {
     const store = requireContactStore();
     if (!store.ok) return store.response;
     const url = new URL(request.url);
-    const referralId = referralIdFrom(url.searchParams.get("referral_id"));
-    if (!referralId) return jsonError("referral_id is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
-    if (!access.ok) return access.response;
+    if (url.searchParams.has("referral_id")) {
+      const referralId = referralIdFrom(url.searchParams.get("referral_id"));
+      if (!referralId) return jsonError("referral_id is invalid.");
+      const access = await requireReferralAccess(auth.user, referralId);
+      if (!access.ok) return access.response;
+    } else if (!canAccessOperationsReports(auth.user.roles)) {
+      return jsonError("An accessible referral_id is required for assessor contact search.", 403);
+    }
     const query = parseContactSearch(url);
     if (!query.ok) return jsonError(query.message, query.status);
     const contacts = await searchContacts(query.value.query, query.value.limit);

@@ -86,22 +86,33 @@ export function fieldSourcesFromCanvas(fields: ReferralCanvasFields) {
   );
 }
 
+function intakeFieldSources(fields: ReferralCanvasFields, existing: Referral["fieldSources"]) {
+  const sources = fieldSourcesFromCanvas(fields);
+  delete sources.admissionDate;
+  if (existing?.admissionDate) sources.admissionDate = existing.admissionDate;
+  return sources;
+}
+
 export function buildReferralCanvasPatch(input: {
   keys: ReadonlySet<ReferralCanvasDirtyKey>;
   fields: ReferralCanvasFields;
   conserved: "yes" | "no" | "";
   tags: string[];
   requirements: Referral["requirements"];
+  existingFieldSources?: Referral["fieldSources"];
   packet?: { name: string; size: number; hash: string };
 }): ReferralPatch {
   const patch: ReferralPatch = {};
   let fieldChanged = false;
-  for (const key of persistedCanvasFieldKeys) {
+  for (const key of persistedCanvasFieldKeys.filter((key) => key !== "admissionDate")) {
+    // Intake cannot record an actual admission, including recovered older drafts.
     if (!input.keys.has(key)) continue;
     fieldChanged = true;
     (patch as Record<string, unknown>)[referralPatchKeyByCanvasField[key]] = input.fields[key].value;
   }
-  if (fieldChanged) patch.fieldSources = fieldSourcesFromCanvas(input.fields);
+  if (fieldChanged) {
+    patch.fieldSources = intakeFieldSources(input.fields, input.existingFieldSources);
+  }
   if (input.keys.has("conserved")) patch.conserved = input.conserved;
   if (input.keys.has("tags")) patch.tags = input.tags;
   if (input.keys.has("documents")) patch.requirements = input.requirements;
@@ -143,12 +154,12 @@ export function buildReferralCanvasCreateInput(input: {
     gender: fields.gender.value.trim(),
     reportedAge: fields.age.value.trim(),
     ssn: fields.ssn.value.trim(),
-    admissionDate: fields.admissionDate.value.trim(),
+    admissionDate: "",
     county: fields.county.value.trim(),
     responsiblePerson: fields.responsiblePerson.value.trim(),
     currentMedications: fields.currentMedications.value.trim(),
     conserved: input.conserved,
-    fieldSources: fieldSourcesFromCanvas(fields),
+    fieldSources: intakeFieldSources(fields, undefined),
     phone: fields.phone.value.trim(),
     email: fields.email.value.trim(),
     payer: "",

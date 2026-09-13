@@ -767,7 +767,6 @@ const results = [
       ssn: "value-ssn",
       owner: "value-owner",
       date: "value-referralReceived",
-      admissionDate: "value-admissionDate",
       community: "value-community",
       county: "value-county",
       source: "value-referent",
@@ -780,8 +779,9 @@ const results = [
     for (const [key, value] of Object.entries(expected)) {
       assert(patch[key] === value, `Canvas field mapping did not persist ${key}`);
     }
+    assert(!("admissionDate" in patch), "Intake must not set an actual admission date");
     assert(
-      Object.keys(patch.fieldSources).length === referralCanvasPersistence.persistedCanvasFieldKeys.length,
+      Object.keys(patch.fieldSources).length === referralCanvasPersistence.persistedCanvasFieldKeys.length - 1,
       "Every persisted chart field should retain source provenance",
     );
   }),
