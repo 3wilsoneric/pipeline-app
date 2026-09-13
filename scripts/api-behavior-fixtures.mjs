@@ -781,7 +781,7 @@ const results = [
     }
     assert(!("admissionDate" in patch), "Intake must not set an actual admission date");
     assert(
-      Object.keys(patch.fieldSources).length === referralCanvasPersistence.persistedCanvasFieldKeys.length,
+      Object.keys(patch.fieldSources).length === referralCanvasPersistence.persistedCanvasFieldKeys.length - 1,
       "Every persisted chart field should retain source provenance",
     );
   }),

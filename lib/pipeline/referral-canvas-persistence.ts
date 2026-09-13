@@ -92,6 +92,7 @@ export function buildReferralCanvasPatch(input: {
   conserved: "yes" | "no" | "";
   tags: string[];
   requirements: Referral["requirements"];
+  existingFieldSources?: Referral["fieldSources"];
   packet?: { name: string; size: number; hash: string };
 }): ReferralPatch {
   const patch: ReferralPatch = {};
@@ -102,7 +103,11 @@ export function buildReferralCanvasPatch(input: {
     fieldChanged = true;
     (patch as Record<string, unknown>)[referralPatchKeyByCanvasField[key]] = input.fields[key].value;
   }
-  if (fieldChanged) patch.fieldSources = fieldSourcesFromCanvas(input.fields);
+  if (fieldChanged) {
+    patch.fieldSources = fieldSourcesFromCanvas(input.fields);
+    delete patch.fieldSources.admissionDate;
+    if (input.existingFieldSources?.admissionDate) patch.fieldSources.admissionDate = input.existingFieldSources.admissionDate;
+  }
   if (input.keys.has("conserved")) patch.conserved = input.conserved;
   if (input.keys.has("tags")) patch.tags = input.tags;
   if (input.keys.has("documents")) patch.requirements = input.requirements;

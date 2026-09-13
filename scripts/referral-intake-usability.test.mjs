@@ -43,10 +43,10 @@ test("intake edits neither set nor clear existing actual admissions or their evi
   const canvas = fields();
   canvas.name.value = "Corrected synthetic name";
   canvas.admissionDate = { label: "Admission date", value: "2026-09-01", sourceFile: "admission.pdf" };
-  const patch = persistence.buildReferralCanvasPatch({ keys: new Set(["name", "admissionDate"]), fields: canvas, conserved: "", tags: [], requirements: [] });
+  const patch = persistence.buildReferralCanvasPatch({ keys: new Set(["name", "admissionDate"]), fields: canvas, conserved: "", tags: [], requirements: [], existingFieldSources: { admissionDate: "original-admission.pdf" } });
   assert.equal(patch.name, "Corrected synthetic name");
   assert.equal(Object.hasOwn(patch, "admissionDate"), false);
-  assert.equal(patch.fieldSources.admissionDate, "admission.pdf");
+  assert.equal(patch.fieldSources.admissionDate, "original-admission.pdf");
   assert.equal(persistence.referralCanvasValue({ admissionDate: "2026-08-01" }, "admissionDate"), "2026-08-01");
 });
 

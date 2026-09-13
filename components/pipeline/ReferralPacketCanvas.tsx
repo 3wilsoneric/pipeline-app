@@ -1157,6 +1157,7 @@ export default function ReferralPacketCanvas({
       conserved: conservedRef.current,
       tags,
       requirements: admissionRequirements,
+      existingFieldSources: current.fieldSources,
       packet,
     });
     if (Object.keys(patch).length === 0) return current;
@@ -1294,6 +1295,7 @@ export default function ReferralPacketCanvas({
       conserved: conservedRef.current,
       tags: normalizeTags(tagsInputRef.current),
       requirements: refreshedWorkspace.referral.requirements ?? [],
+      existingFieldSources: refreshedWorkspace.referral.fieldSources,
     });
     const linkMutationKey = JSON.stringify(["packet-link", currentReferral.id, refreshedWorkspace.referral.version, upload.packetId, extractedPatch]);
     const linkMutationId = patchMutationIdsRef.current.get(linkMutationKey) ?? createMutationId();
@@ -3331,6 +3333,7 @@ function buildCanvasPatch(input: {
   conserved: "yes" | "no" | "";
   tags: string[];
   requirements: Referral["requirements"];
+  existingFieldSources?: Referral["fieldSources"];
   packet?: { file: File; hash: string };
 }): ReferralPatch {
   const { packet, ...canvasInput } = input;
@@ -3394,6 +3397,7 @@ function prepareReviewedExtraction(input: {
     conserved: input.conserved,
     tags: input.tags,
     requirements: input.requirements,
+    existingFieldSources: input.currentReferral.fieldSources,
   });
   const referralPatch: ReferralPatch = {
     ...mappedPatch,
