@@ -252,29 +252,37 @@ export async function recordOperationsReportExport(
 }
 
 async function reportResidents(request: Request | undefined, reportId: OperationsReportId) {
-  const residents: ClinicalResident[] = [];
-  const notes: string[] = [];
-  if (!["clients_by_community", "client_care_needs"].includes(reportId)) return { residents, notes };
+  if (!["clients_by_community", "client_care_needs"].includes(reportId)) return { residents: [], notes: [] };
   try {
+    return await readReportResidents(request);
+  } catch (error) {
+    if (!(error instanceof ClinicalDataError)) throw error;
+    return { residents: [], notes: ["Resident data is unavailable. This report includes client workspaces only."] };
+  }
+}
+
+async function readReportResidents(request: Request | undefined) {
+    const residents: ClinicalResident[] = [];
+    const notes: string[] = [];
     let cursor: string | undefined;
     let snapshot: string | undefined;
     const seen = new Set<string>();
     do {
       const page = await getClinicalRoster(request, { limit: 200, cursor });
-      if (snapshot && snapshot !== page.snapshot_id) throw new Error("Resident data changed while the report loaded. Run it again.");
+      appendResidentReportPage(residents, notes, page, snapshot, seen);
       snapshot = page.snapshot_id;
-      residents.push(...page.residents);
-      if (page.freshness.warning && !notes.includes(page.freshness.warning)) notes.push(page.freshness.warning);
-      if (!notes.some((note) => note.startsWith("Resident data as of"))) notes.push(`Resident data as of ${page.data_as_of}.`);
       cursor = page.next_cursor ?? undefined;
-      if (cursor && (seen.has(cursor) || residents.length >= exportLimit)) throw new Error("The resident report exceeds its supported size or pagination is invalid.");
       if (cursor) seen.add(cursor);
     } while (cursor);
     return { residents, notes };
-  } catch (error) {
-    if (!(error instanceof ClinicalDataError)) throw error;
-    return { residents: [], notes: ["Resident data is unavailable. This report includes client workspaces only."] };
-  }
+}
+
+function appendResidentReportPage(residents: ClinicalResident[], notes: string[], page: Awaited<ReturnType<typeof getClinicalRoster>>, snapshot: string | undefined, seen: Set<string>) {
+  if (snapshot && snapshot !== page.snapshot_id) throw new Error("Resident data changed while the report loaded. Run it again.");
+  residents.push(...page.residents);
+  if (page.freshness.warning && !notes.includes(page.freshness.warning)) notes.push(page.freshness.warning);
+  if (!notes.some((note) => note.startsWith("Resident data as of"))) notes.push(`Resident data as of ${page.data_as_of}.`);
+  if (page.next_cursor && (seen.has(page.next_cursor) || residents.length >= exportLimit)) throw new Error("The resident report exceeds its supported size or pagination is invalid.");
 }
 
 async function clientReportEvidence(referrals: Referral[], reportId: OperationsReportId) {
@@ -283,13 +291,26 @@ async function clientReportEvidence(referrals: Referral[], reportId: OperationsR
   }]));
   if (!referrals.length || reportId === "clients_by_community") return evidence;
   if (getReferralStoreReadiness().mode !== "postgres") {
+    await populateLocalReportEvidence(referrals, reportId, evidence);
+  } else {
+    await populatePostgresReportEvidence(referrals, reportId, evidence);
+  }
+  return evidence;
+}
+
+async function populateLocalReportEvidence(referrals: Referral[], reportId: OperationsReportId, evidence: Map<number, ClientReportEvidence>) {
     if (reportId === "referral_sources") {
       for (const referral of referrals) {
         const contact = (await listReferralContacts(referral.id)).find((item) => item.role === "referral_source");
         if (contact) evidence.get(referral.id)!.fields["report.referral_source"] = contact.contact.organization || `${contact.contact.firstName} ${contact.contact.lastName}`.trim();
       }
-      return evidence;
+      return;
     }
+    await localReportDocumentCounts(referrals, evidence);
+    await localReportAssessments(evidence);
+}
+
+async function localReportDocumentCounts(referrals: Referral[], evidence: Map<number, ClientReportEvidence>) {
     let cursor: string | undefined;
     const filesByClient = new Map<string, Set<string>>();
     do {
@@ -297,7 +318,7 @@ async function clientReportEvidence(referrals: Referral[], reportId: OperationsR
       for (const file of page.files) {
         if (file.identityStatus && file.identityStatus !== "linked") continue;
         const ref = referrals.find((item) => item.id === file.referralId);
-        const key = file.clientId ?? ref?.clientId ?? (ref ? `referral:${ref.id}` : "");
+        const key = reportFileClientKey(file, ref);
         if (!key) continue;
         const files = filesByClient.get(key) ?? new Set<string>();
         files.add(file.id);
@@ -306,6 +327,14 @@ async function clientReportEvidence(referrals: Referral[], reportId: OperationsR
       cursor = page.next_cursor ?? undefined;
     } while (cursor);
     for (const referral of referrals) evidence.get(referral.id)!.documentCount = filesByClient.get(referral.clientId ?? `referral:${referral.id}`)?.size ?? 0;
+}
+
+function reportFileClientKey(file: Awaited<ReturnType<typeof listReferralFiles>>["files"][number], ref: Referral | undefined) {
+  return file.clientId ?? ref?.clientId ?? (ref ? `referral:${ref.id}` : "");
+}
+
+async function localReportAssessments(evidence: Map<number, ClientReportEvidence>) {
+    let cursor: string | undefined;
     do {
       const page = await listAssessments({ limit: 200, cursor });
       for (const assessment of page.assessments) {
@@ -314,10 +343,22 @@ async function clientReportEvidence(referrals: Referral[], reportId: OperationsR
       }
       cursor = page.next_cursor ?? undefined;
     } while (cursor);
-    return evidence;
-  }
-  const sql = getPipelineSql();
+}
+
+async function populatePostgresReportEvidence(referrals: Referral[], reportId: OperationsReportId, evidence: Map<number, ClientReportEvidence>) {
   const ids = referrals.map((referral) => referral.id);
+  await postgresReportFields(ids, evidence);
+  if (reportId === "referral_sources") return postgresReportSources(ids, evidence);
+  if (reportId === "chart_completeness") await postgresReportDocumentCounts(ids, evidence);
+  await postgresReportAssessments(ids, evidence);
+  if (reportId === "chart_completeness") {
+    const contexts = await getReferralWorkflowContexts(referrals);
+    for (const [id, item] of evidence) item.requirements = contexts.get(id)?.requirements ?? [];
+  }
+}
+
+async function postgresReportFields(ids: number[], evidence: Map<number, ClientReportEvidence>) {
+  const sql = getPipelineSql();
   const fields = await sql<{ referral_id: number | string; field_key: string; final_value: unknown }[]>`
     select field.referral_id, field.field_key, field.final_value
     from pipeline.referral_fields field
@@ -328,7 +369,10 @@ async function clientReportEvidence(referrals: Referral[], reportId: OperationsR
       and (field.source_document_id is null or source.deleted_at is null)
   `;
   for (const field of fields) evidence.get(Number(field.referral_id))!.fields[field.field_key] = field.final_value;
-  if (reportId === "referral_sources") {
+}
+
+async function postgresReportSources(ids: number[], evidence: Map<number, ClientReportEvidence>) {
+    const sql = getPipelineSql();
     const contacts = await sql<{ referral_id: number | string; source: string }[]>`
       select distinct on (link.referral_id) link.referral_id,
         coalesce(nullif(btrim(contact.organization), ''), btrim(concat_ws(' ', contact.first_name, contact.last_name))) as source
@@ -337,9 +381,10 @@ async function clientReportEvidence(referrals: Referral[], reportId: OperationsR
       order by link.referral_id, link.updated_at desc, link.referral_contact_id desc
     `;
     for (const contact of contacts) evidence.get(Number(contact.referral_id))!.fields["report.referral_source"] = contact.source;
-    return evidence;
-  }
-  if (reportId === "chart_completeness") {
+}
+
+async function postgresReportDocumentCounts(ids: number[], evidence: Map<number, ClientReportEvidence>) {
+  const sql = getPipelineSql();
   const counts = await sql<{ referral_id: number | string; documents: number | string }[]>`
     with requested as (
       select referral_id, person_id from pipeline.referrals where referral_id = any(${ids}::bigint[])
@@ -361,7 +406,10 @@ async function clientReportEvidence(referrals: Referral[], reportId: OperationsR
     from requested left join linked_documents using (referral_id) group by requested.referral_id
   `;
   for (const count of counts) evidence.get(Number(count.referral_id))!.documentCount = Number(count.documents);
-  }
+}
+
+async function postgresReportAssessments(ids: number[], evidence: Map<number, ClientReportEvidence>) {
+  const sql = getPipelineSql();
   const assessments = await sql<{ referral_id: number | string; assessment_id: string; data: PipelineAssessmentRecord; signed_at: string; status: "complete" }[]>`
     select distinct on (referral_id) referral_id, assessment_id, data, signed_at::text, status
     from pipeline.assessments
@@ -369,11 +417,6 @@ async function clientReportEvidence(referrals: Referral[], reportId: OperationsR
     order by referral_id, signed_at desc, assessment_id desc
   `;
   for (const assessment of assessments) evidence.get(Number(assessment.referral_id))!.assessment = { ...assessment.data, assessment_id: assessment.assessment_id, status: assessment.status, signed_at: assessment.signed_at };
-  if (reportId === "chart_completeness") {
-    const contexts = await getReferralWorkflowContexts(referrals);
-    for (const [id, item] of evidence) item.requirements = contexts.get(id)?.requirements ?? [];
-  }
-  return evidence;
 }
 
 export function operationsReportCsv(response: OperationsReportResponse) {

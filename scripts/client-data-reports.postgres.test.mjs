@@ -45,12 +45,7 @@ test("client reports query the migrated PostgreSQL owners without changing data"
         ('report-fixture-draft', 'report-fixture-draft', ${refs[2]}, 'draft', null, '{"ambulatory":"yes"}', ${actor}, ${actor}, ${actor}, ${actor})
     `;
     await sql`insert into pipeline.work_items (referral_id, person_id, type, label, gate, status, next_action) values (${refs[0]}, ${people[0].person_id}, 'face_sheet', 'Face sheet', 'admission_decision', 'needed', 'Upload face sheet')`;
-    for (const [index, status] of ["linked", "linked", "unmatched", "linked"].entries()) {
-      await sql`
-        insert into pipeline.documents (referral_id, person_id, category, file_name, content_type, byte_size, sha256, blob_container, blob_key, processing_status, uploaded_by, identity_status, deleted_at)
-        values (${index === 1 ? null : refs[0]}, ${people[0].person_id}, 'other', 'sample.pdf', 'application/pdf', 100, ${String(index).repeat(64)}, 'fixture', ${`report/${index}`}, 'uploaded', ${actor}, ${status}, ${index === 3 ? new Date() : null})
-      `;
-    }
+    await seedReportDocuments(sql, people[0].person_id, refs[0], actor);
 
     const before = await sql`select md5(string_agg(row::text, ',' order by row::text)) as hash from (select to_jsonb(r) row from pipeline.referrals r union all select to_jsonb(d) from pipeline.documents d union all select to_jsonb(f) from pipeline.referral_fields f union all select to_jsonb(a) from pipeline.assessments a union all select to_jsonb(w) from pipeline.work_items w union all select to_jsonb(e) from pipeline.audit_events e) records`;
     await sql.begin("read only", async (tx) => {
@@ -95,3 +90,12 @@ test("client reports query the migrated PostgreSQL owners without changing data"
     await sql.end({ timeout: 5 });
   }
 });
+
+async function seedReportDocuments(sql, personId, referralId, actor) {
+  for (const [index, status] of ["linked", "linked", "unmatched", "linked"].entries()) {
+    await sql`
+      insert into pipeline.documents (referral_id, person_id, category, file_name, content_type, byte_size, sha256, blob_container, blob_key, processing_status, uploaded_by, identity_status, deleted_at)
+      values (${index === 1 ? null : referralId}, ${personId}, 'other', 'sample.pdf', 'application/pdf', 100, ${String(index).repeat(64)}, 'fixture', ${`report/${index}`}, 'uploaded', ${actor}, ${status}, ${index === 3 ? new Date() : null})
+    `;
+  }
+}

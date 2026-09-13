@@ -50,15 +50,7 @@ export default function OperationsDashboard({
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({
-        report_id: nextFilters.report_id,
-        month: nextFilters.month,
-        ...(nextFilters.community ? { community: nextFilters.community } : {}),
-        ...(nextFilters.owner ? { owner: nextFilters.owner } : {}),
-        ...(nextFilters.county ? { county: nextFilters.county } : {}),
-        ...(nextFilters.client_scope ? { client_scope: nextFilters.client_scope } : {}),
-        ...(nextFilters.care_topic ? { care_topic: nextFilters.care_topic } : {}),
-      });
+      const params = reportSearchParams(nextFilters);
       const payload = await fetchPipelineJson<OperationsReportResponse>(`/api/operations/reports?${params}`, {
         cache: "no-store",
         signal: requestSignal,
@@ -273,20 +265,53 @@ function ReportControls({ filters, response, selectedDefinition, loading, export
   onReload: () => void;
   onExport: () => void;
 }) {
+  const fieldProps = { filters, response, selectedDefinition, onSetFilters };
   return (
     <section data-guide-target="operations-summary" aria-label="Report controls" className="pipeline-commands flex flex-wrap items-end gap-3 py-3">
       <Control label="Report"><select data-guide-target="operations-report-select" aria-label="Report" value={filters.report_id} onChange={(event) => onSelectReport(event.target.value as OperationsReportId)} className={`${selectClass} sm:min-w-[230px]`}>{(response?.catalog ?? [{ id: "clients_by_community", label: "Clients by community" }]).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></Control>
+      <ReportClientControl {...fieldProps} />
+      <ReportPeriodControls {...fieldProps} />
+      <ReportLocationControls {...fieldProps} />
+      <ReportCareControl {...fieldProps} />
+      <ReportRunControls response={response} loading={loading} exporting={exporting} filtersChanged={filtersChanged} error={error} onReload={onReload} onExport={onExport} />
+    </section>
+  );
+}
+
+type ReportFilterControlProps = Pick<Parameters<typeof ReportControls>[0], "filters" | "response" | "selectedDefinition" | "onSetFilters">;
+
+function ReportClientControl({ filters, selectedDefinition, onSetFilters }: ReportFilterControlProps) {
+  return (<>
       {selectedDefinition?.filters.includes("client_scope") ? <Control label="Clients"><select aria-label="Report clients" value={filters.client_scope ?? "all"} onChange={(event) => onSetFilters((current) => ({ ...current, client_scope: event.target.value as OperationsReportFilters["client_scope"] }))} className={selectClass}>{["clients_by_community", "client_care_needs"].includes(filters.report_id) ? <option value="current">Current residents</option> : null}<option value="all">All clients and potential clients</option><option value="admitted">Documented admissions</option></select></Control> : null}
+  </>);
+}
+
+function ReportPeriodControls({ filters, selectedDefinition, onSetFilters }: ReportFilterControlProps) {
+  return (<>
       {selectedDefinition?.filters.includes("month") && isClientDataReport(filters.report_id) ? <Control label="Period"><select aria-label="Report period" value={filters.month ? "month" : "all"} onChange={(event) => onSetFilters((current) => ({ ...current, month: event.target.value === "all" ? "" : currentMonth() }))} className={selectClass}><option value="all">All dates</option><option value="month">By month</option></select></Control> : null}
       {selectedDefinition?.filters.includes("month") && (!isClientDataReport(filters.report_id) || filters.month) ? <Control label={filters.report_id === "clients_by_community" ? "Admission month" : "Month"}><input data-guide-target="operations-report-month" aria-label="Report month" type="month" value={filters.month} onChange={(event) => onSetFilters((current) => ({ ...current, month: event.target.value }))} className={selectClass} /></Control> : null}
+  </>);
+}
+
+function ReportLocationControls({ filters, response, selectedDefinition, onSetFilters }: ReportFilterControlProps) {
+  return (<>
       {selectedDefinition?.filters.includes("community") ? <Control label="Community"><select aria-label="Report community" value={filters.community} onChange={(event) => onSetFilters((current) => ({ ...current, community: event.target.value }))} className={`${selectClass} min-w-[190px]`}><option value="">All communities</option>{(response?.facets.communities ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}</select></Control> : null}
       {selectedDefinition?.filters.includes("owner") ? <Control label="Owner"><select aria-label="Report owner" value={filters.owner} onChange={(event) => onSetFilters((current) => ({ ...current, owner: event.target.value }))} className={`${selectClass} min-w-[180px]`}><option value="">All owners</option>{(response?.facets.owners ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}</select></Control> : null}
       {selectedDefinition?.filters.includes("county") ? <Control label="County"><select aria-label="Report county" value={filters.county ?? ""} onChange={(event) => onSetFilters((current) => ({ ...current, county: event.target.value }))} className={selectClass}><option value="">All counties</option>{(response?.facets.counties ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}</select></Control> : null}
+  </>);
+}
+
+function ReportCareControl({ filters, selectedDefinition, onSetFilters }: ReportFilterControlProps) {
+  return (<>
       {selectedDefinition?.filters.includes("care_topic") ? <Control label="Care topic"><select aria-label="Report care topic" value={filters.care_topic ?? "primary_diagnosis"} onChange={(event) => onSetFilters((current) => ({ ...current, care_topic: event.target.value as OperationsReportFilters["care_topic"] }))} className={selectClass}>{careReportTopics.map((topic) => <option key={topic.value} value={topic.value}>{topic.label}</option>)}</select></Control> : null}
+  </>);
+}
+
+function ReportRunControls({ response, loading, exporting, filtersChanged, error, onReload, onExport }: Pick<Parameters<typeof ReportControls>[0], "response" | "loading" | "exporting" | "filtersChanged" | "error" | "onReload" | "onExport">) {
+  return (<>
       <button type="button" onClick={onReload} disabled={loading || !filtersChanged} className="h-9 border border-[#171917] bg-[#171917] px-4 text-[11px] font-semibold text-white hover:bg-[#343734] disabled:cursor-not-allowed disabled:opacity-40">{loading ? "Loading" : "Apply"}</button>
       <button type="button" data-guide-target="operations-report-export" onClick={onExport} disabled={!response || filtersChanged || exporting || loading || Boolean(error)} className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[12px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45"><Download size={14} /> {exporting ? "Exporting" : "Export CSV"}</button>
-    </section>
-  );
+  </>);
 }
 
 function ReportResults({ response, selectedDefinition, loading, error, onOpenPacket, onOpenProfile }: {
@@ -304,20 +329,32 @@ function ReportResults({ response, selectedDefinition, loading, error, onOpenPac
   const rows = showSummary ? summary!.rows : (response?.report.rows ?? []).filter((row) => group === null || String(row.values.group).toLocaleLowerCase() === group.toLocaleLowerCase());
   return (
     <article aria-label={`${selectedDefinition?.label ?? "Selected"} report`} className="min-w-0">
-      {response ? <MetricGrid metrics={response.report.metrics} /> : null}
-      {response?.report.notes?.length ? <div className="mt-3 space-y-1 text-[12px] leading-5 text-[#68706b]">{response.report.notes.map((note) => <p key={note}>{note}</p>)}</div> : null}
+      <ReportTotals response={response} />
       <section data-guide-target="operations-report-results" className="mt-5" aria-label="Report results">
         {summary ? <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div role="group" aria-label="Report detail" className="pipeline-segmented inline-flex rounded-md bg-[#eef1ef] p-1"><ViewToggle selected={showSummary} onClick={() => { setGroup(null); setResultView("summary"); }}>Summary</ViewToggle><ViewToggle selected={!showSummary} onClick={() => { setGroup(null); setResultView("clients"); }}>Clients</ViewToggle></div>
           {group !== null ? <button type="button" onClick={() => { setGroup(null); setResultView("summary"); }} className="flex items-center gap-2 text-[13px] font-semibold text-[#176f60]"><ArrowLeft size={16} />{group}</button> : null}
         </div> : null}
         <ReportResultStatus response={response} loading={loading} error={error} />
-        {loading && !response ? <ReportSkeleton /> : null}
-        {response && response.report.rows.length === 0 && !loading ? <div className="border-b border-[#d9d9d9] py-12 text-center text-[12px] text-[#727a75]">No recorded data matches this scope.</div> : null}
-        {response && rows.length > 0 ? <ReportTable key={`${resultView}:${group}`} columns={showSummary ? summary!.columns : response.report.columns} rows={rows} onOpenPacket={onOpenPacket} onOpenProfile={onOpenProfile} onOpenGroup={showSummary ? (next) => { setGroup(next); setResultView("clients"); } : undefined} refreshing={loading} /> : null}
+        <ReportResultRows key={`${resultView}:${group}`} response={response} rows={rows} summary={showSummary ? summary : undefined} loading={loading} onOpenPacket={onOpenPacket} onOpenProfile={onOpenProfile} onOpenGroup={(next) => { setGroup(next); setResultView("clients"); }} />
       </section>
     </article>
   );
+}
+
+function ReportTotals({ response }: { response: OperationsReportResponse | null }) {
+  return (<>
+    {response ? <MetricGrid metrics={response.report.metrics} /> : null}
+    {response?.report.notes?.length ? <div className="mt-3 space-y-1 text-[12px] leading-5 text-[#68706b]">{response.report.notes.map((note) => <p key={note}>{note}</p>)}</div> : null}
+  </>);
+}
+
+function ReportResultRows({ response, rows, summary, loading, onOpenPacket, onOpenProfile, onOpenGroup }: Pick<Parameters<typeof ReportResults>[0], "response" | "loading" | "onOpenPacket" | "onOpenProfile"> & { rows: OperationsReportRow[]; summary: OperationsReportResponse["report"]["summary"]; onOpenGroup: (group: string) => void }) {
+  return (<>
+    {loading && !response ? <ReportSkeleton /> : null}
+    {response && response.report.rows.length === 0 && !loading ? <div className="border-b border-[#d9d9d9] py-12 text-center text-[12px] text-[#727a75]">No recorded data matches this scope.</div> : null}
+    {response && rows.length > 0 ? <ReportTable columns={summary?.columns ?? response.report.columns} rows={rows} onOpenPacket={onOpenPacket} onOpenProfile={onOpenProfile} onOpenGroup={summary ? onOpenGroup : undefined} refreshing={loading} /> : null}
+  </>);
 }
 
 function ReportResultStatus({ response, loading, error }: {
@@ -455,7 +492,20 @@ function defaultFilters(): OperationsReportFilters {
 }
 
 function sameFilters(left: OperationsReportFilters, right: OperationsReportFilters) {
-  return left.report_id === right.report_id && left.month === right.month && left.community === right.community && left.owner === right.owner && (left.county ?? "") === (right.county ?? "") && (left.client_scope ?? "all") === (right.client_scope ?? "all") && (left.care_topic ?? "primary_diagnosis") === (right.care_topic ?? "primary_diagnosis");
+  const values = reportFilterValues(right);
+  return reportFilterValues(left).every((value, index) => value === values[index]);
+}
+
+function reportFilterValues(filters: OperationsReportFilters) {
+  return [filters.report_id, filters.month, filters.community, filters.owner, filters.county ?? "", filters.client_scope ?? "all", filters.care_topic ?? "primary_diagnosis"];
+}
+
+function reportSearchParams(filters: OperationsReportFilters) {
+  const params = new URLSearchParams({ report_id: filters.report_id, month: filters.month });
+  for (const key of ["community", "owner", "county", "client_scope", "care_topic"] as const) {
+    if (filters[key]) params.set(key, filters[key]);
+  }
+  return params;
 }
 
 function currentMonth() {
@@ -480,7 +530,7 @@ function formatCell(value: string | number | null | undefined, column: Operation
     return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)}h ${minutes % 60 ? `${minutes % 60}m` : ""}`.trim();
   }
   if (column.key === "age_days" || column.key === "oldest_days") return `${value}d`;
-  return typeof value === "number" ? value.toLocaleString() : String(value);
+  return value.toLocaleString();
 }
 
 function reportClientName(name: string, community?: string | null) {

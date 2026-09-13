@@ -80,21 +80,11 @@ export function buildClientDataReport(
   const knownClients = new Set(rows.map((row) => row.values.client_key)).size;
   const omitted = dated.length - knownClients;
   const dateMissing = scope.filter((client) => !clientHasReportDate(client, filters)).length;
-  const reportNotes = [...notes];
-  if (residents.length && filters.client_scope !== "current") reportNotes.push("Resident and referral records are combined only after identity confirmation. Unlinked records remain separate; matching names do not merge people.");
-  if (filters.month && dateMissing) reportNotes.push(`${dateMissing.toLocaleString()} clients have no documented ${definition.id === "clients_by_community" ? "admission" : "referral received"} date and are excluded from this month.`);
-  if (omitted && definition.id !== "chart_completeness") reportNotes.push(`${knownClients.toLocaleString()} of ${dated.length.toLocaleString()} clients have ${definition.id === "clients_by_community" ? "a known community" : definition.id === "referral_sources" ? "a documented referral source" : "a reviewed answer for this topic"}. Others are excluded from the breakdown, not counted as 'No'.`);
-  if (definition.id === "client_care_needs") reportNotes.push("Uses signed assessment answers, reviewed document fields, and recorded resident diagnoses/care levels. Narrative values are not automatically classified; this is not a clinical decision tool.");
-  if (definition.id === "referral_sources") reportNotes.push("A client may have referrals from more than one source; source shares can total more than 100%.");
-  if (definition.id === "chart_completeness") reportNotes.push("Chart fields use the same core fields as the client chart. Document gaps reflect only applicable configured requirements; unconfigured requirements do not mean a complete packet.");
+  const reportNotes = clientReportNotes(definition.id, filters, { residents: residents.length, dateMissing, omitted, knownClients, total: dated.length }, notes);
   return {
     definition,
     columns: clientColumns(definition.id, filters),
-    metrics: [
-      { label: "Clients", value: dated.length.toLocaleString(), detail: "Distinct recorded client identities; repeat referral episodes are not additional clients." },
-      { label: definition.id === "chart_completeness" ? "With documents" : "Included", value: (definition.id === "chart_completeness" ? rows.filter((row) => Number(row.values.documents) > 0).length : knownClients).toLocaleString(), detail: "Clients represented in this scope." },
-      { label: "Documented admissions", value: dated.filter((client) => client.admitted).length.toLocaleString(), detail: "Recorded admissions and current residents, not merely accepted referrals." },
-    ],
+    metrics: clientReportMetrics(definition.id, dated, rows, knownClients),
     rows,
     row_count: rows.length,
     truncated: false,
@@ -107,6 +97,34 @@ export function buildClientDataReport(
     counties: facets(clients.map((client) => client.county)),
     communities: facets(clients.map((client) => client.community)),
   };
+}
+
+function clientReportMetrics(id: OperationsReportDefinition["id"], dated: ClientRecord[], rows: OperationsReportRow[], knownClients: number): OperationsReportResult["metrics"] {
+  return [
+      { label: "Clients", value: dated.length.toLocaleString(), detail: "Distinct recorded client identities; repeat referral episodes are not additional clients." },
+      { label: id === "chart_completeness" ? "With documents" : "Included", value: (id === "chart_completeness" ? rows.filter((row) => Number(row.values.documents) > 0).length : knownClients).toLocaleString(), detail: "Clients represented in this scope." },
+      { label: "Documented admissions", value: dated.filter((client) => client.admitted).length.toLocaleString(), detail: "Recorded admissions and current residents, not merely accepted referrals." },
+  ];
+}
+
+function clientReportNotes(id: OperationsReportDefinition["id"], filters: OperationsReportFilters, counts: { residents: number; dateMissing: number; omitted: number; knownClients: number; total: number }, notes: string[]) {
+  const reportNotes = [...notes];
+  if (counts.residents && filters.client_scope !== "current") reportNotes.push("Resident and referral records are combined only after identity confirmation. Unlinked records remain separate; matching names do not merge people.");
+  if (filters.month && counts.dateMissing) reportNotes.push(`${counts.dateMissing.toLocaleString()} clients have no documented ${id === "clients_by_community" ? "admission" : "referral received"} date and are excluded from this month.`);
+  if (counts.omitted && id !== "chart_completeness") reportNotes.push(`${counts.knownClients.toLocaleString()} of ${counts.total.toLocaleString()} clients have ${coverageLabel(id)}. Others are excluded from the breakdown, not counted as 'No'.`);
+  const note = clientReportMethodNotes[id];
+  if (note) reportNotes.push(note);
+  return reportNotes;
+}
+
+const clientReportMethodNotes: Partial<Record<OperationsReportDefinition["id"], string>> = {
+  client_care_needs: "Uses signed assessment answers, reviewed document fields, and recorded resident diagnoses/care levels. Narrative values are not automatically classified; this is not a clinical decision tool.",
+  referral_sources: "A client may have referrals from more than one source; source shares can total more than 100%.",
+  chart_completeness: "Chart fields use the same core fields as the client chart. Document gaps reflect only applicable configured requirements; unconfigured requirements do not mean a complete packet.",
+};
+
+function coverageLabel(id: OperationsReportDefinition["id"]) {
+  return id === "clients_by_community" ? "a known community" : id === "referral_sources" ? "a documented referral source" : "a reviewed answer for this topic";
 }
 
 function clientRecords(referrals: Referral[], evidence: Map<number, ClientReportEvidence>, residents: ClinicalResident[]) {
@@ -123,35 +141,55 @@ function clientRecords(referrals: Referral[], evidence: Map<number, ClientReport
     if (residentKey && referral.clientId) clientResidentKeys.set(referral.clientId, residentKey);
   }
   for (const referral of [...referrals].sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))) {
-    const item = evidence.get(referral.id) ?? { fields: {}, documentCount: 0, requirements: [] };
-    const residentKey = referral.clientId ? clientResidentKeys.get(referral.clientId) : item.residentKey;
-    const resident = residentKey ? residentByKey.get(residentKey) ?? null : null;
-    const key = resident ? `resident:${resident.canonical_client_id ?? resident.resident_key}` : `pipeline:${referral.clientId ?? referral.id}`;
-    let group = groups.get(key);
-    if (!group) {
-      group = { key, name: normalizeClientName(resident?.display_name ?? referral.name), community: cleanCommunity(resident?.community_name ?? referral.community), county: reportValue(referral.county), referrals: [], evidence: [], resident, admitted: Boolean(resident), admissionDate: reportDate(resident?.admit_date), fields: {} };
-      groups.set(key, group);
-    }
-    group.referrals.push(referral);
-    group.evidence.push(item);
-    group.county ||= reportValue(referral.county);
-    group.community ||= cleanCommunity(referral.community);
-    const admitted = referralAdmitted(referral);
-    group.admitted ||= admitted;
-    if (admitted && !group.admissionDate) group.admissionDate = reportDate(referral.admissionDate);
+    appendClientReferral(groups, referral, evidence, clientResidentKeys, residentByKey);
   }
   for (const resident of residents) {
-    const key = `resident:${resident.canonical_client_id ?? resident.resident_key}`;
-    if (!groups.has(key)) groups.set(key, { key, name: normalizeClientName(resident.display_name), community: cleanCommunity(resident.community_name), county: "", referrals: [], evidence: [], resident, admitted: true, admissionDate: reportDate(resident.admit_date), fields: {} });
+    const key = residentRecordKey(resident);
+    if (!groups.has(key)) groups.set(key, emptyClientRecord(key, undefined, resident));
   }
   for (const group of groups.values()) {
-    for (const item of group.evidence) {
-      for (const [key, value] of Object.entries(item.fields)) {
-        if (!(key in group.fields)) group.fields[key] = value;
-      }
-    }
+    mergeClientFields(group);
   }
   return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function emptyClientRecord(key: string, referral: Referral | undefined, resident: ClinicalResident | null): ClientRecord {
+  return { key, name: normalizeClientName(resident?.display_name ?? referral?.name ?? ""), community: cleanCommunity(resident?.community_name ?? referral?.community ?? ""), county: reportValue(referral?.county), referrals: [], evidence: [], resident, admitted: Boolean(resident), admissionDate: reportDate(resident?.admit_date), fields: {} };
+}
+
+function residentRecordKey(resident: ClinicalResident) {
+  return `resident:${resident.canonical_client_id ?? resident.resident_key}`;
+}
+
+function linkedResident(referral: Referral, item: ClientReportEvidence, clientResidentKeys: Map<string, string>, residentByKey: Map<string, ClinicalResident>) {
+  const key = referral.clientId ? clientResidentKeys.get(referral.clientId) : item.residentKey;
+  return key ? residentByKey.get(key) ?? null : null;
+}
+
+function appendClientReferral(groups: Map<string, ClientRecord>, referral: Referral, evidence: Map<number, ClientReportEvidence>, clientResidentKeys: Map<string, string>, residentByKey: Map<string, ClinicalResident>) {
+  const item = evidence.get(referral.id) ?? { fields: {}, documentCount: 0, requirements: [] };
+  const resident = linkedResident(referral, item, clientResidentKeys, residentByKey);
+  const key = resident ? residentRecordKey(resident) : `pipeline:${referral.clientId ?? referral.id}`;
+  let group = groups.get(key);
+  if (!group) {
+    group = emptyClientRecord(key, referral, resident);
+    groups.set(key, group);
+  }
+  group.referrals.push(referral);
+  group.evidence.push(item);
+  group.county ||= reportValue(referral.county);
+  group.community ||= cleanCommunity(referral.community);
+  const admitted = referralAdmitted(referral);
+  group.admitted ||= admitted;
+  if (admitted && !group.admissionDate) group.admissionDate = reportDate(referral.admissionDate);
+}
+
+function mergeClientFields(group: ClientRecord) {
+  for (const item of group.evidence) {
+    for (const [key, value] of Object.entries(item.fields)) {
+      if (!(key in group.fields)) group.fields[key] = value;
+    }
+  }
 }
 
 function referralAdmitted(referral: Referral) {
@@ -186,19 +224,33 @@ function clientHasReportDate(client: ClientRecord, filters: OperationsReportFilt
 }
 
 function clientRows(client: ClientRecord, id: OperationsReportDefinition["id"], filters: OperationsReportFilters): OperationsReportRow[] {
+  const base = clientBaseRow(client, id, filters);
+  if (id === "clients_by_community") return client.community ? [{ ...base, values: { ...base.values, group: client.community } }] : [];
+  if (id === "referral_sources") return clientSourceRows(client, base, filters);
+  if (id === "client_care_needs") return clientCareRows(client, base, filters);
+  return clientChartRows(client, base);
+}
+
+function clientBaseRow(client: ClientRecord, id: OperationsReportDefinition["id"], filters: OperationsReportFilters): OperationsReportRow {
   const referral = client.referrals[0];
   const admissionDate = filters.month && id === "clients_by_community"
     ? [client.admissionDate, ...client.referrals.filter(referralAdmitted).map((item) => reportDate(item.admissionDate))].find((date) => date.startsWith(filters.month)) ?? ""
     : client.admissionDate;
-  const base: OperationsReportRow = {
+  return {
     row_id: client.key,
     referral_id: referral?.id ?? null,
     client_name: client.name,
     community: client.community || null,
-    values: { client_key: client.key, client: client.name, profile_id: client.resident ? `resident:${client.resident.resident_key}` : client.key, community: client.community, county: client.county, status: client.admitted ? "Admitted" : client.referrals.some((item) => item.admissionDecision?.outcome === "accepted" || item.workflowStatus === "accepted") ? "Accepted" : "Potential client", admission_date: admissionDate, referrals: client.referrals.length },
+    values: { client_key: client.key, client: client.name, profile_id: client.resident ? `resident:${client.resident.resident_key}` : client.key, community: client.community, county: client.county, status: clientStatus(client), admission_date: admissionDate, referrals: client.referrals.length },
   };
-  if (id === "clients_by_community") return client.community ? [{ ...base, values: { ...base.values, group: client.community } }] : [];
-  if (id === "referral_sources") {
+}
+
+function clientStatus(client: ClientRecord) {
+  if (client.admitted) return "Admitted";
+  return client.referrals.some((item) => item.admissionDecision?.outcome === "accepted" || item.workflowStatus === "accepted") ? "Accepted" : "Potential client";
+}
+
+function clientSourceRows(client: ClientRecord, base: OperationsReportRow, filters: OperationsReportFilters) {
     const sources = new Map<string, { value: string; date: string }>();
     client.referrals.forEach((item, index) => {
       if (filters.month && !reportDate(item.date).startsWith(filters.month)) return;
@@ -208,8 +260,9 @@ function clientRows(client: ClientRecord, id: OperationsReportDefinition["id"], 
       if (value && !sources.has(value.toLocaleLowerCase())) sources.set(value.toLocaleLowerCase(), { value, date: reportDate(item.date) });
     });
     return [...sources.values()].map(({ value, date }) => ({ ...base, row_id: `${client.key}:${value}`, values: { ...base.values, group: value, referral_source: value, received_date: date } }));
-  }
-  if (id === "client_care_needs") {
+}
+
+function clientCareRows(client: ClientRecord, base: OperationsReportRow, filters: OperationsReportFilters) {
     const topic = filters.care_topic ?? "primary_diagnosis";
     const signed = client.evidence.map((item) => item.assessment).filter((item): item is PipelineAssessmentRecord => Boolean(item?.signed_at && item.status === "complete"))
       .sort((a, b) => String(b.signed_at).localeCompare(String(a.signed_at)))[0];
@@ -220,19 +273,30 @@ function clientRows(client: ClientRecord, id: OperationsReportDefinition["id"], 
       : extracted;
     const value = careAnswer(topic, raw);
     return value ? [{ ...base, values: { ...base.values, group: value, answer: value } }] : [];
-  }
-  const assessments = client.evidence.flatMap((item) => item.assessment ? [item.assessment] : []);
-  const chartFacts = [
+}
+
+function clientChartFacts(client: ClientRecord) {
+  return [
     { label: "Date of birth", value: reportDate(client.resident?.date_of_birth) || client.referrals.map((item) => reportDate(item.dob)).find(Boolean) || reportDate(fieldValue(client.fields, "date_of_birth")) },
     { label: "Primary diagnosis", value: fieldValue(client.fields, "primary_diagnosis", "referral.primary_diagnosis", "person.primary_diagnosis") },
     { label: "Active allergies", value: fieldValue(client.fields, "allergies", "person.allergies", "referral.allergies") },
     { label: "Active medications", value: fieldValue(client.fields, "medications_at_intake", "person.current_medications", "referral.current_medications") || client.referrals.filter((item) => !item.chartSource).map((item) => reportValue(item.currentMedications)).find(Boolean) || "" },
   ];
-  const chart = buildClientMedicalChart({ name: client.name, gender: null, community: client.community }, client.resident, [{ key: "report", label: "Chart", facts: chartFacts }], assessments.sort((a, b) => String(b.signed_at).localeCompare(String(a.signed_at))));
+}
+
+function clientChartRows(client: ClientRecord, base: OperationsReportRow) {
+  const assessments = client.evidence.flatMap((item) => item.assessment ? [item.assessment] : []);
+  const chart = buildClientMedicalChart({ name: client.name, gender: null, community: client.community }, client.resident, [{ key: "report", label: "Chart", facts: clientChartFacts(client) }], assessments.sort((a, b) => String(b.signed_at).localeCompare(String(a.signed_at))));
   const requiredFields = [...chart.identity, ...chart.priorities].filter((fact) => fact.required);
   const gaps = requiredFields.filter((fact) => !reportValue(fact.value)).map((fact) => fact.label);
-  const missingDocuments = new Set<string>();
+  const missingDocuments = clientDocumentGaps(client);
   const requirements = client.evidence.flatMap((item) => item.requirements);
+  const documents = client.evidence.length ? Math.max(...client.evidence.map((item) => item.documentCount)) : null;
+  return [{ ...base, values: { ...base.values, chart_fields: `${requiredFields.length - gaps.length} / ${requiredFields.length}`, chart_percent: `${Math.round((requiredFields.length - gaps.length) / requiredFields.length * 100)}%`, documents, assessment: assessments.length ? "Signed" : "", missing_fields: gaps.join("; "), missing_documents: [...missingDocuments].join("; "), packet_requirements: requirements.some((requirement) => isDocumentRequirementType(requirement.type)) ? "Configured" : "Not configured" } }];
+}
+
+function clientDocumentGaps(client: ClientRecord) {
+  const missingDocuments = new Set<string>();
   client.evidence.forEach((item, index) => {
     const ref = client.referrals[index];
     const outcome = ref.admissionDecision?.outcome ?? (ref.stage === "Accepted / Admitted" ? "accepted" : ref.stage === "Declined" ? "declined" : "pending");
@@ -240,8 +304,7 @@ function clientRows(client: ClientRecord, id: OperationsReportDefinition["id"], 
       && isRequirementGateActive(requirement, { outcome, assessmentComplete: Boolean(item.assessment) })
       && !isRequirementResolved(requirement)).forEach((requirement) => missingDocuments.add(requirement.label));
   });
-  const documents = client.evidence.length ? Math.max(...client.evidence.map((item) => item.documentCount)) : null;
-  return [{ ...base, values: { ...base.values, chart_fields: `${requiredFields.length - gaps.length} / ${requiredFields.length}`, chart_percent: `${Math.round((requiredFields.length - gaps.length) / requiredFields.length * 100)}%`, documents, assessment: assessments.length ? "Signed" : "", missing_fields: gaps.join("; "), missing_documents: [...missingDocuments].join("; "), packet_requirements: requirements.some((requirement) => isDocumentRequirementType(requirement.type)) ? "Configured" : "Not configured" } }];
+  return missingDocuments;
 }
 
 function fieldValue(fields: Record<string, unknown>, ...keys: string[]) {
