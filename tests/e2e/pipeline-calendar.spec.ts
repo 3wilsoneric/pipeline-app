@@ -104,12 +104,14 @@ test.describe("Pipeline calendar characterization", () => {
     }
   });
 
-  test("preserves queue paging, assessment creation, collision override, and no-show mutation", async ({ page }) => {
+  test("preserves queue paging, assessment creation, collision override, and no-show mutation", async ({ page }, testInfo) => {
     await page.clock.setFixedTime(new Date("2026-09-09T12:00:00.000Z"));
     const calendarRequests: CalendarRequest[] = [];
     const createAssessmentRequests: Record<string, unknown>[] = [];
     const scheduleRequests: Array<{ assessmentId: string; body: Record<string, unknown> }> = [];
     let scheduleAttempts = 0;
+    let finishFirstSchedule!: () => void;
+    const firstSchedule = new Promise<void>((resolve) => { finishFirstSchedule = resolve; });
 
     await page.route("**/api/calendar/events**", async (route) => {
       const request = calendarRequest(route);
@@ -133,6 +135,7 @@ test.describe("Pipeline calendar characterization", () => {
       const body = route.request().postDataJSON() as Record<string, unknown>;
       scheduleRequests.push({ assessmentId, body });
       if (assessmentId === "created-assessment" && scheduleAttempts++ === 0) {
+        await firstSchedule;
         await route.fulfill({
           status: 409,
           contentType: "application/json",
@@ -169,14 +172,31 @@ test.describe("Pipeline calendar characterization", () => {
     await queue.locator("li").filter({ hasText: "Ready Adams" }).getByRole("button", { name: "Schedule", exact: true }).click();
 
     const scheduleDialog = page.getByRole("dialog").filter({ hasText: "Ready Adams" });
+    await expect(scheduleDialog).toHaveAttribute("data-assessment-scheduling", "fullscreen");
+    expect(await scheduleDialog.boundingBox()).toEqual({ x: 0, y: 0, width: 1440, height: 900 });
     await scheduleDialog.getByLabel("Date and time").fill("2026-09-10T09:00");
     await scheduleDialog.getByLabel("Method").selectOption("zoom");
     await scheduleDialog.getByLabel("Zoom link").fill("https://zoom.us/j/calendar-characterization");
     await scheduleDialog.getByRole("button", { name: "Schedule", exact: true }).click();
+    await expect(scheduleDialog).toHaveAttribute("aria-busy", "true");
+    await expect(scheduleDialog.getByLabel("Date and time")).toBeDisabled();
+    await expect(scheduleDialog.getByRole("button", { name: "Close scheduling" })).toBeDisabled();
+    await page.keyboard.press("Tab");
+    await expect(scheduleDialog).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(scheduleDialog).toBeVisible();
+    finishFirstSchedule();
     await expect(scheduleDialog.getByRole("alert")).toContainText("overlapping appointment");
     await expect(scheduleDialog.getByRole("button", { name: "Schedule anyway" })).toBeVisible();
+    await page.setViewportSize({ width: 320, height: 568 });
+    await expect(scheduleDialog.getByRole("alert")).toBeInViewport();
+    await expect(scheduleDialog.getByRole("button", { name: "Schedule anyway" })).toBeInViewport();
+    await expect(scheduleDialog.getByRole("button", { name: "Schedule", exact: true })).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath("appointment-conflict-320.png") });
     await scheduleDialog.getByRole("button", { name: "Schedule anyway" }).click();
     await expect(scheduleDialog).toHaveCount(0);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole("button", { name: "week", exact: true }).click();
 
     expect(createAssessmentRequests).toHaveLength(1);
     expect(createAssessmentRequests[0]).toMatchObject({ data: {} });

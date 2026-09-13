@@ -1,8 +1,8 @@
 import { ChevronDown, Play, X } from "lucide-react";
+import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
 
-import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
-
-type AssessmentScheduleMethod = "in_person" | "phone" | "zoom" | "record_review";
+import type { AssessmentScheduleMethod, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 const scheduleDetailFields = {
   in_person: { label: "Assessment address", placeholder: "Street address, facility, and room", type: "text" },
@@ -75,36 +75,89 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, scheduleStart, sc
 }) {
   const detailField = scheduleDetailFields[scheduleMethod];
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-0 sm:p-5">
-          <section role="dialog" aria-modal="true" aria-label="Schedule assessment" className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)] sm:h-auto sm:max-w-[640px]">
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d9dfdb] px-5 py-4 sm:px-7 sm:py-5">
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Assigned to {assessment.assessor || "Unassigned"}</div>
-                <h3 className="mt-1 text-[22px] font-black">{assessment.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</h3>
-                <p className="mt-1 max-w-[520px] text-[11px] leading-5 text-[#737373]">Set the interview time once. It will appear on the assigned assessor calendar and remain attached to this referral.</p>
-              </div>
-              <button type="button" onClick={onClose} aria-label="Close schedule" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
-            </header>
+    <AssessmentScheduleLayout
+      label="Schedule assessment"
+      title={assessment.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}
+      context={<>{formatClientIdentityTitle({ name: assessment.resident_name || "Client", community: assessment.community })}<span className="text-[#626a66]">Assigned to {assessment.assessor || "Unassigned"}</span></>}
+      closeLabel="Close schedule"
+      isBusy={isBusy}
+      error={error}
+      onClose={onClose}
+      footer={<>
+        <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to workspace</button>
+        <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#111111] px-6 font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : assessment.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
+      </>}
+    >
+      <div data-guide-target="assessment-schedule-open" className="space-y-7">
+        {assessment.scheduled_start_at ? <p className="border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[14px] leading-6 text-[#315e50]">Currently scheduled for <strong>{new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })}</strong>.</p> : null}
+        <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_200px]">
+          <label className="min-w-0"><span className="mb-2 block text-[14px] font-bold text-[#303a34]">Date and time <span className="font-normal text-[#626a66]">(Pacific)</span></span><input data-guide-target="assessment-schedule-fields" data-schedule-autofocus aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => onScheduleStartChange(event.target.value)} /></label>
+          <label className="min-w-0"><span className="mb-2 block text-[14px] font-bold text-[#303a34]">Duration</span><span className="relative block"><select aria-label="Assessment duration" value={scheduleDuration} onChange={(event) => onScheduleDurationChange(event.target.value)} className="appearance-none pr-10"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option><option value="90">90 minutes</option><option value="120">2 hours</option></select><ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
+        </div>
+        <label className="block"><span className="mb-2 block text-[14px] font-bold text-[#303a34]">Method</span><span className="relative block"><select data-guide-target="assessment-schedule-method" aria-label="Assessment method" value={scheduleMethod} onChange={(event) => onScheduleMethodChange(event.target.value as AssessmentScheduleMethod)} className="appearance-none pr-10"><option value="in_person">In person</option><option value="zoom">Zoom</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
+        {detailField ? <label className="block"><span className="mb-2 block text-[14px] font-bold text-[#303a34]">{detailField.label}</span><input aria-label={detailField.label} type={detailField.type} placeholder={detailField.placeholder} value={scheduleLocation} maxLength={500} onChange={(event) => onScheduleLocationChange(event.target.value)} /></label> : null}
+      </div>
+    </AssessmentScheduleLayout>
+  );
+}
 
-            <div data-guide-target="assessment-schedule-open" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
-              {assessment.scheduled_start_at ? <div className="mb-5 border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[11px] text-[#315e50]">Currently scheduled for <strong>{new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })}</strong>.</div> : null}
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time (Pacific)</span><input data-guide-target="assessment-schedule-fields" aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => onScheduleStartChange(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Duration</span><span className="relative mt-1 block"><select aria-label="Assessment duration" value={scheduleDuration} onChange={(event) => onScheduleDurationChange(event.target.value)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">2 hours</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
-              </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><span className="relative mt-1 block"><select data-guide-target="assessment-schedule-method" aria-label="Assessment method" value={scheduleMethod} onChange={(event) => onScheduleMethodChange(event.target.value as AssessmentScheduleMethod)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="zoom">Zoom</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
-                {detailField ? <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">{detailField.label}</span><input aria-label={detailField.label} type={detailField.type} placeholder={detailField.placeholder} value={scheduleLocation} maxLength={500} onChange={(event) => onScheduleLocationChange(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label> : null}
-              </div>
-              {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
-            </div>
+export function AssessmentScheduleLayout({ label, title, context, closeLabel, isBusy, error, onClose, children, footer }: {
+  label: string;
+  title: string;
+  context: ReactNode;
+  closeLabel: string;
+  isBusy: boolean;
+  error: string;
+  onClose: () => void;
+  children: ReactNode;
+  footer: ReactNode;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeOnEscape = useEffectEvent((event: KeyboardEvent) => {
+    if (isBusy && event.key === "Tab") {
+      event.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!isBusy) onClose();
+  });
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    dialogRef.current?.querySelector<HTMLElement>("[data-schedule-autofocus]")?.focus();
+    window.addEventListener("keydown", closeOnEscape, true);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape, true);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
 
-            <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-5 py-4 sm:px-7">
-              <button type="button" onClick={onClose} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">Back to workspace</button>
-              <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="h-10 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : assessment.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
-            </footer>
-          </section>
-    </div>
+  return (
+    <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={label} aria-busy={isBusy} tabIndex={-1} data-assessment-scheduling="fullscreen" className="fixed inset-0 z-[100] flex h-[100dvh] min-w-0 flex-col overflow-hidden bg-white text-[#202822]" onKeyDown={(event) => {
+      if (event.key !== "Tab") return;
+      const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')].filter((control) => !control.closest("fieldset:disabled") && control.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (!first || (event.shiftKey && document.activeElement === first) || (!event.shiftKey && document.activeElement === last)) {
+        event.preventDefault();
+        ((event.shiftKey ? last : first) ?? event.currentTarget).focus();
+      }
+    }}>
+      <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d9dfdb] px-5 py-5 sm:px-10 sm:py-6">
+        <div className="min-w-0">
+          <h2 className="text-[22px] font-black leading-7 sm:text-[24px]">{title}</h2>
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[14px] font-semibold leading-6 [overflow-wrap:anywhere]">{context}</div>
+        </div>
+        <button type="button" onClick={onClose} disabled={isBusy} aria-label={closeLabel} title={closeLabel} className="flex h-11 w-11 shrink-0 items-center justify-center text-[#4d534f] hover:bg-[#f1f4f2] hover:text-[#0f7664] focus-visible:outline-2 focus-visible:outline-[#0f8b73] disabled:opacity-50"><X size={22} /></button>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <fieldset disabled={isBusy} className="mx-auto w-full min-w-0 max-w-[840px] px-5 py-7 sm:px-10 sm:py-12 [&_input]:h-14 [&_input]:w-full [&_input]:min-w-0 [&_input]:rounded-[2px] [&_input]:border [&_input]:border-[#bac8c0] [&_input]:bg-white [&_input]:px-4 [&_input]:text-[16px] [&_input]:outline-none [&_input:focus]:border-[#0f8b73] [&_input:focus]:ring-1 [&_input:focus]:ring-[#0f8b73] [&_select]:h-14 [&_select]:w-full [&_select]:min-w-0 [&_select]:rounded-[2px] [&_select]:border [&_select]:border-[#bac8c0] [&_select]:bg-white [&_select]:px-4 [&_select]:text-[16px] [&_select]:outline-none [&_select:focus]:border-[#0f8b73] [&_select:focus]:ring-1 [&_select:focus]:ring-[#0f8b73] disabled:opacity-60">{children}</fieldset>
+      </div>
+      {error ? <div role="alert" className="shrink-0 bg-[#fff3f1] px-5 py-3 text-[14px] font-semibold leading-6 text-[#9c3d32] sm:px-10">{error}</div> : null}
+      <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#d9dfdb] bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[14px] sm:px-10 sm:pt-5 sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] [&_button]:max-w-full [&_button]:flex-1 [&_button]:rounded-[2px] [&_button]:leading-5 sm:[&_button]:flex-none [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-[#0f8b73]">{footer}</footer>
+    </section>
   );
 }
 
