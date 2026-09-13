@@ -11,10 +11,11 @@ import {
   Minus,
   Plus,
   RotateCcw,
+  Search,
   UserPlus,
-  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import HomeDialog from "@/components/pipeline/HomeDialog";
 
 import {
   defaultPipelineHomeDashboardLayout,
@@ -37,6 +38,20 @@ type HomeModuleDefinition = {
 };
 
 const homeModuleDefinitions: HomeModuleDefinition[] = [
+  {
+    id: "search",
+    title: "Search",
+    detail: "Find a client, workspace, or document.",
+    icon: Search,
+    wide: true,
+  },
+  {
+    id: "recent-work",
+    title: "Recent work",
+    detail: "Pick up where you left off, including unfinished intake.",
+    icon: RotateCcw,
+    wide: true,
+  },
   {
     id: "current-work",
     title: "My work",
@@ -73,13 +88,16 @@ export default function HomeModuleDashboard({
   modules,
   initialEditing = false,
   onFinishEditing,
+  onSearchVisibilityChange,
 }: {
   viewerId: string;
   modules: Record<PipelineHomeModuleId, ReactNode>;
   initialEditing?: boolean;
   onFinishEditing?: () => void;
+  onSearchVisibilityChange: (visible: boolean) => void;
 }) {
   const [layout, setLayout] = useState(defaultPipelineHomeDashboardLayout);
+  const [layoutReady, setLayoutReady] = useState(false);
   const [editing, setEditing] = useState(initialEditing);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [draggedModuleId, setDraggedModuleId] = useState<PipelineHomeModuleId | null>(null);
@@ -90,12 +108,17 @@ export default function HomeModuleDashboard({
   useEffect(() => {
     let cancelled = false;
     void loadHomeDashboardLayout(viewerId).then((savedLayout) => {
-      if (!cancelled) setLayout({ ...savedLayout, locked: true });
+      if (cancelled) return;
+      setLayout({ ...savedLayout, locked: true });
+      setLayoutReady(true);
     });
     return () => {
       cancelled = true;
     };
   }, [viewerId]);
+
+  const searchVisible = layout.module_ids.includes("search");
+  useEffect(() => onSearchVisibilityChange(searchVisible), [searchVisible, onSearchVisibilityChange]);
 
   const updateLayout = useCallback((next: PipelineHomeDashboardLayout, message: string) => {
     const durableLayout = { ...next, locked: true } as PipelineHomeDashboardLayout;
@@ -110,7 +133,7 @@ export default function HomeModuleDashboard({
         if (saveRevision.current === revision) setSaveStatus("Layout saved");
       },
       () => {
-        if (saveRevision.current === revision) setSaveStatus("Saved on this device; server sync will retry next time");
+        if (saveRevision.current === revision) setSaveStatus("Home could not sync. Make another layout change to retry.");
       },
     );
   }, [viewerId]);
@@ -128,7 +151,6 @@ export default function HomeModuleDashboard({
 
   const finishEditing = () => {
     setEditing(false);
-    setSaveStatus("Home saved");
     setLibraryOpen(false);
     onFinishEditing?.();
   };
@@ -163,6 +185,7 @@ export default function HomeModuleDashboard({
           <span className="sr-only" aria-live="polite">{saveStatus}</span>
           <button
             type="button"
+            disabled={!layoutReady}
             onClick={() => setLibraryOpen(true)}
             className="flex h-10 items-center gap-2 px-3 text-[11px] font-black text-[#176f60] hover:bg-[#f0f7f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
           >
@@ -184,7 +207,7 @@ export default function HomeModuleDashboard({
         <div className="border border-dashed border-[#b8c9c3] bg-[#f7faf9] px-6 py-14 text-center">
           <LibraryBig size={24} className="mx-auto text-[#4b756a]" aria-hidden="true" />
           <h2 className="mt-3 text-[15px] font-black text-[#202723]">Build your Home</h2>
-          <p className="mx-auto mt-1 max-w-md text-[11px] leading-5 text-[#69716c]">Choose modules from the library. Every module connects to the same live Pipeline workflow.</p>
+          <p className="mx-auto mt-1 max-w-md text-[12px] leading-5 text-[#69716c]">Add the modules you want to see here.</p>
           <button type="button" onClick={() => { beginEditing(); setLibraryOpen(true); }} className="mt-4 h-9 bg-[#0f8b73] px-4 text-[10px] font-black uppercase tracking-[0.06em] text-white">
             Open module library
           </button>
@@ -199,9 +222,9 @@ export default function HomeModuleDashboard({
                 data-home-module={moduleId}
                 className={`min-w-0 ${definition.wide ? "xl:col-span-2" : ""} ${
                   draggedModuleId === moduleId ? "scale-[0.99] opacity-55" : ""
-                } ${editing ? "border border-dashed border-[#8eb2a7] bg-[#fbfdfc] p-2 transition-[opacity,transform]" : ""}`}
+                } ${editing ? "border border-dashed border-[#8eb2a7] bg-[#fbfdfc] p-2 motion-safe:transition-[opacity,transform]" : ""}`}
               >
-                {editing ? (
+                {editing && layoutReady ? (
                   <div className="mb-1 flex min-h-9 items-center gap-2 border-b border-[#e2e8e5] pb-1">
                     <button
                       type="button"
@@ -216,7 +239,7 @@ export default function HomeModuleDashboard({
                     <button
                       type="button"
                       aria-label={`Move ${definition.title}`}
-                      title="Drag to rearrange"
+                      title="Drag or use arrow keys to rearrange"
                       onPointerDown={(event) => beginPointerDrag(event, moduleId)}
                       onPointerMove={movePointerDrag}
                       onPointerUp={endPointerDrag}
@@ -247,8 +270,14 @@ export default function HomeModuleDashboard({
       {libraryOpen ? (
         <HomeModuleLibrary
           selected={layout.module_ids}
-          onAdd={(moduleId) => updateLayout({ ...layout, module_ids: [...layout.module_ids, moduleId] }, `${definitionsById[moduleId].title} added`)}
-          onReset={() => updateLayout(defaultPipelineHomeDashboardLayout(), "Default modules restored")}
+          onAdd={(moduleIds) => {
+            updateLayout({ ...layout, module_ids: [...new Set([...layout.module_ids, ...moduleIds])] }, "Modules added");
+            setLibraryOpen(false);
+          }}
+          onReset={() => {
+            updateLayout(defaultPipelineHomeDashboardLayout(), "Default modules restored");
+            setLibraryOpen(false);
+          }}
           onClose={() => setLibraryOpen(false)}
         />
       ) : null}
@@ -263,60 +292,49 @@ function HomeModuleLibrary({
   onClose,
 }: {
   selected: PipelineHomeModuleId[];
-  onAdd: (moduleId: PipelineHomeModuleId) => void;
+  onAdd: (moduleIds: PipelineHomeModuleId[]) => void;
   onReset: () => void;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  const [pending, setPending] = useState<PipelineHomeModuleId[]>([]);
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-[#102019]/30 p-0 sm:items-center sm:p-5" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <aside role="dialog" aria-modal="true" aria-label="Home module library" className="max-h-[92dvh] w-full max-w-[680px] overflow-y-auto border border-[#cbd6d2] bg-white shadow-2xl">
-        <div className="sticky top-0 z-10 flex min-h-16 items-center gap-3 border-b border-[#dfe5e2] bg-white px-4">
-          <span className="flex h-9 w-9 items-center justify-center bg-[#eaf6f2] text-[#0f7866]"><LibraryBig size={18} aria-hidden="true" /></span>
-          <span className="min-w-0 flex-1">
-            <h2 className="text-[17px] font-black text-[#18211d]">Add modules</h2>
-          </span>
-          <button type="button" aria-label="Close module library" onClick={onClose} className="flex h-9 w-9 items-center justify-center text-[#58625d] hover:bg-[#f0f4f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"><X size={17} /></button>
-        </div>
-        <div className="grid gap-3 p-4 sm:grid-cols-2">
+    <HomeDialog label="Home module library" title="Add modules" onClose={onClose}>
+        <div className="grid gap-3 p-5 sm:grid-cols-2">
           {pipelineHomeModuleIds.map((moduleId) => {
             const definition = definitionsById[moduleId];
             const Icon = definition.icon;
             const added = selected.includes(moduleId);
             return (
-              <article key={moduleId} className={`flex min-h-28 items-center gap-4 border p-4 ${added ? "border-[#dce4e1] bg-[#f7f9f8]" : "border-[#b8cec7] bg-white"}`}>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#edf7f4] text-[#0e7966]"><Icon size={18} aria-hidden="true" /></span>
+              <label key={moduleId} className={`flex min-h-32 items-start gap-3 border p-4 focus-within:ring-2 focus-within:ring-[#0f8b73] ${added ? "border-[#dce4e1] bg-[#f7f9f8]" : pending.includes(moduleId) ? "cursor-pointer border-[#0f8b73] bg-[#edf7f4]" : "cursor-pointer border-[#b8cec7] bg-white hover:bg-[#f7fbf9]"}`}>
+                <Icon size={20} className="mt-1 shrink-0 text-[#0e7966]" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  <h3 className="text-[13px] font-black text-[#202723]">{definition.title}</h3>
-                  <p className="mt-1 text-[10px] leading-4 text-[#68716c]">{definition.detail}</p>
+                  <span className="block text-[15px] font-bold">{definition.title}</span>
+                  <span className="mt-1 block text-[13px] leading-5 text-[#68716c]">{definition.detail}</span>
+                  {added ? <span className="mt-2 block text-[11px] font-semibold text-[#47766a]">On Home</span> : null}
                 </span>
-                <button
-                  type="button"
+                <input
+                  type="checkbox"
+                  aria-label={definition.title}
                   disabled={added}
-                  onClick={() => onAdd(moduleId)}
-                  className="flex h-9 shrink-0 items-center gap-1.5 border border-[#97b9ae] px-3 text-[10px] font-black text-[#0c705f] hover:bg-[#edf7f4] disabled:border-[#d7ddda] disabled:bg-white disabled:text-[#8a918d]"
-                >
-                  {added ? "Added" : <><Plus size={12} aria-hidden="true" /> Add</>}
-                </button>
-              </article>
+                  checked={added || pending.includes(moduleId)}
+                  onChange={(event) => setPending((current) => event.target.checked ? [...current, moduleId] : current.filter((id) => id !== moduleId))}
+                  className="mt-1 h-5 w-5 shrink-0 accent-[#0f8b73]"
+                />
+              </label>
             );
           })}
         </div>
-        <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-[#dfe5e2] bg-white px-4 py-3">
-          <button type="button" onClick={onReset} className="flex h-9 items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.06em] text-[#5c6762] hover:bg-[#f3f6f5]"><RotateCcw size={13} aria-hidden="true" /> Restore defaults</button>
-          <button type="button" onClick={onClose} className="h-10 bg-[#17211d] px-5 text-[11px] font-black text-white">Done</button>
+        <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-[#dfe5e2] bg-white px-5 py-3">
+          <button type="button" onClick={onReset} className="min-h-11 px-1 text-[12px] font-semibold text-[#5c6762] hover:underline">Restore defaults</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={onClose} className="min-h-11 px-3 text-[13px] font-semibold text-[#5c6762]">Cancel</button>
+            <button type="button" disabled={pending.length === 0} onClick={() => onAdd(pending)} className="min-h-11 bg-[#0f8b73] px-4 text-[13px] font-bold text-white hover:bg-[#0b725f] disabled:cursor-not-allowed disabled:bg-[#e7edeb] disabled:text-[#647069]">
+              {pending.length ? `Add ${pending.length} ${pending.length === 1 ? "module" : "modules"}` : "Select modules"}
+            </button>
+          </div>
         </div>
-      </aside>
-    </div>
+    </HomeDialog>
   );
 }
 

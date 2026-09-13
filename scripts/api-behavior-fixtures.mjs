@@ -97,7 +97,7 @@ const results = [
     const defaults = homeDashboardLayout.defaultPipelineHomeDashboardLayout();
     assert(defaults.locked === true, "The default Home must be locked against accidental edits");
     assert(
-      defaults.module_ids.join(",") === "current-work,new-assignments,upcoming-assessments",
+      defaults.module_ids.join(",") === "search,recent-work,current-work,new-assignments,upcoming-assessments",
       "The default Home must preserve the existing operational workflow",
     );
 
@@ -107,9 +107,15 @@ const results = [
       locked: false,
     });
     assert(
-      customized?.module_ids.join(",") === "scheduling-queue,current-work" && customized.locked === false,
-      "A valid customized order must round-trip without changing module meaning",
+      customized?.schema === 2 && customized.module_ids.join(",") === "search,recent-work,scheduling-queue,current-work" && customized.locked === false,
+      "Legacy layouts must retain their fixed search/recent surfaces and custom order",
     );
+    const removed = homeDashboardLayout.parsePipelineHomeDashboardLayout({ schema: 2, module_ids: ["scheduling-queue"], locked: true });
+    assert(removed?.module_ids.join(",") === "scheduling-queue", "Removed search and recent modules must stay removed in v2");
+    const empty = homeDashboardLayout.parsePipelineHomeDashboardLayout({ schema: 2, module_ids: [], locked: true });
+    assert(empty?.module_ids.length === 0, "An intentionally empty Home must round-trip");
+    const reordered = { schema: 2, module_ids: ["current-work", "recent-work", "search"], locked: true };
+    assert(JSON.stringify(homeDashboardLayout.parsePipelineHomeDashboardLayout(reordered)) === JSON.stringify(reordered), "Search and recent modules must preserve their customized positions");
     assert(
       homeDashboardLayout.parsePipelineHomeDashboardLayout({ schema: 1, module_ids: ["current-work", "current-work"], locked: true }) === null,
       "Duplicate modules must be rejected",

@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { ArrowRight, CalendarClock, CalendarPlus } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import { WorkflowCardSkeleton } from "@/components/pipeline/ReferralWorkflowTracker";
 import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
+import HomeDialog from "@/components/pipeline/HomeDialog";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -55,6 +56,7 @@ export default function PipelineWelcome({
   const pendingRefresh = useRef<Promise<void> | null>(null);
   const acknowledgmentRevision = useRef(0);
   const { searchOpen, setSearchOpen } = usePipelineShell();
+  const [searchVisible, setSearchVisible] = useState(true);
 
   // Prepare one likely next workspace, not every referral/chart. Intent reads
   // still use the unchanged short TTL and protected shared cache. New briefing
@@ -139,22 +141,20 @@ export default function PipelineWelcome({
     } : current);
   }, []);
 
+  const searchProps = {
+    autoFocus: searchOpen,
+    canAccessReports,
+    onOpenPacket,
+    onOpenProfile,
+    onOpenDestination: onOpenSearchDestination,
+    onViewAllResults: onViewAllSearchResults,
+  };
+
   return (
     <>
       <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-2 sm:px-6 lg:px-8">
-          <section aria-label="Search Pipeline" className="w-full bg-white px-1">
-            <PipelineSearchPanel
-              resting
-              autoFocus={searchOpen}
-              canAccessReports={canAccessReports}
-              onSearchFocused={() => setSearchOpen(false)}
-              onOpenPacket={onOpenPacket}
-              onOpenProfile={onOpenProfile}
-              onOpenDestination={onOpenSearchDestination}
-              onViewAllResults={onViewAllSearchResults}
-            />
-          </section>
+          <HomeSearchAccess ready={Boolean(briefing)} visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
 
           {error ? (
             <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
@@ -171,16 +171,23 @@ export default function PipelineWelcome({
                   A few live counts could not be refreshed. Open records remain available.
                 </div>
               ) : null}
-              <ContinueWorkPanel
-                items={briefing.continuity.resume_items}
-                onOpenPacket={onOpenPacket}
-                onResumeDraft={onResumeDraft}
-              />
               <HomeModuleDashboard
+                key={briefing.viewer.id}
                 viewerId={briefing.viewer.id}
                 initialEditing={editHome}
                 onFinishEditing={onFinishEditingHome}
+                onSearchVisibilityChange={setSearchVisible}
                 modules={{
+                  "search": (
+                    <section aria-label="Search Pipeline" className="w-full bg-white px-1">
+                      <PipelineSearchPanel
+                        {...searchProps}
+                        resting
+                        onSearchFocused={() => setSearchOpen(false)}
+                      />
+                    </section>
+                  ),
+                  "recent-work": <ContinueWorkPanel items={briefing.continuity.resume_items} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onResumeDraft={onResumeDraft} />,
                   "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} onOpenPacket={onOpenPacket} />,
                   "new-assignments": (
                     <SinceLastVisitAssignments
@@ -202,6 +209,25 @@ export default function PipelineWelcome({
         <CurrentWorkOverlay briefing={briefing} onClose={onCloseCurrentWork} onOpenPacket={onOpenPacket} />
       ) : null}
     </>
+  );
+}
+
+function HomeSearchAccess({ ready, visible, searchProps, onClose }: {
+  ready: boolean;
+  visible: boolean;
+  searchProps: ComponentProps<typeof PipelineSearchPanel>;
+  onClose: () => void;
+}) {
+  if (!ready) return (
+    <section aria-label="Search Pipeline" className="w-full bg-white px-1">
+      <PipelineSearchPanel {...searchProps} resting onSearchFocused={onClose} />
+    </section>
+  );
+  if (visible || !searchProps.autoFocus) return null;
+  return (
+    <HomeDialog label="Search Pipeline" title="Search" onClose={onClose}>
+      <div className="p-4"><PipelineSearchPanel {...searchProps} /></div>
+    </HomeDialog>
   );
 }
 
