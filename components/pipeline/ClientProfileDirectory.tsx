@@ -10,6 +10,8 @@ import {
   CircleAlert,
   FileText,
   FolderOpen,
+  LayoutGrid,
+  List,
   MapPin,
   RefreshCw,
   Search,
@@ -45,8 +47,10 @@ type ClientDirectoryPayload = {
 
 type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
 type SortOption = "name" | "community" | "recent_admission" | "pipeline_activity";
+type DirectoryLayout = "cards" | "list";
 type CommunityOption = { id: string; name: string };
 
+const directoryLayoutStorageKey = "pipeline:client-directory-layout";
 const PAGE_SIZE = 200;
 const DISPLAY_INCREMENT = 100;
 const MAX_DIRECTORY_PAGES = 50;
@@ -82,8 +86,23 @@ export default function ClientProfileDirectory({
   const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
   const [sort, setSort] = useState<SortOption>("name");
+  const [layout, setLayout] = useState<DirectoryLayout>("cards");
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(directoryLayoutStorageKey);
+      if (saved === "cards" || saved === "list") setLayout(saved);
+    } catch { /* Storage may be blocked; the view toggle still works for this visit. */ }
+  }, []);
+
+  const selectLayout = (next: DirectoryLayout) => {
+    setLayout(next);
+    try {
+      window.localStorage.setItem(directoryLayoutStorageKey, next);
+    } catch { /* Layout persistence is optional and contains no client data. */ }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -236,6 +255,10 @@ export default function ClientProfileDirectory({
             <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
               <div aria-live="polite" className="relative text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}<FeedbackCue value={`${communityFilter}:${admissionFilter}:${sort}:${displayLimit}`} /></div>
               {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#69716c] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
+              <div role="group" aria-label="Client view" className="pipeline-segmented flex shrink-0 border border-[#cfd7d3] bg-white p-0.5">
+                <button type="button" aria-label="Show clients as cards" aria-pressed={layout === "cards"} onClick={() => selectLayout("cards")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "cards" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={14} aria-hidden="true" />Cards</button>
+                <button type="button" aria-label="Show clients as a list" aria-pressed={layout === "list"} onClick={() => selectLayout("list")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={14} aria-hidden="true" />List</button>
+              </div>
               <button
                 type="button"
                 aria-label="Refresh client directory"
@@ -305,13 +328,16 @@ export default function ClientProfileDirectory({
         <section aria-label="Client list" className="pt-6 sm:pt-8">
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
           {visibleClients.length > 0 ? (
-            <div role="list" className="grid gap-x-8 gap-y-8 lg:grid-cols-2 lg:gap-y-10">
+            <>
+            {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
+            <div role="list" className={layout === "cards" ? "grid gap-x-8 gap-y-8 lg:grid-cols-2 lg:gap-y-10" : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
               {visibleClients.map((client) => (
                 <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                  <ClientDirectoryCard client={client} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
+                  <ClientDirectoryCard client={client} layout={layout} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
                 </div>
               ))}
             </div>
+            </>
           ) : null}
 
           {!isLoading && !error && filteredClients.length === 0 ? (
@@ -458,7 +484,7 @@ function DirectoryError({ message, onRetry, hasPartialResults }: { message: stri
   );
 }
 
-function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOpen: () => void }) {
+function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClient; layout: DirectoryLayout; onOpen: () => void }) {
   const identityTitle = formatClientIdentityTitle({
     name: client.display_name,
     gender: client.gender,
@@ -476,8 +502,28 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       onFocus={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onPointerLeave={cancelPipelineWarmup}
       onBlur={cancelPipelineWarmup}
-      className={styles.folder}
+      className={layout === "list" ? styles.listRow : styles.folder}
     >
+      {layout === "list" ? <>
+        <span className="flex min-w-0 items-center gap-3">
+          <ClientChartThumbnail />
+          <span className="min-w-0 [overflow-wrap:anywhere]">
+            <span className="block text-[15px] font-bold leading-5 text-[#25382e]">{identityTitle}</span>
+            {gender ? <span className="mt-1 block text-[12px] text-[#59635d]">{gender}</span> : null}
+            <span className="mt-1 block text-[12px] font-semibold text-[#59685f] lg:hidden">{community || "—"}</span>
+            <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#59685f] lg:hidden">
+              <span>Unit {client.unit || "—"}</span>
+              <span>Admitted {client.admit_date ? formatDate(client.admit_date) : "—"}</span>
+              <span>Care: {client.care_level || "—"}</span>
+            </span>
+          </span>
+        </span>
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Community: </span>{community || "—"}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Unit: </span>{client.unit || "—"}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold tabular-nums text-[#25382e] lg:block"><span className="sr-only">Admitted: </span>{client.admit_date ? formatDate(client.admit_date) : "—"}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Care level: </span>{client.care_level || "—"}</span>
+        <ArrowRight size={16} aria-hidden="true" className="text-[#0c705f]" />
+      </> : <>
       <strong className={styles.tab}><span className={styles.tabLabel}>{identityTitle}</span></strong>
       <span className={styles.body}>
         <span className={styles.paper}>
@@ -501,7 +547,23 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
           </span> : null}
         </span>
       </span>
+      </>}
     </button>
+  );
+}
+
+function ClientChartThumbnail() {
+  return (
+    <span aria-hidden="true" data-testid="client-chart-thumbnail" className="flex h-12 w-[58px] shrink-0 items-center justify-center border border-[#cad4cf] bg-[#edf4f1] shadow-[0_2px_5px_rgba(29,52,43,0.08)]">
+      <svg viewBox="0 0 58 48" className="h-full w-full" focusable="false">
+        <rect x="7" y="4" width="44" height="40" fill="#ffffff" stroke="#c7d3ce" />
+        <path d="M7 4h44v9H7z" fill="#e5f1eb" />
+        <path d="M11 7v4" stroke="#0f8b73" strokeWidth="2" />
+        <path d="M16 9h21" stroke="#7ba391" strokeWidth="2" />
+        <path d="M7 13h44M7 23h44M7 33h44M29 23v21" stroke="#d5dfdb" />
+        <path d="M11 18h27M11 28h10m12 0h10M11 38h10m12 0h10" stroke="#a6b9af" strokeWidth="2" />
+      </svg>
+    </span>
   );
 }
 

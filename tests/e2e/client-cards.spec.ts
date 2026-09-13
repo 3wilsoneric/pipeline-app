@@ -91,8 +91,96 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await expect(card).toHaveCSS("outline-width", "2px");
     await expect(card.locator("button, a, input, select")).toHaveCount(0);
     await expect(page.getByRole("tab")).toHaveCount(0);
+    await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Show clients as a list", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(card.getByTestId("client-chart-thumbnail")).toBeVisible();
+    await expect(card.locator(":scope > strong")).toHaveCount(0);
+    for (const width of [1440, 834, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const rowBounds = await card.boundingBox();
+      expect(rowBounds!.height).toBeLessThan(width < 1024 ? 180 : 100);
+      for (const bounds of await cards.evaluateAll((nodes) => nodes.map((node) => ({ right: node.getBoundingClientRect().right, width: node.clientWidth, contentWidth: node.scrollWidth })))) {
+        expect(bounds.right).toBeLessThanOrEqual(width);
+        expect(bounds.contentWidth).toBeLessThanOrEqual(bounds.width);
+      }
+      const longName = cards.nth(1).getByText("Christopher Montgomery-Worthington", { exact: true });
+      expect(await longName.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+      if (reducedMotion === "no-preference") await page.screenshot({ path: testInfo.outputPath(`client-list-${width}.png`), fullPage: true });
+    }
+    await card.focus();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(new RegExp(`screen=profile&clientId=${profileKey ?? "client-sanitized-100"}`));
     await expect(page.getByRole("main", { name: "Client profile for Avery Example" })).toBeVisible();
+    await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Show clients as a list", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(card.getByTestId("client-chart-thumbnail")).toBeVisible();
   });
 }
+
+test("client view switches retain loaded results, filters, sorting and the display limit", async ({ page }) => {
+  let directoryRequests = 0;
+  const clients = Array.from({ length: 105 }, (_, index) => ({
+    ...clientDirectoryFixture.clients[0],
+    profile_key: `list-client-${index}`,
+    canonical_client_id: `list-client-${index}`,
+    display_name: index === 104 ? "Avery Example" : "Taylor Example",
+  }));
+  await page.route("**/api/profiles/directory**", (route) => {
+    directoryRequests += 1;
+    const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+    const matches = clients.filter((client) => client.display_name.includes(query));
+    return route.fulfill({ json: { ...clientDirectoryFixture, clients: matches, total: matches.length, next_cursor: null } });
+  });
+  await page.goto("/?screen=profiles");
+  const cards = page.getByRole("button", { name: /^Open profile for / });
+  const listToggle = page.getByRole("button", { name: "Show clients as a list", exact: true });
+  const cardsToggle = page.getByRole("button", { name: "Show clients as cards", exact: true });
+  await expect(cards).toHaveCount(100);
+  await page.getByRole("button", { name: "Show more", exact: true }).click();
+  await expect(cards).toHaveCount(105);
+  const requestsBeforeToggle = directoryRequests;
+  await listToggle.click();
+  await expect(cards).toHaveCount(105);
+  await cardsToggle.click();
+  await expect(cards).toHaveCount(105);
+  expect(directoryRequests).toBe(requestsBeforeToggle);
+  await page.getByLabel("Filter profiles by community").selectOption({ index: 1 });
+  await page.getByLabel("Sort clients", { exact: true }).selectOption("recent_admission");
+  const community = await page.getByLabel("Filter profiles by community").inputValue();
+  await listToggle.click();
+  await expect(page.getByLabel("Filter profiles by community")).toHaveValue(community);
+  await expect(page.getByLabel("Sort clients", { exact: true })).toHaveValue("recent_admission");
+  await page.getByRole("textbox", { name: "Search clients", exact: true }).fill("Avery Example");
+  await expect(cards).toHaveCount(1);
+  await expect(cards).toHaveAccessibleName("Open profile for Avery Example");
+  const requestsAfterSearch = directoryRequests;
+  await cardsToggle.click();
+  await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toHaveValue("Avery Example");
+  await expect(cards).toHaveCount(1);
+  expect(directoryRequests).toBe(requestsAfterSearch);
+  await listToggle.click();
+  await page.reload();
+  await expect(listToggle).toHaveAttribute("aria-pressed", "true");
+  await expect(cards.first().getByTestId("client-chart-thumbnail")).toBeVisible();
+});
+
+test("client view toggle works when preference storage is blocked", async ({ page }) => {
+  await page.addInitScript(() => {
+    const getItem = Storage.prototype.getItem;
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.getItem = function (key) {
+      if (key === "pipeline:client-directory-layout") throw new DOMException("Blocked", "SecurityError");
+      return getItem.call(this, key);
+    };
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "pipeline:client-directory-layout") throw new DOMException("Blocked", "SecurityError");
+      return setItem.call(this, key, value);
+    };
+  });
+  await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: clientDirectoryFixture }));
+  await page.goto("/?screen=profiles");
+  await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
+  await expect(page.getByTestId("client-chart-thumbnail").first()).toBeVisible();
+  await page.getByRole("button", { name: "Show clients as cards", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Open profile for / }).first().locator("strong")).toBeVisible();
+});

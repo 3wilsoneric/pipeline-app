@@ -86,6 +86,49 @@
   padding: 8px;
 }
 
+.listRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 12px 16px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.listRow:hover {
+  background: #f3f8f5;
+}
+
+.listRow:focus-visible {
+  outline: 2px solid #0f8b73;
+  outline-offset: -2px;
+}
+
+.listHeading {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .listRow, .listHeading {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 90px 125px 90px 16px;
+  }
+
+  .listHeading {
+    display: grid;
+    gap: 16px;
+    padding: 10px 16px;
+    border-block: 1px solid #dde3de;
+    background: #f4f8f6;
+    color: #59685f;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+}
+
 /* Complete both the two-column and six-column identity rows without
    reordering fields or changing embedded workspace chart layouts. */
 .recordFolder :global([data-chart-field="Gender"]) {
