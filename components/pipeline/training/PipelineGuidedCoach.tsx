@@ -358,7 +358,7 @@ function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceC
   const isFullWorkflow = sequenceCount > 1;
   const panelStyle = guidePanelLayout(targetRect, step.placement ?? "auto");
   return (
-    <section role="dialog" aria-label={`${isFullWorkflow ? "Full Pipeline walkthrough" : tutorial.title} guided tutorial`} data-testid="guided-coach-panel" style={panelStyle} className="fixed z-[100] flex flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)]">
+    <section role="dialog" aria-label={`${isFullWorkflow ? "Full Pipeline walkthrough" : tutorial.title} guided tutorial`} data-testid="guided-coach-panel" style={panelStyle} className="fixed z-[120] flex flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)]">
       <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-3 py-2">
         <div className="flex items-center justify-between gap-3"><div className="min-w-0 truncate text-[10px] font-black text-[#52605a]">{isFullWorkflow ? `Module ${sequenceIndex + 1}/${sequenceCount} · ` : ""}{step.phase} · {stepIndex + 1}/{tutorial.steps.length}</div><div className="flex items-center gap-0.5"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={14} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={15} /></button></div></div>
         <div className="mt-1.5 h-1 bg-[#d7dfdc]" aria-label={`Action ${stepIndex + 1} of ${tutorial.steps.length}`}><div className="h-full bg-[#0f8b73]" style={{ width: `${((stepIndex + 1) / tutorial.steps.length) * 100}%` }} /></div>
@@ -456,7 +456,7 @@ function GuideSpotlight({ rect }: { rect: DOMRect }) {
   const right = Math.min(window.innerWidth, rect.right + pad);
   const bottom = Math.min(window.innerHeight, rect.bottom + pad);
   return (
-    <div aria-hidden="true" data-testid="guide-spotlight" className="pointer-events-none fixed inset-0 z-[80]">
+    <div aria-hidden="true" data-testid="guide-spotlight" className="pointer-events-none fixed inset-0 z-[110]">
       <span className="absolute left-0 top-0 w-full bg-[#10201b]/30" style={{ height: top }} />
       <span className="absolute left-0 bg-[#10201b]/30" style={{ top, width: left, height: Math.max(0, bottom - top) }} />
       <span className="absolute right-0 bg-[#10201b]/30" style={{ top, width: Math.max(0, window.innerWidth - right), height: Math.max(0, bottom - top) }} />

@@ -232,10 +232,11 @@ test.describe("Pipeline Demo Environment", () => {
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
     const slideSelect = slideNavigation.getByRole("combobox", { name: "Jump to slide" });
     await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Taylor Rivera referral journey" })).toContainText("remain connected");
+    await expect(page.getByRole("img", { name: /Pipeline Home with Taylor Rivera/ })).toBeVisible();
     await slideSelect.selectOption("1");
-    await expect(page.getByRole("region", { name: "Where to find your work" })).toContainText("Current residents from the Alamo platform");
-    await expect(page.getByRole("region", { name: "Where to find your work" })).toContainText("Continue working");
+    await expect(page.getByRole("article", { name: "Presentation slide 2" })).toContainText("current residents from the Alamo platform");
+    await expect(page.getByRole("article", { name: "Presentation slide 2" })).toContainText("Continue working");
+    await expect(page.getByRole("img", { name: /Pipeline Workspaces with recent referrals/ })).toBeVisible();
 
     await slideSelect.selectOption("2");
     await expect(page.getByRole("article", { name: "Presentation slide 3" })).toContainText("Transferred Allo records open as charts");
@@ -246,15 +247,17 @@ test.describe("Pipeline Demo Environment", () => {
     await page.getByRole("button", { name: "Close full-size screen" }).click();
 
     await slideSelect.selectOption("4");
-    await expect(page.getByRole("img", { name: /Schedule dialog open and the scheduling tooltip walkthrough/ })).toBeVisible();
+    await expect(page.getByRole("img", { name: /full-screen Schedule assessment form/ })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Calendar" })).toBeVisible();
 
     await slideSelect.selectOption("6");
-    await expect(page.getByRole("region", { name: "Assessment Language Lab example" })).toContainText("Use this order");
+    await expect(page.getByRole("img", { name: /Language Lab expanded beneath the Prior placements answer/ })).toBeVisible();
 
     await page.keyboard.press("End");
-    await expect(page.getByRole("heading", { name: "Submit the recommendation, then the supervisor decides" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Assessment signature and decision sequence" })).toContainText("Admission decision");
+    await expect(page.getByRole("heading", { name: "Submit for supervisor review" })).toBeVisible();
+    await expect(page.getByRole("img", { name: /Pipeline Workflow showing the assessor recommendation/ })).toBeVisible();
+    await page.getByRole("tab", { name: "Supervisor decision", exact: true }).click();
+    await expect(page.getByRole("img", { name: /supervisor admission decision controls/ })).toBeVisible();
     await page.getByRole("button", { name: "Begin walkthrough" }).click();
 
     await expect(page).toHaveURL(/view=referrals.*screen=packet.*draftId=.*demoScenario=new-intake/);
@@ -308,14 +311,9 @@ test.describe("Pipeline Demo Environment", () => {
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
     await slideNavigation.getByRole("combobox", { name: "Jump to slide" }).selectOption("6");
-    const example = page.getByRole("region", { name: "Assessment Language Lab example" });
-    await expect(example.getByRole("textbox", { name: "Prior placements", exact: true })).toBeEditable();
-    await expect(example.getByText("Use this order", { exact: true })).toBeVisible();
-    const expectedGuide = await example.locator("details").innerText();
-    await example.getByRole("textbox", { name: "Prior placements", exact: true }).fill("Synthetic placement history only.");
+    await expect(page.getByRole("img", { name: /Language Lab expanded beneath the Prior placements answer/ })).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
-    expect(await example.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    await expect(example.getByText("Example format", { exact: true })).toBeVisible();
+    expect(await page.getByRole("article", { name: "Presentation slide 7" }).evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.getByRole("button", { name: "Try Language Lab in the assessment" }).click();
 
     await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=prior_history/);
@@ -333,7 +331,9 @@ test.describe("Pipeline Demo Environment", () => {
     await interview.getByRole("button", { name: "Exit guided interview" }).click();
     const chartLab = interview.locator("details").filter({ has: page.getByLabel("Language Lab for Prior placements", { exact: true }) });
     await chartLab.locator("summary").click();
-    await expect(chartLab).toHaveText(expectedGuide, { useInnerText: true });
+    await expect(chartLab.getByText("Use this order", { exact: true })).toBeVisible();
+    await expect(chartLab.getByText("Example format", { exact: true })).toBeVisible();
+    const expectedGuide = await chartLab.innerText();
 
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=guided&assessmentSection=prior_history&demo=1");
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
