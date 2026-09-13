@@ -2957,6 +2957,18 @@ function OwnerChangeDialog({
   );
 }
 
+type EditablePacketFieldProps = {
+  fieldKey: FieldKey;
+  field: PacketField;
+  options?: readonly string[];
+  className?: string;
+  detail?: string;
+  directory?: "organization" | "person";
+  referralId?: number;
+  onChange: (value: string) => void;
+  onFocus: (key: FieldKey) => void;
+};
+
 function EditablePacketField({
   fieldKey,
   field,
@@ -2967,48 +2979,14 @@ function EditablePacketField({
   referralId,
   onChange,
   onFocus,
-}: {
-  fieldKey: FieldKey;
-  field: PacketField;
-  options?: readonly string[];
-  className?: string;
-  detail?: string;
-  directory?: "organization" | "person";
-  referralId?: number;
-  onChange: (value: string) => void;
-  onFocus: (key: FieldKey) => void;
-}) {
+}: EditablePacketFieldProps) {
   const label = ({ dob: "Date of birth", ssn: "SSN (optional)", community: "Requested community", county: "Client county", referent: "Referral facility / source", responsiblePerson: "Responsible person (optional)" } as Partial<Record<FieldKey, string>>)[fieldKey] ?? field.label;
   return (
     <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
         <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{label}</label>
       </div>
-      {directory ? (
-        <ContactDirectorySuggestion label={label} value={field.value} placeholder={field.placeholder} kind={directory} maxLength={directory === "organization" ? stringLimits.source : stringLimits.responsiblePerson} referralId={referralId} onChange={onChange} />
-      ) : options ? (
-        <select
-          aria-label={label}
-          value={field.value}
-          onChange={(event) => onChange(event.target.value)}
-          className="mt-1.5 h-8 w-full border-0 bg-transparent p-0 text-[14px] font-bold text-[#18211d] outline-none"
-        >
-          <option value="">{field.placeholder || `Select ${field.label.replace(/:$/, "").toLowerCase()}`}</option>
-          {field.value && !options.includes(field.value) ? <option value={field.value}>{field.value}</option> : null}
-          {options.map((option) => <option key={option} value={option}>{option}</option>)}
-        </select>
-      ) : (
-        <input
-          type={(fieldKey === "dob" || fieldKey === "referralReceived") && (!field.value || normalizeCalendarDate(field.value)) ? "date" : fieldKey === "phone" ? "tel" : fieldKey === "email" ? "email" : "text"}
-          aria-label={label}
-          value={fieldKey === "dob" || fieldKey === "referralReceived" ? normalizeCalendarDate(field.value) ?? field.value : field.value}
-          max={fieldKey === "dob" || fieldKey === "referralReceived" ? calendarToday() : undefined}
-          autoComplete="off"
-          placeholder={field.placeholder}
-          onChange={(event) => onChange(event.target.value)}
-          className={`mt-1.5 h-9 w-full min-w-0 border-0 bg-transparent p-0 font-bold text-[#18211d] outline-none placeholder:text-[#a0a0a0] ${fieldKey === "name" ? "text-[22px] sm:text-[24px]" : "text-[16px] sm:text-[14px]"}`}
-        />
-      )}
+      <PacketFieldControl fieldKey={fieldKey} field={field} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
       {detail ? <div className="mt-1 text-[12px] font-bold text-[#176f60]" aria-live="polite">{detail}</div> : null}
       {field.sourceFile ? (
         <div className="mt-2 flex items-center gap-1 text-[10px] font-black text-[#317f8f]">
@@ -3018,6 +2996,37 @@ function EditablePacketField({
       ) : null}
     </div>
   );
+}
+
+function PacketFieldControl({ fieldKey, field, options, directory, referralId, label, onChange }: Pick<EditablePacketFieldProps, "fieldKey" | "field" | "options" | "directory" | "referralId" | "onChange"> & { label: string }) {
+  if (directory) {
+    const limits = { organization: stringLimits.source, person: stringLimits.responsiblePerson };
+    return <ContactDirectorySuggestion label={label} value={field.value} placeholder={field.placeholder} kind={directory} maxLength={limits[directory]} referralId={referralId} onChange={onChange} />;
+  }
+  if (options) return (
+    <select aria-label={label} value={field.value} onChange={(event) => onChange(event.target.value)} className="mt-1.5 h-8 w-full border-0 bg-transparent p-0 text-[14px] font-bold text-[#18211d] outline-none">
+      <option value="">{field.placeholder || `Select ${field.label.replace(/:$/, "").toLowerCase()}`}</option>
+      {field.value && !options.includes(field.value) ? <option value={field.value}>{field.value}</option> : null}
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  );
+  return <input
+    {...nativePacketInputProps(fieldKey, field.value)}
+    aria-label={label}
+    autoComplete="off"
+    placeholder={field.placeholder}
+    onChange={(event) => onChange(event.target.value)}
+    className={`mt-1.5 h-9 w-full min-w-0 border-0 bg-transparent p-0 font-bold text-[#18211d] outline-none placeholder:text-[#a0a0a0] ${fieldKey === "name" ? "text-[22px] sm:text-[24px]" : "text-[16px] sm:text-[14px]"}`}
+  />;
+}
+
+function nativePacketInputProps(key: FieldKey, value: string) {
+  if (key === "dob" || key === "referralReceived") {
+    const normalized = normalizeCalendarDate(value);
+    return { type: !value || normalized ? "date" : "text", value: normalized ?? value, max: calendarToday() };
+  }
+  const types: Partial<Record<FieldKey, string>> = { phone: "tel", email: "email" };
+  return { type: types[key] ?? "text", value };
 }
 
 function MedicationProfileField({

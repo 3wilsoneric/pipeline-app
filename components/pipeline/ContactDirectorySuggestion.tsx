@@ -117,11 +117,15 @@ export default function ContactDirectorySuggestion({ label, value, placeholder, 
           ))}
         </ul>
       ) : null}
-      <span role="status" className={focused && (status.startsWith("No directory") || status.startsWith("Directory unavailable")) ? "mt-1 block text-[11px] text-[#666b68]" : "sr-only"}>{focused ? status : ""}</span>
+      <span role="status" className={directoryStatusClass(focused, status)}>{focused ? status : ""}</span>
     </div>
   );
 }
 
 function directoryValue(contact: ContactRecord, kind: "organization" | "person") {
   return kind === "organization" ? contact.organization || contactDisplayName(contact) : contactDisplayName(contact);
+}
+
+function directoryStatusClass(focused: boolean, status: string) {
+  return focused && (status.startsWith("No directory") || status.startsWith("Directory unavailable")) ? "mt-1 block text-[11px] text-[#666b68]" : "sr-only";
 }

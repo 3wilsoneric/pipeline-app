@@ -74,21 +74,14 @@ export default function ContactDirectoryImport({ roles, className = "", onImport
         }, { timeoutMs: 60_000 });
         setPreview(payload.preview);
       } else {
-        const payload = await fetchPipelineJson<ContactImportResult>("/api/contacts/import?mode=commit", {
-          method: "POST", headers: { "Content-Type": "text/csv", "x-client-mutation-id": mutationId.current },
-          body: file, signal: controller.signal,
-        }, { timeoutMs: 60_000 });
-        if (!payload.ok) throw new PipelineApiError(payload.error, payload.status, undefined, payload);
-        imported = payload.summary;
-        setSummary(payload.summary);
+        imported = await commitDirectoryImport(file, mutationId.current, controller.signal);
+        setSummary(imported);
       }
     } catch (failure) {
       if (!controller.signal.aborted) {
-        const updated = failure instanceof PipelineApiError
-          ? (failure.payload as { preview?: ContactImportPreview } | undefined)?.preview
-          : undefined;
-        if (updated) setPreview(updated);
-        setError(failure instanceof PipelineApiError ? failure.message : "The contact import could not be completed.");
+        const problem = directoryImportFailure(failure);
+        if (problem.preview) setPreview(problem.preview);
+        setError(problem.message);
       }
     } finally {
       pending.current = null;
@@ -105,13 +98,32 @@ export default function ContactDirectoryImport({ roles, className = "", onImport
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  return <ContactDirectoryImportView id={id} className={className} file={file} preview={preview} summary={summary} operation={operation} error={error} onChooseFile={chooseFile} onPreview={() => void run("preview")} onCommit={() => void run("commit")} onDownload={downloadTemplate} />;
+}
+
+type ImportOperation = "preview" | "commit" | null;
+type ContactDirectoryImportViewProps = {
+  id: string;
+  className: string;
+  file: File | null;
+  preview: ContactImportPreview | null;
+  summary: ContactImportSummary | null;
+  operation: ImportOperation;
+  error: string | null;
+  onChooseFile: (file: File | null) => void;
+  onPreview: () => void;
+  onCommit: () => void;
+  onDownload: () => void;
+};
+
+function ContactDirectoryImportView({ id, className, file, preview, summary, operation, error, onChooseFile, onPreview, onCommit, onDownload }: ContactDirectoryImportViewProps) {
   const buttonClass = "inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded border border-[#d8ddda] bg-white px-3 text-[12px] font-semibold text-[#202622] hover:bg-[#f4f6f5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16734a] disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <section aria-labelledby={`${id}-heading`} className={`min-w-0 border-t border-[#e2e6e3] bg-white py-5 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id={`${id}-heading`} className="text-[15px] font-bold text-[#151a17]">Contact and facility directory</h2>
-        <button type="button" onClick={downloadTemplate} className={buttonClass} title="Download CSV template">
+        <button type="button" onClick={onDownload} className={buttonClass} title="Download CSV template">
           <Download size={15} aria-hidden="true" /> CSV template
         </button>
       </div>
@@ -120,17 +132,31 @@ export default function ContactDirectoryImport({ roles, className = "", onImport
           <label htmlFor={`${id}-file`} className="mb-1.5 block text-[12px] font-semibold text-[#424a45]">Contacts or referral facilities CSV</label>
           <input id={`${id}-file`} type="file" accept=".csv,text/csv" disabled={!!operation}
             aria-describedby={`${id}-limits${error ? ` ${id}-error` : ""}`} aria-invalid={!!error}
-            onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
+            onChange={(event) => onChooseFile(event.target.files?.[0] ?? null)}
             className="block w-full min-w-0 rounded border border-[#d8ddda] bg-white p-2 text-[12px] text-[#424a45] file:mr-3 file:cursor-pointer file:rounded file:border-0 file:bg-[#eef2f0] file:px-3 file:py-1 file:text-[12px] file:font-semibold focus-visible:outline-2 focus-visible:outline-[#16734a] disabled:opacity-50" />
         </div>
-        <button type="button" className={buttonClass} disabled={!file || !!operation} onClick={() => void run("preview")} title="Preview CSV">
+        <button type="button" className={buttonClass} disabled={!file || !!operation} onClick={onPreview} title="Preview CSV">
           {operation === "preview" ? <LoaderCircle className="animate-spin" size={15} aria-hidden="true" /> : <FileSearch size={15} aria-hidden="true" />} Preview
         </button>
       </div>
       <p id={`${id}-limits`} className="mt-2 text-[11px] text-[#626b65]">UTF-8 CSV. Maximum 1 MiB / 500 rows. Directory information only; no patient information.</p>
       {error && <p id={`${id}-error`} role="alert" className="mt-3 break-words text-[12px] font-medium text-[#a42d2d]">{error}</p>}
-      {preview && !summary && (
-        <div className="mt-4 min-w-0">
+      {preview && !summary && <ContactImportPreviewView preview={preview} operation={operation} onCommit={onCommit} buttonClass={buttonClass} />}
+      {summary && <p role="status" className="mt-4 flex items-start gap-2 text-[12px] font-semibold text-[#16734a]">
+        <Check size={16} className="shrink-0" aria-hidden="true" />
+        <span>{summary.counts.imported} entries imported. {summary.counts.duplicates} duplicates skipped. Existing entries unchanged.</span>
+      </p>}
+    </section>
+  );
+}
+
+function ContactImportPreviewView({ preview, operation, onCommit, buttonClass }: {
+  preview: ContactImportPreview;
+  operation: ImportOperation;
+  onCommit: () => void;
+  buttonClass: string;
+}) {
+  return <div className="mt-4 min-w-0">
           <p role="status" className="text-[12px] font-semibold text-[#303a33]">
             {preview.counts.total} rows: {preview.counts.ready} new, {preview.counts.duplicates} skipped duplicates, {preview.counts.invalid} invalid
           </p>
@@ -155,16 +181,22 @@ export default function ContactDirectoryImport({ roles, className = "", onImport
           </div>
           {preview.counts.invalid > 0 && <p role="alert" className="mt-2 text-[12px] text-[#a42d2d]">Fix invalid rows and select the corrected file. No entries have been added.</p>}
           <button type="button" className={`${buttonClass} mt-3`} disabled={!!operation || !!preview.counts.invalid || !preview.counts.ready}
-            onClick={() => void run("commit")} title="Import new directory entries">
+            onClick={onCommit} title="Import new directory entries">
             {operation === "commit" ? <LoaderCircle className="animate-spin" size={15} aria-hidden="true" /> : <Upload size={15} aria-hidden="true" />}
             {operation === "commit" ? "Importing..." : `Import ${preview.counts.ready} new entries`}
           </button>
-        </div>
-      )}
-      {summary && <p role="status" className="mt-4 flex items-start gap-2 text-[12px] font-semibold text-[#16734a]">
-        <Check size={16} className="shrink-0" aria-hidden="true" />
-        <span>{summary.counts.imported} entries imported. {summary.counts.duplicates} duplicates skipped. Existing entries unchanged.</span>
-      </p>}
-    </section>
-  );
+  </div>;
+}
+
+async function commitDirectoryImport(file: File, mutationId: string, signal: AbortSignal) {
+  const payload = await fetchPipelineJson<ContactImportResult>("/api/contacts/import?mode=commit", {
+    method: "POST", headers: { "Content-Type": "text/csv", "x-client-mutation-id": mutationId }, body: file, signal,
+  }, { timeoutMs: 60_000 });
+  if (!payload.ok) throw new PipelineApiError(payload.error, payload.status, undefined, payload);
+  return payload.summary;
+}
+
+function directoryImportFailure(failure: unknown) {
+  if (!(failure instanceof PipelineApiError)) return { message: "The contact import could not be completed." };
+  return { message: failure.message, preview: (failure.payload as { preview?: ContactImportPreview } | undefined)?.preview };
 }
