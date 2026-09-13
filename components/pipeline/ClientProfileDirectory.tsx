@@ -33,6 +33,7 @@ import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { cancelPipelineWarmup, prefetchPipelineProfile } from "@/lib/pipeline/client-navigation";
+import { openClientChart } from "./client-chart-transition";
 import styles from "./ClientFolder.module.css";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
@@ -497,7 +498,7 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
     <button
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
-      onClick={onOpen}
+      onClick={(event) => openClientChart(event.currentTarget, onOpen)}
       onPointerEnter={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onFocus={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onPointerLeave={cancelPipelineWarmup}
@@ -554,7 +555,7 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
 
 function ClientChartThumbnail() {
   return (
-    <span aria-hidden="true" data-testid="client-chart-thumbnail" className="flex h-12 w-[58px] shrink-0 items-center justify-center border border-[#cad4cf] bg-[#edf4f1] shadow-[0_2px_5px_rgba(29,52,43,0.08)]">
+    <span aria-hidden="true" data-client-chart-preview data-testid="client-chart-thumbnail" className="flex h-12 w-[58px] shrink-0 items-center justify-center border border-[#cad4cf] bg-[#edf4f1] shadow-[0_2px_5px_rgba(29,52,43,0.08)]">
       <svg viewBox="0 0 58 48" className="h-full w-full" focusable="false">
         <rect x="7" y="4" width="44" height="40" fill="#ffffff" stroke="#c7d3ce" />
         <path d="M7 4h44v9H7z" fill="#e5f1eb" />

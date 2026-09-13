@@ -430,6 +430,8 @@ Use cards only when items are independently selectable or rearrangeable.
 
 The Clients directory offers an adjacent Cards / List segmented toggle using the Workspaces control pattern. Cards remain the default; remember only this layout preference in local browser storage, with a working in-memory fallback when storage is blocked. List rows use a small decorative chart thumbnail, a legible name, and the same community, unit, admission and care-level fields. Desktop columns become wrapped metadata on smaller screens. Each row is one open-profile button using the same profile key and prefetch behavior as the cards. Switching layouts reuses the loaded roster without resetting search, filters, sort or the display limit; it must not fetch each client's full chart or thumbnail images.
 
+Opening a client uses a 240ms native shared-element expansion from the folder card (or the list's small chart thumbnail) into the full chart. The preview fades out quickly while chart text settles at full size; keep the navigation stationary and use no spring, bounce, blur or new animation dependency. Capture the selected preview only, with one active transition and cleanup on completion or interrupted navigation. Use the existing cached/prefetched chart when available; never wait for chart data inside the transition. Cold reads still open the existing loading surface immediately and retain normal error/retry behavior. Reduced motion and unavailable browser support use ordinary direct navigation. Animate browser snapshots only: the live chart retains its single scroll region, unclipped content and document controls.
+
 Avoid nesting more than one bordered card inside another.
 
 ### 6.8 Status, badges, and progress

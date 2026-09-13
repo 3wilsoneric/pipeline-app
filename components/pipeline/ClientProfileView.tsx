@@ -1193,7 +1193,7 @@ function getCompleteness(profile: UnifiedClientProfileResponse) {
 }
 
 function ProfileShell({ children }: { children: React.ReactNode }) {
-  return <main className="h-full overflow-y-auto bg-white text-[#111111]"><div className="mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">{children}</div></main>;
+  return <main className="h-full overflow-y-auto bg-white text-[#111111]"><div className={`${folderStyles.transitionSurface} mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8`}>{children}</div></main>;
 }
 
 function ProfileSkeleton({ onBack }: { onBack: () => void }) {

@@ -22,6 +22,45 @@
   margin-top: 16px;
 }
 
+.recordFolder, .transitionSurface {
+  view-transition-name: pipeline-client-chart;
+}
+
+.transitionRoot::view-transition {
+  pointer-events: none;
+}
+
+.transitionRoot:global(::view-transition-group(root)),
+.transitionRoot:global(::view-transition-new(root)) {
+  animation: none;
+}
+
+.transitionRoot:global(::view-transition-old(root)) {
+  display: none;
+}
+
+.transitionRoot::view-transition-group(pipeline-client-chart) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: clip;
+}
+
+.transitionRoot::view-transition-old(pipeline-client-chart) {
+  animation-duration: 90ms;
+}
+
+.transitionRoot::view-transition-new(pipeline-client-chart) {
+  animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transitionRoot::view-transition-group(*),
+  .transitionRoot::view-transition-old(*),
+  .transitionRoot::view-transition-new(*) {
+    animation-duration: 0s !important;
+  }
+}
+
 /* The label is part of the one open-profile button, not a second tab control.
    Its overlap hides the body rule so the name and folder form one surface. */
 .tab {
