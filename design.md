@@ -242,7 +242,7 @@ The global header is 68px on mobile, 74px at 640px+, and 82px at 1280px+. It has
 Choose width by task, not by a universal template:
 
 - Search, editor, and article-like explanation: 640–900px.
-- Ordinary structured views: up to 1240px. Client folders use up to 1800px with 16–32px outer gutters, two columns from 1024px, 32px column gaps and 40px desktop row gaps. Below 1024px, use one column and 32px between folders. Search and filters align with the folder grid.
+- Ordinary structured views: up to 1240px. Client folders use up to 1800px with 16–32px outer gutters in one full-width column at every viewport. Keep 40px between folders from 1024px and 32px below. From 768px, show each folder's four summary fields in one row, giving Community twice the width of the other fields; below that, use a two-column summary. Search and filters align with the folders. The compact List view remains a separate, denser alternative.
 - Referral/detail workspace: up to 1480px.
 - Reports and high-density evidence: 1480–1680px or the full safe width.
 - Directory/list surfaces may run nearly edge-to-edge with responsive gutters.
