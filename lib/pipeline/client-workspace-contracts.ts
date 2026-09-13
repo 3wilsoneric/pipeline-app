@@ -1,9 +1,12 @@
 import type {
   ClinicalClientDirectoryItem,
   ClinicalFreshness,
+  ClinicalResident,
 } from "@/lib/clinical/clinical-contracts";
 
-export type ClientWorkspaceDirectoryItem = ClinicalClientDirectoryItem & {
+export type ClientWorkspaceDirectoryItem = ClinicalClientDirectoryItem & Partial<Pick<ClinicalResident,
+  "date_of_birth" | "age" | "payor" | "primary_diagnosis" | "physician" | "diet" | "length_of_stay_days"
+>> & {
   /** Current census locator; never a guessed canonical identity or referral link. */
   profile_key?: string;
   workspace_origin: "alamo_platform" | "pipeline";
