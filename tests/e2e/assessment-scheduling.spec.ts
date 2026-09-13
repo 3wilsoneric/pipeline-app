@@ -87,3 +87,53 @@ test("keeps scheduling methods, keyboard focus, and unsaved appointment edits us
   await close.click();
   await expect(dialog).toHaveCount(0);
 });
+
+test("includes the tutorial controls in the appointment keyboard cycle and pauses the guide on Escape", async ({ page }) => {
+  await page.route("**/api/training/progress", (route) => route.fulfill({ json: {
+    revision: 0,
+    progress: { version: 2, curriculumVersion: "2026.09.operator.1", role: "assessment_coordinator", completedActivityIds: [], activeModuleId: "pipeline-purpose", activeActivityId: "learn", evidence: {}, confidence: {}, scenarioResults: {}, tutorialResults: {} },
+    updatedAt: new Date().toISOString(),
+    persistence: "browser",
+  } }));
+  await page.goto("/training");
+  await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("pipeline:guided-coach", {
+    detail: { type: "start", tutorialId: "start-assessment", stepIndex: 2 },
+  })));
+  const coach = page.getByTestId("guided-coach-panel");
+  await expect(coach).toBeVisible();
+  await expect(coach.getByRole("heading", { name: "Save the schedule" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+  const date = dialog.getByLabel("Assessment date and time");
+  await date.fill("2027-09-14T09:30");
+  await dialog.getByLabel("Assessment duration").selectOption("90");
+  await date.focus();
+  await page.keyboard.press("Tab");
+  await expect(date).toBeFocused();
+  const pause = coach.getByRole("button", { name: "Pause tutorial" });
+  const skip = coach.getByRole("button", { name: "Skip step", exact: true });
+  const save = dialog.getByRole("button", { name: "Schedule assessment", exact: true });
+  const close = dialog.getByRole("button", { name: "Close schedule", exact: true });
+  await save.focus();
+  await page.keyboard.press("Tab");
+  await expect(pause).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(save).toBeFocused();
+  await close.focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(skip).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await pause.focus();
+  await page.keyboard.press("Escape");
+  await expect(coach).toBeHidden();
+  await expect(dialog).toBeVisible();
+  await expect(date).toHaveValue("2027-09-14T09:30");
+  await expect(dialog.getByLabel("Assessment duration")).toHaveValue("90");
+  await expect(date).toBeFocused();
+  await save.focus();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});

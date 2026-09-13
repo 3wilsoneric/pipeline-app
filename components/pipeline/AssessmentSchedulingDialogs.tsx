@@ -113,38 +113,37 @@ export function AssessmentScheduleLayout({ label, title, context, closeLabel, is
   footer: ReactNode;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
-  const closeOnEscape = useEffectEvent((event: KeyboardEvent) => {
-    if (isBusy && event.key === "Tab") {
-      event.preventDefault();
-      dialogRef.current?.focus();
+  const handleModalKey = useEffectEvent((event: KeyboardEvent) => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const coach = document.querySelector<HTMLElement>('[data-testid="guided-coach-panel"]');
+    const visibleCoach = coach?.getClientRects().length ? coach : null;
+    if (event.key === "Tab") {
+      cycleSchedulingFocus(event, dialog, visibleCoach);
       return;
     }
     if (event.key !== "Escape") return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (visibleCoach) {
+      visibleCoach.querySelector<HTMLButtonElement>('button[aria-label="Pause tutorial"]')?.click();
+      (dialog.querySelector<HTMLElement>("[data-schedule-autofocus]:not(:disabled)") ?? dialog).focus();
+      return;
+    }
     if (!isBusy) onClose();
   });
   useEffect(() => {
     const previousFocus = document.activeElement;
     dialogRef.current?.querySelector<HTMLElement>("[data-schedule-autofocus]")?.focus();
-    window.addEventListener("keydown", closeOnEscape, true);
+    window.addEventListener("keydown", handleModalKey, true);
     return () => {
-      window.removeEventListener("keydown", closeOnEscape, true);
+      window.removeEventListener("keydown", handleModalKey, true);
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
     };
   }, []);
 
   return (
-    <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={label} aria-busy={isBusy} tabIndex={-1} data-assessment-scheduling="fullscreen" className="fixed inset-0 z-[100] flex h-[100dvh] min-w-0 flex-col overflow-hidden bg-white text-[#202822]" onKeyDown={(event) => {
-      if (event.key !== "Tab") return;
-      const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')].filter((control) => !control.closest("fieldset:disabled") && control.getClientRects().length > 0);
-      const first = controls[0];
-      const last = controls.at(-1);
-      if (!first || (event.shiftKey && document.activeElement === first) || (!event.shiftKey && document.activeElement === last)) {
-        event.preventDefault();
-        ((event.shiftKey ? last : first) ?? event.currentTarget).focus();
-      }
-    }}>
+    <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={label} aria-busy={isBusy} tabIndex={-1} data-assessment-scheduling="fullscreen" className="fixed inset-0 z-[100] flex h-[100dvh] min-w-0 flex-col overflow-hidden bg-white text-[#202822]">
       <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d9dfdb] px-5 py-5 sm:px-10 sm:py-6">
         <div className="min-w-0">
           <h2 className="text-[22px] font-black leading-7 sm:text-[24px]">{title}</h2>
@@ -159,6 +158,19 @@ export function AssessmentScheduleLayout({ label, title, context, closeLabel, is
       <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#d9dfdb] bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[14px] sm:px-10 sm:pt-5 sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] [&_button]:max-w-full [&_button]:flex-1 [&_button]:rounded-[2px] [&_button]:leading-5 sm:[&_button]:flex-none [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-[#0f8b73]">{footer}</footer>
     </section>
   );
+}
+
+function cycleSchedulingFocus(event: KeyboardEvent, dialog: HTMLElement, coach: HTMLElement | null) {
+  const roots = coach ? [dialog, coach] : [dialog];
+  const groups = roots.map((root) => [...root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex="0"]')].filter((control) => !control.closest("fieldset:disabled") && control.getClientRects().length > 0)).filter((group) => group.length > 0);
+  const activeGroup = groups.find((group) => group.includes(document.activeElement as HTMLElement));
+  // Only intercept group boundaries, preserving native date/time field tab stops.
+  if (activeGroup && document.activeElement !== (event.shiftKey ? activeGroup[0] : activeGroup.at(-1))) return;
+  event.preventDefault();
+  const direction = event.shiftKey ? -1 : 1;
+  const groupIndex = activeGroup ? (groups.indexOf(activeGroup) + direction + groups.length) % groups.length : 0;
+  const nextGroup = groups[groupIndex] ?? [];
+  ((event.shiftKey ? nextGroup.at(-1) : nextGroup[0]) ?? dialog).focus();
 }
 
 function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onClose, onBegin }: {
