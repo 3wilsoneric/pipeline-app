@@ -309,7 +309,7 @@ function ReportCareControl({ filters, selectedDefinition, onSetFilters }: Report
 
 function ReportRunControls({ response, loading, exporting, filtersChanged, error, onReload, onExport }: Pick<Parameters<typeof ReportControls>[0], "response" | "loading" | "exporting" | "filtersChanged" | "error" | "onReload" | "onExport">) {
   return (<>
-      <button type="button" onClick={onReload} disabled={loading || !filtersChanged} className="h-9 border border-[#171917] bg-[#171917] px-4 text-[11px] font-semibold text-white hover:bg-[#343734] disabled:cursor-not-allowed disabled:opacity-40">{loading ? "Loading" : "Apply"}</button>
+      <button type="button" data-guide-target="operations-report-apply" onClick={onReload} disabled={loading || !filtersChanged} className="h-9 border border-[#171917] bg-[#171917] px-4 text-[11px] font-semibold text-white hover:bg-[#343734] disabled:cursor-not-allowed disabled:opacity-40">{loading ? "Loading" : "Apply"}</button>
       <button type="button" data-guide-target="operations-report-export" onClick={onExport} disabled={!response || filtersChanged || exporting || loading || Boolean(error)} className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[12px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45"><Download size={14} /> {exporting ? "Exporting" : "Export CSV"}</button>
   </>);
 }

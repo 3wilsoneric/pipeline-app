@@ -87,7 +87,7 @@ test.describe("Pipeline Demo Environment", () => {
     const errors = watchBrowserErrors(page);
     const response = await page.goto("/training/demo");
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Pipeline training" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
     await closePresentation(page);
@@ -231,12 +231,14 @@ test.describe("Pipeline Demo Environment", () => {
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
     const slideSelect = slideNavigation.getByRole("combobox", { name: "Jump to slide" });
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
     await expect(page.getByRole("region", { name: "Taylor Rivera referral journey" })).toContainText("remain connected");
     await slideSelect.selectOption("1");
-    await expect(page.getByRole("region", { name: "Home calendar and workspace sequence" })).toContainText("One connected record");
+    await expect(page.getByRole("region", { name: "Where to find your work" })).toContainText("Current residents from the Alamo platform");
+    await expect(page.getByRole("region", { name: "Where to find your work" })).toContainText("Continue working");
 
     await slideSelect.selectOption("2");
+    await expect(page.getByRole("article", { name: "Presentation slide 3" })).toContainText("Transferred Allo records open as charts");
     await expect(page.getByRole("img", { name: /Intake screen with the referral packet area highlighted/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Try the intake walkthrough" })).toBeVisible();
     await page.getByRole("button", { name: "View full size" }).click();
@@ -270,7 +272,7 @@ test.describe("Pipeline Demo Environment", () => {
     });
 
     await page.goto("/training/demo");
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
     expect(referralRequests).toEqual([]);
 
     await closePresentation(page);
@@ -407,8 +409,10 @@ test.describe("Pipeline Demo Environment", () => {
     await confirmSection("Support & goals", "social_support");
     await confirmSection("Review", "provenance_qc");
     await expect(coach.getByRole("heading", { name: "Check saved" })).toBeVisible();
+    await expect(coach).toContainText("Wait for Practice changes saved locally.");
     await coach.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(coach.getByRole("heading", { name: "Review the full assessment" })).toBeVisible();
+    await expect(coach).toContainText("Do not sign a practice record.");
     await interview.getByRole("button", { name: "Exit guided interview" }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect.poll(() => errors).toEqual([]);
@@ -444,7 +448,7 @@ test.describe("Pipeline Demo Environment", () => {
   test("keeps the presentation and practice cases usable on a narrow screen", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/training/demo");
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
     await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("2");
     await expect(page.getByRole("img", { name: /Intake screen with the referral packet area highlighted/ })).toBeVisible();
     await closePresentation(page);

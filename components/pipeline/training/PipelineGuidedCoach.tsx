@@ -386,7 +386,28 @@ function GuideConversationBody({ step, targetReady, routeMatches, onOpenRoute }:
   );
 }
 
+const checkpointInstructions: Readonly<Record<string, string>> = {
+  "assessor-review-queue": "Look for your assignment in My work. Continue working reopens saved work when available.",
+  "assessor-find-referral": "Search by name. Check Mine or Team and any filters if the referral is missing.",
+  "assessor-open-stage": "Select Assessment for active work. Transferred chart-only records do not need a new assessment.",
+  "supervisor-home": "Review Team work, then open the source referral before acting.",
+  "assessment-schedule-fields": "Set the appointment in Pacific Time, then choose its duration.",
+  "assessment-schedule-method": "Choose the method; add its address, phone number, or Zoom link. Record review needs none.",
+  "assessment-schedule-save": "Complete the details and select Schedule assessment. This practice appointment stays in the guide.",
+  "assessment-save": "Wait for Practice changes saved locally. In live work, resolve any save error before leaving.",
+  "assessment-sign": "Close the guided interview to review the full assessment. Do not sign a practice record.",
+  "referral-create": "Check identity, owner, and files. Finish this guide without creating a live referral.",
+  "chart-email": "Check recipient and packet readiness. Do not send anything during practice.",
+  "report-choose": "Choose a report from the dropdown; opening the dropdown alone does not select one.",
+  "report-period": "Set the available filters. Use Skip step if no change is needed.",
+  "report-apply": "Select Apply to refresh the result. If you kept the same filters and Apply is disabled, skip this step.",
+  "report-results": "Select Apply if filters changed. Then check the totals and source rows; Summary groups are not individual clients.",
+  "report-export": "Check scope and recipients before Export CSV. The guide does not download it for you.",
+  "find-verify-record": "Check the name and referral details. A transferred chart may have no Intake tab.",
+};
+
 function compactGuideInstruction(step: OperatorGuideStep) {
+  if (checkpointInstructions[step.id]) return checkpointInstructions[step.id];
   if (step.id === "referral-packet") return "Upload the referral packet here.";
   if (step.id === "assessment-answer") return "Enter the finding, source, timeframe, and useful detail.";
   if (step.id === "assessment-help") return "Open Language Lab for a field-specific format.";

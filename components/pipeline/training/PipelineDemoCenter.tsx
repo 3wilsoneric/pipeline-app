@@ -92,13 +92,13 @@ const presentationSlides: readonly PresentationSlide[] = [
     id: "referral-map",
     number: 1,
     navLabel: "Map",
-    location: "The whole referral",
-    title: "One referral stays connected from packet to decision",
-    summary: "Pipeline keeps the documents, intake, appointment, assessment, recommendation, submittal, and supervisor decision in one traceable referral record.",
+    location: "From Allo to Pipeline",
+    title: "Find your referral. Keep the work together.",
+    summary: "Start with the referral assigned to you. Its workspace holds the packet, intake, appointment, and assessment through to the supervisor’s decision.",
     points: [
-      "The workspace is the referral record.",
-      "The client profile carries the person's history across referrals.",
-      "The live walkthrough will point to each control on the real screen.",
+      "Already assigned? Open the existing workspace; do not create it again.",
+      "Taking a new referral? Use the + button to attach its packet and complete intake.",
+      "This orientation shows where to click. The walkthroughs let you try it.",
     ],
     graphic: "case-spine",
     nextLabel: "See the main screens",
@@ -110,11 +110,11 @@ const presentationSlides: readonly PresentationSlide[] = [
     navLabel: "Screens",
     location: "Home · Workspaces · Calendar · Clients",
     title: "Where everything lives",
-    summary: "Each main screen answers a different question. Home shows assigned work, Workspaces opens the referral record, Calendar holds appointments, and Clients holds the durable person profile.",
+    summary: "Use Home for work that needs attention, Workspaces to find a referral, Calendar for appointments, and Clients for current residents from the Alamo platform.",
     points: [
-      "Home: assigned referrals, drafts, and upcoming work.",
-      "Workspaces: packet, intake, assessment, files, Chart, and activity.",
-      "Calendar and Clients: appointment view and person-level history.",
+      "Home → Continue working reopens saved work when there is something to resume.",
+      "Workspaces is sorted by recent updates. Assessors see their work; supervisors can switch between Mine and Team.",
+      "An older transferred chart belongs in Workspaces; it does not by itself mean the person is a current client.",
     ],
     graphic: "workday",
     nextLabel: "Open the workspace",
@@ -123,19 +123,19 @@ const presentationSlides: readonly PresentationSlide[] = [
     id: "open-workspace",
     number: 3,
     navLabel: "Workspace",
-    location: "Workspaces → referral → Intake",
-    title: "The workspace opens in Intake",
-    summary: "The stage bar runs across the top. Files and Activity sit beside it. The source packet and document checklist are the first things on the Intake screen.",
+    location: "Workspaces → referral",
+    title: "Open the right part of the workspace",
+    summary: "New referrals use Intake, Assessment, and Chart. Transferred Allo records open as charts; they do not need a new intake or assessment just because they were imported.",
     points: [
-      "The highlighted area is where the initial referral packet is attached.",
-      "Intake, Assessment, and Chart stay attached to this referral.",
-      "The tooltip guide remains on screen and points to the next control.",
+      "For an active referral, open Intake to review the packet and client information.",
+      "Files and Activity are beside the stage navigation at the top.",
+      "Returning to an assessment? Reopen the existing work instead of creating another referral.",
     ],
     screenshots: [{
       src: "/training/presentation/intake-workspace.png",
       alt: "Synthetic Pipeline Intake screen with the referral packet area highlighted and the Create a referral tooltip walkthrough open.",
       label: "Intake and packet",
-      caption: "The stage bar is above the record; Files and Activity are at its right; the packet area is highlighted inside Intake.",
+      caption: "New-referral intake example. The guide highlights the packet upload; existing transferred records use the chart instead.",
     }],
     guide: { label: "Try the intake walkthrough", scenarioId: "new-intake", tutorialId: "create-referral", stepId: "referral-packet", workspaceStage: "intake" },
     nextLabel: "Review the intake",
@@ -148,15 +148,15 @@ const presentationSlides: readonly PresentationSlide[] = [
     title: "Review the packet before the interview",
     summary: "Intake is where packet facts are checked, corrected, and attributed before they carry into the assessment.",
     points: [
-      "Confirm identity, referral source, county, community, contacts, and medication context against the source.",
+      "Check identity, source, county, community, contacts, and medications against the packet.",
+      "Use the contact details in intake to arrange the interview; saving a contact does not call or message anyone.",
       "Keep conflicting sources visible and leave unsupported facts unrecorded.",
-      "Add later documents to this workspace rather than opening another referral.",
     ],
     screenshots: [{
       src: "/training/presentation/intake-review.png",
-      alt: "Synthetic Pipeline Intake screen showing the attached referral packet and document checklist.",
+      alt: "Synthetic Pipeline chart-style intake showing identity, referral details, and contact information for Taylor Rivera.",
       label: "Reviewed intake",
-      caption: "The attached source packet sits above its document checklist; the Intake save action stays in the stage bar.",
+      caption: "The packet and entered facts belong to this intake. Confirm the saved status before leaving; add later files to the same workspace.",
     }],
     nextLabel: "Schedule the assessment",
   },
@@ -166,18 +166,18 @@ const presentationSlides: readonly PresentationSlide[] = [
     navLabel: "Schedule",
     location: "Workspace → Assessment → Schedule",
     title: "Schedule from the referral, then see it on Calendar",
-    summary: "The appointment is part of the referral record. Date, time, duration, method, and location or meeting link are saved together and reflected on Calendar.",
+    summary: "After reviewing intake and arranging the interview, save its date and time in Pacific Time, duration, and method. The appointment then appears on Calendar.",
     points: [
-      "Schedule is at the upper-right of the Assessment screen.",
-      "The walkthrough highlights each appointment field and the save action.",
-      "Rescheduling changes the appointment, not the referral outcome.",
+      "Open Assessment, then Schedule. Use the address, phone number, or Zoom link field for the selected method.",
+      "Record review needs no meeting details. Saving the schedule does not send an invitation.",
+      "On the day, open the linked referral from Home or Calendar. Reschedule the existing appointment if plans change.",
     ],
     screenshots: [
       {
         src: "/training/presentation/assessment-schedule.png",
         alt: "Synthetic Pipeline assessment with the Schedule dialog open and the scheduling tooltip walkthrough beside it.",
         label: "Schedule dialog",
-        caption: "The appointment dialog opens over Assessment; the guide moves through date, method, location, and save.",
+        caption: "Set date and time in Pacific Time, choose the method, enter its meeting details, then select Schedule assessment.",
       },
       {
         src: "/training/presentation/assessor-calendar.png",
@@ -194,19 +194,19 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 6,
     navLabel: "Assessment",
     location: "Workspace → Assessment → Open assessment",
-    title: "The assessment is organized into 12 sections",
-    summary: "The section rail is on the left, the current questions are in the middle, and progress plus key answers stay visible on the right.",
+    title: "Work through the assessment at your pace",
+    summary: "The guided interview works through one group of questions at a time. The full assessment organizes the same answers into 12 sections.",
     points: [
-      "Select a section in the left rail or move forward one section at a time.",
-      "Inherited intake context appears with the interview fields it supports.",
-      "The guide spotlights the current control without entering or signing anything for you.",
+      "Use Next within the interview. Close the guided view to review the full assessment.",
+      "Pausing until tomorrow? Wait for saved status, then return through Home → Continue working or the same workspace.",
+      "A saved draft is not signed or submitted. Those are separate actions when the work is ready.",
     ],
     sections: ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"],
     screenshots: [{
       src: "/training/presentation/assessment-guided.png",
       alt: "Synthetic Pipeline assessment showing its 12-section rail, interview fields, progress panel, and live tooltip walkthrough.",
       label: "Assessment with guide",
-      caption: "Left: section navigation. Center: current interview fields. Right: progress. The tooltip identifies the exact next action.",
+      caption: "The assessment’s section view and progress. The tooltip walkthrough opens the same questions in the guided interview.",
     }],
     guide: { label: "Start the assessment walkthrough", scenarioId: "assessment-interview", tutorialId: "complete-assessment", stepId: "assessment-section-identity", workspaceStage: "assessment" },
     nextLabel: "Document the interview",
@@ -237,7 +237,7 @@ const presentationSlides: readonly PresentationSlide[] = [
     points: [
       "The Review section is the last item in the left rail.",
       "Saved status and the Sign assessment action are in the top bar.",
-      "The clinical recommendation remains separate from the administrator's admission decision.",
+      "A signed assessment still needs Submit for supervisor review in Workflow.",
     ],
     screenshots: [{
       src: "/training/presentation/assessment-review.png",
@@ -245,7 +245,7 @@ const presentationSlides: readonly PresentationSlide[] = [
       label: "Final review",
       caption: "Review is selected in the left rail; saved status and Sign assessment remain visible in the top bar.",
     }],
-    rule: "Assessment: completed and signed by the assessor. Admission decision: recorded by an authorized administrator.",
+    rule: "The assessor signs and submits a recommendation. The authorized decision-maker records acceptance or decline.",
     nextLabel: "Submit for review",
   },
   {
@@ -254,11 +254,11 @@ const presentationSlides: readonly PresentationSlide[] = [
     navLabel: "Decision",
     location: "Workspace → Workflow",
     title: "Submit the recommendation, then the supervisor decides",
-    summary: "The assessor submits the locked assessment revision and clinical recommendation. The supervisor reviews that exact submittal, resolves decision requirements, and records acceptance or decline.",
+    summary: "The assessor submits the signed assessment and recommendation. A supervisor with decision permission reviews that submittal and records acceptance, decline, or a request for changes.",
     points: [
       "Submit for supervisor review freezes the signed assessment revision under review.",
       "The supervisor can accept, decline, or request changes without editing the assessor's work.",
-      "Acceptance is an explicit recorded decision; it is not created by changing a stage label.",
+      "Acceptance is not admission. The admission and handoff requirements still need to be completed.",
     ],
     graphic: "decision-path",
     nextLabel: "Begin walkthrough",
@@ -709,24 +709,24 @@ function OwnershipItem({ children, muted = false }: { children: React.ReactNode;
 
 function WorkdayVisual() {
   const surfaces = [
-    { label: "Home", title: "Taylor Rivera", detail: "Assessment due today", status: "Needs you", icon: UserRound },
-    { label: "Calendar", title: "10:00 AM · Zoom", detail: "60-minute assessment", status: "Scheduled", icon: CalendarDays },
-    { label: "Workspace", title: "One connected record", detail: "Intake · Assessment · Chart · Activity", status: "Open", icon: FileCheck2 },
+    { label: "Home", title: "What needs my attention?", detail: "My work, new assignments, and upcoming assessments. Supervisors also see team work.", status: "Select a work item to open it", icon: UserRound },
+    { label: "Workspaces", title: "Where is the referral?", detail: "Search existing referrals and transferred charts. Continue intake reopens an unfinished draft.", status: "Open the existing record", icon: FileCheck2 },
+    { label: "Calendar", title: "What is scheduled?", detail: "Assessment appointments and follow-ups, with a link back to their referral.", status: "Check the date and filters", icon: CalendarDays },
+    { label: "Clients", title: "Who is currently a resident?", detail: "Current residents from the Alamo platform, with their client chart and available linked history.", status: "Cards or List → client chart", icon: UserRound },
   ] as const;
   return (
-    <section aria-label="Home calendar and workspace sequence" className="min-w-0">
-      <ol className="grid gap-3 lg:grid-cols-3">
-        {surfaces.map(({ label, title, detail, status, icon: Icon }, index) => (
+    <section aria-label="Where to find your work" className="min-w-0">
+      <ol className="grid gap-3 sm:grid-cols-2">
+        {surfaces.map(({ label, title, detail, status, icon: Icon }) => (
           <li key={label} className="relative border border-[#cbd5d1] bg-white p-5 shadow-[0_16px_40px_rgba(29,52,44,0.08)]">
             <div className="flex items-center justify-between"><div className="flex h-9 w-9 items-center justify-center bg-[#e7f3ef] text-[#0c705f]"><Icon size={18} aria-hidden="true" /></div><span className="text-[9px] font-black uppercase tracking-[0.09em] text-[#77817c]">{label}</span></div>
-            <div className="mt-8 text-[16px] font-black text-[#1f2c27]">{title}</div>
-            <div className="mt-2 min-h-10 text-[11px] font-medium leading-5 text-[#66716c]">{detail}</div>
+            <div className="mt-4 text-[18px] font-bold text-[#1f2c27]">{title}</div>
+            <div className="mt-2 min-h-10 text-[14px] font-medium leading-6 text-[#66716c]">{detail}</div>
             <div className="mt-5 border-t border-[#e0e5e2] pt-3 text-[10px] font-black text-[#0c705f]">{status}</div>
-            {index < surfaces.length - 1 ? <span className="absolute -right-[14px] top-1/2 z-10 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#cbd5d1] bg-white text-[#0c705f] lg:flex"><ArrowRight size={13} aria-hidden="true" /></span> : null}
           </li>
         ))}
       </ol>
-      <div className="mt-4 flex items-center gap-3 border-l-4 border-[#0f8b73] bg-[#edf5f2] px-5 py-4 text-[13px] font-bold leading-6 text-[#315047]">If the referral already exists, open it. Creating it again can split documents and activity across duplicate workspaces.</div>
+      <div className="mt-4 border-l-4 border-[#0f8b73] bg-[#edf5f2] px-5 py-4 text-[14px] font-semibold leading-6 text-[#315047]">Coming back later? Use <strong>Home → Continue working</strong> when available, or find the same referral in Workspaces.</div>
     </section>
   );
 }

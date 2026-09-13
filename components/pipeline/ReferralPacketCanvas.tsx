@@ -2614,7 +2614,7 @@ function ChartSection({
 
 function chartGuideTarget(title: string) {
   if (title === "Identity") return "intake-identity";
-  if (title === "Routing and assignment") return "intake-routing";
+  if (title === "Referral details") return "intake-routing";
   if (title === "Medication profile") return "intake-medications";
   return undefined;
 }

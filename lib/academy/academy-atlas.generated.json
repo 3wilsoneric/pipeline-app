@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:236316217438bd00",
-  "fingerprint": "236316217438bd00a08ba933450635469a3bb15b71633b431d3cda3b06921a09",
+  "generatedAt": "source-fingerprint:9eb6bf62a3c54b61",
+  "fingerprint": "9eb6bf62a3c54b61c044460aa549d5a746bcb2aca0f43a6062937758f2d1acbb",
   "totals": {
-    "files": 1035,
-    "lines": 322122,
-    "coveredFiles": 1035
+    "files": 1036,
+    "lines": 322275,
+    "coveredFiles": 1036
   },
   "entries": [
     {
@@ -2290,7 +2290,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 90,
+      "lines": 91,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -2698,7 +2698,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 41,
+      "lines": 42,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2710,7 +2710,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 344,
+      "lines": 345,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2782,7 +2782,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 695,
+      "lines": 716,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6023,6 +6023,18 @@
       ]
     },
     {
+      "path": "docs/training/LEARNING_CENTER_PASS_2026-09-13.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 30,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/training/LOOM_VIDEO_GUIDE.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -8753,7 +8765,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 377,
+      "lines": 380,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -11898,7 +11910,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 572,
+      "lines": 576,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12163,7 +12175,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 465,
+      "lines": 557,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
