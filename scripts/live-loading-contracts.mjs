@@ -127,12 +127,12 @@ navigation.prefetchPipelineWorkspace({ id: 41, clientId: "ignored" });
 navigation.prefetchPipelineWorkspace({ id: 42, clientId: "fixture", workspaceOrigin: "allo" });
 assert.equal(timers.size, 1);
 runWarmup();
-assert.deepEqual(warmedPaths, ["/api/referrals/42/canvas", "/api/profiles/pipeline%3Afixture", "/api/referrals/42/historical-profile"]);
+assert.deepEqual(warmedPaths, ["/api/referrals/42/canvas", "/api/profiles/pipeline%3Afixture"]);
 navigation.prefetchPipelineWorkspace({ id: 42 }); runWarmup();
-assert.equal(warmedPaths.length, 3);
+assert.equal(warmedPaths.length, 2);
 navigation.prefetchPipelineWorkspace({ id: 43 }); runWarmup();
 navigation.prefetchPipelineWorkspace({ id: 44 }); runWarmup();
-assert.equal(warmedPaths.length, 4);
+assert.equal(warmedPaths.length, 3);
 finishWarmups.forEach((resolve) => resolve({}));
 await new Promise((resolve) => setTimeout(resolve, 0));
 navigation.prefetchPipelineWorkspace({ id: 44 }); runWarmup();
@@ -240,9 +240,11 @@ const unified = load("lib/pipeline/unified-profile.ts", {
   "@/lib/observability/api-logging": {},
   "@/lib/observability/pipeline-metrics": {},
   "./client-history-store": {},
+  "./historical-profile-store": { getHistoricalProfile: () => { throw new Error("An active fixture must not load imported notes."); } },
+  "./workspace-presentation": { isImportedWorkspace: (referral) => referral.workspaceOrigin === "allo" },
   "./community-config": {},
   "./referral-clinical-reconciliation": {},
-  "./resident-link-store": {},
+  "./resident-link-store": { getResidentLinkStoreReadiness: () => ({ ready: false }) },
   "./client-identity-presentation.mjs": { normalizeClientName: (name) => name, resolveClientGender: () => null },
   "./referral-access": { isAssessorUser: () => true, canAccessReferral: () => visible },
   "./referral-store": {

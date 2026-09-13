@@ -251,6 +251,8 @@ export type Referral = {
   deletedBy?: { id: string; name: string };
   /** Stable client identity. A client may have more than one referral episode. */
   clientId?: string;
+  /** Immutable provenance for an intake created from an existing client's chart. */
+  chartSource?: { referralId: number; dataAsOf: string; capturedAt: string };
   workspaceOrigin?: WorkspaceOrigin;
   workspaceStatus?: WorkspaceStatus;
   sourceWorkspaceId?: string;

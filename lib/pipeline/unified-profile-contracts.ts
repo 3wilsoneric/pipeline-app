@@ -10,6 +10,7 @@ import type {
 } from "./referral-types";
 import type { PipelineResidentLink } from "./resident-link-records";
 import type { ClientHistoryProjection } from "./client-history-contracts";
+import type { HistoricalProfileResponse } from "./historical-profile-contracts";
 
 export type UnifiedProfileLinkSuggestion = {
   referral_id: number;
@@ -47,6 +48,8 @@ export type UnifiedClientProfileResponse = Omit<ClinicalClientResponse, "source"
     assessments: PipelineAssessmentRecord[];
     requirements: AdmissionRequirement[];
     documents: ReferralFile[];
+    source_profiles?: { referral_id: number; profile: HistoricalProfileResponse }[];
+    source_warnings?: string[];
     summary: {
       referral_count: number;
       active_referral_count: number;

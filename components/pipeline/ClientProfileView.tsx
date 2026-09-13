@@ -45,6 +45,8 @@ import {
 import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
 import folderStyles from "./ClientFolder.module.css";
+import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
+import { clientChartRecord, clientReferralSections, clientSourceSections, clientAssessmentSections } from "@/lib/pipeline/client-chart-context";
 
 export default function ClientProfileView({
   residentKey,
@@ -152,15 +154,13 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
-export function ClientChartRecord({ profile, supplementalSections, sourceSections, sourceLabel, children }: {
+export function ClientChartRecord({ profile, sourceReferralId, children }: {
   profile: UnifiedClientProfileResponse;
-  supplementalSections: ClientProfileSection[];
-  sourceSections: ClientProfileSection[];
-  sourceLabel: string;
+  sourceReferralId: number;
   children?: ReactNode;
 }) {
   return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
-    embedded supplementalSections={supplementalSections} sourceSections={sourceSections} sourceLabel={sourceLabel} additionalContent={children} />;
+    embedded sourceReferralId={sourceReferralId} additionalContent={children} />;
 }
 
 function ResidentProfile({
@@ -169,20 +169,16 @@ function ResidentProfile({
   onOpenWorkspace,
   onConnectionChanged,
   embedded = false,
-  supplementalSections,
-  sourceSections,
   additionalContent,
-  sourceLabel,
+  sourceReferralId,
 }: {
   profile: UnifiedClientProfileResponse;
   onBack: () => void;
   onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onConnectionChanged: () => void;
   embedded?: boolean;
-  supplementalSections?: ClientProfileSection[];
-  sourceSections?: ClientProfileSection[];
   additionalContent?: ReactNode;
-  sourceLabel?: string;
+  sourceReferralId?: number;
 }) {
   const client = profile.client;
   const resident = profile.resident;
@@ -192,21 +188,11 @@ function ResidentProfile({
   const identity = profileIdentity(profile);
   const chart = useMemo(() => {
     const record: ClinicalClientRecord = {
-      ...client.enrichment,
+      ...clientChartRecord(profile),
       display_name: identity.title,
       resident_name: identity.title,
       gender: identity.gender,
       episode_count: client.episode_count,
-      ...(resident ? {
-        date_of_birth: resident.date_of_birth,
-        admit_date: resident.admit_date,
-        latest_admit_date: resident.admit_date,
-        resident_number: resident.resident_number,
-        age: resident.age,
-        primary_diagnosis: resident.primary_diagnosis,
-        physician: resident.physician,
-        payor: resident.payor,
-      } : {}),
     };
     const sections = buildClientProfileSections(record);
     return {
@@ -214,7 +200,7 @@ function ResidentProfile({
       detailSections: removePromotedClientProfileFacts(sections),
       episodes: buildClientEpisodeSummaries(client.resident_episode_history),
     };
-  }, [client, identity.gender, identity.title, resident]);
+  }, [client, identity.gender, identity.title, profile]);
   const medicalChart = buildClientMedicalChart(
     {
       name: identity.title,
@@ -229,6 +215,9 @@ function ResidentProfile({
 
   return (
     <ClientChartContainer embedded={embedded} title={identity.title} onBack={onBack}>
+        <StartReferralFromChart sourceReferralId={sourceReferralId ?? profile.pipeline.referrals[0]?.id}
+          allowed={profile.pipeline.permissions.can_create_identity_candidate} />
+
         {profile.freshness.status === "stale" || profile.freshness.warning ? (
           <div className="mt-4 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">
             {profile.freshness.warning || "This resident profile is older than its target freshness window."}
@@ -239,7 +228,7 @@ function ResidentProfile({
           <ClientMedicalChart
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
-            sourceLabel={clientChartSourceLabel(pipelineOnly, sourceLabel)}
+            sourceLabel={clientProfileSourceLabel(pipelineOnly)}
           />
         </div>
 
@@ -270,13 +259,13 @@ function ResidentProfile({
             </ProfileSection>
           ) : null}
 
-          <ClientWorkspaceHistorySection
+          {!embedded ? <ClientWorkspaceHistorySection
             referrals={profile.pipeline.referrals}
             onOpenWorkspace={onOpenWorkspace}
-          />
+          /> : null}
 
           <ProfileSection title="Client information" detail="Clinical, support, and stay details">
-            <CuratedClientRecord sections={combineClientRecordSections(chart.detailSections, supplementalSections)} />
+            <CuratedClientRecord sections={chart.detailSections} />
             {!pipelineOnly ? (
               <ClientStayHistory episodes={chart.episodes} history={history} />
             ) : null}
@@ -287,7 +276,14 @@ function ResidentProfile({
             sourceDocuments={client.source_documents}
             referralDocuments={profile.pipeline.documents}
           />
-          <ClientSourceNotes sections={sourceSections} />
+          {profile.pipeline.referrals.length > 0 ? <ProfileSection title="Referral information">
+            <CuratedClientRecord sections={clientReferralSections(profile)} />
+          </ProfileSection> : null}
+          {profile.pipeline.assessments.length > 0 ? <ProfileSection title="Assessment records">
+            <CuratedClientRecord sections={clientAssessmentSections(profile)} />
+          </ProfileSection> : null}
+          <ClientSourceNotes sections={clientSourceSections(profile)} />
+          {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
 
           {client.facts.length > 0 ? (
             <ProfileSection title="Source-backed information" detail="Extracted packet facts">
@@ -323,14 +319,6 @@ function ClientChartContainer({ embedded, title, onBack, children }: { embedded:
       </div>
     </div>
   </main>;
-}
-
-function combineClientRecordSections(sections: ClientProfileSection[], supplemental?: ClientProfileSection[]) {
-  return [...sections, ...(supplemental ?? [])];
-}
-
-function clientChartSourceLabel(pipelineOnly: boolean, label?: string) {
-  return label ?? clientProfileSourceLabel(pipelineOnly);
 }
 
 function ClientSourceNotes({ sections }: { sections?: ClientProfileSection[] }) {
@@ -1232,7 +1220,7 @@ function ProfileSection({ title, detail, children }: { title: string; detail?: s
 
 function profileIdentity(profile: UnifiedClientProfileResponse) {
   const client = profile.client;
-  const enrichment = client.enrichment;
+  const enrichment = clientChartRecord(profile);
   const gender = resolveClientGender(
     client.gender,
     enrichment.gender_values_json,

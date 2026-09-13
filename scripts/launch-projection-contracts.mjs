@@ -55,7 +55,8 @@ allowed = true;
 unavailable = true;
 assert.equal((await directory.GET(new Request(path))).status, 503);
 checks.push("authorization and upstream failures never substitute fake current clients");
-const profile = load("lib/pipeline/unified-profile.ts", { "@/lib/clinical/clinical-data": clinical });
+const profile = load("lib/pipeline/unified-profile.ts", { "@/lib/clinical/clinical-data": clinical,
+  "./resident-link-store": { getResidentLinkStoreReadiness: () => ({ ready: false }) } });
 const current = await profile.getCurrentCensusClientProfile(new Request(path), "resident:site:71", {});
 assert.equal(current.client.canonical_client_id, "");
 assert.equal(current.client.display_name, resident.display_name);
@@ -66,7 +67,7 @@ assert.equal(current.pipeline.permissions.can_review_identity, false);
 checks.push("unlinked current residents open with real census facts and no guessed patient joins");
 const chart = loadTypeScriptModule(process.cwd(), "lib/pipeline/client-medical-chart.ts");
 const identity = { name: "Fixture Person", gender: null, community: "Fixture community" };
-const draft = { status: "draft", assessment_date: "2026-09-12", primary_diagnosis: "Draft diagnosis" };
+const draft = { assessment_id: "fixture-assessment", created_at: "2026-09-12T00:00:00Z", status: "draft", assessment_date: "2026-09-12", primary_diagnosis: "Draft diagnosis" };
 const model = chart.buildClientMedicalChart(identity, { ...resident, primary_diagnosis: "Platform diagnosis" }, [], [draft]);
 assert.equal(model.assessmentDate, null);
 assert.equal(model.priorities[0].value, "Platform diagnosis");
@@ -79,6 +80,7 @@ const medicalChart = load("components/pipeline/ClientMedicalChart.tsx", {
 });
 const fixtureCache = new Map();
 const authenticatedFetch = { readPipelineJsonCache: (key) => fixtureCache.get(key) };
+const chartContext = loadTypeScriptModule(process.cwd(), "lib/pipeline/client-chart-context.ts");
 const clientProfile = load("components/pipeline/ClientProfileView.tsx", {
   react: React, "react/jsx-runtime": jsxRuntime, "lucide-react": icons,
   "@/lib/auth/authenticated-fetch": authenticatedFetch,
@@ -88,6 +90,8 @@ const clientProfile = load("components/pipeline/ClientProfileView.tsx", {
   "@/lib/pipeline/client-identity-presentation.mjs": loadTypeScriptModule(process.cwd(), "lib/pipeline/client-identity-presentation.mjs"),
   "@/components/pipeline/ClientMedicalChart": medicalChart,
   "@/components/pipeline/ReadableChartText": readableChartText,
+  "@/lib/pipeline/client-chart-context": chartContext,
+  "@/components/pipeline/StartReferralFromChart": () => null,
 });
 const transferredChart = load("components/pipeline/TransferredWorkspaceChart.tsx", {
   "react/jsx-runtime": jsxRuntime, react: React,
@@ -103,7 +107,8 @@ const fields = [
   { label: "Summary", value: "Preserved introduction\n\n## Reason for referral\nRecorded reason\n\n## Current presentation\n<script>untrusted source text</script>" },
 ];
 const source = { facts: [], sections: [], unmappedEvidence: [], sourceSections: [] };
-const referral = { id: 71, clientId: "fixture", name: "Fixture Person", owner: "Original owner", community: "Fixture community", createdAt: "2026-08-20T00:00:00Z" };
+const referral = { id: 71, clientId: "fixture", name: "Fixture Person", owner: "Original owner", community: "Fixture community", createdAt: "2026-08-20T00:00:00Z",
+  date: "2026-08-20", dob: "01/02/1990", county: "Source county", phone: "Source contact", email: "", payer: "", source: "", note: fields.find((field) => field.label === "Summary").value };
 const file = { id: "fixture-file", referralId: 71, name: "Actual packet.pdf", category: "Referral packet", status: "received", uploadedAt: "2026-08-20", thumbnailUrl: "/api/files/fixture/thumbnail", previewUrl: "/api/files/fixture/preview" };
 const chartProfile = {
   ...current, ...metadata, source: "pipeline", profile_origin: "pipeline", resident: null,
@@ -111,14 +116,10 @@ const chartProfile = {
   client: { ...current.client, canonical_client_id: "fixture", enrichment: {}, source_documents: [], facts: [],
     resident_episode_history: [], resident_profiles: [], community_names: ["Fixture community"] },
   pipeline: { ...current.pipeline, connection: { status: "pipeline_only", suggestions: [] },
-    referrals: [referral], assessments: [{ ...draft, referral_id: 71 }, { ...draft, referral_id: 999 }],
-    documents: [file, { ...file, id: "other-referral-file", referralId: 999, name: "Do not show other workspace.pdf" }] },
+    referrals: [referral], assessments: [{ ...draft, referral_id: 71 }, { ...draft, assessment_id: "other-assessment", referral_id: 999 }],
+    documents: [file, { ...file, id: "other-referral-file", referralId: 999, name: "Other authorized episode.pdf" }] },
 };
-const scoped = transferredChart.scopeWorkspaceClientProfile(chartProfile, referral, fields, source);
-assert.equal(scoped.pipeline.documents.length, 1);
-assert.equal(scoped.pipeline.assessments.length, 1);
-assert.equal(scoped.pipeline.referrals.length, 0);
-assert.equal(scoped.client.enrichment.date_of_birth, "01/02/1990");
+assert.equal(chartContext.clientChartRecord(chartProfile).date_of_birth, "01/02/1990");
 assert.equal(chartProfile.pipeline.documents.length, 2);
 assert.equal(chartProfile.client.enrichment.date_of_birth, undefined);
 fixtureCache.set("/api/profiles/pipeline%3Afixture", chartProfile);
@@ -132,19 +133,20 @@ assert.match(html, /Original owner/);
 assert.match(html, /Preserved introduction/);
 assert.match(html, /Recorded reason/);
 assert.match(html, /&lt;script&gt;untrusted source text&lt;\/script&gt;/);
-assert.doesNotMatch(html, /## Reason for referral|## Current presentation|Latest assessment|Do not show other workspace/);
+assert.doesNotMatch(html, /## Reason for referral|## Current presentation|Latest assessment/);
+assert.match(html, /Other authorized episode.pdf/);
 assert.match(html, /Client files/);
 assert.match(html, /aria-label="Open Actual packet.pdf"/);
 assert.match(html, /src="\/api\/files\/fixture\/thumbnail"/);
 assert.match(html, /href="\/api\/files\/fixture\/preview"/);
 assert.match(html, /existing-assessment-actions/);
-fixtureCache.set("/api/profiles/pipeline%3Afixture", scoped);
+fixtureCache.set("/api/profiles/pipeline%3Afixture", chartProfile);
 const clientsHtml = renderToStaticMarkup(React.createElement(clientProfile.default, { residentKey: "pipeline:fixture", onBack() {}, onOpenWorkspace() {} }));
 const article = (markup) => markup.match(/<article aria-label="Client medical chart"[\s\S]*?<\/article>/)[0];
 assert.equal(article(html), article(clientsHtml));
-const galleryHtml = renderToStaticMarkup(React.createElement(clientProfile.ClientDocumentGallery, { documents: [file] }));
+const galleryHtml = renderToStaticMarkup(React.createElement(clientProfile.ClientDocumentGallery, { documents: chartProfile.pipeline.documents }));
 assert(html.includes(galleryHtml));
-checks.push("workspace charts render the actual Clients chart and thumbnail gallery; referral files and drafts are scoped without changing source data or removing assessment actions");
+checks.push("Clients and workspace charts render the same authorized client-wide records and galleries, retaining assessment actions and source data");
 const provenance = { sourceCanvasName: "Original ALLO chart", sourceProjectName: "Original source", capturedAt: "2026-08-20" };
 const imported = { ...source,
   facts: [{ key: "dob", label: "Date of birth", value: "02/03/1980", source: provenance },
@@ -156,14 +158,13 @@ const imported = { ...source,
   unmappedEvidence: [{ text: "Original unmapped note", source: provenance }],
   sourceSections: [{ sectionId: "original", label: "Original text", source: provenance, blocks: [{ ordinal: 1, text: "Source preamble\n## Original heading\nOriginal body" }] }],
 };
-const importedScope = transferredChart.scopeWorkspaceClientProfile(chartProfile, referral, [], imported);
-assert.equal(importedScope.client.enrichment.date_of_birth, "02/03/1980");
-assert.equal(importedScope.client.enrichment.primary_diagnosis, "Recorded source diagnosis");
-assert.equal(importedScope.client.enrichment.mobility, undefined);
-assert.equal(importedScope.client.enrichment.latest_assessment_date, undefined);
+const importedScope = { ...chartProfile, pipeline: { ...chartProfile.pipeline, source_profiles: [{ referral_id: 71, profile: imported }] } };
+assert.equal(chartContext.clientChartRecord(importedScope).date_of_birth, "01/02/1990");
+assert.equal(chartContext.clientChartRecord(importedScope).primary_diagnosis, undefined);
+assert.equal(chartContext.clientChartRecord(importedScope).mobility, undefined);
+assert.equal(chartContext.clientChartRecord(importedScope).latest_assessment_date, undefined);
 const importedHtml = renderToStaticMarkup(React.createElement(clientProfile.ClientChartRecord, {
-  profile: importedScope, supplementalSections: transferredChart.workspaceClientSections(referral, fields),
-  sourceSections: transferredChart.workspaceSourceSections(imported), sourceLabel: "ALLO (imported)",
+  profile: importedScope, sourceReferralId: 71,
 }));
 for (const text of ["ALLO assessment date (imported)", "2025-01-02", "Original ALLO chart", "Uncertain source mobility", "Original unmapped note", "Source preamble", "Original heading", "Original body"]) assert(importedHtml.includes(text), text);
 assert.doesNotMatch(importedHtml, /## Original heading|Latest assessment/);
@@ -191,7 +192,7 @@ const intakeSource = [...canvasAst.statements].filter((node) => ts.isFunctionDec
   .map((node) => `export ${node.getText(canvasAst)}`).join("\n");
 const intake = load("intake-render.tsx", { "react/jsx-runtime": jsxRuntime, chart: medicalChart, icons,
   ownership: loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts") },
-  `const ChartBand = require("chart").ChartBand; const CheckCircle2 = require("icons").CheckCircle2; const isUnassignedOwner = require("ownership").isUnassignedOwner;\n${intakeSource}`);
+  `const ChartBand = require("chart").ChartBand; const CheckCircle2 = require("icons").CheckCircle2; const isUnassignedOwner = require("ownership").isUnassignedOwner; const FeedbackCue = () => null;\n${intakeSource}`);
 function findControl(element, type) {
   if (element.type === type) return element;
   for (const child of React.Children.toArray(element.props?.children)) {

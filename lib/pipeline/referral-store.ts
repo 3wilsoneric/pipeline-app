@@ -97,6 +97,8 @@ export type StoredReferralAuditEvent = {
 export type ReferralCreateOptions = {
   confirmedDistinctReferralIds?: number[];
   canReviewSuspectedDuplicate?: (referral: Referral) => boolean;
+  /** Internal only: a new episode for the access-checked source's existing person. */
+  newEpisodeSourceReferralId?: number;
 };
 export type ReferralQueueView = "my_work" | "unassigned" | "packet_review" | "assessment" | "decision";
 
@@ -813,7 +815,9 @@ async function createLocalReferral(
   }
 
   assertPacketIsUnique(input.documentHash);
-  const confirmedDistinctReferralIds = requireSuspectedDuplicateConfirmation(
+  const episodeSource = options.newEpisodeSourceReferralId === undefined ? undefined
+    : requireEpisodeSource(input, state.referrals.find((referral) => referral.id === options.newEpisodeSourceReferralId));
+  const confirmedDistinctReferralIds = episodeSource ? [] : requireSuspectedDuplicateConfirmation(
     suspectedLocalDuplicateReferrals(input),
     options,
   );
@@ -848,7 +852,7 @@ async function createLocalReferral(
     null,
     referral,
     1,
-    distinctPersonConfirmationReason(confirmedDistinctReferralIds),
+    episodeSource ? `New intake from workspace #${episodeSource.id}; carried chart fields require review.` : distinctPersonConfirmationReason(confirmedDistinctReferralIds),
     createdAt,
   );
   await persist();
@@ -1732,14 +1736,18 @@ async function createPostgresReferral(
       if (duplicate[0]) throw new DuplicateReferralPacketError(Number(duplicate[0].referral_id));
     }
 
-    const confirmedDistinctReferralIds = await lockAndConfirmPostgresDuplicate(
+    const episodeSource = options.newEpisodeSourceReferralId === undefined ? undefined
+      : requireEpisodeSource(input, await getReferralInTransaction(tx, options.newEpisodeSourceReferralId, true));
+    const confirmedDistinctReferralIds = episodeSource ? [] : await lockAndConfirmPostgresDuplicate(
       tx,
       input,
       options,
     );
 
     const clientId = normalizeClientId(input.clientId) || `pipeline-client-${randomUUID()}`;
-    const people = await tx<{ person_id: string }[]>`
+    const people = episodeSource ? await tx<{ person_id: string }[]>`
+      select person_id from pipeline.people where external_client_id = ${clientId} for share
+    ` : await tx<{ person_id: string }[]>`
       insert into pipeline.people (external_client_id, display_name, date_of_birth)
       values (${clientId}, ${input.name}, ${dateToSql(input.dob)}::date)
       on conflict (external_client_id) do update
@@ -1792,7 +1800,7 @@ async function createPostgresReferral(
       null,
       referral,
       1,
-      distinctPersonConfirmationReason(confirmedDistinctReferralIds),
+      episodeSource ? `New intake from workspace #${episodeSource.id}; carried chart fields require review.` : distinctPersonConfirmationReason(confirmedDistinctReferralIds),
     );
     if (mutationId) {
       await tx`
@@ -2573,7 +2581,7 @@ function mapReferralRow(row: ReferralRow): Referral {
       id: row.updated_by,
       name: row.updated_by_name,
     },
-    name: row.display_name,
+    name: data.chartSource && data.name?.trim() ? data.name : row.display_name,
     stage: row.stage,
     community: row.community,
     county: row.county ?? data.county ?? undefined,
@@ -2768,6 +2776,13 @@ function assertPacketIsUnique(documentHash: string | undefined, currentReferralI
     (referral) => referral.id !== currentReferralId && referral.documentHash === documentHash,
   );
   if (duplicate) throw new DuplicateReferralPacketError(duplicate.id);
+}
+
+function requireEpisodeSource(input: ReferralCreateInput, source: Referral | null | undefined) {
+  if (!source || source.deletedAt || !source.clientId || input.clientId !== source.clientId) {
+    throw new Error("The source workspace is unavailable or its client identity changed. Reopen the chart.");
+  }
+  return source;
 }
 
 function suspectedLocalDuplicateReferrals(input: ReferralCreateInput) {
