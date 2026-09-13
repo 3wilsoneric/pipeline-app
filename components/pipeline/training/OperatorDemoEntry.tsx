@@ -26,12 +26,13 @@ export default function OperatorDemoEntry({ demoUrl }: { demoUrl: string | null 
         className="group grid min-h-[220px] gap-7 border border-[#9fbeb4] bg-[#e8f3ef] p-6 outline-none hover:border-[#4f8f7c] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-9"
       >
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f7c68]">Supervisor-led orientation · 4 minutes</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#0f7c68]">Moving from Allo · Supervisor-led orientation</div>
           <h2 id="pipeline-walkthrough-title" className="mt-3 text-[30px] font-semibold leading-9 tracking-[-0.03em] text-[#18372f] sm:text-[38px] sm:leading-[42px]">Assessor orientation</h2>
-          <p className="mt-3 max-w-[760px] text-[15px] font-medium leading-6 text-[#4e6860]">An introduction to where assessor work appears, how referral information is handled, and where assessor responsibility ends.</p>
+          <p className="mt-3 max-w-[760px] text-[16px] font-medium leading-6 text-[#4e6860]">Find an assigned referral, review its packet, schedule the interview, and return to a saved assessment. Follow the screens through submittal and the supervisor’s decision.</p>
+          <p className="mt-3 text-[13px] font-semibold text-[#4e6860]">Full-screen presentation · Enlargeable screenshots · Optional hands-on walkthroughs</p>
         </div>
         <div className="flex items-center gap-4 border-t border-[#bcd0c9] pt-5 text-[14px] font-black text-[#315a4f] lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-          <span>Begin overview</span>
+          <span>Open presentation</span>
           <ArrowRight size={22} className="shrink-0 text-[#0f7c68] transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </div>
       </Link>

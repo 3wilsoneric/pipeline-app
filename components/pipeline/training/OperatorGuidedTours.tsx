@@ -27,8 +27,8 @@ import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state
 import type { OperatorTrainingProgress } from "@/lib/training/operator-training-progress-contract";
 
 const taskPriority = [
-  "create-referral",
   "assessor-shift",
+  "create-referral",
   "start-assessment",
   "complete-assessment",
   "review-chart",
@@ -40,8 +40,8 @@ const taskPriority = [
 const taskPresentation: Readonly<Record<string, { description: string; icon: ReactNode }>> = {
   "complete-assessment": { description: "Answer, review, and sign.", icon: <ClipboardCheck size={26} aria-hidden="true" /> },
   "start-assessment": { description: "Schedule it, then open the assessment.", icon: <CalendarPlus size={26} aria-hidden="true" /> },
-  "assessor-shift": { description: "Open what needs attention.", icon: <LayoutDashboard size={26} aria-hidden="true" /> },
-  "create-referral": { description: "Upload, assign, and schedule.", icon: <CalendarPlus size={26} aria-hidden="true" /> },
+  "assessor-shift": { description: "Find assignments and return to saved work.", icon: <LayoutDashboard size={26} aria-hidden="true" /> },
+  "create-referral": { description: "Attach the packet, check intake, and assign.", icon: <CalendarPlus size={26} aria-hidden="true" /> },
   "find-workspace": { description: "Search and reopen it.", icon: <FolderSearch2 size={26} aria-hidden="true" /> },
   "supervisor-shift": { description: "Find unassigned or stuck work.", icon: <BarChart3 size={26} aria-hidden="true" /> },
   "review-chart": { description: "Check the signed record.", icon: <FileSearch size={26} aria-hidden="true" /> },
@@ -77,6 +77,7 @@ export default function OperatorGuidedTours({ assignedRoles, progress, onExpande
   return (
     <section className="mt-7 min-h-[calc(100dvh-470px)]" aria-label="Quick help">
       <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-[#252b28]">Quick help</h2>
+      <p className="mt-1 text-[14px] leading-6 text-[#606b67]">Choose a task, then use Start guide for tooltips or Show me for a single step. No presentation required.</p>
       <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {tutorials.map((tutorial, index) => (
           <TaskTile key={tutorial.id} rank={index + 1} tutorial={tutorial} completed={progress.tutorialResults[tutorial.id]?.status === "completed"} onOpen={() => selectTask(tutorial.id)} />

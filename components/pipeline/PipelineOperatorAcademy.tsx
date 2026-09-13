@@ -70,6 +70,7 @@ export default function PipelineOperatorAcademy({
           <>
             <header className="pb-5">
               <h1 className="text-[34px] font-semibold tracking-[-0.045em] text-[#151917] sm:text-[44px]">Learning Center</h1>
+              <p className="mt-2 text-[15px] leading-6 text-[#606b67]">Start with the orientation, or choose a task for help on the screen you use.</p>
             </header>
 
             <OperatorDemoEntry demoUrl={demoUrl} />
@@ -80,7 +81,7 @@ export default function PipelineOperatorAcademy({
         {!moduleOpen ? (
           <footer className="mt-5 flex items-center gap-2 text-[10px] leading-4 text-[#6d7773]">
             <CheckCircle2 size={14} className="shrink-0 text-[#0f8b73]" aria-hidden="true" />
-            Practice with test records. The guide never types, signs, sends, or exports for you.
+            Assessment practice uses a synthetic case. Other guides use the app’s controls: use test records, not live client data, when practicing.
           </footer>
         ) : null}
       </div>

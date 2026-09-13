@@ -31,7 +31,9 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "Learning Center" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Open Pipeline walkthrough presentation" })).toBeVisible();
     const taskTiles = page.locator('section[aria-label="Quick help"] > div > button');
-    await expect(taskTiles.first()).toHaveAccessibleName("Open Create a referral");
+    await expect(taskTiles.first()).toHaveAccessibleName("Open Check my work");
+    await expect(page.getByText("Moving from Allo · Supervisor-led orientation")).toBeVisible();
+    await expect(page.getByText(/No presentation required/)).toBeVisible();
 
     await page.getByRole("button", { name: "Open Finish an assessment" }).click();
     await expect(page.getByRole("heading", { name: "Finish an assessment" })).toBeVisible();
@@ -72,6 +74,7 @@ test.describe("Pipeline Learning Center", () => {
 
     await expect(page.getByRole("dialog", { name: /Check my work guided tutorial/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Check your queue" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /Check my work guided tutorial/ })).toContainText("Continue working reopens saved work when available.");
     await expect(page.locator('[data-guide-target="my-queue"]')).toBeVisible();
     await page.getByRole("dialog", { name: /Check my work guided tutorial/ }).getByRole("button", { name: "Continue", exact: true }).click();
 
@@ -220,10 +223,51 @@ test.describe("Pipeline Learning Center", () => {
     await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="intake-medications"]'));
     await page.getByRole("button", { name: "Skip step" }).click();
     await expect(page.getByRole("heading", { name: "Review before creating" })).toBeVisible();
+    await expect(coach).toContainText("Finish this guide without creating a live referral.");
     await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="create-workspace"]'));
     await page.getByRole("button", { name: "Skip and finish" }).click();
     await expect(coach).toBeHidden();
     await expect.poll(() => errors).toEqual([]);
+  });
+
+  test("captures current synthetic intake screens and a readable orientation", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await mockTrainingProgress(page);
+    await page.goto("/training/demo?slide=open-workspace");
+    await page.getByRole("button", { name: "Try the intake walkthrough" }).click();
+    await expect(page).toHaveURL(/trainingIntake=1/);
+    const upload = page.getByRole("group", { name: "Upload initial referral document" });
+    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
+    await expect(upload).toBeVisible();
+    await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
+    await expect(upload.getByRole("button", { name: "Choose file" })).toBeEnabled();
+    await expectGuideDoesNotCoverTarget(page.getByTestId("guided-coach-panel"), upload);
+    await page.screenshot({ path: testInfo.outputPath("intake-workspace.png"), animations: "disabled" });
+    await dropTrainingPdf(upload, "synthetic-referral-packet.pdf");
+    await expect(page.getByRole("heading", { name: "Verify identity" })).toBeVisible();
+    await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Taylor Rivera");
+    await expect(page.getByRole("heading", { name: "Assign the referral" })).toBeVisible();
+    await expect(page.locator('[data-guide-target="intake-routing"]')).toBeVisible();
+    await page.getByRole("button", { name: "End tutorial", exact: true }).click();
+    await expect(page.getByTestId("guided-coach-panel")).toBeHidden();
+    await page.getByRole("button", { name: "Close guided tutorials", exact: true }).click();
+    await expect(page.getByTestId("workspace-save-status")).not.toContainText("Unsaved changes");
+    await page.getByRole("article", { name: "Referral intake chart", exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("intake-review.png"), animations: "disabled" });
+    await page.goto(trainingUrl);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.screenshot({ path: testInfo.outputPath("learning-center.png") });
+    await page.getByRole("link", { name: "Open Pipeline walkthrough presentation" }).click();
+    for (const size of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(size);
+      for (let index = 0; index < 9; index += 1) {
+        await page.getByLabel("Jump to slide").selectOption(String(index));
+        const slide = page.getByRole("article", { name: `Presentation slide ${index + 1}`, exact: true });
+        await expect(slide).toBeVisible();
+        expect(await slide.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+        if (index < 2) await page.screenshot({ path: testInfo.outputPath(`orientation-${index + 1}-${size.width}.png`) });
+      }
+    }
   });
 
   test("clears quick-help checks on leaving and does not restore them after closing the browser", async ({ page, browser }) => {
@@ -314,7 +358,55 @@ test.describe("Pipeline Learning Center", () => {
 
     await expect(page).toHaveURL(/\/training\/demo$/);
     await expect(page.getByRole("tab", { name: "Presentation" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
+  });
+
+  test("guides report selection, unapplied filters, and the export checkpoint", async ({ page }) => {
+    const queries: URLSearchParams[] = [];
+    const exports: string[] = [];
+    const catalog = [
+      { id: "clients_by_community", label: "Clients by community", description: "Current clients", cadence: "Current", audience: "Supervisors", filters: ["community", "client_scope"] },
+      { id: "assessment_completion", label: "Assessment completion", description: "Completed assessments", cadence: "Monthly", audience: "Supervisors", filters: ["month", "community"] },
+    ];
+    await mockTrainingProgress(page);
+    await page.route("**/api/operations/reports**", (route) => {
+      const request = route.request();
+      if (request.method() !== "GET") exports.push(request.method());
+      const query = new URL(request.url()).searchParams;
+      queries.push(query);
+      const definition = catalog.find((item) => item.id === query.get("report_id")) ?? catalog[0];
+      return route.fulfill({ json: {
+        catalog,
+        facets: { communities: [{ value: "Turlock", count: 1 }], owners: [] },
+        filters: { report_id: definition.id, month: query.get("month") ?? "", community: query.get("community") ?? "", owner: "", county: "", client_scope: query.get("client_scope") ?? "all" },
+        report: { definition, columns: [], metrics: [], rows: [], row_count: 0, truncated: false, generated_at: "2026-09-13T12:00:00Z" },
+      } });
+    });
+    await page.goto(trainingUrl);
+    await page.getByRole("button", { name: "Open Run a report" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Run a report" }).click();
+    await page.getByRole("button", { name: "Open reports", exact: true }).click();
+    const coach = page.getByRole("dialog", { name: "Run a report guided tutorial" });
+    const report = page.getByRole("combobox", { name: "Report", exact: true });
+    await expect(coach.getByRole("heading", { name: "Choose the report" })).toBeVisible();
+    await report.click();
+    await report.press("Escape");
+    await expect(coach.getByRole("heading", { name: "Choose the report" })).toBeVisible();
+    // Commit an actual selection, not just focus/open the dropdown.
+    await report.selectOption("assessment_completion");
+    await expect(coach.getByRole("heading", { name: "Set the report filters" })).toBeVisible();
+    await page.getByLabel("Report month", { exact: true }).fill("2026-08");
+    await expect(coach.getByRole("heading", { name: "Apply the filters" })).toBeVisible();
+    await expect(coach).toContainText("Select Apply to refresh the result.");
+    await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeDisabled();
+    expect(queries.at(-1)?.get("month")).not.toBe("2026-08");
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Check the results" })).toBeVisible();
+    await expect.poll(() => queries.at(-1)?.get("month")).toBe("2026-08");
+    await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeEnabled();
+    await coach.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(coach).toContainText("The guide does not download it for you.");
+    expect(exports).toEqual([]);
   });
 
   test("opens modules as full-page learning workspaces", async ({ page }) => {
