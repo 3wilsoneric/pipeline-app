@@ -120,7 +120,7 @@ const profileSections: SectionDefinition[] = [
     key: "support",
     label: "Legal and support",
     fields: [
-      { label: "Conservatorship", sources: ["conservatorship", "conservatorship_enriched_json", "operational_conservatorship_json", "recovered_document_conservatorship_json"], maxItems: 6 },
+      { label: "Conservatorship", sources: ["conservatorship", "conservatorship_enriched_json", "operational_conservatorship_json", "recovered_document_conservatorship_json", "conservatorship_status"], maxItems: 6 },
       { label: "Conserved status", sources: ["conservatorship_type"] },
       { label: "Conservator", sources: ["conservator_name"] },
       { label: "Hold type", sources: ["hold_type"] },

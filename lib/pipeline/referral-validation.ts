@@ -85,7 +85,7 @@ export function validateReferralCreateInput(
   if (!isPlainObject(value)) return invalid("The referral must be an object.");
 
   const serverOwnedFields = [
-    "id", "version", "sectionVersions", "updatedBy", "ownerId", "owners",
+    "id", "version", "sectionVersions", "updatedBy", "ownerId", "owners", "chartSource",
     "manualIntakeAuthorization", "interview", "assessment", "admissionDecision",
     "assessmentRecommendation", "assessmentReview", "assessmentReviewHistory", "ehrHandoff",
   ] as const;
@@ -153,7 +153,7 @@ export function validateReferralPatch(
   if (!isPlainObject(value)) return invalid("The referral patch must be an object.");
 
   for (const protectedField of [
-    "id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId", "owners",
+    "id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId", "owners", "chartSource",
     "workflowStatus", "assignedAt", "assignmentDueAt", "assignmentVersion",
     "assessmentRecommendation", "assessmentReview", "assessmentReviewHistory", "admissionDecision",
     "manualIntakeAuthorization", "ehrHandoff", "interview", "assessment",

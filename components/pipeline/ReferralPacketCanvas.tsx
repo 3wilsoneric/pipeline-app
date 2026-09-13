@@ -1998,10 +1998,7 @@ export default function ReferralPacketCanvas({
         <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart">
-              <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} fields={[
-                ...Object.values(fields),
-                { label: "Conserved", value: conserved },
-              ]} />
+              <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} />
             </PacketPage>
           ) : displayedPage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake">
@@ -2238,9 +2235,7 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart">
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} fields={[
-                ...Object.values(fields), { label: "Conserved", value: conserved },
-              ]}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
             </PacketPage>
           ) : (
             <PacketPage id="packet-activity" title="Activity">

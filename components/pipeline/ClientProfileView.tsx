@@ -44,6 +44,9 @@ import {
 } from "@/components/pipeline/ClientIdentityReview";
 import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
+import folderStyles from "./ClientFolder.module.css";
+import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
+import { clientChartRecord, clientReferralSections, clientSourceSections, clientAssessmentSections } from "@/lib/pipeline/client-chart-context";
 
 export default function ClientProfileView({
   residentKey,
@@ -151,15 +154,13 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
-export function ClientChartRecord({ profile, supplementalSections, sourceSections, sourceLabel, children }: {
+export function ClientChartRecord({ profile, sourceReferralId, children }: {
   profile: UnifiedClientProfileResponse;
-  supplementalSections: ClientProfileSection[];
-  sourceSections: ClientProfileSection[];
-  sourceLabel: string;
+  sourceReferralId: number;
   children?: ReactNode;
 }) {
   return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
-    embedded supplementalSections={supplementalSections} sourceSections={sourceSections} sourceLabel={sourceLabel} additionalContent={children} />;
+    embedded sourceReferralId={sourceReferralId} additionalContent={children} />;
 }
 
 function ResidentProfile({
@@ -168,20 +169,16 @@ function ResidentProfile({
   onOpenWorkspace,
   onConnectionChanged,
   embedded = false,
-  supplementalSections,
-  sourceSections,
   additionalContent,
-  sourceLabel,
+  sourceReferralId,
 }: {
   profile: UnifiedClientProfileResponse;
   onBack: () => void;
   onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onConnectionChanged: () => void;
   embedded?: boolean;
-  supplementalSections?: ClientProfileSection[];
-  sourceSections?: ClientProfileSection[];
   additionalContent?: ReactNode;
-  sourceLabel?: string;
+  sourceReferralId?: number;
 }) {
   const client = profile.client;
   const resident = profile.resident;
@@ -191,21 +188,11 @@ function ResidentProfile({
   const identity = profileIdentity(profile);
   const chart = useMemo(() => {
     const record: ClinicalClientRecord = {
-      ...client.enrichment,
+      ...clientChartRecord(profile),
       display_name: identity.title,
       resident_name: identity.title,
       gender: identity.gender,
       episode_count: client.episode_count,
-      ...(resident ? {
-        date_of_birth: resident.date_of_birth,
-        admit_date: resident.admit_date,
-        latest_admit_date: resident.admit_date,
-        resident_number: resident.resident_number,
-        age: resident.age,
-        primary_diagnosis: resident.primary_diagnosis,
-        physician: resident.physician,
-        payor: resident.payor,
-      } : {}),
     };
     const sections = buildClientProfileSections(record);
     return {
@@ -213,7 +200,7 @@ function ResidentProfile({
       detailSections: removePromotedClientProfileFacts(sections),
       episodes: buildClientEpisodeSummaries(client.resident_episode_history),
     };
-  }, [client, identity.gender, identity.title, resident]);
+  }, [client, identity.gender, identity.title, profile]);
   const medicalChart = buildClientMedicalChart(
     {
       name: identity.title,
@@ -227,8 +214,9 @@ function ResidentProfile({
   const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at);
 
   return (
-    <ClientChartContainer embedded={embedded} title={identity.title}>
-        <ClientChartBackButton embedded={embedded} onBack={onBack} />
+    <ClientChartContainer embedded={embedded} title={identity.title} onBack={onBack}>
+        <StartReferralFromChart sourceReferralId={sourceReferralId ?? profile.pipeline.referrals[0]?.id}
+          allowed={profile.pipeline.permissions.can_create_identity_candidate} />
 
         {profile.freshness.status === "stale" || profile.freshness.warning ? (
           <div className="mt-4 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">
@@ -236,11 +224,11 @@ function ResidentProfile({
           </div>
         ) : null}
 
-        <div className="mt-3">
+        <div className={folderStyles.chartSummary}>
           <ClientMedicalChart
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
-            sourceLabel={clientChartSourceLabel(pipelineOnly, sourceLabel)}
+            sourceLabel={clientProfileSourceLabel(pipelineOnly)}
           />
         </div>
 
@@ -272,12 +260,13 @@ function ResidentProfile({
           ) : null}
 
           <ClientWorkspaceHistorySection
+            embedded={embedded}
             referrals={profile.pipeline.referrals}
             onOpenWorkspace={onOpenWorkspace}
           />
 
           <ProfileSection title="Client information" detail="Clinical, support, and stay details">
-            <CuratedClientRecord sections={combineClientRecordSections(chart.detailSections, supplementalSections)} />
+            <CuratedClientRecord sections={chart.detailSections} />
             {!pipelineOnly ? (
               <ClientStayHistory episodes={chart.episodes} history={history} />
             ) : null}
@@ -288,17 +277,7 @@ function ResidentProfile({
             sourceDocuments={client.source_documents}
             referralDocuments={profile.pipeline.documents}
           />
-          <ClientSourceNotes sections={sourceSections} />
-
-          {client.facts.length > 0 ? (
-            <ProfileSection title="Source-backed information" detail="Extracted packet facts">
-              <ClientFactReview
-                canonicalClientId={client.canonical_client_id}
-                facts={client.facts}
-                documents={client.source_documents}
-              />
-            </ProfileSection>
-          ) : null}
+          <ClientRecordedInformation profile={profile} />
 
           {!pipelineOnly && client.canonical_client_id ? (
             <ProfileSection title="Record quality" detail={`${completeness.complete} of ${completeness.total} tracked fields`}>
@@ -311,23 +290,36 @@ function ResidentProfile({
   );
 }
 
-function ClientChartContainer({ embedded, title, children }: { embedded: boolean; title: string; children: ReactNode }) {
-  if (embedded) return <div data-testid="profile-workspace" data-performance-ready="profile" className="bg-white pb-6 text-[#111111]">{children}</div>;
+function ClientRecordedInformation({ profile }: { profile: UnifiedClientProfileResponse }) {
+  const client = profile.client;
+  return <>
+    {profile.pipeline.referrals.length > 0 ? <ProfileSection title="Referral information">
+      <CuratedClientRecord sections={clientReferralSections(profile)} />
+    </ProfileSection> : null}
+    {profile.pipeline.assessments.length > 0 ? <ProfileSection title="Assessment records">
+      <CuratedClientRecord sections={clientAssessmentSections(profile)} />
+    </ProfileSection> : null}
+    <ClientSourceNotes sections={clientSourceSections(profile)} />
+    {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
+    {client.facts.length > 0 ? <ProfileSection title="Source-backed information" detail="Extracted packet facts">
+      <ClientFactReview canonicalClientId={client.canonical_client_id} facts={client.facts} documents={client.source_documents} />
+    </ProfileSection> : null}
+  </>;
+}
+
+function ClientChartContainer({ embedded, title, onBack, children }: { embedded: boolean; title: string; onBack: () => void; children: ReactNode }) {
+  if (embedded) return <div data-testid="profile-workspace" data-performance-ready="profile" className={`${folderStyles.embeddedRecord} bg-white pb-6 text-[#111111]`}>{children}</div>;
   return <main aria-label={`Client profile for ${title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-white text-[#111111] [scrollbar-gutter:stable]">
-    <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1480px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">{children}</div>
+    <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1800px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">
+      <BackButton onClick={onBack} />
+      <div data-testid="client-profile-folder" className={folderStyles.recordFolder}>
+        <strong className={folderStyles.tab}><span className={folderStyles.tabLabel}>{title}</span></strong>
+        <div className={folderStyles.body}>
+          <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>{children}</div>
+        </div>
+      </div>
+    </div>
   </main>;
-}
-
-function ClientChartBackButton({ embedded, onBack }: { embedded: boolean; onBack: () => void }) {
-  return embedded ? null : <BackButton onClick={onBack} />;
-}
-
-function combineClientRecordSections(sections: ClientProfileSection[], supplemental?: ClientProfileSection[]) {
-  return [...sections, ...(supplemental ?? [])];
-}
-
-function clientChartSourceLabel(pipelineOnly: boolean, label?: string) {
-  return label ?? clientProfileSourceLabel(pipelineOnly);
 }
 
 function ClientSourceNotes({ sections }: { sections?: ClientProfileSection[] }) {
@@ -369,13 +361,15 @@ function ClientWorkspaceHistory({
 }
 
 function ClientWorkspaceHistorySection({
+  embedded = false,
   referrals,
   onOpenWorkspace,
 }: {
+  embedded?: boolean;
   referrals: Referral[];
   onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
-  if (referrals.length === 0) return null;
+  if (embedded || referrals.length === 0) return null;
   return (
     <ProfileSection title="Workspaces" detail={formatCount(referrals.length, "workspace")}>
       <ClientWorkspaceHistory referrals={referrals} onOpenWorkspace={onOpenWorkspace} />
@@ -1190,7 +1184,7 @@ function getCompleteness(profile: UnifiedClientProfileResponse) {
 }
 
 function ProfileShell({ children }: { children: React.ReactNode }) {
-  return <main className="h-full overflow-y-auto bg-white text-[#111111]"><div className="mx-auto w-full max-w-[1480px] px-4 py-4 sm:px-6 lg:px-8">{children}</div></main>;
+  return <main className="h-full overflow-y-auto bg-white text-[#111111]"><div className={`${folderStyles.transitionSurface} mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8`}>{children}</div></main>;
 }
 
 function ProfileSkeleton({ onBack }: { onBack: () => void }) {
@@ -1229,7 +1223,7 @@ function ProfileSection({ title, detail, children }: { title: string; detail?: s
 
 function profileIdentity(profile: UnifiedClientProfileResponse) {
   const client = profile.client;
-  const enrichment = client.enrichment;
+  const enrichment = clientChartRecord(profile);
   const gender = resolveClientGender(
     client.gender,
     enrichment.gender_values_json,

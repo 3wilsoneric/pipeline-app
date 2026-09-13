@@ -194,6 +194,7 @@ Elevation rules:
 - Dialogs may use `0 24px 70px rgb(17 17 17 / 20%)`.
 - Right drawers may use `-16px 0 40px rgb(20 35 30 / 16%)`.
 - Gallery cards may lift 2px on hover with `0 10px 24px rgb(25 55 45 / 9%)`.
+- Client directory folders are a bounded exception: connected name tab and slim manila frame (`#EDE4D0`), 6px folder/tab corners, white paper inset, and shallow resting shadow. Hover strengthens the edge and shadow without moving the folder. Do not apply this treatment to ordinary forms or tables.
 - Do not stack border, large radius, and heavy shadow on the same ordinary component.
 
 ### 3.6 Icons and marks
@@ -241,7 +242,7 @@ The global header is 68px on mobile, 74px at 640px+, and 82px at 1280px+. It has
 Choose width by task, not by a universal template:
 
 - Search, editor, and article-like explanation: 640–900px.
-- Client directory and ordinary structured views: up to 1240px.
+- Ordinary structured views: up to 1240px. Client folders use up to 1800px with 16–32px outer gutters, two columns from 1024px, 32px column gaps and 40px desktop row gaps. Below 1024px, use one column and 32px between folders. Search and filters align with the folder grid.
 - Referral/detail workspace: up to 1480px.
 - Reports and high-density evidence: 1480–1680px or the full safe width.
 - Directory/list surfaces may run nearly edge-to-edge with responsive gutters.
@@ -424,7 +425,12 @@ Use cards only when items are independently selectable or rearrangeable.
 - Use a tinted evidence/preview zone at top and a white identity zone below when helpful.
 - Ordinary modules are separated by rules and grid gaps, not shadows.
 - Gallery cards may lift 2px and gain a faint shadow on hover.
+- Client directory folders put the 16px bold name on a fitted white rectangular label within a raised manila tab joined to the folder body. Names wrap rather than shrink or truncate. Keep framing to 10px, paper corners to 2px, supporting values to 14px semibold, and field labels to 10px bold. Missing values stay medium weight. A pale green chart header with a short green rule echoes the full chart, with an 11px extra-bold title and a bold open affordance. Community, unit, admission date and care level stay on the white chart surface; do not repeat them beneath the name. The whole folder remains one open-profile button, not a tablist or nested buttons. No added transitions, textures, fake paper stacks, avatars, clinical fields or status classifications. Preserve missing-data and conditional count semantics, filters, profile prefetching and the actual profile/chart views. Visual reference: historical CareEngine PatientMAR.tsx at e9759fe445182a80f440721e40b8ed13efeb51ae; none of its prototype workflows or hardcoded clinical content are reused.
 - Customization mode may add a dashed border and an almost-white green tint.
+
+The Clients directory offers an adjacent Cards / List segmented toggle using the Workspaces control pattern. Cards remain the default; remember only this layout preference in local browser storage, with a working in-memory fallback when storage is blocked. List rows use a small decorative chart thumbnail, a legible name, and the same community, unit, admission and care-level fields. Desktop columns become wrapped metadata on smaller screens. Each row is one open-profile button using the same profile key and prefetch behavior as the cards. Switching layouts reuses the loaded roster without resetting search, filters, sort or the display limit; it must not fetch each client's full chart or thumbnail images.
+
+Opening a client uses a 240ms native shared-element expansion from the folder card (or the list's small chart thumbnail) into the full chart. The preview fades out quickly while chart text settles at full size; keep the navigation stationary and use no spring, bounce, blur or new animation dependency. Capture the selected preview only, with one active transition and cleanup on completion or interrupted navigation. Use the existing cached/prefetched chart when available; never wait for chart data inside the transition. Cold reads still open the existing loading surface immediately and retain normal error/retry behavior. Reduced motion and unavailable browser support use ordinary direct navigation. Animate browser snapshots only: the live chart retains its single scroll region, unclipped content and document controls.
 
 Avoid nesting more than one bordered card inside another.
 
@@ -583,6 +589,8 @@ Composition:
 4. Stronger border around the canonical document/file region when it behaves as a distinct record object.
 
 Use direct field/value presentation. Avoid lifestyle-profile visuals or oversized avatars.
+
+The standalone client page carries the directory's folder metaphor into the open record: Back to profiles outside, the same 16px name and fitted white label on the connected manila tab, and all existing chart/history/files content on one white surface inside a 10px frame. Use the same up-to-1800px width and responsive outer gutters as the directory. This is a non-interactive folder shell, not a new tabbed workflow. Retain the chart's identifying fields, source freshness notices, document thumbnails and links, existing section order, and a single page scroll region. Embedded workspace charts and referral-intake forms do not inherit the folder shell. Do not add clipping, transforms, or nested scrolling to the frame; dialogs and long clinical content must remain usable.
 
 ### 7.5 Calendar / scheduling
 
@@ -901,4 +909,3 @@ Review at 360px, 640px, 1024px, 1280px, and 1536px.
 ### Final smell test
 
 The redesign should feel like a serious, modern work system: compact but not cramped, warm but not decorative, fast to scan, and unusually clear about what is known, what is missing, what changed, and what the user can do next.
-

@@ -658,3 +658,54 @@ in Chromium and WebKit, Firefox fallback selection, keyboard/cancel/dismissal,
 existing same-count feedback, reduced motion and stacked filtering. These are
 synthetic browser checks, not real-device or production-login certification.
 This change is handed to the concurrent UI-polish task for its combined release.
+
+## September 13 Chart And Intake Continuity
+
+Clients and workspace Chart now use one client-wide projection and renderer.
+Confirmed identity links resolve the clinical/census record in both directions,
+including census residents without an enhanced profile. Saved intake details,
+authorized assessment records, files and original imported notes appear in both
+views. Empty census values do not erase available clinical or saved intake values.
+Assessment/link pagination follows the existing cursors rather than stopping at
+the first hundred records. Source-note failures are visible, not empty success.
+
+The Chart's New referral action creates a new saved workspace at Intake for the
+same stable person. Identity, contact, coverage, community and medication fields
+carry source/date labels and remain editable for verification. Referral-received
+date is new; admission date, packet approvals, scheduling, assessment signatures,
+decisions and assignments are not copied. Original documents remain on the shared
+chart, not automatically accepted as this referral's admission packet.
+
+The server resolves the source and chart under the current user's record access.
+It rejects client-supplied identity overrides and protects chart provenance from
+ordinary writes. Actor/source-bound retry keys reuse the existing creation lock
+and idempotency records. The PostgreSQL episode path selects the existing person
+instead of updating their identity. Assessor creation retains self-assignment;
+supervisor creation remains unassigned. No migrations or new dependencies.
+
+Bounded evidence is executable in `scripts/chart-intake-contracts.mjs` (included
+in `check:client-workspaces`) and `tests/e2e/chart-intake-continuity.spec.ts`.
+Browser checks exercise the real chart-to-intake clickpath, confirmed versus
+candidate links, enhanced and census-only profiles, eight simultaneous first
+creates with one retry key, replay, unchanged source rows and stored name fidelity.
+Run the database variant only against a fresh disposable local PostgreSQL database
+whose name ends in `_test`; install the existing migrations first. The fixture's
+fixed resident identities intentionally conflict with earlier runs in a reused
+database instead of deleting data. Source thumbnails are not part of this fixture.
+All four browser cases passed on both the local adapter and disposable PostgreSQL
+16, including the original person-row comparison. A production Next build,
+focused ESLint, chart/intake, workspace, projection, navigation, live-loading and
+API-boundary checks passed. The shared chart and populated intake were inspected
+visually. These checks do not establish a real Microsoft assessor session or a
+production-wide data reconciliation.
+
+Limits: this is not a production-wide identity repair or automatic name match.
+Unconfirmed or conflicting identity links remain separate until reviewed. Unsigned
+answers and imported note mappings remain attributed source material, not approved
+clinical facts. Clinical-only profiles without a Pipeline workspace do not expose
+this source-workspace action. Notes are loaded one visible imported episode at a
+time; revisit that strategy only if measured chart latency for large episode
+histories warrants a separately paginated source-note section. No production data
+was changed or deployment performed during these checks. Rollback is this bounded
+product commit; new referrals and their source provenance remain valid JSON records
+under the existing schema.

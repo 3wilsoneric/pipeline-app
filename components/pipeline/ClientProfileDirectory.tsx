@@ -10,6 +10,8 @@ import {
   CircleAlert,
   FileText,
   FolderOpen,
+  LayoutGrid,
+  List,
   MapPin,
   RefreshCw,
   Search,
@@ -31,6 +33,8 @@ import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { cancelPipelineWarmup, prefetchPipelineProfile } from "@/lib/pipeline/client-navigation";
+import { openClientChart } from "./client-chart-transition";
+import styles from "./ClientFolder.module.css";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
 
@@ -44,8 +48,10 @@ type ClientDirectoryPayload = {
 
 type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
 type SortOption = "name" | "community" | "recent_admission" | "pipeline_activity";
+type DirectoryLayout = "cards" | "list";
 type CommunityOption = { id: string; name: string };
 
+const directoryLayoutStorageKey = "pipeline:client-directory-layout";
 const PAGE_SIZE = 200;
 const DISPLAY_INCREMENT = 100;
 const MAX_DIRECTORY_PAGES = 50;
@@ -81,8 +87,23 @@ export default function ClientProfileDirectory({
   const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
   const [sort, setSort] = useState<SortOption>("name");
+  const [layout, setLayout] = useState<DirectoryLayout>("cards");
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(directoryLayoutStorageKey);
+      if (saved === "cards" || saved === "list") setLayout(saved);
+    } catch { /* Storage may be blocked; the view toggle still works for this visit. */ }
+  }, []);
+
+  const selectLayout = (next: DirectoryLayout) => {
+    setLayout(next);
+    try {
+      window.localStorage.setItem(directoryLayoutStorageKey, next);
+    } catch { /* Layout persistence is optional and contains no client data. */ }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -206,7 +227,7 @@ export default function ClientProfileDirectory({
 
   return (
     <main data-guide-target="client-directory" data-performance-ready={pipelineSurfaceReady("profiles", isLoading, error)} aria-label="Client profiles" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1240px] px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+      <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1800px] px-4 pb-12 pt-4 sm:px-6 lg:px-8">
         <section aria-label="Find clients" className="pb-1">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <label className="relative min-w-0 flex-1">
@@ -235,6 +256,7 @@ export default function ClientProfileDirectory({
             <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
               <div aria-live="polite" className="relative text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}<FeedbackCue value={`${communityFilter}:${admissionFilter}:${sort}:${displayLimit}`} /></div>
               {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#69716c] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
+              <DirectoryLayoutToggle layout={layout} onChange={selectLayout} />
               <button
                 type="button"
                 aria-label="Refresh client directory"
@@ -301,16 +323,19 @@ export default function ClientProfileDirectory({
         {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
         {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
 
-        <section aria-label="Client list" className="pt-4">
+        <section aria-label="Client list" className="pt-6 sm:pt-8">
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
           {visibleClients.length > 0 ? (
-            <div role="list" className="grid gap-4 md:grid-cols-2">
+            <>
+            {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
+            <div role="list" className={layout === "cards" ? "grid gap-x-8 gap-y-8 lg:grid-cols-2 lg:gap-y-10" : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
               {visibleClients.map((client) => (
                 <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                  <ClientDirectoryCard client={client} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
+                  <ClientDirectoryCard client={client} layout={layout} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
                 </div>
               ))}
             </div>
+            </>
           ) : null}
 
           {!isLoading && !error && filteredClients.length === 0 ? (
@@ -444,6 +469,15 @@ function DirectorySelect({
   );
 }
 
+function DirectoryLayoutToggle({ layout, onChange }: { layout: DirectoryLayout; onChange: (layout: DirectoryLayout) => void }) {
+  return (
+    <div role="group" aria-label="Client view" className="pipeline-segmented flex shrink-0 border border-[#cfd7d3] bg-white p-0.5">
+      <button type="button" aria-label="Show clients as cards" aria-pressed={layout === "cards"} onClick={() => onChange("cards")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "cards" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={14} aria-hidden="true" />Cards</button>
+      <button type="button" aria-label="Show clients as a list" aria-pressed={layout === "list"} onClick={() => onChange("list")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={14} aria-hidden="true" />List</button>
+    </div>
+  );
+}
+
 function DirectoryNotice({ children }: { children: ReactNode }) {
   return <div role="status" className="flex items-start gap-2 border-b border-[#e2d3af] py-3 text-[12px] leading-5 text-[#684d1d]"><CircleAlert size={15} className="mt-0.5 shrink-0 text-[#9a6b17]" />{children}</div>;
 }
@@ -457,7 +491,7 @@ function DirectoryError({ message, onRetry, hasPartialResults }: { message: stri
   );
 }
 
-function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOpen: () => void }) {
+function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClient; layout: DirectoryLayout; onOpen: () => void }) {
   const identityTitle = formatClientIdentityTitle({
     name: client.display_name,
     gender: client.gender,
@@ -465,54 +499,91 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
   });
   const gender = resolveClientGender(client.gender);
   const community = resolveClientCommunity(client.current_community, client.community_names[0]);
-  const location = [community, client.unit ? `Unit ${client.unit}` : null].filter(Boolean).join(" · ");
+  const communityLabel = community || "—";
+  const unitLabel = client.unit || "—";
+  const admitted = client.admit_date ? formatDate(client.admit_date) : null;
+  const admissionLabel = admitted || "—";
+  const careLabel = client.care_level || "—";
 
   return (
     <button
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
-      onClick={onOpen}
+      onClick={(event) => openClientChart(event.currentTarget, onOpen)}
       onPointerEnter={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onFocus={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onPointerLeave={cancelPipelineWarmup}
       onBlur={cancelPipelineWarmup}
-      className="group w-full min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
+      className={layout === "list" ? styles.listRow : styles.folder}
     >
-      <span aria-hidden="true" className="block min-h-[156px] border-b border-[#dfe5e2] bg-[#f4f8f6] p-4">
-        <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
-        <span className="mt-3 grid grid-cols-2 gap-px border border-[#bdc9c4] bg-[#bdc9c4]">
-          <ChartPreviewCell label="Community" value={community} />
-          <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
-          <ChartPreviewCell label="Admitted" value={client.admit_date ? formatDate(client.admit_date) : null} />
-          <ChartPreviewCell label="Care level" value={client.care_level} />
-        </span>
-      </span>
-
-      <span className="block px-4 py-3.5">
-        <span className="flex items-start justify-between gap-3">
-          <span className="min-w-0">
-            <strong className="block truncate text-[16px] font-black leading-5 text-[#151a18]" title={identityTitle}>{identityTitle}</strong>
-            {[gender, location].filter(Boolean).length > 0 ? (
-              <span className="mt-1 block truncate text-[11px] text-[#68716d]">{[gender, location].filter(Boolean).join(" · ")}</span>
-            ) : null}
+      {layout === "list" ? <>
+        <span className="flex min-w-0 items-center gap-3">
+          <ClientChartThumbnail />
+          <span className="min-w-0 [overflow-wrap:anywhere]">
+            <span className="block text-[15px] font-bold leading-5 text-[#25382e]">{identityTitle}</span>
+            {gender ? <span className="mt-1 block text-[12px] text-[#59635d]">{gender}</span> : null}
+            <span className="mt-1 block text-[12px] font-semibold text-[#59685f] lg:hidden">{communityLabel}</span>
+            <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#59685f] lg:hidden">
+              <span>Unit {unitLabel}</span>
+              <span>Admitted {admissionLabel}</span>
+              <span>Care: {careLabel}</span>
+            </span>
           </span>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[#0f8b73] transition-transform group-hover:translate-x-0.5"><ArrowRight size={17} /></span>
         </span>
-        {!client.profile_key ? <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#e7ebe8] pt-2.5 text-[10px] text-[#68716c]">
-          <span className="flex min-w-0 items-center gap-1.5"><FileText size={12} className="shrink-0" /><span className="truncate">{countNoun(client.document_count, "document")}</span></span>
-          <span className="flex min-w-0 items-center gap-1.5"><FolderOpen size={12} className="shrink-0" /><span className="truncate">{countNoun(client.referral_count, "workspace")}</span></span>
-          <span className="shrink-0">{countNoun(client.episode_count, "stay")}</span>
-        </span> : null}
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Community: </span>{communityLabel}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Unit: </span>{unitLabel}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold tabular-nums text-[#25382e] lg:block"><span className="sr-only">Admitted: </span>{admissionLabel}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Care level: </span>{careLabel}</span>
+        <ArrowRight size={16} aria-hidden="true" className="text-[#0c705f]" />
+      </> : <>
+      <strong className={styles.tab}><span className={styles.tabLabel}>{identityTitle}</span></strong>
+      <span className={styles.body}>
+        <span className={styles.paper}>
+          <span className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#d8e1da] bg-[#f1f7f3] px-4 py-3">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="border-l-[3px] border-[#0f8b73] pl-2.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
+              {gender ? <span className="text-[12px] font-medium text-[#59635d]">{gender}</span> : null}
+            </span>
+            <span aria-hidden="true" className={styles.open}>Open chart <ArrowRight size={16} strokeWidth={2.5} /></span>
+          </span>
+          <span className="grid grid-cols-2 gap-px bg-[#dde3de]">
+            <ChartPreviewCell label="Community" value={community} />
+            <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
+            <ChartPreviewCell label="Admitted" value={admitted} />
+            <ChartPreviewCell label="Care level" value={client.care_level} />
+          </span>
+          {!client.profile_key ? <span className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#dde3de] px-4 py-2.5 text-[11px] font-medium tabular-nums text-[#626e67]">
+            <span className="flex items-center gap-1.5"><FileText size={12} className="shrink-0" />{countNoun(client.document_count, "document")}</span>
+            <span className="flex items-center gap-1.5"><FolderOpen size={12} className="shrink-0" />{countNoun(client.referral_count, "workspace")}</span>
+            <span className="ml-auto">{countNoun(client.episode_count, "stay")}</span>
+          </span> : null}
+        </span>
       </span>
+      </>}
     </button>
+  );
+}
+
+function ClientChartThumbnail() {
+  return (
+    <span aria-hidden="true" data-client-chart-preview data-testid="client-chart-thumbnail" className="flex h-12 w-[58px] shrink-0 items-center justify-center border border-[#cad4cf] bg-[#edf4f1] shadow-[0_2px_5px_rgba(29,52,43,0.08)]">
+      <svg viewBox="0 0 58 48" className="h-full w-full" focusable="false">
+        <rect x="7" y="4" width="44" height="40" fill="#ffffff" stroke="#c7d3ce" />
+        <path d="M7 4h44v9H7z" fill="#e5f1eb" />
+        <path d="M11 7v4" stroke="#0f8b73" strokeWidth="2" />
+        <path d="M16 9h21" stroke="#7ba391" strokeWidth="2" />
+        <path d="M7 13h44M7 23h44M7 33h44M29 23v21" stroke="#d5dfdb" />
+        <path d="M11 18h27M11 28h10m12 0h10M11 38h10m12 0h10" stroke="#a6b9af" strokeWidth="2" />
+      </svg>
+    </span>
   );
 }
 
 function ChartPreviewCell({ label, value }: { label: string; value: string | null }) {
   return (
-    <span className="min-w-0 bg-white px-3 py-2.5">
-      <span className="block text-[8px] font-black uppercase tracking-[0.08em] text-[#69736e]">{label}</span>
-      <span className={`mt-1 block truncate text-[11px] font-bold ${value ? "text-[#26302c]" : "text-[#a3aaa6]"}`} title={value ?? undefined}>{value || "—"}</span>
+    <span className="min-w-0 bg-white px-4 py-3.5">
+      <span className="block text-[10px] font-bold uppercase tracking-[0.07em] text-[#59685f]">{label}</span>
+      <span className={`mt-1.5 block text-[14px] leading-5 [overflow-wrap:anywhere] ${value ? "font-semibold text-[#25382e]" : "font-medium text-[#69736e]"}`}>{value || "—"}</span>
     </span>
   );
 }

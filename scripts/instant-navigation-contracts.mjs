@@ -252,6 +252,8 @@ let linksStarted = false;
 let linksFail = false;
 const clinical = { client: { canonical_client_id: "fixture", resident_numbers: ["1"], current_resident: true, resident_profile: { facility_id: "F", res_number: "1" } } };
 const unified = load("lib/pipeline/unified-profile.ts", {
+  "./workspace-presentation": { isImportedWorkspace: () => false },
+  "./historical-profile-store": {},
   "@/lib/assessment/assessment-store": { getAssessmentStoreReadiness: () => ({ ready: false }) },
   "@/lib/assessment/assessment-tool-schema": {},
   "@/lib/clinical/clinical-data": { getClinicalClient: async () => clinical, getClinicalResident: async () => ({ resident: { canonical_client_id: "fixture", resident_key: "F:1", resident_number: "1", date_of_birth: null } }) },

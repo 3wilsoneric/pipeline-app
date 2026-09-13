@@ -95,7 +95,7 @@ function ChartCell({ fact, multiline = false }: { fact: ClientChartFact; multili
   const missing = fact.value === "Not documented";
   const span = fact.span === "wide" ? "col-span-2" : "";
   return (
-    <div className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${multiline ? "md:min-h-[104px]" : ""} ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
+    <div data-chart-field={fact.label} className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${multiline ? "md:min-h-[104px]" : ""} ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
       <dt className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{fact.label}</dt>
       <dd className={`mt-1.5 break-words font-bold leading-6 ${fact.label === "Client" ? "text-[22px] tracking-[-0.025em] sm:text-[24px]" : multiline ? "text-[14px] sm:text-[15px]" : "text-[14px]"} ${multiline ? "whitespace-pre-line" : ""} ${missing ? "text-[#966715]" : "text-[#18211d]"}`}>
         {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}

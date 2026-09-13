@@ -1,0 +1,222 @@
+.folder, .recordFolder {
+  --folder-fill: #ede4d0;
+  --folder-edge: #cbbd9d;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  border-radius: 6px;
+  transition: none;
+}
+
+.folder {
+  height: 100%;
+}
+
+.recordFolder {
+  margin-top: 16px;
+}
+
+.recordFolder, .transitionSurface {
+  view-transition-name: pipeline-client-chart;
+}
+
+.transitionRoot::view-transition {
+  pointer-events: none;
+}
+
+.transitionRoot:global(::view-transition-group(root)),
+.transitionRoot:global(::view-transition-new(root)) {
+  animation: none;
+}
+
+.transitionRoot:global(::view-transition-old(root)) {
+  display: none;
+}
+
+.transitionRoot::view-transition-group(pipeline-client-chart) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: clip;
+}
+
+.transitionRoot::view-transition-old(pipeline-client-chart) {
+  animation-duration: 90ms;
+}
+
+.transitionRoot::view-transition-new(pipeline-client-chart) {
+  animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transitionRoot::view-transition-group(*),
+  .transitionRoot::view-transition-old(*),
+  .transitionRoot::view-transition-new(*) {
+    animation-duration: 0s !important;
+  }
+}
+
+/* The label is part of the one open-profile button, not a second tab control.
+   Its overlap hides the body rule so the name and folder form one surface. */
+.tab {
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+  max-width: calc(100% - 42px);
+  margin: 0 0 -1px 14px;
+  padding: 8px 12px 9px;
+  border: 1px solid var(--folder-edge);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: var(--folder-fill);
+  color: #252a25;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%);
+}
+
+.tabLabel {
+  display: block;
+  padding: 3px 9px;
+  border: 1px solid #d8d2c4;
+  background: #ffffff;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 10px;
+  border: 1px solid var(--folder-edge);
+  border-radius: 6px;
+  background: var(--folder-fill);
+  box-shadow: 0 1px 2px rgb(67 52 24 / 8%), 0 4px 8px rgb(67 52 24 / 6%);
+}
+
+.paper {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  border: 1px solid #d8d5cb;
+  border-radius: 2px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(67 52 24 / 5%);
+}
+
+.open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #0c705f;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.recordPaper {
+  min-width: 0;
+  padding: 8px;
+}
+
+.embeddedRecord > .chartSummary {
+  margin-top: calc(var(--spacing) * 3);
+}
+
+.listRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 12px 16px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.listRow:hover {
+  background: #f3f8f5;
+}
+
+.listRow:focus-visible {
+  outline: 2px solid #0f8b73;
+  outline-offset: -2px;
+}
+
+.listHeading {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .listRow, .listHeading {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 90px 125px 90px 16px;
+  }
+
+  .listHeading {
+    display: grid;
+    gap: 16px;
+    padding: 10px 16px;
+    border-block: 1px solid #dde3de;
+    background: #f4f8f6;
+    color: #59685f;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+}
+
+/* Complete both the two-column and six-column identity rows without
+   reordering fields or changing embedded workspace chart layouts. */
+.recordFolder :global([data-chart-field="Gender"]) {
+  grid-column: span 2;
+}
+
+@media (min-width: 640px) {
+  .recordPaper {
+    padding: 16px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .folder:hover {
+    --folder-edge: #a4936d;
+  }
+
+  .folder:hover .body {
+    box-shadow: 0 2px 4px rgb(67 52 24 / 9%), 0 6px 12px rgb(67 52 24 / 8%);
+  }
+
+  .folder:hover .open {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* Override shared rectangular press shading only on this shaped control. */
+.folder:not(:disabled):not([aria-disabled="true"]):active {
+  --folder-fill: #e5d8bb;
+  --folder-edge: #948365;
+  background-image: none;
+}
+
+.folder:active .body {
+  box-shadow: 0 1px 2px rgb(67 52 24 / 8%);
+}
+
+@media (forced-colors: active) {
+  .folder, .recordFolder {
+    --folder-fill: Canvas;
+    --folder-edge: ButtonText;
+  }
+
+  .tab, .paper, .open {
+    color: ButtonText;
+  }
+}

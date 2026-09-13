@@ -16,6 +16,8 @@ import {
 import { logApi } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import { getClientHistoryForResident } from "./client-history-store";
+import { getHistoricalProfile } from "./historical-profile-store";
+import { isImportedWorkspace } from "./workspace-presentation";
 import { normalizeClientName, resolveClientGender } from "./client-identity-presentation.mjs";
 import { pipelineCommunityFromClinicalName } from "./community-config";
 import { findClinicalResidentMatch } from "./referral-clinical-reconciliation";
@@ -87,8 +89,32 @@ export async function getUnifiedClientProfile(
   user?: PipelineUser,
   observability?: UnifiedProfileObservability,
 ): Promise<UnifiedClientProfileResponse> {
+  const profile = await loadUnifiedClientProfile(request, canonicalClientId, permissions, user, observability);
+  const sources = [];
+  const warnings: string[] = [];
+  // One client's visible episodes only, read sequentially to bound database work.
+  for (const referral of profile.pipeline.referrals.filter(isImportedWorkspace)) {
+    try {
+      sources.push({ referral_id: referral.id, profile: await getHistoricalProfile(referral) });
+    } catch {
+      warnings.push(`Original notes for workspace #${referral.id} could not be loaded. Retry the chart.`);
+    }
+  }
+  return { ...profile, pipeline: { ...profile.pipeline, source_profiles: sources, source_warnings: warnings } };
+}
+
+async function loadUnifiedClientProfile(
+  request: Request,
+  canonicalClientId: string,
+  permissions: UnifiedClientProfileResponse["pipeline"]["permissions"] = {
+    can_create_identity_candidate: false,
+    can_review_identity: false,
+  },
+  user?: PipelineUser,
+  observability?: UnifiedProfileObservability,
+): Promise<UnifiedClientProfileResponse> {
   if (canonicalClientId.startsWith("pipeline:")) {
-    return getPipelineOnlyClientProfile(canonicalClientId.slice("pipeline:".length), permissions, user);
+    return loadPipelineLinkedClientProfile(request, canonicalClientId.slice("pipeline:".length), permissions, user, observability);
   }
   const clinical = await getClinicalClient(request, canonicalClientId);
   const resident = await loadCurrentResident(request, clinical.client);
@@ -115,7 +141,7 @@ export async function getUnifiedClientProfile(
     projectionStage = "filter_links";
     const links = await filterLinksForUser(linkResults, user);
     const confirmed = links.filter((link) => link.status === "confirmed");
-    if (confirmed.length > 1) {
+    if (new Set(confirmed.map((link) => link.pipeline_client_id)).size > 1) {
       return {
         ...clinical,
         profile_origin: "alamo_platform",
@@ -141,9 +167,10 @@ export async function getUnifiedClientProfile(
     }
     const connection = buildConnection(confirmed[0] ?? null, candidates, suggestions);
     projectionStage = "load_canonical_documents";
-    const canonicalDocuments = getReferralStoreReadiness().ready
+    const canonicalDocumentCandidates = getReferralStoreReadiness().ready
       ? await listReferralFilesByCanonicalClient(clinical.client.canonical_client_id).catch(() => [])
       : [];
+    const canonicalDocuments = await filterDocumentsForUser(canonicalDocumentCandidates, user);
     if (!connection.confirmed_link) {
       return {
         ...clinical,
@@ -222,11 +249,48 @@ export async function getUnifiedClientProfile(
   }
 }
 
+async function loadPipelineLinkedClientProfile(
+  request: Request,
+  clientId: string,
+  permissions: UnifiedClientProfileResponse["pipeline"]["permissions"],
+  user?: PipelineUser,
+  observability?: UnifiedProfileObservability,
+): Promise<UnifiedClientProfileResponse> {
+  const pipeline = await getPipelineOnlyClientProfile(clientId, permissions, user);
+  if (!getResidentLinkStoreReadiness().ready) return pipeline;
+  const links = await listProfileLinks({ pipelineClientId: clientId, status: "confirmed" });
+  const keys = [...new Set(links.map((link) => link.resident_key))];
+  if (!keys.length) return pipeline;
+  if (keys.length !== 1) {
+    return unavailableLinkedChart(pipeline, "Conflicting clinical identity links need review. Only this client's Pipeline records are shown.");
+  }
+  const key = keys[0];
+  if (key.startsWith("pipeline:")) throw new UnifiedProfileError(409, "invalid_clinical_link", "The client identity connection needs review.");
+  try {
+    if (key.includes(":")) {
+      const current = await getClinicalResident(request, key);
+      if (!current.resident.canonical_client_id) {
+        return { ...currentCensusProfile(current), pipeline: { ...pipeline.pipeline, connection: buildConnection(links[0], [], []) } };
+      }
+      return await loadUnifiedClientProfile(request, current.resident.canonical_client_id, permissions, user, observability);
+    }
+    return await loadUnifiedClientProfile(request, key, permissions, user, observability);
+  } catch {
+    return unavailableLinkedChart(pipeline, "The linked clinical chart is temporarily unavailable. Pipeline records remain available; retry for the complete chart.");
+  }
+}
+
 async function loadProfileHistoryAndLinks(client: ClinicalClientDetail, resident: ClinicalResident | null, linksReady: boolean) {
   return Promise.all([
     resident ? getClientHistoryForResident(resident.resident_number, resident.date_of_birth) : unavailableHistoricalProjection(),
     linksReady ? loadClientLinks(client, resident).then((value) => ({ value }), (error: unknown) => ({ error })) : { value: [] },
   ] as const);
+}
+
+function unavailableLinkedChart(profile: UnifiedClientProfileResponse, message: string): UnifiedClientProfileResponse {
+  return { ...profile, freshness: { ...profile.freshness, warning: message }, pipeline: {
+    ...profile.pipeline, connection: { ...profile.pipeline.connection, status: "unavailable", message },
+  } };
 }
 
 function unwrapProfileLinks(result: { value: PipelineResidentLink[] } | { error: unknown }) {
@@ -366,7 +430,17 @@ export async function getCurrentCensusClientProfile(
   if (current.resident.canonical_client_id) {
     return getUnifiedClientProfile(request, current.resident.canonical_client_id, permissions, user, observability);
   }
-  return currentCensusProfile(current);
+  const census = currentCensusProfile(current);
+  if (!getResidentLinkStoreReadiness().ready) return census;
+  try {
+    const links = await filterLinksForUser(await listProfileLinks({ residentKey: current.resident.resident_key, status: "confirmed" }), user);
+    const clients = [...new Set(links.map((link) => link.pipeline_client_id))];
+    if (!clients.length) return census;
+    if (clients.length !== 1) return unavailableLinkedChart(census, "Conflicting workspace identity links need review. Only census information is shown.");
+    return await getUnifiedClientProfile(request, `pipeline:${clients[0]}`, permissions, user, observability);
+  } catch {
+    return unavailableLinkedChart(census, "Linked workspace records could not be loaded. Retry for the complete chart.");
+  }
 }
 
 function currentCensusProfile(current: Awaited<ReturnType<typeof getClinicalResident>>): UnifiedClientProfileResponse {
@@ -664,16 +738,16 @@ async function loadLinkedAssessments(
   user?: PipelineUser,
 ) {
   const results = await Promise.all([
-    ...referrals.map((referral) => listAssessments({ referralId: referral.id, limit: 100 })),
-    ...(canonicalClientId ? [listAssessments({ canonicalClientId, limit: 100 })] : []),
-    listAssessments({ residentKey: link.resident_key, limit: 100 }),
-    ...(link.resident_number ? [listAssessments({ residentNumber: link.resident_number, limit: 100 })] : []),
+    ...referrals.map((referral) => listProfileAssessments({ referralId: referral.id })),
+    ...(canonicalClientId ? [listProfileAssessments({ canonicalClientId })] : []),
+    listProfileAssessments({ residentKey: link.resident_key }),
+    ...(link.resident_number ? [listProfileAssessments({ residentNumber: link.resident_number })] : []),
   ]);
   const byId = new Map<string, PipelineAssessmentRecord>();
   const visibleReferralIds = new Set(referrals.map((referral) => referral.id));
   for (const result of results) {
     if (!result) continue;
-    for (const assessment of result.assessments) {
+    for (const assessment of result) {
       if (user && isAssessorUser(user) && !visibleReferralIds.has(assessment.referral_id)) continue;
       byId.set(assessment.assessment_id, assessment);
     }
@@ -693,12 +767,12 @@ async function loadLinkedDocuments(link: PipelineResidentLink, referrals: Referr
 async function loadPipelineOnlyAssessments(referrals: Referral[], user?: PipelineUser) {
   if (!getAssessmentStoreReadiness().ready) return [];
   const results = await Promise.all(
-    referrals.map((referral) => listAssessments({ referralId: referral.id, limit: 100 })),
+    referrals.map((referral) => listProfileAssessments({ referralId: referral.id })),
   );
   const visibleReferralIds = new Set(referrals.map((referral) => referral.id));
   const byId = new Map<string, PipelineAssessmentRecord>();
   for (const result of results) {
-    for (const assessment of result.assessments) {
+    for (const assessment of result) {
       if (user && isAssessorUser(user) && !visibleReferralIds.has(assessment.referral_id)) continue;
       byId.set(assessment.assessment_id, assessment);
     }
@@ -773,24 +847,62 @@ function scalarString(value: unknown) {
 
 async function loadClientLinks(client: ClinicalClientDetail, resident: ClinicalResident | null) {
   const requests = [
-    ...(resident ? [listResidentLinks({ residentKey: resident.resident_key, limit: 100 })] : []),
+    listProfileLinks({ residentKey: client.canonical_client_id }),
+    ...(resident ? [listProfileLinks({ residentKey: resident.resident_key })] : []),
     ...client.resident_numbers.map((residentNumber) =>
-      listResidentLinks({ residentNumber, limit: 100 }),
+      listProfileLinks({ residentNumber }),
     ),
   ];
   if (requests.length === 0) return [];
   const results = await Promise.all(requests);
-  return dedupeLinks(results.flatMap((result) => result.links));
+  return dedupeLinks(results.flat());
+}
+
+async function listProfileAssessments(options: Parameters<typeof listAssessments>[0]) {
+  const records: PipelineAssessmentRecord[] = [];
+  const cursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const result = await listAssessments({ ...options, limit: 100, cursor });
+    records.push(...result.assessments);
+    cursor = result.next_cursor ?? undefined;
+    if (cursor && cursors.has(cursor)) throw new Error("Assessment pagination did not advance.");
+    if (cursor) cursors.add(cursor);
+  } while (cursor);
+  return records;
+}
+
+async function listProfileLinks(options: Parameters<typeof listResidentLinks>[0]) {
+  const links: PipelineResidentLink[] = [];
+  const cursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const result = await listResidentLinks({ ...options, limit: 100, cursor });
+    links.push(...result.links);
+    cursor = result.next_cursor ?? undefined;
+    if (cursor && cursors.has(cursor)) throw new Error("Identity link pagination did not advance.");
+    if (cursor) cursors.add(cursor);
+  } while (cursor);
+  return links;
 }
 
 async function filterLinksForUser(links: PipelineResidentLink[], user?: PipelineUser) {
   if (!user || !isAssessorUser(user)) return links;
   const visible = await Promise.all(links.map(async (link) => {
-    if (!link.referral_id) return null;
-    const referral = await getReferral(link.referral_id);
-    return referral && canAccessReferral(user, referral) ? link : null;
+    const referrals = await listReferralsByClient(link.pipeline_client_id);
+    return referrals.some((referral) => canAccessReferral(user, referral)) ? link : null;
   }));
   return visible.filter((link): link is PipelineResidentLink => Boolean(link));
+}
+
+async function filterDocumentsForUser(documents: UnifiedClientProfileResponse["pipeline"]["documents"], user?: PipelineUser) {
+  if (!user || !isAssessorUser(user)) return documents;
+  const ids = [...new Set(documents.flatMap((document) => document.referralId === null ? [] : [document.referralId]))];
+  const visible = new Set((await Promise.all(ids.map(async (id) => {
+    const referral = await getReferral(id);
+    return referral && canAccessReferral(user, referral) ? id : null;
+  }))).filter((id) => id !== null));
+  return documents.filter((document) => document.referralId === null || visible.has(document.referralId));
 }
 
 function scopeReferralListOptionsIfUser<T extends ReferralListOptions>(

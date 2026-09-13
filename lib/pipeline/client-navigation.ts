@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { isImportedWorkspace } from "@/lib/pipeline/workspace-presentation";
 import { beginPipelineNavigation } from "@/lib/observability/browser-performance";
 
 export const PIPELINE_NAVIGATION_EVENT = "pipeline:navigation";
@@ -41,9 +40,6 @@ export function prefetchPipelineWorkspace(referral: Referral | number) {
     const reads = [fetchPipelineJson(`/api/referrals/${id}/canvas`, {}, { cacheTtlMs: workspaceCanvasCacheTtlMs })];
     if (typeof referral !== "number" && referral.clientId) {
       reads.push(fetchPipelineJson(`/api/profiles/${encodeURIComponent(`pipeline:${referral.clientId}`)}`, {}, { cacheTtlMs: 60_000 }));
-    }
-    if (typeof referral !== "number" && isImportedWorkspace(referral)) {
-      reads.push(fetchPipelineJson(`/api/referrals/${referral.id}/historical-profile`, {}, { cacheTtlMs: 60_000 }));
     }
     // Prefetch is optional: failures never replace the normal navigation error
     // handling. These are protected JSON reads, never document bytes or writes.
