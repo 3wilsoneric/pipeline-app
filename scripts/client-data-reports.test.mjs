@@ -26,6 +26,7 @@ test("all client reports remain supervisor/admin only", () => {
 test("report text removes reconstituted markup but preserves clinical comparisons", () => {
   assert.equal(reports.reportValue("**<b>Sample Facility</b>**"), "Sample Facility");
   assert.equal(reports.reportValue("<scrip<script>t>Sample</scr</script>ipt>"), "Sample");
+  assert.equal(reports.reportValue("<__script>Sample</script>"), "Sample");
   assert.equal(reports.reportValue("CD4<200; dose > 10 mg; age < 65"), "CD4<200; dose > 10 mg; age < 65");
   assert.equal(reports.reportValue("<b>Not recorded</b>"), "");
   assert.equal(reports.reportValue("<b>No</b>"), "No");

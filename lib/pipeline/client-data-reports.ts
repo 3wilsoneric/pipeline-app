@@ -44,13 +44,14 @@ export function reportValue(value: unknown): string {
 }
 
 function reportText(value: string) {
+  value = value.replace(/\*\*|__/g, "");
   let previous: string;
   // Labels remain React text and quoted CSV, never executable HTML.
   do {
     previous = value;
     value = value.replace(/<\/?[a-z][^<>]*>/gi, "");
   } while (value !== previous);
-  return value.replace(/\*\*|__/g, "").trim();
+  return value.trim();
 }
 
 export function reportDate(value: unknown): string {
