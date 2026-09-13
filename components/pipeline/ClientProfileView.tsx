@@ -224,7 +224,7 @@ function ResidentProfile({
           </div>
         ) : null}
 
-        <div className={embedded ? "mt-3" : undefined}>
+        <div className={folderStyles.chartSummary}>
           <ClientMedicalChart
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
@@ -307,7 +307,7 @@ function ResidentProfile({
 }
 
 function ClientChartContainer({ embedded, title, onBack, children }: { embedded: boolean; title: string; onBack: () => void; children: ReactNode }) {
-  if (embedded) return <div data-testid="profile-workspace" data-performance-ready="profile" className="bg-white pb-6 text-[#111111]">{children}</div>;
+  if (embedded) return <div data-testid="profile-workspace" data-performance-ready="profile" className={`${folderStyles.embeddedRecord} bg-white pb-6 text-[#111111]`}>{children}</div>;
   return <main aria-label={`Client profile for ${title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-white text-[#111111] [scrollbar-gutter:stable]">
     <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1800px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">
       <BackButton onClick={onBack} />

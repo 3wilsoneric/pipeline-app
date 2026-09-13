@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { clientDirectoryFixture, unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
@@ -95,18 +95,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await expect(page.getByRole("button", { name: "Show clients as a list", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(card.getByTestId("client-chart-thumbnail")).toBeVisible();
     await expect(card.locator(":scope > strong")).toHaveCount(0);
-    for (const width of [1440, 834, 390]) {
-      await page.setViewportSize({ width, height: 900 });
-      const rowBounds = await card.boundingBox();
-      expect(rowBounds!.height).toBeLessThan(width < 1024 ? 180 : 100);
-      for (const bounds of await cards.evaluateAll((nodes) => nodes.map((node) => ({ right: node.getBoundingClientRect().right, width: node.clientWidth, contentWidth: node.scrollWidth })))) {
-        expect(bounds.right).toBeLessThanOrEqual(width);
-        expect(bounds.contentWidth).toBeLessThanOrEqual(bounds.width);
-      }
-      const longName = cards.nth(1).getByText("Christopher Montgomery-Worthington", { exact: true });
-      expect(await longName.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-      if (reducedMotion === "no-preference") await page.screenshot({ path: testInfo.outputPath(`client-list-${width}.png`), fullPage: true });
-    }
+    await checkCompactClientRows(page, card, cards, testInfo, reducedMotion === "no-preference");
     await card.focus();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(new RegExp(`screen=profile&clientId=${profileKey ?? "client-sanitized-100"}`));
@@ -115,6 +104,21 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await expect(page.getByRole("button", { name: "Show clients as a list", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(card.getByTestId("client-chart-thumbnail")).toBeVisible();
   });
+}
+
+async function checkCompactClientRows(page: Page, card: Locator, cards: Locator, testInfo: TestInfo, captureScreenshots: boolean) {
+  for (const width of [1440, 834, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const rowBounds = await card.boundingBox();
+    expect(rowBounds!.height).toBeLessThan(width < 1024 ? 180 : 100);
+    for (const bounds of await cards.evaluateAll((nodes) => nodes.map((node) => ({ right: node.getBoundingClientRect().right, width: node.clientWidth, contentWidth: node.scrollWidth })))) {
+      expect(bounds.right).toBeLessThanOrEqual(width);
+      expect(bounds.contentWidth).toBeLessThanOrEqual(bounds.width);
+    }
+    const longName = cards.nth(1).getByText("Christopher Montgomery-Worthington", { exact: true });
+    expect(await longName.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    if (captureScreenshots) await page.screenshot({ path: testInfo.outputPath(`client-list-${width}.png`), fullPage: true });
+  }
 }
 
 test("client view switches retain loaded results, filters, sorting and the display limit", async ({ page }) => {

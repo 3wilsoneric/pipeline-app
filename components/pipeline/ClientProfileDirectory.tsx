@@ -256,10 +256,7 @@ export default function ClientProfileDirectory({
             <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
               <div aria-live="polite" className="relative text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}<FeedbackCue value={`${communityFilter}:${admissionFilter}:${sort}:${displayLimit}`} /></div>
               {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#69716c] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
-              <div role="group" aria-label="Client view" className="pipeline-segmented flex shrink-0 border border-[#cfd7d3] bg-white p-0.5">
-                <button type="button" aria-label="Show clients as cards" aria-pressed={layout === "cards"} onClick={() => selectLayout("cards")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "cards" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={14} aria-hidden="true" />Cards</button>
-                <button type="button" aria-label="Show clients as a list" aria-pressed={layout === "list"} onClick={() => selectLayout("list")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={14} aria-hidden="true" />List</button>
-              </div>
+              <DirectoryLayoutToggle layout={layout} onChange={selectLayout} />
               <button
                 type="button"
                 aria-label="Refresh client directory"
@@ -472,6 +469,15 @@ function DirectorySelect({
   );
 }
 
+function DirectoryLayoutToggle({ layout, onChange }: { layout: DirectoryLayout; onChange: (layout: DirectoryLayout) => void }) {
+  return (
+    <div role="group" aria-label="Client view" className="pipeline-segmented flex shrink-0 border border-[#cfd7d3] bg-white p-0.5">
+      <button type="button" aria-label="Show clients as cards" aria-pressed={layout === "cards"} onClick={() => onChange("cards")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "cards" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={14} aria-hidden="true" />Cards</button>
+      <button type="button" aria-label="Show clients as a list" aria-pressed={layout === "list"} onClick={() => onChange("list")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={14} aria-hidden="true" />List</button>
+    </div>
+  );
+}
+
 function DirectoryNotice({ children }: { children: ReactNode }) {
   return <div role="status" className="flex items-start gap-2 border-b border-[#e2d3af] py-3 text-[12px] leading-5 text-[#684d1d]"><CircleAlert size={15} className="mt-0.5 shrink-0 text-[#9a6b17]" />{children}</div>;
 }
@@ -493,6 +499,11 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
   });
   const gender = resolveClientGender(client.gender);
   const community = resolveClientCommunity(client.current_community, client.community_names[0]);
+  const communityLabel = community || "—";
+  const unitLabel = client.unit || "—";
+  const admitted = client.admit_date ? formatDate(client.admit_date) : null;
+  const admissionLabel = admitted || "—";
+  const careLabel = client.care_level || "—";
 
   return (
     <button
@@ -511,18 +522,18 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
           <span className="min-w-0 [overflow-wrap:anywhere]">
             <span className="block text-[15px] font-bold leading-5 text-[#25382e]">{identityTitle}</span>
             {gender ? <span className="mt-1 block text-[12px] text-[#59635d]">{gender}</span> : null}
-            <span className="mt-1 block text-[12px] font-semibold text-[#59685f] lg:hidden">{community || "—"}</span>
+            <span className="mt-1 block text-[12px] font-semibold text-[#59685f] lg:hidden">{communityLabel}</span>
             <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#59685f] lg:hidden">
-              <span>Unit {client.unit || "—"}</span>
-              <span>Admitted {client.admit_date ? formatDate(client.admit_date) : "—"}</span>
-              <span>Care: {client.care_level || "—"}</span>
+              <span>Unit {unitLabel}</span>
+              <span>Admitted {admissionLabel}</span>
+              <span>Care: {careLabel}</span>
             </span>
           </span>
         </span>
-        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Community: </span>{community || "—"}</span>
-        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Unit: </span>{client.unit || "—"}</span>
-        <span className="hidden min-w-0 text-[13px] font-semibold tabular-nums text-[#25382e] lg:block"><span className="sr-only">Admitted: </span>{client.admit_date ? formatDate(client.admit_date) : "—"}</span>
-        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Care level: </span>{client.care_level || "—"}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Community: </span>{communityLabel}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Unit: </span>{unitLabel}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold tabular-nums text-[#25382e] lg:block"><span className="sr-only">Admitted: </span>{admissionLabel}</span>
+        <span className="hidden min-w-0 text-[13px] font-semibold text-[#25382e] [overflow-wrap:anywhere] lg:block"><span className="sr-only">Care level: </span>{careLabel}</span>
         <ArrowRight size={16} aria-hidden="true" className="text-[#0c705f]" />
       </> : <>
       <strong className={styles.tab}><span className={styles.tabLabel}>{identityTitle}</span></strong>
@@ -538,7 +549,7 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
           <span className="grid grid-cols-2 gap-px bg-[#dde3de]">
             <ChartPreviewCell label="Community" value={community} />
             <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
-            <ChartPreviewCell label="Admitted" value={client.admit_date ? formatDate(client.admit_date) : null} />
+            <ChartPreviewCell label="Admitted" value={admitted} />
             <ChartPreviewCell label="Care level" value={client.care_level} />
           </span>
           {!client.profile_key ? <span className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#dde3de] px-4 py-2.5 text-[11px] font-medium tabular-nums text-[#626e67]">
