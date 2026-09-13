@@ -12,15 +12,15 @@ test.describe("referral intake usability", () => {
     const { context, page } = await actorPage(browser, "admin", url);
     const organization = `Intake Facility ${randomUUID().slice(0, 8)}`;
     try {
-      const response = await api.post("/api/referrals", { data: syntheticReferralInput("admin", { name: `Intake fixture ${randomUUID().slice(0, 8)}` }) });
-      expect(response.ok()).toBe(true);
+      const response = await api.post("/api/referrals", { data: { client_mutation_id: randomUUID(), referral: syntheticReferralInput("admin", { name: `Intake fixture ${randomUUID().slice(0, 8)}`, owner: "Unassigned" }) } });
+      expect(response.ok(), await response.text()).toBe(true);
       const { referral } = await response.json();
       const contact = await api.post("/api/contacts", { data: {
         referral_id: referral.id,
         client_mutation_id: randomUUID(),
         contact: { firstName: "Example", lastName: "Scheduler", organization, phone: "555-0100", email: "scheduler@example.invalid" },
       } });
-      expect(contact.ok()).toBe(true);
+      expect(contact.ok(), await contact.text()).toBe(true);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
       // Native date inputs are not textboxes in every browser's accessibility tree.
       const dob = page.locator('input[aria-label="Date of birth"]');
@@ -56,7 +56,11 @@ test.describe("referral intake usability", () => {
       }
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
       const received = page.locator('input[aria-label="Referral received:"]');
-      await expect(received).toHaveValue(new Date().toISOString().slice(0, 10));
+      const today = await page.evaluate(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      });
+      await expect(received).toHaveValue(today);
       await source.fill(organization.slice(0, -2));
       await expect(page.getByRole("option", { name: new RegExp(organization) })).toBeVisible();
       await page.getByRole("option", { name: new RegExp(organization) }).click();
@@ -94,6 +98,7 @@ test.describe("referral intake usability", () => {
       await expect(directory.getByRole("status")).toContainText("2 skipped duplicates");
       await expect(directory.getByRole("button", { name: "Import 0 new entries" })).toBeDisabled();
       await page.setViewportSize({ width: 390, height: 844 });
+      await directory.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: "/tmp/pipeline-directory-390.png" });
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);

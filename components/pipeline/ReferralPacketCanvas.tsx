@@ -341,7 +341,7 @@ export default function ReferralPacketCanvas({
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
     name: { ...initialFields.name, value: referral?.name ?? "" },
-    referralReceived: { ...initialFields.referralReceived, value: referral?.date ?? calendarToday() },
+    referralReceived: { ...initialFields.referralReceived, value: referral?.id ? "" : calendarToday() },
   }));
   const [conserved, setConserved] = useState<"yes" | "no" | "">("");
   const [documents, setDocuments] = useState<Record<string, string>>({});
@@ -2097,7 +2097,7 @@ export default function ReferralPacketCanvas({
                           directory={canSupervise || editableReferralId ? (
                             key === "referent" ? "organization" : key === "responsiblePerson" ? "person" : undefined
                           ) : undefined}
-                          referralId={editableReferralId}
+                          referralId={editableReferralId ?? undefined}
                           onChange={(value) => updateField(key, value)}
                           onFocus={focusWorkspaceField}
                         />

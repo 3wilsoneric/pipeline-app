@@ -80,8 +80,9 @@ for (const [name, route] of [
 ]) {
   check(`${name} mutations enforce same-origin requests`, route.includes("requireSameOriginMutation"));
 }
-check("all contact reads and writes are scoped through a referral access check",
+check("assessor directory reads and individual mutations stay referral-scoped; supervisors can search before creation",
   contactsRoute.includes("requireReferralAccess")
+  && contactsRoute.includes("!canAccessOperationsReports(auth.user.roles)")
   && contactsRoute.includes("requireMutableReferralAccess")
   && contactRoute.includes("requireMutableReferralAccess")
   && linksRoute.includes("requireReferralAccess")
