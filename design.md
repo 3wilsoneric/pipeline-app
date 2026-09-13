@@ -194,7 +194,7 @@ Elevation rules:
 - Dialogs may use `0 24px 70px rgb(17 17 17 / 20%)`.
 - Right drawers may use `-16px 0 40px rgb(20 35 30 / 16%)`.
 - Gallery cards may lift 2px on hover with `0 10px 24px rgb(25 55 45 / 9%)`.
-- Client directory cards are a bounded exception to flat resting surfaces: use a shallow two-part shadow (`0 1px 2px rgb(25 55 45 / 6%), 0 3px 6px rgb(25 55 45 / 4%)`), square corners, and a fine border. Hover strengthens the edge and shadow without moving the card. Do not apply this elevation to ordinary forms or tables.
+- Client directory folders are a bounded exception: connected name tab and slim manila frame (`#EDE4D0`), 6px folder/tab corners, white paper inset, and shallow resting shadow. Hover strengthens the edge and shadow without moving the folder. Do not apply this treatment to ordinary forms or tables.
 - Do not stack border, large radius, and heavy shadow on the same ordinary component.
 
 ### 3.6 Icons and marks
@@ -242,7 +242,7 @@ The global header is 68px on mobile, 74px at 640px+, and 82px at 1280px+. It has
 Choose width by task, not by a universal template:
 
 - Search, editor, and article-like explanation: 640–900px.
-- Client directory and ordinary structured views: up to 1240px.
+- Ordinary structured views: up to 1240px. Client folders use up to 1800px with 16–32px outer gutters, two columns from 1024px, 32px column gaps and 40px desktop row gaps. Below 1024px, use one column and 32px between folders. Search and filters align with the folder grid.
 - Referral/detail workspace: up to 1480px.
 - Reports and high-density evidence: 1480–1680px or the full safe width.
 - Directory/list surfaces may run nearly edge-to-edge with responsive gutters.
@@ -425,7 +425,7 @@ Use cards only when items are independently selectable or rearrangeable.
 - Use a tinted evidence/preview zone at top and a white identity zone below when helpful.
 - Ordinary modules are separated by rules and grid gaps, not shadows.
 - Gallery cards may lift 2px and gain a faint shadow on hover.
-- Client directory cards retain their chart preview above the identity area: 18px bold names, 12px supporting text and chart values, 10px semibold preview labels, and softened internal rules. Use the existing green chart accent and one whole-card destination; the arrow is an affordance, not an additional button. Press feedback must reach the visible preview and identity surfaces, and reduced motion disables transitions. Keep current data, missing-value semantics, filters, and profile prefetch behavior unchanged.
+- Client directory folders put the 18px bold name on a raised manila tab joined to the folder body. Names wrap rather than shrink or truncate. Keep framing to 10px, paper corners to 2px, supporting values to 13px, and field labels to 10px. Community, unit, admission date and care level stay on the white chart surface; do not repeat them beneath the name. Keep the existing green chart/open affordance. The whole folder remains one open-profile button, not a tablist or nested buttons. No added transitions, textures, fake paper stacks, avatars, clinical fields or status classifications. Preserve missing-data and conditional count semantics, filters, profile prefetching and the actual profile/chart views. Visual reference: historical CareEngine PatientMAR.tsx at e9759fe445182a80f440721e40b8ed13efeb51ae; none of its prototype workflows or hardcoded clinical content are reused.
 - Customization mode may add a dashed border and an almost-white green tint.
 
 Avoid nesting more than one bordered card inside another.

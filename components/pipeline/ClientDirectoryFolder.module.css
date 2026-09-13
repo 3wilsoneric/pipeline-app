@@ -1,0 +1,105 @@
+.folder {
+  --folder-fill: #ede4d0;
+  --folder-edge: #cbbd9d;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  border-radius: 6px;
+  transition: none;
+}
+
+/* The label is part of the one open-profile button, not a second tab control.
+   Its overlap hides the body rule so the name and folder form one surface. */
+.tab {
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+  max-width: calc(100% - 42px);
+  margin: 0 0 -1px 14px;
+  padding: 10px 18px 11px;
+  border: 1px solid var(--folder-edge);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: var(--folder-fill);
+  color: #252a25;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 10px;
+  border: 1px solid var(--folder-edge);
+  border-radius: 6px;
+  background: var(--folder-fill);
+  box-shadow: 0 1px 2px rgb(67 52 24 / 8%), 0 4px 8px rgb(67 52 24 / 6%);
+}
+
+.paper {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  border: 1px solid #d8d5cb;
+  border-radius: 2px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(67 52 24 / 5%);
+}
+
+.open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #0c705f;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .folder:hover {
+    --folder-edge: #a4936d;
+  }
+
+  .folder:hover .body {
+    box-shadow: 0 2px 4px rgb(67 52 24 / 9%), 0 6px 12px rgb(67 52 24 / 8%);
+  }
+
+  .folder:hover .open {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* Override shared rectangular press shading only on this shaped control. */
+.folder:not(:disabled):not([aria-disabled="true"]):active {
+  --folder-fill: #e5d8bb;
+  --folder-edge: #948365;
+  background-image: none;
+}
+
+.folder:active .body {
+  box-shadow: 0 1px 2px rgb(67 52 24 / 8%);
+}
+
+@media (forced-colors: active) {
+  .folder {
+    --folder-fill: Canvas;
+    --folder-edge: ButtonText;
+  }
+
+  .tab, .paper, .open {
+    color: ButtonText;
+  }
+}

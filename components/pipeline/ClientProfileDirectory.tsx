@@ -31,6 +31,7 @@ import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { cancelPipelineWarmup, prefetchPipelineProfile } from "@/lib/pipeline/client-navigation";
+import styles from "./ClientDirectoryFolder.module.css";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
 
@@ -206,7 +207,7 @@ export default function ClientProfileDirectory({
 
   return (
     <main data-guide-target="client-directory" data-performance-ready={pipelineSurfaceReady("profiles", isLoading, error)} aria-label="Client profiles" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1240px] px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+      <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1800px] px-4 pb-12 pt-4 sm:px-6 lg:px-8">
         <section aria-label="Find clients" className="pb-1">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <label className="relative min-w-0 flex-1">
@@ -301,10 +302,10 @@ export default function ClientProfileDirectory({
         {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
         {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
 
-        <section aria-label="Client list" className="pt-4">
+        <section aria-label="Client list" className="pt-6 sm:pt-8">
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
           {visibleClients.length > 0 ? (
-            <div role="list" className="grid gap-4 md:grid-cols-2">
+            <div role="list" className="grid gap-x-8 gap-y-8 lg:grid-cols-2 lg:gap-y-10">
               {visibleClients.map((client) => (
                 <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
                   <ClientDirectoryCard client={client} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
@@ -465,7 +466,6 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
   });
   const gender = resolveClientGender(client.gender);
   const community = resolveClientCommunity(client.current_community, client.community_names[0]);
-  const location = [community, client.unit ? `Unit ${client.unit}` : null].filter(Boolean).join(" · ");
 
   return (
     <button
@@ -476,33 +476,30 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       onFocus={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onPointerLeave={cancelPipelineWarmup}
       onBlur={cancelPipelineWarmup}
-      className="group w-full min-w-0 overflow-hidden border border-[#d7dfda] bg-white text-left shadow-[0_1px_2px_rgba(25,55,45,0.06),0_3px_6px_rgba(25,55,45,0.04)] outline-none transition-colors duration-120 hover:border-[#8bb4a5] hover:shadow-[0_2px_4px_rgba(25,55,45,0.07),0_6px_12px_rgba(25,55,45,0.06)] active:border-[#0f8b73] active:shadow-[0_1px_2px_rgba(25,55,45,0.08)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] motion-reduce:transition-none"
+      className={styles.folder}
     >
-      <span aria-hidden="true" className="block min-h-[156px] border-b border-[#e1e7e3] bg-[#f7faf8] p-4 group-active:bg-[#edf5f0]">
-        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
-        <span className="mt-3 grid grid-cols-2 gap-px border border-[#d6dfda] bg-[#e5ebe7] shadow-[0_1px_2px_rgba(25,55,45,0.04)]">
-          <ChartPreviewCell label="Community" value={community} />
-          <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
-          <ChartPreviewCell label="Admitted" value={client.admit_date ? formatDate(client.admit_date) : null} />
-          <ChartPreviewCell label="Care level" value={client.care_level} />
-        </span>
-      </span>
-
-      <span className="block px-4 py-4 group-active:bg-[#f7faf8]">
-        <span className="flex items-start justify-between gap-3">
-          <span className="min-w-0">
-            <strong className="block truncate text-[18px] font-bold leading-6 text-[#151a18]" title={identityTitle}>{identityTitle}</strong>
-            {[gender, location].filter(Boolean).length > 0 ? (
-              <span className="mt-1 block truncate text-[12px] leading-5 text-[#59675f]">{[gender, location].filter(Boolean).join(" · ")}</span>
-            ) : null}
+      <strong className={styles.tab}>{identityTitle}</strong>
+      <span className={styles.body}>
+        <span className={styles.paper}>
+          <span className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#e4e7e4] px-4 py-3">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
+              {gender ? <span className="text-[12px] text-[#59635d]">{gender}</span> : null}
+            </span>
+            <span aria-hidden="true" className={styles.open}>Open chart <ArrowRight size={16} /></span>
           </span>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-transparent bg-[#f0f7f3] text-[#0c705f] group-hover:border-[#c5dcd2] group-active:bg-[#e2eee7]"><ArrowRight size={17} /></span>
+          <span className="grid grid-cols-2 gap-px bg-[#e4e7e4]">
+            <ChartPreviewCell label="Community" value={community} />
+            <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
+            <ChartPreviewCell label="Admitted" value={client.admit_date ? formatDate(client.admit_date) : null} />
+            <ChartPreviewCell label="Care level" value={client.care_level} />
+          </span>
+          {!client.profile_key ? <span className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#e4e7e4] px-4 py-2.5 text-[11px] tabular-nums text-[#626e67]">
+            <span className="flex items-center gap-1.5"><FileText size={12} className="shrink-0" />{countNoun(client.document_count, "document")}</span>
+            <span className="flex items-center gap-1.5"><FolderOpen size={12} className="shrink-0" />{countNoun(client.referral_count, "workspace")}</span>
+            <span className="ml-auto">{countNoun(client.episode_count, "stay")}</span>
+          </span> : null}
         </span>
-        {!client.profile_key ? <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#edf0ee] pt-2.5 text-[11px] tabular-nums text-[#626e67]">
-          <span className="flex min-w-0 items-center gap-1.5"><FileText size={12} className="shrink-0" /><span className="truncate">{countNoun(client.document_count, "document")}</span></span>
-          <span className="flex min-w-0 items-center gap-1.5"><FolderOpen size={12} className="shrink-0" /><span className="truncate">{countNoun(client.referral_count, "workspace")}</span></span>
-          <span className="shrink-0">{countNoun(client.episode_count, "stay")}</span>
-        </span> : null}
       </span>
     </button>
   );
@@ -510,9 +507,9 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
 
 function ChartPreviewCell({ label, value }: { label: string; value: string | null }) {
   return (
-    <span className="min-w-0 bg-white px-3 py-2.5">
+    <span className="min-w-0 bg-white px-4 py-3">
       <span className="block text-[10px] font-semibold uppercase tracking-[0.06em] text-[#626d67]">{label}</span>
-      <span className={`mt-1 block truncate text-[12px] font-semibold ${value ? "text-[#26302c]" : "text-[#69736e]"}`} title={value ?? undefined}>{value || "—"}</span>
+      <span className={`mt-1 block text-[13px] font-medium leading-5 [overflow-wrap:anywhere] ${value ? "text-[#26302c]" : "text-[#69736e]"}`}>{value || "—"}</span>
     </span>
   );
 }
