@@ -2,7 +2,10 @@ import "server-only";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
-import { getAssessmentCompletionReport } from "@/lib/assessment/assessment-store";
+import { getAssessmentCompletionReport, listAssessments } from "@/lib/assessment/assessment-store";
+import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { ClinicalDataError, getClinicalRoster } from "@/lib/clinical/clinical-data";
+import type { ClinicalResident } from "@/lib/clinical/clinical-contracts";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { isDocumentRequirementType } from "@/lib/pipeline/document-requirements";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
@@ -16,12 +19,17 @@ import {
   type OperationsReportResponse,
   type OperationsReportResult,
   type OperationsReportRow,
+  isClientDataReport,
+  clientDataReportIds,
 } from "@/lib/pipeline/operations-report-types";
 import { getSupervisorExceptionSnapshot } from "@/lib/pipeline/operations-snapshot";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
-import { listReferralFacets, listReferrals } from "@/lib/pipeline/referral-store";
+import { getReferralStoreReadiness, listReferralFacets, listReferrals, listReferralFiles } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { getConfirmedReferralClinicalIdentities } from "./client-workspace-store";
+import { buildClientDataReport, reviewedReportFields, type ClientReportEvidence } from "./client-data-reports";
+import { listReferralContacts } from "./contact-store";
 import type { WorkflowContext } from "@/lib/pipeline/workflow-records";
 import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
 import {
@@ -33,6 +41,26 @@ const previewLimit = 500;
 const exportLimit = 5_000;
 
 const reportCatalog: OperationsReportDefinition[] = [
+  {
+    id: "clients_by_community", label: "Clients by community",
+    description: "Distinct clients by known community. Monthly views use documented admission dates, not workspace creation dates.",
+    cadence: "Current", audience: "Supervisors", filters: ["month", "community", "county", "client_scope"],
+  },
+  {
+    id: "referral_sources", label: "Referral sources",
+    description: "Documented referring facilities and contacts, with distinct clients and their referral episodes.",
+    cadence: "Current", audience: "Supervisors", filters: ["month", "community", "county", "client_scope"],
+  },
+  {
+    id: "client_care_needs", label: "Client care needs",
+    description: "Recorded care needs from reviewed fields, signed assessments, and resident profiles.",
+    cadence: "Current", audience: "Supervisors", filters: ["community", "county", "client_scope", "care_topic"],
+  },
+  {
+    id: "chart_completeness", label: "Chart completeness",
+    description: "Core chart fields, linked documents, signed assessments, and applicable document requirements by client.",
+    cadence: "Current", audience: "Supervisors", filters: ["community", "county", "client_scope"],
+  },
   {
     id: "active_referrals",
     label: "Current workflow",
@@ -125,6 +153,7 @@ const reportCatalog: OperationsReportDefinition[] = [
 ];
 
 const visibleReportIds: OperationsReportId[] = [
+  ...clientDataReportIds,
   "assessment_completion",
   "assessor_workload",
   "assessment_schedule",
@@ -139,12 +168,31 @@ export function getOperationsReportCatalog(user: PipelineUser) {
 export async function getOperationsReport(
   user: PipelineUser,
   filters: OperationsReportFilters,
-  options: { export?: boolean } = {},
+  options: { export?: boolean; request?: Request } = {},
 ): Promise<OperationsReportResponse> {
   if (!canAccessOperationsReports(user.roles)) throw new ReportAccessError();
   const catalog = getOperationsReportCatalog(user);
   const definition = reportCatalog.find((item) => item.id === filters.report_id);
   if (!definition) throw new ReportAccessError();
+
+  if (isClientDataReport(definition.id)) {
+    const referrals = await loadReportReferrals(user, { ...filters, community: "", owner: "" }, "all");
+    const evidence = await clientReportEvidence(referrals, definition.id);
+    const { residents, notes } = await reportResidents(options.request, definition.id);
+    const identities = await getConfirmedReferralClinicalIdentities(referrals);
+    for (const [id, identity] of identities) {
+      const item = evidence.get(id);
+      if (item) item.residentKey = identity.residentKey;
+    }
+    const { counties, communities, ...completeReport } = buildClientDataReport(definition, filters, referrals, evidence, residents, notes);
+    const limit = exportLimit;
+    if (completeReport.rows.length > exportLimit) throw new Error("This report exceeds the 5,000-row limit. Narrow the filters and run it again.");
+    return {
+      catalog, filters,
+      facets: { communities, counties, owners: [] },
+      report: { ...completeReport, rows: completeReport.rows.slice(0, limit), truncated: completeReport.rows.length > limit },
+    };
+  }
 
   const [facets, completeReport] = await Promise.all([
     listReferralFacets("", scopeReferralListOptions(user, {
@@ -194,10 +242,138 @@ export async function recordOperationsReportExport(
         month: response.filters.month,
         community: response.filters.community || null,
         owner: response.filters.owner || null,
+        county: response.filters.county || null,
+        client_scope: response.filters.client_scope ?? null,
+        care_topic: response.filters.care_topic ?? null,
         row_count: response.report.row_count,
       })}
     )
   `;
+}
+
+async function reportResidents(request: Request | undefined, reportId: OperationsReportId) {
+  const residents: ClinicalResident[] = [];
+  const notes: string[] = [];
+  if (!["clients_by_community", "client_care_needs"].includes(reportId)) return { residents, notes };
+  try {
+    let cursor: string | undefined;
+    let snapshot: string | undefined;
+    const seen = new Set<string>();
+    do {
+      const page = await getClinicalRoster(request, { limit: 200, cursor });
+      if (snapshot && snapshot !== page.snapshot_id) throw new Error("Resident data changed while the report loaded. Run it again.");
+      snapshot = page.snapshot_id;
+      residents.push(...page.residents);
+      if (page.freshness.warning && !notes.includes(page.freshness.warning)) notes.push(page.freshness.warning);
+      if (!notes.some((note) => note.startsWith("Resident data as of"))) notes.push(`Resident data as of ${page.data_as_of}.`);
+      cursor = page.next_cursor ?? undefined;
+      if (cursor && (seen.has(cursor) || residents.length >= exportLimit)) throw new Error("The resident report exceeds its supported size or pagination is invalid.");
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    return { residents, notes };
+  } catch (error) {
+    if (!(error instanceof ClinicalDataError)) throw error;
+    return { residents: [], notes: ["Resident data is unavailable. This report includes client workspaces only."] };
+  }
+}
+
+async function clientReportEvidence(referrals: Referral[], reportId: OperationsReportId) {
+  const evidence = new Map<number, ClientReportEvidence>(referrals.map((referral) => [referral.id, {
+    fields: reviewedReportFields(referral.packetFields ?? []), documentCount: 0, requirements: referral.requirements ?? [],
+  }]));
+  if (!referrals.length || reportId === "clients_by_community") return evidence;
+  if (getReferralStoreReadiness().mode !== "postgres") {
+    if (reportId === "referral_sources") {
+      for (const referral of referrals) {
+        const contact = (await listReferralContacts(referral.id)).find((item) => item.role === "referral_source");
+        if (contact) evidence.get(referral.id)!.fields["report.referral_source"] = contact.contact.organization || `${contact.contact.firstName} ${contact.contact.lastName}`.trim();
+      }
+      return evidence;
+    }
+    let cursor: string | undefined;
+    const filesByClient = new Map<string, Set<string>>();
+    do {
+      const page = await listReferralFiles({ limit: 200, cursor });
+      for (const file of page.files) {
+        if (file.identityStatus && file.identityStatus !== "linked") continue;
+        const ref = referrals.find((item) => item.id === file.referralId);
+        const key = file.clientId ?? ref?.clientId ?? (ref ? `referral:${ref.id}` : "");
+        if (!key) continue;
+        const files = filesByClient.get(key) ?? new Set<string>();
+        files.add(file.id);
+        filesByClient.set(key, files);
+      }
+      cursor = page.next_cursor ?? undefined;
+    } while (cursor);
+    for (const referral of referrals) evidence.get(referral.id)!.documentCount = filesByClient.get(referral.clientId ?? `referral:${referral.id}`)?.size ?? 0;
+    do {
+      const page = await listAssessments({ limit: 200, cursor });
+      for (const assessment of page.assessments) {
+        const item = assessment.referral_id ? evidence.get(assessment.referral_id) : undefined;
+        if (item && assessment.status === "complete" && assessment.signed_at && (!item.assessment || String(assessment.signed_at) > String(item.assessment.signed_at))) item.assessment = assessment;
+      }
+      cursor = page.next_cursor ?? undefined;
+    } while (cursor);
+    return evidence;
+  }
+  const sql = getPipelineSql();
+  const ids = referrals.map((referral) => referral.id);
+  const fields = await sql<{ referral_id: number | string; field_key: string; final_value: unknown }[]>`
+    select field.referral_id, field.field_key, field.final_value
+    from pipeline.referral_fields field
+    left join pipeline.documents source on source.document_id = field.source_document_id
+    where field.referral_id = any(${ids}::bigint[])
+      and field.review_status in ('confirmed', 'edited')
+      and field.final_value is not null
+      and (field.source_document_id is null or source.deleted_at is null)
+  `;
+  for (const field of fields) evidence.get(Number(field.referral_id))!.fields[field.field_key] = field.final_value;
+  if (reportId === "referral_sources") {
+    const contacts = await sql<{ referral_id: number | string; source: string }[]>`
+      select distinct on (link.referral_id) link.referral_id,
+        coalesce(nullif(btrim(contact.organization), ''), btrim(concat_ws(' ', contact.first_name, contact.last_name))) as source
+      from pipeline.referral_contacts link join pipeline.contacts contact using (contact_id)
+      where link.referral_id = any(${ids}::bigint[]) and link.role = 'referral_source'
+      order by link.referral_id, link.updated_at desc, link.referral_contact_id desc
+    `;
+    for (const contact of contacts) evidence.get(Number(contact.referral_id))!.fields["report.referral_source"] = contact.source;
+    return evidence;
+  }
+  if (reportId === "chart_completeness") {
+  const counts = await sql<{ referral_id: number | string; documents: number | string }[]>`
+    with requested as (
+      select referral_id, person_id from pipeline.referrals where referral_id = any(${ids}::bigint[])
+    ), linked_documents as (
+      select requested.referral_id, document.document_id
+      from requested join pipeline.documents document on document.person_id = requested.person_id
+      where document.deleted_at is null and document.identity_status = 'linked' and document.processing_status not in ('reserved', 'quarantined')
+      union
+      select requested.referral_id, document.document_id
+      from requested join pipeline.documents document on document.referral_id = requested.referral_id
+      where document.deleted_at is null and document.identity_status = 'linked' and document.processing_status not in ('reserved', 'quarantined')
+      union
+      select requested.referral_id, document.document_id
+      from requested join pipeline.resident_links link on link.person_id = requested.person_id and link.status = 'confirmed'
+      join pipeline.documents document on document.canonical_client_id = link.resident_key
+      where document.deleted_at is null and document.identity_status = 'linked' and document.processing_status not in ('reserved', 'quarantined')
+    )
+    select requested.referral_id, count(linked_documents.document_id)::integer as documents
+    from requested left join linked_documents using (referral_id) group by requested.referral_id
+  `;
+  for (const count of counts) evidence.get(Number(count.referral_id))!.documentCount = Number(count.documents);
+  }
+  const assessments = await sql<{ referral_id: number | string; assessment_id: string; data: PipelineAssessmentRecord; signed_at: string; status: "complete" }[]>`
+    select distinct on (referral_id) referral_id, assessment_id, data, signed_at::text, status
+    from pipeline.assessments
+    where referral_id = any(${ids}::bigint[]) and status = 'complete' and signed_at is not null
+    order by referral_id, signed_at desc, assessment_id desc
+  `;
+  for (const assessment of assessments) evidence.get(Number(assessment.referral_id))!.assessment = { ...assessment.data, assessment_id: assessment.assessment_id, status: assessment.status, signed_at: assessment.signed_at };
+  if (reportId === "chart_completeness") {
+    const contexts = await getReferralWorkflowContexts(referrals);
+    for (const [id, item] of evidence) item.requirements = contexts.get(id)?.requirements ?? [];
+  }
+  return evidence;
 }
 
 export function operationsReportCsv(response: OperationsReportResponse) {

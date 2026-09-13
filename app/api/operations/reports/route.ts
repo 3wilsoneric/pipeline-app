@@ -5,6 +5,8 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import {
   isOperationsReportId,
+  isClientDataReport,
+  careReportTopics,
   type OperationsReportFilters,
 } from "@/lib/pipeline/operations-report-types";
 import {
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
     const assessmentReadiness = requireReportAssessmentStore(parsed.filters);
     if (assessmentReadiness) return assessmentReadiness;
     try {
-      const response = await getOperationsReport(auth.user, parsed.filters);
+      const response = await getOperationsReport(auth.user, parsed.filters, { request });
       return Response.json(response, {
         headers: { "Cache-Control": "private, no-store, max-age=0" },
       });
@@ -57,12 +59,12 @@ export async function POST(request: Request) {
     const assessmentReadiness = requireReportAssessmentStore(parsed.filters);
     if (assessmentReadiness) return assessmentReadiness;
     try {
-      const response = await getOperationsReport(auth.user, parsed.filters, { export: true });
+      const response = await getOperationsReport(auth.user, parsed.filters, { export: true, request });
       await recordOperationsReportExport(auth.user, response);
       return new Response(operationsReportCsv(response), {
         headers: {
           "Cache-Control": "private, no-store, max-age=0",
-          "Content-Disposition": `attachment; filename="pipeline-${parsed.filters.report_id}-${parsed.filters.month}.csv"`,
+          "Content-Disposition": `attachment; filename="pipeline-${parsed.filters.report_id}-${parsed.filters.month || "all-dates"}.csv"`,
           "Content-Type": "text/csv; charset=utf-8",
           "X-Content-Type-Options": "nosniff",
         },
@@ -83,16 +85,23 @@ function requireReportAssessmentStore(filters: OperationsReportFilters) {
 function parseFilters(input: Record<string, unknown>):
   | { ok: true; filters: OperationsReportFilters }
   | { ok: false; error: string } {
-  const reportId = input.report_id ?? "assessment_completion";
-  const month = input.month ?? currentOperationalMonth();
+  const reportId = input.report_id ?? "clients_by_community";
+  const month = input.month ?? (isOperationsReportId(reportId) && isClientDataReport(reportId) ? "" : currentOperationalMonth());
   const community = input.community ?? "";
   const owner = input.owner ?? "";
+  const county = input.county ?? "";
+  const clientScope = input.client_scope ?? "all";
+  const careTopic = input.care_topic ?? "primary_diagnosis";
   if (!isOperationsReportId(reportId)) return { ok: false, error: "report_id is invalid." };
-  if (typeof month !== "string" || !/^(?:20|21|22)\d{2}-(?:0[1-9]|1[0-2])$/.test(month)) {
+  if (typeof month !== "string" || !(isClientDataReport(reportId) && month === "") && !/^(?:20|21|22)\d{2}-(?:0[1-9]|1[0-2])$/.test(month)) {
     return { ok: false, error: "month must use YYYY-MM." };
   }
   if (typeof community !== "string" || community.length > 120) return { ok: false, error: "community is invalid." };
   if (typeof owner !== "string" || owner.length > 160) return { ok: false, error: "owner is invalid." };
+  if (typeof county !== "string" || county.length > 120) return { ok: false, error: "county is invalid." };
+  if (clientScope !== "all" && clientScope !== "admitted" && clientScope !== "current") return { ok: false, error: "client_scope is invalid." };
+  if (clientScope === "current" && !["clients_by_community", "client_care_needs"].includes(reportId)) return { ok: false, error: "Current residents are not available for this report." };
+  if (!careReportTopics.some((topic) => topic.value === careTopic)) return { ok: false, error: "care_topic is invalid." };
   return {
     ok: true,
     filters: {
@@ -100,6 +109,9 @@ function parseFilters(input: Record<string, unknown>):
       month,
       community: community.trim(),
       owner: owner.trim(),
+      county: county.trim(),
+      client_scope: clientScope,
+      care_topic: careTopic as OperationsReportFilters["care_topic"],
     },
   };
 }
