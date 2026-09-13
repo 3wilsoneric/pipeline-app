@@ -100,7 +100,7 @@ export default function ContactDirectorySuggestion({ label, value, placeholder, 
         }}
       />
       {open ? (
-        <ul id={id} role="listbox" aria-label={`${label} suggestions`} className="mt-2 max-h-48 overflow-y-auto border border-[#cfd6d2] bg-white">
+        <ul id={id} role="listbox" aria-label={`${label} suggestions`} className="pipeline-dropdown-suggestions mt-2 max-h-48 overflow-y-auto">
           {matches.map((contact, index) => (
             <li
               key={contact.id}
@@ -109,7 +109,7 @@ export default function ContactDirectorySuggestion({ label, value, placeholder, 
               aria-selected={active === index}
               onPointerDown={(event) => event.preventDefault()}
               onClick={() => select(contact)}
-              className={`cursor-pointer break-words border-b border-[#e3e7e4] px-3 py-2 text-[12px] last:border-b-0 hover:bg-[#eef8f4] ${active === index ? "bg-[#eef8f4]" : ""}`}
+              className="cursor-pointer break-words text-[12px]"
             >
               <div className="font-bold text-[#18211d]">{directoryValue(contact, kind)}</div>
               <div className="mt-0.5 text-[11px] text-[#666b68]">{kind === "organization" ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") : contact.organization}</div>

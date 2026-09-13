@@ -328,7 +328,7 @@ export default function ClientProfileDirectory({
           {visibleClients.length > 0 ? (
             <>
             {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
-            <div role="list" className={layout === "cards" ? "grid grid-cols-1 gap-8 lg:gap-y-10" : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
+            <div role="list" className={layout === "cards" ? "grid grid-cols-1 gap-6" : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
               {visibleClients.map((client) => (
                 <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
                   <ClientDirectoryCard client={client} layout={layout} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
@@ -546,12 +546,7 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
             </span>
             <span aria-hidden="true" className={styles.open}>Open chart <ArrowRight size={16} strokeWidth={2.5} /></span>
           </span>
-          <span className="grid grid-cols-2 gap-px bg-[#dde3de] md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
-            <ChartPreviewCell label="Community" value={community} />
-            <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
-            <ChartPreviewCell label="Admitted" value={admitted} />
-            <ChartPreviewCell label="Care level" value={client.care_level} />
-          </span>
+          <ClientCardSummary client={client} community={community} admitted={admitted} />
           {!client.profile_key ? <span className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#dde3de] px-4 py-2.5 text-[11px] font-medium tabular-nums text-[#626e67]">
             <span className="flex items-center gap-1.5"><FileText size={12} className="shrink-0" />{countNoun(client.document_count, "document")}</span>
             <span className="flex items-center gap-1.5"><FolderOpen size={12} className="shrink-0" />{countNoun(client.referral_count, "workspace")}</span>
@@ -561,6 +556,25 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
       </span>
       </>}
     </button>
+  );
+}
+
+function ClientCardSummary({ client, community, admitted }: { client: DirectoryClient; community: string | null; admitted: string | null }) {
+  return (
+    <span className="grid grid-cols-2 gap-px bg-[#dde3de] md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+      <ChartPreviewCell label="Community" value={community} />
+      <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
+      <ChartPreviewCell label="Admitted" value={admitted} />
+      <ChartPreviewCell label="Care level" value={client.care_level} />
+      <ChartPreviewCell label="Date of birth" value={client.date_of_birth ? formatDate(client.date_of_birth) : null} />
+      <ChartPreviewCell label="Age" value={client.age == null ? null : String(client.age)} />
+      <ChartPreviewCell label="Resident number" value={client.resident_numbers.join(", ")} />
+      <ChartPreviewCell label="Payor" value={client.payor ?? null} />
+      <ChartPreviewCell label="Primary diagnosis" value={client.primary_diagnosis ?? null} />
+      <ChartPreviewCell label="Physician" value={client.physician ?? null} />
+      <ChartPreviewCell label="Diet" value={client.diet ?? null} />
+      <ChartPreviewCell label="Length of stay" value={client.length_of_stay_days == null ? null : countNoun(client.length_of_stay_days, "day")} />
+    </span>
   );
 }
 

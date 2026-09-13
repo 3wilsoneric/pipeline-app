@@ -5,9 +5,10 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
   test(`client folders keep legible tabs, fitted spacing and profile navigation with ${reducedMotion} motion`, async ({ page }, testInfo) => {
     await page.emulateMedia({ reducedMotion });
     const profileKey = reducedMotion === "no-preference" ? "current-card-fixture" : undefined;
+    const summaryFields = { date_of_birth: "1985-01-02", age: 41, payor: "Example Plan", primary_diagnosis: "Documented diagnosis from the current census", physician: "Example Clinician", diet: "Regular", length_of_stay_days: 209 };
     const clients = [
-      { ...clientDirectoryFixture.clients[0], profile_key: profileKey },
-      { ...clientDirectoryFixture.clients[0], profile_key: profileKey ? "current-card-long-name" : undefined, canonical_client_id: "card-long-name", display_name: "Christopher Montgomery-Worthington", current_community: "JC Wallace House", community_names: ["JC Wallace House"] },
+      { ...clientDirectoryFixture.clients[0], ...summaryFields, profile_key: profileKey },
+      { ...clientDirectoryFixture.clients[0], ...summaryFields, primary_diagnosis: "Documented diagnosis ".repeat(12), physician: "Example clinician with a longer practice name", diet: "A documented diet description that wraps without truncating", profile_key: profileKey ? "current-card-long-name" : undefined, canonical_client_id: "card-long-name", display_name: "Christopher Montgomery-Worthington", current_community: "JC Wallace House", community_names: ["JC Wallace House"] },
       { ...clientDirectoryFixture.clients[0], profile_key: profileKey ? "current-card-missing-fields" : undefined, canonical_client_id: "card-missing-fields", display_name: "Taylor Example", unit: null, admit_date: null, care_level: null },
     ];
     await page.route("**/api/profiles/**", (route) => route.fulfill({ json: unifiedProfileFixture }));
@@ -22,6 +23,9 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const cards = page.getByRole("button", { name: /^Open profile for / });
     await expect(cards).toHaveCount(3);
     await expect(card.getByText("0 documents", { exact: true })).toHaveCount(profileKey ? 0 : 1);
+    for (const value of ["Jan 2, 1985", "41", "R-100", "Example Plan", summaryFields.primary_diagnosis, "Example Clinician", "Regular", "209 days"]) {
+      await expect(card.getByText(value, { exact: true })).toBeVisible();
+    }
 
     for (const width of [1920, 1440, 834, 390]) {
       await page.setViewportSize({ width, height: 900 });
@@ -48,16 +52,17 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       expect(tabBounds!.y + tabBounds!.height - bodyBounds!.y).toBe(1);
       expect(tabBounds!.width).toBeLessThan(bodyBounds!.width);
       const grid = page.getByRole("list");
-      await expect(grid).toHaveCSS("column-gap", "32px");
-      await expect(grid).toHaveCSS("row-gap", width >= 1024 ? "40px" : "32px");
+      await expect(grid).toHaveCSS("column-gap", "24px");
+      await expect(grid).toHaveCSS("row-gap", "24px");
       const firstBounds = await cards.nth(0).boundingBox();
       const nextBounds = await cards.nth(1).boundingBox();
       const gridBounds = await grid.boundingBox();
       expect(firstBounds!.width).toBe(gridBounds!.width);
       expect(nextBounds!.x).toBe(firstBounds!.x);
-      expect(nextBounds!.y - firstBounds!.y - firstBounds!.height).toBe(width >= 1024 ? 40 : 32);
+      expect(nextBounds!.y - firstBounds!.y - firstBounds!.height).toBe(24);
       const summary = body.locator(":scope > span > span").nth(1);
       expect(await summary.evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").length)).toBe(width >= 768 ? 4 : 2);
+      await expect(summary.locator(":scope > span")).toHaveCount(12);
       if (width === 1440) expect(firstBounds!.x).toBe(32);
       for (const bounds of await cards.evaluateAll((nodes) => nodes.map((node) => {
         const rect = node.getBoundingClientRect();
@@ -68,7 +73,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
         expect(bounds.contentWidth).toBeLessThanOrEqual(bounds.width);
       }
       const missing = page.getByRole("button", { name: "Open profile for Taylor Example", exact: true });
-      await expect(missing.getByText("—", { exact: true })).toHaveCount(3);
+      await expect(missing.getByText("—", { exact: true })).toHaveCount(10);
       const longName = page.getByRole("button", { name: "Open profile for Christopher Montgomery-Worthington", exact: true }).locator("strong");
       expect(await longName.evaluate((node) => node.scrollWidth <= node.clientWidth && node.scrollHeight <= node.clientHeight)).toBe(true);
       await expect(longName).toHaveCSS("text-overflow", "clip");
@@ -124,6 +129,15 @@ async function checkCompactClientRows(page: Page, card: Locator, cards: Locator,
     if (captureScreenshots) await page.screenshot({ path: testInfo.outputPath(`client-list-${width}.png`), fullPage: true });
   }
 }
+
+test("client summaries show zero age and zero days as values, not missing data", async ({ page }) => {
+  const client = { ...clientDirectoryFixture.clients[0], age: 0, length_of_stay_days: 0 };
+  await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: { ...clientDirectoryFixture, clients: [client] } }));
+  await page.goto("/?screen=profiles");
+  const card = page.getByRole("button", { name: "Open profile for Avery Example", exact: true });
+  await expect(card.getByText("0", { exact: true })).toBeVisible();
+  await expect(card.getByText("0 days", { exact: true })).toBeVisible();
+});
 
 test("client view switches retain loaded results, filters, sorting and the display limit", async ({ page }) => {
   let directoryRequests = 0;
