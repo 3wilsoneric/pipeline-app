@@ -39,8 +39,18 @@ export function reportValue(value: unknown): string {
   if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
   if (Array.isArray(value)) return [...new Set(value.map(reportValue).filter(Boolean))].join("; ");
   if (typeof value !== "string") return "";
-  const text = value.replace(/<[^>]*>/g, "").replace(/\*\*|__/g, "").trim();
+  const text = reportText(value);
   return missingValue.test(text) ? "" : text;
+}
+
+function reportText(value: string) {
+  let previous: string;
+  // Labels remain React text and quoted CSV, never executable HTML.
+  do {
+    previous = value;
+    value = value.replace(/<\/?[a-z][^<>]*>/gi, "");
+  } while (value !== previous);
+  return value.replace(/\*\*|__/g, "").trim();
 }
 
 export function reportDate(value: unknown): string {

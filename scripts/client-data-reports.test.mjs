@@ -23,6 +23,14 @@ test("all client reports remain supervisor/admin only", () => {
   for (const role of ["admin", "assessment_coordinator"]) assert.equal(access.canAccessOperationsReports([role]), true);
 });
 
+test("report text removes reconstituted markup but preserves clinical comparisons", () => {
+  assert.equal(reports.reportValue("**<b>Sample Facility</b>**"), "Sample Facility");
+  assert.equal(reports.reportValue("<scrip<script>t>Sample</scr</script>ipt>"), "Sample");
+  assert.equal(reports.reportValue("CD4<200; dose > 10 mg; age < 65"), "CD4<200; dose > 10 mg; age < 65");
+  assert.equal(reports.reportValue("<b>Not recorded</b>"), "");
+  assert.equal(reports.reportValue("<b>No</b>"), "No");
+});
+
 test("both report routes require supervisor/admin before reading data or exporting", async () => {
   let authenticationCalls = 0;
   const route = loadEntry("app/api/operations/reports/route.ts", {
