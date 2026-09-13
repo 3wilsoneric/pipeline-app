@@ -117,6 +117,9 @@ import {
 } from "@/components/pipeline/referral-canvas-save-state";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import ReferralContactsCard from "@/components/pipeline/ReferralContactsCard";
+import ContactDirectorySuggestion from "@/components/pipeline/ContactDirectorySuggestion";
+import { ageFromCalendarDate, calendarToday, normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
+import { stringLimits } from "@/lib/pipeline/referral-validation";
 
 const ReferralWorkflowPanel = dynamic(
   () => import("@/components/pipeline/ReferralWorkflowPanel"),
@@ -244,9 +247,9 @@ const initialFields: Record<FieldKey, PacketField> = {
     value: "",
     placeholder: "M/D/YYYY",
   },
-  community: { label: "Community:", value: "", placeholder: "Select destination" },
+  community: { label: "Community:", value: "", placeholder: "Select community" },
   county: { label: "County:", value: "", placeholder: "Select county" },
-  referent: { label: "Referent:", value: "", placeholder: "" },
+  referent: { label: "Referent:", value: "", placeholder: "Facility or referring provider" },
   responsiblePerson: {
     label: "Responsible Person:",
     value: "",
@@ -269,12 +272,10 @@ const initialFields: Record<FieldKey, PacketField> = {
 const visibleChartFieldKeys: readonly FieldKey[] = [
   "name",
   "gender",
-  "age",
   "dob",
   "ssn",
   "owner",
   "referralReceived",
-  "admissionDate",
   "community",
   "county",
   "referent",
@@ -340,6 +341,7 @@ export default function ReferralPacketCanvas({
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
     name: { ...initialFields.name, value: referral?.name ?? "" },
+    referralReceived: { ...initialFields.referralReceived, value: referral?.date ?? calendarToday() },
   }));
   const [conserved, setConserved] = useState<"yes" | "no" | "">("");
   const [documents, setDocuments] = useState<Record<string, string>>({});
@@ -652,6 +654,7 @@ export default function ReferralPacketCanvas({
         ...initialFields,
         name: { ...initialFields.name },
         owner: { ...initialFields.owner, value: defaultOwner?.displayName ?? "" },
+        referralReceived: { ...initialFields.referralReceived, value: calendarToday() },
       };
       fieldsRef.current = resetFields;
       setFields(resetFields);
@@ -1697,7 +1700,7 @@ export default function ReferralPacketCanvas({
       initialPacketCategoryRef.current = restoredCategory;
       setInitialPacketCategory(restoredCategory);
     } else {
-      const restoredFields = { ...initialFields, name: { ...initialFields.name, value: referral?.name ?? "" } };
+      const restoredFields = { ...initialFields, name: { ...initialFields.name, value: referral?.name ?? "" }, referralReceived: { ...initialFields.referralReceived, value: calendarToday() } };
       fieldsRef.current = restoredFields;
       setFields(restoredFields);
       conservedRef.current = "";
@@ -2039,14 +2042,20 @@ export default function ReferralPacketCanvas({
                 <ChartHeaderCell label="Save status" value={saveStatus} />
               </ClientChartHeader>
               <div className="min-w-0">
-                <ChartSection title="Identity" complete={countCompleteFields(fields, ["name", "gender", "age", "dob", "ssn"])} total={5}>
-                  <div className="grid grid-cols-2 gap-px overflow-hidden bg-[#bfcac5] lg:grid-cols-6">
-                    {(["name", "gender", "age", "dob", "ssn"] as FieldKey[]).map((key) => (
+                <ChartSection title="Identity" complete={countCompleteFields(fields, ["name", "dob", "gender", "ssn"])} total={4}>
+                  <div className="grid gap-px bg-[#bfcac5] sm:grid-cols-2 xl:grid-cols-5">
+                    {(["name", "dob", "gender", "ssn"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
                         fieldKey={key}
                         field={fields[key]}
-                        className={key === "name" ? "col-span-2" : undefined}
+                        className={key === "name" ? "sm:col-span-2" : key === "ssn" ? "sm:col-span-2 xl:col-span-1" : undefined}
+                        options={key === "gender" ? ["Male", "Female", "Nonbinary", "Other", "Prefer not to say"] : undefined}
+                        detail={key === "dob" ? (
+                          ageFromCalendarDate(fields.dob.value) !== null
+                            ? `Age ${ageFromCalendarDate(fields.dob.value)}`
+                            : !fields.dob.value && fields.age.value ? `Reported age: ${fields.age.value}` : undefined
+                        ) : undefined}
                         onChange={(value) => updateField(key, value)}
                         onFocus={focusWorkspaceField}
                       />
@@ -2054,14 +2063,14 @@ export default function ReferralPacketCanvas({
                   </div>
                 </ChartSection>
 
-                <ChartSection title="Routing and assignment" complete={countCompleteFields(fields, ["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"])} total={7}>
-                  <div aria-label="Referral routing" className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2 lg:grid-cols-3">
-                    {(["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"] as FieldKey[]).map((key) => (
+                <ChartSection title="Referral details" complete={countCompleteFields(fields, ["owner", "community", "county", "referralReceived", "referent", "responsiblePerson"])} total={6}>
+                  <div aria-label="Referral routing" className="grid gap-px bg-[#bfcac5] sm:grid-cols-2 lg:grid-cols-3">
+                    {(["owner", "referralReceived", "community", "county", "referent", "responsiblePerson"] as FieldKey[]).map((key) => (
                       key === "owner" ? (
                         <OwnerPacketField
                           key={key}
                           fieldKey={key}
-                          field={fields.owner}
+                          field={{ ...fields.owner, label: "Assessor", placeholder: "Assign assessor" }}
                           members={members}
                           ownerPrincipalId={ownerPrincipalId}
                           confirmedOwnerId={loadedReferral?.ownerId ?? ""}
@@ -2082,14 +2091,17 @@ export default function ReferralPacketCanvas({
                           key={key}
                           fieldKey={key}
                           field={fields[key]}
-                          className={key === "responsiblePerson" ? "sm:col-span-2 lg:col-span-1" : undefined}
                           options={key === "community" ? pipelineCommunities : key === "county" ? californiaCountyOptions : undefined}
+                          directory={canSupervise || editableReferralId ? (
+                            key === "referent" ? "organization" : key === "responsiblePerson" ? "person" : undefined
+                          ) : undefined}
+                          referralId={editableReferralId}
                           onChange={(value) => updateField(key, value)}
                           onFocus={focusWorkspaceField}
                         />
                       )
                     ))}
-                    <div className="min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6">
+                    <div className="min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 lg:col-span-2">
                       <label htmlFor="packet-tags" className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">Tags</label>
                       <input
                         id="packet-tags"
@@ -2103,35 +2115,19 @@ export default function ReferralPacketCanvas({
                         placeholder="urgent, county-intake"
                         className="mt-1.5 h-8 w-full border-0 bg-transparent p-0 text-[14px] font-bold text-[#18211d] outline-none placeholder:text-[#a0a0a0] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
                       />
-                      <div className="mt-1 text-[10px] text-[#737373]">Comma-separated; searchable everywhere.</div>
                     </div>
-                    <div className="flex min-h-[82px] min-w-0 flex-wrap items-center justify-between gap-3 bg-white px-5 py-4 sm:px-6">
-                      <div className="min-w-0">
-                        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">Conserved</div>
-                        <div className="mt-1 text-[10px] text-[#737373]">Record the current legal status.</div>
-                      </div>
-                      <div role="group" aria-label="Conserved" className="flex shrink-0 overflow-hidden border border-[#c9ceca] bg-white">
-                        {(["yes", "no"] as const).map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            aria-pressed={conserved === value}
-                            onClick={() => {
-                              setSaveError("");
-                              setConserved(value);
-                              markDirty("conserved");
-                              setSavedAt("Unsaved changes");
-                            }}
-                            className={`h-9 min-w-14 border-r border-[#d9ddda] px-3 text-[10px] font-black uppercase last:border-r-0 ${
-                              conserved === value
-                                ? "bg-[#2f8475] text-white"
-                                : "text-[#595959] hover:bg-[#f7faf9]"
-                            }`}
-                          >
-                            {value}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6">
+                      <label htmlFor="packet-conserved" className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">Conservatorship</label>
+                      <select id="packet-conserved" value={conserved} onChange={(event) => {
+                        setSaveError("");
+                        setConserved(event.target.value as "yes" | "no" | "");
+                        markDirty("conserved");
+                        setSavedAt("Unsaved changes");
+                      }} className="mt-1.5 h-8 w-full border-0 bg-transparent p-0 text-[14px] font-bold text-[#18211d] outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+                        <option value="">Not yet verified</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
                     </div>
                   </div>
                 </ChartSection>
@@ -2964,6 +2960,9 @@ function EditablePacketField({
   field,
   options,
   className,
+  detail,
+  directory,
+  referralId,
   onChange,
   onFocus,
 }: {
@@ -2971,33 +2970,44 @@ function EditablePacketField({
   field: PacketField;
   options?: readonly string[];
   className?: string;
+  detail?: string;
+  directory?: "organization" | "person";
+  referralId?: number;
   onChange: (value: string) => void;
   onFocus: (key: FieldKey) => void;
 }) {
+  const label = ({ dob: "Date of birth", ssn: "SSN (optional)", community: "Requested community", county: "Client county", referent: "Referral facility / source", responsiblePerson: "Responsible person (optional)" } as Partial<Record<FieldKey, string>>)[fieldKey] ?? field.label;
   return (
     <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
-        <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{field.label}</label>
+        <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{label}</label>
       </div>
-      {options ? (
+      {directory ? (
+        <ContactDirectorySuggestion label={label} value={field.value} placeholder={field.placeholder} kind={directory} maxLength={directory === "organization" ? stringLimits.source : stringLimits.responsiblePerson} referralId={referralId} onChange={onChange} />
+      ) : options ? (
         <select
-          aria-label={field.label}
+          aria-label={label}
           value={field.value}
           onChange={(event) => onChange(event.target.value)}
           className="mt-1.5 h-8 w-full border-0 bg-transparent p-0 text-[14px] font-bold text-[#18211d] outline-none"
         >
           <option value="">{field.placeholder || `Select ${field.label.replace(/:$/, "").toLowerCase()}`}</option>
+          {field.value && !options.includes(field.value) ? <option value={field.value}>{field.value}</option> : null}
           {options.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       ) : (
         <input
-          aria-label={field.label}
-          value={field.value}
+          type={(fieldKey === "dob" || fieldKey === "referralReceived") && (!field.value || normalizeCalendarDate(field.value)) ? "date" : fieldKey === "phone" ? "tel" : fieldKey === "email" ? "email" : "text"}
+          aria-label={label}
+          value={fieldKey === "dob" || fieldKey === "referralReceived" ? normalizeCalendarDate(field.value) ?? field.value : field.value}
+          max={fieldKey === "dob" || fieldKey === "referralReceived" ? calendarToday() : undefined}
+          autoComplete="off"
           placeholder={field.placeholder}
           onChange={(event) => onChange(event.target.value)}
-          className={`mt-1.5 h-8 w-full border-0 bg-transparent p-0 font-bold text-[#18211d] outline-none placeholder:text-[#a0a0a0] ${fieldKey === "name" ? "text-[22px] tracking-[-0.025em] sm:text-[24px]" : "text-[14px]"}`}
+          className={`mt-1.5 h-9 w-full min-w-0 border-0 bg-transparent p-0 font-bold text-[#18211d] outline-none placeholder:text-[#a0a0a0] ${fieldKey === "name" ? "text-[22px] sm:text-[24px]" : "text-[16px] sm:text-[14px]"}`}
         />
       )}
+      {detail ? <div className="mt-1 text-[12px] font-bold text-[#176f60]" aria-live="polite">{detail}</div> : null}
       {field.sourceFile ? (
         <div className="mt-2 flex items-center gap-1 text-[10px] font-black text-[#317f8f]">
           <CheckCircle2 size={12} />

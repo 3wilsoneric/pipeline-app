@@ -97,7 +97,8 @@ export function buildReferralCanvasPatch(input: {
   const patch: ReferralPatch = {};
   let fieldChanged = false;
   for (const key of persistedCanvasFieldKeys) {
-    if (!input.keys.has(key)) continue;
+    // Intake cannot record an actual admission, including recovered older drafts.
+    if (key === "admissionDate" || !input.keys.has(key)) continue;
     fieldChanged = true;
     (patch as Record<string, unknown>)[referralPatchKeyByCanvasField[key]] = input.fields[key].value;
   }
@@ -143,12 +144,12 @@ export function buildReferralCanvasCreateInput(input: {
     gender: fields.gender.value.trim(),
     reportedAge: fields.age.value.trim(),
     ssn: fields.ssn.value.trim(),
-    admissionDate: fields.admissionDate.value.trim(),
+    admissionDate: "",
     county: fields.county.value.trim(),
     responsiblePerson: fields.responsiblePerson.value.trim(),
     currentMedications: fields.currentMedications.value.trim(),
     conserved: input.conserved,
-    fieldSources: fieldSourcesFromCanvas(fields),
+    fieldSources: Object.fromEntries(Object.entries(fieldSourcesFromCanvas(fields)).filter(([key]) => key !== "admissionDate")),
     phone: fields.phone.value.trim(),
     email: fields.email.value.trim(),
     payer: "",

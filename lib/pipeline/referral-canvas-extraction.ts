@@ -35,7 +35,6 @@ const canvasFieldMappings: Record<string, ReferralCanvasFieldKey[]> = {
   "demographics.age": ["age"],
   "referral.gender": ["gender"],
   "demographics.gender": ["gender"],
-  "referral.preferred_admission_date": ["admissionDate"],
   "referral.source": ["referent"],
   "referral.referring_provider": ["referent"],
   "referral.referring_facility": ["referent"],
@@ -80,7 +79,6 @@ function buildCanvasFieldUpdates(extractedByKey: Map<string, ExtractedField>) {
     dob: extractedValue(extractedByKey, ["referral.date_of_birth", "demographics.date_of_birth"]),
     age: extractedValue(extractedByKey, ["referral.age", "demographics.age"]),
     gender: extractedValue(extractedByKey, ["referral.gender", "demographics.gender"]),
-    admissionDate: extractedValue(extractedByKey, ["referral.preferred_admission_date"]),
     referent: extractedValue(extractedByKey, [
       "referral.source",
       "referral.referring_provider",
