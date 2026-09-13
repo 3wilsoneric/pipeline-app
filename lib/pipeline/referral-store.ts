@@ -815,12 +815,7 @@ async function createLocalReferral(
   }
 
   assertPacketIsUnique(input.documentHash);
-  const episodeSource = options.newEpisodeSourceReferralId === undefined ? undefined
-    : requireEpisodeSource(input, state.referrals.find((referral) => referral.id === options.newEpisodeSourceReferralId));
-  const confirmedDistinctReferralIds = episodeSource ? [] : requireSuspectedDuplicateConfirmation(
-    suspectedLocalDuplicateReferrals(input),
-    options,
-  );
+  const creationReason = confirmLocalReferralCreation(input, options);
 
   if (state.referrals.length >= maxReferralRows) {
     throw new Error("Referral capacity reached. Archive closed referrals before creating more.");
@@ -852,7 +847,7 @@ async function createLocalReferral(
     null,
     referral,
     1,
-    episodeSource ? `New intake from workspace #${episodeSource.id}; carried chart fields require review.` : distinctPersonConfirmationReason(confirmedDistinctReferralIds),
+    creationReason,
     createdAt,
   );
   await persist();
@@ -1736,26 +1731,8 @@ async function createPostgresReferral(
       if (duplicate[0]) throw new DuplicateReferralPacketError(Number(duplicate[0].referral_id));
     }
 
-    const episodeSource = options.newEpisodeSourceReferralId === undefined ? undefined
-      : requireEpisodeSource(input, await getReferralInTransaction(tx, options.newEpisodeSourceReferralId, true));
-    const confirmedDistinctReferralIds = episodeSource ? [] : await lockAndConfirmPostgresDuplicate(
-      tx,
-      input,
-      options,
-    );
-
     const clientId = normalizeClientId(input.clientId) || `pipeline-client-${randomUUID()}`;
-    const people = episodeSource ? await tx<{ person_id: string }[]>`
-      select person_id from pipeline.people where external_client_id = ${clientId} for share
-    ` : await tx<{ person_id: string }[]>`
-      insert into pipeline.people (external_client_id, display_name, date_of_birth)
-      values (${clientId}, ${input.name}, ${dateToSql(input.dob)}::date)
-      on conflict (external_client_id) do update
-        set display_name = excluded.display_name,
-            date_of_birth = coalesce(pipeline.people.date_of_birth, excluded.date_of_birth),
-            updated_at = now()
-      returning person_id
-    `;
+    const { personId, creationReason } = await resolvePostgresCreationPerson(tx, clientId, input, options);
     const county = resolveWorkspaceCounty(input);
     const assigned = hasAssignedOwner(input);
     const assignedAt = assigned ? new Date() : null;
@@ -1779,7 +1756,7 @@ async function createPostgresReferral(
         tags, summary, document_sha256, search_text, data,
         closed_at, created_by, created_by_name, updated_by, updated_by_name
       ) values (
-        ${people[0].person_id}::uuid, ${input.stage}, ${workflowStatus}, ${input.community}, ${county ?? null},
+        ${personId}::uuid, ${input.stage}, ${workflowStatus}, ${input.community}, ${county ?? null},
         ${input.ownerId || null}, ${input.owner || null}, ${assignedAt}, ${assignedDueAt}, 1,
         ${input.priority}, ${input.source}, ${dateToSql(input.date)}::date, ${input.tags ?? []},
         ${input.note || null}, ${input.documentHash ?? null}, ${referralSearchText(payload)}, ${tx.json(payload)},
@@ -1789,7 +1766,7 @@ async function createPostgresReferral(
     `;
     const referral = mapReferralRow(rows[0]);
     if (referral.requirements?.length) {
-      await syncPostgresWorkItems(tx, referral.id, people[0].person_id, referral.requirements);
+      await syncPostgresWorkItems(tx, referral.id, personId, referral.requirements);
     }
     await writeReferralAudit(
       tx,
@@ -1800,7 +1777,7 @@ async function createPostgresReferral(
       null,
       referral,
       1,
-      episodeSource ? `New intake from workspace #${episodeSource.id}; carried chart fields require review.` : distinctPersonConfirmationReason(confirmedDistinctReferralIds),
+      creationReason,
     );
     if (mutationId) {
       await tx`
@@ -2581,7 +2558,7 @@ function mapReferralRow(row: ReferralRow): Referral {
       id: row.updated_by,
       name: row.updated_by_name,
     },
-    name: data.chartSource && data.name?.trim() ? data.name : row.display_name,
+    name: storedReferralDisplayName(data, row.display_name),
     stage: row.stage,
     community: row.community,
     county: row.county ?? data.county ?? undefined,
@@ -2776,6 +2753,44 @@ function assertPacketIsUnique(documentHash: string | undefined, currentReferralI
     (referral) => referral.id !== currentReferralId && referral.documentHash === documentHash,
   );
   if (duplicate) throw new DuplicateReferralPacketError(duplicate.id);
+}
+
+function storedReferralDisplayName(data: Partial<Referral>, displayName: string) {
+  return data.chartSource && data.name?.trim() ? data.name : displayName;
+}
+
+function confirmLocalReferralCreation(input: ReferralCreateInput, options: ReferralCreateOptions) {
+  if (options.newEpisodeSourceReferralId !== undefined) {
+    const source = requireEpisodeSource(input, state.referrals.find((referral) => referral.id === options.newEpisodeSourceReferralId));
+    return chartEpisodeCreationReason(source.id);
+  }
+  const distinctIds = requireSuspectedDuplicateConfirmation(suspectedLocalDuplicateReferrals(input), options);
+  return distinctPersonConfirmationReason(distinctIds);
+}
+
+async function resolvePostgresCreationPerson(tx: TransactionSql, clientId: string, input: ReferralCreateInput, options: ReferralCreateOptions) {
+  if (options.newEpisodeSourceReferralId !== undefined) {
+    const source = requireEpisodeSource(input, await getReferralInTransaction(tx, options.newEpisodeSourceReferralId, true));
+    const people = await tx<{ person_id: string }[]>`
+      select person_id from pipeline.people where external_client_id = ${clientId} for share
+    `;
+    return { personId: people[0].person_id, creationReason: chartEpisodeCreationReason(source.id) };
+  }
+  const distinctIds = await lockAndConfirmPostgresDuplicate(tx, input, options);
+  const people = await tx<{ person_id: string }[]>`
+    insert into pipeline.people (external_client_id, display_name, date_of_birth)
+    values (${clientId}, ${input.name}, ${dateToSql(input.dob)}::date)
+    on conflict (external_client_id) do update
+      set display_name = excluded.display_name,
+          date_of_birth = coalesce(pipeline.people.date_of_birth, excluded.date_of_birth),
+          updated_at = now()
+    returning person_id
+  `;
+  return { personId: people[0].person_id, creationReason: distinctPersonConfirmationReason(distinctIds) };
+}
+
+function chartEpisodeCreationReason(sourceId: number) {
+  return `New intake from workspace #${sourceId}; carried chart fields require review.`;
 }
 
 function requireEpisodeSource(input: ReferralCreateInput, source: Referral | null | undefined) {

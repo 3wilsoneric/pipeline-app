@@ -259,10 +259,11 @@ function ResidentProfile({
             </ProfileSection>
           ) : null}
 
-          {!embedded ? <ClientWorkspaceHistorySection
+          <ClientWorkspaceHistorySection
+            embedded={embedded}
             referrals={profile.pipeline.referrals}
             onOpenWorkspace={onOpenWorkspace}
-          /> : null}
+          />
 
           <ProfileSection title="Client information" detail="Clinical, support, and stay details">
             <CuratedClientRecord sections={chart.detailSections} />
@@ -276,24 +277,7 @@ function ResidentProfile({
             sourceDocuments={client.source_documents}
             referralDocuments={profile.pipeline.documents}
           />
-          {profile.pipeline.referrals.length > 0 ? <ProfileSection title="Referral information">
-            <CuratedClientRecord sections={clientReferralSections(profile)} />
-          </ProfileSection> : null}
-          {profile.pipeline.assessments.length > 0 ? <ProfileSection title="Assessment records">
-            <CuratedClientRecord sections={clientAssessmentSections(profile)} />
-          </ProfileSection> : null}
-          <ClientSourceNotes sections={clientSourceSections(profile)} />
-          {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
-
-          {client.facts.length > 0 ? (
-            <ProfileSection title="Source-backed information" detail="Extracted packet facts">
-              <ClientFactReview
-                canonicalClientId={client.canonical_client_id}
-                facts={client.facts}
-                documents={client.source_documents}
-              />
-            </ProfileSection>
-          ) : null}
+          <ClientRecordedInformation profile={profile} />
 
           {!pipelineOnly && client.canonical_client_id ? (
             <ProfileSection title="Record quality" detail={`${completeness.complete} of ${completeness.total} tracked fields`}>
@@ -304,6 +288,23 @@ function ResidentProfile({
         </div>
     </ClientChartContainer>
   );
+}
+
+function ClientRecordedInformation({ profile }: { profile: UnifiedClientProfileResponse }) {
+  const client = profile.client;
+  return <>
+    {profile.pipeline.referrals.length > 0 ? <ProfileSection title="Referral information">
+      <CuratedClientRecord sections={clientReferralSections(profile)} />
+    </ProfileSection> : null}
+    {profile.pipeline.assessments.length > 0 ? <ProfileSection title="Assessment records">
+      <CuratedClientRecord sections={clientAssessmentSections(profile)} />
+    </ProfileSection> : null}
+    <ClientSourceNotes sections={clientSourceSections(profile)} />
+    {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
+    {client.facts.length > 0 ? <ProfileSection title="Source-backed information" detail="Extracted packet facts">
+      <ClientFactReview canonicalClientId={client.canonical_client_id} facts={client.facts} documents={client.source_documents} />
+    </ProfileSection> : null}
+  </>;
 }
 
 function ClientChartContainer({ embedded, title, onBack, children }: { embedded: boolean; title: string; onBack: () => void; children: ReactNode }) {
@@ -360,13 +361,15 @@ function ClientWorkspaceHistory({
 }
 
 function ClientWorkspaceHistorySection({
+  embedded = false,
   referrals,
   onOpenWorkspace,
 }: {
+  embedded?: boolean;
   referrals: Referral[];
   onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
-  if (referrals.length === 0) return null;
+  if (embedded || referrals.length === 0) return null;
   return (
     <ProfileSection title="Workspaces" detail={formatCount(referrals.length, "workspace")}>
       <ClientWorkspaceHistory referrals={referrals} onOpenWorkspace={onOpenWorkspace} />

@@ -114,29 +114,7 @@ async function loadUnifiedClientProfile(
   observability?: UnifiedProfileObservability,
 ): Promise<UnifiedClientProfileResponse> {
   if (canonicalClientId.startsWith("pipeline:")) {
-    const clientId = canonicalClientId.slice("pipeline:".length);
-    const pipeline = await getPipelineOnlyClientProfile(clientId, permissions, user);
-    if (!getResidentLinkStoreReadiness().ready) return pipeline;
-    const links = await listProfileLinks({ pipelineClientId: clientId, status: "confirmed" });
-    const keys = [...new Set(links.map((link) => link.resident_key))];
-    if (!keys.length) return pipeline;
-    if (keys.length !== 1) {
-      return unavailableLinkedChart(pipeline, "Conflicting clinical identity links need review. Only this client's Pipeline records are shown.");
-    }
-    const key = keys[0];
-    if (key.startsWith("pipeline:")) throw new UnifiedProfileError(409, "invalid_clinical_link", "The client identity connection needs review.");
-    try {
-      if (key.includes(":")) {
-        const current = await getClinicalResident(request, key);
-        if (!current.resident.canonical_client_id) {
-          return { ...currentCensusProfile(current), pipeline: { ...pipeline.pipeline, connection: buildConnection(links[0], [], []) } };
-        }
-        return await loadUnifiedClientProfile(request, current.resident.canonical_client_id, permissions, user, observability);
-      }
-      return await loadUnifiedClientProfile(request, key, permissions, user, observability);
-    } catch {
-      return unavailableLinkedChart(pipeline, "The linked clinical chart is temporarily unavailable. Pipeline records remain available; retry for the complete chart.");
-    }
+    return loadPipelineLinkedClientProfile(request, canonicalClientId.slice("pipeline:".length), permissions, user, observability);
   }
   const clinical = await getClinicalClient(request, canonicalClientId);
   const resident = await loadCurrentResident(request, clinical.client);
@@ -268,6 +246,37 @@ async function loadUnifiedClientProfile(
         permissions,
       ),
     };
+  }
+}
+
+async function loadPipelineLinkedClientProfile(
+  request: Request,
+  clientId: string,
+  permissions: UnifiedClientProfileResponse["pipeline"]["permissions"],
+  user?: PipelineUser,
+  observability?: UnifiedProfileObservability,
+): Promise<UnifiedClientProfileResponse> {
+  const pipeline = await getPipelineOnlyClientProfile(clientId, permissions, user);
+  if (!getResidentLinkStoreReadiness().ready) return pipeline;
+  const links = await listProfileLinks({ pipelineClientId: clientId, status: "confirmed" });
+  const keys = [...new Set(links.map((link) => link.resident_key))];
+  if (!keys.length) return pipeline;
+  if (keys.length !== 1) {
+    return unavailableLinkedChart(pipeline, "Conflicting clinical identity links need review. Only this client's Pipeline records are shown.");
+  }
+  const key = keys[0];
+  if (key.startsWith("pipeline:")) throw new UnifiedProfileError(409, "invalid_clinical_link", "The client identity connection needs review.");
+  try {
+    if (key.includes(":")) {
+      const current = await getClinicalResident(request, key);
+      if (!current.resident.canonical_client_id) {
+        return { ...currentCensusProfile(current), pipeline: { ...pipeline.pipeline, connection: buildConnection(links[0], [], []) } };
+      }
+      return await loadUnifiedClientProfile(request, current.resident.canonical_client_id, permissions, user, observability);
+    }
+    return await loadUnifiedClientProfile(request, key, permissions, user, observability);
+  } catch {
+    return unavailableLinkedChart(pipeline, "The linked clinical chart is temporarily unavailable. Pipeline records remain available; retry for the complete chart.");
   }
 }
 

@@ -24,17 +24,15 @@ export async function POST(request: Request, context: { params: Promise<{ referr
     const store = requireReferralStore();
     if (!store.ok) return store.response;
     const { referralId } = await context.params;
-    if (!/^[1-9]\d*$/.test(referralId) || !Number.isSafeInteger(Number(referralId))) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, Number(referralId));
+    const sourceId = parseSourceReferralId(referralId);
+    if (sourceId === null) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, sourceId);
     if (!access.ok) return access.response;
     if (!access.referral.clientId) return jsonError("Connect this workspace to its client before starting a new referral.", 409);
-    const body = await readJsonBody<{ client_mutation_id?: unknown }>(request);
-    if (!body.ok) return jsonError(body.message, body.status);
-    if (!body.value || typeof body.value.client_mutation_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.value.client_mutation_id)) {
-      return jsonError("A valid client_mutation_id is required.");
-    }
+    const mutation = await readChartMutationId(request);
+    if (!mutation.ok) return mutation.response;
     // Retry keys are bound to this authenticated actor and source, never a client-supplied person id.
-    const mutationId = `chart-intake:${createHash("sha256").update(JSON.stringify([auth.user.id, referralId, body.value.client_mutation_id])).digest("hex")}`;
+    const mutationId = `chart-intake:${createHash("sha256").update(JSON.stringify([auth.user.id, referralId, mutation.value])).digest("hex")}`;
     const profile = await getUnifiedClientProfile(request, `pipeline:${access.referral.clientId}`, undefined, auth.user);
     if (profile.pipeline.connection.status === "unavailable") {
       return jsonError("The complete chart is unavailable. Retry before starting a new intake.", 503);
@@ -53,4 +51,18 @@ export async function POST(request: Request, context: { params: Promise<{ referr
       status: 201, headers: { "Cache-Control": "private, no-store, max-age=0" },
     });
   });
+}
+
+function parseSourceReferralId(value: string) {
+  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value))) return null;
+  return Number(value);
+}
+
+async function readChartMutationId(request: Request) {
+  const body = await readJsonBody<{ client_mutation_id?: unknown }>(request);
+  if (!body.ok) return { ok: false as const, response: jsonError(body.message, body.status) };
+  if (!body.value || typeof body.value.client_mutation_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.value.client_mutation_id)) {
+    return { ok: false as const, response: jsonError("A valid client_mutation_id is required.") };
+  }
+  return { ok: true as const, value: body.value.client_mutation_id };
 }
