@@ -476,11 +476,11 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       onFocus={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onPointerLeave={cancelPipelineWarmup}
       onBlur={cancelPipelineWarmup}
-      className="group w-full min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
+      className="group w-full min-w-0 overflow-hidden border border-[#d7dfda] bg-white text-left shadow-[0_1px_2px_rgba(25,55,45,0.06),0_3px_6px_rgba(25,55,45,0.04)] outline-none transition-colors duration-120 hover:border-[#8bb4a5] hover:shadow-[0_2px_4px_rgba(25,55,45,0.07),0_6px_12px_rgba(25,55,45,0.06)] active:border-[#0f8b73] active:shadow-[0_1px_2px_rgba(25,55,45,0.08)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] motion-reduce:transition-none"
     >
-      <span aria-hidden="true" className="block min-h-[156px] border-b border-[#dfe5e2] bg-[#f4f8f6] p-4">
-        <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
-        <span className="mt-3 grid grid-cols-2 gap-px border border-[#bdc9c4] bg-[#bdc9c4]">
+      <span aria-hidden="true" className="block min-h-[156px] border-b border-[#e1e7e3] bg-[#f7faf8] p-4 group-active:bg-[#edf5f0]">
+        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
+        <span className="mt-3 grid grid-cols-2 gap-px border border-[#d6dfda] bg-[#e5ebe7] shadow-[0_1px_2px_rgba(25,55,45,0.04)]">
           <ChartPreviewCell label="Community" value={community} />
           <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
           <ChartPreviewCell label="Admitted" value={client.admit_date ? formatDate(client.admit_date) : null} />
@@ -488,17 +488,17 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
         </span>
       </span>
 
-      <span className="block px-4 py-3.5">
+      <span className="block px-4 py-4 group-active:bg-[#f7faf8]">
         <span className="flex items-start justify-between gap-3">
           <span className="min-w-0">
-            <strong className="block truncate text-[16px] font-black leading-5 text-[#151a18]" title={identityTitle}>{identityTitle}</strong>
+            <strong className="block truncate text-[18px] font-bold leading-6 text-[#151a18]" title={identityTitle}>{identityTitle}</strong>
             {[gender, location].filter(Boolean).length > 0 ? (
-              <span className="mt-1 block truncate text-[11px] text-[#68716d]">{[gender, location].filter(Boolean).join(" · ")}</span>
+              <span className="mt-1 block truncate text-[12px] leading-5 text-[#59675f]">{[gender, location].filter(Boolean).join(" · ")}</span>
             ) : null}
           </span>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[#0f8b73] transition-transform group-hover:translate-x-0.5"><ArrowRight size={17} /></span>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-transparent bg-[#f0f7f3] text-[#0c705f] group-hover:border-[#c5dcd2] group-active:bg-[#e2eee7]"><ArrowRight size={17} /></span>
         </span>
-        {!client.profile_key ? <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#e7ebe8] pt-2.5 text-[10px] text-[#68716c]">
+        {!client.profile_key ? <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#edf0ee] pt-2.5 text-[11px] tabular-nums text-[#626e67]">
           <span className="flex min-w-0 items-center gap-1.5"><FileText size={12} className="shrink-0" /><span className="truncate">{countNoun(client.document_count, "document")}</span></span>
           <span className="flex min-w-0 items-center gap-1.5"><FolderOpen size={12} className="shrink-0" /><span className="truncate">{countNoun(client.referral_count, "workspace")}</span></span>
           <span className="shrink-0">{countNoun(client.episode_count, "stay")}</span>
@@ -511,8 +511,8 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
 function ChartPreviewCell({ label, value }: { label: string; value: string | null }) {
   return (
     <span className="min-w-0 bg-white px-3 py-2.5">
-      <span className="block text-[8px] font-black uppercase tracking-[0.08em] text-[#69736e]">{label}</span>
-      <span className={`mt-1 block truncate text-[11px] font-bold ${value ? "text-[#26302c]" : "text-[#a3aaa6]"}`} title={value ?? undefined}>{value || "—"}</span>
+      <span className="block text-[10px] font-semibold uppercase tracking-[0.06em] text-[#626d67]">{label}</span>
+      <span className={`mt-1 block truncate text-[12px] font-semibold ${value ? "text-[#26302c]" : "text-[#69736e]"}`} title={value ?? undefined}>{value || "—"}</span>
     </span>
   );
 }
