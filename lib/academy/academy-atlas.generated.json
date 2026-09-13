@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:2abfe6c5b5e8dd05",
-  "fingerprint": "2abfe6c5b5e8dd052218b8dc2702faf655e450f136dc0552ea40493f54c98c81",
+  "generatedAt": "source-fingerprint:4b96f086d9fc75ca",
+  "fingerprint": "4b96f086d9fc75cac9ba864b3fbb61d6267d77d6e1128211100303912382c95e",
   "totals": {
-    "files": 1007,
-    "lines": 317405,
-    "coveredFiles": 1007
+    "files": 1010,
+    "lines": 317768,
+    "coveredFiles": 1010
   },
   "entries": [
     {
@@ -1576,6 +1576,18 @@
       ]
     },
     {
+      "path": "app/control-polish.css",
+      "subsystem": "App Router",
+      "kind": "repository-file",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 83,
+      "moduleIds": [
+        "developer-toolchain",
+        "system-map"
+      ]
+    },
+    {
       "path": "app/desktop-manifest.webmanifest/route.ts",
       "subsystem": "App Router",
       "kind": "route-handler",
@@ -1629,7 +1641,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 277,
+      "lines": 341,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1641,7 +1653,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 55,
+      "lines": 56,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6003,7 +6015,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 644,
+      "lines": 661,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -11568,6 +11580,18 @@
       ]
     },
     {
+      "path": "tests/e2e/client-dropdowns.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 114,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/cross-browser-smoke.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -11862,7 +11886,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 348,
+      "lines": 357,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11995,6 +12019,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 195,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/tactile-controls.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 75,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

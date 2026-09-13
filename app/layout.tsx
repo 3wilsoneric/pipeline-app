@@ -6,6 +6,7 @@ import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { getPipelineServerEntryUser } from "@/lib/auth/server-entry";
 import "./globals.css";
+import "./control-polish.css";
 
 const pipelineSans = localFont({
   src: "./fonts/geist-latin.woff2",
@@ -43,7 +44,7 @@ export default async function RootLayout({
   const initialUser = await getPipelineServerEntryUser();
   return (
     <html lang="en" className={`${pipelineSans.variable} h-full antialiased`}>
-      <body className="min-h-full">
+      <body className="pipeline-interactions min-h-full">
         <PipelineAuthProvider initialUser={initialUser}>
           <DesktopRuntime />
           {children}

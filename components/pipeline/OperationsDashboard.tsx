@@ -180,7 +180,7 @@ function OperationsDashboardView({
     <main aria-label="Reports" className="h-full overflow-y-auto bg-white text-[#171917]">
       <div data-testid="operations-workspace" data-guide-target="operations-workspace" data-performance-ready={pipelineSurfaceReady("operations", loading, error)} className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
         <div className="flex items-center py-3">
-          <div role="group" aria-label="Reports view" className="inline-flex rounded-md bg-[#eef1ef] p-1">
+          <div role="group" aria-label="Reports view" className="pipeline-segmented inline-flex rounded-md bg-[#eef1ef] p-1">
             <ViewToggle selected={view === "reports"} onClick={() => onSelectView("reports")}>Reports</ViewToggle>
             <ViewToggle selected={view === "exceptions"} onClick={() => onSelectView("exceptions")}>Exceptions</ViewToggle>
           </div>
@@ -260,7 +260,7 @@ function ReportControls({ filters, response, selectedDefinition, loading, export
   onExport: () => void;
 }) {
   return (
-    <section data-guide-target="operations-summary" aria-label="Report controls" className="flex flex-wrap items-end gap-2 border-t border-[#cfd4d1] py-3">
+    <section data-guide-target="operations-summary" aria-label="Report controls" className="pipeline-commands flex flex-wrap items-end gap-2 border-t border-[#cfd4d1] py-3">
       <Control label="Report"><select data-guide-target="operations-report-select" aria-label="Report" value={filters.report_id} onChange={(event) => onSelectReport(event.target.value as OperationsReportId)} className={`${selectClass} min-w-[230px]`}>{(response?.catalog ?? []).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></Control>
       {selectedDefinition?.filters.includes("month") ? <Control label="Month"><input data-guide-target="operations-report-month" aria-label="Report month" type="month" value={filters.month} onChange={(event) => onSetFilters((current) => ({ ...current, month: event.target.value }))} className={`${selectClass} min-w-[165px]`} /></Control> : null}
       {selectedDefinition?.filters.includes("community") ? <Control label="Community"><select aria-label="Report community" value={filters.community} onChange={(event) => onSetFilters((current) => ({ ...current, community: event.target.value }))} className={`${selectClass} min-w-[190px]`}><option value="">All communities</option>{(response?.facets.communities ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}</select></Control> : null}

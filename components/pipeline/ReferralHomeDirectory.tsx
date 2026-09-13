@@ -202,7 +202,7 @@ function WorkspaceScopeSelector(props: ReferralHomeDirectoryProps) {
   const scopes: WorkspaceScope[] = props.canViewTeam ? ["mine", "team"] : ["mine"];
   return (
     <div className="mb-2 flex items-center gap-3">
-      <div role="group" aria-label="Workspace scope" className="flex border border-[#cfd7d3] bg-white p-0.5">
+      <div role="group" aria-label="Workspace scope" className="pipeline-segmented flex border border-[#cfd7d3] bg-white p-0.5">
         {scopes.map((scope) => <button key={scope} type="button" aria-pressed={props.scope === scope} onClick={() => props.onScopeChange(scope)} className={`h-8 px-3 text-[11px] font-bold ${props.scope === scope ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}>{scope === "mine" ? "Mine" : "Team"}</button>)}
       </div>
       <span className="text-[10px] text-[#68716c]">Recently updated first</span>
@@ -213,7 +213,7 @@ function WorkspaceScopeSelector(props: ReferralHomeDirectoryProps) {
 function LayoutSelector(props: ReferralHomeDirectoryProps) {
   const filesActive = props.filter.kind === "files";
   return (
-    <div role="group" aria-label="Workspace layout" aria-hidden={filesActive} className={`mb-2 flex border border-[#cfd7d3] bg-white p-0.5 ${filesActive ? "invisible" : ""}`}>
+    <div role="group" aria-label="Workspace layout" aria-hidden={filesActive} className={`pipeline-segmented mb-2 flex border border-[#cfd7d3] bg-white p-0.5 ${filesActive ? "invisible" : ""}`}>
       <button type="button" disabled={filesActive} aria-label="Show workspaces as a list" aria-pressed={props.workspaceLayout === "list"} onClick={() => props.onWorkspaceLayoutChange("list")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${props.workspaceLayout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={13} />List</button>
       <button type="button" disabled={filesActive} aria-label="Show workspaces as a gallery" aria-pressed={props.workspaceLayout === "gallery"} onClick={() => props.onWorkspaceLayoutChange("gallery")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${props.workspaceLayout === "gallery" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={13} />Gallery</button>
     </div>

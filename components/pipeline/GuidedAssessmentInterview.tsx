@@ -267,7 +267,7 @@ function GuidedAssessmentFooter({ screenIndex, screenCount, answeredHere, questi
 }) {
   const advance = () => isLastScreen ? onDone() : setScreenIndex(Math.min(screenCount - 1, screenIndex + 1));
   return (
-    <footer className="flex min-h-[68px] shrink-0 items-center justify-between gap-3 border-t border-[#e0e4e1] bg-white px-4 py-3 sm:min-h-[76px] sm:px-7 lg:px-10">
+    <footer className="pipeline-commands flex min-h-[68px] shrink-0 items-center justify-between gap-3 border-t border-[#e0e4e1] bg-white px-4 py-3 sm:min-h-[76px] sm:px-7 lg:px-10">
       <button type="button" onClick={() => setScreenIndex(Math.max(0, screenIndex - 1))} disabled={screenIndex === 0} className="flex h-11 min-w-[106px] items-center justify-center gap-2 border border-[#cfd5d1] px-4 text-[12px] font-black text-[#4a514d] transition-colors hover:border-[#0f8b73] hover:text-[#0f7664] disabled:invisible">
         <ChevronLeft size={16} /> Back
       </button>

@@ -436,7 +436,7 @@ function DirectorySelect({
   children: ReactNode;
 }) {
   return (
-    <label data-filter-active={active} className="relative flex h-[50px] min-w-0 items-center border border-[#c9d0cd] bg-white text-[#27302c] data-[filter-active=true]:border-[#0f8b73] data-[filter-active=true]:bg-[#f4faf7] focus-within:border-[#0f8b73] focus-within:ring-1 focus-within:ring-[#0f8b73]">
+    <label data-filter-active={active} className="pipeline-directory-select relative flex h-[50px] min-w-0 items-center border border-[#c9d0cd] bg-white text-[#27302c] data-[filter-active=true]:border-[#0f8b73] data-[filter-active=true]:bg-[#f4faf7] focus-within:border-[#0f8b73] focus-within:ring-1 focus-within:ring-[#0f8b73]">
       <span className="pointer-events-none absolute left-3 top-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.06em] text-[#66706b]">{icon}{label}</span>
       <span className="min-w-0 flex-1 [&>select]:h-full [&>select]:w-full [&>select]:appearance-none [&>select]:bg-transparent [&>select]:pb-1 [&>select]:pl-3 [&>select]:pr-9 [&>select]:pt-5 [&>select]:text-[12px] [&>select]:font-bold [&>select]:outline-none">{children}</span>
       <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 mt-1 -translate-y-1/2 text-[#66706b]" />
