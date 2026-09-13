@@ -123,6 +123,10 @@ export function AssessmentScheduleLayout({ label, title, context, closeLabel, is
       return;
     }
     if (event.key !== "Escape") return;
+    if (CSS.supports("selector(select:open)") && dialog.querySelector("select:open")) {
+      event.stopImmediatePropagation();
+      return;
+    }
     event.preventDefault();
     event.stopImmediatePropagation();
     if (visibleCoach) {

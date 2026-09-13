@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
 const scheduleUrl = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule";
@@ -88,6 +88,14 @@ test("keeps scheduling methods, keyboard focus, and unsaved appointment edits us
   await expect(dialog).toHaveCount(0);
 });
 
+test("dismisses native scheduling pickers before closing the appointment", async ({ page }) => {
+  await page.goto(scheduleUrl);
+  const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+  await dismissSchedulingPickers(page, dialog);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});
+
 test("includes the tutorial controls in the appointment keyboard cycle and pauses the guide on Escape", async ({ page }) => {
   await page.route("**/api/training/progress", (route) => route.fulfill({ json: {
     revision: 0,
@@ -110,6 +118,9 @@ test("includes the tutorial controls in the appointment keyboard cycle and pause
   await date.focus();
   await page.keyboard.press("Tab");
   await expect(date).toBeFocused();
+  await dismissSchedulingPickers(page, dialog);
+  await expect(coach).toBeVisible();
+  await expect(coach.getByRole("heading", { name: "Save the schedule" })).toBeVisible();
   const pause = coach.getByRole("button", { name: "Pause tutorial" });
   const skip = coach.getByRole("button", { name: "Skip step", exact: true });
   const save = dialog.getByRole("button", { name: "Schedule assessment", exact: true });
@@ -137,3 +148,17 @@ test("includes the tutorial controls in the appointment keyboard cycle and pause
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 });
+
+async function dismissSchedulingPickers(page: Page, dialog: Locator) {
+  for (const label of ["Assessment method", "Assessment duration"]) {
+    const picker = dialog.getByLabel(label);
+    const value = await picker.inputValue();
+    await picker.click();
+    await expect.poll(() => picker.evaluate((select) => select.matches(":open"))).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
+    await expect.poll(() => picker.evaluate((select) => select.matches(":open"))).toBe(false);
+    await expect(picker).toBeFocused();
+    await expect(picker).toHaveValue(value);
+  }
+}
