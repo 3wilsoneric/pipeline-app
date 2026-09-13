@@ -34,24 +34,27 @@ test("contact import component: no-prop auth, accessible upload/preview/errors/t
     await bundle(directory);
     const builder = await compile('@import "tailwindcss"; body { margin: 0; font-family: Arial, sans-serif; background: white; } main { max-width: 900px; margin: 0 auto; padding: 24px 16px; } h1 { font-size: 20px; font-weight: 700; padding-bottom: 20px; }', { base: root, onDependency: () => undefined });
     const css = builder.build(new Scanner({}).scanFiles([{ content: readFileSync(join(root, "components/pipeline/ContactDirectoryImport.tsx"), "utf8"), extension: "tsx" }]));
+    const serveImportRequest = async (incoming, outgoing) => {
+      const chunks = [];
+      for await (const chunk of incoming) chunks.push(chunk);
+      const request = new Request(`http://127.0.0.1:${server.address().port}${incoming.url}`, { method: incoming.method, headers: incoming.headers, ...(incoming.method === "POST" ? { body: Buffer.concat(chunks) } : {}) });
+      const response = incoming.method === "POST" ? await importer.POST(request) : await importer.GET(request);
+      if (incoming.url.includes("mode=commit")) {
+        commits.push({ id: incoming.headers["x-client-mutation-id"], status: response.status });
+        if (interrupt && response.ok) {
+          interrupt = false;
+          outgoing.writeHead(503, { "Content-Type": "application/json" });
+          outgoing.end(JSON.stringify({ error: "Synthetic response interruption. Retry the same import." }));
+          return;
+        }
+      }
+      outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+      outgoing.end(Buffer.from(await response.arrayBuffer()));
+    };
     server = http.createServer(async (incoming, outgoing) => {
       try {
         if (incoming.url.startsWith("/api/contacts/import")) {
-          const chunks = [];
-          for await (const chunk of incoming) chunks.push(chunk);
-          const request = new Request(`http://127.0.0.1:${server.address().port}${incoming.url}`, { method: incoming.method, headers: incoming.headers, ...(incoming.method === "POST" ? { body: Buffer.concat(chunks) } : {}) });
-          const response = incoming.method === "POST" ? await importer.POST(request) : await importer.GET(request);
-          if (incoming.url.includes("mode=commit")) {
-            commits.push({ id: incoming.headers["x-client-mutation-id"], status: response.status });
-            if (interrupt && response.ok) {
-              interrupt = false;
-              outgoing.writeHead(503, { "Content-Type": "application/json" });
-              outgoing.end(JSON.stringify({ error: "Synthetic response interruption. Retry the same import." }));
-              return;
-            }
-          }
-          outgoing.writeHead(response.status, Object.fromEntries(response.headers));
-          outgoing.end(Buffer.from(await response.arrayBuffer()));
+          await serveImportRequest(incoming, outgoing);
         } else if (incoming.url === "/bundle.js") {
           outgoing.writeHead(200, { "Content-Type": "application/javascript" }); outgoing.end(readFileSync(join(directory, "bundle.js")));
         } else if (incoming.url === "/style.css") {

@@ -160,32 +160,51 @@ function parseCsv(text: string): { cells: string[]; row: number }[] {
     if (rows.length > contactImportMaxRows + 1) throw new ContactImportError("CSV must contain at most 500 data rows.");
     rowLine = line + 1;
   };
-  for (let index = 0; index < text.length; index += 1) {
+  const consumeQuoted = (index: number) => {
     const character = text[index];
-    if (state === "quoted") {
-      if (character === '"') {
-        if (text[index + 1] === '"') { cell += '"'; index += 1; }
-        else state = "closed";
-      } else {
-        cell += character;
-        if (character === "\n" || (character === "\r" && text[index + 1] !== "\n")) line += 1;
-      }
-    } else if (character === ",") {
-      finishCell();
-    } else if (character === "\n" || character === "\r") {
-      if (character === "\r" && text[index + 1] === "\n") index += 1;
-      finishRow();
-      line += 1;
-    } else if (character === '"' && state === "plain" && cell.length === 0) {
+    if (character === '"') {
+      if (text[index + 1] === '"') { cell += '"'; index += 1; }
+      else state = "closed";
+    } else {
+      cell += character;
+      if (character === "\n" || (character === "\r" && text[index + 1] !== "\n")) line += 1;
+    }
+    return index;
+  };
+  const consumePlainCharacter = (character: string) => {
+    if (character === '"' && state === "plain" && cell.length === 0) {
       state = "quoted";
     } else if (state === "closed" || character === '"') {
       throw new ContactImportError(`Malformed CSV quotes at line ${line}.`);
     } else {
       cell += character;
     }
+  };
+  const consumeUnquoted = (index: number) => {
+    const character = text[index];
+    if (character === ",") {
+      finishCell();
+    } else if (character === "\n" || character === "\r") {
+      if (character === "\r" && text[index + 1] === "\n") index += 1;
+      finishRow();
+      line += 1;
+    } else {
+      consumePlainCharacter(character);
+    }
+    return index;
+  };
+  const consumeCharacter = (index: number) => {
+    if (state === "quoted") return consumeQuoted(index);
+    return consumeUnquoted(index);
+  };
+  const finishInput = () => {
+    if (state === "quoted") throw new ContactImportError(`Unterminated CSV quotes at line ${rowLine}.`);
+    if (cell.length || cells.length || state === "closed") finishRow();
+  };
+  for (let index = 0; index < text.length; index += 1) {
+    index = consumeCharacter(index);
     if (cell.length > 2000) throw new ContactImportError(`Field exceeds 2000 characters at line ${rowLine}.`);
   }
-  if (state === "quoted") throw new ContactImportError(`Unterminated CSV quotes at line ${rowLine}.`);
-  if (cell.length || cells.length || state === "closed") finishRow();
+  finishInput();
   return rows;
 }
