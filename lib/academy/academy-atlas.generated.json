@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:e6288c7efa16961d",
-  "fingerprint": "e6288c7efa16961df1077b5175029f3ffba670eacba9a8ceb96c746a22879c6d",
+  "generatedAt": "source-fingerprint:c65891f572b8b117",
+  "fingerprint": "c65891f572b8b1175b77ab6eb4ebf3f0678b617d303ecdc29c6b4ac551648408",
   "totals": {
-    "files": 1030,
-    "lines": 320717,
-    "coveredFiles": 1030
+    "files": 1034,
+    "lines": 321876,
+    "coveredFiles": 1034
   },
   "entries": [
     {
@@ -961,7 +961,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 116,
+      "lines": 145,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -2146,7 +2146,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 450,
+      "lines": 544,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -7496,6 +7496,18 @@
       ]
     },
     {
+      "path": "lib/pipeline/client-data-reports.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 369,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/client-file-import-contracts.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
@@ -7945,7 +7957,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 84,
+      "lines": 113,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -7957,7 +7969,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 771,
+      "lines": 990,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -9729,6 +9741,30 @@
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
+      ]
+    },
+    {
+      "path": "scripts/client-data-reports.postgres.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 102,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/client-data-reports.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 194,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
@@ -11790,7 +11826,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 191,
+      "lines": 195,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11803,6 +11839,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 152,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/client-data-reports.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 119,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

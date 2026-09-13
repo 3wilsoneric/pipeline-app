@@ -52,8 +52,12 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await expect(grid).toHaveCSS("row-gap", width >= 1024 ? "40px" : "32px");
       const firstBounds = await cards.nth(0).boundingBox();
       const nextBounds = await cards.nth(1).boundingBox();
-      if (width >= 1024) expect(nextBounds!.x - firstBounds!.x - firstBounds!.width).toBe(32);
-      else expect(nextBounds!.x).toBe(firstBounds!.x);
+      const gridBounds = await grid.boundingBox();
+      expect(firstBounds!.width).toBe(gridBounds!.width);
+      expect(nextBounds!.x).toBe(firstBounds!.x);
+      expect(nextBounds!.y - firstBounds!.y - firstBounds!.height).toBe(width >= 1024 ? 40 : 32);
+      const summary = body.locator(":scope > span > span").nth(1);
+      expect(await summary.evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").length)).toBe(width >= 768 ? 4 : 2);
       if (width === 1440) expect(firstBounds!.x).toBe(32);
       for (const bounds of await cards.evaluateAll((nodes) => nodes.map((node) => {
         const rect = node.getBoundingClientRect();
