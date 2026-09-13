@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9eb6bf62a3c54b61",
-  "fingerprint": "9eb6bf62a3c54b61c044460aa549d5a746bcb2aca0f43a6062937758f2d1acbb",
+  "generatedAt": "source-fingerprint:4d9a3dc4b2200942",
+  "fingerprint": "4d9a3dc4b2200942da12b2ebe5fe60bae1f1f4febb5ed601914f6f23bc742a1a",
   "totals": {
-    "files": 1036,
-    "lines": 322275,
-    "coveredFiles": 1036
+    "files": 1048,
+    "lines": 322870,
+    "coveredFiles": 1048
   },
   "entries": [
     {
@@ -1894,7 +1894,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 161,
+      "lines": 230,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2038,7 +2038,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 82,
+      "lines": 89,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2117,12 +2117,24 @@
       ]
     },
     {
+      "path": "components/pipeline/HomeDialog.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 47,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/HomeModuleDashboard.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 331,
+      "lines": 349,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2242,7 +2254,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 392,
+      "lines": 419,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2350,7 +2362,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 444,
+      "lines": 470,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2770,7 +2782,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 891,
+      "lines": 711,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6059,6 +6071,18 @@
       ]
     },
     {
+      "path": "docs/training/SCREENSHOT_WALKTHROUGH_2026-09-13.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 26,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/training/SUPERVISOR_SIGNOFF.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -7885,7 +7909,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 40,
+      "lines": 49,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9204,6 +9228,30 @@
       ]
     },
     {
+      "path": "public/training/presentation/assessment-interview.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "public/training/presentation/assessment-language-lab.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "public/training/presentation/assessment-review.png",
       "subsystem": "Static runtime",
       "kind": "asset",
@@ -9228,7 +9276,55 @@
       ]
     },
     {
+      "path": "public/training/presentation/assessment-submittal.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "public/training/presentation/assessor-calendar.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "public/training/presentation/assessor-home.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "public/training/presentation/assessor-workspaces.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "public/training/presentation/current-clients.png",
       "subsystem": "Static runtime",
       "kind": "asset",
       "runtime": "browser",
@@ -9265,6 +9361,18 @@
     },
     {
       "path": "public/training/presentation/meet-client-handoff.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "public/training/presentation/supervisor-decision.png",
       "subsystem": "Static runtime",
       "kind": "asset",
       "runtime": "browser",
@@ -9485,7 +9593,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2131,
+      "lines": 2137,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11821,6 +11929,18 @@
       ]
     },
     {
+      "path": "tests/e2e/assessment-scheduling.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 165,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "tests/e2e/assessor-session.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -11953,12 +12073,24 @@
       ]
     },
     {
+      "path": "tests/e2e/home-module-library.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 153,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/home-reports.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 517,
+      "lines": 526,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12199,7 +12331,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 357,
+      "lines": 377,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12224,6 +12356,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 2798,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/presentation-screens.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 193,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
