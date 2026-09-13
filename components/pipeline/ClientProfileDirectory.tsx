@@ -31,7 +31,7 @@ import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { cancelPipelineWarmup, prefetchPipelineProfile } from "@/lib/pipeline/client-navigation";
-import styles from "./ClientDirectoryFolder.module.css";
+import styles from "./ClientFolder.module.css";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
 

@@ -586,6 +586,8 @@ Composition:
 
 Use direct field/value presentation. Avoid lifestyle-profile visuals or oversized avatars.
 
+The standalone client page carries the directory's folder metaphor into the open record: Back to profiles outside, a 20px client-name label on the connected manila tab, and all existing chart/history/files content on one white surface inside a 10px frame. Use the same up-to-1800px width and responsive outer gutters as the directory. This is a non-interactive folder shell, not a new tabbed workflow. Retain the chart's identifying fields, source freshness notices, document thumbnails and links, existing section order, and a single page scroll region. Embedded workspace charts and referral-intake forms do not inherit the folder shell. Do not add clipping, transforms, or nested scrolling to the frame; dialogs and long clinical content must remain usable.
+
 ### 7.5 Calendar / scheduling
 
 Purpose: compare time, availability, owner, and action.

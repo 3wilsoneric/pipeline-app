@@ -1,11 +1,10 @@
-.folder {
+.folder, .recordFolder {
   --folder-fill: #ede4d0;
   --folder-edge: #cbbd9d;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   width: 100%;
-  height: 100%;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -13,6 +12,14 @@
   text-align: left;
   border-radius: 6px;
   transition: none;
+}
+
+.folder {
+  height: 100%;
+}
+
+.recordFolder {
+  margin-top: 16px;
 }
 
 /* The label is part of the one open-profile button, not a second tab control.
@@ -67,6 +74,28 @@
   white-space: nowrap;
 }
 
+.recordFolder > .tab {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.recordPaper {
+  min-width: 0;
+  padding: 8px;
+}
+
+/* Complete both the two-column and six-column identity rows without
+   reordering fields or changing embedded workspace chart layouts. */
+.recordFolder :global([data-chart-field="Gender"]) {
+  grid-column: span 2;
+}
+
+@media (min-width: 640px) {
+  .recordPaper {
+    padding: 16px;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .folder:hover {
     --folder-edge: #a4936d;
@@ -94,7 +123,7 @@
 }
 
 @media (forced-colors: active) {
-  .folder {
+  .folder, .recordFolder {
     --folder-fill: Canvas;
     --folder-edge: ButtonText;
   }

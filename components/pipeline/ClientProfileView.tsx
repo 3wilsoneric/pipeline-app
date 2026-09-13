@@ -44,6 +44,7 @@ import {
 } from "@/components/pipeline/ClientIdentityReview";
 import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
+import folderStyles from "./ClientFolder.module.css";
 
 export default function ClientProfileView({
   residentKey,
@@ -227,16 +228,14 @@ function ResidentProfile({
   const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at);
 
   return (
-    <ClientChartContainer embedded={embedded} title={identity.title}>
-        <ClientChartBackButton embedded={embedded} onBack={onBack} />
-
+    <ClientChartContainer embedded={embedded} title={identity.title} onBack={onBack}>
         {profile.freshness.status === "stale" || profile.freshness.warning ? (
           <div className="mt-4 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">
             {profile.freshness.warning || "This resident profile is older than its target freshness window."}
           </div>
         ) : null}
 
-        <div className="mt-3">
+        <div className={embedded ? "mt-3" : undefined}>
           <ClientMedicalChart
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
@@ -311,15 +310,19 @@ function ResidentProfile({
   );
 }
 
-function ClientChartContainer({ embedded, title, children }: { embedded: boolean; title: string; children: ReactNode }) {
+function ClientChartContainer({ embedded, title, onBack, children }: { embedded: boolean; title: string; onBack: () => void; children: ReactNode }) {
   if (embedded) return <div data-testid="profile-workspace" data-performance-ready="profile" className="bg-white pb-6 text-[#111111]">{children}</div>;
   return <main aria-label={`Client profile for ${title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-white text-[#111111] [scrollbar-gutter:stable]">
-    <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1480px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">{children}</div>
+    <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1800px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">
+      <BackButton onClick={onBack} />
+      <div data-testid="client-profile-folder" className={folderStyles.recordFolder}>
+        <strong className={folderStyles.tab}>{title}</strong>
+        <div className={folderStyles.body}>
+          <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>{children}</div>
+        </div>
+      </div>
+    </div>
   </main>;
-}
-
-function ClientChartBackButton({ embedded, onBack }: { embedded: boolean; onBack: () => void }) {
-  return embedded ? null : <BackButton onClick={onBack} />;
 }
 
 function combineClientRecordSections(sections: ClientProfileSection[], supplemental?: ClientProfileSection[]) {
@@ -1190,7 +1193,7 @@ function getCompleteness(profile: UnifiedClientProfileResponse) {
 }
 
 function ProfileShell({ children }: { children: React.ReactNode }) {
-  return <main className="h-full overflow-y-auto bg-white text-[#111111]"><div className="mx-auto w-full max-w-[1480px] px-4 py-4 sm:px-6 lg:px-8">{children}</div></main>;
+  return <main className="h-full overflow-y-auto bg-white text-[#111111]"><div className="mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">{children}</div></main>;
 }
 
 function ProfileSkeleton({ onBack }: { onBack: () => void }) {

@@ -363,7 +363,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
   });
 
-  test("opens the Alamo enhanced client directory and governed profile", async ({ page }) => {
+  test("opens the Alamo enhanced client directory and governed profile", async ({ page }, testInfo) => {
     const profile = structuredClone(unifiedProfileFixture) as typeof unifiedProfileFixture & {
       client: { enrichment: Record<string, unknown> };
     };
@@ -403,7 +403,7 @@ test.describe("Pipeline home", () => {
 
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
-    await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeLessThanOrEqual(1240);
+    await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeLessThanOrEqual(1800);
     await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1000);
     const activeProfiles = page.getByRole("button", { name: "Open client profiles" });
     await expect(activeProfiles).toHaveAttribute("aria-pressed", "true");
@@ -419,6 +419,23 @@ test.describe("Pipeline home", () => {
     await expect.poll(async () => (await page.getByTestId("profile-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
     const medicalChart = page.getByRole("article", { name: "Client medical chart" });
     await expect(medicalChart).toBeVisible();
+    const folder = page.getByTestId("client-profile-folder");
+    const folderTab = folder.locator(":scope > strong");
+    const folderBody = folder.locator(":scope > div");
+    await expect(folderTab).toHaveText("Avery Example");
+    await expect(folderTab).toHaveCSS("font-size", "20px");
+    await expect(folderTab).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(folderBody).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(folderBody).toHaveCSS("overflow-y", "visible");
+    await expect(folderBody.locator(":scope > div")).toHaveCSS("overflow-y", "visible");
+    await expect(medicalChart.locator('[data-chart-field="Gender"]')).toHaveCSS("grid-column-start", "span 2");
+    await expect(folder.getByRole("button", { name: "Back to profiles" })).toHaveCount(0);
+    const tabBounds = await folderTab.boundingBox();
+    const bodyBounds = await folderBody.boundingBox();
+    expect(tabBounds!.y + tabBounds!.height - bodyBounds!.y).toBe(1);
+    await folderTab.hover();
+    await expect(folderBody).toHaveCSS("border-color", "rgb(203, 189, 157)");
+    await page.screenshot({ path: testInfo.outputPath("client-profile-folder-desktop.png") });
     await expect(medicalChart.getByRole("heading", { name: "Client chart", exact: true })).toBeVisible();
     await expect(medicalChart.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect(medicalChart.getByText("Clinical priorities", { exact: true })).toBeVisible();
@@ -445,7 +462,11 @@ test.describe("Pipeline home", () => {
     await expect(sourceDocumentLink).toHaveAttribute("href", /\/source-documents\/doc-sanitized-100\/preview$/);
     const sourceDocumentWindow = page.waitForEvent("popup");
     await sourceDocumentLink.click();
-    await expect((await sourceDocumentWindow).locator("body")).toBeVisible();
+    const openedSourceDocument = await sourceDocumentWindow;
+    await expect(openedSourceDocument.locator("body")).toBeVisible();
+    await openedSourceDocument.close();
+    await page.getByRole("heading", { name: "Client files", exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("client-profile-folder-files.png") });
     await expect(page.getByText("Stay history", { exact: true })).toBeVisible();
     await expect(page.getByText("Canonical client id", { exact: true })).toHaveCount(0);
     await expect(page.getByText("client-sanitized-100", { exact: true })).toHaveCount(0);
@@ -463,17 +484,24 @@ test.describe("Pipeline home", () => {
     expect(sectionOrder.indexOf("Client files")).toBeLessThan(sectionOrder.indexOf("Record quality"));
 
     await page.setViewportSize({ width: 390, height: 844 });
+    const profileMain = page.getByRole("main", { name: "Client profile for Avery Example" });
+    await profileMain.evaluate((element) => element.scrollTo({ top: 0 }));
     await expect(medicalChart).toBeVisible();
     await expect(medicalChart.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect
       .poll(async () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
       .toBeLessThanOrEqual(1);
-    const profileMain = page.getByRole("main", { name: "Client profile for Avery Example" });
+    await expect(folderTab).toBeInViewport();
+    await expect(medicalChart.locator('[data-chart-field="Gender"]')).toHaveCSS("grid-column-start", "span 2");
+    await page.screenshot({ path: testInfo.outputPath("client-profile-folder-mobile.png") });
     await profileMain.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
     await expect
       .poll(async () => profileMain.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop))
       .toBeLessThanOrEqual(1);
     await expect(page.getByRole("heading", { name: "Record quality", exact: true })).toBeInViewport();
+    await profileMain.evaluate((element) => element.scrollTo({ top: 0 }));
+    await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+    await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
   });
 
   test("recovers a client profile after a temporary server failure", async ({ page }) => {
