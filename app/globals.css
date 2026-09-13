@@ -50,6 +50,74 @@ textarea {
   font: inherit;
 }
 
+/* Keep native selection and an unchanged fallback where styled pickers are unavailable. */
+@supports (appearance: base-select) and selector(select::picker(select)) {
+  .pipeline-directory-select select,
+  .pipeline-directory-select select::picker(select) {
+    appearance: base-select;
+  }
+
+  .pipeline-directory-select select {
+    border: 0;
+    border-radius: 0;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .pipeline-directory-select select::picker-icon {
+    display: none;
+  }
+
+  .pipeline-directory-select select::picker(select) {
+    width: max-content;
+    min-width: anchor-size(width);
+    max-width: min(440px, calc(100vw - 24px));
+    max-height: min(360px, 60dvh);
+    margin-block-start: 6px;
+    padding: 4px;
+    border: 1px solid #c9d0cd;
+    border-radius: 2px;
+    background: #ffffff;
+    color: #27302c;
+    box-shadow: 0 8px 24px rgb(17 49 36 / 12%);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    overflow: auto;
+  }
+
+  .pipeline-directory-select option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 42px;
+    padding: 10px 12px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .pipeline-directory-select option:checked {
+    background: #effaf5;
+    color: #0c705f;
+    font-weight: 700;
+  }
+
+  .pipeline-directory-select option:is(:hover, :focus-visible) {
+    background: #e3f2eb;
+    outline: 2px solid #0f8b73;
+    outline-offset: -2px;
+  }
+
+  .pipeline-directory-select option::checkmark {
+    order: 1;
+    margin-inline-start: auto;
+    color: #0f8b73;
+  }
+}
+
 .app-gradient-button {
   background: var(--pipeline-ink);
   color: white;

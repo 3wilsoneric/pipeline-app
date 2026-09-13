@@ -641,3 +641,20 @@ Deliberate ceiling: static client rows and bounded individual controls only. The
 shared cue only if the focused 5 ms p95 creation budget fails on a supported target,
 or a new use would animate many records at once. Rollback is the bounded feedback
 commit plus regenerated source fingerprints, with no data migration or cleanup.
+
+## September 12 Clients Dropdown Styling
+
+Community, Admitted, and Sort keep their original native selects, handlers and
+filter state. A scoped CSS enhancement uses `appearance: base-select` only when
+the picker selector is supported: white surface, flat border, inherited font,
+green selected/focused options, and viewport-bounded menus. No JavaScript or
+dependency was added. Unsupported browsers deliberately retain native menus;
+revisit the shared-control approach only if those browsers must also have fully
+branded menus. The browser capability is documented in the
+[native select guide](https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Forms/Customizable_select).
+
+Seven focused browser checks passed, including open-menu bounds at 1440/834/390
+in Chromium and WebKit, Firefox fallback selection, keyboard/cancel/dismissal,
+existing same-count feedback, reduced motion and stacked filtering. These are
+synthetic browser checks, not real-device or production-login certification.
+This change is handed to the concurrent UI-polish task for its combined release.

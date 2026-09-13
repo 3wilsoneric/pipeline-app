@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f01c4046c5cd2343",
-  "fingerprint": "f01c4046c5cd2343db0c65ae33595c8c7c3e329620ac65bae230474de1028288",
+  "generatedAt": "source-fingerprint:4b96f086d9fc75ca",
+  "fingerprint": "4b96f086d9fc75cac9ba864b3fbb61d6267d77d6e1128211100303912382c95e",
   "totals": {
-    "files": 1009,
-    "lines": 317571,
-    "coveredFiles": 1009
+    "files": 1010,
+    "lines": 317768,
+    "coveredFiles": 1010
   },
   "entries": [
     {
@@ -1641,7 +1641,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 273,
+      "lines": 341,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6015,7 +6015,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 644,
+      "lines": 661,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -11580,6 +11580,18 @@
       ]
     },
     {
+      "path": "tests/e2e/client-dropdowns.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 114,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/cross-browser-smoke.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -12186,7 +12198,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 83,
+      "lines": 81,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
