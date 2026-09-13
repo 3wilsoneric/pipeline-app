@@ -1,12 +1,19 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import type { TransactionSql } from "postgres";
 
 import { getPipelineSql } from "@/lib/database/pipeline-database";
+import {
+  previewContactImport,
+  type ContactImportPreview,
+  type ContactImportResult,
+  type ContactImportRow,
+  type ContactImportSummary,
+} from "@/lib/pipeline/contact-import";
 import {
   type ContactActor,
   type ContactInput,
@@ -64,13 +71,16 @@ type ReferralContactRow = ContactRow & {
 
 type LocalContactAuditEvent = {
   eventId: string;
-  referralId: number;
+  referralId: number | null;
   action: string;
   actor: ContactActor;
   changedFields: string[];
   fromVersion: number | null;
   toVersion: number | null;
   createdAt: string;
+  entityType?: "contact_import";
+  entityId?: string;
+  metadata?: { contact_values_redacted: true; imported: number; duplicates: number };
 };
 
 type ContactStoreFile = {
@@ -231,6 +241,89 @@ export async function createContact(
     await persistLocal();
     return { ok: true, record, idempotentReplay: false };
   });
+}
+
+export async function previewContactDirectoryImport(rows: ContactImportRow[]): Promise<ContactImportPreview> {
+  if (getContactStoreReadiness().mode === "postgres") {
+    const contacts = await getPipelineSql()<ContactRow[]>`select * from pipeline.contacts`;
+    return previewContactImport(rows, contacts.map(mapContactRow));
+  }
+  await ensureLocalLoaded();
+  return previewContactImport(rows, localState.contacts);
+}
+
+export async function importContactDirectory(
+  rows: ContactImportRow[], actor: ContactActor, mutationId: string,
+): Promise<ContactImportResult> {
+  const scope = `contact_import:${actor.id}`;
+  const fingerprint = createHash("sha256").update(JSON.stringify(rows)).digest("hex");
+  if (getContactStoreReadiness().mode === "postgres") {
+    return getPipelineSql().begin(async (tx): Promise<ContactImportResult> => {
+      const replay = await lockPostgresMutation(tx, scope, mutationId);
+      if (replay) return replayContactImport(replay, fingerprint);
+      // Bounded batches use one table scan and briefly serialize directory writes.
+      // Revisit indexed identity matching at 10k entries or >1s measured lock waits.
+      // This also excludes concurrent individual creates/edits without changing them.
+      await tx`lock table pipeline.contacts in share row exclusive mode`;
+      const contacts = await tx<ContactRow[]>`select * from pipeline.contacts`;
+      const preview = previewContactImport(rows, contacts.map(mapContactRow));
+      if (preview.counts.invalid) return invalidContactImport(preview);
+      const summary: ContactImportSummary = { counts: { ...preview.counts, imported: 0 }, rows: [] };
+      for (const row of preview.rows) {
+        if (row.status === "ready" && row.contact) {
+          const created = await createPostgresContact(tx, row.contact, actor);
+          summary.counts.imported += 1;
+          summary.rows.push({ row: row.row, status: "imported", contactId: created.record.id });
+        } else summary.rows.push({ row: row.row, status: "duplicate" });
+      }
+      await tx`
+        insert into pipeline.audit_events (entity_type, entity_id, action, actor_id, actor_name, changed_fields, metadata)
+        values ('contact_import', ${mutationId}, 'contacts_imported', ${actor.id}, ${actor.name}, ${[] as string[]},
+          ${tx.json({ contact_values_redacted: true, imported: summary.counts.imported, duplicates: summary.counts.duplicates })})
+      `;
+      await savePostgresMutation(tx, scope, mutationId, "contact_import", JSON.stringify({ fingerprint, summary }));
+      return { ok: true, summary, idempotentReplay: false };
+    });
+  }
+  return runLocalMutation(async (): Promise<ContactImportResult> => {
+    const replay = localReplay(scope, mutationId);
+    if (replay) return replayContactImport(replay, fingerprint);
+    const preview = previewContactImport(rows, localState.contacts);
+    if (preview.counts.invalid) return invalidContactImport(preview);
+    const summary: ContactImportSummary = { counts: { ...preview.counts, imported: 0 }, rows: [] };
+    const now = new Date().toISOString();
+    for (const row of preview.rows) {
+      if (row.status === "ready" && row.contact) {
+        const contact: ContactRecord = {
+          ...row.contact, id: randomUUID(), version: 1, active: true,
+          createdBy: actor, updatedBy: actor, createdAt: now, updatedAt: now,
+        };
+        localState.contacts.push(contact);
+        summary.counts.imported += 1;
+        summary.rows.push({ row: row.row, status: "imported", contactId: contact.id });
+      } else summary.rows.push({ row: row.row, status: "duplicate" });
+    }
+    localState.auditEvents.push({
+      ...localAudit(null, "contacts_imported", actor, [], null, null),
+      entityType: "contact_import", entityId: mutationId,
+      metadata: { contact_values_redacted: true, imported: summary.counts.imported, duplicates: summary.counts.duplicates },
+    });
+    saveLocalReplay(scope, mutationId, JSON.stringify({ fingerprint, summary }));
+    if (summary.counts.imported) localState.revision += 1;
+    await persistLocal();
+    return { ok: true, summary, idempotentReplay: false };
+  });
+}
+
+function invalidContactImport(preview: ContactImportPreview): ContactImportResult {
+  return { ok: false, status: 422, error: "Fix all invalid rows before importing. No contacts were added.", preview };
+}
+
+function replayContactImport(value: string, fingerprint: string): ContactImportResult {
+  const previous = JSON.parse(value) as { fingerprint: string; summary: ContactImportSummary };
+  return previous.fingerprint === fingerprint
+    ? { ok: true, summary: previous.summary, idempotentReplay: true }
+    : { ok: false, status: 409, error: "This import ID was used for a different CSV. Preview the changed file and use a new import ID." };
 }
 
 export async function updateContact(
@@ -584,7 +677,7 @@ function clearLocalPrimary(referralId: number, actor: ContactActor, exceptId?: s
   }
 }
 
-function localAudit(referralId: number, action: string, actor: ContactActor, changedFields: string[], fromVersion: number | null, toVersion: number | null): LocalContactAuditEvent {
+function localAudit(referralId: number | null, action: string, actor: ContactActor, changedFields: string[], fromVersion: number | null, toVersion: number | null): LocalContactAuditEvent {
   return { eventId: randomUUID(), referralId, action, actor, changedFields, fromVersion, toVersion, createdAt: new Date().toISOString() };
 }
 
@@ -601,21 +694,26 @@ async function runLocalMutation<T>(mutation: () => Promise<T>): Promise<T> {
   let release: () => void = () => undefined;
   localState.mutationQueue = new Promise<void>((resolve) => { release = resolve; });
   await previous;
-  const snapshot = {
-    revision: localState.revision,
-    contacts: structuredClone(localState.contacts),
-    links: structuredClone(localState.links),
-    mutations: new Map(localState.mutations),
-    auditEvents: structuredClone(localState.auditEvents),
-  };
+  let snapshot: Pick<LocalContactState, "revision" | "contacts" | "links" | "mutations" | "auditEvents"> | undefined;
   try {
+    // Load before taking the rollback snapshot; failed loads must release the queue.
+    await ensureLocalLoaded();
+    snapshot = {
+      revision: localState.revision,
+      contacts: structuredClone(localState.contacts),
+      links: structuredClone(localState.links),
+      mutations: new Map(localState.mutations),
+      auditEvents: structuredClone(localState.auditEvents),
+    };
     return await mutation();
   } catch (error) {
-    localState.revision = snapshot.revision;
-    localState.contacts = snapshot.contacts;
-    localState.links = snapshot.links;
-    localState.mutations = snapshot.mutations;
-    localState.auditEvents = snapshot.auditEvents;
+    if (snapshot) {
+      localState.revision = snapshot.revision;
+      localState.contacts = snapshot.contacts;
+      localState.links = snapshot.links;
+      localState.mutations = snapshot.mutations;
+      localState.auditEvents = snapshot.auditEvents;
+    }
     throw error;
   } finally {
     release();
@@ -641,8 +739,14 @@ async function ensureLocalLoaded() {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   })();
-  await localState.loadPromise;
-  localState.loadPromise = undefined;
+  try {
+    await localState.loadPromise;
+  } catch (error) {
+    localState.initialized = false;
+    throw error;
+  } finally {
+    localState.loadPromise = undefined;
+  }
 }
 
 async function persistLocal() {
@@ -655,8 +759,9 @@ async function persistLocal() {
   await mkdir(/* turbopackIgnore: true */ dirname(target), { recursive: true });
   await writeFile(/* turbopackIgnore: true */ temporary, JSON.stringify(file), { encoding: "utf8", mode: 0o600 });
   await chmod(/* turbopackIgnore: true */ temporary, 0o600);
+  // Rename carries the temporary file's permissions and is the commit point.
+  // No fallible work after it: a failure must not roll back memory after disk commits.
   await rename(/* turbopackIgnore: true */ temporary, target);
-  await chmod(/* turbopackIgnore: true */ target, 0o600);
 }
 
 function contactStorePath() {
