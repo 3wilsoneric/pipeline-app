@@ -194,6 +194,7 @@ Elevation rules:
 - Dialogs may use `0 24px 70px rgb(17 17 17 / 20%)`.
 - Right drawers may use `-16px 0 40px rgb(20 35 30 / 16%)`.
 - Gallery cards may lift 2px on hover with `0 10px 24px rgb(25 55 45 / 9%)`.
+- Client directory cards are a bounded exception to flat resting surfaces: use a shallow two-part shadow (`0 1px 2px rgb(25 55 45 / 6%), 0 3px 6px rgb(25 55 45 / 4%)`), square corners, and a fine border. Hover strengthens the edge and shadow without moving the card. Do not apply this elevation to ordinary forms or tables.
 - Do not stack border, large radius, and heavy shadow on the same ordinary component.
 
 ### 3.6 Icons and marks
@@ -424,6 +425,7 @@ Use cards only when items are independently selectable or rearrangeable.
 - Use a tinted evidence/preview zone at top and a white identity zone below when helpful.
 - Ordinary modules are separated by rules and grid gaps, not shadows.
 - Gallery cards may lift 2px and gain a faint shadow on hover.
+- Client directory cards retain their chart preview above the identity area: 18px bold names, 12px supporting text and chart values, 10px semibold preview labels, and softened internal rules. Use the existing green chart accent and one whole-card destination; the arrow is an affordance, not an additional button. Press feedback must reach the visible preview and identity surfaces, and reduced motion disables transitions. Keep current data, missing-value semantics, filters, and profile prefetch behavior unchanged.
 - Customization mode may add a dashed border and an almost-white green tint.
 
 Avoid nesting more than one bordered card inside another.
@@ -901,4 +903,3 @@ Review at 360px, 640px, 1024px, 1280px, and 1536px.
 ### Final smell test
 
 The redesign should feel like a serious, modern work system: compact but not cramped, warm but not decorative, fast to scan, and unusually clear about what is known, what is missing, what changed, and what the user can do next.
-
