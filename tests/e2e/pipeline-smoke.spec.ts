@@ -806,7 +806,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("region", { name: "Timed assessment week" })).toBeVisible();
     await expect(page.getByText("Scheduled Client", { exact: true }).first()).toBeVisible();
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
-    await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).not.toContainText("Referral assignments");
+    await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(4);
     await expect(page.getByRole("button", { name: "Focus search" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
@@ -834,11 +834,11 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.setViewportSize({ width: 768, height: 1024 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
-    await expect(page.getByRole("button", { name: "agenda", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Upcoming", exact: true })).toHaveAttribute("aria-pressed", "true");
 
     await page.setViewportSize({ width: 430, height: 932 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
-    await expect(page.getByRole("button", { name: "agenda", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Upcoming", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("Assigned Client", { exact: true })).toHaveCount(0);
     await expect(page.locator("button:visible").filter({ hasText: "Scheduled Client" }).first()).toBeVisible();
   });

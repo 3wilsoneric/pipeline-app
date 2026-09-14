@@ -1,4 +1,7 @@
 import { expect, test, type Route } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
 type CalendarRequest = {
   from: string;
@@ -33,9 +36,9 @@ test.describe("Pipeline calendar characterization", () => {
     await page.goto("/?screen=calendar");
     await expect(page.getByText("Team schedule", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
-    await expect(page.getByText("1 conflict", { exact: true })).toBeVisible();
+    await expect(page.getByText("2 overlapping appointments", { exact: true })).toBeVisible();
     await expect(page.getByText("Assignment Only", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Scheduled Client.*Assessment scheduled/ }).first()).toBeVisible();
+    await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]').first()).toBeVisible();
 
     await page.getByRole("combobox", { name: "Filter calendar by assessor" }).selectOption("id:assessor-a");
     await expect(page.getByRole("region", { name: "Timed assessment week" })).toBeVisible();
@@ -43,14 +46,17 @@ test.describe("Pipeline calendar characterization", () => {
 
     await page.getByRole("combobox", { name: "Filter calendar by community" }).selectOption("San Pablo");
     await expect.poll(() => requests.at(-1)?.queueCommunity).toBe("San Pablo");
-    await page.getByRole("combobox", { name: "Filter calendar by event type" }).selectOption("follow_up");
+    await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Records follow-up/ })).toBeHidden();
+    await page.getByText("Dated follow-ups", { exact: false }).click();
     await expect(page.getByRole("button", { name: /Records follow-up/ })).toBeVisible();
-    await expect(page.getByText("Scheduled Client", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Scheduled Client", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Clear", exact: true }).click();
     await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
-    await page.getByRole("button", { name: "agenda", exact: true }).click();
-    await expect(page.getByRole("button", { name: /Scheduled Client.*Assessment scheduled/ }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Upcoming", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open assessment for Scheduled Client", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "month", exact: true }).click();
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]').first()).toBeVisible();
 
@@ -92,8 +98,8 @@ test.describe("Pipeline calendar characterization", () => {
 
     for (const width of [834, 390]) {
       await page.setViewportSize({ width, height: 932 });
-      await expect(page.getByRole("button", { name: "agenda", exact: true })).toBeVisible();
-      for (const name of ["agenda", "Refresh calendar", "Scheduling queue 30"]) {
+      await expect(page.getByRole("button", { name: "Upcoming", exact: true })).toBeVisible();
+      for (const name of ["Upcoming", "Refresh calendar", "Scheduling queue 30"]) {
         const control = await page.getByRole("button", { name, exact: true }).boundingBox();
         expect(control).not.toBeNull();
         expect(control!.x).toBeGreaterThanOrEqual(0);
@@ -240,6 +246,111 @@ test.describe("Pipeline calendar characterization", () => {
       },
     });
     await expect(page.getByText("No-show recorded", { exact: true })).toBeVisible();
+  });
+
+  test("defaults assessors to upcoming appointments, keeps follow-ups separate, and resumes the saved assessment section", async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-09T12:00:00.000Z"));
+    await page.route("**/api/calendar/events**", async (route) => {
+      const response = calendarResponse(calendarRequest(route));
+      const payload = JSON.parse(response.body);
+      payload.scope = "personal";
+      payload.assessors = [payload.assessors[0]];
+      await route.fulfill({ ...response, body: JSON.stringify(payload) });
+    });
+    await page.route("**/api/me/work-continuity", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state: {
+        schema: 1,
+        acknowledgedAssignmentIds: [],
+        lastWorkspace: { referralId: 500, location: { view: "assessment", assessmentSection: "functional_adl" }, visitedAt: "2026-09-09T11:00:00.000Z" },
+      } }) });
+    });
+    await page.goto("/?screen=calendar");
+    await expect(page.getByRole("button", { name: "Upcoming", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("My schedule", { exact: true })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Filter calendar by assessor" })).toHaveCount(0);
+    const schedule = page.getByRole("region", { name: "Upcoming assessments" });
+    await expect(schedule.getByText("Records follow-up")).toHaveCount(0);
+    await expect(schedule.getByText("Meeting link:", { exact: true })).toBeVisible();
+    await expect(schedule.getByRole("link", { name: "Join Zoom for Scheduled Client" })).toHaveAttribute("href", "https://zoom.us/j/existing-assessment");
+    await expect(schedule.getByText("Interview room", { exact: false })).toBeVisible();
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 834, height: 932 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
+      await page.setViewportSize(viewport);
+      const action = schedule.getByRole("button", { name: "Open assessment for Scheduled Client", exact: true });
+      const box = await action.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
+      await page.screenshot({ path: testInfo.outputPath(`assessment-agenda-${viewport.width}.png`), fullPage: true });
+    }
+    await page.addScriptTag({ content: axeSource });
+    const violations = await page.evaluate(async () => {
+      const axe = (window as unknown as { axe: { run: (context: Element, options: object) => Promise<{ violations: { id: string; impact: string; nodes: { target: string[]; failureSummary: string }[] }[] }> } }).axe;
+      const result = await axe.run(document.querySelector('[data-guide-target="calendar-workspace"]')!, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } });
+      return result.violations.filter((violation) => ["serious", "critical"].includes(violation.impact)).map((violation) => ({ id: violation.id, nodes: violation.nodes.map((node) => ({ target: node.target, failureSummary: node.failureSummary })) }));
+    });
+    expect(violations).toEqual([]);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole("button", { name: "month", exact: true }).click();
+    await page.clock.setFixedTime(new Date("2026-09-09T12:00:16.000Z"));
+    await page.getByRole("button", { name: "Refresh calendar" }).click();
+    await expect(page.getByRole("button", { name: "month", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Upcoming", exact: true }).click();
+    await schedule.getByRole("button", { name: "Open assessment for Scheduled Client", exact: true }).click();
+    await expect(page).toHaveURL(/referralId=500/);
+    await expect(page).toHaveURL(/workspaceStage=assessment/);
+    await expect(page).toHaveURL(/assessmentSection=functional_adl/);
+  });
+
+  test("exposes every appointment on busy days and routes contact gaps to intake without scheduling", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-09-09T12:00:00.000Z"));
+    let scheduleWrites = 0;
+    await page.route("**/api/assessments/*/schedule", async (route) => { scheduleWrites += 1; await route.abort(); });
+    await page.route("**/api/calendar/events**", async (route) => {
+      const response = calendarResponse(calendarRequest(route));
+      const payload = JSON.parse(response.body);
+      const appointment = payload.events.find((event: { kind: string }) => event.kind === "assessment");
+      payload.events.push(...["Adams", "Baker", "Carter", "Davis", "Evans"].map((surname) => ({ ...appointment, id: `busy-${surname}`, assessmentId: `busy-${surname}`, clientName: `Busy ${surname}` })));
+      payload.unscheduled[0].nextAction = "complete_contact";
+      await route.fulfill({ ...response, body: JSON.stringify(payload) });
+    });
+    await page.goto("/?screen=calendar");
+    const week = page.getByRole("region", { name: "Supervisor team week" });
+    await week.locator("summary").filter({ hasText: "4 more" }).click();
+    await expect(week.locator('button[title^="Busy Evans -"]')).toBeVisible();
+    await week.locator('button[title^="Busy Evans -"]').click();
+    await expect(page.getByRole("dialog", { name: "Calendar item" })).toContainText("Busy Evans");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "month", exact: true }).click();
+    await page.locator("summary").filter({ hasText: "5 more" }).click();
+    await expect(page.locator('button[title^="Busy Evans -"]')).toBeVisible();
+    await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();
+    const item = page.getByRole("dialog", { name: "Scheduling queue" }).locator("li").filter({ hasText: "Ready Adams" });
+    await expect(item.getByRole("button", { name: "Schedule", exact: true })).toHaveCount(0);
+    await item.getByRole("button", { name: "Complete contact", exact: true }).click();
+    await expect(page).toHaveURL(/referralId=501/);
+    await expect(page).toHaveURL(/workspaceField=phone/);
+    expect(scheduleWrites).toBe(0);
+  });
+
+  test("captures the updated calendar for the assessor presentation", async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-13T16:00:00-07:00"));
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.route("**/api/calendar/events**", async (route) => {
+      const response = calendarResponse(calendarRequest(route));
+      const payload = JSON.parse(response.body);
+      payload.scope = "personal";
+      payload.events = [{ ...payload.events[1], clientName: "Taylor Rivera", date: "2026-09-14", startsAt: "2026-09-14T17:00:00.000Z", location: "https://zoom.us/j/example-assessment" }];
+      payload.unscheduled = [];
+      payload.unscheduledTotal = 0;
+      payload.unscheduledHasMore = false;
+      await route.fulfill({ ...response, body: JSON.stringify(payload) });
+    });
+    await page.goto("/?screen=calendar");
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open assessment for Taylor Rivera" })).toBeVisible();
+    if (process.env.PIPELINE_MOCK_USER_ROLES === "reviewer,viewer") await expect(page.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: testInfo.outputPath("assessor-calendar.png"), animations: "disabled" });
   });
 });
 
