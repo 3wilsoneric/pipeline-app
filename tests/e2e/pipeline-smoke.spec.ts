@@ -1482,6 +1482,8 @@ test.describe("Referral home and packet canvas", () => {
       ]);
       await page.getByRole("button", { name: `Open ${currentName} referral workspace` }).click();
       await secondPage.getByRole("button", { name: `Open ${currentName} referral workspace` }).click();
+      await expect(page.getByTestId("packet-workspace")).not.toHaveAttribute("inert", "");
+      await expect(secondPage.getByTestId("packet-workspace")).not.toHaveAttribute("inert", "");
       const localName = `${suffix} Local`;
       const remoteName = `${suffix} Remote`;
       let releaseLocal!: () => void;
@@ -1492,6 +1494,8 @@ test.describe("Referral home and packet canvas", () => {
       });
       await page.getByRole("textbox", { name: "NAME", exact: true }).fill(localName);
       await secondPage.getByRole("textbox", { name: "NAME", exact: true }).fill(remoteName);
+      await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(localName);
+      await expect(secondPage.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(remoteName);
       try {
         await expect.poll(async () => {
           const response = await page.request.get(`/api/referrals/${base.id}`);
