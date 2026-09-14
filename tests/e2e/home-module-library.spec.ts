@@ -97,12 +97,91 @@ test("keeps header search usable without the Home search module", async ({ page 
   await page.keyboard.press("Control+k");
   const search = page.getByRole("dialog", { name: "Search Pipeline", exact: true });
   await expect(search).toBeVisible();
+  expect((await search.boundingBox())!.width).toBeLessThanOrEqual(760);
   await expect(search.getByRole("textbox", { name: "Search or ask" })).toBeFocused();
   await search.getByRole("textbox", { name: "Search or ask" }).fill("calendar");
   await expect(search).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(search).toHaveCount(0);
   await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
+});
+
+for (const width of [390, 1440]) {
+  test(`module screenshots enlarge without changing selection at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const writes = await mockLayout(page, ["current-work"]);
+    await page.goto("/?editHome=1");
+    await page.getByRole("button", { name: "Add module", exact: true }).click();
+    const library = page.getByRole("dialog", { name: "Home module library", exact: true });
+    await library.getByRole("checkbox", { name: "Search", exact: true }).check();
+    for (const button of await library.getByRole("button", { name: /^Preview / }).all()) {
+      await button.scrollIntoViewIfNeeded();
+      await expect.poll(() => button.locator("img").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+    }
+    const previewButton = library.getByRole("button", { name: "Preview My work", exact: true });
+    await previewButton.click();
+    const preview = page.getByRole("dialog", { name: "My work module preview", exact: true });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("button", { name: "Close my work module preview" })).toBeFocused();
+    await expect(preview.getByRole("img")).toBeVisible();
+    expect(await preview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`module-enlarged-${width}.png`) });
+    await page.keyboard.press("Escape");
+    await expect(preview).toHaveCount(0);
+    await expect(library).toBeVisible();
+    await expect(previewButton).toBeFocused();
+    await expect(library.getByRole("checkbox", { name: "Search", exact: true })).toBeChecked();
+    await expect(library.getByRole("checkbox", { name: "My work", exact: true })).toBeDisabled();
+    expect(writes).toHaveLength(0);
+    await library.evaluate((element) => { element.scrollTop = 0; });
+    await page.screenshot({ path: testInfo.outputPath(`module-gallery-${width}.png`) });
+    await library.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
+    expect(writes).toHaveLength(0);
+  });
+}
+
+test.describe("module preview assets", () => {
+test.use({ deviceScaleFactor: 2, timezoneId: "America/Los_Angeles" });
+test("captures real Home module previews with synthetic data", async ({ page, baseURL }, testInfo) => {
+  test.skip(process.env.PIPELINE_CAPTURE_HOME_MODULES !== "true", "Opt-in local asset capture, not a live-data screenshot task.");
+  expect(["127.0.0.1", "localhost"]).toContain(new URL(baseURL!).hostname);
+  await page.setViewportSize({ width: 824, height: 1100 });
+  await page.clock.setFixedTime(new Date("2026-09-14T16:00:00.000Z"));
+  await mockLayout(page, [...defaults, "scheduling-queue"]);
+  await page.route("**/api/operations/home", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    const names = ["Taylor Rivera", "Jordan Ellis"];
+    payload.scope = "personal";
+    payload.unavailable_sections = [];
+    payload.current_work = { total: 2, items: names.map((name, index) => ({
+      id: `preview-work-${index}`, referral_id: 910101 + index, client_name: name, community: "San Pablo",
+      next_action: index ? "Finish the assessment and review your answers" : "Review the referral packet and complete intake",
+      urgency: "normal", location: { view: index ? "assessment" : "intake" },
+    })) };
+    payload.continuity = {
+      resume_items: [{ id: "preview-draft", kind: "referral_draft", client_name: "Taylor Rivera", community: "San Pablo", detail: "Intake in progress", updated_at: "2026-09-14T15:40:00Z", referral_id: 910101, location: { view: "intake" }, completed_fields: 8, total_fields: 14 },
+        { id: "preview-assessment", kind: "assessment_draft", client_name: "Jordan Ellis", community: "San Pablo", detail: "Assessment in progress", updated_at: "2026-09-14T15:00:00Z", referral_id: 910102, location: { view: "assessment" } }],
+      new_assignments: names.map((name, index) => ({ event_id: `preview-assignment-${index}`, action: "assigned", actor_id: "preview-supervisor", actor_name: "Example Supervisor", created_at: "2026-09-14T15:00:00Z", workspace: { referral_id: 910101 + index, client_name: name, community: "San Pablo", owner_id: payload.viewer.id, owner: "Example Assessor", workflow_status: "intake_in_progress", priority: "standard", workspace_status: "active" }, attention: null })),
+      assignment_tracking_started_at: "2026-09-14T14:00:00Z", needs_assignment_tracking_initialization: false, unavailable: false,
+    };
+    payload.upcoming = names.map((name, index) => ({ id: `preview-event-${index}`, referralId: 910101 + index, clientName: name, community: "San Pablo", ownerId: payload.viewer.id, owner: "Example Assessor", date: "2026-09-15", startsAt: index ? "2026-09-15T20:00:00Z" : "2026-09-15T17:00:00Z", durationMinutes: 60, method: index ? "in_person" : "zoom", kind: "assessment", status: "scheduled", title: "Assessment", detail: "Example appointment", scheduleStatus: "scheduled" }));
+    payload.unscheduled = names.map((name, index) => ({ referralId: 910101 + index, clientName: name, community: "San Pablo", owner: "Example Assessor", receivedDate: "2026-09-14", workflowStatus: "assessment_in_progress", nextAction: index ? "complete_intake" : "schedule" }));
+    payload.unscheduled_total = 2;
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "Continue working", exact: true })).toContainText("Taylor Rivera");
+  await page.evaluate(() => document.fonts.ready);
+  for (const id of [...defaults.filter((id) => id !== "search"), "scheduling-queue"]) {
+    await page.locator(`[data-home-module="${id}"]`).screenshot({ path: testInfo.outputPath(`${id}.png`), animations: "disabled" });
+  }
+  const search = page.locator('[data-home-module="search"]');
+  await search.getByRole("button", { name: "Open search", exact: true }).click();
+  await expect(search.getByRole("textbox", { name: "Search or ask" })).toBeFocused();
+  await search.screenshot({ path: testInfo.outputPath("search.png"), animations: "disabled" });
+});
 });
 
 for (const width of [390, 834, 1440]) {
@@ -114,6 +193,7 @@ for (const width of [390, 834, 1440]) {
     await add.click();
     const library = page.getByRole("dialog", { name: "Home module library" });
     await expect(library).toBeVisible();
+    if (width === 1440) expect((await library.boundingBox())!.width).toBeGreaterThan(1200);
     await expect(library.getByRole("button", { name: "Close home module library" })).toBeFocused();
     await page.keyboard.press("Control+k");
     await expect(page.getByRole("dialog", { name: "Search Pipeline", exact: true })).toHaveCount(0);
@@ -160,7 +240,7 @@ test("an empty Home can add modules again or restore defaults", async ({ page })
   await library.getByRole("checkbox", { name: "Recent work", exact: true }).check();
   await library.getByRole("button", { name: "Add 1 module", exact: true }).click();
   await expect.poll(() => moduleOrder(page)).toEqual(["recent-work"]);
-  await expect(page.getByRole("region", { name: "Continue working" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Continue working" })).toBeVisible();
   await page.getByRole("button", { name: "Add module", exact: true }).click();
   await library.getByRole("button", { name: "Restore defaults" }).click();
   await expect.poll(() => moduleOrder(page)).toEqual(defaults);
