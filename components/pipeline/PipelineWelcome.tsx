@@ -1,17 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { ArrowRight, CalendarClock, CalendarPlus } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarPlus, Maximize2 } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
-import { WorkflowCardSkeleton } from "@/components/pipeline/ReferralWorkflowTracker";
+import ReferralWorkflowTracker, { WorkflowCardSkeleton } from "@/components/pipeline/ReferralWorkflowTracker";
 import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import HomeDialog from "@/components/pipeline/HomeDialog";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
 import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
@@ -54,6 +54,7 @@ export default function PipelineWelcome({
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(initialBriefing ?? null);
   const [error, setError] = useState("");
+  const dataGeneration = usePipelineDataGeneration();
   const refreshController = useRef<AbortController | null>(null);
   const pendingRefresh = useRef<Promise<void> | null>(null);
   const acknowledgmentRevision = useRef(0);
@@ -117,7 +118,7 @@ export default function PipelineWelcome({
       window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
-  }, [loadBriefing]);
+  }, [loadBriefing, dataGeneration]);
 
   useEffect(() => {
     const startedAt = briefing?.continuity.assignment_tracking_started_at;
@@ -239,47 +240,16 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
   onOpen: () => void;
   onOpenPacket: BriefingPanelProps["onOpenPacket"];
 }) {
-  const unavailable = briefing.unavailable_sections.includes("current_work");
-  const items = briefing.current_work.items;
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
-      <SectionHeader
-        title={briefing.scope === "team" ? "Team work" : "My work"}
-        detail={unavailable ? "Unavailable" : `${briefing.current_work.total.toLocaleString()} requiring action`}
-      />
-      {unavailable ? <UnavailableLine /> : items.length === 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <p className="sr-only">No assigned referrals require action right now.</p>
-          <WorkflowCardSkeleton /><WorkflowCardSkeleton />
-        </div>
-      ) : (
-        <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
-          {items.slice(0, 5).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onOpenPacket({
-                id: item.referral_id,
-                name: item.client_name,
-                community: item.community as Referral["community"],
-              }, item.location)}
-              className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-[14px] font-bold text-[#202723]">{clientDisplayName(item.client_name, item.community)}</span>
-                <span className="mt-0.5 block truncate text-[11px] font-medium text-[#69716c]">{item.next_action}</span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2 text-[10px] font-black text-[#176f60]">
-                {urgencyLabel(item.urgency)}<ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-      <button type="button" aria-label="Open current work" onClick={onOpen} className="mt-2 flex min-h-9 w-full items-center justify-end gap-2 px-2 text-[10px] font-black uppercase tracking-[0.05em] text-[#176f60] hover:bg-[#f5faf8]">
-        {!unavailable && briefing.current_work.total > 5 ? <span className="mr-auto normal-case tracking-normal">{(briefing.current_work.total - Math.min(5, items.length)).toLocaleString()} more</span> : null}
-        {briefing.scope === "team" ? "Open team work" : "Open all assigned work"}<ArrowRight size={14} />
-      </button>
+      <div className="mb-3 flex items-center gap-3 px-1">
+        <h2 className="text-[16px] font-extrabold text-[#202320]">{briefing.scope === "team" ? "Team referrals" : "Assigned referrals"}</h2>
+        <span className="text-[12px] font-bold tabular-nums text-[#68706b]">{briefing.workflow.active_total.toLocaleString()}</span>
+        <button type="button" aria-label="Open current work" title="Expand referrals" onClick={onOpen} className="ml-auto flex h-9 w-9 items-center justify-center text-[#176f60] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+          <Maximize2 size={17} aria-hidden="true" />
+        </button>
+      </div>
+      <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} />
     </section>
   );
 }
@@ -461,12 +431,4 @@ function nextBriefingWorkspaceId(briefing: HomeBriefingSnapshot | null) {
   return briefing.continuity.resume_items.find((item) => item.referral_id)?.referral_id
     ?? briefing.upcoming[0]?.referralId
     ?? briefing.continuity.new_assignments[0]?.workspace.referral_id;
-}
-
-function urgencyLabel(value: HomeBriefingSnapshot["current_work"]["items"][number]["urgency"]) {
-  if (value === "overdue") return "Overdue";
-  if (value === "blocked") return "Blocked";
-  if (value === "due_soon") return "Due soon";
-  if (value === "stale") return "Needs follow-up";
-  return "Open";
 }

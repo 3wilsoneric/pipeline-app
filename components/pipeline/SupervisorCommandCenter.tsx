@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, RefreshCw, ShieldCheck } from "lucide-react";
 
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type {
   SupervisorExceptionItem,
@@ -27,6 +27,7 @@ export default function SupervisorCommandCenter({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const dataGeneration = usePipelineDataGeneration();
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -36,6 +37,7 @@ export default function SupervisorCommandCenter({
         { cache: "no-store", signal },
         { cacheTtlMs: 5_000 },
       );
+      if (signal?.aborted) return;
       setSnapshot(payload);
       setError("");
     } catch (loadError) {
@@ -58,7 +60,7 @@ export default function SupervisorCommandCenter({
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
     };
-  }, [load]);
+  }, [load, dataGeneration]);
 
   const visibleItems = useMemo(
     () => showAll ? snapshot?.items ?? [] : snapshot?.items.slice(0, collapsedItemLimit) ?? [],

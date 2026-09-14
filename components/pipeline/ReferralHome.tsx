@@ -15,7 +15,7 @@ import {
   referralFilterMonth,
 } from "@/components/pipeline/referral-home-directory-model";
 import type { ReferralFilter, WorkspaceLayout, WorkspaceSection, WorkspaceScope } from "@/components/pipeline/referral-home-directory-model";
-import { fetchPipelineJson, readPipelineJsonCache } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, readPipelineJsonCache, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import {
   formatClientIdentityDetail,
@@ -166,6 +166,7 @@ function ReferralHome({
         summaryQuery.current = summaryKey;
       }
       successfulReferralRequest.current = requestKey;
+      return true;
     } catch (error) {
       if (signal?.aborted) return;
       if (successfulReferralRequest.current !== requestKey) {
@@ -175,19 +176,24 @@ function ReferralHome({
         setReferralNextCursor(undefined);
       }
       setLoadError(error instanceof Error ? error.message : "Referral workspaces could not be loaded.");
+      return false;
     } finally {
       if (!signal?.aborted && !silent) setIsLoading(false);
     }
   }, [filter, referralCursors, referralPage, requestSearchTerm, scope]);
 
+  const dataGeneration = usePipelineDataGeneration();
+
   useEffect(() => {
     const controller = new AbortController();
+    summaryQuery.current = null;
     void loadReferrals(controller.signal);
     return () => controller.abort();
-  }, [loadReferrals]);
+  }, [loadReferrals, dataGeneration]);
 
   useEffect(() => {
     if (filter.kind === "files") return;
+    const controller = new AbortController();
     let cancelled = false;
     let checking = false;
     const checkForChanges = async () => {
@@ -195,12 +201,13 @@ function ReferralHome({
       if (cancelled || checking || after === null) return;
       checking = true;
       try {
-        const payload = await fetchPipelineJson<{ changed: boolean; sequence: number }>(`/api/referrals/changes?after=${after}`, { cache: "no-store" });
+        const payload = await fetchPipelineJson<{ changed: boolean; sequence: number }>(`/api/referrals/changes?after=${after}`, { cache: "no-store", signal: controller.signal });
         if (cancelled) return;
-        referralRevision.current = payload.sequence;
         if (payload.changed) {
           summaryQuery.current = null;
-          await loadReferrals(undefined, true);
+          if (await loadReferrals(controller.signal, true)) referralRevision.current = payload.sequence;
+        } else {
+          referralRevision.current = payload.sequence;
         }
       } catch {
         // The next revision check retries without disturbing the current directory.
@@ -214,10 +221,11 @@ function ReferralHome({
     window.addEventListener("focus", refreshOnFocus);
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
     };
-  }, [filter.kind, loadReferrals]);
+  }, [filter.kind, loadReferrals, dataGeneration]);
 
   useEffect(() => {
     setReferralPage((current) => current === 0 ? current : 0);
@@ -253,7 +261,7 @@ function ReferralHome({
         }
       });
     return () => { cancelled = true; };
-  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, filter.kind, requestSearchTerm, reviewIdentity, scope]);
+  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, filter.kind, requestSearchTerm, reviewIdentity, scope, dataGeneration]);
 
   useEffect(() => {
     if (filter.kind !== "files" || !reviewIdentity) return;
@@ -273,7 +281,7 @@ function ReferralHome({
         }
       });
     return () => { cancelled = true; };
-  }, [filter.kind, requestSearchTerm, reviewIdentity]);
+  }, [filter.kind, requestSearchTerm, reviewIdentity, dataGeneration]);
 
   useEffect(() => {
     setFilePage(0);

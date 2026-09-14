@@ -104,6 +104,7 @@ import {
   PracticeAssessmentReview,
 } from "@/components/pipeline/AssessmentInterviewFields";
 import GuidedAssessmentInterview from "@/components/pipeline/GuidedAssessmentInterview";
+import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 
@@ -127,6 +128,7 @@ type AssessmentWorkspaceProps = {
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
   onActiveSectionChange?: (section: AssessmentToolSection) => void;
+  onOpenAssignedWork?: () => void | Promise<void>;
 };
 
 const sectionLabels = Object.fromEntries(
@@ -188,7 +190,7 @@ type AssessmentAutoFocusSetters = {
 };
 
 function handleAssessmentEscape(event: KeyboardEvent, context: AssessmentEscapeContext) {
-  if (event.key !== "Escape") return;
+  if (event.key !== "Escape" || event.defaultPrevented) return;
   if (context.showBeginDialog) context.setShowBeginDialog(false);
   if (context.showScheduleDialog) context.setShowScheduleDialog(false);
   if (context.assessmentView === "guided" && !context.showBeginDialog && !context.showScheduleDialog) {
@@ -262,6 +264,7 @@ export default function AssessmentWorkspace({
   onAssessmentSaved,
   onContinueToWorkflow,
   onActiveSectionChange,
+  onOpenAssignedWork,
 }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -992,6 +995,23 @@ export default function AssessmentWorkspace({
     }
   };
 
+  const openAssignedWork = async () => {
+    if (closingRef.current || !onOpenAssignedWork) return;
+    closingRef.current = true;
+    setIsBusy(true);
+    setMessage("Saving last changes...");
+    try {
+      await saveBeforeExit();
+      await onOpenAssignedWork();
+      setMessage("");
+    } catch (saveError) {
+      setError(messageFor(saveError, "Your last changes could not be saved. Keep this assessment open and try again."));
+    } finally {
+      closingRef.current = false;
+      setIsBusy(false);
+    }
+  };
+
   const saveOnUnmount = useEffectEvent(() => {
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
   });
@@ -1366,6 +1386,7 @@ export default function AssessmentWorkspace({
         onChange={updateField}
         onReview={(field, action) => void reviewExtractedField(field, action)}
         onSectionChange={setActiveSection}
+        onOpenAssignedWork={onOpenAssignedWork ? () => void openAssignedWork() : undefined}
         onExitToChart={() => setAssessmentView("chart")}
         onDone={() => {
           setActiveSection("provenance_qc");
@@ -1379,6 +1400,7 @@ export default function AssessmentWorkspace({
   return createPortal(
     <section role="dialog" aria-modal="true" aria-label="Assessment interview" data-assessment-view="chart" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
       <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dfdb] bg-white px-4 py-2 sm:flex-nowrap sm:px-6 lg:px-9">
+        {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isBusy} /> : null}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-[17px] font-black">{formatClientIdentityTitle({ name: draft.resident_name || "Client", community: draft.community })} assessment</h2>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
@@ -9,10 +9,14 @@ import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 
-export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
+type WorkStage = "all" | (typeof activeReferralFlowStates)[number]["key"];
+
+export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId }: {
   briefing: HomeBriefingSnapshot;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+  selectedReferralId?: number;
 }) {
   const counts = briefing.workflow.flow_counts ?? {
     ready_to_schedule: 0,
@@ -22,10 +26,25 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
   };
   const items = briefing.workflow.active_items ?? [];
   const unavailable = briefing.unavailable_sections.includes("workflow");
-  const [mobileStage, setMobileStage] = useState<(typeof activeReferralFlowStates)[number]["key"]>("ready_to_schedule");
+  const stageStorageKey = `pipeline.current-work-stage.v1:${briefing.viewer.id}`;
+  const [fallbackStage, setFallbackStage] = useState<WorkStage>("all");
+  const mobileStage = useSyncExternalStore(subscribeToStage, () => {
+    try {
+      const stored = window.sessionStorage.getItem(stageStorageKey);
+      return isWorkStage(stored) ? stored : fallbackStage;
+    } catch {
+      return fallbackStage;
+    }
+  }, () => "all" as WorkStage);
 
-  const selectMobileStage = (stage: (typeof activeReferralFlowStates)[number]["key"]) => {
-    setMobileStage(stage);
+  const selectMobileStage = (stage: WorkStage) => {
+    setFallbackStage(stage);
+    try {
+      window.sessionStorage.setItem(stageStorageKey, stage);
+      window.dispatchEvent(new Event("pipeline:work-stage-changed"));
+    } catch {
+      // Filtering still works when optional view storage is unavailable.
+    }
   };
 
   return (
@@ -34,6 +53,8 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
         <div className="px-4 py-12 text-center text-[13px] font-medium text-[#8a5a10]">
           Current work is temporarily unavailable. Close this view and try again.
         </div>
+      ) : items.length === 0 ? (
+        <p className="px-1 py-5 text-[13px] font-medium text-[#737c76]">No active referral work.</p>
       ) : (
         <>
           <label className="relative mb-4 block lg:hidden">
@@ -41,11 +62,12 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
             <select
               aria-label="Current work stage"
               value={mobileStage}
-              onChange={(event) => selectMobileStage(event.target.value as (typeof activeReferralFlowStates)[number]["key"])}
+              onChange={(event) => { if (isWorkStage(event.target.value)) selectMobileStage(event.target.value); }}
               className="h-12 w-full appearance-none border border-[#bcc5c0] bg-white px-4 pr-11 text-[14px] font-bold text-[#202320] outline-none focus:border-[#0f8b73] focus:ring-1 focus:ring-[#0f8b73]"
             >
+              <option value="all">All active ({briefing.workflow.active_total.toLocaleString()})</option>
               {activeReferralFlowStates.map((state) => (
-                <option key={state.key} value={state.key}>{state.label} ({counts[state.key]})</option>
+                <option key={state.key} value={state.key}>{state.label} ({counts[state.key].toLocaleString()})</option>
               ))}
             </select>
             <ChevronDown size={18} aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#176f60]" />
@@ -54,7 +76,7 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
             {activeReferralFlowStates.map((state) => {
               const stageItems = items.filter((item) => item.flow_state === state.key);
               return (
-                <div key={state.key} className={`${mobileStage === state.key ? "block" : "hidden"} min-w-0 lg:block`}>
+                <div key={state.key} className={`${mobileStage === "all" || mobileStage === state.key ? "block" : "hidden"} min-w-0 lg:block`}>
                   <div className={`mb-2 flex min-h-10 items-center justify-between gap-3 border-t-2 px-1 pt-2 ${columnRule(state.key)}`}>
                     <h2 className={`truncate text-[12px] font-extrabold uppercase ${stageTone(state.key)}`}>{state.label}</h2>
                     <strong className="text-[12px] font-extrabold tabular-nums text-[#4f5752]">{counts[state.key].toLocaleString()}</strong>
@@ -67,15 +89,13 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
                           item={item}
                           state={state.key}
                           showOwner={briefing.scope === "team"}
+                          current={item.referral_id === selectedReferralId}
                           onOpenPacket={onOpenPacket}
                         />
                       ))}
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <p className="sr-only">{state.emptyLabel}</p>
-                      {Array.from({ length: state.key === "ready_to_schedule" ? 3 : 2 }, (_, index) => <WorkflowCardSkeleton key={index} />)}
-                    </div>
+                    <p className="px-1 py-4 text-[12px] font-medium text-[#737c76]">{state.emptyLabel}</p>
                   )}
                 </div>
               );
@@ -109,36 +129,61 @@ export function WorkflowCardSkeleton() {
   );
 }
 
-function WorkflowCard({ item, state, showOwner, onOpenPacket }: {
+function WorkflowCard({ item, state, showOwner, onOpenPacket, current }: {
   item: ReferralWorklistItem;
   state: (typeof activeReferralFlowStates)[number]["key"];
   showOwner: boolean;
+  current: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const clientName = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const owner = showOwner && item.owner !== "Unassigned" ? item.owner : null;
-  const attention = item.urgency !== "normal";
+  const awaitingSupervisor = item.outcome_state !== "accepted"
+    && (item.workflow_status === "recommendation_submitted" || item.workflow_status === "decision_pending");
+  const waitingForSupervisor = awaitingSupervisor && !showOwner;
+  const attention = item.urgency !== "normal" && !waitingForSupervisor;
+  const status = workCardStatus(item, awaitingSupervisor, showOwner);
 
   return (
     <button
       type="button"
       aria-label={`Open ${clientName}`}
+      aria-current={current ? "true" : undefined}
       onClick={() => onOpenPacket({ id: item.referral_id, name: clientName, community: item.community as Referral["community"] }, item.location)}
-      className={`group min-h-[108px] w-full border border-l-[3px] border-[#dce3df] bg-white px-4 py-3.5 text-left shadow-[0_2px_9px_rgba(32,35,32,0.04)] outline-none transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[#0f8b73] hover:shadow-[0_6px_16px_rgba(32,35,32,0.07)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${cardAccent(state)}`}
+      className={`group min-h-[132px] w-full border border-l-[3px] border-[#dce3df] ${current ? "bg-[#f1faf6] ring-1 ring-[#8fb9a8]" : "bg-white"} px-4 py-3.5 text-left shadow-[0_2px_9px_rgba(32,35,32,0.04)] outline-none transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[#0f8b73] hover:shadow-[0_6px_16px_rgba(32,35,32,0.07)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${cardAccent(state)}`}
     >
       <span className="flex items-start justify-between gap-2">
         <span className="min-w-0 truncate text-[14px] font-bold text-[#202320]">{clientName}</span>
         <ArrowRight size={15} className="mt-0.5 shrink-0 text-[#7b837e] group-hover:text-[#0f8b73]" aria-hidden="true" />
       </span>
-      <span className="mt-1.5 block line-clamp-2 min-h-9 text-[11px] font-medium leading-[18px] text-[#5f6762]">{item.next_action}</span>
+      <span className={`mt-2 block text-[11px] font-bold leading-4 ${waitingForSupervisor ? "text-[#737c76]" : attention || item.workflow_status === "changes_requested" ? "text-[#936116]" : "text-[#176f60]"}`}>{status}</span>
+      <span className="mt-1 block line-clamp-2 min-h-9 text-[12px] font-medium leading-[18px] text-[#5f6762]">{waitingForSupervisor ? "Assessment submitted for review" : item.next_action}</span>
       <span className="mt-2.5 flex min-w-0 items-center justify-between gap-2 text-[10px] font-bold text-[#69716c]">
         <span className="truncate">
-          {item.outcome_state === "accepted" ? "Accepted · " : ""}{item.community}{owner ? ` · ${owner}` : ""}
+          {item.community}{owner ? ` · ${owner}` : ""}
         </span>
-        <span className={attention ? "shrink-0 text-[#936116]" : "shrink-0"}>{formatWorkAge(item.age_hours)}</span>
+        <span className={attention ? "shrink-0 text-[#936116]" : "shrink-0"}>{current ? "This workspace" : formatWorkAge(item.age_hours)}</span>
       </span>
     </button>
   );
+}
+
+function workCardStatus(item: ReferralWorklistItem, awaitingSupervisor: boolean, team: boolean) {
+  if (item.outcome_state === "accepted") {
+    const count = item.missing_document_count;
+    return count > 0 ? `Accepted · ${count.toLocaleString()} ${count === 1 ? "document" : "documents"} needed` : "Accepted · Complete client data";
+  }
+  if (awaitingSupervisor) return team ? "Supervisor review needed" : "Waiting for supervisor";
+  return workflowStatusLabels[item.workflow_status] ?? "In progress";
+}
+
+function isWorkStage(value: unknown): value is WorkStage {
+  return value === "all" || activeReferralFlowStates.some((state) => state.key === value);
+}
+
+function subscribeToStage(onChange: () => void) {
+  window.addEventListener("pipeline:work-stage-changed", onChange);
+  return () => window.removeEventListener("pipeline:work-stage-changed", onChange);
 }
 
 function formatWorkAge(hours: number) {

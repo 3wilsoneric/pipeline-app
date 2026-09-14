@@ -61,8 +61,8 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
   {
     id: "current-work",
     title: "My work",
-    detail: "Assigned referrals that require your next action.",
-    opens: "Open a referral at its next step or view the full worklist. Supervisors may see Team work here.",
+    detail: "Every assigned referral, until its work is complete.",
+    opens: "Resume a referral or expand the worklist. Supervisors see team referrals.",
     icon: BriefcaseBusiness,
     wide: true,
   },
@@ -128,6 +128,7 @@ export default function HomeModuleDashboard({
   }, [viewerId]);
 
   const searchVisible = layout.module_ids.includes("search");
+  const optionalModuleIds = layout.module_ids.filter((id) => id !== "current-work");
   useEffect(() => onSearchVisibilityChange(searchVisible), [searchVisible, onSearchVisibilityChange]);
 
   const updateLayout = useCallback((next: PipelineHomeDashboardLayout, message: string) => {
@@ -149,9 +150,9 @@ export default function HomeModuleDashboard({
   }, [viewerId]);
 
   const reorder = (moduleId: PipelineHomeModuleId, targetIndex: number) => {
-    const moduleIds = moveModule(layout.module_ids, moduleId, targetIndex);
-    if (moduleIds === layout.module_ids) return;
-    updateLayout({ ...layout, module_ids: moduleIds }, `${definitionsById[moduleId].title} moved`);
+    const moduleIds = moveModule(optionalModuleIds, moduleId, targetIndex);
+    if (moduleIds === optionalModuleIds) return;
+    updateLayout({ ...layout, module_ids: ["current-work", ...moduleIds] }, `${definitionsById[moduleId].title} moved`);
   };
 
   const beginEditing = () => {
@@ -177,8 +178,8 @@ export default function HomeModuleDashboard({
     event.preventDefault();
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-home-module]");
     const targetId = target?.dataset.homeModule;
-    if (!isPipelineHomeModuleId(targetId) || targetId === draggedModuleId) return;
-    reorder(draggedModuleId, layout.module_ids.indexOf(targetId));
+    if (!isPipelineHomeModuleId(targetId) || targetId === "current-work" || targetId === draggedModuleId) return;
+    reorder(draggedModuleId, optionalModuleIds.indexOf(targetId));
   };
 
   const endPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -213,7 +214,8 @@ export default function HomeModuleDashboard({
         </div>
       ) : <span className="sr-only" aria-live="polite">{saveStatus}</span>}
 
-      {layout.module_ids.length === 0 ? (
+      <div data-home-module="current-work" className="mb-6 min-w-0">{modules["current-work"]}</div>
+      {optionalModuleIds.length === 0 ? editing ? (
         <div className="border border-dashed border-[#b8c9c3] bg-[#f7faf9] px-6 py-14 text-center">
           <LibraryBig size={24} className="mx-auto text-[#4b756a]" aria-hidden="true" />
           <h2 className="mt-3 text-[15px] font-black text-[#202723]">Build your Home</h2>
@@ -222,9 +224,9 @@ export default function HomeModuleDashboard({
             Open module library
           </button>
         </div>
-      ) : (
+      ) : null : (
         <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2" data-testid="home-module-grid">
-          {layout.module_ids.map((moduleId, index) => {
+          {optionalModuleIds.map((moduleId, index) => {
             if (!editing && modules[moduleId] === null) return null;
             const definition = definitionsById[moduleId];
             return (
@@ -280,7 +282,7 @@ export default function HomeModuleDashboard({
 
       {libraryOpen ? (
         <HomeModuleLibrary
-          selected={layout.module_ids}
+          selected={["current-work", ...optionalModuleIds]}
           onAdd={(moduleIds) => {
             updateLayout({ ...layout, module_ids: [...new Set([...layout.module_ids, ...moduleIds])] }, "Modules added");
             setLibraryOpen(false);

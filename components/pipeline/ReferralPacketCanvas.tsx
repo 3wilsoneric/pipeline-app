@@ -117,6 +117,7 @@ import {
 } from "@/components/pipeline/referral-canvas-save-state";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import ReferralContactsCard from "@/components/pipeline/ReferralContactsCard";
+import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import ContactDirectorySuggestion from "@/components/pipeline/ContactDirectorySuggestion";
 import { ageFromCalendarDate, calendarToday, normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
 import { stringLimits } from "@/lib/pipeline/referral-validation";
@@ -165,6 +166,7 @@ type ReferralPacketCanvasProps = {
   onWorkspaceStageChange?: (stage: WorkspaceStageName) => void;
   onWorkspaceLocationChange?: (location: PipelineWorkspaceLocation) => void;
   onOpenProfile?: (canonicalClientId: string) => void;
+  onOpenAssignedWork?: () => void;
 };
 
 type DirtyDraftKey = ReferralCanvasDirtyKey;
@@ -337,6 +339,7 @@ export default function ReferralPacketCanvas({
   onWorkspaceStageChange,
   onWorkspaceLocationChange,
   onOpenProfile = () => undefined,
+  onOpenAssignedWork,
 }: ReferralPacketCanvasProps = {}) {
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
@@ -1445,6 +1448,14 @@ export default function ReferralPacketCanvas({
     return null;
   };
 
+  const openAssignedWork = async () => {
+    if (!onOpenAssignedWork) return;
+    if (isSavingRef.current) throw new Error("Workspace changes are still saving. Try again when they finish.");
+    const pending = dirtyKeysRef.current.size > 0 || Object.keys(pendingDocumentsRef.current).length > 0 || Boolean(initialPacketRef.current);
+    if (pending && !await saveWorkspaceDraft()) throw new Error("Save this workspace's pending changes before switching referrals.");
+    onOpenAssignedWork();
+  };
+
   const continueToAssessment = async () => {
     if (trainingIntakeMode) {
       window.location.assign(toPipelinePath("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule&demo=1"));
@@ -1806,6 +1817,9 @@ export default function ReferralPacketCanvas({
             <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={openPage} />
 
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:ml-auto">
+              {loadedReferral && onOpenAssignedWork ? (
+                <AssignedWorkButton onOpen={() => void openAssignedWork().catch(() => undefined)} disabled={draftRecoveryLoading || isSaving || workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)} />
+              ) : null}
               {loadedReferral && editingControlsVisible ? (
                 <button
                   type="button"
@@ -2219,6 +2233,7 @@ export default function ReferralPacketCanvas({
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onContinueToWorkflow={() => openPage("workflow")}
+                  onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
                   onActiveSectionChange={(section) => {
                     if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section });
                   }}

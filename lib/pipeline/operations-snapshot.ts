@@ -830,7 +830,7 @@ function toReferralWorklistItem(
     age_hours: work.age_hours,
     completion_pct: work.completion_pct,
     missing_document_count: missingDocuments.length + Number(
-      !hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral),
+      work.outcome_state === "pending" && !hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral),
     ),
     location: worklistWorkspaceLocation(primaryCategory, referral),
   };

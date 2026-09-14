@@ -5,7 +5,7 @@ import { ArrowRight, Check, Search } from "lucide-react";
 
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import type { PipelineSiteDestination, PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
 import {
@@ -114,6 +114,7 @@ export default function PipelineSearchPanel({
   const [error, setError] = useState("");
   const [isFocused, setIsFocused] = useState(autoFocus);
   const [searchNonce, setSearchNonce] = useState(0);
+  const dataGeneration = usePipelineDataGeneration();
   const [selectedQuestionIntent, setSelectedQuestionIntent] = useState<string>();
   const submitRequestedRef = useRef(false);
   const searchPanelRef = useRef<HTMLElement>(null);
@@ -178,9 +179,7 @@ export default function PipelineSearchPanel({
 
     const controller = new AbortController();
     const immediateDestinations = searchSiteDestinations(query, { includeReports: canAccessReports });
-    if (immediateDestinations.length > 0) {
-      setResult(emptySearchResult(query, immediateDestinations));
-    }
+    setResult(emptySearchResult(query, immediateDestinations));
     // Coalesce ordinary typing while preserving an immediate Enter submission.
     // Local discovery starts first; governed clinical search waits long enough
     // to avoid sending upstream work for every intermediate keystroke.
@@ -205,6 +204,7 @@ export default function PipelineSearchPanel({
         signal: controller.signal,
       })
         .then((payload) => {
+          if (controller.signal.aborted) return;
           if (!("counts" in payload)) throw new Error("Search is unavailable right now.");
           setResult((current) => mergeSearchResults(current, payload, query));
         })
@@ -221,7 +221,7 @@ export default function PipelineSearchPanel({
       window.clearTimeout(clinicalTimeout);
       controller.abort();
     };
-  }, [canAccessReports, questionInterpretation, searchText, searchNonce, selectedSuggestion]);
+  }, [canAccessReports, questionInterpretation, searchText, searchNonce, selectedSuggestion, dataGeneration]);
 
   const runSuggestedSearch = async (suggestion: PipelineSuggestedSearch) => {
     if (isSearching) return;

@@ -7,7 +7,7 @@ export const activeReferralFlowStates = [
   { key: "ready_to_schedule", label: "Intake & scheduling", emptyLabel: "No intake or scheduling work" },
   { key: "scheduled", label: "Scheduled", emptyLabel: "No assessments are scheduled" },
   { key: "assessment", label: "Assessment", emptyLabel: "No assessments are in progress" },
-  { key: "complete_chart", label: "Follow-up", emptyLabel: "No follow-up work" },
+  { key: "complete_chart", label: "Decision & completion", emptyLabel: "No decision or completion work" },
 ] as const;
 
 export type ActiveReferralFlowState = (typeof activeReferralFlowStates)[number]["key"];

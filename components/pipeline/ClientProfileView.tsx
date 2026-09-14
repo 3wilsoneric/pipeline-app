@@ -16,7 +16,7 @@ import {
   hasReadableClinicalValue,
   humanizeClinicalField,
 } from "@/lib/clinical/clinical-value-presentation";
-import { fetchPipelineJson, readPipelineJsonCache, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, readPipelineJsonCache, PipelineApiError, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-contracts";
 import {
   buildClientEpisodeSummaries,
@@ -75,16 +75,19 @@ function ClientProfileLoader({
   const [isLoading, setIsLoading] = useState(!profile);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const dataGeneration = usePipelineDataGeneration();
 
   useEffect(() => {
     const controller = new AbortController();
 
     fetchPipelineJson<UnifiedClientProfileResponse>(
       `/api/profiles/${encodeURIComponent(residentKey)}`,
-      { cache: "no-store", signal: controller.signal, ...(reloadKey ? { headers: { "x-pipeline-refresh": "1" } } : {}) },
+      { cache: "no-store", signal: controller.signal, ...(reloadKey || dataGeneration ? { headers: { "x-pipeline-refresh": "1" } } : {}) },
       { cacheTtlMs: 60_000, bypassCache: reloadKey > 0 },
     )
       .then((payload) => {
+        if (controller.signal.aborted) return;
+        setError("");
         const identity = profileIdentity(payload);
         recordRecentDestination({
           id: `profile:${payload.client.canonical_client_id || residentKey}`,
@@ -106,7 +109,7 @@ function ClientProfileLoader({
       });
 
     return () => controller.abort();
-  }, [residentKey, reloadKey]);
+  }, [residentKey, reloadKey, dataGeneration]);
 
   if (isLoading) {
     return <ProfileShell><ProfileSkeleton onBack={onBack} /></ProfileShell>;

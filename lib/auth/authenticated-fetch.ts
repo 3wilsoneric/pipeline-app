@@ -1,5 +1,7 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
+
 import {
   loginRequest,
   msalInstance,
@@ -28,7 +30,31 @@ type PipelineFetchOptions = {
 const jsonResponseCache = new Map<string, { expiresAt: number; payload: unknown }>();
 const pendingJsonRequests = new Map<string, Promise<unknown>>();
 let cacheGeneration = 0;
+let dataGeneration = 0;
+const dataListeners = new Set<() => void>();
+let dataChannel: BroadcastChannel | undefined;
 const readCacheCounts = { hit: 0, join: 0, miss: 0 };
+
+function connectDataChannel() {
+  if (dataChannel || typeof window === "undefined" || typeof BroadcastChannel === "undefined") return;
+  try {
+    dataChannel = new BroadcastChannel("pipeline.saved-data.v1");
+    // Only a refresh signal crosses tabs. Each reader reloads through its own protected API.
+    dataChannel.onmessage = (event) => {
+      if (event.data === "changed") invalidatePipelineDataCache();
+    };
+  } catch { /* Focus and polling refresh remain available if cross-tab messaging is blocked. */ }
+}
+
+function subscribeToData(listener: () => void) {
+  connectDataChannel();
+  dataListeners.add(listener);
+  return () => { dataListeners.delete(listener); };
+}
+
+export function usePipelineDataGeneration() {
+  return useSyncExternalStore(subscribeToData, () => dataGeneration, () => 0);
+}
 
 export function getPipelineReadCacheCounts() {
   return { ...readCacheCounts };
@@ -44,10 +70,14 @@ export function readPipelineJsonCache<T>(input: string): T | undefined {
   return cached.payload as T;
 }
 
-function invalidatePipelineDataCache() {
+function invalidatePipelineDataCache(notify = true) {
   cacheGeneration += 1;
   jsonResponseCache.clear();
   pendingJsonRequests.clear();
+  if (notify) {
+    dataGeneration += 1;
+    dataListeners.forEach((listener) => listener());
+  }
 }
 
 function isNavigationBookkeeping(input: string) {
@@ -59,9 +89,9 @@ function invalidatesPipelineData(input: string, init: RequestInit) {
   const method = (init.method ?? "GET").toUpperCase();
   // Recovery drafts change only private workspace state, not saved referrals.
   // Evict their own reads without throwing away every warm list and chart.
-  if (["PUT", "DELETE"].includes(method) && /^\/api\/me\/referral-drafts\/[^/?]+$/.test(input)) {
+  if (["PUT", "DELETE"].includes(method) && /^\/api\/me\/(?:referral|assessment)-drafts\/[^/?]+$/.test(input)) {
     for (const key of [...jsonResponseCache.keys(), ...pendingJsonRequests.keys()]) {
-      if (!/^\/api\/me\/referral-drafts(?:\/|\?|$)/.test(key)) continue;
+      if (!/^\/api\/me\/(?:referral|assessment)-drafts(?:\/|\?|$)/.test(key)) continue;
       jsonResponseCache.delete(key);
       pendingJsonRequests.delete(key);
     }
@@ -194,7 +224,7 @@ export function fetchCurrentPipelineUser() {
 
 export function clearPipelineClientSessionCache() {
   clearPipelineBrowserSessionCache();
-  invalidatePipelineDataCache();
+  invalidatePipelineDataCache(false);
 }
 
 export async function fetchPipelineApi(
@@ -234,7 +264,12 @@ export async function fetchPipelineApi(
       }
     }
     if (response.ok && invalidatesPipelineData(input, init)) {
-      invalidatePipelineDataCache();
+      const savedDataChanged = !(input.split("?")[0] === "/api/operations/reports" && (init.method ?? "GET").toUpperCase() === "POST");
+      invalidatePipelineDataCache(savedDataChanged);
+      if (savedDataChanged) {
+        connectDataChannel();
+        try { dataChannel?.postMessage("changed"); } catch { /* Saved data does not depend on tab messaging. */ }
+      }
     }
     return response;
   } catch (error) {
