@@ -359,6 +359,7 @@ async function createAssessmentReferral(coordinator: APIRequestContext) {
       name: `Avery${suffix} Rivera${suffix}`,
       county: "Los Angeles",
       currentMedications: "Synthetic medication list",
+      phone: "555-0100",
     },
     { assigneeId: pipelineActors.assessorA.id, mutationId: operationalMutationId("assessment-referral") },
   );

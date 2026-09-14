@@ -546,7 +546,7 @@ async function createWorkflowReferral(context: APIRequestContext) {
   return createOperationalReferral(
     context,
     pipelineActors.assessmentCoordinator,
-    { name: `Workflow ${surname}`, tags: ["workflow-characterization"], county: "Los Angeles" },
+    { name: `Workflow ${surname}`, tags: ["workflow-characterization"], county: "Los Angeles", phone: "555-0100" },
     { assigneeId: pipelineActors.assessorA.id },
   );
 }

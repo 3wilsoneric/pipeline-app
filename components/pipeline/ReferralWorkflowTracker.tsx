@@ -54,7 +54,7 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
           Current work is temporarily unavailable. Close this view and try again.
         </div>
       ) : items.length === 0 ? (
-        <p className="px-1 py-5 text-[13px] font-medium text-[#737c76]">No active referral work.</p>
+        <p className="px-1 py-5 text-[13px] font-medium text-[#626b65]">No active referral work.</p>
       ) : (
         <>
           <label className="relative mb-4 block lg:hidden">
@@ -95,7 +95,7 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
                       ))}
                     </div>
                   ) : (
-                    <p className="px-1 py-4 text-[12px] font-medium text-[#737c76]">{state.emptyLabel}</p>
+                    <p className="px-1 py-4 text-[12px] font-medium text-[#626b65]">{state.emptyLabel}</p>
                   )}
                 </div>
               );
@@ -172,7 +172,7 @@ function workCardStatusPresentation(item: ReferralWorklistItem, team: boolean) {
   return {
     attention,
     status: workCardStatus(item, awaitingSupervisor, team),
-    tone: waiting ? "text-[#737c76]" : attention || item.workflow_status === "changes_requested" ? "text-[#936116]" : "text-[#176f60]",
+    tone: waiting ? "text-[#626b65]" : attention || item.workflow_status === "changes_requested" ? "text-[#936116]" : "text-[#176f60]",
     nextAction: waiting ? "Assessment submitted for review" : item.next_action,
   };
 }

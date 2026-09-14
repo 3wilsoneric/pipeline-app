@@ -26,7 +26,7 @@ test.describe("Pipeline home", () => {
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Workflow summary" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
@@ -269,7 +269,7 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: "Pipeline home" }).click();
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
     await expect(page.getByText("Broken recent", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
   });
 
@@ -314,7 +314,7 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
@@ -334,7 +334,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByTitle("Pipeline home")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Search Pipeline" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
@@ -360,7 +360,7 @@ test.describe("Pipeline home", () => {
 
     await page.evaluate(() => window.sessionStorage.clear());
     await page.reload();
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
   });
 
   test("opens the Alamo enhanced client directory and governed profile", async ({ page }, testInfo) => {
@@ -869,7 +869,7 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: "Open reports" }).click();
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reports", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("assessment_completion");
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("clients_by_community");
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
     await expect(page.getByText("Work queue", { exact: true })).toHaveCount(0);

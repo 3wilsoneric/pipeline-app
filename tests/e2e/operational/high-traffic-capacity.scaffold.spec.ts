@@ -393,9 +393,9 @@ async function verifyProductDemoSurfaces(
         }
         const results = page.getByRole("region", { name: "Report results" });
         await expect(results).toBeVisible({ timeout: 15_000 });
-        const totalLabel = results.getByText(/^\d+ total$/).first();
+        const totalLabel = results.getByRole("status").filter({ hasText: /^[\d,]+ total/ });
         await expect(totalLabel).toBeVisible();
-        await expect.poll(async () => Number((await totalLabel.textContent())?.match(/^\d+/)?.[0] ?? Number.NaN))
+        await expect.poll(async () => Number((await totalLabel.textContent())?.match(/^[\d,]+/)?.[0].replaceAll(",", "") ?? Number.NaN))
           .toBeGreaterThanOrEqual(expectedMinimumAssessments);
       }
       await expect(page.getByText("Application error", { exact: false })).toHaveCount(0);

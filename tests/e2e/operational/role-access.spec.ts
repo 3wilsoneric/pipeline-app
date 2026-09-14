@@ -230,7 +230,11 @@ test.describe("operational account and role boundaries", () => {
         expect(body.scope).toBe("team");
         for (const referral of referrals) {
           expect(body.events).toEqual(expect.arrayContaining([expect.objectContaining({ referralId: referral.id })]));
-          expect(body.unscheduled).toEqual(expect.arrayContaining([expect.objectContaining({ referralId: referral.id })]));
+          // Team queues are paginated; unrelated earlier fixtures may fill the first page.
+          expect(referral.name).toBeTruthy();
+          const queueResponse = await context.get(`${calendarPath}&queue_q=${encodeURIComponent(referral.name!)}`);
+          expect(queueResponse.status()).toBe(200);
+          expect((await queueResponse.json()).unscheduled).toEqual(expect.arrayContaining([expect.objectContaining({ referralId: referral.id })]));
         }
         expect(body.assessors).toEqual(expect.arrayContaining([
           { id: pipelineActors.assessorA.id, name: pipelineActors.assessorA.name },

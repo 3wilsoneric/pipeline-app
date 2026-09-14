@@ -156,11 +156,14 @@ test("shares Clients picker styling with compact Reports and Calendar controls",
   }
   await page.goto("/?screen=calendar");
   await page.getByRole("button", { name: "Show calendar filters" }).click();
-  const kind = page.getByLabel("Filter calendar by event type");
-  await checkSharedPicker(page, kind, 36);
-  await kind.click();
-  await kind.getByRole("option", { name: "Follow-ups", exact: true }).click();
-  await expect(kind).toHaveValue("follow_up");
+  const assessor = page.getByLabel("Filter calendar by assessor");
+  const option = assessor.locator('option:not([value=""])').first();
+  await expect(option).toHaveAttribute("value", /.+/);
+  const value = (await option.getAttribute("value"))!;
+  await checkSharedPicker(page, assessor, 36);
+  await assessor.click();
+  await option.click();
+  await expect(assessor).toHaveValue(value);
 });
 
 test("styles intake pickers and contact suggestions without changing selection behavior", async ({ page }, testInfo) => {

@@ -3,18 +3,18 @@ import { resolve } from "node:path";
 
 const port = process.env.PORT ?? "3000";
 const baseURL = `http://127.0.0.1:${port}`;
-const referralStorePath = process.env.PIPELINE_E2E_REFERRAL_STORE_PATH
-  ?? `.data/playwright/referrals-${port}.json`;
-const assessmentStorePath = process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH
-  ?? `.data/playwright/assessments-${port}.json`;
-const residentLinkStorePath = process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH
-  ?? `.data/playwright/resident-links-${port}.json`;
-const documentStorePath = process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH
-  ?? `.data/playwright/documents-${port}`;
-const desktopStateStorePath = process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH
-  ?? `.data/playwright/desktop-state-${port}.json`;
-const noteLabStorePath = process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH
-  ?? `.data/playwright/note-lab-${port}.json`;
+const referralStorePath = resolve(process.env.PIPELINE_E2E_REFERRAL_STORE_PATH
+  ?? `.data/playwright/referrals-${port}.json`);
+const assessmentStorePath = resolve(process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH
+  ?? `.data/playwright/assessments-${port}.json`);
+const residentLinkStorePath = resolve(process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH
+  ?? `.data/playwright/resident-links-${port}.json`);
+const documentStorePath = resolve(process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH
+  ?? `.data/playwright/documents-${port}`);
+const desktopStateStorePath = resolve(process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH
+  ?? `.data/playwright/desktop-state-${port}.json`);
+const noteLabStorePath = resolve(process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH
+  ?? `.data/playwright/note-lab-${port}.json`);
 const contactStorePath = resolve(process.env.PIPELINE_E2E_CONTACT_STORE_PATH
   ?? `.data/playwright/contacts-${port}.json`);
 const crossBrowser = process.env.PIPELINE_CROSS_BROWSER === "true";

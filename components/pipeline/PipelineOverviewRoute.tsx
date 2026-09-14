@@ -157,7 +157,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     : undefined;
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
-  const [reportAccess, setReportAccess] = useState<boolean | null>(() => initialUser ? canAccessOperationsReports(initialUser.roles) : null);
+  const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser.roles) : undefined);
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
   // Header links and browser history also leave Home without calling navigate.
@@ -177,13 +177,13 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    const warmDirectories = () => {
-      void fetchPipelineJson(`/api/referrals/directory?${buildReferralParams({ kind: "all" }, "")}`, {}, { cacheTtlMs: 30_000 }).catch(() => undefined);
+    const warmDirectories = (canViewTeam: boolean) => {
+      void fetchPipelineJson(`/api/referrals/directory?${buildReferralParams({ kind: "all" }, "", undefined, canViewTeam ? "team" : "mine")}`, {}, { cacheTtlMs: 30_000 }).catch(() => undefined);
       void preloadCurrentClientDirectory(controller.signal).catch(() => undefined);
     };
     // Reuse the request-validated effective user, not a local/MSAL guess.
     // Each GET still validates its live session; role/session refresh remains.
-    if (initialUser) warmDirectories();
+    if (initialUser) warmDirectories(canAccessOperationsReports(initialUser.roles));
     fetchCurrentPipelineUser()
       .then(({ user }) => {
         if (cancelled) return;
@@ -192,7 +192,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         // Warm the first workspace page and complete current census after authentication.
         // GET-only reads use the same cache as navigation; no charts or files
         // are downloaded in bulk and no background user session is created.
-        if (!initialUser) warmDirectories();
+        if (!initialUser) warmDirectories(canAccessOperationsReports(user.roles));
       })
       .catch(() => {
         if (!cancelled) setReportAccess(false);
@@ -371,7 +371,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onResumeDraft={resumeReferralDraft}
-        canViewTeam={Boolean(reportAccess)}
+        canViewTeam={reportAccess}
       />
     );
   }

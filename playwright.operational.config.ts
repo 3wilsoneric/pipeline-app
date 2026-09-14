@@ -1,11 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolve } from "node:path";
 
 const port = process.env.PORT ?? "3197";
 const baseURL = `http://127.0.0.1:${port}`;
 const prebuiltOperational = process.env.PIPELINE_OPERATIONAL_PREBUILT === "true";
 const historicalRunRoot = process.env.PIPELINE_HISTORICAL_RUN_ROOT;
 const operationalRunId = process.env.PIPELINE_OPERATIONAL_RUN_ID ?? `${Date.now()}-${process.pid}`;
-const storeRoot = historicalRunRoot ? `${historicalRunRoot}/runtime` : `.data/playwright-operational/${port}/${operationalRunId}`;
+const storeRoot = resolve(historicalRunRoot ? `${historicalRunRoot}/runtime` : `.data/playwright-operational/${port}/${operationalRunId}`);
 const allowedEmails = [
   "ops-admin@pipeline.local",
   "admissions@pipeline.local",

@@ -86,4 +86,38 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     const invalidResponse = await request.get("/api/referrals/changes?after=not-a-sequence");
     expect(invalidResponse.status()).toBe(400);
   });
+
+  for (const { role, scope, label } of [
+    { role: "assessment_coordinator", scope: "team", label: "Search all workspaces" },
+    { role: "reviewer", scope: "mine", label: "Search my workspaces" },
+  ]) {
+    test(`waits for the effective ${role} identity before loading ${scope} workspaces`, async ({ page }) => {
+      const directoryScopes: Array<string | null> = [];
+      let releaseIdentity!: () => void;
+      const identityReady = new Promise<void>((resolve) => { releaseIdentity = resolve; });
+      await page.route("**/api/auth/me", async (route) => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        // This tests UI scope selection. Server authorization is exercised by
+        // the operational suite using distinct signed synthetic principals.
+        payload.user.roles = [role];
+        await identityReady;
+        await route.fulfill({ response, json: payload });
+      });
+      page.on("request", (request) => {
+        const url = new URL(request.url());
+        if (url.pathname === "/api/referrals/directory") directoryScopes.push(url.searchParams.get("scope"));
+      });
+      try {
+        await page.goto("/?view=referrals");
+        await expect(page.getByRole("status").filter({ hasText: "Loading workspaces" })).toBeVisible();
+        expect(directoryScopes).toEqual([]);
+      } finally {
+        releaseIdentity();
+      }
+      await expect(page.locator('[data-performance-ready="referrals"]')).toBeVisible();
+      await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+      expect(directoryScopes).toEqual([scope]);
+    });
+  }
 });

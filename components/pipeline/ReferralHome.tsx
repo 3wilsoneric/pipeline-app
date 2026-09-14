@@ -63,11 +63,14 @@ type ReferralHomeProps = {
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
-  canViewTeam?: boolean;
+  canViewTeam: boolean | undefined;
 };
 
 export default function ScopedReferralHome(props: ReferralHomeProps) {
   const [selectedScope, setSelectedScope] = useState<WorkspaceScope>("team");
+  if (props.canViewTeam === undefined) {
+    return <div role="status" aria-busy="true" className="px-6 py-5 text-sm text-[#626a66]">Loading workspaces…</div>;
+  }
   const scope = props.canViewTeam ? selectedScope : "mine";
   return <ReferralHome key={scope} {...props} scope={scope} onScopeChange={setSelectedScope} />;
 }

@@ -8,15 +8,15 @@ test.describe("Referral-to-decision operating spine", () => {
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
-    await page.getByRole("textbox", { name: "DOB", exact: true }).fill("1984-06-12");
-    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
-    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
-    await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("Synthetic county access");
+    await page.locator('input[aria-label="Date of birth"]').fill("1984-06-12");
+    await page.getByRole("combobox", { name: "Requested community" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "Client county" }).selectOption("Contra Costa County");
+    await page.getByRole("combobox", { name: "Referral facility / source", exact: true }).fill("Synthetic county access");
     const memberResponse = await page.request.get("/api/members?scope=assessors");
     expect(memberResponse.ok()).toBeTruthy();
     const members = (await memberResponse.json() as { members: Array<{ principal_id: string }> }).members;
     expect(members.length).toBeGreaterThan(0);
-    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption(members[0].principal_id);
+    await page.getByRole("combobox", { name: "Assessor" }).selectOption(members[0].principal_id);
     await page.getByRole("button", { name: "Create referral", exact: true }).click();
 
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
