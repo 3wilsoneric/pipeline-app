@@ -227,6 +227,15 @@ export function clearPipelineClientSessionCache() {
   invalidatePipelineDataCache(false);
 }
 
+function publishSavedDataChange(input: string, init: RequestInit) {
+  const savedDataChanged = !(input.split("?")[0] === "/api/operations/reports" && (init.method ?? "GET").toUpperCase() === "POST");
+  invalidatePipelineDataCache(savedDataChanged);
+  if (savedDataChanged) {
+    connectDataChannel();
+    try { dataChannel?.postMessage("changed"); } catch { /* Saved data does not depend on tab messaging. */ }
+  }
+}
+
 export async function fetchPipelineApi(
   input: string,
   init: RequestInit = {},
@@ -264,12 +273,7 @@ export async function fetchPipelineApi(
       }
     }
     if (response.ok && invalidatesPipelineData(input, init)) {
-      const savedDataChanged = !(input.split("?")[0] === "/api/operations/reports" && (init.method ?? "GET").toUpperCase() === "POST");
-      invalidatePipelineDataCache(savedDataChanged);
-      if (savedDataChanged) {
-        connectDataChannel();
-        try { dataChannel?.postMessage("changed"); } catch { /* Saved data does not depend on tab messaging. */ }
-      }
+      publishSavedDataChange(input, init);
     }
     return response;
   } catch (error) {

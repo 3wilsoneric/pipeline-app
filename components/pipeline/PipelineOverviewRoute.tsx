@@ -128,6 +128,19 @@ function recordCompleteNavigation(screen: PipelineScreen, referral: ReferralSele
   recordNavigation(screen, referral);
 }
 
+function isCurrentWorkOpen(screen: PipelineScreen, params: URLSearchParams) {
+  return (screen === "home" || screen === "packet") && params.get("work") === "current";
+}
+
+function PacketAssignedWorkOverlay({ screen, open, isDemoWorkspace, ...props }: ComponentProps<typeof CurrentWorkOverlay> & {
+  screen: PipelineScreen;
+  open: boolean;
+  isDemoWorkspace: boolean;
+}) {
+  if (screen !== "packet" || !open || isDemoWorkspace) return null;
+  return <CurrentWorkOverlay {...props} />;
+}
+
 export default function PipelineOverviewRoute({ initialBriefing }: { initialBriefing?: HomeBriefingSnapshot | null }) {
   const { initialUser } = usePipelineAuth();
   const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
@@ -135,7 +148,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const screen = getScreenFromParams(activeSearchParams);
-  const currentWorkOpen = (screen === "home" || screen === "packet") && activeSearchParams.get("work") === "current";
+  const currentWorkOpen = isCurrentWorkOpen(screen, activeSearchParams);
   const editHome = screen === "home" && activeSearchParams.get("editHome") === "1";
   const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
   const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
@@ -368,17 +381,18 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       <div className="pipeline-route-enter h-full min-h-0 flex-1 overflow-hidden">
         {page}
       </div>
-      {screen === "packet" && currentWorkOpen && !isDemoWorkspace ? (
-        <CurrentWorkOverlay
-          key={viewerId}
-          selectedReferralId={selectedReferral?.id}
-          onClose={closeCurrentWork}
-          onOpenPacket={(referral, location) => {
-            if (referral.id === selectedReferral?.id) closeCurrentWork();
-            else void navigate("packet", referral, undefined, location);
-          }}
-        />
-      ) : null}
+      <PacketAssignedWorkOverlay
+        key={viewerId}
+        screen={screen}
+        open={currentWorkOpen}
+        isDemoWorkspace={isDemoWorkspace}
+        selectedReferralId={selectedReferral?.id}
+        onClose={closeCurrentWork}
+        onOpenPacket={(referral, location) => {
+          if (referral.id === selectedReferral?.id) closeCurrentWork();
+          else void navigate("packet", referral, undefined, location);
+        }}
+      />
     </div>
   );
 }

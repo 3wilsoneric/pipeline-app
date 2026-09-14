@@ -27,4 +27,20 @@ This is same-browser notification, not server push. Other users/devices and back
 - Synthetic screenshots inspected at desktop/phone sizes; guided assessment header also checked at 320px. No production records were modified by tests.
 - Pre-implementation repository audit and refactor-guidance check passed. Refactor setup check encountered existing stale worktree metadata for `/private/tmp/pipeline-header-release-c6e7b68`. This is product work, not a refactor slice; refactor controls were not changed.
 
+## Release gate correction
+
+Bounded correction based on frozen `dee04abeae7dfc942d11ab08e36760486650f28c`. Local presentation/publication helpers preserve the existing guards, saves, state, errors and API behavior. No complexity baseline or approved ceiling was changed.
+
+| Function | Before correction | After correction |
+| --- | ---: | ---: |
+| PipelineOverviewRoute | 25 | 20 |
+| ReferralPacketCanvas | 64 | 54 |
+| WorkflowCard | 16 | 8 |
+| fetchPipelineApi | 18 | 14 |
+| toReferralWorklistItem | 29 | 27 |
+
+The chaos source contract now checks the cancellable directory refresh, successful revision acknowledgment and cancellation before publication. Its last-successful-snapshot guard and existing browser retention case remain required.
+
+Production build/TypeScript, changed-file ESLint, live-loading contracts and the complexity ratchet passed. The correction's targeted Chromium run passed 42 checks with the same two opt-in skips; the existing failed-directory-refresh browser case passed separately. Independent read-only review found no correctness/security regression in the five runtime files. The full unmodified `check:platform:fast` passed with `PIPELINE_REFACTOR_CLOUD_RUN=true` in an isolated single-worktree clone using the corrected source and standard training/Academy freshness regeneration. Stale shared Git worktree metadata was not modified; Deploy must refresh metadata for its integrated candidate.
+
 Deployment is owned by the Deploy task, using its exact ready-commit handoff.

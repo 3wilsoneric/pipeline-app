@@ -71,7 +71,8 @@ check("interrupted packet uploads remain retryable and never auto-retry mutation
   && browserFetch.includes('const attempts = method === "GET" ? 2 : 1')
   && packetUpload.indexOf("/api/uploads/complete") > packetUpload.indexOf("/api/uploads/create-url"));
 check("failed queue refresh preserves the last successful snapshot", referralHome.includes("successfulReferralRequest.current !== requestKey")
-  && referralHome.includes("await loadReferrals(undefined, true)")
+  && referralHome.includes("if (await loadReferrals(controller.signal, true)) referralRevision.current = payload.sequence")
+  && referralHome.includes("signal?.throwIfAborted()")
   && referralHome.includes("without disturbing the current directory")
   && read("tests/e2e/pipeline-smoke.spec.ts").includes("keeps the last successful referral snapshot when refresh fails"));
 

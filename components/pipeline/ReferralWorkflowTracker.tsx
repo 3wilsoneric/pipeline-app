@@ -138,11 +138,7 @@ function WorkflowCard({ item, state, showOwner, onOpenPacket, current }: {
 }) {
   const clientName = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const owner = showOwner && item.owner !== "Unassigned" ? item.owner : null;
-  const awaitingSupervisor = item.outcome_state !== "accepted"
-    && (item.workflow_status === "recommendation_submitted" || item.workflow_status === "decision_pending");
-  const waitingForSupervisor = awaitingSupervisor && !showOwner;
-  const attention = item.urgency !== "normal" && !waitingForSupervisor;
-  const status = workCardStatus(item, awaitingSupervisor, showOwner);
+  const presentation = workCardStatusPresentation(item, showOwner);
 
   return (
     <button
@@ -156,16 +152,29 @@ function WorkflowCard({ item, state, showOwner, onOpenPacket, current }: {
         <span className="min-w-0 truncate text-[14px] font-bold text-[#202320]">{clientName}</span>
         <ArrowRight size={15} className="mt-0.5 shrink-0 text-[#7b837e] group-hover:text-[#0f8b73]" aria-hidden="true" />
       </span>
-      <span className={`mt-2 block text-[11px] font-bold leading-4 ${waitingForSupervisor ? "text-[#737c76]" : attention || item.workflow_status === "changes_requested" ? "text-[#936116]" : "text-[#176f60]"}`}>{status}</span>
-      <span className="mt-1 block line-clamp-2 min-h-9 text-[12px] font-medium leading-[18px] text-[#5f6762]">{waitingForSupervisor ? "Assessment submitted for review" : item.next_action}</span>
+      <span className={`mt-2 block text-[11px] font-bold leading-4 ${presentation.tone}`}>{presentation.status}</span>
+      <span className="mt-1 block line-clamp-2 min-h-9 text-[12px] font-medium leading-[18px] text-[#5f6762]">{presentation.nextAction}</span>
       <span className="mt-2.5 flex min-w-0 items-center justify-between gap-2 text-[10px] font-bold text-[#69716c]">
         <span className="truncate">
           {item.community}{owner ? ` · ${owner}` : ""}
         </span>
-        <span className={attention ? "shrink-0 text-[#936116]" : "shrink-0"}>{current ? "This workspace" : formatWorkAge(item.age_hours)}</span>
+        <span className={presentation.attention ? "shrink-0 text-[#936116]" : "shrink-0"}>{current ? "This workspace" : formatWorkAge(item.age_hours)}</span>
       </span>
     </button>
   );
+}
+
+function workCardStatusPresentation(item: ReferralWorklistItem, team: boolean) {
+  const awaitingSupervisor = item.outcome_state !== "accepted"
+    && (item.workflow_status === "recommendation_submitted" || item.workflow_status === "decision_pending");
+  const waiting = awaitingSupervisor && !team;
+  const attention = item.urgency !== "normal" && !waiting;
+  return {
+    attention,
+    status: workCardStatus(item, awaitingSupervisor, team),
+    tone: waiting ? "text-[#737c76]" : attention || item.workflow_status === "changes_requested" ? "text-[#936116]" : "text-[#176f60]",
+    nextAction: waiting ? "Assessment submitted for review" : item.next_action,
+  };
 }
 
 function workCardStatus(item: ReferralWorklistItem, awaitingSupervisor: boolean, team: boolean) {
