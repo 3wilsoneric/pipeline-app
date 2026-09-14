@@ -371,7 +371,7 @@ export default function ReferralPacketCanvas({
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const serverDraftsEnabled = usesServerReferralDrafts() && !trainingIntakeMode;
-  const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(serverDraftsEnabled);
+  const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState<number | null>(null);
   const [schedulingReferralId, setSchedulingReferralId] = useState<number | null>(null);
@@ -722,7 +722,7 @@ export default function ReferralPacketCanvas({
     if (loadedReferralRef.current?.id === referral.id) return;
 
     let cancelled = false;
-    if (serverDraftsEnabled) setDraftRecoveryLoading(true);
+    setDraftRecoveryLoading(true);
     fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }, { cacheTtlMs: workspaceCanvasCacheTtlMs }).then((canvasPayload) => {
       if (cancelled) return;
       const savedRecord = canvasPayload.referral ?? null;
