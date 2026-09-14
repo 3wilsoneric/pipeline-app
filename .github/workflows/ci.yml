@@ -106,17 +106,19 @@ jobs:
           PIPELINE_ENTRA_SESSION_SECRET: playwright-only-admin-god-mode-secret-2026
           PIPELINE_ALLOWED_MUTATION_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
           PIPELINE_ALLOW_LOCAL_REFERRAL_STORE: "true"
-          PIPELINE_REFERRAL_STORE_PATH: .data/playwright/referrals-3000.json
-          PIPELINE_ASSESSMENT_STORE_PATH: .data/playwright/assessments-3000.json
-          PIPELINE_RESIDENT_LINK_STORE_PATH: .data/playwright/resident-links-3000.json
+          PIPELINE_REFERRAL_STORE_PATH: ${{ github.workspace }}/.data/playwright/referrals-3000.json
+          PIPELINE_CONTACT_STORE_PATH: ${{ github.workspace }}/.data/playwright/contacts-3000.json
+          PIPELINE_DESKTOP_STATE_STORE_PATH: ${{ github.workspace }}/.data/playwright/desktop-state-3000.json
+          PIPELINE_ASSESSMENT_STORE_PATH: ${{ github.workspace }}/.data/playwright/assessments-3000.json
+          PIPELINE_RESIDENT_LINK_STORE_PATH: ${{ github.workspace }}/.data/playwright/resident-links-3000.json
           PIPELINE_CLINICAL_DATA_MODE: alamo_api
           PIPELINE_ALAMO_AUTH_MODE: delegated
           PIPELINE_ALAMO_API_BASE_URL: http://127.0.0.1:3299
-          PIPELINE_LOCAL_DOCUMENT_ROOT: .data/playwright/documents-3000
+          PIPELINE_LOCAL_DOCUMENT_ROOT: ${{ github.workspace }}/.data/playwright/documents-3000
           PIPELINE_ENABLE_SYNTHETIC_PROFILES: "true"
           PIPELINE_NOTE_LAB_ENABLED: "true"
           PIPELINE_ALLOW_LOCAL_NOTE_LAB_STORE: "true"
-          PIPELINE_NOTE_LAB_STORE_PATH: .data/playwright/note-lab-3000.json
+          PIPELINE_NOTE_LAB_STORE_PATH: ${{ github.workspace }}/.data/playwright/note-lab-3000.json
           PIPELINE_WORKER_SHARED_SECRET: playwright-worker-secret
         run: |
           set -euo pipefail
