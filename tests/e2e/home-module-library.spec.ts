@@ -1,6 +1,36 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const defaults = ["search", "recent-work", "current-work", "new-assignments", "upcoming-assessments"];
+const serverStateEnabled = process.env.PIPELINE_DESKTOP_E2E === "true";
+
+for (const entry of ["click", "shortcut"]) {
+  test(`preserves an active ${entry} search when the Home briefing finishes loading`, async ({ page }) => {
+    const response = await page.request.get("/api/operations/home");
+    const briefing = await response.json();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    await page.route("**/api/operations/home", async (route) => {
+      await gate;
+      await route.fulfill({ json: briefing });
+    });
+    if (entry === "shortcut") {
+      await page.goto("/?view=referrals");
+      await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
+      await page.keyboard.press("/");
+    } else {
+      await page.goto("/");
+      await page.getByRole("button", { name: "Open search", exact: true }).click();
+    }
+    const input = page.getByRole("textbox", { name: "Search or ask" });
+    await input.fill("Avery");
+    const originalInput = await input.elementHandle();
+    release();
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+    await expect(input).toHaveValue("Avery");
+    await expect(input).toBeFocused();
+    expect(await originalInput!.evaluate((element) => element.isConnected)).toBe(true);
+  });
+}
 
 async function moduleOrder(page: Page) {
   return page.locator("[data-home-module]").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-home-module")));
@@ -9,10 +39,27 @@ async function moduleOrder(page: Page) {
 async function mockLayout(page: Page, moduleIds: string[] = defaults) {
   let layout = { schema: 2, module_ids: moduleIds, locked: true };
   const writes: typeof layout[] = [];
+  if (!serverStateEnabled) {
+    const home = await page.request.get("/api/operations/home");
+    expect(home.ok()).toBe(true);
+    const { viewer } = await home.json();
+    const key = `pipeline:home-layout:v1:${encodeURIComponent(viewer.id)}`;
+    await page.exposeFunction("recordHomeLayout", (saved: typeof layout) => writes.push(saved));
+    await page.addInitScript(({ key, layout }) => {
+      if (localStorage.getItem(key) === null) localStorage.setItem(key, JSON.stringify(layout));
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (name, value) {
+        setItem.call(this, name, value);
+        if (this === localStorage && name === key) {
+          void (window as typeof window & { recordHomeLayout: (saved: unknown) => Promise<void> }).recordHomeLayout(JSON.parse(value));
+        }
+      };
+    }, { key, layout });
+  }
   await page.route("**/api/me/home-layout", async (route) => {
     if (route.request().method() === "PUT") {
       layout = route.request().postDataJSON().layout;
-      writes.push(layout);
+      if (serverStateEnabled) writes.push(layout);
     }
     await route.fulfill({ json: { layout } });
   });
@@ -120,6 +167,7 @@ test("an empty Home can add modules again or restore defaults", async ({ page })
 });
 
 test("layout loading cannot overwrite an edit made against an unfinished read", async ({ page }) => {
+  test.skip(!serverStateEnabled, "Async server reads are covered by test:e2e:desktop; browser-only layouts load synchronously.");
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
   await page.route("**/api/me/home-layout", async (route) => {
@@ -135,6 +183,7 @@ test("layout loading cannot overwrite an edit made against an unfinished read", 
 });
 
 test("the layout API migrates legacy order, preserves removals, and scopes settings to the signed-in user", async ({ request, baseURL }) => {
+  test.skip(!serverStateEnabled, "The user-state API is disabled in mock browser-only mode; test:e2e:desktop enables and verifies it.");
   const origin = new URL(baseURL!).origin;
   const save = (layout: unknown) => request.put("/api/me/home-layout", { headers: { origin }, data: { layout } });
   const legacy = await save({ schema: 1, module_ids: ["scheduling-queue"], locked: true });

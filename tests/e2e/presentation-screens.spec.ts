@@ -158,6 +158,7 @@ test("keeps the scheduling walkthrough above the full-screen appointment form", 
 
 test("shows a loaded real screen on every slide and supports keyboard enlargement", async ({ page }, testInfo) => {
   await page.goto("/training/demo");
+  await page.evaluate(() => document.fonts.ready);
   const slideSelect = page.getByRole("combobox", { name: "Jump to slide" });
   const count = await slideSelect.locator("option").count();
   for (const width of [1280, 390]) {
@@ -171,11 +172,15 @@ test("shows a loaded real screen on every slide and supports keyboard enlargemen
         await tab.click();
         await expect.poll(() => slide.locator("figure img").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
       }
-      expect(await slide.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      const size = await slide.evaluate((element) => ({
+        width: element.clientWidth, scrollWidth: element.scrollWidth,
+        height: element.clientHeight, scrollHeight: element.scrollHeight,
+      }));
+      expect(size.scrollWidth, `Slide ${index + 1} at ${width}px: horizontal overflow`).toBeLessThanOrEqual(size.width);
       if (width === 1280) {
-        expect(await slide.evaluate((element) => element.scrollHeight <= element.clientHeight + 1)).toBe(true);
+        expect(size.scrollHeight, `Slide ${index + 1} at ${width}px: vertical overflow`).toBeLessThanOrEqual(size.height + 1);
       }
-      if (width === 1280 && [0, 6, 8].includes(index)) {
+      if (width === 1280 && [0, 5, 6, 8].includes(index)) {
         await page.screenshot({ path: testInfo.outputPath(`slide-${index + 1}.png`), animations: "disabled" });
       }
     }

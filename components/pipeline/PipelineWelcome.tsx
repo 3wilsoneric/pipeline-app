@@ -36,6 +36,7 @@ export default function PipelineWelcome({
   onFinishEditingHome,
   canAccessReports = false,
   initialBriefing,
+  viewerId,
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   onOpenProfile: (residentKey: string) => void;
@@ -49,6 +50,7 @@ export default function PipelineWelcome({
   onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
   initialBriefing?: HomeBriefingSnapshot | null;
+  viewerId?: string;
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(initialBriefing ?? null);
   const [error, setError] = useState("");
@@ -149,12 +151,25 @@ export default function PipelineWelcome({
     onOpenDestination: onOpenSearchDestination,
     onViewAllResults: onViewAllSearchResults,
   };
+  const briefingModules = briefing ? {
+    "recent-work": <ContinueWorkPanel items={briefing.continuity.resume_items} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onResumeDraft={onResumeDraft} />,
+    "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} onOpenPacket={onOpenPacket} />,
+    "new-assignments": <SinceLastVisitAssignments items={briefing.continuity.new_assignments} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onAcknowledge={acknowledgeAssignments} />,
+    "upcoming-assessments": <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />,
+    "scheduling-queue": <SchedulingQueuePanel briefing={briefing} onOpenPacket={onOpenPacket} />,
+  } : {
+    "recent-work": null,
+    "current-work": null,
+    "new-assignments": null,
+    "upcoming-assessments": null,
+    "scheduling-queue": null,
+  };
 
   return (
     <>
       <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-2 sm:px-6 lg:px-8">
-          <HomeSearchAccess ready={Boolean(briefing)} visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
+          <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
 
           {error ? (
             <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
@@ -163,21 +178,17 @@ export default function PipelineWelcome({
             </div>
           ) : null}
 
-          {!briefing && !error ? <HomeSkeleton /> : null}
-          {briefing ? (
+          {viewerId ? (
             <div className="mt-2 space-y-4">
-              {briefing.unavailable_sections.length > 0 ? (
-                <div role="status" className="border-l-2 border-[#b77b27] bg-[#fff8eb] px-4 py-2.5 text-[11px] text-[#73501f]">
-                  A few live counts could not be refreshed. Open records remain available.
-                </div>
-              ) : null}
+              <HomeLiveCountNotice sections={briefing?.unavailable_sections} />
               <HomeModuleDashboard
-                key={briefing.viewer.id}
-                viewerId={briefing.viewer.id}
+                key={viewerId}
+                viewerId={viewerId}
                 initialEditing={editHome}
                 onFinishEditing={onFinishEditingHome}
                 onSearchVisibilityChange={setSearchVisible}
                 modules={{
+                  ...briefingModules,
                   "search": (
                     <section aria-label="Search Pipeline" className="w-full bg-white px-1">
                       <PipelineSearchPanel
@@ -187,22 +198,11 @@ export default function PipelineWelcome({
                       />
                     </section>
                   ),
-                  "recent-work": <ContinueWorkPanel items={briefing.continuity.resume_items} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onResumeDraft={onResumeDraft} />,
-                  "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} onOpenPacket={onOpenPacket} />,
-                  "new-assignments": (
-                    <SinceLastVisitAssignments
-                      items={briefing.continuity.new_assignments}
-                      unavailable={briefing.continuity.unavailable}
-                      onOpenPacket={onOpenPacket}
-                      onAcknowledge={acknowledgeAssignments}
-                    />
-                  ),
-                  "upcoming-assessments": <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />,
-                  "scheduling-queue": <SchedulingQueuePanel briefing={briefing} onOpenPacket={onOpenPacket} />,
                 } satisfies Record<PipelineHomeModuleId, ReactNode>}
               />
             </div>
           ) : null}
+          {!briefing && !error ? <HomeSkeleton /> : null}
         </div>
       </main>
       {briefing && currentWorkOpen ? (
@@ -212,17 +212,20 @@ export default function PipelineWelcome({
   );
 }
 
-function HomeSearchAccess({ ready, visible, searchProps, onClose }: {
-  ready: boolean;
+function HomeLiveCountNotice({ sections }: { sections: HomeBriefingSnapshot["unavailable_sections"] | undefined }) {
+  if (!sections?.length) return null;
+  return (
+    <div role="status" className="border-l-2 border-[#b77b27] bg-[#fff8eb] px-4 py-2.5 text-[11px] text-[#73501f]">
+      A few live counts could not be refreshed. Open records remain available.
+    </div>
+  );
+}
+
+function HomeSearchAccess({ visible, searchProps, onClose }: {
   visible: boolean;
   searchProps: ComponentProps<typeof PipelineSearchPanel>;
   onClose: () => void;
 }) {
-  if (!ready) return (
-    <section aria-label="Search Pipeline" className="w-full bg-white px-1">
-      <PipelineSearchPanel {...searchProps} resting onSearchFocused={onClose} />
-    </section>
-  );
   if (visible || !searchProps.autoFocus) return null;
   return (
     <HomeDialog label="Search Pipeline" title="Search" onClose={onClose}>

@@ -144,6 +144,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
   const [reportAccess, setReportAccess] = useState<boolean | null>(() => initialUser ? canAccessOperationsReports(initialUser.roles) : null);
+  const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
   // Header links and browser history also leave Home without calling navigate.
   // The server seed is only for entry, never for a later return to Home.
@@ -172,6 +173,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     fetchCurrentPipelineUser()
       .then(({ user }) => {
         if (cancelled) return;
+        setViewerId(user.id);
         setReportAccess(canAccessOperationsReports(user.roles));
         // Warm the first workspace page and complete current census after authentication.
         // GET-only reads use the same cache as navigation; no charts or files
@@ -253,6 +255,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   if (screen === "home") {
     return (
       <PipelineWelcome
+        viewerId={viewerId}
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
         onOpenPacket={(referral, location) => navigate("packet", referral, undefined, location)}
