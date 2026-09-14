@@ -3,18 +3,11 @@
 import {
   ArrowLeft,
   ArrowRight,
-  CalendarDays,
-  Check,
   ClipboardCheck,
   ExternalLink,
-  FileCheck2,
-  FileText,
   ListChecks,
-  LockKeyhole,
   Play,
   RefreshCcw,
-  ShieldCheck,
-  UserRound,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -35,9 +28,6 @@ import { getOperatorGuidedTutorial } from "@/lib/training/operator-guided-tutori
 import { stageOperatorGuideForNavigation } from "@/lib/training/operator-guided-tour-state";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
-import { assessmentInterviewQuestions } from "@/lib/assessment/assessment-interview-schema";
-import { assessmentToolFieldDefinitions, type AssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
-import { GuidedAssessmentField } from "@/components/pipeline/GuidedAssessmentInterview";
 import PipelineProcessTester, { type ProcessTesterStage } from "@/components/pipeline/training/PipelineProcessTester";
 
 const SubmissionAcceptanceDemo = dynamic(() => import("@/components/pipeline/training/SubmissionAcceptanceDemo"), {
@@ -65,9 +55,7 @@ type PresentationSlide = {
   title: string;
   summary: string;
   points: readonly string[];
-  graphic?: "case-spine" | "ownership" | "workday" | "source-stack" | "assessment-map" | "language-lab" | "decision-path";
-  screenshots?: readonly PresentationScreenshot[];
-  sections?: readonly string[];
+  screenshots: readonly PresentationScreenshot[];
   rule?: string;
   guide?: {
     label: string;
@@ -94,13 +82,17 @@ const presentationSlides: readonly PresentationSlide[] = [
     navLabel: "Map",
     location: "From Allo to Pipeline",
     title: "Find your referral. Keep the work together.",
-    summary: "Start with the referral assigned to you. Its workspace holds the packet, intake, appointment, and assessment through to the supervisor’s decision.",
+    summary: "Home is the starting point. Select your assignment to open its existing workspace.",
     points: [
-      "Already assigned? Open the existing workspace; do not create it again.",
-      "Taking a new referral? Use the + button to attach its packet and complete intake.",
-      "This orientation shows where to click. The walkthroughs let you try it.",
+      "The packet, intake, appointment, and assessment stay with that referral.",
+      "Use + only when taking a new referral—not to reopen an assignment.",
     ],
-    graphic: "case-spine",
+    screenshots: [{
+      src: "/training/presentation/assessor-home.png",
+      alt: "Pipeline Home with Taylor Rivera in New assignments and the current work queue.",
+      label: "Home · New assignments",
+      caption: "Select the name under New assignments to open that referral. The + in the top navigation is for a new referral, not an assigned one.",
+    }],
     nextLabel: "See the main screens",
     dark: true,
   },
@@ -110,13 +102,17 @@ const presentationSlides: readonly PresentationSlide[] = [
     navLabel: "Screens",
     location: "Home · Workspaces · Calendar · Clients",
     title: "Where everything lives",
-    summary: "Use Home for work that needs attention, Workspaces to find a referral, Calendar for appointments, and Clients for current residents from the Alamo platform.",
+    summary: "Home shows work needing attention. Workspaces holds referrals; Clients lists current residents from the Alamo platform.",
     points: [
       "Home → Continue working reopens saved work when there is something to resume.",
-      "Workspaces is sorted by recent updates. Assessors see their work; supervisors can switch between Mine and Team.",
-      "An older transferred chart belongs in Workspaces; it does not by itself mean the person is a current client.",
+      "Workspaces shows recent updates first. Use search and owner filters; supervisors can switch Mine / All.",
     ],
-    graphic: "workday",
+    screenshots: [
+      { src: "/training/presentation/assessor-workspaces.png", alt: "Pipeline Workspaces with recent referrals and the workspace search and owner filters.", label: "Workspaces", caption: "Workspaces → select the name to open the existing record. Search and owner filters are above the list." },
+      { src: "/training/presentation/assessor-home.png", alt: "Pipeline Home with current work and new assignments.", label: "Home", caption: "Select a work item or new assignment. Continue working appears here when there is saved work to resume." },
+      { src: "/training/presentation/assessor-calendar.png", alt: "Pipeline Calendar with scheduled assessments and links back to their referrals.", label: "Calendar", caption: "Select an appointment to see its details and open the linked referral." },
+      { src: "/training/presentation/current-clients.png", alt: "Pipeline Clients showing current residents as client folders, with Cards and List controls.", label: "Clients", caption: "Current residents from the Alamo platform. Open a folder to see the client chart, or switch to List." },
+    ],
     nextLabel: "Open the workspace",
   },
   {
@@ -124,12 +120,11 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 3,
     navLabel: "Workspace",
     location: "Workspaces → referral",
-    title: "Open the right part of the workspace",
+    title: "Inside the workspace",
     summary: "New referrals use Intake, Assessment, and Chart. Transferred Allo records open as charts; they do not need a new intake or assessment just because they were imported.",
     points: [
-      "For an active referral, open Intake to review the packet and client information.",
+      "Intake holds the packet and client information. Assessment is where the interview is completed.",
       "Files and Activity are beside the stage navigation at the top.",
-      "Returning to an assessment? Reopen the existing work instead of creating another referral.",
     ],
     screenshots: [{
       src: "/training/presentation/intake-workspace.png",
@@ -145,11 +140,10 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 4,
     navLabel: "Intake",
     location: "Workspace → Intake",
-    title: "Review the packet before the interview",
-    summary: "Intake is where packet facts are checked, corrected, and attributed before they carry into the assessment.",
+    title: "Review intake before scheduling",
+    summary: "Open the packet and check the information recorded in Intake, including the contact details needed to arrange the interview.",
     points: [
-      "Check identity, source, county, community, contacts, and medications against the packet.",
-      "Use the contact details in intake to arrange the interview; saving a contact does not call or message anyone.",
+      "Check identity, county, community, and medications against the source. Saving a contact does not call or message anyone.",
       "Keep conflicting sources visible and leave unsupported facts unrecorded.",
     ],
     screenshots: [{
@@ -165,18 +159,17 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 5,
     navLabel: "Schedule",
     location: "Workspace → Assessment → Schedule",
-    title: "Schedule from the referral, then see it on Calendar",
-    summary: "After reviewing intake and arranging the interview, save its date and time in Pacific Time, duration, and method. The appointment then appears on Calendar.",
+    title: "Arrange the assessment",
+    summary: "After reviewing intake and arranging the interview, open Assessment → Schedule. Enter the date and time in Pacific Time, duration, and method.",
     points: [
-      "Open Assessment, then Schedule. Use the address, phone number, or Zoom link field for the selected method.",
-      "Record review needs no meeting details. Saving the schedule does not send an invitation.",
-      "On the day, open the linked referral from Home or Calendar. Reschedule the existing appointment if plans change.",
+      "Add the address, phone number, or Zoom link. Record review needs no meeting details; scheduling does not send an invitation.",
+      "The saved appointment appears on Calendar. Open its linked referral on the day, or reschedule it if plans change.",
     ],
     screenshots: [
       {
         src: "/training/presentation/assessment-schedule.png",
-        alt: "Synthetic Pipeline assessment with the Schedule dialog open and the scheduling tooltip walkthrough beside it.",
-        label: "Schedule dialog",
+        alt: "Synthetic Pipeline full-screen Schedule assessment form with its scheduling tooltip walkthrough beside the date and time.",
+        label: "Schedule assessment",
         caption: "Set date and time in Pacific Time, choose the method, enter its meeting details, then select Schedule assessment.",
       },
       {
@@ -194,19 +187,17 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 6,
     navLabel: "Assessment",
     location: "Workspace → Assessment → Open assessment",
-    title: "Work through the assessment at your pace",
+    title: "Pick up where you left off",
     summary: "The guided interview works through one group of questions at a time. The full assessment organizes the same answers into 12 sections.",
     points: [
       "Use Next within the interview. Close the guided view to review the full assessment.",
-      "Pausing until tomorrow? Wait for saved status, then return through Home → Continue working or the same workspace.",
-      "A saved draft is not signed or submitted. Those are separate actions when the work is ready.",
+      "Pausing? Wait for saved status. Return through Home → Continue working or the same workspace. A draft is not a submittal.",
     ],
-    sections: ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"],
     screenshots: [{
-      src: "/training/presentation/assessment-guided.png",
-      alt: "Synthetic Pipeline assessment showing its 12-section rail, interview fields, progress panel, and live tooltip walkthrough.",
-      label: "Assessment with guide",
-      caption: "The assessment’s section view and progress. The tooltip walkthrough opens the same questions in the guided interview.",
+      src: "/training/presentation/assessment-interview.png",
+      alt: "Pipeline guided assessment interview for Taylor Rivera with real answer controls and Next at the bottom right.",
+      label: "Guided interview",
+      caption: "Answer in the middle; use Back and Next at the bottom. Exit guided interview returns to the section view of these same answers.",
     }],
     guide: { label: "Start the assessment walkthrough", scenarioId: "assessment-interview", tutorialId: "complete-assessment", stepId: "assessment-section-identity", workspaceStage: "assessment" },
     nextLabel: "Document the interview",
@@ -216,14 +207,18 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 7,
     navLabel: "Document",
     location: "Assessment → History → Prior placements → Language Lab",
-    title: "Write the placement history clearly",
-    summary: "Use the Prior placements field in History. Open Language Lab beneath the answer for the same writing order, checklist, and example used in the assessment.",
+    title: "Language Lab stays beside the answer",
+    summary: "In History, select Language Lab beneath Prior placements. The writing order, checklist, and example open where you are working.",
     points: [
-      "Name the setting, timeframe, reason it ended, source, and what helped.",
-      "Use the example as a format, not as facts about your client.",
+      "Use the example for structure—not as facts about your client.",
       "Language Lab stays beneath the same answer in the guided interview and full assessment.",
     ],
-    graphic: "language-lab",
+    screenshots: [{
+      src: "/training/presentation/assessment-language-lab.png",
+      alt: "Pipeline assessment History screen with Language Lab expanded beneath the Prior placements answer.",
+      label: "Language Lab in the assessment",
+      caption: "Select Language Lab beneath Prior placements. Its writing order, checklist, and example stay beside the answer you are working on.",
+    }],
     nextLabel: "Review and sign",
     guide: { label: "Try Language Lab in the assessment", scenarioId: "assessment-interview", tutorialId: "complete-assessment", stepId: "assessment-answer", workspaceStage: "assessment" },
   },
@@ -232,11 +227,10 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 8,
     navLabel: "Sign",
     location: "Assessment → Review → Sign assessment",
-    title: "Review the saved draft before signing",
+    title: "Review, then sign",
     summary: "Review names missing required answers and unresolved information. Signing locks the completed assessment; later information is recorded as an addendum.",
     points: [
-      "The Review section is the last item in the left rail.",
-      "Saved status and the Sign assessment action are in the top bar.",
+      "Select Review at the bottom of the left rail. Saved status and Sign assessment are in the top bar.",
       "A signed assessment still needs Submit for supervisor review in Workflow.",
     ],
     screenshots: [{
@@ -245,7 +239,6 @@ const presentationSlides: readonly PresentationSlide[] = [
       label: "Final review",
       caption: "Review is selected in the left rail; saved status and Sign assessment remain visible in the top bar.",
     }],
-    rule: "The assessor signs and submits a recommendation. The authorized decision-maker records acceptance or decline.",
     nextLabel: "Submit for review",
   },
   {
@@ -253,14 +246,16 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 9,
     navLabel: "Decision",
     location: "Workspace → Workflow",
-    title: "Submit the recommendation, then the supervisor decides",
-    summary: "The assessor submits the signed assessment and recommendation. A supervisor with decision permission reviews that submittal and records acceptance, decline, or a request for changes.",
+    title: "Submit for supervisor review",
+    summary: "The assessor submits the signed assessment and recommendation. The authorized supervisor records acceptance, decline, or a request for changes.",
     points: [
       "Submit for supervisor review freezes the signed assessment revision under review.",
-      "The supervisor can accept, decline, or request changes without editing the assessor's work.",
       "Acceptance is not admission. The admission and handoff requirements still need to be completed.",
     ],
-    graphic: "decision-path",
+    screenshots: [
+      { src: "/training/presentation/assessment-submittal.png", alt: "Pipeline Workflow showing the assessor recommendation and Submit for supervisor review control.", label: "Assessor submittal", caption: "Open Workflow beside the workspace tabs. Record the recommendation and rationale, then select Submit for supervisor review." },
+      { src: "/training/presentation/supervisor-decision.png", alt: "Pipeline Workflow showing a submitted assessment and the supervisor admission decision controls.", label: "Supervisor decision", caption: "The authorized supervisor reviews the submittal and records a decision. This view has permissions that an assessor account may not have." },
+    ],
     nextLabel: "Begin walkthrough",
   },
 ] as const;
@@ -544,6 +539,7 @@ function usePresentationKeyboard(slideIndex: number, selectSlide: (index: number
 
 function presentationSlideIndexForKey(event: KeyboardEvent, slideIndex: number) {
   const target = event.target as HTMLElement | null;
+  if (target?.closest("dialog[open]")) return null;
   if (target?.matches("input, textarea, select, [contenteditable='true']")) return null;
   if (event.key === "ArrowRight") return slideIndex + 1;
   if (event.key === "ArrowLeft") return slideIndex - 1;
@@ -558,7 +554,7 @@ function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: P
 
 function PresentationSlideBody({ slide, onStartGuide }: { slide: PresentationSlide; onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void }) {
   const palette = presentationPalette(slide.dark);
-  return <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`min-h-0 flex-1 overflow-y-auto ${palette.article}`}><div className="mx-auto grid min-h-full w-full max-w-[1720px] content-center gap-7 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[minmax(320px,370px)_minmax(600px,1fr)] lg:items-center lg:gap-10 lg:px-10 xl:grid-cols-[minmax(350px,400px)_minmax(680px,1fr)] xl:px-12 2xl:grid-cols-[minmax(390px,440px)_minmax(760px,1fr)] 2xl:gap-14 2xl:px-14"><div className="min-w-0"><div className={`text-[11px] font-black uppercase tracking-[0.12em] ${palette.eyebrow}`}>{slide.location}</div><h2 className="mt-3 max-w-[700px] text-[34px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[42px] lg:text-[36px] xl:text-[40px] 2xl:text-[48px]">{slide.title}</h2><p className={`mt-4 max-w-[680px] text-[16px] font-medium leading-7 sm:text-[18px] lg:text-[15px] lg:leading-6 xl:text-[17px] xl:leading-7 2xl:text-[18px] ${palette.summary}`}>{slide.summary}</p><PresentationPoints slide={slide} palette={palette} /><PresentationRule slide={slide} palette={palette} /><PresentationSlideActions slide={slide} onStartGuide={onStartGuide} /></div><PresentationVisual slide={slide} /></div></article>;
+  return <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`min-h-0 flex-1 overflow-y-auto ${palette.article}`}><div className="mx-auto grid min-h-full w-full max-w-[1840px] content-center gap-7 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-center lg:gap-10 lg:px-10 xl:grid-cols-[320px_minmax(0,1fr)] xl:px-12 2xl:grid-cols-[360px_minmax(0,1fr)] 2xl:gap-10 2xl:px-14"><div className="min-w-0"><div className={`text-[11px] font-black uppercase tracking-[0.12em] ${palette.eyebrow}`}>{slide.location}</div><h2 className="mt-3 max-w-[700px] text-[34px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[42px] lg:text-[36px] xl:text-[36px] 2xl:text-[44px]">{slide.title}</h2><p className={`mt-4 max-w-[680px] text-[16px] font-medium leading-7 sm:text-[18px] lg:text-[16px] lg:leading-6 xl:text-[17px] xl:leading-7 2xl:text-[18px] ${palette.summary}`}>{slide.summary}</p><PresentationPoints slide={slide} palette={palette} /><PresentationRule slide={slide} palette={palette} /><PresentationSlideActions slide={slide} onStartGuide={onStartGuide} /></div><PresentationVisual slide={slide} /></div></article>;
 }
 
 type PresentationPalette = ReturnType<typeof presentationPalette>;
@@ -584,7 +580,7 @@ function presentationPalette(dark?: boolean) {
 }
 
 function PresentationPoints({ slide, palette }: { slide: PresentationSlide; palette: PresentationPalette }) {
-  return <ul className={`mt-5 border-y ${palette.list}`}>{slide.points.map((point, index) => <li key={point} className={`grid grid-cols-[30px_minmax(0,1fr)] gap-2 border-b py-2.5 last:border-b-0 ${palette.point}`}><span className={`text-[10px] font-black tabular-nums ${palette.number}`}>{String(index + 1).padStart(2, "0")}</span><span className="text-[12px] font-bold leading-5 2xl:text-[13px]">{point}</span></li>)}</ul>;
+  return <ul className={`mt-5 border-y ${palette.list}`}>{slide.points.map((point, index) => <li key={point} className={`grid grid-cols-[30px_minmax(0,1fr)] gap-2 border-b py-2.5 last:border-b-0 ${palette.point}`}><span className={`text-[10px] font-black tabular-nums ${palette.number}`}>{String(index + 1).padStart(2, "0")}</span><span className="text-[14px] font-medium leading-6 2xl:text-[16px]">{point}</span></li>)}</ul>;
 }
 
 function PresentationRule({ slide, palette }: { slide: PresentationSlide; palette: PresentationPalette }) {
@@ -602,29 +598,17 @@ function PresentationFooter({ slide, slideIndex, onSelect, onFinish }: { slide: 
 }
 
 function PresentationVisual({ slide }: { slide: PresentationSlide }) {
-  if (slide.screenshots?.length) return <PresentationScreenshots screenshots={slide.screenshots} />;
-  if (slide.graphic === "case-spine") return <CaseSpineVisual />;
-  if (slide.graphic === "ownership") return <OwnershipVisual />;
-  if (slide.graphic === "workday") return <WorkdayVisual />;
-  if (slide.graphic === "source-stack") return <SourceStackVisual />;
-  if (slide.graphic === "assessment-map") return <AssessmentMapVisual />;
-  if (slide.graphic === "language-lab") return <LanguageLabVisual />;
-  if (slide.graphic === "decision-path") return <DecisionPathVisual />;
-  return null;
+  return <PresentationScreenshots screenshots={slide.screenshots} />;
 }
 
 function PresentationScreenshots({ screenshots }: { screenshots: readonly PresentationScreenshot[] }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const selected = screenshots[selectedIndex] ?? screenshots[0];
 
   useEffect(() => {
-    if (!expanded) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    if (expanded) dialogRef.current?.showModal();
   }, [expanded]);
 
   return (
@@ -637,183 +621,19 @@ function PresentationScreenshots({ screenshots }: { screenshots: readonly Presen
         </div>
         <button type="button" onClick={() => setExpanded(true)} className="shrink-0 px-4 text-[9px] font-black uppercase tracking-[0.09em] text-[#5e6a65] hover:bg-white hover:text-[#0c705f]">View full size</button>
       </div>
-      <div className="relative aspect-video w-full overflow-hidden bg-[#e8edeb]">
+      <button type="button" aria-label={`Enlarge ${selected.label} screenshot`} onClick={() => setExpanded(true)} className="relative block aspect-video w-full lg:max-h-[calc(100dvh-330px)] cursor-zoom-in overflow-hidden bg-[#e8edeb] outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#0f8b73]">
         <Image key={selected.src} src={toPipelinePath(selected.src)} alt={selected.alt} fill unoptimized loading="eager" sizes="(max-width: 1023px) 100vw, 68vw" className="object-contain object-top" />
-      </div>
-      <figcaption className="border-t border-[#d5ddda] bg-white px-4 py-3 text-[12px] font-semibold leading-5 text-[#52605a]">{selected.caption}</figcaption>
-      {expanded ? <div className="fixed inset-0 z-[170] flex h-dvh flex-col bg-[#0d1713] text-white" role="dialog" aria-modal="true" aria-label={`${selected.label} full-size screen`}>
-        <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-white/20 px-5 sm:px-8"><div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8be0c5]">Synthetic Pipeline screen</div><div className="mt-1 text-[14px] font-black">{selected.label}</div></div><button type="button" onClick={() => setExpanded(false)} className="h-10 border border-white/30 px-4 text-[11px] font-black hover:border-[#8be0c5] hover:text-[#8be0c5]">Close full-size screen</button></header>
+      </button>
+      <figcaption className="border-t border-[#d5ddda] bg-white px-4 py-3 text-[14px] font-medium leading-6 text-[#52605a]">{selected.caption}</figcaption>
+      {expanded ? <dialog ref={dialogRef} onClose={() => setExpanded(false)} className="fixed inset-0 m-0 flex h-dvh max-h-none w-screen max-w-none flex-col border-0 bg-[#0d1713] p-0 text-white" aria-label={`${selected.label} full-size screen`}>
+        <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-white/20 px-5 sm:px-8"><div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8be0c5]">Synthetic Pipeline screen</div><div className="mt-1 text-[14px] font-black">{selected.label}</div></div><button type="button" onClick={() => dialogRef.current?.close()} className="h-10 border border-white/30 px-4 text-[11px] font-black hover:border-[#8be0c5] hover:text-[#8be0c5]">Close full-size screen</button></header>
         <div className="relative min-h-0 flex-1"><Image src={toPipelinePath(selected.src)} alt={selected.alt} fill unoptimized sizes="100vw" className="object-contain" /></div>
         <p className="shrink-0 border-t border-white/20 px-5 py-3 text-center text-[12px] font-semibold text-[#d5e2dd] sm:px-8">{selected.caption}</p>
-      </div> : null}
+      </dialog> : null}
     </figure>
   );
 }
 
-function CaseSpineVisual() {
-  const stages = [
-    { label: "Referral packet", detail: "What arrived", icon: FileText },
-    { label: "Assessment", detail: "What you verified", icon: ClipboardCheck },
-    { label: "Recommendation", detail: "What you concluded", icon: FileCheck2 },
-    { label: "Supervisor decision", detail: "Accepted or declined", icon: ShieldCheck },
-  ] as const;
-  return (
-    <section aria-label="Taylor Rivera referral journey" className="min-w-0 overflow-hidden border border-white/20 bg-[#0f3029] shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
-      <div className="flex items-center justify-between gap-4 border-b border-white/15 px-5 py-4 sm:px-6">
-        <div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8be0c5]">Synthetic case</div><div className="mt-1 text-[20px] font-semibold text-white">Taylor Rivera</div></div>
-        <div className="text-right text-[11px] font-semibold leading-5 text-[#bdd3cc]">Turlock<br />Assigned assessment</div>
-      </div>
-      <ol className="grid gap-px bg-white/15 sm:grid-cols-2 xl:grid-cols-4">
-        {stages.map(({ label, detail, icon: Icon }, index) => (
-          <li key={label} className="relative min-h-[150px] bg-[#143d34] p-5 sm:p-6">
-            <div className="flex items-start justify-between"><Icon size={22} className="text-[#8be0c5]" aria-hidden="true" /><span className="text-[10px] font-black text-white/45">0{index + 1}</span></div>
-            <div className="mt-8 text-[15px] font-black text-white">{label}</div>
-            <div className="mt-1 text-[11px] font-medium leading-5 text-[#bdd3cc]">{detail}</div>
-          </li>
-        ))}
-      </ol>
-      <div className="flex items-center gap-3 border-t border-white/15 px-5 py-4 text-[12px] font-bold text-white sm:px-6"><Check size={16} className="text-[#8be0c5]" aria-hidden="true" />The packet, assessment, recommendation, and decision remain connected.</div>
-    </section>
-  );
-}
-
-function OwnershipVisual() {
-  return (
-    <section aria-label="Assessor and administrator responsibilities" className="min-w-0 overflow-hidden border border-[#c8d3ce] bg-white shadow-[0_24px_70px_rgba(28,50,42,0.10)]">
-      <div className="grid gap-px bg-[#d8e0dc] sm:grid-cols-2">
-        <div className="bg-[#eaf5f1] p-6 sm:p-7">
-          <div className="flex items-center gap-3 text-[#0c705f]"><UserRound size={21} aria-hidden="true" /><span className="text-[11px] font-black uppercase tracking-[0.1em]">You · assessor</span></div>
-          <ul className="mt-7 space-y-4 text-[15px] font-bold leading-6 text-[#243a32]">
-            <OwnershipItem>Verify the source material</OwnershipItem>
-            <OwnershipItem>Complete and sign the assessment</OwnershipItem>
-            <OwnershipItem>Submit the clinical recommendation</OwnershipItem>
-          </ul>
-        </div>
-        <div className="bg-white p-6 sm:p-7">
-          <div className="flex items-center gap-3 text-[#5c6762]"><ShieldCheck size={21} aria-hidden="true" /><span className="text-[11px] font-black uppercase tracking-[0.1em]">Authorized administrator</span></div>
-          <ul className="mt-7 space-y-4 text-[15px] font-bold leading-6 text-[#39443f]">
-            <OwnershipItem muted>Review assessment and requirements</OwnershipItem>
-            <OwnershipItem muted>Discuss operational fit</OwnershipItem>
-            <OwnershipItem muted>Record the admission decision</OwnershipItem>
-          </ul>
-        </div>
-      </div>
-      <div className="border-t border-[#d8e0dc] bg-[#17221e] px-6 py-4 text-[13px] font-bold text-white"><span className="text-[#8bd5bd]">The boundary:</span> recommend acceptance, decline, or more information. Do not record the final decision.</div>
-    </section>
-  );
-}
-
-function OwnershipItem({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
-  return <li className="flex items-start gap-3"><span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${muted ? "bg-[#eef1ef] text-[#68736e]" : "bg-white text-[#0f8b73]"}`}><Check size={12} aria-hidden="true" /></span><span>{children}</span></li>;
-}
-
-function WorkdayVisual() {
-  const surfaces = [
-    { label: "Home", title: "What needs my attention?", detail: "My work, new assignments, and upcoming assessments. Supervisors also see team work.", status: "Select a work item to open it", icon: UserRound },
-    { label: "Workspaces", title: "Where is the referral?", detail: "Search existing referrals and transferred charts. Continue intake reopens an unfinished draft.", status: "Open the existing record", icon: FileCheck2 },
-    { label: "Calendar", title: "What is scheduled?", detail: "Assessment appointments and follow-ups, with a link back to their referral.", status: "Check the date and filters", icon: CalendarDays },
-    { label: "Clients", title: "Who is currently a resident?", detail: "Current residents from the Alamo platform, with their client chart and available linked history.", status: "Cards or List → client chart", icon: UserRound },
-  ] as const;
-  return (
-    <section aria-label="Where to find your work" className="min-w-0">
-      <ol className="grid gap-3 sm:grid-cols-2">
-        {surfaces.map(({ label, title, detail, status, icon: Icon }) => (
-          <li key={label} className="relative border border-[#cbd5d1] bg-white p-5 shadow-[0_16px_40px_rgba(29,52,44,0.08)]">
-            <div className="flex items-center justify-between"><div className="flex h-9 w-9 items-center justify-center bg-[#e7f3ef] text-[#0c705f]"><Icon size={18} aria-hidden="true" /></div><span className="text-[9px] font-black uppercase tracking-[0.09em] text-[#77817c]">{label}</span></div>
-            <div className="mt-4 text-[18px] font-bold text-[#1f2c27]">{title}</div>
-            <div className="mt-2 min-h-10 text-[14px] font-medium leading-6 text-[#66716c]">{detail}</div>
-            <div className="mt-5 border-t border-[#e0e5e2] pt-3 text-[10px] font-black text-[#0c705f]">{status}</div>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-4 border-l-4 border-[#0f8b73] bg-[#edf5f2] px-5 py-4 text-[14px] font-semibold leading-6 text-[#315047]">Coming back later? Use <strong>Home → Continue working</strong> when available, or find the same referral in Workspaces.</div>
-    </section>
-  );
-}
-
-function SourceStackVisual() {
-  const sources = [
-    ["Client report", "Missed two evening doses this week"],
-    ["Referral packet", "Medication list dated three months ago"],
-    ["Collateral", "Current pharmacy record not received"],
-    ["Your observation", "Client identifies purpose of medication"],
-  ] as const;
-  return (
-    <section aria-label="Source attribution example" className="grid min-w-0 gap-4 xl:grid-cols-[0.86fr_1.14fr]">
-      <div className="space-y-2">
-        {sources.map(([source, fact], index) => <div key={source} className="border border-[#cbd5d1] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(29,52,44,0.05)]"><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#e5f3ee]">{index + 1}</span>{source}</div><p className="mt-2 text-[12px] font-semibold leading-5 text-[#384640]">{fact}</p></div>)}
-      </div>
-      <div className="border border-[#b6c8c1] bg-[#17372f] p-5 text-white shadow-[0_24px_60px_rgba(24,54,46,0.16)] sm:p-6">
-        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8bd5bd]">Verified intake</div>
-        <div className="mt-4 text-[21px] font-semibold">Medication adherence</div>
-        <div className="mt-5 space-y-4 text-[12px] leading-6 text-[#d5e3de]"><p><strong className="text-white">Known:</strong> Taylor reports two missed evening doses this week.</p><p><strong className="text-white">Conflict:</strong> The available medication list may be outdated.</p><p><strong className="text-white">Next action:</strong> Verify the current regimen with the pharmacy or referring team.</p></div>
-        <div className="mt-6 border-t border-white/15 pt-4 text-[11px] font-black text-[#8bd5bd]">No current record? Leave the regimen unverified.</div>
-      </div>
-    </section>
-  );
-}
-
-function AssessmentMapVisual() {
-  const groups = [
-    ["Understand the referral", ["Client & referral", "Placement", "History"]],
-    ["Understand the person", ["Clinical", "Function", "Medication", "Substance use"]],
-    ["Understand safety and care", ["Behavior & safety", "Physical health", "Legal"]],
-    ["Plan and finish", ["Support & goals", "Review"]],
-  ] as const;
-  return (
-    <section aria-label="Assessment interview map" className="min-w-0 border border-[#c9d4cf] bg-white shadow-[0_24px_70px_rgba(28,50,42,0.10)]">
-      <div className="flex items-end justify-between gap-4 border-b border-[#d9e0dd] px-5 py-3"><div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Taylor Rivera assessment</div><div className="mt-1 text-[15px] font-black text-[#26332e]">Interview map</div></div><div className="text-right"><div className="text-[21px] font-semibold text-[#1f2d28]">7 / 12</div><div className="text-[9px] font-black uppercase text-[#7a8580]">Sections visited</div></div></div>
-      <div className="grid gap-px bg-[#dce3e0] sm:grid-cols-2">
-        {groups.map(([label, sections], groupIndex) => <div key={label} className="bg-[#fbfcfb] p-4"><div className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e5f3ee] text-[9px] font-black text-[#0c705f]">{groupIndex + 1}</span><h3 className="text-[12px] font-black text-[#2b3933]">{label}</h3></div><ul className="mt-3 space-y-1.5">{sections.map((section) => <li key={section} className="flex items-center gap-2 text-[10px] font-semibold text-[#5d6963]"><span className="h-1.5 w-1.5 rounded-full bg-[#68a792]" />{section}</li>)}</ul></div>)}
-      </div>
-      <div className="flex items-center gap-3 border-t border-[#d9e0dd] bg-[#eef6f3] px-5 py-3 text-[11px] font-bold text-[#315047]"><Check size={15} className="text-[#0f8b73]" aria-hidden="true" />Autosave keeps progress; the section map keeps orientation.</div>
-    </section>
-  );
-}
-
-function LanguageLabVisual() {
-  const question = assessmentInterviewQuestions.find((item) => item.field === "prior_placements")!;
-  const definition = assessmentToolFieldDefinitions.find((item) => item.key === question.field)!;
-  const [value, setValue] = useState<AssessmentToolData["prior_placements"]>(null);
-
-  return (
-    <section aria-label="Assessment Language Lab example" className="min-w-0 border border-[#d8dfdb] bg-white p-5 sm:p-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-[#6a756e]">
-        <span className="uppercase text-[#0f7664]">Assessment · History</span>
-        <span>Synthetic example · not saved</span>
-      </div>
-      <GuidedAssessmentField
-        question={question}
-        definition={definition}
-        value={value}
-        unableReason=""
-        required={definition.required_for_completion}
-        primary={false}
-        disabled={false}
-        reviewDisabled
-        onChange={(next) => setValue(typeof next === "string" ? next : null)}
-        onReview={() => undefined}
-        onUnableReasonChange={() => undefined}
-        writingGuideInitiallyOpen
-      />
-    </section>
-  );
-}
-
-function DecisionPathVisual() {
-  const steps = [
-    ["Draft", "Editable", "Assessor"],
-    ["Signed assessment", "Locked", "Assessor"],
-    ["Recommendation", "Submitted", "Assessor"],
-    ["Admission decision", "Accepted · declined · deferred", "Administrator"],
-  ] as const;
-  return (
-    <section aria-label="Assessment signature and decision sequence" className="min-w-0 overflow-hidden border border-[#c8d3ce] bg-white shadow-[0_24px_70px_rgba(28,50,42,0.10)]">
-      <ol className="grid gap-px bg-[#d9e1dd] sm:grid-cols-2 xl:grid-cols-4">{steps.map(([label, detail, owner], index) => <li key={label} className={`relative min-h-[170px] p-5 ${index === 3 ? "bg-[#17221e] text-white" : "bg-white text-[#27342f]"}`}><div className="flex items-center justify-between"><span className={`flex h-8 w-8 items-center justify-center ${index === 3 ? "bg-[#29463c] text-[#8bd5bd]" : "bg-[#e7f3ef] text-[#0c705f]"}`}>{index === 1 ? <LockKeyhole size={15} aria-hidden="true" /> : <span className="text-[10px] font-black">0{index + 1}</span>}</span><span className={`text-[8px] font-black uppercase tracking-[0.08em] ${index === 3 ? "text-[#a9beb7]" : "text-[#84908a]"}`}>{owner}</span></div><div className="mt-8 text-[14px] font-black leading-5">{label}</div><div className={`mt-2 text-[10px] font-semibold leading-5 ${index === 3 ? "text-[#b9cbc5]" : "text-[#69756f]"}`}>{detail}</div>{index < steps.length - 1 ? <ArrowRight size={14} className="absolute -right-2 top-1/2 z-10 hidden -translate-y-1/2 text-[#0f8b73] xl:block" aria-hidden="true" /> : null}</li>)}</ol>
-      <div className="grid gap-px border-t border-[#d9e1dd] bg-[#d9e1dd] sm:grid-cols-2"><div className="bg-[#eaf5f1] px-5 py-4 text-[11px] font-black text-[#315047]">Your work ends with a signed assessment and submitted recommendation.</div><div className="bg-[#f8faf9] px-5 py-4 text-[11px] font-black text-[#5b6661]">New facts after signature belong in a source-attributed addendum.</div></div>
-    </section>
-  );
-}
 
 function ScenarioLab({ referrals, loading, launchingId, canWrite, onLaunch, onOpen }: { referrals: DemoReferralSummary[]; loading: boolean; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onLaunch: (scenario: PipelineDemoScenario) => void; onOpen: (referral: DemoReferralSummary) => void }) {
   return (

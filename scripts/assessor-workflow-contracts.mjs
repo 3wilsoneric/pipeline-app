@@ -555,7 +555,8 @@ check(
   assessmentWorkspace.includes('createPortal(')
     && assessmentWorkspace.includes('aria-label="Assessment interview"')
     && assessmentWorkspace.includes("assessmentNavigationGroups")
-    && assessmentWorkspace.includes('aria-label="Schedule assessment"')
+    && /<AssessmentScheduleLayout\s+label="Schedule assessment"/.test(assessmentWorkspace)
+    && assessmentWorkspace.includes('role="dialog" aria-modal="true" aria-label={label}')
     && assessmentWorkspace.includes('aria-label="Begin assessment"')
     && !assessmentWorkspace.includes("assessmentWorkbookTemplatePath")
     && !assessmentWorkspace.includes('role="tablist" aria-label="Assessment sections"'),

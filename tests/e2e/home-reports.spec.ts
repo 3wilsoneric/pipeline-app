@@ -63,13 +63,20 @@ test.describe("role-scoped home and reports", () => {
     await page.goto("/settings");
     await page.getByRole("link", { name: "Edit Home", exact: true }).click();
     await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await page.getByRole("button", { name: "Remove Search from Home" }).click();
+    await page.getByRole("button", { name: "Remove Recent work from Home" }).click();
     await page.getByRole("button", { name: "Add module" }).click();
 
     const library = page.getByRole("dialog", { name: "Home module library" });
     await expect(library).toBeVisible();
-    const schedulingCard = library.locator("article").filter({ hasText: "Assessments to schedule" });
-    await schedulingCard.getByRole("button", { name: "Add" }).click();
-    await library.getByRole("button", { name: "Done" }).click();
+    await library.getByRole("checkbox", { name: "Search", exact: true }).check();
+    await library.getByRole("checkbox", { name: "Recent work", exact: true }).check();
+    await library.getByRole("checkbox", { name: "Assessments to schedule" }).check();
+    await expect(library.getByRole("checkbox", { name: "My work" })).toBeDisabled();
+    await expect(page.getByRole("region", { name: "Assessments to schedule" })).toHaveCount(0);
+    await library.getByRole("button", { name: "Add 3 modules", exact: true }).click();
+    await expect(library).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add module", exact: true })).toBeFocused();
 
     await expect(page.getByRole("region", { name: "Assessments to schedule" })).toBeVisible();
     await page.getByRole("button", { name: "Remove Upcoming assessments from Home" }).click();
@@ -77,9 +84,11 @@ test.describe("role-scoped home and reports", () => {
 
     await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
     await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
+    await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
+    await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
     await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
       elements.map((element) => element.getAttribute("data-home-module"))
-    ))).toEqual(["scheduling-queue", "current-work", "new-assignments"]);
+    ))).toEqual(["scheduling-queue", "current-work", "new-assignments", "search", "recent-work"]);
 
     await page.getByRole("button", { name: "Done" }).click();
     await expect(page).not.toHaveURL(/editHome=1/);
@@ -91,7 +100,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toHaveCount(0);
     await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
       elements.map((element) => element.getAttribute("data-home-module"))
-    ))).toEqual(["scheduling-queue", "current-work", "new-assignments"]);
+    ))).toEqual(["scheduling-queue", "current-work", "new-assignments", "search", "recent-work"]);
 
     await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/settings");
