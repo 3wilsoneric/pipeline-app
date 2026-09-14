@@ -141,7 +141,7 @@ export function CalendarHeader(props: CalendarHeaderProps) {
       </div>
       <CalendarFilters {...props} onClear={clearFilters} onToggleMine={toggleMine} />
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-bold text-[#626b65]">
-        <span className="font-extrabold text-[#176f5e]">{props.scope === "personal" ? "My schedule" : "Team schedule"}</span>
+        <span className="font-extrabold text-[#176f5e]">{props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule"}</span>
         <span className="relative"><strong className="text-[#2c332f]">{props.scheduledCount.toLocaleString()}</strong> assessment{props.scheduledCount === 1 ? "" : "s"}<FeedbackCue value={`${props.community}:${props.owner}:${props.mySchedule}`} /></span>
         {props.overdueCount > 0 ? <span className="text-[#9c3d32]"><strong>{props.overdueCount.toLocaleString()}</strong> need{props.overdueCount === 1 ? "s" : ""} completion</span> : null}
         <span>Pacific Time</span>
@@ -159,7 +159,7 @@ function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onT
   return (
     <div data-guide-target="calendar-filters" className={`${props.showFilters ? "flex" : "hidden"} mt-1 flex-wrap items-center gap-2 pt-1 md:flex`}>
       <CalendarFilter label="community" value={props.community} onChange={props.onCommunity} options={props.communityOptions} />
-      {props.scope === "team" ? <OwnerFilter value={props.owner} onChange={props.onOwner} options={props.ownerOptions} /> : null}
+      {props.scope === "team" ? <OwnerFilter value={props.owner} onChange={(owner) => { props.onOwner(owner); props.onMySchedule(false); }} options={props.ownerOptions} /> : null}
       {props.scope === "team" ? <label className="flex h-9 shrink-0 cursor-pointer items-center gap-2 px-2 text-[12px] font-bold text-[#525a56]"><input type="checkbox" checked={props.mySchedule} onChange={props.onToggleMine} className="h-4 w-4 accent-[#167f6b]" /><UserRoundCheck size={14} /> My appointments</label> : null}
       {props.hasFilters ? <button type="button" onClick={props.onClear} className="flex h-8 items-center gap-1 px-2 text-[10px] font-bold text-[#6d7470] hover:text-[#9c3d32]"><X size={12} /> Clear</button> : null}
     </div>

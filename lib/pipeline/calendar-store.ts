@@ -493,7 +493,8 @@ function matchesQueueOptions(item: PipelineUnscheduledAssessment, user: Pipeline
   if (search && ![item.clientName, item.community, item.owner].some((value) => value.toLowerCase().includes(search))) return false;
   if (options.queueCommunity && item.community !== options.queueCommunity) return false;
   if (options.queueOwner && ownerFilterKey(item.ownerId, item.owner) !== options.queueOwner) return false;
-  if (options.queueMine) {
+  // Personal calendars are already referral-scoped, including legacy owner aliases.
+  if (options.queueMine && canAccessOperationsReports(user.roles)) {
     const aliases = new Set(normalizedOwnerAliases(user));
     if (item.ownerId !== user.id && !aliases.has(item.owner.trim().toLowerCase())) return false;
   }
