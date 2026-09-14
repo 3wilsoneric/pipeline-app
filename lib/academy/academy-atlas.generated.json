@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:b6a3e7cf41fcbf21",
-  "fingerprint": "b6a3e7cf41fcbf21347d73cadd6abd2f9ee7327cf8743bdb146cebd6d92fb185",
+  "generatedAt": "source-fingerprint:1d4a50bed4585b6c",
+  "fingerprint": "1d4a50bed4585b6cea7717c22b0a62c3d5b850d34cee5035a0daa3db8c3d8d79",
   "totals": {
     "files": 1048,
-    "lines": 322871,
+    "lines": 322938,
     "coveredFiles": 1048
   },
   "entries": [
@@ -2134,7 +2134,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 349,
+      "lines": 350,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2314,7 +2314,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 503,
+      "lines": 506,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2362,7 +2362,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 470,
+      "lines": 473,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -6076,7 +6076,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 26,
+      "lines": 32,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -12078,7 +12078,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 153,
+      "lines": 202,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12367,7 +12367,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 193,
+      "lines": 198,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
