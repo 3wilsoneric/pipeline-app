@@ -1375,60 +1375,6 @@ test.describe("Referral home and packet canvas", () => {
     expect([left.status(), right.status()].sort((a, b) => a - b)).toEqual([200, 409]);
   });
 
-  test("preserves an intake edit made while the saved canvas is loading", async ({ page }, testInfo) => {
-    const name = `Hydration ${uniqueAlphabeticNameToken()}`;
-    const createdResponse = await page.request.post("/api/referrals", {
-      data: {
-        client_mutation_id: randomUUID(),
-        assignee_id: testAssessor.id,
-        referral: {
-          name, date: "2026-08-09", stage: "New", community: "San Pablo",
-          source: "Hydration test", priority: "standard", tags: [],
-          documentName: "", documentStatus: "Missing", owner: testAssessor.name,
-          note: "", createdAt: new Date().toISOString(), dob: "", phone: "",
-          email: "", payer: "", requirements: [],
-        },
-      },
-    });
-    expect(createdResponse.ok()).toBeTruthy();
-    const { referral } = await createdResponse.json() as { referral: { id: number; name: string } };
-    let releaseCanvas!: () => void;
-    let canvasRequested!: () => void;
-    const canvasGate = new Promise<void>((resolve) => { releaseCanvas = resolve; });
-    const canvasRequest = new Promise<void>((resolve) => { canvasRequested = resolve; });
-    await page.route(`**/api/referrals/${referral.id}/canvas`, async (route) => {
-      canvasRequested();
-      await canvasGate;
-      await route.continue();
-    });
-    await page.goto("/?view=referrals");
-    await page.getByRole("button", { name: `Open ${referral.name} referral workspace` }).click();
-    await canvasRequest;
-    const input = page.locator('input[aria-label="NAME"]');
-    const availability = await input.evaluate((element) => ({
-      disabled: (element as HTMLInputElement).disabled,
-      readOnly: (element as HTMLInputElement).readOnly,
-      inert: Boolean(element.closest("[inert]")),
-    }));
-    await testInfo.attach("canvas-loading-input-availability", { body: JSON.stringify(availability), contentType: "application/json" });
-    const editedName = `${uniqueAlphabeticNameToken()} Retained`;
-    try {
-      if (!availability.disabled && !availability.readOnly && !availability.inert) {
-        await input.fill(editedName);
-        await expect(input).toHaveValue(editedName);
-      }
-    } finally {
-      releaseCanvas();
-    }
-    await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
-    if (availability.disabled || availability.readOnly || availability.inert) await input.fill(editedName);
-    await expect(input).toHaveValue(editedName);
-    await expect.poll(async () => {
-      const response = await page.request.get(`/api/referrals/${referral.id}`);
-      return ((await response.json()) as { referral: { name: string } }).referral.name;
-    }).toBe(editedName);
-  });
-
   test("coordinates section edits, presence leases, and remote conflicts across two sessions", async ({ browser, page }) => {
     await page.goto("/");
     const origin = new URL(page.url()).origin;
@@ -1735,7 +1681,7 @@ test.describe("Referral home and packet canvas", () => {
     const clientName = `Workflow ${uniqueAlphabeticNameToken()}`;
     const packetBytes = Buffer.from(`packet-${randomUUID()}`);
     const today = new Date();
-    const expectedAge = today.getFullYear() - 1951 - (today.getMonth() < 7 || (today.getMonth() === 7 && today.getDate() < 14) ? 1 : 0);
+    const expectedAge = today.getFullYear() - 1951 - Number(today < new Date(today.getFullYear(), 7, 14));
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("combobox", { name: "GENDER", exact: true }).selectOption("Other");
@@ -1859,14 +1805,14 @@ test.describe("Referral home and packet canvas", () => {
       note: "## Reason for referral\nReferral summary for packet review.",
       dob: "1951-08-15",
       gender: "Other",
+      reportedAge: "",
       ssn: "000-00-0000",
+      admissionDate: "",
       responsiblePerson: "Synthetic Responsible Person",
       interview: "",
       conserved: "yes",
       tags: ["urgent-review", "county-intake"],
     });
-    expect(referralList.referrals[0].reportedAge ?? "").toBe("");
-    expect(referralList.referrals[0].admissionDate ?? "").toBe("");
     expect(referralList.referrals[0]?.requirements).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: "face_sheet", evidenceDocumentName: "face-sheet.pdf" }),
       expect.objectContaining({ type: "medication_list", evidenceDocumentName: "synthetic-medication-list.pdf" }),
@@ -2860,5 +2806,60 @@ test.describe("Referral home and packet canvas", () => {
       expect.objectContaining({ kind: "unassigned_referral", referral_id: referralId }),
       expect.objectContaining({ kind: "stale_referral", referral_id: referralId }),
     ]));
+  });
+
+  test("preserves an intake edit made while the saved canvas is loading", async ({ page }, testInfo) => {
+    const name = `Hydration ${uniqueAlphabeticNameToken()}`;
+    const createdResponse = await page.request.post("/api/referrals", {
+      data: {
+        client_mutation_id: randomUUID(),
+        assignee_id: testAssessor.id,
+        referral: {
+          name, date: "2026-08-09", stage: "New", community: "San Pablo",
+          source: "Hydration test", priority: "standard", tags: [],
+          documentName: "", documentStatus: "Missing", owner: testAssessor.name,
+          note: "", createdAt: new Date().toISOString(), dob: "", phone: "",
+          email: "", payer: "", requirements: [],
+        },
+      },
+    });
+    expect(createdResponse.ok()).toBeTruthy();
+    const { referral } = await createdResponse.json() as { referral: { id: number; name: string } };
+    let releaseCanvas!: () => void;
+    let canvasRequested!: () => void;
+    const canvasGate = new Promise<void>((resolve) => { releaseCanvas = resolve; });
+    const canvasRequest = new Promise<void>((resolve) => { canvasRequested = resolve; });
+    await page.route(`**/api/referrals/${referral.id}/canvas`, async (route) => {
+      canvasRequested();
+      await canvasGate;
+      await route.continue();
+    });
+    await page.goto("/?view=referrals");
+    await page.getByRole("button", { name: `Open ${referral.name} referral workspace` }).click();
+    await canvasRequest;
+    const input = page.locator('input[aria-label="NAME"]');
+    const availability = await input.evaluate((element) => ({
+      disabled: (element as HTMLInputElement).disabled,
+      readOnly: (element as HTMLInputElement).readOnly,
+      inert: Boolean(element.closest("[inert]")),
+    }));
+    const blocked = Object.values(availability).some(Boolean);
+    await testInfo.attach("canvas-loading-input-availability", { body: JSON.stringify(availability), contentType: "application/json" });
+    const editedName = `${uniqueAlphabeticNameToken()} Retained`;
+    try {
+      if (!blocked) {
+        await input.fill(editedName);
+        await expect(input).toHaveValue(editedName);
+      }
+    } finally {
+      releaseCanvas();
+    }
+    await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
+    if (blocked) await input.fill(editedName);
+    await expect(input).toHaveValue(editedName);
+    await expect.poll(async () => {
+      const response = await page.request.get(`/api/referrals/${referral.id}`);
+      return ((await response.json()) as { referral: { name: string } }).referral.name;
+    }).toBe(editedName);
   });
 });
