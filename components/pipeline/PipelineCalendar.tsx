@@ -9,6 +9,7 @@ import {
   CalendarOverlays,
   CalendarPortal,
   CalendarViews,
+  CalendarFollowUps,
   SchedulingQueue,
 } from "@/components/pipeline/PipelineCalendarPresentation";
 import {
@@ -30,7 +31,6 @@ import {
   todayKey,
   uniqueOwnerOptions,
   uniqueValues,
-  type CalendarDisplayKind,
   type CalendarSelection,
   type CalendarSnapshot,
   type CalendarView,
@@ -45,13 +45,13 @@ import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fe
 import type { PipelineCalendarEvent, PipelineCalendarResponse } from "@/lib/pipeline/calendar-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import { loadPipelineWorkspaceResumeLocation } from "@/lib/pipeline/work-continuity-client";
 
 export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void }) {
   const [view, setView] = useState<CalendarView>("week");
   const [anchor, setAnchor] = useState(todayKey);
   const [community, setCommunity] = useState("");
   const [owner, setOwner] = useState("");
-  const [kind, setKind] = useState<CalendarDisplayKind | "">("");
   const [mySchedule, setMySchedule] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
@@ -66,6 +66,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [scheduleLocation, setScheduleLocation] = useState("");
   const [mutationState, setMutationState] = useState({ busy: false, error: "", message: "", canOverride: false });
   const scheduleAssessmentRef = useRef<PipelineAssessmentRecord | null>(null);
+  const viewChosen = useRef(false);
   const deferredQueueSearch = useDebouncedValue(queueSearch, 250);
   const range = calendarRange(view, anchor);
   const requestKey = [range.from, range.to, deferredQueueSearch, queueLimit, community, owner, mySchedule].join(":");
@@ -77,7 +78,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   useEffect(() => {
     const media = window.matchMedia("(max-width: 899px)");
     const applyResponsiveDefault = (matches: boolean) => {
-      if (matches) setView((current) => current === "week" ? "agenda" : current);
+      if (matches && !viewChosen.current) setView("agenda");
     };
     if (media.matches) queueMicrotask(() => applyResponsiveDefault(true));
     const handleChange = (event: MediaQueryListEvent) => applyResponsiveDefault(event.matches);
@@ -142,6 +143,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       cache: "no-store",
       signal: controller.signal,
     }, { cacheTtlMs: 15_000 }).then((payload) => {
+      if (controller.signal.aborted) return;
+      if (payload.scope === "personal" && !viewChosen.current) setView("agenda");
       setCache((current) => ({
         ...current,
         [requestKey]: {
@@ -178,16 +181,24 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     (!community || event.community === community)
     && (!owner || ownerKey(event.ownerId, event.owner) === owner)
     && (!mySchedule || (Boolean(viewer?.id) && event.ownerId === viewer?.id))
-    && (!kind || event.kind === kind)
   ));
-  const eventsByDate = groupEventsByDate(visibleEvents);
-  const hasFilters = hasCalendarFilters(community, owner, kind, mySchedule);
+  const appointments = visibleEvents.filter((event) => event.kind === "assessment");
+  const followUps = visibleEvents.filter((event) => event.kind === "follow_up");
+  const eventsByDate = groupEventsByDate(appointments);
+  const hasFilters = hasCalendarFilters(community, owner, mySchedule);
   const overdue = visibleEvents.filter((event) => event.kind === "assessment" && event.status === "overdue");
   const conflicts = findScheduleConflicts(visibleEvents);
   const scheduledCount = visibleEvents.filter((event) => event.kind === "assessment").length;
 
   const openWorkspace = (identity: { referralId: number; clientName: string; community: string }, location: PipelineWorkspaceLocation = { view: "intake" }) => {
     onOpenPacket({ id: identity.referralId, name: calendarClientName(identity.clientName, identity.community), community: identity.community as Referral["community"] }, location);
+  };
+
+  const openAssessment = async (event: PipelineCalendarEvent) => {
+    const source = `${window.location.pathname}${window.location.search}`;
+    const saved = await loadPipelineWorkspaceResumeLocation(event.referralId).catch(() => undefined);
+    if (source !== `${window.location.pathname}${window.location.search}`) return;
+    openWorkspace(selectionIdentity({ type: "event", event }), saved?.view === "assessment" ? saved : { view: "assessment" });
   };
 
   const beginScheduling = (target: ScheduleTarget) => {
@@ -297,7 +308,6 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           communityOptions={communityOptions}
           owner={owner}
           ownerOptions={ownerOptions}
-          kind={kind}
           mySchedule={mySchedule}
           showFilters={showFilters}
           hasFilters={hasFilters}
@@ -306,13 +316,16 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           busy={mutationState.busy}
           message={error ? "" : mutationState.message}
           queueCount={snapshot?.unscheduledTotal ?? unscheduled.length}
+          queueOpen={queueOpen}
           scheduledCount={scheduledCount}
           overdueCount={overdue.length}
-          onView={setView}
+          onView={(value) => {
+            viewChosen.current = true;
+            setView(value);
+          }}
           onAnchor={setAnchor}
           onCommunity={setCommunity}
           onOwner={setOwner}
-          onKind={setKind}
           onMySchedule={setMySchedule}
           onShowFilters={setShowFilters}
           onOpenQueue={() => setQueueOpen(true)}
@@ -327,15 +340,17 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           owner={owner}
           mySchedule={mySchedule}
           range={range}
-          events={visibleEvents}
+          events={appointments}
           unscheduled={unscheduled}
           assessors={snapshot?.assessors ?? []}
           eventsByDate={eventsByDate}
           conflicts={conflicts}
           hasFilters={hasFilters}
           onOpen={(event) => setSelected({ type: "event", event })}
+          onAssessment={(event) => void openAssessment(event)}
           onFocusOwner={setOwner}
         />
+        {!loading ? <CalendarFollowUps events={followUps} onOpen={(event) => setSelected({ type: "event", event })} /> : null}
       </div>
       {queueOpen ? (
         <CalendarPortal><SchedulingQueue
@@ -350,7 +365,10 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           }}
           onClose={() => setQueueOpen(false)}
           onLoadMore={() => setQueueLimit((value) => Math.min(200, value + 24))}
-          onOpenWorkspace={(item) => openWorkspace(item)}
+          onOpenWorkspace={(item) => openWorkspace(item, {
+            view: "intake",
+            intakeField: item.nextAction === "assign" ? "owner" : item.nextAction === "complete_contact" ? "phone" : "name",
+          })}
           onSchedule={(item) => {
             setQueueOpen(false);
             beginScheduling(scheduleTargetFromUnscheduled(item));
@@ -368,7 +386,11 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         scope={scope}
         onCloseSelection={() => setSelected(null)}
         onCloseSchedule={closeSchedule}
-        onOpenWorkspace={() => selected && openWorkspace(selectionIdentity(selected), selected.type === "event" && selected.event.kind === "assessment" ? { view: "assessment" } : { view: "intake" })}
+        onOpenWorkspace={() => {
+          if (!selected) return;
+          if (selected.type === "event" && selected.event.kind === "assessment") void openAssessment(selected.event);
+          else openWorkspace(selectionIdentity(selected));
+        }}
         onScheduleSelection={() => selected && beginScheduling(scheduleTargetFromSelection(selected))}
         onStatus={(status) => selected?.type === "event" && updateAppointmentStatus(selected.event, status)}
         onStart={setScheduleStart}

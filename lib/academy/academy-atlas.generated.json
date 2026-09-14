@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:1d4a50bed4585b6c",
-  "fingerprint": "1d4a50bed4585b6cea7717c22b0a62c3d5b850d34cee5035a0daa3db8c3d8d79",
+  "generatedAt": "source-fingerprint:8c1e0a376382d9cf",
+  "fingerprint": "8c1e0a376382d9cfc8454b42fca83ed25387e6e8597d063e0be76566f36ef7fd",
   "totals": {
     "files": 1048,
-    "lines": 322938,
+    "lines": 323137,
     "coveredFiles": 1048
   },
   "entries": [
@@ -2182,7 +2182,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 382,
+      "lines": 400,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2242,7 +2242,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 419,
+      "lines": 441,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2254,7 +2254,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 419,
+      "lines": 466,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -12331,7 +12331,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 377,
+      "lines": 488,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12367,7 +12367,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 198,
+      "lines": 199,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

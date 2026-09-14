@@ -31,7 +31,7 @@ test("captures the real screens used in the assessor orientation", async ({ page
   await page.route("**/api/calendar/events**", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
-    await route.fulfill({ response, json: { ...payload, events: [appointment], unscheduled: [], unscheduledTotal: 0, unscheduledHasMore: false, assessors: [{ id: owner.principal_id, name: owner.display_name }] } });
+    await route.fulfill({ response, json: { ...payload, scope: "personal", events: [appointment], unscheduled: [], unscheduledTotal: 0, unscheduledHasMore: false, assessors: [{ id: owner.principal_id, name: owner.display_name }] } });
   });
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
@@ -68,7 +68,8 @@ test("captures the real screens used in the assessor orientation", async ({ page
   await expect(page.getByText("Taylor Rivera", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await capture("assessor-workspaces.png");
   await page.getByRole("button", { name: "Open calendar", exact: true }).click();
-  await expect(page.getByRole("button", { name: "10:00 AM Taylor Rivera Assessment", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Taylor Rivera", exact: true })).toBeVisible();
   await capture("assessor-calendar.png");
   await page.getByRole("button", { name: "Open client profiles", exact: true }).click();
   await expect(page.getByRole("button", { name: "Show clients as a list", exact: true })).toBeVisible();

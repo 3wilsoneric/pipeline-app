@@ -3,13 +3,11 @@ import { addCalendarDays, calendarToday } from "@/lib/pipeline/assessment-calend
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type {
   PipelineCalendarEvent,
-  PipelineCalendarEventKind,
   PipelineCalendarResponse,
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
 
 export type CalendarView = "month" | "week" | "agenda";
-export type CalendarDisplayKind = Exclude<PipelineCalendarEventKind, "referral_assigned">;
 export type CalendarSelection =
   | { type: "event"; event: PipelineCalendarEvent }
   | { type: "unscheduled"; item: PipelineUnscheduledAssessment };
@@ -34,6 +32,8 @@ export type CalendarDrawerModel = {
   receivedLabel: string;
   methodLabel: string;
   durationLabel: string;
+  location: string;
+  locationLabel: string;
   followUps: string[];
   needsAssignment: boolean;
   zoomUrl: string;
@@ -134,8 +134,8 @@ export function resolveCalendarState(snapshot: CalendarSnapshot | undefined, req
   };
 }
 
-export function hasCalendarFilters(community: string, owner: string, kind: string, mySchedule: boolean) {
-  return Boolean(community || owner || kind || mySchedule);
+export function hasCalendarFilters(community: string, owner: string, mySchedule: boolean) {
+  return Boolean(community || owner || mySchedule);
 }
 
 export function calendarStatusText(loading: boolean, refreshing: boolean, message: string) {
@@ -160,10 +160,12 @@ export function calendarDrawerModel(selection: CalendarSelection, scope: "person
       receivedLabel: longDate(item.receivedDate),
       methodLabel: "",
       durationLabel: "",
+      location: "",
+      locationLabel: "",
       followUps: [],
       needsAssignment: scope === "team" && !item.ownerId,
       zoomUrl: "",
-      canSchedule: Boolean(item.ownerId) || scope === "personal",
+      canSchedule: item.nextAction === "schedule",
       isAppointment: false,
       showStatusActions: false,
     };
@@ -179,13 +181,29 @@ export function calendarDrawerModel(selection: CalendarSelection, scope: "person
     receivedLabel: "",
     methodLabel: methodLabel(event.method),
     durationLabel: `${calendarDuration(event)} minutes`,
+    location: event.location ?? "",
+    locationLabel: appointmentLocationLabel(event.method),
     followUps: event.followUpLabels ?? [],
     needsAssignment: false,
     zoomUrl: event.method === "zoom" && event.location && isHttpUrl(event.location) ? event.location : "",
-    canSchedule: isAppointment,
+    canSchedule: isAppointment && event.status !== "complete" && event.scheduleStatus !== "completed",
     isAppointment,
-    showStatusActions: isAppointment && event.scheduleStatus !== "completed",
+    showStatusActions: isAppointment && event.status !== "complete" && event.scheduleStatus !== "completed",
   };
+}
+
+export function appointmentLocationLabel(method: string | undefined) {
+  if (method === "phone") return "Phone";
+  if (method === "zoom") return "Meeting link";
+  if (method === "in_person") return "Location";
+  return "Details";
+}
+
+export function appointmentStatusLabel(event: PipelineCalendarEvent) {
+  if (event.status === "complete" || event.scheduleStatus === "completed") return "Completed";
+  if (event.status === "needs_review") return "Ready for review";
+  if (event.status === "overdue") return "Needs completion";
+  return event.scheduleStatus === "rescheduled" ? "Rescheduled" : "Scheduled";
 }
 
 export function timedEventPosition(event: PipelineCalendarEvent, dayEvents: PipelineCalendarEvent[]) {

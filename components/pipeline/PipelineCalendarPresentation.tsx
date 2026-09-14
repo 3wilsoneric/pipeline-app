@@ -22,6 +22,8 @@ import type { AssessmentScheduleMethod } from "@/lib/assessment/assessment-recor
 import type { PipelineCalendarEvent, PipelineCalendarEventKind, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
 import {
   ageLabel,
+  appointmentLocationLabel,
+  appointmentStatusLabel,
   calendarClientName,
   calendarDays,
   calendarDrawerModel,
@@ -45,7 +47,6 @@ import {
   weekdays,
   weekEndHour,
   weekStartHour,
-  type CalendarDisplayKind,
   type CalendarDrawerModel,
   type CalendarSelection,
   type CalendarView,
@@ -57,8 +58,6 @@ const eventColors: Record<PipelineCalendarEventKind, string> = {
   assessment: "border-l-[#4b68ad] bg-[#eef1ff] text-[#354b85]",
   follow_up: "border-l-[#a16a16] bg-[#fff8ed] text-[#6f4b13]",
 };
-const kindLabels: Record<CalendarDisplayKind, string> = { assessment: "Assessments", follow_up: "Follow-ups" };
-const calendarDisplayKinds: CalendarDisplayKind[] = ["assessment", "follow_up"];
 const workflowLabels: Record<PipelineUnscheduledAssessment["workflowStatus"], string> = {
   intake_unassigned: "Needs an assessor",
   intake_documents_needed: "Documents needed",
@@ -88,7 +87,6 @@ export type CalendarHeaderProps = {
   communityOptions: string[];
   owner: string;
   ownerOptions: { value: string; label: string }[];
-  kind: CalendarDisplayKind | "";
   mySchedule: boolean;
   showFilters: boolean;
   hasFilters: boolean;
@@ -97,13 +95,13 @@ export type CalendarHeaderProps = {
   busy: boolean;
   message: string;
   queueCount: number;
+  queueOpen: boolean;
   scheduledCount: number;
   overdueCount: number;
   onView: (value: CalendarView) => void;
   onAnchor: (value: string) => void;
   onCommunity: (value: string) => void;
   onOwner: (value: string) => void;
-  onKind: (value: CalendarDisplayKind | "") => void;
   onMySchedule: (value: boolean) => void;
   onShowFilters: (value: boolean) => void;
   onOpenQueue: () => void;
@@ -115,7 +113,6 @@ export function CalendarHeader(props: CalendarHeaderProps) {
   const clearFilters = () => {
     props.onCommunity("");
     props.onOwner("");
-    props.onKind("");
     props.onMySchedule(false);
   };
   const toggleMine = () => {
@@ -132,10 +129,10 @@ export function CalendarHeader(props: CalendarHeaderProps) {
           <button type="button" onClick={() => props.onAnchor(todayKey())} className="ml-1 h-9 border border-[#bfc7c3] px-3 text-[12px] font-bold text-[#3f4743] hover:border-[#167f6b] hover:text-[#116b5a]">Today</button>
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <button type="button" onClick={props.onOpenQueue} className="flex h-9 shrink-0 items-center gap-2 whitespace-nowrap border border-[#bfc7c3] bg-white px-3 text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]">
+          <button type="button" aria-haspopup="dialog" aria-expanded={props.queueOpen} onClick={props.onOpenQueue} className="flex h-10 shrink-0 items-center gap-2 whitespace-nowrap bg-[#edf7f3] px-3 text-[12px] font-extrabold text-[#116b5a] hover:bg-[#dff0e9]">
             <ClipboardList size={15} />
             <span>Scheduling queue</span>
-            <span className="tabular-nums text-[#167f6b]">{props.queueCount.toLocaleString()}</span>
+            <span className="tabular-nums text-[#116b5a]">{props.queueCount.toLocaleString()}</span>
           </button>
           <IconButton label="Refresh calendar" onClick={props.onRefresh}><RefreshCw size={14} className={props.refreshing ? "animate-spin" : ""} /></IconButton>
           <button type="button" aria-label="Show calendar filters" aria-expanded={props.showFilters} onClick={() => props.onShowFilters(!props.showFilters)} className={`flex h-9 w-9 items-center justify-center border md:hidden ${props.hasFilters ? "border-[#167f6b] text-[#116b5a]" : "border-[#cfd5d2] text-[#626a66]"}`}><Filter size={15} /></button>
@@ -143,10 +140,11 @@ export function CalendarHeader(props: CalendarHeaderProps) {
         </div>
       </div>
       <CalendarFilters {...props} onClear={clearFilters} onToggleMine={toggleMine} />
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-bold text-[#747b77]">
-        <span className="relative"><strong className="text-[#2c332f]">{props.scheduledCount.toLocaleString()}</strong> scheduled<FeedbackCue value={`${props.community}:${props.owner}:${props.kind}:${props.mySchedule}`} /></span>
-        {props.overdueCount > 0 ? <span className="text-[#9c3d32]"><strong>{props.overdueCount.toLocaleString()}</strong> overdue</span> : null}
-        <span className="hidden sm:inline">Pacific Time</span>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-bold text-[#626b65]">
+        <span className="font-extrabold text-[#176f5e]">{props.scope === "personal" ? "My schedule" : "Team schedule"}</span>
+        <span className="relative"><strong className="text-[#2c332f]">{props.scheduledCount.toLocaleString()}</strong> assessment{props.scheduledCount === 1 ? "" : "s"}<FeedbackCue value={`${props.community}:${props.owner}:${props.mySchedule}`} /></span>
+        {props.overdueCount > 0 ? <span className="text-[#9c3d32]"><strong>{props.overdueCount.toLocaleString()}</strong> need{props.overdueCount === 1 ? "s" : ""} completion</span> : null}
+        <span>Pacific Time</span>
         <span role="status" aria-live="polite" className="relative ml-auto min-w-0 text-right font-normal">{status}<FeedbackCue value={props.message} enabled={Boolean(props.message) && !props.busy && !props.loading && !props.refreshing} /></span>
       </div>
     </header>
@@ -154,20 +152,15 @@ export function CalendarHeader(props: CalendarHeaderProps) {
 }
 
 function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (value: CalendarView) => void }) {
-  return <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className="flex border border-[#cfd5d2] bg-[#f4f6f5] p-0.5">{(["month", "week", "agenda"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)} className={`h-8 px-2.5 text-[11px] font-bold capitalize sm:h-9 sm:px-3.5 ${view === option ? "bg-white text-[#202522] shadow-sm" : "text-[#69706c] hover:text-[#202522]"}`}>{option}</button>)}</div>;
+  return <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className="flex bg-[#f1f4f2] p-1">{(["agenda", "week", "month"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)} className={`h-9 px-3 text-[12px] font-bold capitalize ${view === option ? "bg-white text-[#202522] shadow-sm" : "text-[#69706c] hover:text-[#202522]"}`}>{option === "agenda" ? "Upcoming" : option}</button>)}</div>;
 }
 
 function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onToggleMine: () => void }) {
   return (
     <div data-guide-target="calendar-filters" className={`${props.showFilters ? "flex" : "hidden"} mt-1 flex-wrap items-center gap-2 pt-1 md:flex`}>
-      <span className="flex h-9 shrink-0 items-center bg-[#eaf5f1] px-3 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#176f5e]">{props.scope === "personal" ? "My schedule" : "Team schedule"}</span>
       <CalendarFilter label="community" value={props.community} onChange={props.onCommunity} options={props.communityOptions} />
       {props.scope === "team" ? <OwnerFilter value={props.owner} onChange={props.onOwner} options={props.ownerOptions} /> : null}
-      <select aria-label="Filter calendar by event type" value={props.kind} onChange={(event) => props.onKind(event.target.value as CalendarDisplayKind | "")} className="h-9 min-w-0 border border-[#cfd5d2] bg-white px-2.5 text-[12px] font-semibold text-[#303632] outline-none focus:border-[#167f6b]">
-        <option value="">Assessments and follow-ups</option>
-        {calendarDisplayKinds.map((value) => <option key={value} value={value}>{kindLabels[value]}</option>)}
-      </select>
-      {props.scope === "team" ? <button type="button" aria-pressed={props.mySchedule} onClick={props.onToggleMine} className={`flex h-9 shrink-0 items-center gap-1.5 border px-3 text-[11px] font-bold ${props.mySchedule ? "border-[#4b68ad] bg-[#eef1ff] text-[#354b85]" : "border-[#cfd5d2] text-[#525a56] hover:border-[#4b68ad]"}`}><UserRoundCheck size={14} /> Mine</button> : null}
+      {props.scope === "team" ? <label className="flex h-9 shrink-0 cursor-pointer items-center gap-2 px-2 text-[12px] font-bold text-[#525a56]"><input type="checkbox" checked={props.mySchedule} onChange={props.onToggleMine} className="h-4 w-4 accent-[#167f6b]" /><UserRoundCheck size={14} /> My appointments</label> : null}
       {props.hasFilters ? <button type="button" onClick={props.onClear} className="flex h-8 items-center gap-1 px-2 text-[10px] font-bold text-[#6d7470] hover:text-[#9c3d32]"><X size={12} /> Clear</button> : null}
     </div>
   );
@@ -193,7 +186,7 @@ export function SchedulingQueue({ items, total, hasMore, search, loading, onSear
     <div className="fixed inset-0 z-[100] bg-[#18201d]/30" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
       <aside role="dialog" aria-modal="true" aria-label="Scheduling queue" className="pipeline-panel-enter absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-[#d8dedb] px-5 py-5 sm:px-6">
-          <div><h2 className="flex items-center gap-2 text-[22px] font-extrabold text-[#202522]"><ClipboardList size={18} className="text-[#167f6b]" /> Scheduling queue</h2><p className="mt-1 text-[11px] text-[#737a76]">{total.toLocaleString()} referral{total === 1 ? "" : "s"} moving toward an appointment</p></div>
+          <div><h2 className="flex items-center gap-2 text-[22px] font-extrabold text-[#202522]"><ClipboardList size={18} className="text-[#167f6b]" /> Scheduling queue</h2><p className="mt-1 text-[13px] text-[#737a76]">{total.toLocaleString()} referral{total === 1 ? "" : "s"}</p></div>
           <IconButton label="Close scheduling queue" onClick={onClose}><X size={16} /></IconButton>
         </header>
         <label className="mx-5 mt-4 flex h-10 items-center gap-2 border-b border-[#aeb7b2] sm:mx-6">
@@ -203,8 +196,8 @@ export function SchedulingQueue({ items, total, hasMore, search, loading, onSear
           {loading ? <RefreshCw size={13} className="animate-spin text-[#7b827e]" /> : null}
         </label>
         <div className="flex-1 overflow-y-auto px-5 py-3 sm:px-6">
-          {items.length === 0 ? <div className="py-16 text-center"><CalendarClock size={21} className="mx-auto text-[#89918d]" /><div className="mt-3 text-[13px] font-extrabold text-[#343a36]">{search ? "No ready referrals match that search." : "No referrals are waiting to be scheduled."}</div></div> : (
-            <ol>{items.map((item) => <li key={item.referralId} className="border-b border-[#e1e5e3] py-4 last:border-b-0"><div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left"><span className="block truncate text-[15px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span><span className="mt-1 block truncate text-[12px] text-[#69706c]">{item.community} · {item.owner}</span></button><span className="shrink-0 text-[10px] font-bold text-[#7b827e]">{ageLabel(item.receivedDate)}</span></div><div className="mt-3 flex items-center justify-between gap-3"><span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#176f5e]">{preparationLabel(item)}</span><button type="button" onClick={() => item.nextAction === "schedule" ? onSchedule(item) : onOpenWorkspace(item)} className="h-8 bg-[#167f6b] px-3 text-[10px] font-extrabold text-white hover:bg-[#116b5a]">{item.nextAction === "schedule" ? "Schedule" : "Open intake"}</button></div></li>)}</ol>
+          {items.length === 0 ? <div className="py-16 text-center"><CalendarClock size={21} className="mx-auto text-[#89918d]" /><div className="mt-3 text-[14px] font-extrabold text-[#343a36]">{loading ? "Loading referrals..." : search ? "No referrals match that search." : "No referrals are waiting to be scheduled."}</div></div> : (
+            <ol>{items.map((item) => <li key={item.referralId} className="border-b border-[#e1e5e3] py-5 last:border-b-0"><div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left"><span className="block break-words text-[17px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span><span className="mt-1 block text-[13px] text-[#69706c]">{[item.community, item.owner].filter(Boolean).join(" · ")}</span></button><span className="shrink-0 text-[11px] font-bold text-[#7b827e]">{ageLabel(item.receivedDate)}</span></div><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><span className="text-[12px] font-bold text-[#176f5e]">{preparationLabel(item)}</span><button type="button" onClick={() => item.nextAction === "schedule" ? onSchedule(item) : onOpenWorkspace(item)} className="min-h-10 bg-[#167f6b] px-3 text-[12px] font-extrabold text-white hover:bg-[#116b5a]">{preparationActionLabel(item)}</button></div></li>)}</ol>
           )}
         </div>
         {hasMore ? <div className="border-t border-[#d8dedb] p-4 sm:px-6"><button type="button" onClick={onLoadMore} disabled={loading} className="h-9 w-full border border-[#bfc7c3] text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a] disabled:opacity-50">{loading ? "Loading..." : "Load more"}</button></div> : null}
@@ -216,6 +209,13 @@ export function SchedulingQueue({ items, total, hasMore, search, loading, onSear
 function preparationLabel(item: PipelineUnscheduledAssessment) {
   if (item.nextAction === "complete_contact") return "Contact needed";
   return workflowLabels[item.workflowStatus];
+}
+
+function preparationActionLabel(item: PipelineUnscheduledAssessment) {
+  if (item.nextAction === "assign") return "Assign assessor";
+  if (item.nextAction === "complete_contact") return "Complete contact";
+  if (item.nextAction === "complete_intake") return "Complete intake";
+  return "Schedule";
 }
 
 export function CalendarPortal({ children }: { children: ReactNode }) {
@@ -237,13 +237,14 @@ type CalendarViewsProps = {
   conflicts: Set<string>;
   hasFilters: boolean;
   onOpen: (event: PipelineCalendarEvent) => void;
+  onAssessment: (event: PipelineCalendarEvent) => void;
   onFocusOwner: (owner: string) => void;
 };
 
 export function CalendarViews(props: CalendarViewsProps) {
   if (props.loading) return <CalendarSkeleton />;
   if (props.view === "month") return <MonthView month={props.anchor.slice(0, 7)} eventsByDate={props.eventsByDate} onOpen={props.onOpen} />;
-  if (props.view === "agenda") return <AgendaView events={props.events} hasFilters={props.hasFilters} onOpen={props.onOpen} />;
+  if (props.view === "agenda") return <AgendaView events={props.events} hasFilters={props.hasFilters} scope={props.scope} onOpen={props.onOpen} onAssessment={props.onAssessment} />;
   if (showTeamWeek(props.scope, props.owner, props.mySchedule)) return <TeamWeekView range={props.range} events={props.events} unscheduled={props.unscheduled} assessors={props.assessors} conflicts={props.conflicts} onOpen={props.onOpen} onFocusOwner={props.onFocusOwner} />;
   return <TimedWeekView range={props.range} eventsByDate={props.eventsByDate} onOpen={props.onOpen} />;
 }
@@ -256,8 +257,7 @@ function MonthView({ month, eventsByDate, onOpen }: { month: string; eventsByDat
       {days.map((day) => {
         const dayEvents = eventsByDate.get(day.date) ?? [];
         const scheduled = dayEvents.filter((event) => event.kind === "assessment");
-        const followUps = dayEvents.length - scheduled.length;
-        return <div key={day.date} className={`min-h-[112px] border-b border-r border-[#e1e5e3] p-2 last:border-r-0 ${day.inMonth ? "bg-white" : "bg-[#fafbfa]"}`}><div className={`mb-2 text-[11px] font-extrabold ${day.today ? "text-[#0f8b73]" : day.inMonth ? "text-[#515854]" : "text-[#a0a6a2]"}`}>{day.day}</div><div className="space-y-1.5">{scheduled.slice(0, 2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}{followUps > 0 ? <div className="px-1 text-[10px] font-bold text-[#8a5c14]">{followUps} follow-up{followUps === 1 ? "" : "s"}</div> : null}{scheduled.length > 2 ? <div className="px-1 text-[10px] font-bold text-[#526a63]">+{scheduled.length - 2} assessments</div> : null}</div></div>;
+        return <div key={day.date} className={`min-h-[112px] border-b border-r border-[#e1e5e3] p-2 last:border-r-0 ${day.inMonth ? "bg-white" : "bg-[#fafbfa]"}`}><div className={`mb-2 text-[12px] font-extrabold ${day.today ? "text-[#0f8b73]" : day.inMonth ? "text-[#515854]" : "text-[#a0a6a2]"}`}>{day.day}</div><div className="space-y-1.5">{scheduled.slice(0, 2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}{scheduled.length > 2 ? <details><summary className="cursor-pointer py-1 text-[12px] font-bold text-[#526a63]">{scheduled.length - 2} more</summary><div className="space-y-1.5 pt-1">{scheduled.slice(2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}</div></details> : null}</div></div>;
       })}
     </div></div>
   );
@@ -269,7 +269,6 @@ function TimedWeekView({ range, eventsByDate, onOpen }: { range: { from: string;
   return (
     <section aria-label="Timed assessment week" className="mt-3 overflow-auto border border-[#d8dedb]"><div className="min-w-[980px]">
       <div className="grid grid-cols-[62px_repeat(7,minmax(125px,1fr))] border-b border-[#d8dedb] bg-[#f7f9f8]"><div />{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-3 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[9px] font-extrabold uppercase tracking-[0.07em] text-[#737a76]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="mt-0.5 block text-[13px] font-extrabold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
-      <div className="grid grid-cols-[62px_repeat(7,minmax(125px,1fr))] border-b border-[#d8dedb] bg-white"><div className="px-2 py-2 text-right text-[9px] font-bold uppercase text-[#8a918d]">All day</div>{dates.map((date) => { const allDay = (eventsByDate.get(date) ?? []).filter((event) => !event.startsAt || event.kind !== "assessment"); return <div key={date} className="min-h-12 border-l border-[#e1e5e3] p-1.5">{allDay.slice(0, 2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}{allDay.length > 2 ? <button type="button" onClick={() => onOpen(allDay[2])} className="mt-1 text-[9px] font-bold text-[#526a63]">+{allDay.length - 2} more</button> : null}</div>; })}</div>
       <div className="grid grid-cols-[62px_repeat(7,minmax(125px,1fr))]"><div className="relative" style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <span key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] font-semibold text-[#7b827e]" style={{ top: index * hourHeight }}>{formatHour(hour)}</span>)}</div>{dates.map((date) => { const timed = (eventsByDate.get(date) ?? []).filter((event) => event.kind === "assessment" && event.startsAt); return <div key={date} className={`relative border-l border-[#d8dedb] ${date === todayKey() ? "bg-[#fbfefd]" : "bg-white"}`} style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <div key={hour} className="absolute inset-x-0 border-t border-[#edf0ee]" style={{ top: index * hourHeight }} />)}{timed.map((event) => { const position = timedEventPosition(event, timed); if (!position) return null; return <button key={event.id} type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title}`} className={`absolute z-10 overflow-hidden border-l-[3px] px-2 py-1.5 text-left shadow-sm hover:z-20 hover:ring-1 hover:ring-[#4b68ad] ${event.status === "overdue" ? "border-l-[#a9473d] bg-[#fff3f1] text-[#7c3229]" : eventColors.assessment}`} style={position}><span className="block truncate text-[10px] font-extrabold">{eventTime(event.startsAt)}</span><span className="mt-0.5 block truncate text-[11px] font-extrabold">{calendarClientName(event.clientName, event.community)}</span><span className="mt-0.5 block truncate text-[9px] opacity-75">{methodLabel(event.method)} - {event.durationMinutes ?? 60} min</span></button>; })}</div>; })}</div>
     </div></section>
   );
@@ -278,19 +277,66 @@ function TimedWeekView({ range, eventsByDate, onOpen }: { range: { from: string;
 function TeamWeekView({ range, events, unscheduled, assessors, conflicts, onOpen, onFocusOwner }: { range: { from: string; to: string }; events: PipelineCalendarEvent[]; unscheduled: PipelineUnscheduledAssessment[]; assessors: Array<{ id?: string; name: string }>; conflicts: Set<string>; onOpen: (event: PipelineCalendarEvent) => void; onFocusOwner: (owner: string) => void }) {
   const dates = dateKeys(range.from, range.to);
   const owners = uniqueOwnerOptions([...assessors, ...events.map((event) => ({ id: event.ownerId, name: event.owner })), ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner }))]).filter((item) => item.label !== "Unassigned");
-  if (owners.length === 0) return <EmptyCalendar title="No team work is scheduled in this week." />;
+  if (owners.length === 0) return <EmptyCalendar title="No team assessments scheduled this week." />;
   return (
     <section aria-label="Supervisor team week" className="mt-3 overflow-auto border border-[#d8dedb]"><div className="min-w-[1080px]">
       <div className="sticky top-0 z-10 grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] border-b border-[#d8dedb] bg-[#f7f9f8]"><div className="sticky left-0 z-20 bg-[#f7f9f8] px-3 py-3 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#69706c]">Assessor</div>{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-2 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[9px] font-extrabold uppercase text-[#737a76]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="block text-[12px] font-extrabold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
-      {owners.map((assessor) => { const ownerEvents = events.filter((event) => ownerKey(event.ownerId, event.owner) === assessor.value); const ownerQueue = unscheduled.filter((item) => ownerKey(item.ownerId, item.owner) === assessor.value); const conflictCount = ownerEvents.filter((event) => conflicts.has(event.id)).length; const scheduledCount = ownerEvents.filter((event) => event.kind === "assessment").length; return <div key={assessor.value} className="grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] border-b border-[#e1e5e3] last:border-b-0"><button type="button" onClick={() => onFocusOwner(assessor.value)} className="sticky left-0 z-[5] bg-white px-3 py-3 text-left hover:bg-[#f4f8f6]"><span className="block truncate text-[12px] font-extrabold text-[#252a27]">{assessor.label}</span><span className="mt-1 block text-[10px] text-[#737a76]">{scheduledCount} scheduled · {ownerQueue.length} waiting</span>{conflictCount > 0 ? <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-extrabold text-[#9c3d32]"><AlertTriangle size={11} /> {Math.ceil(conflictCount / 2)} conflict{conflictCount > 2 ? "s" : ""}</span> : null}</button>{dates.map((date) => { const dayEvents = ownerEvents.filter((event) => event.date === date); const appointments = dayEvents.filter((event) => event.kind === "assessment"); const followUps = dayEvents.length - appointments.length; return <div key={date} className={`min-h-[118px] border-l border-[#e1e5e3] p-1.5 ${appointments.length >= 5 ? "bg-[#fff9ef]" : "bg-white"}`}>{appointments.slice(0, 3).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact conflict={conflicts.has(event.id)} />)}{appointments.length > 3 ? <button type="button" onClick={() => onOpen(appointments[3])} className="mt-1 text-[9px] font-bold text-[#526a63]">+{appointments.length - 3} more</button> : null}{followUps > 0 ? <div className="mt-1 text-[9px] font-semibold text-[#8a5c14]">{followUps} follow-up{followUps === 1 ? "" : "s"}</div> : null}</div>; })}</div>; })}
+      {owners.map((assessor) => {
+        const ownerEvents = events.filter((event) => ownerKey(event.ownerId, event.owner) === assessor.value);
+        const conflictCount = ownerEvents.filter((event) => conflicts.has(event.id)).length;
+        return <div key={assessor.value} className="grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] border-b border-[#e1e5e3] last:border-b-0">
+          <button type="button" onClick={() => onFocusOwner(assessor.value)} className="sticky left-0 z-[5] bg-white px-3 py-4 text-left hover:bg-[#f4f8f6]">
+            <span className="block break-words text-[14px] font-extrabold text-[#252a27]">{assessor.label}</span>
+            <span className="mt-1 block text-[12px] text-[#737a76]">{ownerEvents.length.toLocaleString()} assessments</span>
+            {conflictCount > 0 ? <span className="mt-2 inline-flex items-start gap-1 text-[12px] font-extrabold text-[#9c3d32]"><AlertTriangle size={13} className="mt-0.5 shrink-0" />{conflictCount.toLocaleString()} overlapping appointments</span> : null}
+          </button>
+          {dates.map((date) => {
+            const appointments = ownerEvents.filter((event) => event.date === date);
+            return <div key={date} className="min-h-[118px] border-l border-[#e1e5e3] bg-white p-2">
+              <div className="space-y-1.5">{appointments.slice(0, 3).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact conflict={conflicts.has(event.id)} />)}</div>
+              {appointments.length > 3 ? <details className="mt-2"><summary className="cursor-pointer text-[12px] font-bold text-[#526a63]">{appointments.length - 3} more</summary><div className="space-y-1.5 pt-2">{appointments.slice(3).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact conflict={conflicts.has(event.id)} />)}</div></details> : null}
+            </div>;
+          })}
+        </div>;
+      })}
     </div></section>
   );
 }
 
-function AgendaView({ events, hasFilters, onOpen }: { events: PipelineCalendarEvent[]; hasFilters: boolean; onOpen: (event: PipelineCalendarEvent) => void }) {
+function AgendaView({ events, hasFilters, scope, onOpen, onAssessment }: { events: PipelineCalendarEvent[]; hasFilters: boolean; scope: "personal" | "team"; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void }) {
   const groups = groupEventsByDate(events);
-  if (events.length === 0) return <EmptyCalendar title={hasFilters ? "No work matches these filters." : "No calendar work falls in this range."} />;
-  return <div className="mt-3 border border-[#d8dedb]">{[...groups.entries()].map(([date, dayEvents]) => <section key={date} className="border-b border-[#e1e5e3] last:border-b-0 md:grid md:grid-cols-[150px_minmax(0,1fr)]"><div className="bg-[#f7f9f8] px-3 py-3 md:px-4"><div className="text-[12px] font-extrabold text-[#252a27]">{longDate(date)}</div><div className="mt-0.5 text-[10px] font-bold text-[#69706c]">{dayEvents.length} item{dayEvents.length === 1 ? "" : "s"}</div></div><div className="divide-y divide-[#e5e8e6]">{dayEvents.map((event) => <button key={event.id} type="button" onClick={() => onOpen(event)} className="grid w-full gap-1 px-3 py-3 text-left hover:bg-[#f7faf9] sm:grid-cols-[minmax(0,1fr)_130px] sm:px-4 lg:grid-cols-[minmax(0,1fr)_150px_150px]"><span className="min-w-0"><span className="block truncate text-[13px] font-extrabold text-[#252a27]">{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block truncate text-[11px] text-[#69706c]">{event.startsAt ? `${eventTime(event.startsAt)} - ` : ""}{event.title}</span></span><span className="truncate text-[11px] font-semibold text-[#59615d]">{event.community}</span><span className="hidden truncate text-[11px] text-[#737a76] lg:block">{event.owner}</span></button>)}</div></section>)}</div>;
+  if (events.length === 0) return <EmptyCalendar title={hasFilters ? "No assessments match these filters." : "No assessments scheduled in this range."} />;
+  return <section aria-label="Upcoming assessments" className="mt-4">{[...groups.entries()].map(([date, dayEvents]) => <section key={date} aria-label={longDate(date)} className="py-3 md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-5"><h2 className="mb-2 text-[15px] font-extrabold text-[#343c37] md:pt-5">{longDate(date)}</h2><ol className="divide-y divide-[#e5e8e6]">{dayEvents.map((event) => <AppointmentRow key={event.id} event={event} scope={scope} onOpen={onOpen} onAssessment={onAssessment} />)}</ol></section>)}</section>;
+}
+
+function AppointmentRow({ event, scope, onOpen, onAssessment }: { event: PipelineCalendarEvent; scope: "personal" | "team"; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void }) {
+  const model = calendarDrawerModel({ type: "event", event }, scope);
+  return (
+    <li className="grid gap-3 py-5 sm:grid-cols-[90px_minmax(0,1fr)] xl:grid-cols-[90px_minmax(0,1fr)_auto]">
+      <div className="flex items-baseline gap-3 sm:block"><div className="text-[16px] font-extrabold tabular-nums text-[#252a27]">{event.startsAt ? eventTime(event.startsAt) : "Unscheduled"}</div><div className="mt-1 text-[12px] font-semibold text-[#626b65]">{event.durationMinutes ?? 60} min</div></div>
+      <div className="min-w-0">
+        <button type="button" title={`${model.clientName} - ${event.title}`} onClick={() => onOpen(event)} className="text-left text-[#252a27] hover:text-[#116b5a]"><span className="break-words text-[20px] font-extrabold">{model.clientName}</span></button>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-[#626b65]"><span>{methodLabel(event.method)}</span>{event.community ? <span>{event.community}</span> : null}{scope === "team" ? <span>{event.owner}</span> : null}</div>
+        {event.location ? <div className="mt-2 break-words text-[13px] text-[#434c46]"><span className="font-bold">{appointmentLocationLabel(event.method)}: </span>{event.location}</div> : null}
+        <div className={`mt-2 text-[12px] font-bold ${event.status === "overdue" ? "text-[#9c3d32]" : "text-[#69706c]"}`}>{appointmentStatusLabel(event)}</div>
+      </div>
+      <div className="flex flex-wrap items-start gap-2 sm:col-start-2 xl:col-start-auto">
+        {event.assessmentId ? <button type="button" aria-label={`Open assessment for ${model.clientName}`} onClick={() => onAssessment(event)} className="flex min-h-10 items-center gap-2 bg-[#167f6b] px-3 text-[12px] font-extrabold text-white hover:bg-[#116b5a]"><ClipboardList size={15} />{model.showStatusActions ? "Open assessment" : "View assessment"}</button> : null}
+        {model.zoomUrl ? <a href={model.zoomUrl} target="_blank" rel="noreferrer" aria-label={`Join Zoom for ${model.clientName}`} className="flex min-h-10 items-center gap-2 px-3 text-[12px] font-bold text-[#354b85] hover:bg-[#eef1ff]"><Video size={15} />Join Zoom<ExternalLink size={12} /></a> : null}
+        <button type="button" aria-label={`Appointment details for ${model.clientName}`} onClick={() => onOpen(event)} className="min-h-10 px-2 text-[12px] font-bold text-[#626b65] hover:text-[#116b5a]">Details</button>
+      </div>
+    </li>
+  );
+}
+
+export function CalendarFollowUps({ events, onOpen }: { events: PipelineCalendarEvent[]; onOpen: (event: PipelineCalendarEvent) => void }) {
+  if (events.length === 0) return null;
+  return (
+    <details className="group mt-6 bg-[#faf8f2] px-4 py-3 sm:px-5">
+      <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-[14px] font-extrabold text-[#765620]"><ChevronRight size={16} className="shrink-0 transition-transform group-open:rotate-90" />Dated follow-ups<span className="ml-auto tabular-nums">{events.length.toLocaleString()}</span></summary>
+      <ol className="mt-2 divide-y divide-[#e9e3d6]">{events.map((event) => <li key={event.id}><button type="button" onClick={() => onOpen(event)} className="grid w-full gap-1 py-3 text-left sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-3"><span className="text-[12px] font-bold text-[#806635]">{shortDate(event.date)}</span><span className="min-w-0"><span className="block text-[14px] font-extrabold text-[#343c37]">{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block text-[13px] text-[#6d6658]">{event.title}</span></span></button></li>)}</ol>
+    </details>
+  );
 }
 
 type CalendarOverlaysProps = {
@@ -325,7 +371,7 @@ function CalendarDrawer({ selection, busy, scope, onClose, onOpenWorkspace, onSc
     <div className="fixed inset-0 z-[100] bg-[#18201d]/30" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
       <aside role="dialog" aria-modal="true" aria-label="Calendar item" className="pipeline-panel-enter absolute inset-y-0 right-0 flex w-full max-w-[430px] flex-col border-l border-[#cfd5d2] bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-[#d8dedb] p-5">
-          <div className="min-w-0"><span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#167f6b]">{model.kicker}</span><h2 className="mt-1.5 truncate text-[20px] font-extrabold tracking-[-0.025em] text-[#202522]">{model.clientName}</h2></div>
+          <div className="min-w-0"><span className="text-[12px] font-extrabold text-[#167f6b]">{model.kicker}</span><h2 className="mt-1.5 break-words text-[22px] font-extrabold text-[#202522]">{model.clientName}</h2></div>
           <IconButton label="Close calendar item" onClick={onClose}><X size={16} /></IconButton>
         </div>
         <CalendarDrawerDetails model={model} />
@@ -338,11 +384,12 @@ function CalendarDrawer({ selection, busy, scope, onClose, onOpenWorkspace, onSc
 function CalendarDrawerDetails({ model }: { model: CalendarDrawerModel }) {
   return (
     <div className="flex-1 overflow-y-auto p-5">
-      <dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-y-3 text-[12px]">
+      <dl className="grid grid-cols-[100px_minmax(0,1fr)] gap-x-3 gap-y-4 break-words text-[14px]">
         <dt className="font-bold text-[#777e7a]">Community</dt><dd className="font-semibold text-[#2d332f]">{model.community}</dd>
         <dt className="font-bold text-[#777e7a]">Assessor</dt><dd className="font-semibold text-[#2d332f]">{model.owner}</dd>
         {model.dateLabel ? <><dt className="font-bold text-[#777e7a]">Date</dt><dd className="font-semibold text-[#2d332f]">{model.dateLabel}</dd></> : null}
         {model.isAppointment ? <><dt className="font-bold text-[#777e7a]">Method</dt><dd className="font-semibold text-[#2d332f]">{model.methodLabel}</dd><dt className="font-bold text-[#777e7a]">Duration</dt><dd className="font-semibold text-[#2d332f]">{model.durationLabel}</dd></> : null}
+        {model.location ? <><dt className="font-bold text-[#777e7a]">{model.locationLabel}</dt><dd className="font-semibold text-[#2d332f]">{model.location}</dd></> : null}
         {model.receivedLabel ? <><dt className="font-bold text-[#777e7a]">Received</dt><dd className="font-semibold text-[#2d332f]">{model.receivedLabel}</dd></> : null}
       </dl>
       {model.followUps.length > 0 ? <div className="mt-5 border-l-2 border-[#a16a16] bg-[#fff8ed] p-3"><div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#8a5c14]">Follow-ups</div>{model.followUps.map((label) => <div key={label} className="mt-1.5 text-[12px] text-[#4b4030]">{label}</div>)}</div> : null}
@@ -356,7 +403,7 @@ function CalendarDrawerActions({ model, busy, onOpenWorkspace, onSchedule, onSta
     <div className="pipeline-commands space-y-2 border-t border-[#d8dedb] p-4">
       {model.zoomUrl ? <a href={model.zoomUrl} target="_blank" rel="noreferrer" className="flex h-10 w-full items-center justify-center gap-2 bg-[#4b68ad] text-[12px] font-extrabold text-white hover:bg-[#3d578f]"><Video size={15} /> Join Zoom <ExternalLink size={13} /></a> : null}
       {model.canSchedule ? <button type="button" onClick={onSchedule} className="flex h-10 w-full items-center justify-center gap-2 bg-[#167f6b] text-[12px] font-extrabold text-white hover:bg-[#116b5a]"><CalendarClock size={15} /> {model.isAppointment ? "Reschedule" : "Schedule assessment"}</button> : null}
-      <button type="button" onClick={onOpenWorkspace} className="flex h-10 w-full items-center justify-center gap-2 border border-[#cfd5d2] text-[12px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]"><FolderOpen size={15} /> Open workspace</button>
+      <button type="button" onClick={onOpenWorkspace} className="flex h-11 w-full items-center justify-center gap-2 border border-[#cfd5d2] text-[13px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]"><FolderOpen size={15} /> {model.isAppointment ? "Open assessment" : "Open workspace"}</button>
       {model.showStatusActions ? <div className="grid grid-cols-2 gap-2 pt-2"><button type="button" disabled={busy} onClick={() => onStatus("no_show")} className="h-9 border border-[#d8dedb] text-[11px] font-bold text-[#8a5c14] hover:bg-[#fff8ed] disabled:opacity-50">Mark no-show</button><button type="button" disabled={busy} onClick={() => onStatus("cancelled")} className="h-9 border border-[#d8dedb] text-[11px] font-bold text-[#9c3d32] hover:bg-[#fff3f1] disabled:opacity-50">Cancel appointment</button></div> : null}
     </div>
   );
@@ -394,7 +441,7 @@ function ScheduleDialog({ target, start, duration, method, location, state, onSt
 
 function CalendarEventButton({ event, onOpen, compact = false, conflict = false }: { event: PipelineCalendarEvent; onOpen: (event: PipelineCalendarEvent) => void; compact?: boolean; conflict?: boolean }) {
   const color = event.status === "overdue" ? "border-l-[#a9473d] bg-[#fff3f1] text-[#7c3229]" : eventColors[event.kind];
-  return <button type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title} - ${event.owner}`} className={`block w-full border-l-2 px-2 text-left ${compact ? "py-1.5" : "py-2"} ${color} ${conflict ? "ring-1 ring-[#a9473d]" : ""}`}><span className={`block truncate font-extrabold ${compact ? "text-[10px]" : "text-[12px]"}`}>{event.startsAt && compact ? `${eventTime(event.startsAt)} ` : ""}{calendarClientName(event.clientName, event.community)}</span><span className={`mt-0.5 block truncate opacity-80 ${compact ? "text-[9px]" : "text-[10px]"}`}>{conflict ? "Conflict - " : ""}{event.title}</span></button>;
+  return <button type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title} - ${event.owner}`} className={`block w-full border-l-2 px-2 text-left ${compact ? "py-2" : "py-2.5"} ${color} ${conflict ? "ring-1 ring-[#a9473d]" : ""}`}><span className="block truncate text-[12px] font-extrabold">{event.startsAt && compact ? `${eventTime(event.startsAt)} ` : ""}{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block text-[11px]">{conflict ? "Overlap · " : ""}{event.kind === "assessment" ? methodLabel(event.method) : event.title}</span></button>;
 }
 
 function CalendarFilter({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
