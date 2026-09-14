@@ -30,10 +30,28 @@ test.describe("Pipeline calendar characterization", () => {
         });
         return;
       }
-      await route.fulfill(calendarResponse(request));
+      const response = calendarResponse(request);
+      const payload = JSON.parse(response.body);
+      payload.events.push({ ...payload.events[1], id: "other-assessor-appointment", ownerId: "assessor-b", owner: "Bailey Assessor", clientName: "Bailey Client" });
+      await route.fulfill({ ...response, body: JSON.stringify(payload) });
     });
 
     await page.goto("/?screen=calendar");
+    await expect(page.getByText("My schedule", { exact: true })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "My appointments", exact: true })).toBeChecked();
+    await expect(page.getByRole("region", { name: "Timed assessment week" })).toBeVisible();
+    await expect.poll(() => requests.at(-1)?.queueMine).toBe(true);
+    await expect(page.getByRole("button", { name: /Scheduling queue\s+15/ })).toBeVisible();
+    await expect(page.getByText("Bailey Client", { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("calendar-default-mine.png") });
+    await page.getByRole("combobox", { name: "Filter calendar by assessor" }).selectOption("id:assessor-b");
+    await expect(page.getByRole("checkbox", { name: "My appointments", exact: true })).not.toBeChecked();
+    await expect(page.getByText("Bailey Client", { exact: true })).toBeVisible();
+    await expect(page.getByText("Scheduled Client", { exact: true })).toHaveCount(0);
+    await expect.poll(() => requests.at(-1)?.queueMine).toBe(false);
+    await page.getByRole("checkbox", { name: "My appointments", exact: true }).check();
+    await expect(page.getByText("Bailey Client", { exact: true })).toHaveCount(0);
+    await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
     await expect(page.getByText("Team schedule", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
     await expect(page.getByText("2 overlapping appointments", { exact: true })).toBeVisible();
@@ -164,6 +182,7 @@ test.describe("Pipeline calendar characterization", () => {
     });
 
     await page.goto("/?screen=calendar");
+    await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
     await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();
     const queue = page.getByRole("dialog", { name: "Scheduling queue" });
     await expect(queue.getByRole("button", { name: /Ready Xu/ })).toBeVisible();
@@ -255,6 +274,7 @@ test.describe("Pipeline calendar characterization", () => {
       const payload = JSON.parse(response.body);
       payload.scope = "personal";
       payload.assessors = [payload.assessors[0]];
+      delete payload.events.find((event: { kind: string }) => event.kind === "follow_up").ownerId;
       await route.fulfill({ ...response, body: JSON.stringify(payload) });
     });
     await page.route("**/api/me/work-continuity", async (route) => {
@@ -268,6 +288,10 @@ test.describe("Pipeline calendar characterization", () => {
     await expect(page.getByRole("button", { name: "Upcoming", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("My schedule", { exact: true })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Filter calendar by assessor" })).toHaveCount(0);
+    await expect(page.getByRole("checkbox", { name: "My appointments", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
+    await page.getByText("Dated follow-ups", { exact: false }).click();
+    await expect(page.getByRole("button", { name: /Records follow-up/ })).toBeVisible();
     const schedule = page.getByRole("region", { name: "Upcoming assessments" });
     await expect(schedule.getByText("Records follow-up")).toHaveCount(0);
     await expect(schedule.getByText("Meeting link:", { exact: true })).toBeVisible();
@@ -314,6 +338,7 @@ test.describe("Pipeline calendar characterization", () => {
       await route.fulfill({ ...response, body: JSON.stringify(payload) });
     });
     await page.goto("/?screen=calendar");
+    await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
     const week = page.getByRole("region", { name: "Supervisor team week" });
     await week.locator("summary").filter({ hasText: "4 more" }).click();
     await expect(week.locator('button[title^="Busy Evans -"]')).toBeVisible();

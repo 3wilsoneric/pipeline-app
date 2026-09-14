@@ -202,6 +202,11 @@ test.describe("operational account and role boundaries", () => {
         expect(body.unscheduled).toEqual(expect.arrayContaining([expect.objectContaining({ referralId: own.id })]));
         expect(body.unscheduled.every((item: { referralId: number }) => item.referralId !== other.id)).toBe(true);
         expect(body.assessors).toEqual([{ id: actor.id, name: actor.name }]);
+        const mine = await context.get(`${calendarPath}&queue_mine=true`);
+        expect(mine.status()).toBe(200);
+        expect(await mine.json()).toEqual(expect.objectContaining({
+          scope: "personal", unscheduled: body.unscheduled, unscheduledTotal: body.unscheduledTotal,
+        }));
 
         const filtered = await context.get(`${calendarPath}&queue_owner=id:${otherActor.id}&queue_mine=false`);
         expect(filtered.status()).toBe(200);

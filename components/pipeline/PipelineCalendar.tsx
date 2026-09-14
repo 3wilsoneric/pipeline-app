@@ -52,7 +52,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [anchor, setAnchor] = useState(todayKey);
   const [community, setCommunity] = useState("");
   const [owner, setOwner] = useState("");
-  const [mySchedule, setMySchedule] = useState(false);
+  const [mySchedule, setMySchedule] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
   const [queueSearch, setQueueSearch] = useState("");
@@ -180,12 +180,12 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const visibleEvents = calendarEvents.filter((event) => (
     (!community || event.community === community)
     && (!owner || ownerKey(event.ownerId, event.owner) === owner)
-    && (!mySchedule || (Boolean(viewer?.id) && event.ownerId === viewer?.id))
+    && (scope === "personal" || !mySchedule || (Boolean(viewer?.id) && event.ownerId === viewer?.id))
   ));
   const appointments = visibleEvents.filter((event) => event.kind === "assessment");
   const followUps = visibleEvents.filter((event) => event.kind === "follow_up");
   const eventsByDate = groupEventsByDate(appointments);
-  const hasFilters = hasCalendarFilters(community, owner, mySchedule);
+  const hasFilters = hasCalendarFilters(community, owner, scope === "team" && mySchedule);
   const overdue = visibleEvents.filter((event) => event.kind === "assessment" && event.status === "overdue");
   const conflicts = findScheduleConflicts(visibleEvents);
   const scheduledCount = visibleEvents.filter((event) => event.kind === "assessment").length;
