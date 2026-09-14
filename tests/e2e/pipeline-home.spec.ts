@@ -6,6 +6,7 @@ import {
   clientDirectoryFixture,
   unifiedProfileFixture,
 } from "./support/pipeline-clinical-fixtures";
+import { createOperationalReferral } from "./support/operational-api";
 
 test.describe("Pipeline home", () => {
   test("keeps the home surface calm and search-focused", async ({ page }) => {
@@ -215,6 +216,11 @@ test.describe("Pipeline home", () => {
       }>;
     }).clients[0];
 
+    await createOperationalReferral(page.request, "assessmentCoordinator", {
+      name: client.display_name,
+      owner: "Unassigned",
+    });
+
     await page.addInitScript(() => {
       window.sessionStorage.setItem("pipeline.recent-destinations.v1", JSON.stringify([{
         id: "profile:missing-key",
@@ -229,6 +235,7 @@ test.describe("Pipeline home", () => {
     await page.route("**/api/search**", async (route) => {
       const scope = new URL(route.request().url()).searchParams.get("scope");
       const clients = scope === "clinical" ? [client] : [];
+      if (scope === "clinical") await page.waitForTimeout(1_000);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -255,11 +262,14 @@ test.describe("Pipeline home", () => {
 
     await page.goto("/?view=referrals");
     await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("main", { name: "Referral workspaces" })
+      .getByRole("button", { name: /Avery Example/ }).first()).toBeVisible();
     await page.keyboard.press("/");
     await page.getByLabel("Search or ask").fill("Avery");
     await page.getByLabel("Search or ask").press("Enter");
 
-    const clientResult = page.getByRole("button", { name: /Avery Example/ });
+    const clientResult = page.getByRole("region", { name: "Search and ask", exact: true })
+      .getByRole("button", { name: /Avery Example/ });
     await expect(clientResult).toBeVisible();
     await clientResult.click();
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
