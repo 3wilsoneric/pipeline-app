@@ -44,15 +44,25 @@ async function createSource(request: APIRequestContext, overrides: Partial<Refer
     source: "Old referrer", priority: "standard", tags: [], documentName: "Old packet.pdf", documentStatus: "Uploaded",
     owner: "Unassigned", note: "Original referral narrative", createdAt: "2026-08-10T12:00:00Z", dob: "1984-06-12",
     gender: "Female", county: "Los Angeles", currentMedications: "Old medication history", phone: "555-0101",
-    email: "fixture@example.invalid", payer: "Example Plan", conserved: "no", admissionDate: "2026-08-15",
+    email: "fixture@example.invalid", payer: "Example Plan", conserved: "no",
     responsiblePerson: "Fixture contact", requirements: [], ...overrides,
   } } });
   expect(response.status(), await response.text()).toBe(201);
-  return (await response.json()).referral as Referral;
+  const referral = (await response.json()).referral as Referral;
+  // New intakes cannot claim an admission date. Populate the existing chart
+  // through its versioned update API so the next intake must clear real data.
+  const chartUpdate = await request.patch(`/api/referrals/${referral.id}`, { data: {
+    if_match: referral.version,
+    client_mutation_id: randomUUID(),
+    patch: { admissionDate: "2026-08-15" },
+  } });
+  expect(chartUpdate.status(), await chartUpdate.text()).toBe(200);
+  return (await chartUpdate.json()).referral as Referral;
 }
 
 test("a chart creates a fresh intake for the same client and retry does not duplicate it", async ({ page }, testInfo) => {
   const source = await createSource(page.request);
+  expect(source.admissionDate).toBe("2026-08-15");
   const before = await (await page.request.get(`/api/referrals/${source.id}/canvas`)).json();
   await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
   await expect(page.getByRole("button", { name: "New referral", exact: true })).toBeVisible();

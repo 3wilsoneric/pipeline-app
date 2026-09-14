@@ -60,7 +60,7 @@ test("captures the real screens used in the assessor orientation", async ({ page
 
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Since your last visit" })).toContainText("Taylor Rivera");
-  await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeVisible();
   await capture("assessor-home.png");
   await page.getByRole("button", { name: "Open referrals", exact: true }).click();

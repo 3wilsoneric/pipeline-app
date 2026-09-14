@@ -8,9 +8,9 @@ test("God mode opens another account with full administrator authority", async (
 
   const picker = page.getByRole("dialog", { name: "God mode" });
   await expect(picker).toBeVisible();
-  await expect(picker.getByText("Imported Allo account", { exact: true })).toHaveCount(4);
+  await expect(picker.getByText("Account setup pending", { exact: true })).toHaveCount(4);
   await expect(picker.getByText(/Andrew Dominici|Lily Florian|Lorena Renaud|Marta/, { exact: false })).toHaveCount(0);
-  await picker.getByRole("button", { name: /Jazmine Saldana Imported Allo account/ }).click();
+  await picker.getByRole("button", { name: /Jazmine Saldana Account setup pending/ }).click();
 
   await expect(page.getByRole("button", { name: "Exit God mode for Jazmine Saldana" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open profile menu for Jazmine Saldana" })).toBeVisible();

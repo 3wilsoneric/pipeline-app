@@ -20,7 +20,7 @@ test.describe("workflow interaction and durable feedback", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Use the isolated operational configuration.");
   test.setTimeout(60_000);
 
-  test("defaults to personal workspaces with newest-first scoped counts, pages and team switching", async ({ browser, baseURL }) => {
+  test("keeps personal ownership counts and pages correct with supervisor team switching", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
     const assessor = await actorApiContext("assessorA", url);
@@ -48,12 +48,14 @@ test.describe("workflow interaction and durable feedback", () => {
       const deniedExpansion = await (await other.get(`/api/referrals/directory?scope=team&workspace=all&q=${tag}`)).json();
       expect(deniedExpansion.referrals.map((item: Referral) => item.id)).toEqual([foreign.id]);
       await page.goto("/?view=referrals");
+      await expect(page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Mine", exact: true }).click();
       await expect(page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
       await page.getByRole("searchbox", { name: "Search my workspaces" }).fill(tag);
       const rows = page.getByRole("region", { name: "Referral worklist" }).getByRole("button");
       await expect(rows).toHaveCount(2);
       await expect(rows.first()).toHaveAttribute("aria-label", `Open ${newer.name} referral workspace`);
-      await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Team", exact: true }).click();
+      await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "All", exact: true }).click();
       await expect(rows).toHaveCount(3);
       await expect(rows.first()).toHaveAttribute("aria-label", `Open ${foreign.name} referral workspace`);
       await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Mine", exact: true }).click();
@@ -87,7 +89,11 @@ test.describe("workflow interaction and durable feedback", () => {
       const ids = new Set(referrals.map((referral) => referral.id));
       expect(snapshot.continuity.new_assignments.filter((item: { workspace: { referral_id: number } }) => ids.has(item.workspace.referral_id))).toHaveLength(8);
       await expect(panel.getByRole("button", { name: /Show \d+ more assignments/ })).toBeVisible();
-      await expect(page.getByRole("region", { name: "Current work" }).getByRole("button", { name: "Open current work" })).toContainText("more");
+      const currentWork = page.getByRole("region", { name: "Current work", exact: true });
+      await expect(currentWork.getByRole("button", { name: "Open current work" })).toBeVisible();
+      for (const referral of referrals) {
+        await expect(currentWork.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toBeVisible();
+      }
       let acknowledged: { acknowledgeAssignmentIds?: string[]; acknowledgeAssignmentsThrough?: string } | undefined;
       await page.route("**/api/me/work-continuity", async (route) => {
         const body = route.request().postDataJSON();
@@ -121,6 +127,12 @@ test.describe("workflow interaction and durable feedback", () => {
     let releaseReturn!: () => void;
     const returnGate = new Promise<void>((resolve) => { releaseReturn = resolve; });
     try {
+      const previousHome = await (await api.get("/api/operations/home")).json();
+      const previousIds = previousHome.continuity.new_assignments.map((item: { event_id: string }) => item.event_id);
+      if (previousIds.length) {
+        const acknowledged = await api.patch("/api/me/work-continuity", { data: { acknowledgeAssignmentIds: previousIds } });
+        expect(acknowledged.ok(), await acknowledged.text()).toBe(true);
+      }
       await createReferral(api, uniqueName(), pipelineActors.assessorB.id);
       await page.goto("/");
       const panel = page.getByRole("region", { name: "Since your last visit" });
@@ -171,8 +183,8 @@ test.describe("workflow interaction and durable feedback", () => {
     try {
       await page.goto("/?view=referrals&screen=packet");
       await page.getByRole("textbox", { name: "NAME", exact: true }).fill(uniqueName());
-      await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
-      await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
+      await page.getByRole("combobox", { name: "Requested community", exact: true }).selectOption("San Pablo");
+      await page.getByRole("combobox", { name: "Client county", exact: true }).selectOption("Contra Costa County");
       await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
       await page.getByTestId("document-checklist-toggle").click();
       const packetBytes = syntheticPdf();
@@ -287,7 +299,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
       expect((await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_5150_5250_holds).toBe(answer);
       await page.getByRole("button", { name: "Open current work", exact: true }).click();
-      const board = page.getByRole("region", { name: "Current work board" });
+      const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
       await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
       await expect(guided).toBeVisible();
