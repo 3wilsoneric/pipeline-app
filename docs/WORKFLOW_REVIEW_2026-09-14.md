@@ -1,0 +1,46 @@
+# Pipeline post-deployment workflow review
+
+Review requested by Eric after the General Changes release. Initial deployed source: `1d2c9b9cb2d131aa26cfa69347cda3dac0ca3841` (PR77). Azure deployment `34808903799` succeeded; the exact immutable revision was ready, received all traffic, and passed all eight readiness checks. Review and correction work uses an isolated worktree; the user's working checkout and production clinical records are not test fixtures.
+
+## Workflow and scope evidence
+
+| Area | Evidence and bounded result |
+| --- | --- |
+| Referral lifecycle | Local and PostgreSQL API journeys cover intake, contact readiness, scheduling, assessment, recommendation/review, completion, decline, and stage ordering. The browser operating-spine journey confirms missing scheduling contact is blocked, then adding a reachable contact permits scheduling; editing, unlinking, reusing and reopening the contact preserves its audit history. |
+| Assessments and review | Browser journeys schedule, complete, sign and recall an assessment. Store characterization covers signed-record immutability, addenda, correction successors, and competing supervisor decisions. Some required assessment fields are populated through the actual API by the synthetic fixture helper. |
+| Ownership and roles | Distinct synthetic principals exercise administrator, coordinator, assessor and viewer permissions. Assessor ownership restricts list/detail/mutation access. Explicit team queries do not expand assessor scope. Supervisor reports and exports deny unauthorized roles. Assignment handoff, personal counts, pagination and foreign Calendar queries are covered. |
+| Calendar | Personal roles receive personal events, scheduling queues, counts and roster scope from the API. Coordinators/admins retain team access, with My schedule as the initial UI selection and explicit team switching. Schedule collision checks remain enabled. |
+| Workspace navigation | Home's assigned referral board, saved-data refresh, personal/team workspace selection, search, browser history, one persistent shell, and save-before-switch are exercised. Delayed identity tests cover both coordinator/team and assessor/mine directory selection. |
+| Saves and recovery | Autosave retry, recovery drafts, competing sessions, version conflicts, idempotent replay, and delayed acknowledgment of newer encrypted queued edits are exercised. The new delayed-canvas regression exposes an edit accepted before hydration and then overwritten on the original no-auth build. |
+| Charts and client continuity | New intakes retain the canonical client link while clearing encounter-specific data. Concurrent retries create one new intake. Malformed, missing and cross-origin requests are rejected. Linked census-only charts remain consistent. |
+| EHR handoff | Real local lifecycle transitions cover version checking, failed transmission, retry and sent state. Downstream clinical service responses are stubbed; no real Epic/Alamo transmission is claimed. |
+| Capacity and resilience | A combined 22-case operational run includes the 100-user rehearsal, report counts, role boundaries, notification races and encrypted draft queue recovery. Request failures and retries preserve usable state. |
+| Accessibility and browsers | Home, workspace and packet navigation are exercised at desktop and phone widths with serious/critical axe checks and overflow assertions. Clients picker tests also run native Firefox and WebKit controls. |
+| Note Lab | A scoped synthetic Note Lab identity can use the lab, receives 403 from other Pipeline APIs and is redirected from Pipeline/demo pages back to the lab. |
+
+Local operational evidence supports 49 unique cases across isolated runs, including 24 opt-in store characterization cases. PostgreSQL 16 evidence supports 34 unique role/lifecycle/concurrency/store cases across properly isolated suites, with all 34 current migrations applied. The main-release PostgreSQL CI job also passed. Counts overlap the focused runs above and must not be added together as independent coverage.
+
+Early failures were investigated rather than converted into passing expectations blindly. Obsolete accessible labels, the intended administrator All default, the new full Home board, and report status timestamps required test corrections. Contact fixtures were made reachable. Calendar tests query the relevant paginated queue instead of assuming an item appears on its first page. Independent workflow suites use a fresh database so an earlier suite's legitimate appointment does not collide with later fixtures.
+
+## Bounded corrections found by the review
+
+1. **Directory initialization:** cold entry requested Mine before the effective role was known, then requested Team. The directory now waits for the request-validated role and its preload uses that same scope. The existing one-request assertion and new delayed-identity checks verify the result. Server authorization remains the access boundary.
+2. **Canvas initialization:** a deliberately delayed canvas response demonstrated that the no-auth configuration could accept an edit and overwrite it during hydration. The correction uses the existing recovery/loading guard from initial mount and before canvas fetches. This behavior is verified without hiding the race behind an artificial test wait. Production enables server drafts and already initializes this guard; no production edit-loss incident is asserted.
+3. **Readable workflow status:** the Home board's muted empty/status text had measured contrast 4.3:1, below the 4.5:1 small-text threshold. Its shared text tone is darker; the desktop and phone accessibility checks pass.
+4. **Repeatable test isolation:** the standalone server changes its working directory. Relative fixture paths caused test cleanup and the server to use different stores, leaving synthetic packets behind between runs. Browser and operational configurations now resolve their default stores against the project directory, and the CI external server uses those same absolute paths. Exact-packet duplicate protection remains intact.
+
+These corrections do not alter database schemas, authorization policy, assessment signing, admission decisions or external integration settings. The loading guard preserves the existing recovery/error/abort owner. The scope-loading change deliberately waits for the effective user when it is not supplied by the server; initial server-validated users retain their immediate path. A future identity-loading redesign should retain the delayed-identity and delayed-canvas regressions.
+
+## Entra access and production observations
+
+Andrew Dominici (`andrew@aaahealthservices.com`) and Sandeep Singh (`sandeep@aaahealthservices.com`) already have enabled, accepted directory accounts with direct `Pipeline.AssessmentCoordinator` and `Pipeline.NoteLabReviewer` assignments to the production application. These were checked before and after PR77 deployment. The production client, API audience, single tenant and delegated consent align, and application assignment remains required. No invitation, role mutation or tenant-wide access change was needed.
+
+Read-only production navigation through the existing authorized Entra session reached Home's new board, Calendar/My schedule, Reports, Workspaces/Mine-All and Clients. Clients loaded 100 rows without an unavailable state or alert. No patient names or clinical values are included in this report, and no production records were mutated for verification.
+
+This review does not substitute for Andrew or Sandeep completing their own interactive sign-in, and it does not certify their device or conditional-access state. Synthetic auth tests do not prove real Entra token issuance. Clinical extraction and downstream transmissions use mocks; real clinical writes, outbound mail and production load were not exercised.
+
+## Correction and release evidence
+
+The root correction is `fe63d98` (directory scope, status contrast and test coverage). The canvas owner correction is `1415c860857b0648dd0eb243509e247ccf1fe172`, with its separate accepted-edit regression updates. All 35 smoke cases pass on the canvas owner's corrected artifact. Root browser evidence covers all 37 selected navigation/picker/Home/presentation/contact/responsive cases across passing runs; the final 12-case picker and desktop/phone accessibility run passed together. The final scope/capacity/interaction cohort passed 22/22 again with corrected absolute test stores.
+
+Exact integrated-candidate checks, CI/security results and the final immutable Azure revision are recorded in the deployment evidence ledger at `/Users/eric/pipeline-deploy-batch-20260913/.data/releases/hopper-post-deploy-workflow-review-2026-09-13.md`. The follow-up keeps the established production settings and is deployed as one batch. This is evidence for the stated workflows and access boundaries, not a guarantee that every possible interaction is defect-free.
