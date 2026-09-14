@@ -17,7 +17,8 @@ import type {
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
-import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { listReferrals } from "@/lib/pipeline/referral-store";
 import type { Referral, RequirementGate, RequirementStatus } from "@/lib/pipeline/referral-types";
@@ -109,7 +110,7 @@ export async function getAssessmentCalendar(
   return {
     ...range,
     ...data,
-    scope: isAssessorUser(user) ? "personal" : "team",
+    scope: canAccessOperationsReports(user.roles) ? "team" : "personal",
     timezone: "America/Los_Angeles",
     viewer: { id: user.id, name: user.name },
     generated_at: new Date().toISOString(),
@@ -122,7 +123,7 @@ async function getPostgresAssessmentCalendar(
   options: AssessmentCalendarOptions,
 ) {
   const sql = getPipelineSql();
-  const restricted = isAssessorUser(user);
+  const restricted = !canAccessOperationsReports(user.roles);
   const ownerAliases = normalizedOwnerAliases(user);
   const queueLimit = Math.min(200, Math.max(1, options.queueLimit ?? 24));
   const queueSearch = options.queueSearch?.trim().toLowerCase() ?? "";
@@ -380,9 +381,11 @@ async function getLocalAssessmentCalendar(
   options: AssessmentCalendarOptions,
 ) {
   const referrals: Referral[] = [];
+  const restricted = !canAccessOperationsReports(user.roles);
   let referralCursor: string | undefined;
   do {
     const page = await listReferrals(scopeReferralListOptions(user, {
+      scope: restricted ? "mine" : "team",
       limit: 200,
       cursor: referralCursor,
       workspaceStatus: "active",
@@ -456,7 +459,7 @@ async function getLocalAssessmentCalendar(
     unscheduledTotal: allUnscheduled.length,
     unscheduledHasMore: allUnscheduled.length > queueLimit,
     assessors: activeAssessors
-      .filter((member) => !isAssessorUser(user) || member.principal_id === user.id)
+      .filter((member) => !restricted || member.principal_id === user.id)
       .map((member) => ({ id: member.principal_id, name: member.display_name })),
   };
 }
