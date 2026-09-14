@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:d277ba1c75004a50",
-  "fingerprint": "d277ba1c75004a50fa023f4e35114ec3ec3127c023107337650be35debecf3bc",
+  "generatedAt": "source-fingerprint:38331d9702565634",
+  "fingerprint": "38331d970256563428f353419c2650b3d08437b32043db61ef338da4cb7fb7a7",
   "totals": {
     "files": 1057,
-    "lines": 323931,
+    "lines": 323997,
     "coveredFiles": 1057
   },
   "entries": [
@@ -2326,7 +2326,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 519,
+      "lines": 533,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2518,7 +2518,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3872,
+      "lines": 3892,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2566,7 +2566,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 215,
+      "lines": 224,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3947,7 +3947,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 31,
+      "lines": 47,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6628,7 +6628,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 389,
+      "lines": 393,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -8041,7 +8041,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 934,
+      "lines": 936,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -9893,7 +9893,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 91,
+      "lines": 92,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
