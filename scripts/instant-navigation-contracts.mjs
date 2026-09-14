@@ -162,7 +162,7 @@ eligibleUser = null; assert.equal(await homeSeed({}), null);
 eligibleUser = { id: "effective-assessor" }; briefingFails = true;
 assert.equal(await homeSeed({}), null, "source outages retain the normal client retry path");
 
-const entrySeed = { fixture: "private-entry-only" };
+const entrySeed = { fixture: "private-entry-only", viewer: { id: "effective-fixture", name: "Assessor Fixture" } };
 const effectCalls = [];
 const seededStates = [];
 const seededSetters = [];
@@ -215,7 +215,7 @@ for (const seeded of [true, false]) {
   const startupEffect = effectCalls.find(({ deps }) => deps?.length === 1 && deps[0] === startupUser);
   const stopStartup = startupEffect.run();
   assert.equal(startupReads.length, seeded ? 2 : 0, "only a server-validated user may begin directory GETs before the live user read finishes");
-  finishUserRead({ user: { roles: ["viewer"] } });
+  finishUserRead({ user: { id: "effective-fixture", roles: ["viewer"] } });
   await Promise.resolve(); await Promise.resolve();
   assert.equal(startupReads.length, 2, "live user refresh must not duplicate already-started seed warmups");
   stopStartup();
