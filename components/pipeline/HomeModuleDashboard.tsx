@@ -215,6 +215,7 @@ export default function HomeModuleDashboard({
       ) : (
         <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2" data-testid="home-module-grid">
           {layout.module_ids.map((moduleId, index) => {
+            if (!editing && modules[moduleId] === null) return null;
             const definition = definitionsById[moduleId];
             return (
               <div
