@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
-import { fetchPipelineApi, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineApi, fetchPipelineJson, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import type {
   OperationsReportColumn,
   OperationsReportFilters,
@@ -38,11 +38,14 @@ export default function OperationsDashboard({
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const activeRequest = useRef<AbortController | null>(null);
+  const appliedFilters = useRef<OperationsReportFilters>(defaultFilters());
+  const dataGeneration = usePipelineDataGeneration();
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParams?.toString() ?? "");
   const view: ReportsView = new URLSearchParams(locationSearch).get("reportView") === "exceptions" ? "exceptions" : "reports";
 
   const loadReport = useCallback(async (nextFilters: OperationsReportFilters, signal?: AbortSignal) => {
+    appliedFilters.current = nextFilters;
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -69,9 +72,9 @@ export default function OperationsDashboard({
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadReport(defaultFilters(), controller.signal);
+    void loadReport(appliedFilters.current, controller.signal);
     return () => { controller.abort(); activeRequest.current?.abort(); };
-  }, [loadReport]);
+  }, [loadReport, dataGeneration]);
 
   const selectedDefinition = useMemo(
     () => response?.catalog.find((item) => item.id === filters.report_id) ?? response?.report.definition ?? null,

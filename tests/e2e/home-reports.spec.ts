@@ -47,7 +47,7 @@ test.describe("role-scoped home and reports", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
@@ -62,7 +62,7 @@ test.describe("role-scoped home and reports", () => {
   test("customizes, reorders, saves, and restores the user's Home modules", async ({ page }) => {
     await page.goto("/settings");
     await page.getByRole("link", { name: "Edit Home", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Remove Search from Home" }).click();
     await page.getByRole("button", { name: "Remove Recent work from Home" }).click();
     await page.getByRole("button", { name: "Add module" }).click();
@@ -88,7 +88,7 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
     await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
       elements.map((element) => element.getAttribute("data-home-module"))
-    ))).toEqual(["scheduling-queue", "current-work", "new-assignments", "search", "recent-work"]);
+    ))).toEqual(["current-work", "scheduling-queue", "new-assignments", "search", "recent-work"]);
 
     await page.getByRole("button", { name: "Done" }).click();
     await expect(page).not.toHaveURL(/editHome=1/);
@@ -100,7 +100,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toHaveCount(0);
     await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
       elements.map((element) => element.getAttribute("data-home-module"))
-    ))).toEqual(["scheduling-queue", "current-work", "new-assignments", "search", "recent-work"]);
+    ))).toEqual(["current-work", "scheduling-queue", "new-assignments", "search", "recent-work"]);
 
     await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/settings");
@@ -264,7 +264,7 @@ test.describe("role-scoped home and reports", () => {
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
     await expect(page.getByText("Your work", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toContainText("No assigned referrals require action");
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toContainText("No active referral work");
     await expect(page.getByRole("dialog", { name: "Current work" })).toHaveCount(0);
     await page.getByRole("button", { name: "Open current work" }).click();
     await expect(page).toHaveURL(/work=current/);
@@ -337,7 +337,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page).toHaveURL(/work=current/);
     await expect(page.getByRole("dialog", { name: "Current work" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Open Morgan Test" }).click();
+    await page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("button", { name: "Open Morgan Test" }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424242");
 
     await page.goBack();
@@ -496,7 +496,7 @@ test.describe("role-scoped home and reports", () => {
     });
 
     await page.goto("/?screen=operations");
-    await expect(page.getByRole("article", { name: "Completed assessments report" })).toBeVisible();
+    await expect(page.getByRole("article", { name: "Clients by community report" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Work assessment graph" })).toHaveCount(0);
     expect(graphRequests).toBe(0);

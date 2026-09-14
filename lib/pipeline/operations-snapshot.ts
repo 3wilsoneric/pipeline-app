@@ -829,11 +829,13 @@ function toReferralWorklistItem(
     last_activity_at: referral.updatedAt ?? referral.createdAt,
     age_hours: work.age_hours,
     completion_pct: work.completion_pct,
-    missing_document_count: missingDocuments.length + Number(
-      !hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral),
-    ),
+    missing_document_count: missingDocuments.length + missingInitialPacketCount(work, referral),
     location: worklistWorkspaceLocation(primaryCategory, referral),
   };
+}
+
+function missingInitialPacketCount(work: OperationsWorkItem, referral: Referral) {
+  return Number(work.outcome_state === "pending" && !hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral));
 }
 
 function queueWorkspaceLocation(

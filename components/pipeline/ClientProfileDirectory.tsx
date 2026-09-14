@@ -28,7 +28,7 @@ import {
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
-import { fetchCurrentPipelineUser, fetchPipelineJson, readPipelineJsonCache, getPipelineClientCacheGeneration } from "@/lib/auth/authenticated-fetch";
+import { fetchCurrentPipelineUser, fetchPipelineJson, readPipelineJsonCache, getPipelineClientCacheGeneration, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
@@ -72,6 +72,8 @@ export default function ClientProfileDirectory({
   onOpenProfile: (residentKey: string) => void;
 }) {
   const [initialDirectory] = useState(readInitialDirectory);
+  const dataGeneration = usePipelineDataGeneration();
+  const loadedGeneration = useRef(dataGeneration);
   const [clients, setClients] = useState<DirectoryClient[]>(() => initialDirectory?.clients ?? []);
   const [query, setQuery] = useState("");
   const [total, setTotal] = useState(() => initialDirectory?.total ?? 0);
@@ -108,6 +110,7 @@ export default function ClientProfileDirectory({
   useEffect(() => {
     const controller = new AbortController();
     const generation = getPipelineClientCacheGeneration();
+    const dataChanged = loadedGeneration.current !== dataGeneration;
     const normalizedQuery = query.trim();
     const timeout = window.setTimeout(() => {
       let loadedFirstPage = false;
@@ -115,7 +118,7 @@ export default function ClientProfileDirectory({
       setIsCompletingRoster(false);
       setDirectoryComplete(false);
       setError("");
-      setDisplayLimit(DISPLAY_INCREMENT);
+      if (loadedQuery.current !== normalizedQuery) setDisplayLimit(DISPLAY_INCREMENT);
       if (loadedQuery.current !== normalizedQuery) setClients([]);
 
       void (async () => {
@@ -123,7 +126,7 @@ export default function ClientProfileDirectory({
           const identity = await fetchCurrentPipelineUser();
           assertDirectoryContext(controller.signal, generation);
           const cacheKey = directoryCacheKey(identity.user?.id ?? identity.user?.email, normalizedQuery);
-          const bypassCache = forceReload.current;
+          const bypassCache = forceReload.current || dataChanged;
           forceReload.current = false;
           if (bypassCache) {
             directoryRefreshVersion += 1;
@@ -132,6 +135,7 @@ export default function ClientProfileDirectory({
           const cached = bypassCache ? null : readDirectoryCache(cacheKey);
           if (cached) {
             applyDirectoryPayload(cached);
+            loadedGeneration.current = dataGeneration;
             loadedQuery.current = normalizedQuery;
             setDirectoryComplete(true);
             setIsLoading(false);
@@ -151,6 +155,7 @@ export default function ClientProfileDirectory({
           });
           setDirectoryComplete(true);
           writeDirectoryCache(cacheKey, payload, generation);
+          loadedGeneration.current = dataGeneration;
         } catch (loadError) {
           if (controller.signal.aborted) return;
           setDirectoryComplete(false);
@@ -179,7 +184,7 @@ export default function ClientProfileDirectory({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [query, reloadKey, initialDirectory]);
+  }, [query, reloadKey, initialDirectory, dataGeneration]);
 
   const applyDirectoryPayload = (payload: ClientDirectoryPayload) => {
     setClients(payload.clients);

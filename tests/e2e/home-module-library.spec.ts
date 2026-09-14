@@ -160,6 +160,17 @@ test("captures real Home module previews with synthetic data", async ({ page, ba
       next_action: index ? "Finish the assessment and review your answers" : "Review the referral packet and complete intake",
       urgency: "normal", location: { view: index ? "assessment" : "intake" },
     })) };
+    payload.workflow.active_total = 2;
+    payload.workflow.flow_counts = { ready_to_schedule: 1, scheduled: 0, assessment: 1, complete_chart: 0 };
+    payload.workflow.active_items = names.map((name, index) => ({
+      referral_id: 910101 + index, client_name: name, community: "San Pablo", stage: "New",
+      workflow_status: index ? "assessment_in_progress" : "ready_to_schedule", flow_state: index ? "assessment" : "ready_to_schedule",
+      assessment_state: index ? "in_progress" : "not_started", outcome_state: "pending", assignment_state: "assigned",
+      document_state: "partial", profile_state: "partial", assessment_is_reassessment: false, owner: "Example Assessor", priority: "standard",
+      categories: [], primary_category: "follow_up", next_action: index ? "Finish the assessment and review your answers" : "Schedule the assessment",
+      blockers: [], missing_data: [], urgency: "normal", due_at: null, last_activity_at: "2026-09-14T15:00:00Z",
+      age_hours: 1, completion_pct: 40, missing_document_count: 0, location: { view: index ? "assessment" : "intake" },
+    }));
     payload.continuity = {
       resume_items: [{ id: "preview-draft", kind: "referral_draft", client_name: "Taylor Rivera", community: "San Pablo", detail: "Intake in progress", updated_at: "2026-09-14T15:40:00Z", referral_id: 910101, location: { view: "intake" }, completed_fields: 8, total_fields: 14 },
         { id: "preview-assessment", kind: "assessment_draft", client_name: "Jordan Ellis", community: "San Pablo", detail: "Assessment in progress", updated_at: "2026-09-14T15:00:00Z", referral_id: 910102, location: { view: "assessment" } }],
@@ -175,7 +186,9 @@ test("captures real Home module previews with synthetic data", async ({ page, ba
   await expect(page.getByRole("region", { name: "Continue working", exact: true })).toContainText("Taylor Rivera");
   await page.evaluate(() => document.fonts.ready);
   for (const id of [...defaults.filter((id) => id !== "search"), "scheduling-queue"]) {
+    if (id === "current-work") await page.setViewportSize({ width: 1440, height: 1100 });
     await page.locator(`[data-home-module="${id}"]`).screenshot({ path: testInfo.outputPath(`${id}.png`), animations: "disabled" });
+    if (id === "current-work") await page.setViewportSize({ width: 824, height: 1100 });
   }
   const search = page.locator('[data-home-module="search"]');
   await search.getByRole("button", { name: "Open search", exact: true }).click();
@@ -219,6 +232,7 @@ test("moves Search with the pointer and Recent work with arrow keys", async ({ p
   await mockLayout(page, ["search", "recent-work", "current-work"]);
   await page.goto("/?editHome=1");
   const handle = page.getByRole("button", { name: "Move Search", exact: true });
+  await page.locator('[data-home-module="recent-work"]').scrollIntoViewIfNeeded();
   const start = await handle.boundingBox();
   const target = await page.locator('[data-home-module="recent-work"]').boundingBox();
   expect(start).not.toBeNull();
@@ -227,9 +241,9 @@ test("moves Search with the pointer and Recent work with arrow keys", async ({ p
   await page.mouse.down();
   await page.mouse.move(target!.x + target!.width / 2, target!.y + target!.height / 2, { steps: 4 });
   await page.mouse.up();
-  await expect.poll(() => moduleOrder(page)).toEqual(["recent-work", "search", "current-work"]);
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work", "recent-work", "search"]);
   await page.getByRole("button", { name: "Move Recent work", exact: true }).press("ArrowDown");
-  await expect.poll(() => moduleOrder(page)).toEqual(["search", "recent-work", "current-work"]);
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work", "search", "recent-work"]);
 });
 
 test("an empty Home can add modules again or restore defaults", async ({ page }) => {
@@ -239,11 +253,11 @@ test("an empty Home can add modules again or restore defaults", async ({ page })
   const library = page.getByRole("dialog", { name: "Home module library" });
   await library.getByRole("checkbox", { name: "Recent work", exact: true }).check();
   await library.getByRole("button", { name: "Add 1 module", exact: true }).click();
-  await expect.poll(() => moduleOrder(page)).toEqual(["recent-work"]);
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work", "recent-work"]);
     await expect(page.getByRole("region", { name: "Continue working" })).toBeVisible();
   await page.getByRole("button", { name: "Add module", exact: true }).click();
   await library.getByRole("button", { name: "Restore defaults" }).click();
-  await expect.poll(() => moduleOrder(page)).toEqual(defaults);
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work", ...defaults.filter((id) => id !== "current-work")]);
 });
 
 test("layout loading cannot overwrite an edit made against an unfinished read", async ({ page }) => {

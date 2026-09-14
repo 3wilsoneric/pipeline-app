@@ -59,6 +59,58 @@ await browser.fetchPipelineJson("/api/referrals/42", { method: "PATCH" });
 assert.equal(browser.readPipelineJsonCache(path), undefined);
 checks.push("real data edits still invalidate cached projections");
 
+const channels = [];
+const messages = [];
+class RefreshChannel {
+  constructor(name) { this.name = name; channels.push(this); }
+  postMessage(value) {
+    messages.push(value);
+    for (const channel of channels) if (channel !== this && channel.name === this.name) channel.onmessage?.({ data: value });
+  }
+}
+function refreshTab() {
+  let subscribe;
+  let snapshot;
+  let notifications = 0;
+  let status = 200;
+  const api = load("lib/auth/authenticated-fetch.ts", {
+    "react": { useSyncExternalStore: (listen, read) => { subscribe = listen; snapshot = read; return read(); } },
+    "@/lib/auth/entra-client": { pipelineAuthRequired: false },
+    "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {} },
+    "@/lib/auth/post-login-path": {},
+    "@/lib/pipeline/base-path": { toPipelinePath: (path) => path },
+  }, { fetch: async () => Response.json({ fixture: true }, { status }), window: { setTimeout, clearTimeout }, BroadcastChannel: RefreshChannel });
+  api.usePipelineDataGeneration();
+  const unsubscribe = subscribe(() => { notifications += 1; });
+  return { api, snapshot, notifications: () => notifications, setStatus: (value) => { status = value; }, unsubscribe };
+}
+const writer = refreshTab();
+const reader = refreshTab();
+await reader.api.fetchPipelineJson(path, {}, { cacheTtlMs: 60_000 });
+await writer.api.fetchPipelineJson("/api/assessments/synthetic", { method: "PATCH" });
+assert.equal(writer.notifications(), 1);
+assert.equal(reader.notifications(), 1);
+assert.equal(reader.api.readPipelineJsonCache(path), undefined);
+assert.equal(writer.snapshot(), 1);
+assert.equal(reader.snapshot(), 1);
+assert.deepEqual(messages, ["changed"], "tab signals contain no patient details and never echo");
+for (const endpoint of ["/api/me/recents", "/api/me/work-continuity", "/api/referrals/42/presence", "/api/operations/reports"]) {
+  await writer.api.fetchPipelineJson(endpoint, { method: "POST" });
+}
+for (const type of ["referral", "assessment"]) {
+  await writer.api.fetchPipelineJson(`/api/me/${type}-drafts/synthetic`, { method: "PUT" });
+  await writer.api.fetchPipelineJson(`/api/me/${type}-drafts/synthetic`, { method: "DELETE" });
+}
+writer.setStatus(409);
+await assert.rejects(writer.api.fetchPipelineJson("/api/referrals/42", { method: "PATCH" }));
+assert.equal(writer.notifications(), 1);
+assert.equal(reader.notifications(), 1);
+assert.deepEqual(messages, ["changed"]);
+writer.api.clearPipelineClientSessionCache();
+assert.equal(writer.notifications(), 1, "session invalidation must not cancel its own renewal through reader cleanup");
+writer.unsubscribe(); reader.unsubscribe();
+checks.push("successful saves refresh local and other-tab readers without PHI, echoes, draft/export chatter or failed-save publication");
+
 let finish;
 respond = () => new Promise((resolve) => { calls += 1; finish = resolve; });
 const before = calls;

@@ -117,6 +117,7 @@ import {
 } from "@/components/pipeline/referral-canvas-save-state";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import ReferralContactsCard from "@/components/pipeline/ReferralContactsCard";
+import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import ContactDirectorySuggestion from "@/components/pipeline/ContactDirectorySuggestion";
 import { ageFromCalendarDate, calendarToday, normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
 import { stringLimits } from "@/lib/pipeline/referral-validation";
@@ -165,6 +166,7 @@ type ReferralPacketCanvasProps = {
   onWorkspaceStageChange?: (stage: WorkspaceStageName) => void;
   onWorkspaceLocationChange?: (location: PipelineWorkspaceLocation) => void;
   onOpenProfile?: (canonicalClientId: string) => void;
+  onOpenAssignedWork?: () => void;
 };
 
 type DirtyDraftKey = ReferralCanvasDirtyKey;
@@ -337,6 +339,7 @@ export default function ReferralPacketCanvas({
   onWorkspaceStageChange,
   onWorkspaceLocationChange,
   onOpenProfile = () => undefined,
+  onOpenAssignedWork,
 }: ReferralPacketCanvasProps = {}) {
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
@@ -1445,6 +1448,14 @@ export default function ReferralPacketCanvas({
     return null;
   };
 
+  const openAssignedWork = async () => {
+    if (!onOpenAssignedWork) return;
+    if (isSavingRef.current) throw new Error("Workspace changes are still saving. Try again when they finish.");
+    const pending = workspaceHasPendingChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current);
+    if (pending && !await saveWorkspaceDraft()) throw new Error("Save this workspace's pending changes before switching referrals.");
+    onOpenAssignedWork();
+  };
+
   const continueToAssessment = async () => {
     if (trainingIntakeMode) {
       window.location.assign(toPipelinePath("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule&demo=1"));
@@ -1750,11 +1761,7 @@ export default function ReferralPacketCanvas({
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
     (field) => extractedCanvasFieldKeys(field.field_key).length > 0,
   );
-  const packetEvidenceVersion = loadedReferral?.packetId
-    ? `${loadedReferral.packetId}:${(loadedReferral.packetFields ?? [])
-        .map((field) => `${field.field_key}:${field.version}`)
-        .join("|")}`
-    : "";
+  const packetEvidenceVersion = referralPacketEvidenceVersion(loadedReferral);
   const hasPendingWorkspaceChanges = workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket);
   const referralWorkspaceId = activeReferralId(loadedReferral, referral);
   const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
@@ -1784,7 +1791,7 @@ export default function ReferralPacketCanvas({
   };
 
   return (
-    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={!draftRecoveryLoading && (!referral?.id || loadedReferral) ? "packet" : undefined} className="relative h-full overflow-y-auto bg-white text-[#111111]">
+    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className="relative h-full overflow-y-auto bg-white text-[#111111]">
       {draftRecoveryLoading ? (
         <div className="absolute inset-0 z-50 flex items-start justify-center bg-white/85 pt-24" role="status" aria-live="polite">
           <div className="border-l-2 border-[#0f8b73] bg-white px-4 py-3 text-[12px] font-black text-[#174f43] shadow-sm">
@@ -1794,7 +1801,7 @@ export default function ReferralPacketCanvas({
       ) : null}
       <div
         data-testid="packet-workspace"
-        inert={draftRecoveryLoading ? true : undefined}
+        inert={draftRecoveryLoading}
         aria-busy={draftRecoveryLoading}
         className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
       >
@@ -1806,6 +1813,12 @@ export default function ReferralPacketCanvas({
             <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={openPage} />
 
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:ml-auto">
+              <WorkspaceAssignedWorkControl
+                referral={loadedReferral}
+                available={onOpenAssignedWork}
+                onOpen={openAssignedWork}
+                disabled={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange, isSaving, draftRecoveryLoading)}
+              />
               {loadedReferral && editingControlsVisible ? (
                 <button
                   type="button"
@@ -2219,6 +2232,7 @@ export default function ReferralPacketCanvas({
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onContinueToWorkflow={() => openPage("workflow")}
+                  onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
                   onActiveSectionChange={(section) => {
                     if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section });
                   }}
@@ -2460,8 +2474,29 @@ function hasReferralRecord(referral: Referral | null, referralId: number | undef
   return Boolean(referral || referralId);
 }
 
-function workspaceSaveIsBlocked(uploadingDocumentIds: Set<string>, remoteChange: RemoteChange | null) {
-  return uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length);
+function workspaceSaveIsBlocked(uploadingDocumentIds: Set<string>, remoteChange: RemoteChange | null, saving = false, recovering = false) {
+  return uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length) || saving || recovering;
+}
+
+function workspacePerformanceReady(recovering: boolean, referralId: number | undefined, referral: Referral | null) {
+  return !recovering && (!referralId || referral) ? "packet" : undefined;
+}
+
+function referralPacketEvidenceVersion(referral: Referral | null) {
+  if (!referral?.packetId) return "";
+  return `${referral.packetId}:${(referral.packetFields ?? [])
+    .map((field) => `${field.field_key}:${field.version}`)
+    .join("|")}`;
+}
+
+function WorkspaceAssignedWorkControl({ referral, available, onOpen, disabled }: {
+  referral: Referral | null;
+  available: ReferralPacketCanvasProps["onOpenAssignedWork"];
+  onOpen: () => Promise<void>;
+  disabled: boolean;
+}) {
+  if (!referral || !available) return null;
+  return <AssignedWorkButton onOpen={() => void onOpen().catch(() => undefined)} disabled={disabled} />;
 }
 
 function WorkspaceFilesPage({

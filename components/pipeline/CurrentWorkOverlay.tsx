@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { LoaderCircle, X } from "lucide-react";
 
 import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { fetchPipelineJson, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 
 const VIEW_STATE_KEY = "pipeline.current-work-view.v1";
 
@@ -15,12 +16,20 @@ export default function CurrentWorkOverlay({
   briefing,
   onClose,
   onOpenPacket,
+  selectedReferralId,
 }: {
-  briefing: HomeBriefingSnapshot;
+  briefing?: HomeBriefingSnapshot | null;
   onClose: () => void;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+  selectedReferralId?: number;
 }) {
-  const title = briefing.scope === "team" ? "Team work" : "Assigned work";
+  const [loadedBriefing, setLoadedBriefing] = useState<HomeBriefingSnapshot | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [retry, setRetry] = useState(0);
+  const dataGeneration = usePipelineDataGeneration();
+  const currentBriefing = briefing ?? loadedBriefing;
+  const briefingReady = Boolean(currentBriefing);
+  const title = currentBriefing?.scope === "team" ? "Team referrals" : "Assigned referrals";
   const portalReady = useSyncExternalStore(subscribeToBrowser, browserSnapshot, serverSnapshot);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -28,28 +37,56 @@ export default function CurrentWorkOverlay({
   const onCloseRef = useRef(onClose);
 
   useEffect(() => {
+    if (briefing) return;
+    const controller = new AbortController();
+    let pending = false;
+    const load = () => {
+      if (pending || document.visibilityState !== "visible") return;
+      pending = true;
+      void fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", { cache: "no-store", signal: controller.signal })
+      .then((payload) => { if (!controller.signal.aborted) { setLoadedBriefing(payload); setLoadError(""); } })
+      .catch((error) => { if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Referrals could not be loaded."); })
+      .finally(() => { pending = false; });
+    };
+    load();
+    const interval = window.setInterval(load, 30_000);
+    window.addEventListener("focus", load);
+    document.addEventListener("visibilitychange", load);
+    return () => { controller.abort(); window.clearInterval(interval); window.removeEventListener("focus", load); document.removeEventListener("visibilitychange", load); };
+  }, [briefing, retry, dataGeneration]);
+
+  useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    if (!portalReady || !briefingReady) return;
+    const frame = window.requestAnimationFrame(() => {
+      const stored = readViewState();
+      if (scrollRef.current) scrollRef.current.scrollTop = stored.scrollTop;
+      const board = dialogRef.current?.querySelector<HTMLElement>("[data-current-work-board]");
+      if (board) board.scrollLeft = stored.boardScrollLeft;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [portalReady, briefingReady]);
 
   useEffect(() => {
     if (!portalReady) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
+    const managesOverflow = previousOverflow !== "hidden";
     const dialog = dialogRef.current;
     const scrollContainer = scrollRef.current;
-    document.body.style.overflow = "hidden";
+    const background = Array.from(document.body.children).filter((element): element is HTMLElement => element instanceof HTMLElement && !element.contains(dialog));
+    const previousInert = background.map((element) => element.inert);
+    background.forEach((element) => { element.inert = true; });
+    if (managesOverflow) document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
-
-    const storedState = readViewState();
-    const frame = window.requestAnimationFrame(() => {
-      if (scrollContainer) scrollContainer.scrollTop = storedState.scrollTop;
-      const board = dialog?.querySelector<HTMLElement>("[data-current-work-board]");
-      if (board) board.scrollLeft = storedState.boardScrollLeft;
-    });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopPropagation();
         onCloseRef.current();
         return;
       }
@@ -69,9 +106,9 @@ export default function CurrentWorkOverlay({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
+      if (managesOverflow) document.body.style.overflow = previousOverflow;
+      background.forEach((element, index) => { element.inert = previousInert[index]; });
       const board = dialog?.querySelector<HTMLElement>("[data-current-work-board]");
       writeViewState({
         scrollTop: scrollContainer?.scrollTop ?? 0,
@@ -84,7 +121,7 @@ export default function CurrentWorkOverlay({
   if (!portalReady) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[90] bg-[rgba(17,17,17,0.12)] p-0 sm:p-3 lg:p-5">
+    <div className="fixed inset-0 z-[110] bg-[rgba(17,17,17,0.12)] p-0 sm:p-3 lg:p-5">
       <div
         ref={dialogRef}
         role="dialog"
@@ -96,7 +133,7 @@ export default function CurrentWorkOverlay({
           <div className="flex min-w-0 items-baseline gap-3">
             <h1 id="current-work-title" className="truncate text-[20px] font-black text-[#111111] sm:text-[23px]">{title}</h1>
             <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#68706b]">
-              {briefing.workflow.active_total.toLocaleString()} active
+              {currentBriefing ? `${currentBriefing.workflow.active_total.toLocaleString()} active` : ""}
             </span>
           </div>
           <button
@@ -111,7 +148,12 @@ export default function CurrentWorkOverlay({
           </button>
         </header>
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8 lg:pt-6">
-          <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} />
+          {currentBriefing ? <ReferralWorkflowTracker briefing={currentBriefing} onOpenPacket={onOpenPacket} selectedReferralId={selectedReferralId} /> : loadError ? (
+            <div role="alert" className="flex flex-wrap items-center gap-3 py-8 text-[13px] text-[#9a6115]">
+              <span>{loadError}</span>
+              <button type="button" onClick={() => { setLoadError(""); setRetry((value) => value + 1); }} className="font-bold underline underline-offset-2">Retry</button>
+            </div>
+          ) : <div role="status" className="flex items-center gap-2 py-8 text-[13px] text-[#68706b]"><LoaderCircle size={16} className="animate-spin" aria-hidden="true" />Loading referrals...</div>}
         </div>
       </div>
     </div>,

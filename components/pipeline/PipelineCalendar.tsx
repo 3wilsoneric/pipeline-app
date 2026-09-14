@@ -41,7 +41,7 @@ import type {
   AssessmentScheduleMethod,
   PipelineAssessmentRecord,
 } from "@/lib/assessment/assessment-records";
-import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, PipelineApiError, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent, PipelineCalendarResponse } from "@/lib/pipeline/calendar-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
@@ -58,6 +58,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [queueSearch, setQueueSearch] = useState("");
   const [queueLimit, setQueueLimit] = useState(24);
   const [refreshToken, setRefreshToken] = useState(0);
+  const dataGeneration = usePipelineDataGeneration();
   const [selected, setSelected] = useState<CalendarSelection | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<ScheduleTarget | null>(null);
   const [scheduleStart, setScheduleStart] = useState("");
@@ -142,7 +143,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     fetchPipelineJson<PipelineCalendarResponse>(`/api/calendar/events?${params}`, {
       cache: "no-store",
       signal: controller.signal,
-    }, { cacheTtlMs: 15_000 }).then((payload) => {
+    }, { cacheTtlMs: 15_000, bypassCache: refreshToken > 0 }).then((payload) => {
       if (controller.signal.aborted) return;
       if (payload.scope === "personal" && !viewChosen.current) setView("agenda");
       setCache((current) => ({
@@ -164,7 +165,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       setRequestState({ key: requestKey, loading: false, error: reason instanceof Error ? reason.message : "Calendar could not be loaded." });
     });
     return () => controller.abort();
-  }, [community, deferredQueueSearch, mySchedule, owner, queueLimit, range.from, range.to, refreshToken, requestKey]);
+  }, [community, deferredQueueSearch, mySchedule, owner, queueLimit, range.from, range.to, refreshToken, requestKey, dataGeneration]);
 
   const calendarEvents = events.filter((event) => event.kind !== "referral_assigned");
   const communityOptions = uniqueValues([

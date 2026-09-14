@@ -9,6 +9,7 @@ import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
+import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -127,6 +128,19 @@ function recordCompleteNavigation(screen: PipelineScreen, referral: ReferralSele
   recordNavigation(screen, referral);
 }
 
+function isCurrentWorkOpen(screen: PipelineScreen, params: URLSearchParams) {
+  return (screen === "home" || screen === "packet") && params.get("work") === "current";
+}
+
+function PacketAssignedWorkOverlay({ screen, open, isDemoWorkspace, ...props }: ComponentProps<typeof CurrentWorkOverlay> & {
+  screen: PipelineScreen;
+  open: boolean;
+  isDemoWorkspace: boolean;
+}) {
+  if (screen !== "packet" || !open || isDemoWorkspace) return null;
+  return <CurrentWorkOverlay {...props} />;
+}
+
 export default function PipelineOverviewRoute({ initialBriefing }: { initialBriefing?: HomeBriefingSnapshot | null }) {
   const { initialUser } = usePipelineAuth();
   const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
@@ -134,7 +148,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const screen = getScreenFromParams(activeSearchParams);
-  const currentWorkOpen = screen === "home" && activeSearchParams.get("work") === "current";
+  const currentWorkOpen = isCurrentWorkOpen(screen, activeSearchParams);
   const editHome = screen === "home" && activeSearchParams.get("editHome") === "1";
   const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
   const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
@@ -275,6 +289,9 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     );
   }
 
+  const trainingAssessmentMode = getTrainingAssessmentMode(activeSearchParams);
+  const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
+  const isDemoWorkspace = [activeSearchParams.get("demo") === "1", Boolean(trainingAssessmentMode), trainingIntakeMode].some(Boolean);
   let page: ReactNode;
   if (screen === "packet") {
     const workspaceKey = referralWorkspaceKey(selectedReferral, createdWorkspace, newReferralDraftKey);
@@ -284,9 +301,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       const currentId = getReferralFromParams(current)?.id;
       return selectedReferral ? currentId === selectedReferral.id : !currentId && getNewReferralDraftKey(current) === newReferralDraftKey;
     };
-    const trainingAssessmentMode = getTrainingAssessmentMode(activeSearchParams);
-    const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
-    const isDemoWorkspace = [activeSearchParams.get("demo") === "1", Boolean(trainingAssessmentMode), trainingIntakeMode].some(Boolean);
     const packetProps: ComponentProps<DeferredWorkSurfaces["ReferralPacketCanvas"]> = {
       referral: selectedReferral,
       newDraftKey: newReferralDraftKey,
@@ -325,6 +339,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       },
       onReferralDeleted: () => navigate("referrals"),
       onOpenProfile: (clientId) => navigate("profile", undefined, clientId),
+      onOpenAssignedWork: isDemoWorkspace ? undefined : openCurrentWork,
     };
     page = deferredWorkSurfaces ? <deferredWorkSurfaces.ReferralPacketCanvas key={workspaceKey} {...packetProps} /> : <DeferredScreenLoading />;
   } else if (screen === "profile" && selectedClientId) {
@@ -366,6 +381,18 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       <div className="pipeline-route-enter h-full min-h-0 flex-1 overflow-hidden">
         {page}
       </div>
+      <PacketAssignedWorkOverlay
+        key={viewerId}
+        screen={screen}
+        open={currentWorkOpen}
+        isDemoWorkspace={isDemoWorkspace}
+        selectedReferralId={selectedReferral?.id}
+        onClose={closeCurrentWork}
+        onOpenPacket={(referral, location) => {
+          if (referral.id === selectedReferral?.id) closeCurrentWork();
+          else void navigate("packet", referral, undefined, location);
+        }}
+      />
     </div>
   );
 }
