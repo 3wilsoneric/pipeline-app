@@ -248,3 +248,41 @@ test("both assessment views keep answers and position when opening and closing a
   await expect(chart).toBeVisible();
   await expect(answer).toHaveValue("Synthetic assessment answer preserved across the referral switcher.");
 });
+
+for (const preset of [false, true]) {
+  test(`${preset ? "preset" : "typed"} search replaces old and removed rows after a saved change in another tab`, async ({ page, context }) => {
+    const referral = await createReferral(page.request);
+    await mockHopper(page, [referral]);
+    let changed = false;
+    await page.route("**/api/search?**", (route) => {
+      const referrals = changed ? [{ ...referral, name: "Harper Lee" }] : [
+        { ...referral, name: "Robin Lane" }, { ...referral, id: referral.id + 10000, name: "Dana Perez" },
+      ];
+      return route.fulfill({ json: { query: "ClinicalDelta", interpreted_query: "ClinicalDelta", referrals,
+        files: [], clients: [], destinations: [], counts: { referrals: referrals.length, files: 0, clients: 0, destinations: 0, total: referrals.length } } });
+    });
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open Quinn Patel", exact: true })).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
+    await page.keyboard.press("Control+k");
+    const search = page.getByRole("dialog", { name: "Search Pipeline", exact: true });
+    await expect(search).toBeVisible();
+    if (preset) await search.getByRole("button", { name: "Show my assigned workspaces.", exact: true }).click();
+    else await search.getByRole("textbox", { name: "Search or ask", exact: true }).fill("ClinicalDelta");
+    await expect(search.getByRole("button", { name: "Open workspace for Dana Perez", exact: true })).toBeVisible();
+    const editor = await context.newPage();
+    try {
+      await editor.goto(`/?screen=packet&referralId=${referral.id}&workspaceStage=intake`);
+      const phone = editor.getByRole("textbox", { name: "Client phone:", exact: true });
+      await expect(phone).toBeVisible();
+      changed = true;
+      const saved = editor.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}`) && response.request().method() === "PATCH" && response.ok());
+      await phone.fill("555-0177");
+      await saved;
+      await expect(search.getByRole("button", { name: "Open workspace for Harper Lee", exact: true })).toBeVisible();
+      await expect(search.getByRole("button", { name: "Open workspace for Robin Lane", exact: true })).toHaveCount(0);
+      await expect(search.getByRole("button", { name: "Open workspace for Dana Perez", exact: true })).toHaveCount(0);
+    } finally { await editor.close(); }
+  });
+}

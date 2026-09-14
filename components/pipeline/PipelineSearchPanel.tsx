@@ -108,7 +108,7 @@ export default function PipelineSearchPanel({
   className?: string;
 }) {
   const [searchText, setSearchText] = useState("");
-  const [selectedSuggestion, setSelectedSuggestion] = useState<string>();
+  const [selectedSuggestion, setSelectedSuggestion] = useState<Pick<PipelineSuggestedSearch, "id" | "mode" | "prompt">>();
   const [result, setResult] = useState<SearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
@@ -134,7 +134,6 @@ export default function PipelineSearchPanel({
 
   useEffect(() => {
     if (!autoFocus) return;
-    setIsFocused(true);
     const frame = window.requestAnimationFrame(() => searchInputRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
   }, [autoFocus]);
@@ -162,89 +161,89 @@ export default function PipelineSearchPanel({
   }, [isFocused]);
 
   useEffect(() => {
-    if (selectedSuggestion) return;
-    const query = searchText.trim();
-    if (questionInterpretation) {
-      setResult(null);
-      setError("");
-      setIsSearching(false);
-      return;
-    }
-    if (query.length < 2) {
-      setResult(null);
-      setError("");
-      setIsSearching(false);
-      return;
-    }
-
     const controller = new AbortController();
-    const immediateDestinations = searchSiteDestinations(query, { includeReports: canAccessReports });
-    setResult(emptySearchResult(query, immediateDestinations));
-    // Coalesce ordinary typing while preserving an immediate Enter submission.
-    // Local discovery starts first; governed clinical search waits long enough
-    // to avoid sending upstream work for every intermediate keystroke.
-    const immediateSubmit = submitRequestedRef.current;
-    submitRequestedRef.current = false;
-    setIsSearching(true);
-    setError("");
-    let completed = 0;
-    let failed = 0;
-    const finish = () => {
-      completed += 1;
-      if (completed < 2 || controller.signal.aborted) return;
-      setIsSearching(false);
-      if (failed === 2) {
+    let clearTimers: (() => void) | undefined;
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      if (selectedSuggestion) {
         setResult(null);
-        setError("Search is unavailable right now.");
-      }
-    };
-    const runPhase = (scope: "local" | "clinical") => {
-      fetchPipelineJson<SearchResult>(`/api/search?scope=${scope}&q=${encodeURIComponent(query)}`, {
-        cache: "no-store",
-        signal: controller.signal,
-      })
-        .then((payload) => {
+        setIsSearching(true);
+        setError("");
+        void fetchPipelineJson<SearchResult>(
+          `/api/search?mode=${selectedSuggestion.mode}&q=${encodeURIComponent(selectedSuggestion.prompt)}`,
+          { cache: "no-store", signal: controller.signal },
+        ).then((payload) => {
           if (controller.signal.aborted) return;
-          if (!("counts" in payload)) throw new Error("Search is unavailable right now.");
-          setResult((current) => mergeSearchResults(current, payload, query));
-        })
-        .catch(() => {
-          if (!controller.signal.aborted) failed += 1;
-        })
-        .finally(finish);
-    };
-    const localTimeout = window.setTimeout(() => runPhase("local"), immediateSubmit ? 0 : 50);
-    const clinicalTimeout = window.setTimeout(() => runPhase("clinical"), immediateSubmit ? 0 : 180);
+          if (!("counts" in payload)) throw new Error("That search is unavailable right now.");
+          setResult(payload);
+        }).catch((searchError) => {
+          if (!controller.signal.aborted) setError(searchError instanceof Error ? searchError.message : "That search is unavailable right now.");
+        }).finally(() => { if (!controller.signal.aborted) setIsSearching(false); });
+        return;
+      }
+      const query = searchText.trim();
+      if (questionInterpretation) {
+        setResult(null);
+        setError("");
+        setIsSearching(false);
+        return;
+      }
+      if (query.length < 2) {
+        setResult(null);
+        setError("");
+        setIsSearching(false);
+        return;
+      }
 
-    return () => {
-      window.clearTimeout(localTimeout);
-      window.clearTimeout(clinicalTimeout);
-      controller.abort();
-    };
+      const immediateDestinations = searchSiteDestinations(query, { includeReports: canAccessReports });
+      setResult(emptySearchResult(query, immediateDestinations));
+      // Coalesce ordinary typing while preserving an immediate Enter submission.
+      // Local discovery starts first; governed clinical search waits long enough
+      // to avoid sending upstream work for every intermediate keystroke.
+      const immediateSubmit = submitRequestedRef.current;
+      submitRequestedRef.current = false;
+      setIsSearching(true);
+      setError("");
+      let completed = 0;
+      let failed = 0;
+      const finish = () => {
+        completed += 1;
+        if (completed < 2 || controller.signal.aborted) return;
+        setIsSearching(false);
+        if (failed === 2) {
+          setResult(null);
+          setError("Search is unavailable right now.");
+        }
+      };
+      const runPhase = (scope: "local" | "clinical") => {
+        fetchPipelineJson<SearchResult>(`/api/search?scope=${scope}&q=${encodeURIComponent(query)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        })
+          .then((payload) => {
+            if (controller.signal.aborted) return;
+            if (!("counts" in payload)) throw new Error("Search is unavailable right now.");
+            setResult((current) => mergeSearchResults(current, payload, query));
+          })
+          .catch(() => {
+            if (!controller.signal.aborted) failed += 1;
+          })
+          .finally(finish);
+      };
+      const localTimeout = window.setTimeout(() => runPhase("local"), immediateSubmit ? 0 : 50);
+      const clinicalTimeout = window.setTimeout(() => runPhase("clinical"), immediateSubmit ? 0 : 180);
+
+      clearTimers = () => {
+        window.clearTimeout(localTimeout);
+        window.clearTimeout(clinicalTimeout);
+      };
+    });
+    return () => { controller.abort(); clearTimers?.(); };
   }, [canAccessReports, questionInterpretation, searchText, searchNonce, selectedSuggestion, dataGeneration]);
 
-  const runSuggestedSearch = async (suggestion: PipelineSuggestedSearch) => {
+  const runSuggestedSearch = (suggestion: PipelineSuggestedSearch) => {
     if (isSearching) return;
-
-    setSelectedSuggestion(suggestion.id);
-    setIsSearching(true);
-    setError("");
-
-    try {
-      const payload = await fetchPipelineJson<SearchResult>(
-        `/api/search?mode=${suggestion.mode}&q=${encodeURIComponent(suggestion.prompt)}`,
-        { cache: "no-store" },
-      );
-      if (!("counts" in payload)) {
-        throw new Error("That search is unavailable right now.");
-      }
-      setResult(payload);
-    } catch (searchError) {
-      setResult(null);
-      setError(searchError instanceof Error ? searchError.message : "That search is unavailable right now.");
-    } finally {
-      setIsSearching(false);
-    }
+    setSelectedSuggestion({ id: suggestion.id, mode: suggestion.mode, prompt: suggestion.prompt });
   };
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
@@ -258,25 +257,10 @@ export default function PipelineSearchPanel({
     setSearchNonce((current) => current + 1);
   };
 
-  const runSearchMode = async (mode: PipelineQuestionSearchMode, prompt: string) => {
+  const runSearchMode = (mode: PipelineQuestionSearchMode, prompt: string) => {
     if (isSearching) return;
     setSelectedQuestionIntent(undefined);
-    setSelectedSuggestion(`question:${mode}`);
-    setIsSearching(true);
-    setError("");
-    try {
-      const payload = await fetchPipelineJson<SearchResult>(
-        `/api/search?mode=${mode}&q=${encodeURIComponent(prompt)}`,
-        { cache: "no-store" },
-      );
-      if (!("counts" in payload)) throw new Error("That search is unavailable right now.");
-      setResult(payload);
-    } catch (searchError) {
-      setResult(null);
-      setError(searchError instanceof Error ? searchError.message : "That search is unavailable right now.");
-    } finally {
-      setIsSearching(false);
-    }
+    setSelectedSuggestion({ id: `question:${mode}`, mode, prompt });
   };
 
   const useQuestionAction = (action: PipelineQuestionAction) => {
@@ -363,7 +347,7 @@ export default function PipelineSearchPanel({
                 onClick={() => runSuggestedSearch(suggestion)}
                 aria-label={suggestion.prompt}
                 className={`group flex min-h-[58px] w-full items-center gap-3 px-3 py-3 text-left hover:bg-[#f7faf9] sm:gap-4 sm:px-5 md:px-6 ${
-                  selectedSuggestion === suggestion.id ? "border-l-[3px] border-[#0f8b73] pl-[17px]" : "border-l-[3px] border-transparent"
+                  selectedSuggestion?.id === suggestion.id ? "border-l-[3px] border-[#0f8b73] pl-[17px]" : "border-l-[3px] border-transparent"
                 }`}
               >
                 <span className="w-[82px] shrink-0 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] group-hover:text-[#0f8b73] sm:w-[112px] sm:text-[10px] sm:tracking-[0.14em]">
