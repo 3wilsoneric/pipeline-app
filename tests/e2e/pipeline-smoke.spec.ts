@@ -2144,12 +2144,12 @@ test.describe("Referral home and packet canvas", () => {
     const clientName = `Assessment ${uniqueAlphabeticNameToken()}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
-    await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
+    await page.getByLabel("Date of birth", { exact: true }).fill("1984-06-12");
     await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("5550003434");
-    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
-    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
-    await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("San Pablo intake team");
-    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption(testAssessor.id);
+    await page.getByRole("combobox", { name: "Requested community" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "Client county" }).selectOption("Contra Costa County");
+    await page.getByRole("combobox", { name: "Referral facility / source", exact: true }).fill("San Pablo intake team");
+    await page.getByRole("combobox", { name: "Assessor", exact: true }).selectOption(testAssessor.id);
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "assessment-referral.pdf",
       mimeType: "application/pdf",
