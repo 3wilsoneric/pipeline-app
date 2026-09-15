@@ -121,13 +121,13 @@ export default function CurrentWorkOverlay({
   if (!portalReady) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] bg-[rgba(17,17,17,0.12)] p-0 sm:p-3 lg:p-5">
+    <div className="fixed inset-0 z-[110] bg-[rgba(17,17,17,0.32)] p-0 sm:p-3 lg:p-5">
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Current work"
-        className="mx-auto flex h-full w-full max-w-[1680px] flex-col overflow-hidden bg-white shadow-[0_18px_54px_rgba(17,17,17,0.18)] sm:border sm:border-[#cfd6d2]"
+        className="mx-auto flex h-full w-full max-w-[1060px] flex-col overflow-hidden bg-white shadow-[0_18px_54px_rgba(17,17,17,0.18)] sm:border sm:border-[#cfd6d2]"
       >
         <header className="flex h-[64px] shrink-0 items-center justify-between gap-4 border-b border-[#dfe4e1] px-4 sm:h-[70px] sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-baseline gap-3">

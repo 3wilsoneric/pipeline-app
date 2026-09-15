@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { activeReferralFlowStates } from "@/lib/pipeline/referral-flow";
@@ -11,41 +10,14 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 
-type WorkStage = "all" | (typeof activeReferralFlowStates)[number]["key"];
-
-export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId }: {
+export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit }: {
   briefing: HomeBriefingSnapshot;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   selectedReferralId?: number;
+  limit?: number;
 }) {
-  const counts = briefing.workflow.flow_counts ?? {
-    ready_to_schedule: 0,
-    scheduled: 0,
-    assessment: 0,
-    complete_chart: 0,
-  };
   const items = briefing.workflow.active_items ?? [];
   const unavailable = briefing.unavailable_sections.includes("workflow");
-  const stageStorageKey = `pipeline.current-work-stage.v1:${briefing.viewer.id}`;
-  const [fallbackStage, setFallbackStage] = useState<WorkStage>("all");
-  const mobileStage = useSyncExternalStore(subscribeToStage, () => {
-    try {
-      const stored = window.sessionStorage.getItem(stageStorageKey);
-      return isWorkStage(stored) ? stored : fallbackStage;
-    } catch {
-      return fallbackStage;
-    }
-  }, () => "all" as WorkStage);
-
-  const selectMobileStage = (stage: WorkStage) => {
-    setFallbackStage(stage);
-    try {
-      window.sessionStorage.setItem(stageStorageKey, stage);
-      window.dispatchEvent(new Event("pipeline:work-stage-changed"));
-    } catch {
-      // Filtering still works when optional view storage is unavailable.
-    }
-  };
 
   return (
     <section aria-label="Current work board" className="bg-white">
@@ -57,49 +29,16 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
         <p className="px-1 py-5 text-[13px] font-medium text-[#626b65]">No active referral work.</p>
       ) : (
         <>
-          <label className="relative mb-4 block lg:hidden">
-            <span className="sr-only">Current work stage</span>
-            <select
-              aria-label="Current work stage"
-              value={mobileStage}
-              onChange={(event) => { if (isWorkStage(event.target.value)) selectMobileStage(event.target.value); }}
-              className="h-12 w-full appearance-none border border-[#bcc5c0] bg-white px-4 pr-11 text-[14px] font-bold text-[#202320] outline-none focus:border-[#0f8b73] focus:ring-1 focus:ring-[#0f8b73]"
-            >
-              <option value="all">All active ({briefing.workflow.active_total.toLocaleString()})</option>
-              {activeReferralFlowStates.map((state) => (
-                <option key={state.key} value={state.key}>{state.label} ({counts[state.key].toLocaleString()})</option>
-              ))}
-            </select>
-            <ChevronDown size={18} aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#176f60]" />
-          </label>
-          <div data-current-work-board className="grid items-start gap-5 lg:grid-cols-4">
-            {activeReferralFlowStates.map((state) => {
-              const stageItems = items.filter((item) => item.flow_state === state.key);
-              return (
-                <div key={state.key} className={`${mobileStage === "all" || mobileStage === state.key ? "block" : "hidden"} min-w-0 lg:block`}>
-                  <div className={`mb-2 flex min-h-10 items-center justify-between gap-3 border-t-2 px-1 pt-2 ${columnRule(state.key)}`}>
-                    <h2 className={`truncate text-[12px] font-extrabold uppercase ${stageTone(state.key)}`}>{state.label}</h2>
-                    <strong className="text-[12px] font-extrabold tabular-nums text-[#4f5752]">{counts[state.key].toLocaleString()}</strong>
-                  </div>
-                  {stageItems.length > 0 ? (
-                    <div className="space-y-2">
-                      {stageItems.map((item) => (
-                        <WorkflowCard
-                          key={item.referral_id}
-                          item={item}
-                          state={state.key}
-                          showOwner={briefing.scope === "team"}
-                          current={item.referral_id === selectedReferralId}
-                          onOpenPacket={onOpenPacket}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="px-1 py-4 text-[12px] font-medium text-[#626b65]">{state.emptyLabel}</p>
-                  )}
-                </div>
-              );
-            })}
+          <div data-current-work-board className="border-t border-[#dfe5e1]">
+            {(limit === undefined ? items : items.slice(0, limit)).map((item) => (
+              <WorkflowRibbon
+                key={item.referral_id}
+                item={item}
+                showOwner={briefing.scope === "team"}
+                current={item.referral_id === selectedReferralId}
+                onOpenPacket={onOpenPacket}
+              />
+            ))}
           </div>
         </>
       )}
@@ -109,36 +48,24 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
 
 export function WorkflowCardSkeleton() {
   return (
-    <div aria-hidden="true" data-home-layout-placeholder className="min-w-0 rounded-[4px] border border-[#e0e6e2] bg-white p-4 shadow-[0_2px_8px_rgba(32,35,32,0.03)]">
-      <div className="flex items-start gap-3">
-        <div className="flex h-12 w-10 shrink-0 flex-col gap-1.5 border border-[#d7dfda] bg-[#fafcfb] p-1.5">
-          <div className="h-1.5 bg-[#cadbd2]" />
-          <div className="h-1 bg-[#e1e7e3]" /><div className="h-1 w-3/4 bg-[#e1e7e3]" /><div className="h-1 bg-[#e1e7e3]" />
-        </div>
-        <div className="min-w-0 flex-1 pt-1">
-          <div className="h-3 w-3/4 max-w-40 rounded-sm bg-[#dce4df]" />
-          <div className="mt-2.5 h-2 w-1/2 rounded-sm bg-[#edf0ee]" />
-        </div>
-      </div>
-      <div className="mt-4 h-2 w-5/6 rounded-sm bg-[#e9eeeb]" />
-      <div className="mt-2 h-2 w-2/3 rounded-sm bg-[#edf0ee]" />
-      <div className="mt-4 flex items-center justify-between gap-4">
-        <div className="h-2 w-16 rounded-sm bg-[#e3eae5]" /><div className="h-2 w-8 rounded-sm bg-[#edf0ee]" />
-      </div>
+    <div aria-hidden="true" data-home-layout-placeholder className="flex min-h-16 items-center gap-3 border-b border-[#e1e7e3] px-3">
+      <div className="h-9 w-[3px] shrink-0 bg-[#cadbd2]" />
+      <div className="min-w-0 flex-1"><div className="h-3 w-2/3 max-w-40 bg-[#dce4df]" /><div className="mt-2 h-2 w-1/2 bg-[#edf0ee]" /></div>
+      <div className="h-5 w-24 shrink-0 bg-[#e9eeeb]" />
     </div>
   );
 }
 
-function WorkflowCard({ item, state, showOwner, onOpenPacket, current }: {
+function WorkflowRibbon({ item, showOwner, onOpenPacket, current }: {
   item: ReferralWorklistItem;
-  state: (typeof activeReferralFlowStates)[number]["key"];
   showOwner: boolean;
   current: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const clientName = formatClientIdentityTitle({ name: item.client_name, community: item.community });
-  const owner = showOwner && item.owner !== "Unassigned" ? item.owner : null;
+  const owner = showOwner ? item.owner || "Unassigned" : null;
   const presentation = workCardStatusPresentation(item, showOwner);
+  const stage = activeReferralFlowStates.find((state) => state.key === item.flow_state);
 
   return (
     <button
@@ -146,20 +73,20 @@ function WorkflowCard({ item, state, showOwner, onOpenPacket, current }: {
       aria-label={`Open ${clientName}`}
       aria-current={current ? "true" : undefined}
       onClick={() => onOpenPacket({ id: item.referral_id, name: clientName, community: item.community as Referral["community"] }, item.location)}
-      className={`group min-h-[132px] w-full border border-l-[3px] border-[#dce3df] ${current ? "bg-[#f1faf6] ring-1 ring-[#8fb9a8]" : "bg-white"} px-4 py-3.5 text-left shadow-[0_2px_9px_rgba(32,35,32,0.04)] outline-none transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[#0f8b73] hover:shadow-[0_6px_16px_rgba(32,35,32,0.07)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${cardAccent(state)}`}
+      className={`group grid min-h-[66px] w-full grid-cols-[3px_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#e1e7e3] px-2 py-2.5 text-left outline-none hover:bg-[#f5f9f7] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_auto_18px] sm:gap-x-4 sm:px-3 ${current ? "bg-[#eff8f3]" : "bg-white"}`}
     >
-      <span className="flex items-start justify-between gap-2">
-        <span className="min-w-0 truncate text-[14px] font-bold text-[#202320]">{clientName}</span>
-        <ArrowRight size={15} className="mt-0.5 shrink-0 text-[#7b837e] group-hover:text-[#0f8b73]" aria-hidden="true" />
+      <span aria-hidden="true" className={`h-9 w-[3px] ${stageAccent(item.flow_state)}`} />
+      <span className="min-w-0">
+        <span className="block truncate text-[14px] font-bold text-[#202320]">{clientName}</span>
+        <span className="mt-0.5 block truncate text-[11px] font-medium text-[#69716c] sm:hidden">{owner ? `${owner} · ` : ""}{presentation.status}</span>
+        <span className="mt-0.5 hidden truncate text-[11px] font-medium text-[#69716c] sm:block">{item.community}{owner ? ` · ${owner}` : ""}</span>
       </span>
-      <span className={`mt-2 block text-[11px] font-bold leading-4 ${presentation.tone}`}>{presentation.status}</span>
-      <span className="mt-1 block line-clamp-2 min-h-9 text-[12px] font-medium leading-[18px] text-[#5f6762]">{presentation.nextAction}</span>
-      <span className="mt-2.5 flex min-w-0 items-center justify-between gap-2 text-[10px] font-bold text-[#69716c]">
-        <span className="truncate">
-          {item.community}{owner ? ` · ${owner}` : ""}
-        </span>
-        <span className={presentation.attention ? "shrink-0 text-[#936116]" : "shrink-0"}>{current ? "This workspace" : formatWorkAge(item.age_hours)}</span>
+      <span className="hidden min-w-0 sm:block">
+        <span className={`block truncate text-[11px] font-bold ${presentation.tone}`}>{presentation.status}</span>
+        <span className="mt-0.5 block truncate text-[11px] font-medium text-[#5f6762]">{presentation.nextAction}</span>
       </span>
+      <span className={`max-w-[116px] px-2 py-1 text-center text-[11px] font-bold leading-4 sm:max-w-none sm:min-w-[148px] ${stageBadge(item.flow_state)}`}>{stage?.label ?? "Complete"}</span>
+      <ArrowRight size={16} className="hidden shrink-0 text-[#7b837e] group-hover:text-[#0f8b73] sm:block" aria-hidden="true" />
     </button>
   );
 }
@@ -170,7 +97,6 @@ function workCardStatusPresentation(item: ReferralWorklistItem, team: boolean) {
   const waiting = awaitingSupervisor && !team;
   const attention = item.urgency !== "normal" && !waiting;
   return {
-    attention,
     status: workCardStatus(item, awaitingSupervisor, team),
     tone: waiting ? "text-[#626b65]" : attention || item.workflow_status === "changes_requested" ? "text-[#936116]" : "text-[#176f60]",
     nextAction: waiting ? "Assessment submitted for review" : item.next_action,
@@ -186,38 +112,16 @@ function workCardStatus(item: ReferralWorklistItem, awaitingSupervisor: boolean,
   return workflowStatusLabels[item.workflow_status] ?? "In progress";
 }
 
-function isWorkStage(value: unknown): value is WorkStage {
-  return value === "all" || activeReferralFlowStates.some((state) => state.key === value);
+function stageAccent(state: ReferralWorklistItem["flow_state"]) {
+  if (state === "ready_to_schedule") return "bg-[#0f8b73]";
+  if (state === "scheduled") return "bg-[#b77b27]";
+  if (state === "assessment") return "bg-[#4866ad]";
+  return state === "complete_chart" ? "bg-[#78844d]" : "bg-[#68716c]";
 }
 
-function subscribeToStage(onChange: () => void) {
-  window.addEventListener("pipeline:work-stage-changed", onChange);
-  return () => window.removeEventListener("pipeline:work-stage-changed", onChange);
-}
-
-function formatWorkAge(hours: number) {
-  if (!Number.isFinite(hours) || hours < 1) return "New";
-  if (hours < 24) return `${Math.floor(hours)}h`;
-  return `${Math.floor(hours / 24)}d`;
-}
-
-function stageTone(state: (typeof activeReferralFlowStates)[number]["key"]) {
-  if (state === "ready_to_schedule") return "text-[#176f60]";
-  if (state === "scheduled") return "text-[#936116]";
-  if (state === "assessment") return "text-[#4866ad]";
-  return "text-[#657044]";
-}
-
-function cardAccent(state: (typeof activeReferralFlowStates)[number]["key"]) {
-  if (state === "ready_to_schedule") return "border-l-[#0f8b73]";
-  if (state === "scheduled") return "border-l-[#b77b27]";
-  if (state === "assessment") return "border-l-[#4866ad]";
-  return "border-l-[#78844d]";
-}
-
-function columnRule(state: (typeof activeReferralFlowStates)[number]["key"]) {
-  if (state === "ready_to_schedule") return "border-t-[#0f8b73]";
-  if (state === "scheduled") return "border-t-[#b77b27]";
-  if (state === "assessment") return "border-t-[#4866ad]";
-  return "border-t-[#78844d]";
+function stageBadge(state: ReferralWorklistItem["flow_state"]) {
+  if (state === "ready_to_schedule") return "bg-[#eaf6f1] text-[#176f60]";
+  if (state === "scheduled") return "bg-[#fff5e7] text-[#80581b]";
+  if (state === "assessment") return "bg-[#edf2fb] text-[#36558f]";
+  return state === "complete_chart" ? "bg-[#f1f3e9] text-[#536334]" : "bg-[#eef1ef] text-[#49524c]";
 }
