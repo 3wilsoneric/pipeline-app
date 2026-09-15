@@ -1,11 +1,17 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { lstat, realpath, rm } from "node:fs/promises";
+import { resolve } from "node:path";
 
+import { resetPersonaDemoAssessments } from "@/lib/assessment/assessment-store";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { buildPipelineDemoReferral, getPipelineDemoScenario, type PipelineDemoScenario } from "@/lib/demo/demo-scenarios";
 import { isPersonaDemo, personaCookie, personaUser } from "@/lib/demo/persona-session";
+import { resetPersonaDemoMockPackets } from "@/lib/extraction/mock-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { resetPersonaDemoReferrals } from "@/lib/pipeline/referral-store";
 import { touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { assertPersonaDemoIsolation } from "@/shared/persona-demo-config.mjs";
 
 export const runtime = "nodejs";
 
@@ -27,8 +33,12 @@ type SeedReferral = {
   id: number;
   version: number;
   sectionVersions: { documents: number };
-  tags?: string[];
+  name: string;
+  community: string;
+  source: string;
 };
+
+type SeedListing = { referrals: SeedReferral[] };
 
 type SeedAssessment = {
   assessment_id: string;
@@ -37,6 +47,7 @@ type SeedAssessment = {
 
 type JourneyCase = (typeof cases)[number];
 type DemoClient = (path: string, init?: RequestInit) => Promise<unknown>;
+let preparationQueue: Promise<unknown> = Promise.resolve();
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/demo/journey", async () => {
@@ -47,7 +58,10 @@ export async function POST(request: Request) {
     if (originFailure) return originFailure;
 
     try {
-      const seeded = await prepareJourney();
+      const reset = new URL(request.url).searchParams.get("reset") === "1";
+      const preparation = preparationQueue.then(() => prepareJourney(reset));
+      preparationQueue = preparation.catch(() => undefined);
+      const seeded = await preparation;
       return Response.json({ primary_referral_id: seeded.taylor, seeded_count: Object.keys(seeded).length }, {
         headers: { "Cache-Control": "private, no-store, max-age=0" },
       });
@@ -57,30 +71,45 @@ export async function POST(request: Request) {
   });
 }
 
-async function prepareJourney() {
+async function prepareJourney(reset: boolean) {
   await touchWorkspaceMember(personaUser("assessor"));
   const template = getPipelineDemoScenario("new-intake");
   if (!template) throw new Error("The practice case template is unavailable.");
   const origin = process.env.PIPELINE_PERSONA_DEMO_ORIGIN!;
   const client: DemoClient = (path, init) => callDemoApi(origin, path, init);
+  if (reset) await clearPracticeRun();
+  const runId = randomUUID();
   const seeded: Record<string, number> = {};
-  for (const entry of cases) seeded[entry.key] = await ensureCase(origin, client, template, entry);
+  for (const entry of cases) seeded[entry.key] = await ensureCase(origin, client, template, entry, runId);
   return seeded;
 }
 
-async function ensureCase(origin: string, client: DemoClient, template: PipelineDemoScenario, entry: JourneyCase) {
-  const listing = await client(`/api/referrals?workspace=all&q=${encodeURIComponent(entry.name)}&limit=20`) as { referrals: SeedReferral[] };
-  const existing = listing.referrals.find((referral) => referral.tags?.includes(journeyTag)
-    && (referral.tags.includes(entry.key) || referral.tags.includes(`pipeline-assessor-journey-${entry.key}`)));
+async function clearPracticeRun() {
+  assertPersonaDemoIsolation();
+  const root = resolve(process.env.PIPELINE_PERSONA_DEMO_ROOT!);
+  const metadata = await lstat(root);
+  if (!metadata.isDirectory() || metadata.isSymbolicLink() || await realpath(root) !== root) {
+    throw new Error("Practice storage must be a real directory inside the isolated demo root.");
+  }
+  await resetPersonaDemoAssessments();
+  await resetPersonaDemoReferrals();
+  resetPersonaDemoMockPackets();
+  await rm(resolve(root, "documents"), { recursive: true, force: true });
+}
+
+async function ensureCase(origin: string, client: DemoClient, template: PipelineDemoScenario, entry: JourneyCase, runId: string) {
+  const listing = await client(`/api/referrals?workspace=active&q=${encodeURIComponent(entry.name)}&limit=20`) as SeedListing;
+  const existing = listing.referrals.find((referral) => referral.name === entry.name
+    && referral.community === entry.community && referral.source === "Synthetic county referral email");
   if (existing) return existing.id;
 
-  let referral = await createSeedReferral(client, template, entry);
-  if (entry.packet) referral = await completePacket(origin, client, referral, entry);
-  if (entry.assessment !== "none") await completeAssessment(client, referral, entry);
+  let referral = await createSeedReferral(client, template, entry, runId);
+  if (entry.packet) referral = await completePacket(origin, client, referral, entry, runId);
+  if (entry.assessment !== "none") await completeAssessment(client, referral, entry, runId);
   return referral.id;
 }
 
-async function createSeedReferral(client: DemoClient, template: PipelineDemoScenario, entry: JourneyCase) {
+async function createSeedReferral(client: DemoClient, template: PipelineDemoScenario, entry: JourneyCase, runId: string) {
   const owner = entry.assigned ? "Jordan Lee" : "Unassigned";
   const input = {
     ...buildPipelineDemoReferral(template, owner),
@@ -96,14 +125,14 @@ async function createSeedReferral(client: DemoClient, template: PipelineDemoScen
     body: JSON.stringify({
       referral: input,
       ...(entry.assigned ? { assignee_id: "practice-assessor" } : {}),
-      client_mutation_id: mutationId(`${entry.key}:referral`),
+      client_mutation_id: mutationId(runId, `${entry.key}:referral`),
     }),
   }) as { referral: SeedReferral };
   return created.referral;
 }
 
-async function completePacket(origin: string, client: DemoClient, referral: SeedReferral, entry: JourneyCase) {
-  const file = await uploadFaceSheet(origin, client, referral, entry.key, entry.name, entry.community);
+async function completePacket(origin: string, client: DemoClient, referral: SeedReferral, entry: JourneyCase, runId: string) {
+  const file = await uploadFaceSheet(origin, client, referral, entry.key, entry.name, entry.community, runId);
   const refreshed = await client(`/api/referrals/${referral.id}`) as { referral: SeedReferral };
   referral = refreshed.referral;
   const reviewed = await client(`/api/referrals/${referral.id}`, {
@@ -126,11 +155,11 @@ async function completePacket(origin: string, client: DemoClient, referral: Seed
   return reviewed.referral;
 }
 
-async function completeAssessment(client: DemoClient, referral: SeedReferral, entry: Exclude<JourneyCase, { assessment: "none" }>) {
+async function completeAssessment(client: DemoClient, referral: SeedReferral, entry: Exclude<JourneyCase, { assessment: "none" }>, runId: string) {
   const createdAssessment = await client(`/api/referrals/${referral.id}/assessments`, {
     method: "POST",
     body: JSON.stringify({
-      client_mutation_id: mutationId(`${entry.key}:assessment`),
+      client_mutation_id: mutationId(runId, `${entry.key}:assessment`),
       data: {
         current_location: "Synthetic referral source",
         ...(entry.assessment === "started" ? { prior_placements: "Synthetic prior placement; length and discharge reason need verification." } : {}),
@@ -144,7 +173,7 @@ async function completeAssessment(client: DemoClient, referral: SeedReferral, en
     method: "POST",
     body: JSON.stringify({
       if_match: assessment.version,
-      client_mutation_id: mutationId(`${entry.key}:schedule`),
+      client_mutation_id: mutationId(runId, `${entry.key}:schedule`),
       schedule: {
         start_at: appointmentTime(entry.daysAhead),
         duration_minutes: 60,
@@ -159,7 +188,7 @@ async function completeAssessment(client: DemoClient, referral: SeedReferral, en
   if (entry.assessment === "started") {
     await client(`/api/assessments/${encodeURIComponent(assessment.assessment_id)}/start`, {
       method: "POST",
-      body: JSON.stringify({ if_match: assessment.version, client_mutation_id: mutationId(`${entry.key}:start`) }),
+      body: JSON.stringify({ if_match: assessment.version, client_mutation_id: mutationId(runId, `${entry.key}:start`) }),
     });
   }
 }
@@ -186,11 +215,12 @@ async function uploadFaceSheet(
   key: string,
   name: string,
   community: string,
+  runId: string,
 ) {
   const bytes = syntheticFaceSheet(name);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const filename = `synthetic-${key}-face-sheet.pdf`;
-  const fileId = `file_${mutationId(`${key}:face-sheet`)}`;
+  const fileId = `file_${mutationId(runId, `${key}:face-sheet`)}`;
   const reservation = await client("/api/uploads/create-url", {
     method: "POST",
     body: JSON.stringify({
@@ -247,8 +277,8 @@ function syntheticFaceSheet(name: string) {
   return Buffer.from(pdf);
 }
 
-function mutationId(key: string) {
-  const bytes = Buffer.from(createHash("sha256").update(`${journeyTag}:${key}`).digest().subarray(0, 16));
+function mutationId(runId: string, key: string) {
+  const bytes = Buffer.from(createHash("sha256").update(`${journeyTag}:${runId}:${key}`).digest().subarray(0, 16));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = bytes.toString("hex");

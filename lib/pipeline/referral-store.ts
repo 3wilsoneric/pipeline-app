@@ -56,6 +56,7 @@ import {
   visibleWorkspaceTags,
 } from "@/lib/pipeline/workspace-presentation";
 import { resolveWorkspaceMonth, workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
+import { assertPersonaDemoIsolation } from "@/shared/persona-demo-config.mjs";
 
 type ReferralStoreState = {
   initialized: boolean;
@@ -328,6 +329,20 @@ state.patchMutations ??= new Map<string, number>();
 const maxReferralRows = 100_000;
 const maxPageSize = 200;
 const maximumSuspectedDuplicateCandidates = 20;
+
+export async function resetPersonaDemoReferrals() {
+  if (process.env.PIPELINE_PERSONA_DEMO !== "true") throw new Error("Referral reset is available only in the persona demo.");
+  assertPersonaDemoIsolation();
+  if (getReferralStoreReadiness().mode !== "local_file") throw new Error("Persona demo referrals must use local storage.");
+  await ensureLoaded();
+  await state.persistQueue;
+  state.referrals = [];
+  state.auditEvents = [];
+  state.createMutations.clear();
+  state.patchMutations.clear();
+  state.revision += 1;
+  await persist();
+}
 
 export function getReferralStoreReadiness(): ReferralStoreReadiness {
   const mode = resolveDurableStoreMode({

@@ -306,6 +306,8 @@ export default function PipelineDemoCenter({
   const [enteringDemo, setEnteringDemo] = useState(false);
   const casesLoadedRef = useRef(false);
   const canWrite = environment.writable && actor.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role));
+  const canReset = Boolean(actor.demoPersona) && environment.writable;
+  const resetDemo = () => window.location.assign(toPipelinePath("/training/demo?journey=1"));
 
   const selectView = (nextView: DemoView) => {
     setView(nextView);
@@ -316,7 +318,10 @@ export default function PipelineDemoCenter({
     if (view !== "lab" || casesLoadedRef.current) return;
     casesLoadedRef.current = true;
     setLoadingCases(true);
-    void loadDemoReferrals().then((items) => {
+    void (async () => {
+      if (journeyPreparationRef.current) await journeyPreparationRef.current;
+      return loadDemoReferrals();
+    })().then((items) => {
       startTransition(() => {
         setReferrals(items);
         setLoadingCases(false);
@@ -328,11 +333,11 @@ export default function PipelineDemoCenter({
   }, [view]);
 
   useEffect(() => {
-    if (!journey || journeyPreparationRef.current) return;
-    const preparation = fetchPipelineJson("/api/demo/journey", { method: "POST" });
+    if (!canReset || journeyPreparationRef.current) return;
+    const preparation = fetchPipelineJson("/api/demo/journey?reset=1", { method: "POST" });
     journeyPreparationRef.current = preparation;
     void preparation.catch(() => undefined);
-  }, [journey]);
+  }, [canReset]);
 
   const launchScenario = async (
     scenario: PipelineDemoScenario,
@@ -348,6 +353,7 @@ export default function PipelineDemoCenter({
 
     setLaunchingId(scenario.id);
     try {
+      if (journeyPreparationRef.current) await journeyPreparationRef.current;
       const memberResult = await fetchPipelineJson<{ members: DemoAssessor[] }>("/api/members?scope=assessors");
       const assessor = memberResult.members.find((member) => member.principal_id === actor.id) ?? memberResult.members[0];
       if (!assessor) throw new Error("No active assessor is available for this practice case.");
@@ -414,9 +420,9 @@ export default function PipelineDemoCenter({
     setEnteringDemo(true);
     try {
       try {
-        await (journeyPreparationRef.current ?? fetchPipelineJson("/api/demo/journey", { method: "POST" }));
+        await (journeyPreparationRef.current ?? fetchPipelineJson("/api/demo/journey?reset=1", { method: "POST" }));
       } catch {
-        journeyPreparationRef.current = fetchPipelineJson("/api/demo/journey", { method: "POST" });
+        journeyPreparationRef.current = fetchPipelineJson("/api/demo/journey?reset=1", { method: "POST" });
         await journeyPreparationRef.current;
       }
       if (actor.demoPersona === "supervisor") {
@@ -448,12 +454,13 @@ export default function PipelineDemoCenter({
   return (
     <main ref={scrollContainerRef} data-demo-center="true" className="h-full min-h-0 overflow-hidden bg-white text-[#171a18]">
       <div className="flex h-full min-h-0 w-full flex-col">
-        <header className="shrink-0 border-b border-[#d8dfdc] bg-[#edf2f0]">
+        <header className="relative z-10 shrink-0 border-b border-[#d8dfdc] bg-[#edf2f0]">
           <div className="flex min-w-0 items-end gap-1 overflow-x-auto px-2 pt-1.5 sm:px-3" role="tablist" aria-label="Demo Center sections">
             <DemoTab active={view === "presentation"} label="Presentation" onClick={() => selectView("presentation")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
             <DemoTab active={view === "handoff"} label="Submittal & acceptance" onClick={() => selectView("handoff")} />
             {canUseProcessTester ? <DemoTab active={view === "tester"} label="Process tester" onClick={() => selectView("tester")} /> : null}
+            {canReset && view !== "presentation" ? <ResetDemoButton onReset={resetDemo} compact /> : null}
           </div>
         </header>
 
@@ -481,6 +488,7 @@ export default function PipelineDemoCenter({
                 if (scenario) void launchScenario(scenario, { tutorialId: guide.tutorialId, stepId: guide.stepId }, guide.workspaceStage);
               }}
               onSlideChange={() => scrollContainerRef.current?.scrollTo({ top: 0 })}
+              onReset={canReset ? resetDemo : undefined}
             />
           ) : view === "lab" ? (
             <ScenarioLab
@@ -557,6 +565,7 @@ function PresentationDeck({
   onBeginWalkthrough,
   onStartGuide,
   onSlideChange,
+  onReset,
 }: {
   initialSlideId?: string;
   finishLabel: string;
@@ -566,6 +575,7 @@ function PresentationDeck({
   onBeginWalkthrough: () => void;
   onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void;
   onSlideChange: () => void;
+  onReset?: () => void;
 }) {
   const [slideIndex, setSlideIndex] = useState(() => initialPresentationSlideIndex(initialSlideId));
   const slide = presentationSlides[slideIndex] ?? presentationSlides[0];
@@ -579,7 +589,7 @@ function PresentationDeck({
 
   return (
     <section data-demo-surface="presentation" className="fixed inset-0 z-[150] flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-white">
-      <PresentationHeader slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onClose={onExit} />
+      <PresentationHeader slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onClose={onExit} onReset={onReset} />
       <PresentationSlideBody slide={slide} onStartGuide={onStartGuide} />
       <p className="sr-only" aria-live="polite">Slide {slide.number} of {presentationSlides.length}: {slide.title}</p>
       {finishError ? <p role="alert" className="shrink-0 border-l-2 border-[#ad493c] bg-[#fff3f0] px-5 py-2 text-[12px] font-semibold text-[#8a362c]">{finishError}</p> : null}
@@ -617,7 +627,7 @@ function presentationSlideIndexForKey(event: KeyboardEvent, slideIndex: number) 
   return null;
 }
 
-function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onClose: () => void }) {
+function PresentationHeader({ slide, slideIndex, onSelect, onClose, onReset }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onClose: () => void; onReset?: () => void }) {
   return (
     <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8">
       <div className="hidden min-w-0 flex-1 sm:block">
@@ -632,11 +642,26 @@ function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: P
         <select id="presentation-slide" value={slideIndex} onChange={(event) => onSelect(Number(event.target.value))} className="h-10 w-[200px] max-w-[calc(100vw-100px)] min-w-0 border border-[#cbd5d1] bg-white px-3 text-[12px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:w-[230px]">
           {presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}
         </select>
+        {onReset ? <ResetDemoButton onReset={onReset} /> : null}
         <button type="button" aria-label="Close presentation" title="Close presentation" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#cbd5d1] text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
           <X size={18} aria-hidden="true" />
         </button>
       </nav>
     </header>
+  );
+}
+
+function ResetDemoButton({ onReset, compact = false }: { onReset: () => void; compact?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={`${compact ? "ml-auto mb-1 size-8" : "size-10"} flex shrink-0 items-center justify-center border border-[#c8d6d0] bg-white text-[#176b59] hover:bg-[#f1faf6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b59]`}
+      aria-label="Reset demo"
+      title="Reset demo to the original practice cases"
+      onClick={onReset}
+    >
+      <RefreshCcw size={16} aria-hidden="true" />
+    </button>
   );
 }
 

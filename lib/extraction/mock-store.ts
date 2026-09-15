@@ -18,6 +18,7 @@ import {
 import { DocumentProcessingError } from "./document-processing";
 import { registerMockPacketReferral, unregisterMockPacketReferral } from "./packet-referral";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { assertPersonaDemoIsolation } from "@/shared/persona-demo-config.mjs";
 
 type MockExtractionState = {
   packets: Map<string, PacketRecord>;
@@ -55,6 +56,18 @@ const uploadDescriptors = mockState.uploadDescriptors;
 const documentIds = mockState.documentIds;
 const localEvidence = mockState.localEvidence;
 const maxMockPackets = 1000;
+
+export function resetPersonaDemoMockPackets() {
+  if (process.env.PIPELINE_PERSONA_DEMO !== "true") throw new Error("Mock packet reset is available only in the persona demo.");
+  assertPersonaDemoIsolation();
+  for (const packetId of packets.keys()) unregisterMockPacketReferral(packetId);
+  packets.clear();
+  fields.clear();
+  auditEvents.clear();
+  uploadDescriptors.clear();
+  documentIds.clear();
+  localEvidence.clear();
+}
 
 function now() {
   return new Date().toISOString();
