@@ -10,6 +10,7 @@ import {
   type StaffProfilePreferences,
 } from "@/lib/pipeline/staff-profile";
 import { isAssignableAssessorMember } from "@/lib/pipeline/workspace-member-eligibility";
+import { isPersonaDemo, personaUser } from "@/lib/demo/persona-session";
 
 export type WorkspaceMember = {
   principal_id: string;
@@ -285,6 +286,13 @@ function compareMembers(left: WorkspaceMember, right: WorkspaceMember) {
 }
 
 function ensureLocalProvisionalMembers() {
+  if (isPersonaDemo()) {
+    for (const persona of ["supervisor", "assessor"] as const) {
+      const user = personaUser(persona);
+      if (!localMembers.has(user.id)) localMembers.set(user.id, memberFromUser(user));
+    }
+    return;
+  }
   for (const member of provisionalMemberManifest.members) {
     if (localMembers.has(member.principal_id)) continue;
     localMembers.set(member.principal_id, {

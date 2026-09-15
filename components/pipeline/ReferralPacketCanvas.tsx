@@ -1,4 +1,6 @@
 "use client";
+
+import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
 import { useEffect, useEffectEvent, useRef, useState, type Dispatch, type SetStateAction } from "react";
@@ -1455,6 +1457,12 @@ export default function ReferralPacketCanvas({
     if (pending && !await saveWorkspaceDraft()) throw new Error("Save this workspace's pending changes before switching referrals.");
     onOpenAssignedWork();
   };
+
+  usePersonaSwitchSave(async () => {
+    if (isSavingRef.current || uploadingDocumentIds.size > 0) throw new Error("Wait for the workspace and files to finish saving before switching.");
+    const pending = workspaceHasPendingChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current);
+    if (pending && !await saveWorkspaceDraft()) throw new Error("Finish saving this intake before switching accounts.");
+  });
 
   const continueToAssessment = async () => {
     if (trainingIntakeMode) {

@@ -6,6 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "demo:personas": "node scripts/persona-demo.mjs",
     "academy:atlas": "node scripts/academy-atlas.mjs",
     "academy:atlas:check": "node scripts/academy-atlas.mjs --check",
     "academy:check": "node scripts/academy-readiness.mjs",

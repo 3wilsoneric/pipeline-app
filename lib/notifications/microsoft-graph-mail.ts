@@ -22,6 +22,10 @@ export type GraphMailReadiness = {
 };
 
 export function getGraphMailReadiness(): GraphMailReadiness {
+  if (process.env.PIPELINE_PERSONA_DEMO === "true") return {
+    configured: false, missing: ["Email delivery is disabled in this environment."],
+    sender: "", allowedRecipientDomains: [], largeAttachmentDeliveryConfigured: false,
+  };
   const values = {
     PIPELINE_GRAPH_TENANT_ID: process.env.PIPELINE_GRAPH_TENANT_ID?.trim() ?? "",
     PIPELINE_GRAPH_CLIENT_ID: process.env.PIPELINE_GRAPH_CLIENT_ID?.trim() ?? "",

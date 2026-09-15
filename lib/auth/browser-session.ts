@@ -16,6 +16,7 @@ import {
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 export type PipelineSessionUser = {
+  demoPersona?: "supervisor" | "assessor";
   id?: string;
   email: string;
   name: string;
@@ -52,8 +53,13 @@ let sessionRequest: Promise<EstablishedSession | null> | null = null;
 let sessionProbeRequest: Promise<PipelineSessionProbe> | null = null;
 let sessionProbeCache: { probe: PipelineSessionProbe; expiresAt: number } | null = null;
 let sessionProbeGeneration = 0;
+let pagePersona: PipelineSessionUser["demoPersona"];
 
 const sessionProbeCacheMs = 60_000;
+
+export function readPagePersona() {
+  return pagePersona;
+}
 
 export function readCachedPipelineSessionUser() {
   return sessionProbeCache && sessionProbeCache.expiresAt > Date.now()
@@ -101,6 +107,7 @@ export async function probePipelineServerSession(forceRefresh = false): Promise<
   if (!sessionProbeRequest) {
     const generation = sessionProbeGeneration;
     const request = fetch(toPipelinePath("/api/auth/me"), {
+      headers: pagePersona ? { "x-pipeline-persona": pagePersona } : undefined,
       credentials: "same-origin",
       cache: "no-store",
     }).then(async (response) => {
@@ -108,6 +115,9 @@ export async function probePipelineServerSession(forceRefresh = false): Promise<
       const payload = await response.json().catch(() => null) as { user?: PipelineSessionUser } | null;
       const probe = { response, user: payload?.user ?? null };
       if (probe.user && generation === sessionProbeGeneration) {
+        // Keep this tab bound to its original account even after the user cache
+        // expires. A role change in another tab requires a full reload here.
+        pagePersona ??= probe.user.demoPersona;
         sessionProbeCache = { probe, expiresAt: Date.now() + sessionProbeCacheMs };
       }
       return probe;

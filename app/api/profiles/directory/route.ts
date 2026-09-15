@@ -33,6 +33,10 @@ export async function GET(request: Request) {
     if (community.length > 128) return jsonError("community must be 128 characters or fewer.");
     if (url.searchParams.get("cursor") && !cursor) return jsonError("cursor is invalid.");
 
+    if (auth.user.demoPersona) {
+      return Response.json(await pipelinePage(request, auth.user, query, community, limit, cursor?.phase === "pipeline" ? cursor.offset : 0, false), { headers: privateHeaders() });
+    }
+
     if (cursor?.phase === "pipeline") {
       return Response.json(
         await pipelinePage(request, auth.user, query, community, limit, cursor.offset, true),
@@ -118,7 +122,9 @@ async function pipelinePage(
     max_age_hours: 24,
     warning: "The Alamo client directory is unavailable; Pipeline-only client workspaces remain available.",
   };
-  try {
+  if (user.demoPersona) {
+    freshness = { status: "fresh", age_hours: 0, max_age_hours: 24, warning: null };
+  } else try {
     const metadata = await getClinicalClients(request, { query, community, limit: 1 });
     dataAsOf = metadata.data_as_of;
     freshness = metadata.freshness;
@@ -173,6 +179,14 @@ async function currentCensusPage(
   limit: number,
   cursor?: string,
 ): Promise<ClientWorkspaceDirectoryResponse> {
+  // The isolated copy has no imported census. New local client charts remain
+  // available through the ordinary All clients directory, not a fabricated stay.
+  if (user.demoPersona) return {
+    clients: [], total: 0, limit, query, community: community || null,
+    next_cursor: null, data_as_of: new Date().toISOString().slice(0, 10),
+    freshness: { status: "fresh", age_hours: 0, max_age_hours: 24, warning: null },
+    clinical_warning: null,
+  };
   const roster = await getClinicalRoster(request, { query, community, limit, cursor });
   const summaries = await getClinicalClientWorkspaceSummaries(user, roster.residents.flatMap((resident) =>
     resident.canonical_client_id ? [{ canonicalClientId: resident.canonical_client_id, residentNumbers: resident.resident_number ? [resident.resident_number] : [] }] : [],

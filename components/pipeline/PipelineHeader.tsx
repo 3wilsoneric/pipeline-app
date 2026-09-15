@@ -16,6 +16,7 @@ import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/c
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
+import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
 
 export default function PipelineHeader() {
   const auth = usePipelineAuth();
@@ -76,7 +77,7 @@ export default function PipelineHeader() {
     };
   }, [isProfileMenuOpen]);
 
-  const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
+  const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" ? "Account" : "Eric Wilson");
   const profileAppearance = getProfileAppearance(user);
   const trashActive = activeSearchParams.get("screen") === "trash";
   const isWelcomeSurface = homeMode === "welcome"
@@ -177,7 +178,7 @@ export default function PipelineHeader() {
       </div>
 
       <div className="relative z-10 ml-auto flex items-center">
-        <ActiveAssessorSessionPill user={user} />
+        {user?.demoPersona ? <DemoPersonaSwitch persona={user.demoPersona} /> : <ActiveAssessorSessionPill user={user} />}
         {!hideGlobalGuide ? (
           <button
             type="button"
@@ -214,7 +215,17 @@ export default function PipelineHeader() {
             hidden={!isProfileMenuOpen}
             className="pipeline-popover-enter absolute right-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-88px)] w-[min(320px,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-md border border-[#cfd6d2] bg-white shadow-[0_12px_30px_rgba(17,17,17,0.14)]"
           >
-            <div className="border-b border-[#e2e6e3] px-5 py-4">
+            {user?.demoPersona ? <>
+              <div className="border-b border-[#e2e6e3] px-4 py-3">
+                <div className="text-[15px] font-semibold text-[#222b27]">{signedInName}</div>
+                <div className="mt-1 text-[12px] text-[#68736d]">{user.demoPersona === "supervisor" ? "Supervisor" : "Assessor"}</div>
+              </div>
+              <div className="p-1 text-[14px] text-[#28372f]">
+                <Link href="/settings" onClick={() => setIsProfileMenuOpen(false)} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Profile</Link>
+                <Link href="/training" onClick={() => setIsProfileMenuOpen(false)} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Learning Center</Link>
+                <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTo("trash"); }} className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Trash</button>
+              </div>
+            </> : <><div className="border-b border-[#e2e6e3] px-5 py-4">
               <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Profile settings</div>
               <div className="mt-2 truncate text-[15px] font-black text-[#111111]">{signedInName}</div>
               <div className="mt-0.5 truncate text-[11px] text-[#6b716d]">{profileAppearance.detail}</div>
@@ -250,7 +261,7 @@ export default function PipelineHeader() {
                 <LogOut size={16} strokeWidth={1.8} aria-hidden="true" />
                 <span className="text-[11px] font-black">Sign out</span>
               </button>
-            ) : null}
+            ) : null}</>}
           </div>
         </div>
       </div>

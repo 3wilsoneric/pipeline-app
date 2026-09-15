@@ -4,6 +4,7 @@ import { EncryptJWT, createRemoteJWKSet, jwtDecrypt, jwtVerify } from "jose";
 
 import { hasAssessorSession, readAssessorSession } from "@/lib/auth/assessor-session";
 import { delegatedUserFromSession } from "@/lib/auth/assessor-session-policy";
+import { isPersonaDemo, requirePersonaDemoUser } from "@/lib/demo/persona-session";
 
 export type PipelineRole = "admin" | "assessment_coordinator" | "reviewer" | "viewer";
 
@@ -36,6 +37,7 @@ export type PipelineUser = {
   accessScope: PipelineAccessScope;
   entraAppRoleAssigned?: boolean;
   delegation?: PipelineDelegation;
+  demoPersona?: "supervisor" | "assessor";
 };
 
 type ParsedHeaderUser = Omit<PipelineUser, "roles" | "accessScope"> & {
@@ -108,6 +110,7 @@ function authorizeEffectivePipelineUser(
   if (!auth.ok) return auth;
   const baseAuthorization = authorizePipelineUser(auth.user, rolePriority);
   if (!baseAuthorization.ok) return baseAuthorization;
+  if (auth.user.demoPersona) return authorizeResolvedPipelineUser(auth.user, allowedRoles);
   if (!hasAssessorSession(request)) return authorizePipelineUser(auth.user, allowedRoles);
   return readAssessorSession(request, auth.user).then((delegation) => {
     if (!delegation) return authFailure(403, "God mode is invalid or expired. Exit God mode before continuing.");
@@ -127,6 +130,7 @@ function authorizeResolvedPipelineUser(
 }
 
 export async function getEffectivePipelineUser(request: Request, authenticatedUser: PipelineUser) {
+  if (authenticatedUser.demoPersona) return authenticatedUser;
   const delegation = await readAssessorSession(request, authenticatedUser);
   return delegation ? delegatedUserFromSession(authenticatedUser, delegation) ?? authenticatedUser : authenticatedUser;
 }
@@ -134,6 +138,7 @@ export async function getEffectivePipelineUser(request: Request, authenticatedUs
 export function requireAuthenticatedUser(
   request: Request,
 ): PipelineAuthResult | Promise<PipelineAuthResult> {
+  if (isPersonaDemo()) return requirePersonaDemoUser(request);
   const mode = getPipelineAuthMode();
 
   if (mode === "entra_jwt") {
@@ -152,6 +157,10 @@ export function requireAuthenticatedUser(
 }
 
 export async function getPipelineUserFromRequest(request: Request) {
+  if (isPersonaDemo()) {
+    const auth = requirePersonaDemoUser(request);
+    return auth.ok ? auth.user : null;
+  }
   const mode = getPipelineAuthMode();
 
   if (mode === "mock") {

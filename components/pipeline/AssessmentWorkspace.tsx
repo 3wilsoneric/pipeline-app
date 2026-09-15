@@ -1,5 +1,7 @@
 "use client";
 
+import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
+
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -104,6 +106,7 @@ import {
   PracticeAssessmentReview,
 } from "@/components/pipeline/AssessmentInterviewFields";
 import GuidedAssessmentInterview from "@/components/pipeline/GuidedAssessmentInterview";
+import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
@@ -975,6 +978,12 @@ export default function AssessmentWorkspace({
     await recoveryQueueRef.current;
   };
 
+  usePersonaSwitchSave(async () => {
+    if (isBusy || closingRef.current) throw new Error("Wait for the assessment to finish saving before switching.");
+    await saveBeforeExit();
+    if (dirtySectionsRef.current.size > 0) throw new Error("Some answers are not saved yet. Stay on this account and retry when connected.");
+  });
+
   const closeAssessment = async (onClosed?: () => void) => {
     if (closingRef.current) return;
     closingRef.current = true;
@@ -1371,6 +1380,7 @@ export default function AssessmentWorkspace({
     return createPortal(
       <GuidedAssessmentInterview
         key={selected.assessment_id}
+        demoPersona={viewer?.demoPersona}
         assessment={selected}
         data={draft}
         activeSection={activeSection}
@@ -1429,6 +1439,7 @@ export default function AssessmentWorkspace({
         ) : selected.started_at && canEditClinical ? (
           <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 shrink-0 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35 sm:px-4"><span className="hidden sm:inline">Sign assessment</span><span className="sm:hidden">Sign</span></button>
         ) : null}
+        {viewer?.demoPersona ? <DemoPersonaSwitch persona={viewer.demoPersona} /> : null}
         <button type="button" onClick={() => void closeAssessment()} disabled={isBusy} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>
       </header>
       <TrainingAssessmentBanner mode={trainingAssessmentMode} />
