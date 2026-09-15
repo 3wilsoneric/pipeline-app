@@ -1414,7 +1414,7 @@ export default function AssessmentWorkspace({
 
   return createPortal(
     <section role="dialog" aria-modal="true" aria-label="Assessment interview" data-assessment-view="chart" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
-      <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dfdb] bg-white px-4 py-2 sm:flex-nowrap sm:px-6 lg:px-9">
+      <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dfdb] bg-white px-4 py-2 sm:px-6 lg:flex-nowrap lg:px-9">
         {workspaceControl}
         {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isBusy} /> : null}
         <div className="min-w-0 flex-1">
