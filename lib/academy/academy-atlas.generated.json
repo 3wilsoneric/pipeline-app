@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:7f57f8f901c80529",
-  "fingerprint": "7f57f8f901c805291bdf9748de6d71d68db8c2a02672add720f388ae20f599f6",
+  "generatedAt": "source-fingerprint:9b2b4277f117dfb5",
+  "fingerprint": "9b2b4277f117dfb5fe9f75fd03fdbdbdfb534c5a59a1dfcf258302255d9ef70a",
   "totals": {
     "files": 1072,
-    "lines": 325406,
+    "lines": 325560,
     "coveredFiles": 1072
   },
   "entries": [
@@ -566,7 +566,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 246,
+      "lines": 263,
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
@@ -578,7 +578,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 19,
+      "lines": 24,
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
@@ -1122,7 +1122,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 269,
+      "lines": 277,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -1930,7 +1930,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1882,
+      "lines": 1881,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2110,7 +2110,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 38,
+      "lines": 44,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2158,7 +2158,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 688,
+      "lines": 687,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2206,7 +2206,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 488,
+      "lines": 508,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2338,7 +2338,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 367,
+      "lines": 386,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -6760,7 +6760,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 638,
+      "lines": 635,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -6940,7 +6940,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 55,
+      "lines": 60,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -11009,7 +11009,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 352,
+      "lines": 354,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11261,7 +11261,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 43,
+      "lines": 108,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11826,7 +11826,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "high",
-      "lines": 206,
+      "lines": 208,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -12907,7 +12907,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 65,
+      "lines": 66,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -12931,7 +12931,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 207,
+      "lines": 216,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
