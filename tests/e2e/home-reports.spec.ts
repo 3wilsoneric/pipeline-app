@@ -347,7 +347,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("dialog", { name: "Current work" })).toHaveCount(0);
   });
 
-  test("keeps Home at ten team ribbons and the expanded list scrollable without overflow", async ({ page }) => {
+  test("keeps Home at ten ribbons and opens a responsive lifecycle board", async ({ page }) => {
     const stages = ["ready_to_schedule", "scheduled", "assessment", "complete_chart"] as const;
     const statuses = ["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "decision_pending"] as const;
     const firstNames = ["Avery", "Blake", "Casey", "Dana", "Elliot", "Finley", "Gray", "Harper", "Indigo", "Jules", "Kai"];
@@ -379,6 +379,11 @@ test.describe("role-scoped home and reports", () => {
       assessment: 3,
       complete_chart: 2,
     };
+    const boardItems = [
+      ...items,
+      { ...items[0], referral_id: 7001, client_name: "Mara Denied", workflow_status: "declined", outcome_state: "declined", flow_state: "complete", next_action: "Decision recorded" },
+      { ...items[0], referral_id: 7002, client_name: "Nora Admitted", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", next_action: "Admission recorded" },
+    ];
     await page.route("**/api/operations/home", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -394,6 +399,7 @@ test.describe("role-scoped home and reports", () => {
           overall_completion_pct: 40,
           flow_counts: flowCounts,
           active_items: items,
+          board_items: boardItems,
           ready_to_schedule: { total: 3, items: items.filter((item) => item.flow_state === "ready_to_schedule") },
           data_completion: { total: 0, items: [] },
           current_work: { generated_at: "2026-09-03T12:00:00.000Z", owner: { id: "supervisor-1", name: "Alex Supervisor" }, total: items.length, items: [] },
@@ -412,26 +418,24 @@ test.describe("role-scoped home and reports", () => {
     await expect(homeBoard.getByRole("button", { name: "Open Avery Ribbon" }).getByText("Intake & scheduling", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Open current work" }).click();
     const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
-    const ribbons = board.getByRole("button", { name: /^Open .* Ribbon$/ });
-    await expect(ribbons).toHaveCount(11);
+    const cards = board.getByRole("button", { name: /^Open / });
+    await expect(cards).toHaveCount(13);
     await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
-    await expect(ribbons.nth(0).getByText("Intake & scheduling", { exact: true })).toBeVisible();
-    await expect(ribbons.nth(1).getByText("Scheduled", { exact: true })).toBeVisible();
-    await expect(ribbons.nth(2).getByText("Assessment", { exact: true })).toBeVisible();
-    await expect(ribbons.nth(3).getByText("Decision & completion", { exact: true })).toBeVisible();
-    await expect(ribbons.nth(3)).toContainText("Supervisor review needed");
-    const badgeColors = await Promise.all([0, 1, 2, 3].map(async (index) =>
-      ribbons.nth(index).getByText(["Intake & scheduling", "Scheduled", "Assessment", "Decision & completion"][index], { exact: true })
-        .evaluate((element) => getComputedStyle(element).backgroundColor)));
-    expect(new Set(badgeColors).size).toBe(4);
+    for (const stage of ["Referral received", "In progress", "Decision", "Admitted"]) await expect(board.getByRole("heading", { name: stage })).toBeVisible();
+    await expect(board.getByRole("button", { name: "Open Blake Ribbon" })).toContainText("Assessment scheduled");
+    await expect(board.getByRole("button", { name: "Open Dana Ribbon" })).toContainText("Under review");
+    await expect(board.getByRole("button", { name: "Open Mara Denied" })).toContainText("Denied");
+    await expect(board.getByRole("button", { name: "Open Nora Admitted" })).toContainText("Admission recorded");
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => board.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
-    await expect(ribbons.first()).toContainText("Alex Assessor");
+    await board.getByRole("combobox", { name: "Referral stage" }).selectOption("in_progress");
+    await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toContainText("Alex Assessor");
     await board.getByRole("button", { name: "Open Kai Ribbon" }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("6011");
     await page.goBack();
+    await board.getByRole("combobox", { name: "Referral stage" }).selectOption("in_progress");
     await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
-    await expect(ribbons).toHaveCount(11);
+    await expect(board.locator('button[aria-label^="Open "]')).toHaveCount(13);
   });
 
   test("runs a report, exposes only contextual filters, and exports the current scope", async ({ page }) => {

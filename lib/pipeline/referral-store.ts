@@ -464,6 +464,26 @@ export async function listReferralFiles(options: ReferralFileListOptions = {}) {
   return getReferralStore().listFiles(options);
 }
 
+export async function recordLocalAdditionalReferralDocuments(
+  referralId: number,
+  documents: Array<{ document_id: string; filename: string; category: string }>,
+) {
+  if (getReferralStoreReadiness().mode !== "local_file") return;
+  await ensureLoaded();
+  const index = state.referrals.findIndex((referral) => referral.id === referralId && !isDeletedReferral(referral));
+  if (index < 0) return;
+  const current = state.referrals[index];
+  const existing = current.additionalDocuments ?? [];
+  const known = new Set(existing.map((document) => document.id));
+  const added = documents
+    .filter((document) => document.category === "other" && document.document_id && document.filename && !known.has(document.document_id))
+    .map((document) => ({ id: document.document_id, name: document.filename, uploadedAt: new Date().toISOString() }));
+  if (!added.length) return;
+  state.referrals[index] = { ...current, additionalDocuments: [...existing, ...added] };
+  state.revision += 1;
+  await persist();
+}
+
 export async function listReferralFilesByClient(clientId: string) {
   return getReferralStore().listFilesByClient(clientId);
 }
@@ -3143,6 +3163,7 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
   }
 
   const includedIds = new Set(files.map((file) => file.id));
+  appendLocalAdditionalFiles(referral, files, includedIds);
   for (const requirement of referral.requirements ?? []) {
     if (!requirement.evidenceDocumentId || !requirement.evidenceDocumentName?.trim()) continue;
     if (includedIds.has(requirement.evidenceDocumentId)) continue;
@@ -3165,6 +3186,28 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
   }
 
   return files;
+}
+
+function appendLocalAdditionalFiles(referral: Referral, files: ReferralFile[], includedIds: Set<string>) {
+  for (const document of referral.additionalDocuments ?? []) {
+    if (includedIds.has(document.id)) continue;
+    includedIds.add(document.id);
+    files.push({
+      id: document.id,
+      name: document.name,
+      category: "Other",
+      referralId: referral.id,
+      clientId: referral.clientId,
+      referralName: referral.name,
+      community: referral.community,
+      owner: referral.owner || "Unassigned",
+      uploadedAt: document.uploadedAt,
+      status: "Uploaded",
+      previewStatus: "unavailable",
+      sourceSystem: "pipeline",
+      identityStatus: "linked",
+    });
+  }
 }
 
 function requirementFileCategory(type: AdmissionRequirement["type"]): ReferralFile["category"] {

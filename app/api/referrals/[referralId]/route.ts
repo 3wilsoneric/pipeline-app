@@ -142,6 +142,9 @@ export async function PATCH(
     if (!mutationId.ok) return jsonError(mutationId.message);
     const patchResult = validateReferralPatch(body.value.patch);
     if (!patchResult.ok) return jsonError(patchResult.message, patchResult.status);
+    if (patchResult.value.admissionDate?.trim() && access.referral.admissionDecision?.outcome !== "accepted") {
+      return jsonError("Record an accepted supervisor decision before entering the date of admit.", 422);
+    }
     const ownerResult = await resolveOwnerPatch({
       user: auth.user,
       current: access.referral,

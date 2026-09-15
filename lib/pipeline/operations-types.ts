@@ -157,6 +157,8 @@ export type HomeWorkflowSummary = {
   overall_completion_pct: number | null;
   flow_counts: Record<ActiveReferralFlowState, number>;
   active_items: ReferralWorklistItem[];
+  /** Active work plus a bounded set of recent completed decisions for the full-screen board. */
+  board_items?: ReferralWorklistItem[];
   ready_to_schedule: {
     total: number;
     items: ReferralWorklistItem[];

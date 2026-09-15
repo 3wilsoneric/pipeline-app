@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
 
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { formatPhoneForEntry } from "@/lib/pipeline/phone-display";
 import {
   contactDisplayName,
   contactMethods,
@@ -449,7 +450,7 @@ function ContactFact({ label, value, className = "" }: { label: string; value: s
 
 function ContactEditor({ form, setForm, onSave, onCancel, busy, includeLinkOptions = false, createMode = false }: { form: ContactForm; setForm: (value: ContactForm) => void; onSave: () => void; onCancel: () => void; busy: boolean; includeLinkOptions?: boolean; createMode?: boolean }) {
   const field = (key: keyof ContactForm, label: string, placeholder = "") => (
-    <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.06em] text-[#53605a]">{label}</span><input value={String(form[key])} onChange={(event) => setForm({ ...form, [key]: event.target.value })} placeholder={placeholder} className="mt-1 h-9 w-full border border-[#c9ceca] bg-white px-2.5 text-xs outline-none focus:border-[#0f8b73]" /></label>
+    <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.06em] text-[#53605a]">{label}</span><input type={key === "phone" ? "tel" : key === "email" ? "email" : "text"} value={String(form[key])} onChange={(event) => setForm({ ...form, [key]: event.target.value })} onBlur={key === "phone" ? (event) => setForm({ ...form, phone: formatPhoneForEntry(event.target.value) }) : undefined} placeholder={placeholder} className="mt-1 h-9 w-full border border-[#c9ceca] bg-white px-2.5 text-xs outline-none focus:border-[#0f8b73]" /></label>
   );
   return (
     <div>

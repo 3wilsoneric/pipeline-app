@@ -12,6 +12,7 @@ import { completePacketUpload, extractionErrorResponse } from "@/lib/extraction/
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutablePacketAccess } from "@/lib/pipeline/referral-access";
 import { reconcileUploadedDocumentRequirements } from "@/lib/pipeline/document-requirement-reconciliation";
+import { recordLocalAdditionalReferralDocuments } from "@/lib/pipeline/referral-store";
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/uploads/complete", async () => {
@@ -42,14 +43,20 @@ export async function POST(request: Request) {
       return jsonError("Packet not found.", 404);
     }
 
-    await reconcileUploadedDocumentRequirements(
-      access.referral.id,
-      result.documents ?? [],
-      pipelineAuditActor(auth.user),
-    );
+    await recordCompletedReferralDocuments(access.referral.id, result, auth.user);
 
     return Response.json(result, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });
   });
+}
+
+async function recordCompletedReferralDocuments(
+  referralId: number,
+  result: NonNullable<Awaited<ReturnType<typeof completePacketUpload>>>,
+  user: Parameters<typeof pipelineAuditActor>[0],
+) {
+  const documents = result.documents ?? [];
+  await reconcileUploadedDocumentRequirements(referralId, documents, pipelineAuditActor(user));
+  await recordLocalAdditionalReferralDocuments(referralId, documents);
 }

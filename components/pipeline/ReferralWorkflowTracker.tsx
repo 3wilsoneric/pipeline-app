@@ -1,22 +1,25 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
-import { activeReferralFlowStates } from "@/lib/pipeline/referral-flow";
+import { activeReferralFlowStates, referralBoardStageForStatus, referralBoardStages, type ReferralBoardStage } from "@/lib/pipeline/referral-flow";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 
-export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit }: {
+export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons" }: {
   briefing: HomeBriefingSnapshot;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   selectedReferralId?: number;
   limit?: number;
+  layout?: "ribbons" | "board";
 }) {
   const items = briefing.workflow.active_items ?? [];
+  const boardItems = briefing.workflow.board_items ?? items;
   const unavailable = briefing.unavailable_sections.includes("workflow");
 
   return (
@@ -25,8 +28,10 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
         <div className="px-4 py-12 text-center text-[13px] font-medium text-[#8a5a10]">
           Current work is temporarily unavailable. Close this view and try again.
         </div>
-      ) : items.length === 0 ? (
+      ) : (layout === "board" ? boardItems : items).length === 0 ? (
         <p className="px-1 py-5 text-[13px] font-medium text-[#626b65]">No active referral work.</p>
+      ) : layout === "board" ? (
+        <ReferralLifecycleBoard items={boardItems} showOwner={briefing.scope === "team"} onOpenPacket={onOpenPacket} />
       ) : (
         <>
           <div data-current-work-board className="border-t border-[#dfe5e1]">
@@ -44,6 +49,76 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
       )}
     </section>
   );
+}
+
+function ReferralLifecycleBoard({ items, showOwner, onOpenPacket }: {
+  items: ReferralWorklistItem[];
+  showOwner: boolean;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+}) {
+  const [mobileStage, setMobileStage] = useState<ReferralBoardStage>("received");
+  return (
+    <>
+      <label className="relative mb-4 block lg:hidden">
+        <span className="sr-only">Referral stage</span>
+        <select value={mobileStage} onChange={(event) => setMobileStage(event.target.value as ReferralBoardStage)} className="h-11 w-full appearance-none border border-[#c7d1cb] bg-white px-3 pr-10 text-[13px] font-bold text-[#202320] focus-visible:outline-[#0f8b73]">
+          {referralBoardStages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label} ({items.filter((item) => referralBoardStageForStatus(item.workflow_status) === stage.key).length})</option>)}
+        </select>
+        <ChevronDown size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#176f60]" aria-hidden="true" />
+      </label>
+      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-4">
+        {referralBoardStages.map((stage) => {
+          const stageItems = items.filter((item) => referralBoardStageForStatus(item.workflow_status) === stage.key);
+          return <div key={stage.key} className={`${mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`}>
+            <div className={`flex min-h-10 items-center justify-between gap-2 border-t-2 px-1 py-2 ${boardRule(stage.key)}`}>
+              <h2 className="truncate text-[12px] font-extrabold uppercase text-[#303b34]">{stage.label}</h2>
+              <strong className="text-[12px] font-bold tabular-nums text-[#5d6861]">{stageItems.length.toLocaleString()}</strong>
+            </div>
+            <div className="space-y-2">
+              {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} stage={stage.key} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
+              {stageItems.length === 0 ? <p className="py-5 text-center text-[11px] font-medium text-[#77817a]">No referrals here</p> : null}
+            </div>
+          </div>;
+        })}
+      </div>
+    </>
+  );
+}
+
+function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
+  item: ReferralWorklistItem;
+  stage: ReferralBoardStage;
+  showOwner: boolean;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+}) {
+  const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
+  const decision = stage === "decision" ? decisionPresentation(item) : null;
+  const status = decision?.label ?? (stage === "in_progress" && item.assessment_state === "scheduled" ? "Assessment scheduled" : workflowStatusLabels[item.workflow_status]);
+  return <button type="button" aria-label={`Open ${name}`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`group w-full border border-l-[3px] border-[#dce3df] bg-white px-3 py-3 text-left outline-none hover:border-[#0f8b73] hover:bg-[#f7faf8] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${decision?.accent ?? boardAccent(stage)}`}>
+    <span className="flex items-start justify-between gap-2"><span className="min-w-0 truncate text-[14px] font-bold text-[#202320]">{name}</span><ArrowRight size={15} className="mt-0.5 shrink-0 text-[#7b837e] group-hover:text-[#0f8b73]" aria-hidden="true" /></span>
+    <span className={`mt-2 block text-[11px] font-bold ${decision?.tone ?? "text-[#176f60]"}`}>{status}</span>
+    <span className="mt-1 block line-clamp-2 min-h-8 text-[11px] leading-4 text-[#5f6762]">{item.next_action}</span>
+    <span className="mt-2 block truncate text-[10px] font-semibold text-[#69716c]">{item.community}{showOwner ? ` · ${item.owner}` : ""}</span>
+  </button>;
+}
+
+function decisionPresentation(item: ReferralWorklistItem) {
+  if (item.outcome_state === "accepted") return { label: "Accepted", tone: "text-[#176f60]", accent: "border-l-[#0f8b73]" };
+  if (item.outcome_state === "declined") return { label: "Denied", tone: "text-[#a74338]", accent: "border-l-[#b84b3d]" };
+  return { label: "Under review", tone: "text-[#936116]", accent: "border-l-[#b77b27]" };
+}
+
+function boardRule(stage: ReferralBoardStage) {
+  if (stage === "received") return "border-t-[#0f8b73]";
+  if (stage === "in_progress") return "border-t-[#4866ad]";
+  if (stage === "decision") return "border-t-[#b77b27]";
+  return "border-t-[#78844d]";
+}
+
+function boardAccent(stage: ReferralBoardStage) {
+  if (stage === "received") return "border-l-[#0f8b73]";
+  if (stage === "in_progress") return "border-l-[#4866ad]";
+  return "border-l-[#78844d]";
 }
 
 export function WorkflowCardSkeleton() {

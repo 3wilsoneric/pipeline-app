@@ -144,6 +144,8 @@ export type AssessmentCompletionReportRow = {
   /** Signed clinical encounters in the selected month. */
   completed_assessments: number;
   average_duration_minutes: number | null;
+  /** Accepted supervisor decisions linked to those signed encounters, recorded to date. */
+  accepted_clients: number;
 };
 
 export type AssessmentCompletionReport = {

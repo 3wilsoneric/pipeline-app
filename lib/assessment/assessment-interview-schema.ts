@@ -75,23 +75,15 @@ const priorSettingOptions = [
   { value: "other", label: "Other" },
 ] as const;
 
-const medicationRouteOptions = [
-  { value: "oral_only", label: "Oral only" },
-  { value: "lai_only", label: "LAI only" },
-  { value: "oral_and_lai", label: "Oral and LAI" },
-  { value: "neither", label: "Neither" },
-  { value: "unknown", label: "Unknown" },
-] as const;
-
-const hallucinationFrequencyOptions = [
-  { value: "continuous", label: "Continuous" },
-  { value: "daily", label: "Daily" },
-  { value: "several_times_weekly", label: "Several times weekly" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-  { value: "less_than_monthly", label: "Less than monthly" },
-  { value: "no_current_symptoms", label: "No current symptoms" },
-  { value: "unknown", label: "Unknown" },
+const sobrietyPeriodOptions = [
+  ...Array.from({ length: 11 }, (_, index) => ({
+    value: `${index + 1}_months`,
+    label: `${index + 1} ${index === 0 ? "month" : "months"}`,
+  })),
+  { value: "1_year", label: "1 year" },
+  { value: "18_months", label: "18 months" },
+  { value: "2_years", label: "2 years" },
+  { value: "more_than_2_years", label: "More than 2 years" },
 ] as const;
 
 const diagnosisOptions = [
@@ -138,7 +130,7 @@ export const assessmentInterviewSections: readonly AssessmentInterviewSectionDef
   section("functional_adl", "Function", "Assess ADLs, communication, mobility, and participation."),
   section("medication", "Medication", "Review medication use, refusals, and injection needs."),
   section("substance_use", "Substance use", "Document use history, current use, frequency, and insight."),
-  section("behavioral_risk", "Behavior & safety", "Assess challenging behavior, self-harm, assaults, elopement, and hallucinations."),
+  section("behavioral_risk", "Behavior & safety", "Assess challenging behavior, self-harm, assaults, and elopement."),
   section("physical_health", "Physical health", "Record health concerns, diet, skin integrity, and supportive equipment."),
   section("legal_conservatorship", "Legal", "Capture conservatorship, forensic history, and court requirements."),
   section("social_support", "Support & goals", "Capture relationships, prior living stability, and placement preferences."),
@@ -148,7 +140,6 @@ export const assessmentInterviewSections: readonly AssessmentInterviewSectionDef
 export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[] = [
   q("resident_name", "Identity", "text"),
   q("date_of_birth", "Identity", "date"),
-  q("resident_number", "Identity", "text", { help: "Enter the ElderMark resident number only when one already exists." }),
   q("community", "Identity", "text"),
   q("assessment_date", "Interview", "date"),
   q("referral_received_date", "Referral source", "date"),
@@ -160,7 +151,6 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("county", "Current placement", "text"),
   q("prior_setting_bucket", "Current placement", "select", { options: priorSettingOptions }),
   q("referring_facility", "Current placement", "text", { placeholder: "Name of the prior placement" }),
-  q("admit_date", "Current placement", "date"),
   q("prior_placements", "Placement trajectory", "textarea", { span: "full" }),
   q("prior_awol_failed_placements", "Placement trajectory", "textarea", { span: "full" }),
 
@@ -172,9 +162,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("diagnosis_categories", "Diagnoses", "multi_select", { options: diagnosisOptions, span: "full" }),
   q("diagnosis_other_detail", "Diagnoses", "text", { showWhen: includes("diagnosis_categories", "other"), requiredWhen: includes("diagnosis_categories", "other") }),
   q("primary_diagnosis", "Diagnoses", "text"),
-  q("secondary_diagnoses", "Diagnoses", "textarea", { help: "Enter one diagnosis per line.", span: "full" }),
   q("current_symptoms", "Current presentation", "textarea", { span: "full" }),
-  q("acuity_level", "Current presentation", "text"),
   q("cognition_orientation", "Current presentation", "textarea", { span: "full" }),
 
   q("dress_assistance_level", "Daily living", "select", { options: assistanceLevels }),
@@ -223,9 +211,9 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("medication_refused", "Medication refusals", "text", { showWhen: equals("medication_adherence", "no"), requiredWhen: equals("medication_adherence", "no") }),
   q("medication_refusals_30_days", "Medication refusals", "number", { showWhen: equals("medication_adherence", "no"), requiredWhen: equals("medication_adherence", "no"), min: 0 }),
   q("medications_at_intake", "Medication profile", "textarea", { help: "Enter one medication per line.", span: "full" }),
-  q("lai_vs_oral", "Medication profile", "select", { options: medicationRouteOptions }),
   q("prn_patterns", "Medication profile", "textarea"),
   q("im_injections", "Medication profile", "yes_no", { options: yesNo }),
+  q("im_injections_details", "Medication profile", "textarea", { showWhen: equals("im_injections", "yes"), requiredWhen: equals("im_injections", "yes"), span: "full", placeholder: "Medication, frequency, and reason for injection" }),
 
   q("substance_abuse_history", "Substance-use history", "yes_no", { options: yesNo }),
   q("active_substance_use", "Substance-use history", "yes_no", { options: yesNo }),
@@ -233,7 +221,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("last_substance_use_date", "Use pattern", "date", { showWhen: equals("substance_abuse_history", "yes") }),
   q("use_pattern", "Use pattern", "select", { options: useFrequencyOptions, showWhen: equals("substance_abuse_history", "yes"), requiredWhen: equals("substance_abuse_history", "yes") }),
   q("substance_effect_on_baseline", "Use pattern", "textarea", { showWhen: equals("substance_abuse_history", "yes"), span: "full" }),
-  q("longest_sobriety_months", "Recovery history", "number", { showWhen: equals("substance_abuse_history", "yes"), min: 0 }),
+  q("longest_sobriety_period", "Recovery history", "select", { options: sobrietyPeriodOptions, showWhen: equals("substance_abuse_history", "yes") }),
   q("substance_use_insight", "Recovery history", "yes_no", { options: yesNo, showWhen: equals("substance_abuse_history", "yes"), requiredWhen: equals("substance_abuse_history", "yes") }),
   q("substance_use_insight_details", "Recovery history", "textarea", { showWhen: equals("substance_abuse_history", "yes"), requiredWhen: equals("substance_abuse_history", "yes"), span: "full" }),
   q("treatment_history", "Recovery history", "textarea", { showWhen: equals("substance_abuse_history", "yes"), span: "full" }),
@@ -254,26 +242,6 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("elopement_risk", "Assault and elopement", "textarea", { showWhen: equals("elopement_history", "yes"), requiredWhen: equals("elopement_history", "yes"), span: "full" }),
   q("aggression_risk", "Assault and elopement", "textarea"),
   q("si_hi_history", "Assault and elopement", "textarea"),
-  q("responds_to_internal_stimuli", "Hallucination history", "yes_no", { options: yesNo }),
-  q("auditory_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
-  q("auditory_hallucination_nature", "Auditory hallucinations", "textarea", { showWhen: equals("auditory_hallucinations", "yes"), requiredWhen: equals("auditory_hallucinations", "yes"), span: "full" }),
-  q("auditory_hallucination_frequency", "Auditory hallucinations", "select", { options: hallucinationFrequencyOptions, showWhen: equals("auditory_hallucinations", "yes") }),
-  q("auditory_hallucination_triggers", "Auditory hallucinations", "textarea", { showWhen: equals("auditory_hallucinations", "yes") }),
-  q("visual_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
-  q("visual_hallucination_details", "Visual hallucinations", "textarea", { showWhen: equals("visual_hallucinations", "yes"), requiredWhen: equals("visual_hallucinations", "yes"), span: "full" }),
-  q("visual_hallucination_recent", "Visual hallucinations", "textarea", { showWhen: equals("visual_hallucinations", "yes") }),
-  q("olfactory_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
-  q("olfactory_hallucination_details", "Olfactory hallucinations", "textarea", { showWhen: equals("olfactory_hallucinations", "yes"), requiredWhen: equals("olfactory_hallucinations", "yes"), span: "full" }),
-  q("olfactory_hallucination_impact", "Olfactory hallucinations", "textarea", { showWhen: equals("olfactory_hallucinations", "yes") }),
-  q("tactile_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
-  q("tactile_hallucination_details", "Tactile hallucinations", "textarea", { showWhen: equals("tactile_hallucinations", "yes"), requiredWhen: equals("tactile_hallucinations", "yes"), span: "full" }),
-  q("tactile_hallucination_frequency", "Tactile hallucinations", "select", { options: hallucinationFrequencyOptions, showWhen: equals("tactile_hallucinations", "yes") }),
-  q("gustatory_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
-  q("gustatory_hallucination_details", "Gustatory hallucinations", "textarea", { showWhen: equals("gustatory_hallucinations", "yes"), requiredWhen: equals("gustatory_hallucinations", "yes"), span: "full" }),
-  q("hallucination_coping_strategies", "Hallucination impact and treatment", "textarea", { span: "full" }),
-  q("hallucination_distress_impairment", "Hallucination impact and treatment", "textarea", { span: "full" }),
-  q("hallucination_functional_impact", "Hallucination impact and treatment", "textarea", { span: "full" }),
-  q("hallucination_treatment_history", "Hallucination impact and treatment", "textarea", { span: "full" }),
 
   q("physical_health_concerns", "Current health", "yes_no", { options: yesNo }),
   q("physical_health_diagnoses", "Current health", "textarea", { showWhen: equals("physical_health_concerns", "yes"), requiredWhen: equals("physical_health_concerns", "yes"), span: "full" }),

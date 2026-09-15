@@ -6,7 +6,7 @@ import {
   requireReferralStore,
 } from "@/lib/pipeline/referral-store";
 import { isKeysetCursor } from "@/lib/pipeline/keyset-cursor";
-import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { requireReferralAccess, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { isOptionalReferralWorkspaceScope, readReferralWorkspaceScope } from "@/lib/pipeline/referral-query";
 
 export const runtime = "nodejs";
@@ -19,6 +19,9 @@ export async function GET(request: Request) {
     if (!store.ok) return store.response;
 
     const url = new URL(request.url);
+    const scopedReferral = await scopedReferralId(url.searchParams, auth.user);
+    if (scopedReferral instanceof Response) return scopedReferral;
+    const referralId = scopedReferral;
     const scope = readReferralWorkspaceScope(url.searchParams);
     if (!isOptionalReferralWorkspaceScope(scope)) return jsonError("scope must be mine or team.");
     const query = bounded(url.searchParams.get("q"), 200);
@@ -55,6 +58,7 @@ export async function GET(request: Request) {
       category: category || undefined,
       identityStatus: identityStatus as "linked" | "candidate" | "unmatched" | undefined,
       sourceSystem: sourceSystem as "pipeline" | "alamo_platform" | "allo" | "import" | undefined,
+      referralId,
       uploadedAfter: uploadedAfter || undefined,
       uploadedBefore: uploadedBefore || undefined,
     }));
@@ -65,6 +69,15 @@ export async function GET(request: Request) {
       },
     });
   });
+}
+
+async function scopedReferralId(params: URLSearchParams, user: Parameters<typeof requireReferralAccess>[0]): Promise<number | undefined | Response> {
+  const raw = params.get("referral_id")?.trim();
+  if (!raw) return undefined;
+  const id = Number(raw);
+  if (!Number.isSafeInteger(id) || id < 1) return jsonError("referral_id must be a positive whole number.");
+  const access = await requireReferralAccess(user, id);
+  return access.ok ? id : access.response;
 }
 
 function bounded(value: string | null, maximum: number) {
