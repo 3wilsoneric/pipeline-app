@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:d89a6f0731ae4fe0",
-  "fingerprint": "d89a6f0731ae4fe077407b4a6d8511af98d7409c08e5f89c8dfe11d694fccf6d",
+  "generatedAt": "source-fingerprint:4791906288581827",
+  "fingerprint": "4791906288581827cdc4808dd9425d8cf4601225900be2fc27e7276a296aff42",
   "totals": {
-    "files": 1076,
-    "lines": 326408,
-    "coveredFiles": 1076
+    "files": 1077,
+    "lines": 326567,
+    "coveredFiles": 1077
   },
   "entries": [
     {
@@ -338,7 +338,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 136,
+      "lines": 135,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -9858,6 +9858,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 115,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "scripts/assessment-scheduling-boundaries.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 160,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
