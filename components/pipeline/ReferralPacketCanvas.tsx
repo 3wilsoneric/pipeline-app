@@ -1540,15 +1540,11 @@ export default function ReferralPacketCanvas({
       canvasRef.current?.querySelector<HTMLElement>('[data-workspace-field="owner"] select')?.focus();
       return;
     }
-    const hasPendingChanges = dirtyKeysRef.current.size > 0
-      || Object.keys(pendingDocumentsRef.current).length > 0
-      || additionalFilesRef.current.length > 0
-      || Boolean(initialPacketRef.current);
-    if (hasPendingChanges) {
+    if (workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) {
       const savedReferral = await saveWorkspaceDraft();
       if (!savedReferral) return;
     }
-    if (workspaceHasPendingChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current) || additionalFilesRef.current.length) return;
+    if (workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) return;
     setSchedulingReferralId(loadedReferralRef.current.id);
     openPage(2);
   };
@@ -3941,6 +3937,15 @@ function workspaceHasPendingChanges(
   initialPacket: File | null,
 ) {
   return dirtyKeys.size > 0 || Object.keys(pendingDocuments).length > 0 || Boolean(initialPacket);
+}
+
+function workspaceHasQueuedChanges(
+  dirtyKeys: ReadonlySet<DirtyDraftKey>,
+  pendingDocuments: Record<string, File>,
+  initialPacket: File | null,
+  additionalFiles: readonly File[],
+) {
+  return workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
 }
 
 function activeReferralId(loadedReferral: Referral | null, referral: { id: number } | undefined) {

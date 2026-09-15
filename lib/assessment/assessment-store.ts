@@ -496,14 +496,18 @@ async function addLocalCompletionReportAssessment(
 ) {
   const signedAt = assessment.signed_at;
   if (!signedAt || signedAt < range.start || signedAt >= range.end) return;
-  const assessorName = assessment.signed_by?.name.trim() || assessment.assessor?.trim() || "Unassigned";
-  const assessorId = assessment.signed_by?.id.trim() || assessment.assessor_id?.trim() || null;
-  const key = assessorId || `legacy:${normalize(assessorName)}`;
-  const current = grouped.get(key) ?? emptyLocalCompletionRow(assessorId, assessorName);
+  const assessor = localReportAssessor(assessment);
+  const current = grouped.get(assessor.key) ?? emptyLocalCompletionRow(assessor.id, assessor.name);
   current.completed_assessments += 1;
   if (await hasAcceptedLocalAssessmentDecision(assessment)) current.accepted_clients += 1;
   addCompletionDuration(current, assessment.started_at, signedAt);
-  grouped.set(key, current);
+  grouped.set(assessor.key, current);
+}
+
+function localReportAssessor(assessment: PipelineAssessmentRecord) {
+  const name = assessment.signed_by?.name.trim() || assessment.assessor?.trim() || "Unassigned";
+  const id = assessment.signed_by?.id.trim() || assessment.assessor_id?.trim() || null;
+  return { id, name, key: id || `legacy:${normalize(name)}` };
 }
 
 function emptyLocalCompletionRow(assessorId: string | null, assessorName: string): LocalCompletionReportRow {
