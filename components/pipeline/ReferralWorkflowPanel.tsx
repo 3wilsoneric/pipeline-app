@@ -104,6 +104,12 @@ export default function ReferralWorkflowPanel({
     return () => controller.abort();
   }, [loadWorkflow, referral.version]);
 
+  const clearSavedDraftState = (key: string) => {
+    if (key.startsWith("recommendation:")) recommendationDirty.current = false;
+    if (key.startsWith("decision:")) decisionDirty.current = false;
+    if (key.startsWith("admit-date:")) admissionDateDirty.current = false;
+  };
+
   const runMutation = async <T extends { referral?: Referral }>(
     key: string,
     url: string,
@@ -123,11 +129,7 @@ export default function ReferralWorkflowPanel({
       });
       mutationIds.current.delete(key);
       if (payload.referral) onReferralChange(payload.referral);
-      if (key.startsWith("recommendation:")) recommendationDirty.current = false;
-      if (key.startsWith("decision:")) {
-        decisionDirty.current = false;
-      }
-      if (key.startsWith("admit-date:")) admissionDateDirty.current = false;
+      clearSavedDraftState(key);
       setMessage(successMessage);
       await loadWorkflow();
       return payload;
