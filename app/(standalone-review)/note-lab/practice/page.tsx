@@ -24,6 +24,7 @@ export default async function AssessmentPracticePage({
     <AssessmentPracticeWorkspace
       traineeId={user.id}
       traineeName={firstName(user.name)}
+      walkthroughOnly={Boolean(user.demoPersona)}
       returnToPresentation={source === "demo"}
     />
   );

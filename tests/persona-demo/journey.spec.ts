@@ -123,6 +123,15 @@ test("same referral schedules, captures an assessment, returns to supervisor and
   const chart = page.locator('[data-assessment-view="chart"]');
   const answer = "Synthetic practice note entered immediately before switching accounts.";
   await chart.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
+  const workspaceUrl = page.url();
+  await chart.getByRole("button", { name: "Open assessment lab", exact: true }).click();
+  const lab = page.getByRole("dialog", { name: "Assessment lab", exact: true });
+  await lab.getByLabel("Resident name *", { exact: true }).fill("LAB-ONLY answer, do not put on referral");
+  await lab.getByRole("button", { name: "History", exact: true }).click();
+  await lab.getByRole("textbox", { name: /Prior 5150/ }).fill("LAB-ONLY narrative");
+  await lab.getByRole("button", { name: "Back to referral", exact: true }).click();
+  await expect(page).toHaveURL(workspaceUrl);
+  await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
   await chart.getByRole("button", { name: "Switch to Supervisor", exact: true }).click();
   await expect(page.getByRole("button", { name: "Switch to Assessor", exact: true })).toBeVisible();
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;

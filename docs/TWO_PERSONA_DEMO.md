@@ -14,6 +14,19 @@ Supervisor to review and decide. The switch is also available in the full-screen
 assessment. Pending intake/assessment edits are saved first; failed saves keep
 the current page open. Switching returns Home and clears in-memory caches.
 
+## Assessment Lab
+
+Use Assessment lab in the header (Lab on narrow screens), the full-screen
+assessment, or Learning Center. It opens a full-screen, disposable questionnaire
+without unloading the referral underneath. Back to referral returns to that exact
+workspace. The lab starts blank at section one every time; all twelve sections
+can be selected directly, or visited with Back/Next without entering answers.
+Conditional follow-ups and field-specific Answer help use the existing schema
+and authored guidance. Lab answers are memory-only and never update a referral,
+assessment, saved practice record, or completion report. The standalone
+`/note-lab/practice` route is also fresh in this copy; ordinary production practice
+continues to retain its existing saved-practice behavior.
+
 ## Isolation
 
 Only synthetic practice data belongs here. Referrals, assessments, documents,

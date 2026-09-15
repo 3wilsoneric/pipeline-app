@@ -17,6 +17,7 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
 import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
+import DemoAssessmentLabButton from "@/components/pipeline/DemoAssessmentLabButton";
 
 export default function PipelineHeader() {
   const auth = usePipelineAuth();
@@ -178,8 +179,9 @@ export default function PipelineHeader() {
       </div>
 
       <div className="relative z-10 ml-auto flex items-center">
+        {user?.demoPersona ? <DemoAssessmentLabButton className="mr-1 flex h-10 shrink-0 items-center px-2 text-[12px] font-semibold text-[#08745f] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><span className="sm:hidden">Lab</span><span className="hidden sm:inline">Assessment lab</span></DemoAssessmentLabButton> : null}
         {user?.demoPersona ? <DemoPersonaSwitch persona={user.demoPersona} /> : <ActiveAssessorSessionPill user={user} />}
-        {!hideGlobalGuide ? (
+        {!hideGlobalGuide && !user?.demoPersona ? (
           <button
             type="button"
             aria-label="Open guided tutorials"
@@ -221,6 +223,7 @@ export default function PipelineHeader() {
                 <div className="mt-1 text-[12px] text-[#68736d]">{user.demoPersona === "supervisor" ? "Supervisor" : "Assessor"}</div>
               </div>
               <div className="p-1 text-[14px] text-[#28372f]">
+                <DemoAssessmentLabButton className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73] sm:hidden" />
                 <Link href="/settings" onClick={() => setIsProfileMenuOpen(false)} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Profile</Link>
                 <Link href="/training" onClick={() => setIsProfileMenuOpen(false)} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Learning Center</Link>
                 <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTo("trash"); }} className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Trash</button>
