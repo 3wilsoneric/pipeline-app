@@ -2322,6 +2322,7 @@ export default function ReferralPacketCanvas({
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onContinueToWorkflow={() => openPage("workflow")}
+                  onOpenWorkspace={() => openPage(1)}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
                   onActiveSectionChange={(section) => {
                     if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section });

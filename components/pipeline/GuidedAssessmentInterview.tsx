@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
@@ -51,6 +51,7 @@ type GuidedAssessmentInterviewProps = {
   onExitToChart: () => void;
   onDone: () => void;
   onOpenAssignedWork?: () => void;
+  workspaceControl?: ReactNode;
 };
 
 type GuidedAssessmentScreen = {
@@ -85,6 +86,7 @@ export default function GuidedAssessmentInterview({
   onExitToChart,
   onDone,
   onOpenAssignedWork,
+  workspaceControl,
 }: GuidedAssessmentInterviewProps) {
   const visibleScreens = useMemo(
     () => guidedAssessmentScreens.filter((screen) => screen.questions.some((question) => isAssessmentQuestionVisible(question, data))),
@@ -141,6 +143,7 @@ export default function GuidedAssessmentInterview({
       <header className="relative flex min-h-14 shrink-0 flex-wrap items-center gap-y-1 border-b border-[#e0e4e1] px-4 py-2 sm:h-16 sm:flex-nowrap sm:px-6 lg:px-9">
         <div className="flex min-w-0 items-center gap-2.5">
           <PipelineLogoMark size={23} />
+          {workspaceControl}
           {onOpenAssignedWork ? <AssignedWorkButton onOpen={onOpenAssignedWork} disabled={disabled} /> : <span className="hidden text-[11px] font-black uppercase tracking-[0.08em] text-[#0f7664] sm:inline">Assessment</span>}
         </div>
         <div className="min-w-0 flex-1 px-2 text-center">
