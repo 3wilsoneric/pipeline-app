@@ -236,7 +236,7 @@ function autoFocusSection(assessment: PipelineAssessmentRecord | null, nextRequi
 }
 
 function assessmentInterviewView(assessment: PipelineAssessmentRecord | null, trainingAssessmentMode: TrainingAssessmentMode | undefined) {
-  return assessment?.started_at && !assessment.signed_at && (!trainingAssessmentMode || trainingAssessmentMode === "guided") ? "guided" : "chart";
+  return assessment?.started_at && !assessment.signed_at && trainingAssessmentMode !== "interview" ? "guided" : "chart";
 }
 
 function assessmentNeedsSchedule(assessment: PipelineAssessmentRecord | null) {
@@ -756,7 +756,7 @@ export default function AssessmentWorkspace({
         });
         upsertAssessment(updated, true);
         setMessage("Training assessment in progress");
-        setAssessmentView("chart");
+        setAssessmentView("guided");
         setShowBeginDialog(false);
         return;
       }
@@ -1431,7 +1431,7 @@ export default function AssessmentWorkspace({
         {!selected.signed_at && !selected.started_at && selected.scheduled_start_at && canEditClinical ? (
           <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
         ) : null}
-        {selected.started_at && !selected.signed_at && (!trainingAssessmentMode || trainingAssessmentMode === "guided") && canEditClinical ? (
+        {selected.started_at && !selected.signed_at && trainingAssessmentMode !== "interview" && canEditClinical ? (
           <button type="button" onClick={() => setAssessmentView("guided")} aria-label="Guided interview" title="Guided interview" className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 border border-[#c9ceca] text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73] sm:w-auto sm:px-3"><Play size={13} /><span className="hidden sm:inline">Guided interview</span></button>
         ) : null}
         {selected.signed_at ? (

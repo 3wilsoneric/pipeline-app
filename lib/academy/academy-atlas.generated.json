@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9b2b4277f117dfb5",
-  "fingerprint": "9b2b4277f117dfb5fe9f75fd03fdbdbdfb534c5a59a1dfcf258302255d9ef70a",
+  "generatedAt": "source-fingerprint:1a8ca016384370d4",
+  "fingerprint": "1a8ca016384370d4aa6a689a0954a16103fa21f2493c4c1351743423a8e80aa5",
   "totals": {
-    "files": 1072,
-    "lines": 325560,
-    "coveredFiles": 1072
+    "files": 1073,
+    "lines": 325689,
+    "coveredFiles": 1073
   },
   "entries": [
     {
@@ -2470,7 +2470,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 285,
+      "lines": 304,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -2602,7 +2602,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 463,
+      "lines": 470,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -8330,7 +8330,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 360,
+      "lines": 362,
       "moduleIds": [
         "pre-assessment-workflow",
         "provenance-review"
@@ -9869,7 +9869,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 584,
+      "lines": 617,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12559,7 +12559,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 557,
+      "lines": 560,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12938,12 +12938,24 @@
       ]
     },
     {
+      "path": "tests/persona-demo/scheduled-workspace.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 63,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tsconfig.json",
       "subsystem": "Repository configuration",
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 81,
+      "lines": 83,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

@@ -221,7 +221,14 @@ function CurrentGateCard({
   onOpenAssessment,
   onOpenFiles,
 }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "manualIntakeReason" | "onManualIntakeReasonChange" | "onSubmitTransition" | "onAuthorizeManualIntake" | "onOpenIntake" | "onOpenAssessment" | "onOpenFiles"> & { view: WorkflowView }) {
-  const { currentReferral, forwardTransition } = view;
+  const { currentReferral, forwardTransition, assessmentState, showManualIntake } = view;
+  if (assessmentState) {
+    return (
+      <WorkflowCard icon={<ClipboardCheck size={17} />} title="Assessment" detail={assessmentState}>
+        <PrimaryButton busy={false} onClick={onOpenAssessment}>Open assessment</PrimaryButton>
+      </WorkflowCard>
+    );
+  }
   return (
     <WorkflowCard icon={<ClipboardCheck size={17} />} title="Current gate" detail={currentReferral.stage}>
       {forwardTransition ? (
@@ -233,7 +240,7 @@ function CurrentGateCard({
         ) : <PrimaryButton busy={busy === `transition:${forwardTransition.target}`} disabled={!workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</PrimaryButton>
       ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>}
 
-      {!currentReferral.manualIntakeAuthorization && workflow.capabilities.can_authorize_manual_intake && ["New", "Packet Needed"].includes(currentReferral.stage) ? (
+      {showManualIntake ? (
         <div className="mt-4 border-t border-[#e3e6e4] pt-4">
           <label className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]" htmlFor="manual-intake-reason">Chart-only exception</label>
           <textarea id="manual-intake-reason" value={manualIntakeReason} onChange={(event) => onManualIntakeReasonChange(event.target.value)} rows={2} placeholder="Explain why intake must proceed without packet extraction" className="mt-2 w-full border border-[#c9ceca] px-3 py-2 text-[11px] outline-none focus:border-[#0f8b73]" />

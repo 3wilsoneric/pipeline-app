@@ -19,6 +19,7 @@ const assessmentSummary = loadTypeScriptModule(root, "lib/assessment/assessment-
 const meetClientTemplate = loadTypeScriptModule(root, "lib/notifications/meet-client-email-template.ts");
 const attachmentPolicy = loadTypeScriptModule(root, "lib/notifications/meet-client-attachment-policy.ts");
 const memberEligibility = loadTypeScriptModule(root, "lib/pipeline/workspace-member-eligibility.ts");
+const workflowPanel = loadTypeScriptModule(root, "components/pipeline/referral-workflow-panel-model.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -45,6 +46,38 @@ const assessment = {
   schedule_status: "unscheduled",
   started_at: null,
 };
+
+const scheduledContext = { assessmentId: "assessment-71", assessmentExists: true, assessmentScheduleStatus: "scheduled", assessmentStarted: false };
+const workflowPanelFixture = {
+  referral,
+  context: scheduledContext,
+  work_items: [],
+  transitions: [{ target: "Packet Needed", blockers: [] }],
+  capabilities: { can_authorize_manual_intake: true },
+};
+check("a scheduled assessment replaces the stale intake gate without authorizing manual intake", (() => {
+  const view = workflowPanel.deriveWorkflowPanelView(workflowPanelFixture);
+  return view.assessmentState === "Scheduled" && !view.showManualIntake && !referral.manualIntakeAuthorization;
+})());
+check("draft, cancelled and no-show appointments do not become scheduled interviews", ["unscheduled", "cancelled", "no_show"].every((status) =>
+  workflowPanel.deriveWorkflowPanelView({ ...workflowPanelFixture, context: { ...scheduledContext, assessmentScheduleStatus: status } }).assessmentState === null));
+check("the supervisor's pre-scheduling manual-intake exception remains available", (() => {
+  const unscheduled = { ...workflowPanelFixture, context: {} };
+  return workflowPanel.deriveWorkflowPanelView(unscheduled).showManualIntake
+    && !workflowPanel.deriveWorkflowPanelView({ ...unscheduled, capabilities: { can_authorize_manual_intake: false } }).showManualIntake;
+})());
+check("accepted signed assessments retain admission actions", workflowPanel.deriveWorkflowPanelView({
+  ...workflowPanelFixture, context: { ...scheduledContext, assessmentSigned: true }, decision: { outcome: "accepted" },
+}).assessmentState === null);
+check("historical workspaces do not expose an active interview action", workflowPanel.deriveWorkflowPanelView({
+  ...workflowPanelFixture, referral: { ...referral, workspaceStatus: "historical" },
+}).assessmentState === null);
+check("an ongoing interview stays the next action while unresolved packet evidence remains visible", (() => {
+  const progress = referralProgress.getReferralProgress({ ...referral, date: "2026-09-15", packetStatus: "ready_for_review" }, {
+    ...scheduledContext, assessmentStarted: true,
+  });
+  return progress.next_action === "Complete the assessment" && progress.blockers.includes("Extracted fields reviewed");
+})());
 
 check("unassigned referrals enter the assignment queue", workflow.resolveReferralWorkflowStatus({ ...referral, owner: "Unassigned", ownerId: undefined }) === "intake_unassigned");
 check("assigned referrals without initial evidence request documents", workflow.resolveReferralWorkflowStatus({ ...referral, documentStatus: "Missing", documentName: "", packetId: "" }) === "intake_documents_needed");
