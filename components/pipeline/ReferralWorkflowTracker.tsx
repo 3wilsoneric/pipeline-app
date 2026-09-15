@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
@@ -11,14 +10,14 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 
-export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId }: {
+export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit }: {
   briefing: HomeBriefingSnapshot;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   selectedReferralId?: number;
+  limit?: number;
 }) {
   const items = briefing.workflow.active_items ?? [];
   const unavailable = briefing.unavailable_sections.includes("workflow");
-  const [visibleCount, setVisibleCount] = useState(10);
 
   return (
     <section aria-label="Current work board" className="bg-white">
@@ -31,7 +30,7 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
       ) : (
         <>
           <div data-current-work-board className="border-t border-[#dfe5e1]">
-            {items.slice(0, visibleCount).map((item) => (
+            {(limit === undefined ? items : items.slice(0, limit)).map((item) => (
               <WorkflowRibbon
                 key={item.referral_id}
                 item={item}
@@ -41,12 +40,6 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
               />
             ))}
           </div>
-          {items.length > visibleCount ? (
-            <button type="button" onClick={() => setVisibleCount((count) => count + 10)} className="mt-2 flex min-h-10 w-full items-center justify-between px-3 text-[12px] font-bold text-[#176f60] hover:bg-[#f2f8f5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]">
-              <span>Show {Math.min(10, items.length - visibleCount)} more</span>
-              <span className="text-[#69716c]">{(items.length - visibleCount).toLocaleString()} remaining</span>
-            </button>
-          ) : null}
         </>
       )}
     </section>

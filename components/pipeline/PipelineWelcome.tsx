@@ -249,7 +249,7 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
           <Maximize2 size={17} aria-hidden="true" />
         </button>
       </div>
-      <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} />
+      <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} limit={10} />
     </section>
   );
 }

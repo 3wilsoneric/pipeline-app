@@ -347,7 +347,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("dialog", { name: "Current work" })).toHaveCount(0);
   });
 
-  test("shows ten compact team referrals with labeled stages and reveals more without overflow", async ({ page }) => {
+  test("keeps Home at ten team ribbons and the expanded list scrollable without overflow", async ({ page }) => {
     const stages = ["ready_to_schedule", "scheduled", "assessment", "complete_chart"] as const;
     const statuses = ["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "decision_pending"] as const;
     const firstNames = ["Avery", "Blake", "Casey", "Dana", "Elliot", "Finley", "Gray", "Harper", "Indigo", "Jules", "Kai"];
@@ -413,8 +413,8 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Open current work" }).click();
     const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
     const ribbons = board.getByRole("button", { name: /^Open .* Ribbon$/ });
-    await expect(ribbons).toHaveCount(10);
-    await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toHaveCount(0);
+    await expect(ribbons).toHaveCount(11);
+    await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
     await expect(ribbons.nth(0).getByText("Intake & scheduling", { exact: true })).toBeVisible();
     await expect(ribbons.nth(1).getByText("Scheduled", { exact: true })).toBeVisible();
     await expect(ribbons.nth(2).getByText("Assessment", { exact: true })).toBeVisible();
@@ -427,10 +427,11 @@ test.describe("role-scoped home and reports", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => board.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
     await expect(ribbons.first()).toContainText("Alex Assessor");
-    await board.getByRole("button", { name: "Show 1 more 1 remaining" }).click();
-    await expect(ribbons).toHaveCount(11);
     await board.getByRole("button", { name: "Open Kai Ribbon" }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("6011");
+    await page.goBack();
+    await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
+    await expect(ribbons).toHaveCount(11);
   });
 
   test("runs a report, exposes only contextual filters, and exports the current scope", async ({ page }) => {
