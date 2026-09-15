@@ -71,15 +71,15 @@ export default function PipelineOperatorAcademy({
           <>
             <header className="pb-5">
               <h1 className="text-[34px] font-semibold tracking-[-0.045em] text-[#151917] sm:text-[44px]">Learning Center</h1>
-              <p className="mt-2 text-[15px] leading-6 text-[#606b67]">{process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" ? "Explore the assessment, or choose a task below." : "Start with the orientation, or choose a task for help on the screen you use."}</p>
+              <p className="mt-2 text-[15px] leading-6 text-[#606b67]">Choose a walkthrough or a task below.</p>
             </header>
 
+            <OperatorDemoEntry demoUrl={demoUrl} />
             {process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" ? (
-              <DemoAssessmentLabButton className="mb-5 block w-full border border-[#a7c5ba] bg-white px-6 py-6 text-left hover:bg-[#f4f9f6] focus-visible:outline-2 focus-visible:outline-[#0f8b73]">
-                <span className="block text-[24px] font-semibold text-[#18372f]">Assessment lab</span>
-                <span className="mt-2 block text-[14px] text-[#606b67]">Click through every section and its answer help.</span>
+              <DemoAssessmentLabButton className="mt-3 inline-flex min-h-10 items-center px-1 text-[13px] font-semibold text-[#0b6d5b] hover:text-[#18372f] focus-visible:outline-2 focus-visible:outline-[#0f8b73]">
+                Open blank assessment lab
               </DemoAssessmentLabButton>
-            ) : <OperatorDemoEntry demoUrl={demoUrl} />}
+            ) : null}
           </>
         ) : null}
         <OperatorGuidedTours assignedRoles={assignedRoles} progress={progress} onExpandedChange={setModuleOpen} />

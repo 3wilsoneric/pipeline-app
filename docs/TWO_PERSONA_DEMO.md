@@ -14,10 +14,28 @@ Supervisor to review and decide. The switch is also available in the full-screen
 assessment. Pending intake/assessment edits are saved first; failed saves keep
 the current page open. Switching returns Home and clears in-memory caches.
 
+## One-Button Walkthrough
+
+Learning Center -> Assessor orientation opens the existing presentation. The
+last slide gives a field-specific Language Lab overview. Enter demo then prepares
+nine synthetic local referrals through the normal referral, document, and
+assessment APIs and opens Jordan's Assessor Home. Jordan sees seven assigned
+cases in ready-to-schedule, scheduled, and assessment states; Alex sees those
+same cases plus two unassigned referrals on Supervisor Home. Taylor Rivera is
+the case to schedule and assess. Relative appointment dates are set on first
+preparation, then saved like ordinary appointments.
+
+Preparation happens only after starting this walkthrough, not when opening the
+blank Assessment Lab. Reopening the presentation finds the same tagged cases;
+it does not recreate them or overwrite practice edits. If preparation is
+interrupted partway through, the partial synthetic record is kept for inspection;
+use `npm run demo:personas -- --port=<demo-port> --reset` on that exact demo port before starting a clean
+case set. These local fixtures are not copied to production or live accounts.
+
 ## Assessment Lab
 
 Use Assessment lab in the header (Lab on narrow screens), the full-screen
-assessment, or Learning Center. It opens a full-screen, disposable questionnaire
+assessment, or Learning Center's separate blank-lab command. It opens a full-screen, disposable questionnaire
 without unloading the referral underneath. Back to referral returns to that exact
 workspace. The lab starts blank at section one every time; all twelve sections
 can be selected directly, or visited with Back/Next without entering answers.

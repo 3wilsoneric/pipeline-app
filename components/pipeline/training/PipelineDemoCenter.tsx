@@ -8,12 +8,13 @@ import {
   ListChecks,
   Play,
   RefreshCcw,
+  X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
-import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { clearPipelineClientSessionCache, fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { PipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import {
   buildPipelineDemoReferral,
@@ -39,6 +40,7 @@ type DemoActor = {
   name: string;
   email: string;
   roles: readonly string[];
+  demoPersona?: "assessor" | "supervisor";
 };
 
 type DemoReferralSummary = Pick<Referral, "id" | "name" | "community" | "tags" | "createdAt">;
@@ -256,7 +258,27 @@ const presentationSlides: readonly PresentationSlide[] = [
       { src: "/training/presentation/assessment-submittal.png", alt: "Pipeline Workflow showing the assessor recommendation and Submit for supervisor review control.", label: "Assessor submittal", caption: "Open Workflow beside the workspace tabs. Record the recommendation and rationale, then select Submit for supervisor review." },
       { src: "/training/presentation/supervisor-decision.png", alt: "Pipeline Workflow showing a submitted assessment and the supervisor admission decision controls.", label: "Supervisor decision", caption: "The authorized supervisor reviews the submittal and records a decision. This view has permissions that an assessor account may not have." },
     ],
-    nextLabel: "Begin walkthrough",
+    nextLabel: "Review the writing guide",
+  },
+  {
+    id: "language-lab-overview",
+    number: 10,
+    navLabel: "Language Lab",
+    location: "Assessment → History → Prior placements",
+    title: "Write the answer, not the example",
+    summary: "Prior placements asks for the setting, time there, why it ended, and the source. Language Lab puts that writing order beside the actual answer.",
+    points: [
+      "Name a packet or collateral source when it differs from what the client says.",
+      "Leave unsupported details unanswered; record why when the field asks for it.",
+    ],
+    screenshots: [{
+      src: "/training/presentation/assessment-language-lab.png",
+      alt: "Assessment History with Language Lab expanded below the Prior placements field.",
+      label: "Prior placements · Language Lab",
+      caption: "Use the field's writing order, checklist, and example as structure. Enter only what this interview or its named sources support.",
+    }],
+    rule: "Prior placements: setting · time there · exit reason · named source · next verification.",
+    nextLabel: "Enter practice Home",
   },
 ] as const;
 
@@ -265,19 +287,23 @@ export default function PipelineDemoCenter({
   environment,
   initialPresentationSlide,
   initialView,
+  journey = false,
 }: {
   actor: DemoActor;
   environment: PipelineDemoEnvironment;
   initialPresentationSlide?: string;
   initialView?: DemoView;
+  journey?: boolean;
 }) {
   const scrollContainerRef = useRef<HTMLElement>(null);
+  const journeyPreparationRef = useRef<Promise<unknown> | null>(null);
   const canUseProcessTester = actor.roles.includes("admin");
   const [view, setView] = useState<DemoView>(() => initialView === "tester" && canUseProcessTester ? "tester" : "presentation");
   const [referrals, setReferrals] = useState<DemoReferralSummary[]>([]);
   const [loadingCases, setLoadingCases] = useState(true);
   const [launchingId, setLaunchingId] = useState<PipelineDemoScenarioId | null>(null);
   const [error, setError] = useState("");
+  const [enteringDemo, setEnteringDemo] = useState(false);
   const casesLoadedRef = useRef(false);
   const canWrite = environment.writable && actor.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role));
 
@@ -300,6 +326,13 @@ export default function PipelineDemoCenter({
       setError("Existing demo cases could not be loaded. You can still create a fresh synthetic case.");
     });
   }, [view]);
+
+  useEffect(() => {
+    if (!journey || journeyPreparationRef.current) return;
+    const preparation = fetchPipelineJson("/api/demo/journey", { method: "POST" });
+    journeyPreparationRef.current = preparation;
+    void preparation.catch(() => undefined);
+  }, [journey]);
 
   const launchScenario = async (
     scenario: PipelineDemoScenario,
@@ -375,6 +408,28 @@ export default function PipelineDemoCenter({
     window.location.assign(demoReferralRoute(referral.id, workspaceStage));
   };
 
+  const enterDemoHome = async () => {
+    if (enteringDemo) return;
+    setError("");
+    setEnteringDemo(true);
+    try {
+      try {
+        await (journeyPreparationRef.current ?? fetchPipelineJson("/api/demo/journey", { method: "POST" }));
+      } catch {
+        journeyPreparationRef.current = fetchPipelineJson("/api/demo/journey", { method: "POST" });
+        await journeyPreparationRef.current;
+      }
+      if (actor.demoPersona === "supervisor") {
+        await fetchPipelineJson("/api/demo/persona", { method: "POST", body: JSON.stringify({ persona: "assessor" }) });
+        clearPipelineClientSessionCache();
+      }
+      window.location.replace(toPipelinePath("/"));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Practice Home could not be prepared.");
+      setEnteringDemo(false);
+    }
+  };
+
   const openProcessTesterStage = (stage: ProcessTesterStage) => {
     if (stage === "decision") {
       selectView("handoff");
@@ -409,8 +464,15 @@ export default function PipelineDemoCenter({
           {view === "presentation" ? (
             <PresentationDeck
               initialSlideId={initialPresentationSlide}
+              finishLabel={journey ? "Enter demo" : "Begin walkthrough"}
+              finishBusy={enteringDemo}
+              finishError={journey ? error : ""}
               onExit={() => selectView("lab")}
               onBeginWalkthrough={() => {
+                if (journey) {
+                  void enterDemoHome();
+                  return;
+                }
                 const scenario = getPipelineDemoScenario("new-intake");
                 if (scenario) void launchScenario(scenario, { tutorialId: "create-referral", stepId: "referral-packet" }, "intake");
               }}
@@ -488,12 +550,18 @@ function duplicateConfirmationIds(error: unknown) {
 
 function PresentationDeck({
   initialSlideId,
+  finishLabel,
+  finishBusy,
+  finishError,
   onExit,
   onBeginWalkthrough,
   onStartGuide,
   onSlideChange,
 }: {
   initialSlideId?: string;
+  finishLabel: string;
+  finishBusy: boolean;
+  finishError: string;
   onExit: () => void;
   onBeginWalkthrough: () => void;
   onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void;
@@ -514,7 +582,8 @@ function PresentationDeck({
       <PresentationHeader slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onClose={onExit} />
       <PresentationSlideBody slide={slide} onStartGuide={onStartGuide} />
       <p className="sr-only" aria-live="polite">Slide {slide.number} of {presentationSlides.length}: {slide.title}</p>
-      <PresentationFooter slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onFinish={onBeginWalkthrough} />
+      {finishError ? <p role="alert" className="shrink-0 border-l-2 border-[#ad493c] bg-[#fff3f0] px-5 py-2 text-[12px] font-semibold text-[#8a362c]">{finishError}</p> : null}
+      <PresentationFooter slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onFinish={onBeginWalkthrough} finishLabel={finishLabel} finishBusy={finishBusy} />
     </section>
   );
 }
@@ -549,7 +618,26 @@ function presentationSlideIndexForKey(event: KeyboardEvent, slideIndex: number) 
 }
 
 function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onClose: () => void }) {
-  return <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8"><div className="hidden min-w-0 flex-1 sm:block"><div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div><div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor orientation</div></div><div className="hidden min-w-0 flex-1 text-center lg:block"><div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div></div><nav aria-label="Presentation slides" className="ml-auto flex shrink-0 items-center gap-2"><label htmlFor="presentation-slide" className="sr-only">Jump to slide</label><select id="presentation-slide" value={slideIndex} onChange={(event) => onSelect(Number(event.target.value))} className="h-10 max-w-[150px] border border-[#cbd5d1] bg-white px-3 text-[11px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:max-w-[230px]">{presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}</select><button type="button" onClick={onClose} className="flex h-10 items-center border border-[#cbd5d1] px-3 text-[11px] font-black text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f]">Close presentation</button></nav></header>;
+  return (
+    <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8">
+      <div className="hidden min-w-0 flex-1 sm:block">
+        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div>
+        <div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor orientation</div>
+      </div>
+      <div className="hidden min-w-0 flex-1 text-center lg:block">
+        <div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div>
+      </div>
+      <nav aria-label="Presentation slides" className="ml-auto flex min-w-0 items-center gap-2">
+        <label htmlFor="presentation-slide" className="sr-only">Jump to slide</label>
+        <select id="presentation-slide" value={slideIndex} onChange={(event) => onSelect(Number(event.target.value))} className="h-10 w-[200px] max-w-[calc(100vw-100px)] min-w-0 border border-[#cbd5d1] bg-white px-3 text-[12px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:w-[230px]">
+          {presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}
+        </select>
+        <button type="button" aria-label="Close presentation" title="Close presentation" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#cbd5d1] text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+          <X size={18} aria-hidden="true" />
+        </button>
+      </nav>
+    </header>
+  );
 }
 
 function PresentationSlideBody({ slide, onStartGuide }: { slide: PresentationSlide; onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void }) {
@@ -592,9 +680,9 @@ function PresentationSlideActions({ slide, onStartGuide }: { slide: Presentation
   return slide.guide ? <div className="mt-4"><button type="button" onClick={() => onStartGuide(slide.guide!)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"><Play size={14} aria-hidden="true" />{slide.guide.label}</button></div> : null;
 }
 
-function PresentationFooter({ slide, slideIndex, onSelect, onFinish }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onFinish: () => void }) {
+function PresentationFooter({ slide, slideIndex, onSelect, onFinish, finishLabel, finishBusy }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onFinish: () => void; finishLabel: string; finishBusy: boolean }) {
   const isLast = slideIndex === presentationSlides.length - 1;
-  return <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white px-4 py-3 sm:px-8 lg:px-10"><button type="button" disabled={slideIndex === 0} onClick={() => onSelect(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[11px] font-bold text-[#5d6863] outline-none hover:text-[#17221e] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:invisible"><ArrowLeft size={14} aria-hidden="true" />Previous</button><div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">{presentationSlides.map((item, index) => <span key={item.id} className={`h-1.5 transition-[width,background-color] ${index === slideIndex ? "w-8 bg-[#0f8b73]" : "w-1.5 bg-[#cbd4d0]"}`} />)}</div>{isLast ? <button type="button" onClick={onFinish} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">Begin walkthrough<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" onClick={() => onSelect(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">{slide.nextLabel}<ArrowRight size={14} aria-hidden="true" /></button>}</footer>;
+  return <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white px-4 py-3 sm:px-8 lg:px-10"><button type="button" disabled={slideIndex === 0} onClick={() => onSelect(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[11px] font-bold text-[#5d6863] outline-none hover:text-[#17221e] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:invisible"><ArrowLeft size={14} aria-hidden="true" />Previous</button><div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">{presentationSlides.map((item, index) => <span key={item.id} className={`h-1.5 transition-[width,background-color] ${index === slideIndex ? "w-8 bg-[#0f8b73]" : "w-1.5 bg-[#cbd4d0]"}`} />)}</div>{isLast ? <button type="button" disabled={finishBusy} onClick={onFinish} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:opacity-60">{finishBusy ? "Preparing demo..." : finishLabel}<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" onClick={() => onSelect(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">{slide.nextLabel}<ArrowRight size={14} aria-hidden="true" /></button>}</footer>;
 }
 
 function PresentationVisual({ slide }: { slide: PresentationSlide }) {

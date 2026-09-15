@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default async function PipelineDemoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ slide?: string | string[]; view?: string | string[] }>;
+  searchParams: Promise<{ slide?: string | string[]; view?: string | string[]; journey?: string | string[] }>;
 }) {
   const requestedParams = await searchParams;
   const requestedSlide = requestedParams.slide;
@@ -25,13 +25,15 @@ export default async function PipelineDemoPage({
     Promise.resolve(getPipelineDemoEnvironment()),
   ]);
   if (!user || !environment.enabled) notFound();
+  const demoPersona = "demoPersona" in user ? user.demoPersona : undefined;
 
   return (
     <PipelineDemoCenter
-      actor={{ id: user.id, name: user.name, email: user.email, roles: user.roles }}
+      actor={{ id: user.id, name: user.name, email: user.email, roles: user.roles, demoPersona }}
       environment={environment}
       initialPresentationSlide={typeof requestedSlide === "string" ? requestedSlide : undefined}
       initialView={requestedParams.view === "tester" && user.roles.includes("admin") ? "tester" : undefined}
+      journey={requestedParams.journey === "1" && Boolean(demoPersona) && environment.writable}
     />
   );
 }
