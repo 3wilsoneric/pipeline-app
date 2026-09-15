@@ -3,11 +3,17 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
 
 const AssessmentLab = dynamic(() => import("@/components/pipeline/note-lab/AssessmentPracticeWorkspace"), {
   ssr: false,
   loading: () => <p role="status" className="p-6 text-sm">Opening assessment...</p>,
 });
+
+export function DemoAssessmentControls({ persona }: { persona?: "supervisor" | "assessor" }) {
+  if (!persona) return null;
+  return <><DemoAssessmentLabButton /><DemoPersonaSwitch persona={persona} /></>;
+}
 
 export default function DemoAssessmentLabButton({ className, children = "Assessment lab" }: { className?: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false);

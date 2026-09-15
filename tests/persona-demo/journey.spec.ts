@@ -25,6 +25,15 @@ test("normal shell, simple profile, real role restrictions and switching", async
   const user = (await (await page.request.get("/api/auth/me")).json()).user;
   expect(user.id).toBe("practice-assessor");
   expect(user.roles).toEqual(["reviewer", "viewer"]);
+  const directory = await page.request.get("/api/profiles/directory?limit=1");
+  expect(directory.status()).toBe(200);
+  expect((await directory.json()).clinical_warning).toBeNull();
+  const cursor = Buffer.from(JSON.stringify({ phase: "pipeline", offset: 0 })).toString("base64url");
+  const pagedDirectory = await page.request.get(`/api/profiles/directory?limit=1&cursor=${cursor}`);
+  expect(pagedDirectory.status()).toBe(200);
+  expect((await pagedDirectory.json()).clients).toEqual((await directory.json()).clients);
+  expect((await page.request.get("/api/profiles/directory?cursor=invalid")).status()).toBe(400);
+  expect((await page.request.get(`/api/profiles/directory?q=${"x".repeat(201)}`)).status()).toBe(400);
   await expect(page.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
   expect((await page.request.get("/api/operations/reports")).status()).toBe(403);
   expect((await page.request.post("/api/auth/assessor-session", { data: { target_principal_id: "practice-supervisor" } })).status()).toBe(403);

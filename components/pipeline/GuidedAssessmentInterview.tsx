@@ -6,8 +6,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
-import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
-import DemoAssessmentLabButton from "@/components/pipeline/DemoAssessmentLabButton";
+import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabButton";
 import { AssessmentFieldWritingGuidePanel } from "@/components/pipeline/AssessmentInterviewFields";
 import { extractionOwnedFields, latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
@@ -151,7 +150,7 @@ export default function GuidedAssessmentInterview({
           {saveTone === "saved" ? <Check size={12} className="shrink-0" aria-hidden="true" /> : null}<span className="truncate">{saveStatus}</span>
         </span>
         <div className="ml-auto flex items-center gap-3 sm:ml-3">
-          {demoPersona ? <><DemoAssessmentLabButton /><DemoPersonaSwitch persona={demoPersona} /></> : null}
+          <DemoAssessmentControls persona={demoPersona} />
           <button
             type="button"
             onClick={onExitToChart}

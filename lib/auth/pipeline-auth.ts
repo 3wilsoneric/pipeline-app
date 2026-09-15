@@ -4,7 +4,7 @@ import { EncryptJWT, createRemoteJWKSet, jwtDecrypt, jwtVerify } from "jose";
 
 import { hasAssessorSession, readAssessorSession } from "@/lib/auth/assessor-session";
 import { delegatedUserFromSession } from "@/lib/auth/assessor-session-policy";
-import { isPersonaDemo, requirePersonaDemoUser } from "@/lib/demo/persona-session";
+import { isPersonaDemo, readPersonaDemoUser, requirePersonaDemoUser } from "@/lib/demo/persona-session";
 
 export type PipelineRole = "admin" | "assessment_coordinator" | "reviewer" | "viewer";
 
@@ -157,10 +157,7 @@ export function requireAuthenticatedUser(
 }
 
 export async function getPipelineUserFromRequest(request: Request) {
-  if (isPersonaDemo()) {
-    const auth = requirePersonaDemoUser(request);
-    return auth.ok ? auth.user : null;
-  }
+  if (isPersonaDemo()) return readPersonaDemoUser(request);
   const mode = getPipelineAuthMode();
 
   if (mode === "mock") {

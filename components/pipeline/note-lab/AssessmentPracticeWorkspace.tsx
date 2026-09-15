@@ -83,6 +83,57 @@ function autosaveLabel(state: PracticeAutosaveState) {
   return "Autosaved in this browser";
 }
 
+function PracticeHeader({ walkthroughOnly, returnToPresentation, returnLabel, exitLab, reset }: {
+  walkthroughOnly: boolean;
+  returnToPresentation: boolean;
+  returnLabel: string;
+  exitLab: () => void;
+  reset: () => void;
+}) {
+  return (
+      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[#cfd8d4] bg-white px-4 py-2 sm:px-6">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-[17px] font-black text-[#202522]">{walkthroughOnly ? "Assessment lab" : "Jordan Practice"}</h1>
+            {!walkthroughOnly ? <span className="bg-[#e7f3ee] px-2 py-1 text-[9px] font-black uppercase text-[#0f6f5d]">Practice</span> : null}
+          </div>
+          <p className={`mt-0.5 text-[11px] text-[#737b77] ${walkthroughOnly ? "hidden sm:block" : ""}`}>{walkthroughOnly ? "Try the questions and Answer help. Nothing is added to your referral." : "Synthetic training record"}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {walkthroughOnly ? <button type="button" aria-label={returnLabel} onClick={exitLab} className="inline-flex h-9 items-center gap-2 px-2 text-[12px] font-semibold text-[#0f6f5d] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><ArrowLeft size={14} aria-hidden="true" /><span className="sm:hidden">Back</span><span className="hidden sm:inline">{returnLabel}</span></button> : returnToPresentation ? (
+            <Link href={toPipelinePath("/training/demo?slide=review-and-sign")} className="inline-flex h-9 items-center gap-2 border border-[#0f8b73] bg-[#e7f3ee] px-3 text-[10px] font-black text-[#0f6f5d] outline-none hover:bg-[#dceee7] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+              <ArrowLeft size={13} aria-hidden="true" />Back to presentation
+            </Link>
+          ) : null}
+          <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+            <RotateCcw size={13} aria-hidden="true" />Reset
+          </button>
+        </div>
+      </header>
+  );
+}
+
+function PracticeFooter({ walkthroughOnly, currentIndex, autosaveState, onBack, saveAndContinue, exitLab }: {
+  walkthroughOnly: boolean;
+  currentIndex: number;
+  autosaveState: PracticeAutosaveState;
+  onBack: () => void;
+  saveAndContinue: () => void;
+  exitLab: () => void;
+}) {
+  return (
+    <footer className={`flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#d9dfdb] bg-white ${walkthroughOnly ? "px-5 py-3 sm:px-8" : "mt-7 pt-5"}`}>
+      <button type="button" disabled={currentIndex === 0} onClick={onBack} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black text-[#4d5652] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} aria-hidden="true" />Back</button>
+      {!walkthroughOnly ? <span aria-live="polite" className={`order-3 w-full text-center text-[9px] font-bold sm:order-none sm:w-auto ${autosaveState === "failed" ? "text-[#a33b32]" : "text-[#747d79]"}`}>{autosaveLabel(autosaveState)}</span> : null}
+      <button type="button" onClick={walkthroughOnly && currentIndex === assessmentInterviewSections.length - 1 ? exitLab : saveAndContinue} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
+        {walkthroughOnly ? currentIndex === assessmentInterviewSections.length - 1 ? "Done" : "Next" : currentIndex === assessmentInterviewSections.length - 1 ? "Save" : "Save and continue"}
+        {currentIndex < assessmentInterviewSections.length - 1 ? <ChevronRight size={14} aria-hidden="true" /> : null}
+      </button>
+    </footer>
+  );
+}
+
+
 export default function AssessmentPracticeWorkspace({
   traineeId,
   traineeName,
@@ -182,38 +233,10 @@ export default function AssessmentPracticeWorkspace({
 
   const exitLab = () => { if (onExit) onExit(); else window.location.assign(toPipelinePath("/")); };
 
-  const footer = (
-    <footer className={`flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#d9dfdb] bg-white ${walkthroughOnly ? "px-5 py-3 sm:px-8" : "mt-7 pt-5"}`}>
-      <button type="button" disabled={currentIndex === 0} onClick={() => moveSection(-1)} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black text-[#4d5652] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} aria-hidden="true" />Back</button>
-      {!walkthroughOnly ? <span aria-live="polite" className={`order-3 w-full text-center text-[9px] font-bold sm:order-none sm:w-auto ${autosaveState === "failed" ? "text-[#a33b32]" : "text-[#747d79]"}`}>{autosaveLabel(autosaveState)}</span> : null}
-      <button type="button" onClick={walkthroughOnly && currentIndex === assessmentInterviewSections.length - 1 ? exitLab : saveAndContinue} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
-        {walkthroughOnly ? currentIndex === assessmentInterviewSections.length - 1 ? "Done" : "Next" : currentIndex === assessmentInterviewSections.length - 1 ? "Save" : "Save and continue"}
-        {currentIndex < assessmentInterviewSections.length - 1 ? <ChevronRight size={14} aria-hidden="true" /> : null}
-      </button>
-    </footer>
-  );
-
+  const footer = <PracticeFooter walkthroughOnly={walkthroughOnly} currentIndex={currentIndex} autosaveState={autosaveState} onBack={() => moveSection(-1)} saveAndContinue={saveAndContinue} exitLab={exitLab} />;
   return (
     <div aria-label={`${traineeName} practice assessment`} className="pipeline-route-enter flex h-full min-h-0 flex-col overflow-hidden bg-white">
-      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[#cfd8d4] bg-white px-4 py-2 sm:px-6">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-[17px] font-black text-[#202522]">{walkthroughOnly ? "Assessment lab" : "Jordan Practice"}</h1>
-            {!walkthroughOnly ? <span className="bg-[#e7f3ee] px-2 py-1 text-[9px] font-black uppercase text-[#0f6f5d]">Practice</span> : null}
-          </div>
-          <p className={`mt-0.5 text-[11px] text-[#737b77] ${walkthroughOnly ? "hidden sm:block" : ""}`}>{walkthroughOnly ? "Try the questions and Answer help. Nothing is added to your referral." : "Synthetic training record"}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {walkthroughOnly ? <button type="button" aria-label={returnLabel} onClick={exitLab} className="inline-flex h-9 items-center gap-2 px-2 text-[12px] font-semibold text-[#0f6f5d] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><ArrowLeft size={14} aria-hidden="true" /><span className="sm:hidden">Back</span><span className="hidden sm:inline">{returnLabel}</span></button> : returnToPresentation ? (
-            <Link href={toPipelinePath("/training/demo?slide=review-and-sign")} className="inline-flex h-9 items-center gap-2 border border-[#0f8b73] bg-[#e7f3ee] px-3 text-[10px] font-black text-[#0f6f5d] outline-none hover:bg-[#dceee7] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-              <ArrowLeft size={13} aria-hidden="true" />Back to presentation
-            </Link>
-          ) : null}
-          <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-            <RotateCcw size={13} aria-hidden="true" />Reset
-          </button>
-        </div>
-      </header>
+      <PracticeHeader walkthroughOnly={walkthroughOnly} returnToPresentation={returnToPresentation} returnLabel={returnLabel} exitLab={exitLab} reset={reset} />
 
       <div className="flex min-h-0 flex-1 flex-col bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
         <aside aria-label="Assessment section navigation" className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
@@ -366,12 +389,13 @@ function PracticeField({
       </div>
       <PracticeControl question={question} value={value} unableReason={unableReason} onUnableReasonChange={onUnableReasonChange} onUpdate={onUpdate} />
       {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
-      {hasUsefulWritingGuidance(question) ? <PracticeQuestionGuide question={question} /> : null}
+      <PracticeQuestionGuide question={question} />
     </div>
   );
 }
 
 function PracticeQuestionGuide({ question }: { question: AssessmentInterviewQuestion }) {
+  if (question.control !== "textarea") return null;
   const specification = getAssessmentFieldWritingSpec(question.field);
   const narrativeGuide = getAssessmentNarrativeGuide(question.field);
   if (!specification || !narrativeGuide) return null;
@@ -396,10 +420,6 @@ function PracticeQuestionGuide({ question }: { question: AssessmentInterviewQues
       </div>
     </details>
   );
-}
-
-function hasUsefulWritingGuidance(question: AssessmentInterviewQuestion) {
-  return question.control === "textarea" && Boolean(getAssessmentFieldWritingSpec(question.field));
 }
 
 type PracticeControlProps = {

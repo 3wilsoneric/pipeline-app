@@ -36,13 +36,18 @@ export function requirePersonaDemoUser(request: Request): PipelineAuthResult {
   }
   const cookie = request.headers.get("cookie")?.split(";").map((value) => value.trim())
     .find((value) => value.startsWith(`${personaCookieName()}=`))?.split("=")[1];
-  if (cookie && cookie !== "supervisor" && cookie !== "assessor") return failure("Invalid account selection.", 403);
+  if (cookie && !["supervisor", "assessor"].includes(cookie)) return failure("Invalid account selection.", 403);
   const persona = cookie === "assessor" ? "assessor" : "supervisor";
   const expectedPersona = request.headers.get("x-pipeline-persona");
   if (expectedPersona && expectedPersona !== persona) {
     return failure("The account changed in another tab. Reload before continuing.", 409);
   }
   return { ok: true, user: personaUser(persona) };
+}
+
+export function readPersonaDemoUser(request: Request): PipelineUser | null {
+  const auth = requirePersonaDemoUser(request);
+  return auth.ok ? auth.user : null;
 }
 
 export function personaCookie(persona: DemoPersona) {

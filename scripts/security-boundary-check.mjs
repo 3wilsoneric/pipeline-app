@@ -25,6 +25,8 @@ const allowedPublicVariables = new Set([
   "NEXT_PUBLIC_ALAMO_PLATFORM_URL",
   "NEXT_PUBLIC_PIPELINE_DEMO_MODE",
   "NEXT_PUBLIC_PIPELINE_DEMO_URL",
+  // UI-only boolean; server-side persona access still requires local isolation.
+  "NEXT_PUBLIC_PIPELINE_PERSONA_DEMO",
 ]);
 const publicVariablePattern = /NEXT_PUBLIC_[A-Z0-9_]+/g;
 const publicVariables = new Set(sourceFiles.flatMap((file) => read(file).match(publicVariablePattern) ?? []));

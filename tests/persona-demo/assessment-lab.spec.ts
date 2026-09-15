@@ -10,6 +10,7 @@ test("lab starts fresh, exposes answer help and conditionals, and clicks through
   await expect(lab.getByRole("heading", { name: "Client & referral", exact: true })).toBeVisible();
   await expect(lab.getByLabel("Resident name *", { exact: true })).toHaveValue("");
   await expect(lab.getByLabel("Captured", { exact: true })).toHaveCount(0);
+  await expect(lab.getByLabel("Answer help for Resident name", { exact: true })).toHaveCount(0);
   await expect(rail.getByRole("button")).toHaveText(assessmentInterviewSections.map((section) => section.label));
   await lab.getByLabel("Resident name *", { exact: true }).fill("Lab only, not a referral");
   await rail.getByRole("button", { name: "Function", exact: true }).click();
