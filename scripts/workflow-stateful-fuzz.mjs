@@ -34,6 +34,7 @@ const exhaustiveBooleanFields = [
   "assessmentComplete",
   "declineReason",
   "moveInReady",
+  "admissionDateRecorded",
   "manualIntakeAuthorized",
 ];
 const preparationActions = [
@@ -48,6 +49,7 @@ const preparationActions = [
   (state) => { state.decision = "declined"; },
   (state) => { state.declineReason = state.declineReason || state.decision === "declined"; },
   (state) => { state.moveInReady = true; },
+  (state) => { state.admissionDateRecorded = state.admissionDateRecorded || state.decision === "accepted"; },
   (state) => { state.manualIntakeAuthorized = true; },
 ];
 const transitionGateBlockers = {
@@ -155,10 +157,10 @@ for (let trace = 0; trace < traces; trace += 1) {
       "terminal_outcomes_are_exclusive",
     );
     invariant(
-      state.stage !== "Accepted / Admitted" || (state.decision === "accepted" && state.moveInReady),
+      state.stage !== "Accepted / Admitted" || (state.decision === "accepted" && state.moveInReady && state.admissionDateRecorded),
       trace,
       step,
-      "acceptance_requires_decision_and_move_in_readiness",
+      "admission_requires_accepted_decision_date_and_move_in_readiness",
     );
     invariant(
       state.stage !== "Declined" || (state.decision === "declined" && state.declineReason),
@@ -257,6 +259,7 @@ function initialState(trace) {
     decision: null,
     declineReason: false,
     moveInReady: false,
+    admissionDateRecorded: false,
     manualIntakeAuthorized: false,
     accepted: false,
     declined: false,
@@ -280,6 +283,7 @@ function expectedBlockerCodes(state, target) {
 function acceptedBlockerCodes(state) {
   const blockers = [];
   if (state.decision !== "accepted") blockers.push("admission_decision_required");
+  if (!state.admissionDateRecorded) blockers.push("admission_date_required");
   if (!state.moveInReady) blockers.push("requirement:signed_admission_agreement");
   return blockers;
 }
@@ -299,6 +303,7 @@ function toReferral(state) {
     owner: state.ownerAssigned ? "Synthetic Assessor" : "Unassigned",
     note: "",
     createdAt: new Date(state.receivedMs).toISOString(),
+    admissionDate: state.admissionDateRecorded ? "2026-02-01" : "",
     admissionDecision: state.decision ? {
       outcome: state.decision,
       reasonNote: state.declineReason ? "Synthetic documented reason" : "",
