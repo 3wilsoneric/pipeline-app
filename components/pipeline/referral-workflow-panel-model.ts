@@ -9,14 +9,13 @@ import type {
   RequirementGate,
   RequirementStatus,
 } from "@/lib/pipeline/referral-types";
-import { getBlockingRequirementsForGates, isRequirementComplete } from "@/lib/pipeline/workflow-records";
+import { getBlockingRequirementsForGates, isRequirementComplete, type WorkflowContext } from "@/lib/pipeline/workflow-records";
+import { getWorkspaceState } from "@/lib/pipeline/workspace-state";
+import { hasManualIntakeAuthorization } from "@/lib/pipeline/workflow-status";
 
 export type WorkflowResponse = {
   referral: Referral;
-  context: {
-    assessmentId?: string | null;
-    assessmentSigned?: boolean;
-  };
+  context: WorkflowContext;
   work_items: AdmissionRequirement[];
   decision: AdmissionDecision | null;
   recommendation: AssessmentRecommendation | null;
@@ -75,9 +74,15 @@ export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
   const incompleteEhr = getBlockingRequirementsForGates(workflow.work_items, ["ehr_export"]);
   const handoffStatus = workflow.referral.ehrHandoff?.status ?? "not_ready";
   const decisionDisclosureIsOpen = shouldOpenDecisionDisclosure(workflow);
+  const assessmentState = currentAssessmentState(workflow);
   return {
     currentReferral: workflow.referral,
     forwardTransition: workflow.transitions.find((transition) => transition.target !== "Declined"),
+    assessmentState,
+    showManualIntake: !assessmentState
+      && workflow.capabilities.can_authorize_manual_intake
+      && !hasManualIntakeAuthorization(workflow.referral)
+      && ["New", "Packet Needed"].includes(workflow.referral.stage),
     incompleteDecision,
     incompleteMoveIn,
     incompleteEhr,
@@ -86,6 +91,20 @@ export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
     decisionDisclosureIsOpen,
     decisionDisclosureKey: disclosureState(decisionDisclosureIsOpen),
   };
+}
+
+function currentAssessmentState(workflow: WorkflowResponse) {
+  const state = getWorkspaceState(workflow.referral, workflow.context);
+  if (!workflow.context.assessmentId || state.lifecycle !== "active") return null;
+  if (state.assessment === "signed" && (workflow.decision || workflow.review?.status === "submitted")) return null;
+  const labels: Partial<Record<typeof state.assessment, string>> = {
+    scheduled: "Scheduled",
+    in_progress: "In progress",
+    waiting_for_information: "Waiting for information",
+    ready_to_sign: "Ready to sign",
+    signed: "Signed",
+  };
+  return labels[state.assessment] ?? null;
 }
 
 export function requirementNeedsDetail(status: RequirementStatus) {

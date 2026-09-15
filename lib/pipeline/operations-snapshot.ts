@@ -163,6 +163,7 @@ async function getTeamAssessmentCompletionReport(user: PipelineUser, month: stri
         assessor_name: member.display_name,
         completed_assessments: 0,
         average_duration_minutes: null,
+        accepted_clients: 0,
       });
     }
   }
@@ -192,6 +193,14 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
       requirementsByReferral.get(work.referral_id) ?? [],
     ),
   ).sort(compareReferralWorklistItems);
+  const recentOutcomes = ["declined", "admitted"].flatMap((status) =>
+    operational.work
+      .filter((item) => item.workflow_status === status)
+      .sort((left, right) =>
+        String(referralsById.get(right.referral_id)?.updatedAt ?? "").localeCompare(String(referralsById.get(left.referral_id)?.updatedAt ?? "")))
+      .slice(0, 10)
+      .map((item) => toReferralWorklistItem(item, referralsById.get(item.referral_id)!, [])),
+  );
   const readyToSchedule = activeItems.filter((item) =>
     workByReferral.get(item.referral_id)?.flow_state === "ready_to_schedule",
   );
@@ -219,6 +228,7 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
     overall_completion_pct: overallCompletion,
     flow_counts: flowCounts,
     active_items: activeItems,
+    board_items: [...activeItems, ...recentOutcomes],
     ready_to_schedule: {
       total: readyToSchedule.length,
       items: readyToSchedule.slice(0, 6),
@@ -681,14 +691,15 @@ function toWorkItem(
 
 async function loadOperationalReferrals(user?: PipelineUser) {
   const scope = user ? scopeReferralListOptions(user, {}) : {};
-  const [active, accepted, reassessments] = await Promise.all([
+  const [active, accepted, declined, reassessments] = await Promise.all([
     loadReferralPages({ ...scope, activeOnly: true }),
     loadReferralPages({ ...scope, stage: "Accepted / Admitted" }),
+    loadReferralPages({ ...scope, stage: "Declined" }),
     loadReferralPages({ ...scope, postOutcomeAssessment: true }),
   ]);
   return [
     ...new Map(
-      [...active, ...accepted, ...reassessments].map((referral) => [referral.id, referral]),
+      [...active, ...accepted, ...declined, ...reassessments].map((referral) => [referral.id, referral]),
     ).values(),
   ];
 }

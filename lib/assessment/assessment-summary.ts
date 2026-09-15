@@ -55,6 +55,31 @@ const excludedChartFields = new Set<AssessmentToolFieldKey>([
   "match_confidence",
   "assessment_notes",
   "extraction_date",
+  "admit_date",
+  "secondary_diagnoses",
+  "acuity_level",
+  "lai_vs_oral",
+  "resident_number",
+  "responds_to_internal_stimuli",
+  "auditory_hallucinations",
+  "auditory_hallucination_nature",
+  "auditory_hallucination_frequency",
+  "auditory_hallucination_triggers",
+  "visual_hallucinations",
+  "visual_hallucination_details",
+  "visual_hallucination_recent",
+  "olfactory_hallucinations",
+  "olfactory_hallucination_details",
+  "olfactory_hallucination_impact",
+  "tactile_hallucinations",
+  "tactile_hallucination_details",
+  "tactile_hallucination_frequency",
+  "gustatory_hallucinations",
+  "gustatory_hallucination_details",
+  "hallucination_coping_strategies",
+  "hallucination_distress_impairment",
+  "hallucination_functional_impact",
+  "hallucination_treatment_history",
 ]);
 
 export function buildAssessmentSummaryReport(
@@ -113,9 +138,9 @@ export function buildMeetClientSummary(
     medications,
     medicationNotes: buildItems(assessment, [
       ["medication_adherence", "Medication support"],
-      ["lai_vs_oral", "Administration"],
       ["prn_patterns", "PRN pattern and effect"],
       ["im_injections", "IM injections"],
+      ["im_injections_details", "Injection details"],
     ]),
     supportSnapshot: buildItems(assessment, [
       ["mobility", "Mobility"],
@@ -125,7 +150,6 @@ export function buildMeetClientSummary(
       ["special_diet_details", "Diet"],
       ["current_safety_measures", "Current safety support"],
       ["triggers", "Known triggers"],
-      ["hallucination_coping_strategies", "Helpful coping strategies"],
     ]),
     preparedFromAssessmentId: assessment.assessment_id,
     preparedFromAssessmentVersion: assessment.version,
@@ -134,7 +158,6 @@ export function buildMeetClientSummary(
 
 function buildIdentity(assessment: PipelineAssessmentRecord, referral: Referral) {
   return compactItems([
-    item("Resident number", assessment.resident_number),
     item("Name", assessmentClientName(assessment, referral)),
     item("Date of birth", assessment.date_of_birth || referral.dob),
     item("Community", assessment.community || referral.community),

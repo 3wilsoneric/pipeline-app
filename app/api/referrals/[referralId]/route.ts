@@ -140,7 +140,7 @@ export async function PATCH(
     }
     const mutationId = validateClientMutationId(body.value.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);
-    const patchResult = validateReferralPatch(body.value.patch);
+    const patchResult = validatePatchForReferral(body.value.patch, access.referral);
     if (!patchResult.ok) return jsonError(patchResult.message, patchResult.status);
     const ownerResult = await resolveOwnerPatch({
       user: auth.user,
@@ -169,6 +169,15 @@ export async function PATCH(
       mutationId: mutationId.value,
     });
   });
+}
+
+function validatePatchForReferral(value: unknown, current: Referral): ReturnType<typeof validateReferralPatch> {
+  const result = validateReferralPatch(value);
+  if (!result.ok) return result;
+  if (result.value.admissionDate?.trim() && current.admissionDecision?.outcome !== "accepted") {
+    return { ok: false, message: "Record an accepted supervisor decision before entering the date of admit.", status: 422 };
+  }
+  return result;
 }
 
 type OwnerPatchInput = {

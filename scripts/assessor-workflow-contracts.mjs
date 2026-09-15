@@ -8,17 +8,20 @@ const root = process.cwd();
 const read = (file) => readFileSync(file, "utf8");
 const workflow = loadTypeScriptModule(root, "lib/pipeline/workflow-status.ts");
 const referralFlow = loadTypeScriptModule(root, "lib/pipeline/referral-flow.ts");
+const referralTransitions = loadTypeScriptModule(root, "lib/pipeline/referral-workflow.ts");
 const referralProgress = loadTypeScriptModule(root, "lib/pipeline/referral-progress.ts");
 const workspaceState = loadTypeScriptModule(root, "lib/pipeline/workspace-state.ts");
 const lifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const records = loadTypeScriptModule(root, "lib/pipeline/workflow-records.ts");
 const assessmentSeed = loadTypeScriptModule(root, "lib/assessment/assessment-seed.ts");
+const interviewSchema = loadTypeScriptModule(root, "lib/assessment/assessment-interview-schema.ts");
 const narrativeGuide = loadTypeScriptModule(root, "lib/assessment/assessment-narrative-guide.ts");
 const fieldWritingSpec = loadTypeScriptModule(root, "lib/assessment/assessment-field-writing-spec.ts");
 const assessmentSummary = loadTypeScriptModule(root, "lib/assessment/assessment-summary.ts");
 const meetClientTemplate = loadTypeScriptModule(root, "lib/notifications/meet-client-email-template.ts");
 const attachmentPolicy = loadTypeScriptModule(root, "lib/notifications/meet-client-attachment-policy.ts");
 const memberEligibility = loadTypeScriptModule(root, "lib/pipeline/workspace-member-eligibility.ts");
+const workflowPanel = loadTypeScriptModule(root, "components/pipeline/referral-workflow-panel-model.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -45,6 +48,38 @@ const assessment = {
   schedule_status: "unscheduled",
   started_at: null,
 };
+
+const scheduledContext = { assessmentId: "assessment-71", assessmentExists: true, assessmentScheduleStatus: "scheduled", assessmentStarted: false };
+const workflowPanelFixture = {
+  referral,
+  context: scheduledContext,
+  work_items: [],
+  transitions: [{ target: "Packet Needed", blockers: [] }],
+  capabilities: { can_authorize_manual_intake: true },
+};
+check("a scheduled assessment replaces the stale intake gate without authorizing manual intake", (() => {
+  const view = workflowPanel.deriveWorkflowPanelView(workflowPanelFixture);
+  return view.assessmentState === "Scheduled" && !view.showManualIntake && !referral.manualIntakeAuthorization;
+})());
+check("draft, cancelled and no-show appointments do not become scheduled interviews", ["unscheduled", "cancelled", "no_show"].every((status) =>
+  workflowPanel.deriveWorkflowPanelView({ ...workflowPanelFixture, context: { ...scheduledContext, assessmentScheduleStatus: status } }).assessmentState === null));
+check("the supervisor's pre-scheduling manual-intake exception remains available", (() => {
+  const unscheduled = { ...workflowPanelFixture, context: {} };
+  return workflowPanel.deriveWorkflowPanelView(unscheduled).showManualIntake
+    && !workflowPanel.deriveWorkflowPanelView({ ...unscheduled, capabilities: { can_authorize_manual_intake: false } }).showManualIntake;
+})());
+check("accepted signed assessments retain admission actions", workflowPanel.deriveWorkflowPanelView({
+  ...workflowPanelFixture, context: { ...scheduledContext, assessmentSigned: true }, decision: { outcome: "accepted" },
+}).assessmentState === null);
+check("historical workspaces do not expose an active interview action", workflowPanel.deriveWorkflowPanelView({
+  ...workflowPanelFixture, referral: { ...referral, workspaceStatus: "historical" },
+}).assessmentState === null);
+check("an ongoing interview stays the next action while unresolved packet evidence remains visible", (() => {
+  const progress = referralProgress.getReferralProgress({ ...referral, date: "2026-09-15", packetStatus: "ready_for_review" }, {
+    ...scheduledContext, assessmentStarted: true,
+  });
+  return progress.next_action === "Complete the assessment" && progress.blockers.includes("Extracted fields reviewed");
+})());
 
 check("unassigned referrals enter the assignment queue", workflow.resolveReferralWorkflowStatus({ ...referral, owner: "Unassigned", ownerId: undefined }) === "intake_unassigned");
 check("assigned referrals without initial evidence request documents", workflow.resolveReferralWorkflowStatus({ ...referral, documentStatus: "Missing", documentName: "", packetId: "" }) === "intake_documents_needed");
@@ -327,14 +362,23 @@ check("seeded assessment evidence retains page provenance", seededAssessment.fie
 check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));
 const riskAnswerGuide = narrativeGuide.getAssessmentNarrativeGuide("behavioral_history");
 const guideCoverage = narrativeGuide.getAssessmentNarrativeGuideCoverage();
+const activeQuestions = interviewSchema.assessmentInterviewQuestions;
+check("retired questions are absent from the active assessment", !activeQuestions.some((question) =>
+  /hallucinat|secondary_diagnos|acuity|lai_vs_oral|resident_number|admit_date/.test(question.field)));
+const injectionDetail = activeQuestions.find((question) => question.field === "im_injections_details");
+check("injection details appear and become required after yes", injectionDetail?.showWhen?.field === "im_injections"
+  && injectionDetail.showWhen.value === "yes" && injectionDetail.requiredWhen?.value === "yes");
+const sobrietyQuestion = activeQuestions.find((question) => question.field === "longest_sobriety_period");
+check("sobriety uses a bounded month-or-year menu", sobrietyQuestion?.control === "select"
+  && sobrietyQuestion.options?.at(-1)?.label === "More than 2 years");
 check("narrative fields have purpose-specific answer guidance", riskAnswerGuide?.domain === "behavioral_risk" && riskAnswerGuide.purposeTrack === "behavior_pattern" && riskAnswerGuide.thingsToCover.length >= 4 && riskAnswerGuide.strongPattern.includes("[source]"));
-check("every assessment textarea has an explicit answer-purpose track", guideCoverage.coachableFields.length >= 60 && guideCoverage.coveredFields.length === guideCoverage.coachableFields.length && guideCoverage.missingFields.length === 0);
+check("every assessment textarea has an explicit answer-purpose track", guideCoverage.coachableFields.length >= 50 && guideCoverage.coveredFields.length === guideCoverage.coachableFields.length && guideCoverage.missingFields.length === 0);
 check("structured fields do not receive narrative guidance", !narrativeGuide.isCoachableAssessmentField("current_self_harm_ideation") && narrativeGuide.getAssessmentNarrativeGuide("current_self_harm_ideation") === null);
 check("answer guidance is deterministic for the same field", JSON.stringify(narrativeGuide.getAssessmentNarrativeGuide("behavioral_history")) === JSON.stringify(riskAnswerGuide));
 const writingSpecCoverage = fieldWritingSpec.getAssessmentFieldWritingSpecCoverage();
 const medicationWritingSpec = fieldWritingSpec.getAssessmentFieldWritingSpec("medications_at_intake");
 const safetyWritingSpec = fieldWritingSpec.getAssessmentFieldWritingSpec("current_self_harm_details");
-check("every narrative field has an explicit writing specification", writingSpecCoverage.coachableFields.length >= 60
+check("every narrative field has an explicit writing specification", writingSpecCoverage.coachableFields.length >= 50
   && writingSpecCoverage.coveredFields.length === writingSpecCoverage.coachableFields.length
   && writingSpecCoverage.missingFields.length === 0);
 check("medication fields use a structured line format", medicationWritingSpec?.preferredFormat === "structured_lines"
@@ -367,7 +411,7 @@ check("assessment report carries its exact signed source version", signedAssessm
 check("assessment reports render governed option labels instead of storage tokens",
   signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Prior setting type" && item.value === "Residential program"))
   && signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Conserved status" && item.value === "TCon"))
-  && signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "LAI vs oral" && item.value === "Oral and LAI")));
+  && !signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "LAI vs oral")));
 check("Meet the Client is generated from structured identity, medication, and bio fields", signedAssessmentReport.meetClient.name === referral.name && signedAssessmentReport.meetClient.medications.length === 2 && signedAssessmentReport.meetClient.bio.length >= 2);
 const renderedMeetClient = meetClientTemplate.renderMeetClientEmail({
   ...signedAssessmentReport.meetClient,
@@ -532,6 +576,10 @@ check(
     && !workflowStore.includes("workflowTransitionValidated: true")
     && referralStore.match(/!metadata\?\.workflowTransitionValidated/g)?.length >= 2,
 );
+const acceptedGate = { ...referral, stage: "Community Review", admissionDecision: { outcome: "accepted" }, requirements: [] };
+check("accepted remains distinct from admitted until a date of admit is recorded",
+  referralTransitions.getReferralTransitionBlockers(acceptedGate, "Accepted / Admitted").some((item) => item.code === "admission_date_required")
+    && !referralTransitions.getReferralTransitionBlockers({ ...acceptedGate, admissionDate: "2026-09-15" }, "Accepted / Admitted").some((item) => item.code === "admission_date_required"));
 check("review submissions are durable and assessment-specific",
   reviewMigration.includes("create table if not exists pipeline.assessment_reviews")
     && reviewMigration.includes("unique (assessment_id)")

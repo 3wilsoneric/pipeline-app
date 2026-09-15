@@ -148,7 +148,7 @@ export default function CurrentWorkOverlay({
           </button>
         </header>
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8 lg:pt-6">
-          {currentBriefing ? <ReferralWorkflowTracker briefing={currentBriefing} onOpenPacket={onOpenPacket} selectedReferralId={selectedReferralId} /> : loadError ? (
+          {currentBriefing ? <ReferralWorkflowTracker briefing={currentBriefing} onOpenPacket={onOpenPacket} selectedReferralId={selectedReferralId} layout="board" /> : loadError ? (
             <div role="alert" className="flex flex-wrap items-center gap-3 py-8 text-[13px] text-[#9a6115]">
               <span>{loadError}</span>
               <button type="button" onClick={() => { setLoadError(""); setRetry((value) => value + 1); }} className="font-bold underline underline-offset-2">Retry</button>

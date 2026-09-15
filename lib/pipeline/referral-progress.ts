@@ -148,6 +148,16 @@ function getNextAction(
     if (state.documents !== "complete" && !nextRequirement) return "Attach source documents";
     return nextRequirement?.nextStep?.trim() || nextRequirement?.label || null;
   }
+  // Keep the active interview reachable; unresolved source work remains in
+  // blockers and the checklist instead of sending the assessor back to intake.
+  if (state.assessment === "in_progress" || state.assessment === "waiting_for_information") {
+    const missingAssessmentRule = canonicalAssessment
+      ? getAssessmentCompletionSummary(canonicalAssessment).missing[0]
+      : null;
+    return missingAssessmentRule
+      ? `Complete assessment: ${missingAssessmentRule.label}`
+      : "Complete the assessment";
+  }
   if (!hasManualIntakeAuthorization(referral)) {
     if (!hasInitialDocument(referral)) return "Upload the initial packet";
     if (referral.packetStatus === "failed") return "Retry packet extraction";
@@ -165,14 +175,6 @@ function getNextAction(
   }
   if (state.assessment === "not_started" || state.assessment === "unscheduled") {
     return "Schedule the assessment";
-  }
-  if (state.assessment === "in_progress" || state.assessment === "waiting_for_information") {
-    const missingAssessmentRule = canonicalAssessment
-      ? getAssessmentCompletionSummary(canonicalAssessment).missing[0]
-      : null;
-    return missingAssessmentRule
-      ? `Complete assessment: ${missingAssessmentRule.label}`
-      : "Complete the assessment";
   }
   if (state.assessment === "ready_to_sign") return "Review and sign the assessment";
   return nextRequirement?.nextStep?.trim()

@@ -58,11 +58,13 @@ export default function ReferralWorkflowPanel({
   const [error, setError] = useState("");
   const [recommendationDraft, setRecommendationDraft] = useState<RecommendationDraft>({ outcome: "accept", reasonCode: "", reasonNote: "" });
   const [decisionDraft, setDecisionDraft] = useState<DecisionDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
+  const [admissionDateDraft, setAdmissionDateDraft] = useState(referral.admissionDate ?? "");
   const [manualIntakeReason, setManualIntakeReason] = useState("");
   const [pendingDetail, setPendingDetail] = useState<PendingWorkflowDetail | null>(null);
   const mutationIds = useRef(new Map<string, string>());
   const recommendationDirty = useRef(false);
   const decisionDirty = useRef(false);
+  const admissionDateDirty = useRef(false);
 
   const loadWorkflow = useCallback(async (signal?: AbortSignal) => {
     const payload = await fetchPipelineJson<WorkflowResponse>(`/api/referrals/${referral.id}/workflow`, {
@@ -86,6 +88,7 @@ export default function ReferralWorkflowPanel({
         reasonNote: payload.decision?.reasonNote ?? "",
       }));
     }
+    if (!admissionDateDirty.current) setAdmissionDateDraft(payload.referral.admissionDate ?? "");
     setLoading(false);
   }, [referral.id]);
 
@@ -100,6 +103,12 @@ export default function ReferralWorkflowPanel({
     });
     return () => controller.abort();
   }, [loadWorkflow, referral.version]);
+
+  const clearSavedDraftState = (key: string) => {
+    if (key.startsWith("recommendation:")) recommendationDirty.current = false;
+    if (key.startsWith("decision:")) decisionDirty.current = false;
+    if (key.startsWith("admit-date:")) admissionDateDirty.current = false;
+  };
 
   const runMutation = async <T extends { referral?: Referral }>(
     key: string,
@@ -120,10 +129,7 @@ export default function ReferralWorkflowPanel({
       });
       mutationIds.current.delete(key);
       if (payload.referral) onReferralChange(payload.referral);
-      if (key.startsWith("recommendation:")) recommendationDirty.current = false;
-      if (key.startsWith("decision:")) {
-        decisionDirty.current = false;
-      }
+      clearSavedDraftState(key);
       setMessage(successMessage);
       await loadWorkflow();
       return payload;
@@ -238,6 +244,17 @@ export default function ReferralWorkflowPanel({
     );
   };
 
+  const saveAdmissionDate = () => {
+    if (!admissionDateDraft || workflow.decision?.outcome !== "accepted") return;
+    void runMutation(
+      `admit-date:${currentReferral.version}:${sections.intake}`,
+      `/api/referrals/${currentReferral.id}`,
+      "PATCH",
+      { if_match: currentReferral.version, if_match_sections: { intake: sections.intake }, patch: { admissionDate: admissionDateDraft } },
+      "Date of admit recorded",
+    );
+  };
+
   const authorizeManualIntake = () => {
     void runMutation(
       `manual-intake:${currentReferral.version}`,
@@ -271,6 +288,7 @@ export default function ReferralWorkflowPanel({
       error={error}
       recommendation={recommendationDraft}
       decision={decisionDraft}
+      admissionDate={admissionDateDraft}
       manualIntakeReason={manualIntakeReason}
       pendingDetail={pendingDetail}
       onRecommendationChange={(patch) => {
@@ -281,6 +299,11 @@ export default function ReferralWorkflowPanel({
         decisionDirty.current = true;
         setDecisionDraft((current) => ({ ...current, ...patch }));
       }}
+      onAdmissionDateChange={(value) => {
+        admissionDateDirty.current = true;
+        setAdmissionDateDraft(value);
+      }}
+      onSaveAdmissionDate={saveAdmissionDate}
       onManualIntakeReasonChange={setManualIntakeReason}
       onUpdateRequirement={updateRequirement}
       onSubmitRecommendation={submitRecommendation}

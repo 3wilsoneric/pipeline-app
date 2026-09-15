@@ -139,6 +139,7 @@ export type AssessmentToolData = {
   medication_refused: string | null;
   medication_refusals_30_days: number | null;
   im_injections: string | null;
+  im_injections_details: string | null;
 
   substances: string[];
   use_pattern: string | null;
@@ -148,6 +149,7 @@ export type AssessmentToolData = {
   last_substance_use_date: string | null;
   substance_effect_on_baseline: string | null;
   longest_sobriety_months: number | null;
+  longest_sobriety_period: string | null;
   substance_use_insight: string | null;
   substance_use_insight_details: string | null;
 
@@ -328,20 +330,20 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("last_assault_details", "Most recent assault", "behavioral_risk", "string", false),
   field("assaults_last_two_years_count", "Assaults in the last two years", "behavioral_risk", "integer", false),
   field("elopement_history", "History of elopement", "behavioral_risk", "string", true),
-  field("auditory_hallucinations", "Auditory hallucinations", "behavioral_risk", "string", true),
+  field("auditory_hallucinations", "Auditory hallucinations", "behavioral_risk", "string", false),
   field("auditory_hallucination_nature", "Nature of auditory hallucinations", "behavioral_risk", "string", false),
   field("auditory_hallucination_frequency", "Current auditory frequency", "behavioral_risk", "string", false),
   field("auditory_hallucination_triggers", "Auditory triggers", "behavioral_risk", "string", false),
-  field("visual_hallucinations", "Visual hallucinations", "behavioral_risk", "string", true),
+  field("visual_hallucinations", "Visual hallucinations", "behavioral_risk", "string", false),
   field("visual_hallucination_details", "Nature and frequency of visual hallucinations", "behavioral_risk", "string", false),
   field("visual_hallucination_recent", "Recent visual hallucinations", "behavioral_risk", "string", false),
-  field("olfactory_hallucinations", "Olfactory hallucinations", "behavioral_risk", "string", true),
+  field("olfactory_hallucinations", "Olfactory hallucinations", "behavioral_risk", "string", false),
   field("olfactory_hallucination_details", "Olfactory hallucination details", "behavioral_risk", "string", false),
   field("olfactory_hallucination_impact", "Impact of olfactory hallucinations", "behavioral_risk", "string", false),
-  field("tactile_hallucinations", "Tactile hallucinations", "behavioral_risk", "string", true),
+  field("tactile_hallucinations", "Tactile hallucinations", "behavioral_risk", "string", false),
   field("tactile_hallucination_details", "Tactile hallucination details", "behavioral_risk", "string", false),
   field("tactile_hallucination_frequency", "Tactile hallucination frequency", "behavioral_risk", "string", false),
-  field("gustatory_hallucinations", "Gustatory hallucinations", "behavioral_risk", "string", true),
+  field("gustatory_hallucinations", "Gustatory hallucinations", "behavioral_risk", "string", false),
   field("gustatory_hallucination_details", "Gustatory hallucination details", "behavioral_risk", "string", false),
   field("hallucination_coping_strategies", "Hallucination coping strategies", "behavioral_risk", "string", false),
   field("hallucination_distress_impairment", "Hallucination distress or impairment", "behavioral_risk", "string", false),
@@ -376,6 +378,7 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("medication_refused", "Medication refused", "medication", "string", false),
   field("medication_refusals_30_days", "Refusals in the last 30 days", "medication", "integer", false),
   field("im_injections", "IM injections", "medication", "string", true),
+  field("im_injections_details", "Injection details", "medication", "string", false),
 
   field("substances", "Substances", "substance_use", "string_list", false),
   field("use_pattern", "Use pattern", "substance_use", "string", false),
@@ -385,6 +388,7 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("last_substance_use_date", "Last substance use", "substance_use", "date", false),
   field("substance_effect_on_baseline", "Effect on baseline behavior", "substance_use", "string", false),
   field("longest_sobriety_months", "Longest sobriety in the last five years", "substance_use", "integer", false),
+  field("longest_sobriety_period", "Longest sobriety in the last five years", "substance_use", "string", false),
   field("substance_use_insight", "Insight into substance use", "substance_use", "string", false),
   field("substance_use_insight_details", "Substance-use insight details", "substance_use", "string", false),
 
@@ -561,6 +565,7 @@ export function createEmptyAssessmentToolData(): AssessmentToolData {
     medication_refused: null,
     medication_refusals_30_days: null,
     im_injections: null,
+    im_injections_details: null,
     substances: [],
     use_pattern: null,
     treatment_history: null,
@@ -569,6 +574,7 @@ export function createEmptyAssessmentToolData(): AssessmentToolData {
     last_substance_use_date: null,
     substance_effect_on_baseline: null,
     longest_sobriety_months: null,
+    longest_sobriety_period: null,
     substance_use_insight: null,
     substance_use_insight_details: null,
     physical_health_concerns: null,

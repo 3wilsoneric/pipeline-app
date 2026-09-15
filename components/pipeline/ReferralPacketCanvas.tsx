@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/community-config";
+import { formatPhoneForEntry } from "@/lib/pipeline/phone-display";
 import {
   californiaCountyOptions,
   isImportedWorkspace,
@@ -351,6 +352,8 @@ export default function ReferralPacketCanvas({
   const [conserved, setConserved] = useState<"yes" | "no" | "">("");
   const [documents, setDocuments] = useState<Record<string, string>>({});
   const [pendingDocuments, setPendingDocuments] = useState<Record<string, File>>({});
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
+  const [workspaceFiles, setWorkspaceFiles] = useState<{ id: string; name: string; category: string }[]>([]);
   const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Set<string>>(() => new Set());
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
   const [initialPacketCategory, setInitialPacketCategory] = useState<InitialDocumentCategory>("face_sheet");
@@ -400,6 +403,7 @@ export default function ReferralPacketCanvas({
   const tagsInputRef = useRef(tagsInput);
   const documentsRef = useRef(documents);
   const pendingDocumentsRef = useRef(pendingDocuments);
+  const additionalFilesRef = useRef(additionalFiles);
   const initialPacketRef = useRef(initialPacket);
   const conservedRef = useRef(conserved);
   const dirtyKeysRef = useRef(dirtyKeys);
@@ -440,6 +444,20 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     pendingDocumentsRef.current = pendingDocuments;
   }, [pendingDocuments]);
+
+  useEffect(() => {
+    additionalFilesRef.current = additionalFiles;
+  }, [additionalFiles]);
+
+  useEffect(() => {
+    const referralId = loadedReferral?.id;
+    if (!referralId) return;
+    let cancelled = false;
+    loadWorkspaceFileInventory(referralId)
+      .then((files) => { if (!cancelled) setWorkspaceFiles(files); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [loadedReferral?.id]);
 
   useEffect(() => {
     initialPacketRef.current = initialPacket;
@@ -687,6 +705,9 @@ export default function ReferralPacketCanvas({
       setPresence([]);
       pendingDocumentsRef.current = {};
       setPendingDocuments({});
+      additionalFilesRef.current = [];
+      setAdditionalFiles([]);
+      setWorkspaceFiles([]);
       setUploadingDocumentIds(new Set());
       setRecoveredDraftAt("");
       setRecoveredPacketName("");
@@ -730,6 +751,8 @@ export default function ReferralPacketCanvas({
       const savedRecord = canvasPayload.referral ?? null;
       const record = savedRecord;
       setLoadedReferral(record);
+      additionalFilesRef.current = [];
+      setAdditionalFiles([]);
       if (record) {
         const identityTitle = formatClientIdentityTitle(record);
         recordRecentDestination({
@@ -1029,6 +1052,38 @@ export default function ReferralPacketCanvas({
     if (currentReferral) void uploadAndLinkSupportingDocument(currentReferral, id, file).catch(() => undefined);
   };
 
+  const attachAdditionalFiles = (files: File[]) => {
+    if (!files.length) return;
+    const error = validateAdditionalFileSelection(files);
+    if (error) {
+      setSaveError(error);
+      return;
+    }
+    const next = [...additionalFilesRef.current, ...files];
+    additionalFilesRef.current = next;
+    setAdditionalFiles(next);
+    markDirty("documents");
+    setSaveError("");
+    setSavedAt(loadedReferralRef.current ? "Uploading files..." : "Files queued with referral draft");
+  };
+
+  const uploadAdditionalFiles = async (referral: Referral, files: File[]) => {
+    if (!files.length) return;
+    for (const file of files) {
+      setSavedAt(`Uploading ${file.name}...`);
+      const result = await uploadReferralSupportingDocument(referral, file, "other");
+      if (!result.documents?.length) throw new Error(`${file.name} uploaded without a document record. Check the file list before retrying.`);
+      const remaining = additionalFilesRef.current.filter((queued) => queued !== file);
+      additionalFilesRef.current = remaining;
+      setAdditionalFiles(remaining);
+    }
+    void loadWorkspaceFileInventory(referral.id).then(setWorkspaceFiles).catch(() => undefined);
+  };
+
+  const retainQueuedAdditionalFileDraft = () => {
+    if (additionalFilesRef.current.length) markDirty("documents");
+  };
+
   const uploadAndLinkSupportingDocument = async (currentReferral: Referral, requirementId: string, file: File) => {
     const definition = [...requirements, ...attachments].find((item) => item.id === requirementId);
     if (!definition) return currentReferral;
@@ -1107,6 +1162,16 @@ export default function ReferralPacketCanvas({
     markDirty("initialPacket");
     setSaveError("");
     setSavedAt("Unsaved changes");
+    return selection;
+  };
+
+  const selectInitialFiles = (files: File[]): InitialPacketSelectionResult => {
+    const selection = validateInitialPacketSelection(files[0]);
+    const additionalError = validateAdditionalFileSelection(files.slice(1));
+    if (additionalError) return { accepted: false, error: additionalError };
+    if (!selection.accepted) return selection;
+    selectInitialPacket(selection.file);
+    attachAdditionalFiles(files.slice(1));
     return selection;
   };
 
@@ -1375,6 +1440,7 @@ export default function ReferralPacketCanvas({
       initialPacketCategory,
       pendingDocumentsRef.current,
     );
+    const additionalFilesSnapshot = [...additionalFilesRef.current];
     let savedReferral = loadedReferralRef.current;
     try {
       const tags = normalizeTags(tagsInputRef.current);
@@ -1417,7 +1483,9 @@ export default function ReferralPacketCanvas({
       for (const [requirementId, file] of Object.entries(snapshot.pendingDocuments)) {
         savedReferral = await uploadAndLinkSupportingDocument(savedReferral, requirementId, file);
       }
+      await uploadAdditionalFiles(savedReferral, additionalFilesSnapshot);
       await finishReferralSave(savedReferral, snapshot);
+      retainQueuedAdditionalFileDraft();
       return savedReferral;
     } catch (error) {
       let latestConflict: Referral | null = null;
@@ -1464,22 +1532,29 @@ export default function ReferralPacketCanvas({
     if (pending && !await saveWorkspaceDraft()) throw new Error("Finish saving this intake before switching accounts.");
   });
 
+  const openSchedulingFromIntake = async () => {
+    if (!loadedReferralRef.current || isSavingRef.current) return;
+    if (!loadedReferralRef.current.ownerId) {
+      setSaveError("Assign an assessor before scheduling the assessment.");
+      focusWorkspaceField("owner");
+      canvasRef.current?.querySelector<HTMLElement>('[data-workspace-field="owner"] select')?.focus();
+      return;
+    }
+    if (workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) {
+      const savedReferral = await saveWorkspaceDraft();
+      if (!savedReferral) return;
+    }
+    if (workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) return;
+    setSchedulingReferralId(loadedReferralRef.current.id);
+    openPage(2);
+  };
+
   const continueToAssessment = async () => {
     if (trainingIntakeMode) {
       window.location.assign(toPipelinePath("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule&demo=1"));
       return;
     }
-    if (!loadedReferralRef.current || isSavingRef.current) return;
-    const hasPendingChanges = dirtyKeysRef.current.size > 0
-      || Object.keys(pendingDocumentsRef.current).length > 0
-      || Boolean(initialPacketRef.current);
-    if (hasPendingChanges) {
-      const savedReferral = await saveWorkspaceDraft();
-      if (!savedReferral) return;
-    }
-    if (workspaceHasPendingChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current)) return;
-    setSchedulingReferralId(loadedReferralRef.current.id);
-    openPage(2);
+    await openSchedulingFromIntake();
   };
 
   const reviewExtractedField = async (
@@ -1770,10 +1845,10 @@ export default function ReferralPacketCanvas({
     (field) => extractedCanvasFieldKeys(field.field_key).length > 0,
   );
   const packetEvidenceVersion = referralPacketEvidenceVersion(loadedReferral);
-  const hasPendingWorkspaceChanges = workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket);
+  const hasPendingWorkspaceChanges = workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
   const referralWorkspaceId = activeReferralId(loadedReferral, referral);
   const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
-  const queuedFileCount = Object.keys(pendingDocuments).length + Number(Boolean(initialPacket));
+  const queuedFileCount = Object.keys(pendingDocuments).length + Number(Boolean(initialPacket)) + additionalFiles.length;
   const saveStatus = referralDraftSaveStatus(savedAt, hasReferral, queuedFileCount);
 
   const moveWorkspaceToTrash = async () => {
@@ -2040,9 +2115,12 @@ export default function ReferralPacketCanvas({
                   setSavedAt("Unsaved changes");
                 }
               }}
-              onInitialPacketSelect={selectInitialPacket}
+              onInitialPacketSelect={selectInitialFiles}
               onInitialPacketClear={clearInitialPacket}
               onAttach={attachDocument}
+              additionalFiles={additionalFiles}
+              workspaceFiles={workspaceFiles}
+              onAddFiles={attachAdditionalFiles}
             />
             {referralContextPacketFields.length ? (
               <PacketExtractionReview
@@ -2205,6 +2283,7 @@ export default function ReferralPacketCanvas({
                   continuing={isSaving}
                   blocked={uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
                   hasReferral={Boolean(loadedReferral) || trainingIntakeMode}
+                  hasAssessor={Boolean(loadedReferral?.ownerId) || trainingIntakeMode}
                   onContinue={() => void continueToAssessment()}
                 />
               </aside>
@@ -2216,6 +2295,9 @@ export default function ReferralPacketCanvas({
               documents={documents}
               uploadingDocumentIds={uploadingDocumentIds}
               onAttach={attachDocument}
+              additionalFiles={additionalFiles}
+              workspaceFiles={workspaceFiles}
+              onAddFiles={attachAdditionalFiles}
             />
           ) : displayedPage === "workflow" && loadedReferral ? (
             <PacketPage id="admission-workflow" title="Workflow">
@@ -2245,13 +2327,14 @@ export default function ReferralPacketCanvas({
                     if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section });
                   }}
                   onAssessmentSaved={async (assessment) => {
-                    if (assessment.status !== "complete") return;
+                    if (assessment.status !== "complete" || !assessment.signed_at) return;
                     const current = loadedReferralRef.current;
                     if (!current) return;
                     const canvas = await fetchPipelineJson<{
                       referral?: Referral;
                     }>(`/api/referrals/${current.id}/canvas`, { cache: "no-store" });
                     if (canvas.referral) receiveRemoteReferral(canvas.referral, canvas.referral.updatedBy?.name, true);
+                    openPage("workflow");
                   }}
                 />
             </PacketPage>
@@ -2512,14 +2595,21 @@ function WorkspaceFilesPage({
   documents,
   uploadingDocumentIds,
   onAttach,
+  additionalFiles,
+  workspaceFiles,
+  onAddFiles,
 }: {
   presentation: ReturnType<typeof getWorkspacePresentation>;
   documents: Record<string, string>;
   uploadingDocumentIds: Set<string>;
   onAttach: (requirementId: string, file: File) => void;
+  additionalFiles: File[];
+  workspaceFiles: { id: string; name: string; category: string }[];
+  onAddFiles: (files: File[]) => void;
 }) {
   return (
     <PacketPage id="packet-files" title={presentation.filesLabel}>
+      {!presentation.readOnly ? <AdditionalDocumentDropzone queued={additionalFiles} files={workspaceFiles} onAdd={onAddFiles} /> : null}
       <DocumentGroup
         title={presentation.admissionTitle}
         detail={presentation.admissionDetail}
@@ -2556,6 +2646,9 @@ function IntakeDocumentChecklist({
   onInitialPacketSelect,
   onInitialPacketClear,
   onAttach,
+  additionalFiles,
+  workspaceFiles,
+  onAddFiles,
 }: {
   initialPacket: File | null;
   initialPacketCategory: InitialDocumentCategory;
@@ -2567,9 +2660,12 @@ function IntakeDocumentChecklist({
   referral: Referral | null;
   uploadingDocumentIds: Set<string>;
   onInitialPacketCategoryChange: (category: InitialDocumentCategory) => void;
-  onInitialPacketSelect: (file: File | undefined) => InitialPacketSelectionResult;
+  onInitialPacketSelect: (files: File[]) => InitialPacketSelectionResult;
   onInitialPacketClear: () => void;
   onAttach: (requirementId: string, file: File) => void;
+  additionalFiles: File[];
+  workspaceFiles: { id: string; name: string; category: string }[];
+  onAddFiles: (files: File[]) => void;
 }) {
   const documentItems = [...requirements, ...attachments];
   const capturedDocuments = documentItems.filter((item) => (
@@ -2612,6 +2708,7 @@ function IntakeDocumentChecklist({
             onSelect={onInitialPacketSelect}
             onClear={onInitialPacketClear}
           />
+          <AdditionalDocumentDropzone queued={additionalFiles} files={workspaceFiles} onAdd={onAddFiles} />
 
           <div className="mb-2 flex items-center justify-between gap-3">
             <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Document checklist</h3>
@@ -2669,6 +2766,7 @@ function ChartCompletionRail({
   continuing,
   blocked,
   hasReferral,
+  hasAssessor,
   onContinue,
 }: {
   fieldCount: number;
@@ -2685,15 +2783,12 @@ function ChartCompletionRail({
   continuing: boolean;
   blocked: boolean;
   hasReferral: boolean;
+  hasAssessor: boolean;
   onContinue: () => void;
 }) {
   const percent = fieldTotal === 0 ? 0 : Math.round((fieldCount / fieldTotal) * 100);
-  const action = assessmentOpenLabel({
-    signed_at: assessmentSummary.signedAt ?? null,
-    started_at: assessmentSummary.startedAt ?? null,
-    scheduled_start_at: assessmentSummary.scheduledStartAt ?? null,
-  });
-  const status = assessmentSummary.signedAt ? "Signed" : assessmentSummary.startedAt ? "In progress" : assessmentSummary.scheduledStartAt ? "Scheduled" : "Not scheduled";
+  const action = assessmentRailAction(assessmentSummary, hasAssessor);
+  const status = assessmentRailStatus(assessmentSummary);
 
   return (
     <section aria-label="Intake completion" className="grid items-center gap-x-8 gap-y-2 px-5 py-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_320px]">
@@ -2722,6 +2817,24 @@ function ChartCompletionRail({
       </button> : null}
     </section>
   );
+}
+
+function assessmentRailAction(
+  summary: { signedAt?: string | null; startedAt?: string | null; scheduledStartAt?: string | null },
+  hasAssessor: boolean,
+) {
+  if (!hasAssessor) return "Assign assessor";
+  return assessmentOpenLabel({
+    signed_at: summary.signedAt ?? null,
+    started_at: summary.startedAt ?? null,
+    scheduled_start_at: summary.scheduledStartAt ?? null,
+  });
+}
+
+function assessmentRailStatus(summary: { signedAt?: string | null; startedAt?: string | null; scheduledStartAt?: string | null }) {
+  if (summary.signedAt) return "Signed";
+  if (summary.startedAt) return "In progress";
+  return summary.scheduledStartAt ? "Scheduled" : "Not scheduled";
 }
 
 function ChartStatusRow({ label, value, attention = false }: { label: string; value: string; attention?: boolean }) {
@@ -2766,7 +2879,7 @@ function InitialPacketDropzone({
   message?: string;
   category: InitialDocumentCategory;
   onCategoryChange: (category: InitialDocumentCategory) => void;
-  onSelect: (file: File | undefined) => InitialPacketSelectionResult;
+  onSelect: (files: File[]) => InitialPacketSelectionResult;
   onClear: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -2777,12 +2890,8 @@ function InitialPacketDropzone({
   const displayName = file?.name || recordedName;
   const presentation = initialPacketDropzonePresentation({ file, recordedName, recordedStatus, dragActive });
 
-  const acceptFile = (candidate: File | undefined, fileCount = candidate ? 1 : 0) => {
-    if (fileCount > 1) {
-      setSelectionError("Choose one initial referral document at a time.");
-      return;
-    }
-    const result = onSelect(candidate);
+  const acceptFile = (files: File[]) => {
+    const result = onSelect(files);
     if (!result.accepted) {
       setSelectionError(result.error ?? "");
       return;
@@ -2840,7 +2949,7 @@ function InitialPacketDropzone({
         onDrop={(event) => {
           event.preventDefault();
           resetDragState();
-          acceptFile(event.dataTransfer.files?.[0], event.dataTransfer.files?.length ?? 0);
+          acceptFile(Array.from(event.dataTransfer.files ?? []));
         }}
         className={`flex min-h-[126px] flex-col justify-center gap-4 border-2 border-dashed px-4 py-4 transition-colors sm:flex-row sm:items-center sm:px-5 ${presentation.className}`}
       >
@@ -2886,10 +2995,11 @@ function InitialPacketDropzone({
           data-testid="initial-packet-input"
           type="file"
           accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic"
-          aria-label="Choose initial referral document"
+          aria-label="Choose referral documents"
+          multiple
           className="sr-only"
           onChange={(event) => {
-            acceptFile(event.target.files?.[0], event.target.files?.length ?? 0);
+            acceptFile(Array.from(event.target.files ?? []));
             event.target.value = "";
           }}
         />
@@ -2898,6 +3008,57 @@ function InitialPacketDropzone({
       {message ? <p className="mt-2 text-[11px] leading-5 text-[#737373]">{message}</p> : null}
     </section>
   );
+}
+
+function AdditionalDocumentDropzone({ queued, files, onAdd }: {
+  queued: File[];
+  files: { id: string; name: string; category: string }[];
+  onAdd: (files: File[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const otherFiles = files.filter((file) => file.category === "Other");
+  return (
+    <section aria-label="Additional referral documents" className="mb-5">
+      <div className="mb-2 text-[11px] font-black uppercase text-[#3e4742]">Other referral documents</div>
+      <div
+        role="group"
+        aria-label="Drop additional referral documents"
+        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(event) => { event.preventDefault(); setDragging(false); onAdd(Array.from(event.dataTransfer.files ?? [])); }}
+        className={`flex min-h-20 flex-wrap items-center justify-between gap-3 border-2 border-dashed px-4 py-3 ${dragging ? "border-[#0f8b73] bg-[#effaf5]" : "border-[#c6d2cb] bg-[#fbfdfc]"}`}
+      >
+        <div className="flex min-w-0 items-center gap-3"><UploadCloud size={20} aria-hidden="true" className="text-[#0f8b73]" /><span className="text-[12px] font-semibold text-[#3f4745]">Drop files here or browse</span></div>
+        <button type="button" onClick={() => inputRef.current?.click()} className="h-9 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]">Add files</button>
+        <input ref={inputRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic" aria-label="Choose additional referral documents" className="sr-only" onChange={(event) => { onAdd(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
+      </div>
+      {queued.length || otherFiles.length ? (
+        <ul className="mt-2 divide-y divide-[#e1e4e2]" aria-label="Additional referral file list">
+          {queued.map((file, index) => <li key={`queued:${index}:${file.name}`} className="flex gap-2 py-2 text-[11px]"><FileText size={14} className="shrink-0 text-[#8a6a16]" /><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="font-bold text-[#8a6a16]">Queued</span></li>)}
+          {otherFiles.map((file) => <li key={file.id} className="flex gap-2 py-2 text-[11px]"><FileText size={14} className="shrink-0 text-[#0f8b73]" /><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="font-bold text-[#0f8b73]">Uploaded</span></li>)}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+async function loadWorkspaceFileInventory(referralId: number) {
+  const files: { id: string; name: string; category: string }[] = [];
+  let cursor: string | null = null;
+  do {
+    const result: {
+      files: { id: string; name: string; category: string }[];
+      next_cursor: string | null;
+    } = await fetchPipelineJson<{
+      files: { id: string; name: string; category: string }[];
+      next_cursor: string | null;
+    }>(`/api/files?referral_id=${referralId}&limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { cache: "no-store" });
+    files.push(...result.files);
+    cursor = result.next_cursor;
+    if (files.length >= 10_000 && cursor) throw new Error("This workspace has too many files to show at once.");
+  } while (cursor);
+  return files;
 }
 
 function countCompleteFields(fields: Record<FieldKey, PacketField>, keys: readonly FieldKey[]) {
@@ -3054,6 +3215,10 @@ function PacketFieldControl({ fieldKey, field, options, directory, referralId, l
     autoComplete="off"
     placeholder={field.placeholder}
     onChange={(event) => onChange(event.target.value)}
+    onBlur={fieldKey === "phone" ? (event) => {
+      const formatted = formatPhoneForEntry(event.target.value);
+      if (formatted !== field.value) onChange(formatted);
+    } : undefined}
     className={`mt-1.5 h-9 w-full min-w-0 border-0 bg-transparent p-0 font-bold text-[#18211d] outline-none placeholder:text-[#a0a0a0] ${fieldKey === "name" ? "text-[22px] sm:text-[24px]" : "text-[16px] sm:text-[14px]"}`}
   />;
 }
@@ -3774,6 +3939,15 @@ function workspaceHasPendingChanges(
   return dirtyKeys.size > 0 || Object.keys(pendingDocuments).length > 0 || Boolean(initialPacket);
 }
 
+function workspaceHasQueuedChanges(
+  dirtyKeys: ReadonlySet<DirtyDraftKey>,
+  pendingDocuments: Record<string, File>,
+  initialPacket: File | null,
+  additionalFiles: readonly File[],
+) {
+  return workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
+}
+
 function activeReferralId(loadedReferral: Referral | null, referral: { id: number } | undefined) {
   return loadedReferral?.id ?? referral?.id;
 }
@@ -3821,6 +3995,11 @@ function validateInitialPacketSelection(file: File | undefined): InitialPacketSe
     return { accepted: false, error: "The initial referral document must be 100 MB or smaller." };
   }
   return { accepted: true, file };
+}
+
+function validateAdditionalFileSelection(files: File[]) {
+  const invalid = files.find((file) => !(allowedUploadContentTypes as readonly string[]).includes(getPacketContentType(file)) || file.size > maxUploadFileBytes);
+  return invalid ? `${invalid.name}: upload a PDF, JPEG, PNG, TIFF, or HEIC document under 100 MB.` : "";
 }
 
 function initialPacketDropzonePresentation({

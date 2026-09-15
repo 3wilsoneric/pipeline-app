@@ -60,7 +60,8 @@ check("practice cannot sign, schedule, extract, or create a clinical record",
   && !workspace.includes("extraction") && !workspace.includes("Create assessment")
   && !workspace.includes("Save assessment"));
 check("authored narrative questions expose their own compact guide disclosure",
-  workspace.includes("hasUsefulWritingGuidance")
+  workspace.includes('question.control !== "textarea"')
+  && workspace.includes("if (!specification || !narrativeGuide) return null")
   && workspace.includes("PracticeQuestionGuide")
   && workspace.includes("<details")
   && workspace.includes("<summary")

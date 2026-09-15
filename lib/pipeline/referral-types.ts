@@ -321,6 +321,8 @@ export type Referral = {
   assessmentDocumentSizeBytes?: number;
   assessmentMessage?: string;
   requirements?: AdmissionRequirement[];
+  /** Completed ordinary document uploads for the durable local-store adapter. */
+  additionalDocuments?: Array<{ id: string; name: string; uploadedAt: string }>;
   /** Synchronized decision projection. PostgreSQL stores the authoritative row separately. */
   admissionDecision?: AdmissionDecision;
   /** Latest assessor recommendation. The supervisor's decision remains authoritative. */

@@ -120,7 +120,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "assessment_completion",
     label: "Completed assessments",
-    description: "Signed assessments by staff member. Elapsed time includes pauses between starting and signing; it is not interview duration.",
+    description: "Signed assessments, elapsed time, and linked Accepted decisions by staff member. Elapsed time includes pauses; Accepted is recorded to date.",
     cadence: "Monthly",
     audience: "Supervisors",
     filters: ["month"],
@@ -498,7 +498,7 @@ async function loadReportReferrals(
 }
 
 function workspaceScopeForReport(reportId: OperationsReportId): "active" | "all" {
-  return ["workspace_inventory", "document_coverage", "intake_review", "ehr_handoff"].includes(reportId)
+  return ["workspace_inventory", "document_coverage", "intake_review", "decisions", "ehr_handoff"].includes(reportId)
     ? "all"
     : "active";
 }
@@ -671,6 +671,7 @@ async function assessmentCompletionRows(user: PipelineUser, filters: OperationsR
         staff: row.assessor_name,
         signed: row.completed_assessments,
         average_minutes: row.average_duration_minutes,
+        accepted: row.accepted_clients,
       },
     }));
 }
@@ -765,6 +766,7 @@ function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
   if (reportId === "assessment_completion") return [
     column("staff", "Staff member"), column("signed", "Signed", "right"),
     column("average_minutes", "Average time", "right", "duration"),
+    column("accepted", "Accepted", "right"),
   ];
   if (reportId === "decisions") return [
     column("decision_date", "Decision date", "left", "datetime"), column("client", "Client"),
@@ -828,6 +830,7 @@ function reportMetrics(reportId: OperationsReportId, rows: OperationsReportRow[]
   ];
   if (reportId === "assessment_completion") return [
     metric("Signed assessments", sum("signed"), "Assessments signed in the selected month."),
+    metric("Accepted clients", sum("accepted"), "Supervisor Accepted decisions linked to assessments signed in the selected month, recorded to date."),
     metric("Staff members", rows.length, "Staff with at least one signed assessment."),
   ];
   if (reportId === "decisions") return [

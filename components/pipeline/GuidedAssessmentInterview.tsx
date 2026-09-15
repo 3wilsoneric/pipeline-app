@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
@@ -91,6 +91,7 @@ export default function GuidedAssessmentInterview({
     [data],
   );
   const [activeScreenId, setActiveScreenId] = useState(() => visibleScreens[initialScreenIndex(visibleScreens, activeSection, data, startAtSectionBeginning)]?.id);
+  const interviewScrollRef = useRef<HTMLElement>(null);
   const currentIndex = visibleScreens.findIndex((candidate) => candidate.id === activeScreenId);
   const originalIndex = guidedAssessmentScreens.findIndex((candidate) => candidate.id === activeScreenId);
   const nextVisibleIndex = visibleScreens.findIndex((candidate) => guidedAssessmentScreens.indexOf(candidate) >= originalIndex);
@@ -115,6 +116,10 @@ export default function GuidedAssessmentInterview({
   useEffect(() => {
     if (screen) onSectionChange(screen.section);
   }, [onSectionChange, screen]);
+
+  useLayoutEffect(() => {
+    if (interviewScrollRef.current) interviewScrollRef.current.scrollTop = 0;
+  }, [screen?.id]);
 
   if (!screen || !section) return null;
 
@@ -169,7 +174,7 @@ export default function GuidedAssessmentInterview({
 
       <GuidedAssessmentStatusBanner error={error} hasConflicts={hasConflicts} onExitToChart={onExitToChart} />
 
-      <main key={screen.id} data-guide-target={sectionGuideTarget} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:py-10">
+      <main ref={interviewScrollRef} key={screen.id} data-guide-target={sectionGuideTarget} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:py-10">
         <div className="mx-auto w-full max-w-[650px] pb-5">
           <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f7664]">
             {section.label} <span className="text-[#a1a7a3]">·</span> {boundedIndex + 1} of {visibleScreens.length}

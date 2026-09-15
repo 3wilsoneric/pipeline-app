@@ -1557,12 +1557,12 @@ function referralHardeningResults() {
 function assessmentSchemaResults() {
   return [
     run("assessment schema exposes the complete governed interview", () => {
-      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 157, "Expected 157 assessment fields");
+      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 159, "Expected 159 assessment fields, including preserved legacy data");
       assert(
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 151, "Expected 151 focused user-facing interview questions");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 127, "Expected 127 focused user-facing interview questions");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1572,8 +1572,18 @@ function assessmentSchemaResults() {
         .map((definition) => definition.key)
         .filter((field) => !interviewFields.has(field));
       assert(
-        JSON.stringify(nonInterviewFields) === JSON.stringify(["assessor", "unable_to_assess_reasons", "source_file", "match_confidence", "assessment_notes", "extraction_date"]),
-        "Only assignment, legacy notes, unable-response support, and extraction-owned fields may stay outside the interview",
+        JSON.stringify(nonInterviewFields) === JSON.stringify([
+          "resident_number", "assessor", "admit_date", "secondary_diagnoses", "acuity_level",
+          "responds_to_internal_stimuli", "auditory_hallucinations", "auditory_hallucination_nature",
+          "auditory_hallucination_frequency", "auditory_hallucination_triggers", "visual_hallucinations",
+          "visual_hallucination_details", "visual_hallucination_recent", "olfactory_hallucinations",
+          "olfactory_hallucination_details", "olfactory_hallucination_impact", "tactile_hallucinations",
+          "tactile_hallucination_details", "tactile_hallucination_frequency", "gustatory_hallucinations",
+          "gustatory_hallucination_details", "hallucination_coping_strategies", "hallucination_distress_impairment",
+          "hallucination_functional_impact", "hallucination_treatment_history", "lai_vs_oral", "longest_sobriety_months",
+          "unable_to_assess_reasons", "source_file", "match_confidence", "assessment_notes", "extraction_date",
+        ]),
+        "Only the approved retired questions, assignment, unable-response support, legacy notes, and extraction metadata may stay outside the interview",
       );
       assert(
         assessmentInterview.assessmentInterviewSections.every((section) => (
@@ -1605,13 +1615,14 @@ function assessmentSchemaResults() {
         "Conserved status must use the approved four choices",
       );
       assert(
-        ["lai_vs_oral", "auditory_hallucination_frequency", "tactile_hallucination_frequency"]
+        ["use_pattern", "longest_sobriety_period"]
           .every((field) => interviewQuestion(field)?.control === "select")
-          && interviewQuestion("responds_to_internal_stimuli")?.control === "yes_no",
+          && interviewQuestion("im_injections")?.control === "yes_no"
+          && interviewQuestion("im_injections_details")?.control === "textarea",
         "Low-ambiguity categorical assessment answers must stay structured",
       );
       assert(
-        ["acuity_level", "prompting_level", "self_care_status"].every((field) => interviewQuestion(field)?.control === "text")
+        ["prompting_level", "self_care_status"].every((field) => interviewQuestion(field)?.control === "text")
           && ["special_diet_details", "preferred_facility_characteristics", "placement_preferences_concerns"]
             .every((field) => interviewQuestion(field)?.control === "textarea"),
         "Interpretive clinical, diet, and placement narratives must not be reduced to speculative option lists",
@@ -1679,7 +1690,13 @@ function assessmentSchemaResults() {
     run("assessment completeness requires the governed interview without requiring a pre-admission resident number", () => {
       const empty = assessmentSchema.createEmptyAssessmentToolData();
       const initial = assessmentSchema.getAssessmentToolCompleteness(empty);
-      assert(initial.required_total === assessmentSchema.requiredAssessmentToolFields.length && initial.required_total === 55, "Expected all 55 core interview answers");
+      assert(initial.required_total === assessmentSchema.requiredAssessmentToolFields.length && initial.required_total === 50, "Expected all 50 core interview answers");
+      assert(initial.required_ready === 0, "A fresh assessment must not begin with completed answers");
+      assert(
+        ["auditory_hallucinations", "visual_hallucinations", "olfactory_hallucinations", "tactile_hallucinations", "gustatory_hallucinations"]
+          .every((field) => !initial.missing_fields.includes(field)),
+        "The five retired required hallucination questions must not block current assessments",
+      );
       assert(!initial.missing_fields.includes("resident_number"), "A pre-admission assessment must not require an ElderMark resident number");
 
       const identified = assessmentSchema.getAssessmentToolCompleteness({
@@ -1701,6 +1718,10 @@ function assessmentSchemaResults() {
       const data = assessmentSchema.createEmptyAssessmentToolData();
       assert(!assessmentInterview.getAssessmentInterviewQuestions("functional_adl", data).some((question) => question.field === "language_barrier_details"), "Hidden language detail must not clutter the initial interview");
       assert(!assessmentInterview.getAssessmentInterviewQuestions("physical_health", data).some((question) => question.field === "brief_change_support"), "Brief support must stay hidden when incontinence has not been reported");
+      assert(!assessmentInterview.getAssessmentInterviewQuestions("medication", data).some((question) => question.field === "im_injections_details"), "Injection details must stay hidden until injections are reported");
+      data.im_injections = "yes";
+      assert(assessmentInterview.getAssessmentInterviewQuestions("medication", data).some((question) => question.field === "im_injections_details"), "Reported injections must reveal the detail question");
+      assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "im_injections_details"), "Reported injections must require their details");
       data.language_barrier = "yes";
       assert(assessmentInterview.getAssessmentInterviewQuestions("functional_adl", data).some((question) => question.field === "language_barrier_details"), "A language barrier must reveal its detail question");
       assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "language_barrier_details"), "A revealed language support detail must be required");

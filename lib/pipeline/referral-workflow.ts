@@ -205,6 +205,9 @@ export function getReferralTransitionBlockers(
     if (getDecisionOutcome(referral, context) !== "accepted") {
       blockers.push({ code: "admission_decision_required", label: "Record an admission decision of yes before acceptance." });
     }
+    if (!referral.admissionDate?.trim()) {
+      blockers.push({ code: "admission_date_required", label: "Record the date of admit before marking the client admitted." });
+    }
     for (const requirement of getBlockingRequirementsForGates(
       context.requirements ?? referral.requirements ?? [],
       ["admission_decision", "move_in"],

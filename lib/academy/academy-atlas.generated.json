@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9b2b4277f117dfb5",
-  "fingerprint": "9b2b4277f117dfb5fe9f75fd03fdbdbdfb534c5a59a1dfcf258302255d9ef70a",
+  "generatedAt": "source-fingerprint:d89a6f0731ae4fe0",
+  "fingerprint": "d89a6f0731ae4fe077407b4a6d8511af98d7409c08e5f89c8dfe11d694fccf6d",
   "totals": {
-    "files": 1072,
-    "lines": 325560,
-    "coveredFiles": 1072
+    "files": 1076,
+    "lines": 326408,
+    "coveredFiles": 1076
   },
   "entries": [
     {
@@ -655,7 +655,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 83,
+      "lines": 102,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -1403,7 +1403,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 346,
+      "lines": 355,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1591,7 +1591,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 56,
+      "lines": 63,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -2158,7 +2158,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 687,
+      "lines": 692,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2470,7 +2470,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 285,
+      "lines": 304,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -2506,7 +2506,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 510,
+      "lines": 511,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2566,7 +2566,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3900,
+      "lines": 4079,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2590,7 +2590,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 310,
+      "lines": 333,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2602,7 +2602,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 463,
+      "lines": 494,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2614,7 +2614,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 128,
+      "lines": 203,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -6508,7 +6508,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 633,
+      "lines": 640,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6532,7 +6532,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 462,
+      "lines": 430,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6580,7 +6580,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 169,
+      "lines": 171,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6616,7 +6616,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2361,
+      "lines": 2409,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6628,7 +6628,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 223,
+      "lines": 246,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6640,7 +6640,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 932,
+      "lines": 938,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8125,7 +8125,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 990,
+      "lines": 993,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -8137,7 +8137,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 936,
+      "lines": 947,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -8149,10 +8149,22 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 236,
+      "lines": 238,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
+      ]
+    },
+    {
+      "path": "lib/pipeline/phone-display.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 10,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
       ]
     },
     {
@@ -8281,7 +8293,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 50,
+      "lines": 66,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8330,7 +8342,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 360,
+      "lines": 362,
       "moduleIds": [
         "pre-assessment-workflow",
         "provenance-review"
@@ -8414,7 +8426,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3268,
+      "lines": 3311,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -8427,7 +8439,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 361,
+      "lines": 363,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -8453,7 +8465,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 291,
+      "lines": 294,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -9785,7 +9797,19 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2137,
+      "lines": 2158,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/api-handler-boundaries.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 151,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9833,7 +9857,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 114,
+      "lines": 115,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -9869,7 +9893,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 584,
+      "lines": 632,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12042,7 +12066,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 388,
+      "lines": 393,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12342,7 +12366,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 613,
+      "lines": 617,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12559,7 +12583,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 557,
+      "lines": 560,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12632,6 +12656,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 39,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/referral-file-batches.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 38,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12932,6 +12968,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 216,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/persona-demo/scheduled-workspace.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 63,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

@@ -458,10 +458,25 @@ async function getLocalAssessmentCompletionReport(
   range: { start: string; end: string },
 ): Promise<AssessmentCompletionReport> {
   await ensureLoaded();
-  const grouped = new Map<string, AssessmentCompletionReport["rows"][number] & {
-    duration_total: number;
-    duration_count: number;
-  }>();
+  const grouped = new Map<string, LocalCompletionReportRow>();
+  for (const assessment of await latestLocalSignedAssessments()) {
+    await addLocalCompletionReportAssessment(grouped, assessment, range);
+  }
+  return assessmentCompletionReport(month, range, [...grouped.values()].map((row) => ({
+    assessor_id: row.assessor_id,
+    assessor_name: row.assessor_name,
+    completed_assessments: row.completed_assessments,
+    average_duration_minutes: row.average_duration_minutes,
+    accepted_clients: row.accepted_clients,
+  })));
+}
+
+type LocalCompletionReportRow = AssessmentCompletionReport["rows"][number] & {
+  duration_total: number;
+  duration_count: number;
+};
+
+async function latestLocalSignedAssessments() {
   const latestSignedByRevision = new Map<string, PipelineAssessmentRecord>();
   for (const assessment of await localReportAssessments()) {
     if (!assessment.signed_at) continue;
@@ -471,35 +486,58 @@ async function getLocalAssessmentCompletionReport(
       latestSignedByRevision.set(root, assessment);
     }
   }
-  for (const assessment of latestSignedByRevision.values()) {
-    const signedAt = assessment.signed_at;
-    if (!signedAt || signedAt < range.start || signedAt >= range.end) continue;
-    const assessorName = assessment.signed_by?.name.trim() || assessment.assessor?.trim() || "Unassigned";
-    const assessorId = assessment.signed_by?.id.trim() || assessment.assessor_id?.trim() || null;
-    const key = assessorId || `legacy:${normalize(assessorName)}`;
-    const current = grouped.get(key) ?? {
-      assessor_id: assessorId,
-      assessor_name: assessorName,
-      completed_assessments: 0,
-      average_duration_minutes: null,
-      duration_total: 0,
-      duration_count: 0,
-    };
-    current.completed_assessments += 1;
-    const duration = elapsedMinutes(assessment.started_at, signedAt);
-    if (duration !== null) {
-      current.duration_total += duration;
-      current.duration_count += 1;
-      current.average_duration_minutes = Math.round(current.duration_total / current.duration_count);
-    }
-    grouped.set(key, current);
-  }
-  return assessmentCompletionReport(month, range, [...grouped.values()].map((row) => ({
-    assessor_id: row.assessor_id,
-    assessor_name: row.assessor_name,
-    completed_assessments: row.completed_assessments,
-    average_duration_minutes: row.average_duration_minutes,
-  })));
+  return [...latestSignedByRevision.values()];
+}
+
+async function addLocalCompletionReportAssessment(
+  grouped: Map<string, LocalCompletionReportRow>,
+  assessment: PipelineAssessmentRecord,
+  range: { start: string; end: string },
+) {
+  const signedAt = assessment.signed_at;
+  if (!signedAt || signedAt < range.start || signedAt >= range.end) return;
+  const assessor = localReportAssessor(assessment);
+  const current = grouped.get(assessor.key) ?? emptyLocalCompletionRow(assessor.id, assessor.name);
+  current.completed_assessments += 1;
+  if (await hasAcceptedLocalAssessmentDecision(assessment)) current.accepted_clients += 1;
+  addCompletionDuration(current, assessment.started_at, signedAt);
+  grouped.set(assessor.key, current);
+}
+
+function localReportAssessor(assessment: PipelineAssessmentRecord) {
+  const name = assessment.signed_by?.name.trim() || assessment.assessor?.trim() || "Unassigned";
+  const id = assessment.signed_by?.id.trim() || assessment.assessor_id?.trim() || null;
+  return { id, name, key: id || `legacy:${normalize(name)}` };
+}
+
+function emptyLocalCompletionRow(assessorId: string | null, assessorName: string): LocalCompletionReportRow {
+  return {
+    assessor_id: assessorId,
+    assessor_name: assessorName,
+    completed_assessments: 0,
+    average_duration_minutes: null,
+    accepted_clients: 0,
+    duration_total: 0,
+    duration_count: 0,
+  };
+}
+
+async function hasAcceptedLocalAssessmentDecision(assessment: PipelineAssessmentRecord) {
+  const referral = await loadLocalAssessmentReferral(assessment.referral_id);
+  const decision = referral?.admissionDecision;
+  const decisionAssessment = decision?.assessmentId
+    ? state.assessments.find((candidate) => candidate.assessment_id === decision.assessmentId)
+    : null;
+  return decision?.outcome === "accepted" && Boolean(decisionAssessment)
+    && (decisionAssessment?.revision_root_id ?? decisionAssessment?.assessment_id) === (assessment.revision_root_id ?? assessment.assessment_id);
+}
+
+function addCompletionDuration(row: LocalCompletionReportRow, startedAt: string | null | undefined, signedAt: string) {
+  const duration = elapsedMinutes(startedAt ?? null, signedAt);
+  if (duration === null) return;
+  row.duration_total += duration;
+  row.duration_count += 1;
+  row.average_duration_minutes = Math.round(row.duration_total / row.duration_count);
 }
 
 async function localReportAssessments() {
@@ -954,6 +992,7 @@ type AssessmentCompletionCountRow = {
   assessor_name: string | null;
   completed_assessments: number | string;
   average_duration_minutes: number | string | null;
+  accepted_clients: number | string;
 };
 
 async function getPostgresAssessmentCompletionReport(
@@ -964,7 +1003,8 @@ async function getPostgresAssessmentCompletionReport(
   const rows = await sql<AssessmentCompletionCountRow[]>`
     with latest_signed as (
       select distinct on (a.revision_root_id)
-        a.signed_by, a.signed_by_name, a.assessor_name, a.signed_at, a.started_at
+        a.signed_by, a.signed_by_name, a.assessor_name, a.signed_at, a.started_at,
+        a.referral_id, a.revision_root_id
       from pipeline.assessments a
       join pipeline.referrals r on r.referral_id = a.referral_id
       where a.signed_at is not null
@@ -976,6 +1016,13 @@ async function getPostgresAssessmentCompletionReport(
     select signed_by as assessor_id,
       coalesce(nullif(btrim(signed_by_name), ''), nullif(btrim(assessor_name), ''), 'Unassigned') as assessor_name,
       count(*)::integer as completed_assessments,
+      count(*) filter (where exists (
+        select 1 from pipeline.admission_decisions d
+        join pipeline.assessments decision_assessment on decision_assessment.assessment_id = d.assessment_id
+        where d.referral_id = latest_signed.referral_id
+          and d.outcome = 'accepted'
+          and decision_assessment.revision_root_id = latest_signed.revision_root_id
+      ))::integer as accepted_clients,
       round(avg(extract(epoch from (signed_at - started_at)) / 60.0))::integer as average_duration_minutes
     from latest_signed
     where signed_at >= ${range.start}::timestamptz
@@ -988,6 +1035,7 @@ async function getPostgresAssessmentCompletionReport(
     assessor_name: row.assessor_name?.trim() || "Unassigned",
     completed_assessments: Number(row.completed_assessments),
     average_duration_minutes: row.average_duration_minutes === null ? null : Number(row.average_duration_minutes),
+    accepted_clients: Number(row.accepted_clients),
   })));
 }
 

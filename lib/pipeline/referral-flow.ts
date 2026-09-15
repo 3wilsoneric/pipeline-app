@@ -10,6 +10,22 @@ export const activeReferralFlowStates = [
   { key: "complete_chart", label: "Decision & completion", emptyLabel: "No decision or completion work" },
 ] as const;
 
+export const referralBoardStages = [
+  { key: "received", label: "Referral received" },
+  { key: "in_progress", label: "In progress" },
+  { key: "decision", label: "Decision" },
+  { key: "admitted", label: "Admitted" },
+] as const;
+
+export type ReferralBoardStage = (typeof referralBoardStages)[number]["key"];
+
+export function referralBoardStageForStatus(status: ReferralWorkflowStatus): ReferralBoardStage {
+  if (status === "admitted") return "admitted";
+  if (["assessment_signed", "recommendation_submitted", "decision_pending", "approved_for_placement", "accepted", "declined", "changes_requested"].includes(status)) return "decision";
+  if (["assessment_scheduled", "assessment_in_progress", "waiting_for_information", "assessment_ready_to_sign"].includes(status)) return "in_progress";
+  return "received";
+}
+
 export type ActiveReferralFlowState = (typeof activeReferralFlowStates)[number]["key"];
 export type ReferralFlowState = ActiveReferralFlowState | "complete";
 

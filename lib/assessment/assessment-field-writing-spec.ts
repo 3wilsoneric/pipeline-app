@@ -300,6 +300,13 @@ const writingSpecs: Partial<Record<AssessmentToolFieldKey, WritingSpecInput>> = 
     requiredElements: ["Medication", "Trigger", "Frequency in a stated period", "Effect", "Adverse effect or none reported", "Source"],
     strongExample: "Hydroxyzine 25 mg PO PRN | anxiety | used twice in the past 14 days | staff documented reduced pacing | no adverse effect documented | MAR.",
   },
+  im_injections_details: {
+    preferredFormat: "structured_lines",
+    lengthGuidance: "One injection per line",
+    formatTemplate: "Medication | Dose | Frequency | Reason | Source",
+    requiredElements: ["Medication", "Dose if known", "Frequency", "Reason", "Source or uncertainty"],
+    strongExample: "Haloperidol decanoate | 100 mg | every 4 weeks | maintenance treatment | current MAR.",
+  },
   substance_effect_on_baseline: {
     preferredFormat: "observation_report",
     lengthGuidance: "2-4 sentences",

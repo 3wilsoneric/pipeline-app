@@ -65,10 +65,13 @@ type ReferralWorkflowPanelPresentationProps = {
   error: string;
   recommendation: RecommendationDraft;
   decision: DecisionDraft;
+  admissionDate: string;
   manualIntakeReason: string;
   pendingDetail: PendingWorkflowDetail | null;
   onRecommendationChange: (patch: Partial<RecommendationDraft>) => void;
   onDecisionChange: (patch: Partial<DecisionDraft>) => void;
+  onAdmissionDateChange: (value: string) => void;
+  onSaveAdmissionDate: () => void;
   onManualIntakeReasonChange: (value: string) => void;
   onUpdateRequirement: (item: AdmissionRequirement, status: RequirementStatus) => void;
   onSubmitRecommendation: () => void;
@@ -94,10 +97,13 @@ export function ReferralWorkflowPanelPresentation({
   error,
   recommendation,
   decision,
+  admissionDate,
   manualIntakeReason,
   pendingDetail,
   onRecommendationChange,
   onDecisionChange,
+  onAdmissionDateChange,
+  onSaveAdmissionDate,
   onManualIntakeReasonChange,
   onUpdateRequirement,
   onSubmitRecommendation,
@@ -145,9 +151,12 @@ export function ReferralWorkflowPanelPresentation({
           busy={busy}
           recommendation={recommendation}
           decision={decision}
+          admissionDate={admissionDate}
           manualIntakeReason={manualIntakeReason}
           onRecommendationChange={onRecommendationChange}
           onDecisionChange={onDecisionChange}
+          onAdmissionDateChange={onAdmissionDateChange}
+          onSaveAdmissionDate={onSaveAdmissionDate}
           onManualIntakeReasonChange={onManualIntakeReasonChange}
           onSubmitRecommendation={onSubmitRecommendation}
           onSubmitDecision={onSubmitDecision}
@@ -183,9 +192,12 @@ function WorkflowPrimaryColumn({
   busy,
   recommendation,
   decision,
+  admissionDate,
   manualIntakeReason,
   onRecommendationChange,
   onDecisionChange,
+  onAdmissionDateChange,
+  onSaveAdmissionDate,
   onManualIntakeReasonChange,
   onSubmitRecommendation,
   onSubmitDecision,
@@ -196,13 +208,13 @@ function WorkflowPrimaryColumn({
   onOpenAssessment,
   onOpenFiles,
 }: Pick<ReferralWorkflowPanelPresentationProps,
-  "workflow" | "busy" | "recommendation" | "decision" | "manualIntakeReason" | "onRecommendationChange" | "onDecisionChange" |
+  "workflow" | "busy" | "recommendation" | "decision" | "admissionDate" | "manualIntakeReason" | "onRecommendationChange" | "onDecisionChange" | "onAdmissionDateChange" | "onSaveAdmissionDate" |
   "onManualIntakeReasonChange" | "onSubmitRecommendation" | "onSubmitDecision" | "onRequestReviewChanges" | "onSubmitTransition" | "onAuthorizeManualIntake" |
   "onOpenIntake" | "onOpenAssessment" | "onOpenFiles"
 > & { view: WorkflowView }) {
   return (
     <div className="space-y-5">
-      <CurrentGateCard workflow={workflow} view={view} busy={busy} manualIntakeReason={manualIntakeReason} onManualIntakeReasonChange={onManualIntakeReasonChange} onSubmitTransition={onSubmitTransition} onAuthorizeManualIntake={onAuthorizeManualIntake} onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenFiles={onOpenFiles} />
+      <CurrentGateCard workflow={workflow} view={view} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} manualIntakeReason={manualIntakeReason} onManualIntakeReasonChange={onManualIntakeReasonChange} onSubmitTransition={onSubmitTransition} onAuthorizeManualIntake={onAuthorizeManualIntake} onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenFiles={onOpenFiles} />
       <ClinicalRecommendationDisclosure workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitRecommendation={onSubmitRecommendation} />
       <SupervisorDecisionDisclosure workflow={workflow} view={view} busy={busy} decision={decision} onDecisionChange={onDecisionChange} onSubmitDecision={onSubmitDecision} onRequestReviewChanges={onRequestReviewChanges} />
     </div>
@@ -213,6 +225,9 @@ function CurrentGateCard({
   workflow,
   view,
   busy,
+  admissionDate,
+  onAdmissionDateChange,
+  onSaveAdmissionDate,
   manualIntakeReason,
   onManualIntakeReasonChange,
   onSubmitTransition,
@@ -220,10 +235,26 @@ function CurrentGateCard({
   onOpenIntake,
   onOpenAssessment,
   onOpenFiles,
-}: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "manualIntakeReason" | "onManualIntakeReasonChange" | "onSubmitTransition" | "onAuthorizeManualIntake" | "onOpenIntake" | "onOpenAssessment" | "onOpenFiles"> & { view: WorkflowView }) {
-  const { currentReferral, forwardTransition } = view;
+}: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate" | "manualIntakeReason" | "onManualIntakeReasonChange" | "onSubmitTransition" | "onAuthorizeManualIntake" | "onOpenIntake" | "onOpenAssessment" | "onOpenFiles"> & { view: WorkflowView }) {
+  const { currentReferral, forwardTransition, assessmentState, showManualIntake } = view;
+  if (assessmentState) {
+    return (
+      <WorkflowCard icon={<ClipboardCheck size={17} />} title="Assessment" detail={assessmentState}>
+        <PrimaryButton busy={false} onClick={onOpenAssessment}>Open assessment</PrimaryButton>
+      </WorkflowCard>
+    );
+  }
   return (
     <WorkflowCard icon={<ClipboardCheck size={17} />} title="Current gate" detail={currentReferral.stage}>
+      {workflow.decision?.outcome === "accepted" && currentReferral.stage !== "Accepted / Admitted" ? (
+        <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-[#e3e6e4] pb-4">
+          <label className="block min-w-[180px] flex-1 text-[11px] font-bold text-[#303b34]" htmlFor="workflow-admit-date">
+            Date of admit
+            <input id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={!workflow.capabilities.can_update || Boolean(busy)} className="mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]" />
+          </label>
+          <SecondaryButton disabled={!admissionDate || admissionDate === currentReferral.admissionDate || !workflow.capabilities.can_update || Boolean(busy)} onClick={onSaveAdmissionDate}>Record date</SecondaryButton>
+        </div>
+      ) : null}
       {forwardTransition ? (
         forwardTransition.blockers.length > 0 ? (
           <div className="space-y-2">
@@ -233,7 +264,7 @@ function CurrentGateCard({
         ) : <PrimaryButton busy={busy === `transition:${forwardTransition.target}`} disabled={!workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</PrimaryButton>
       ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>}
 
-      {!currentReferral.manualIntakeAuthorization && workflow.capabilities.can_authorize_manual_intake && ["New", "Packet Needed"].includes(currentReferral.stage) ? (
+      {showManualIntake ? (
         <div className="mt-4 border-t border-[#e3e6e4] pt-4">
           <label className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]" htmlFor="manual-intake-reason">Chart-only exception</label>
           <textarea id="manual-intake-reason" value={manualIntakeReason} onChange={(event) => onManualIntakeReasonChange(event.target.value)} rows={2} placeholder="Explain why intake must proceed without packet extraction" className="mt-2 w-full border border-[#c9ceca] px-3 py-2 text-[11px] outline-none focus:border-[#0f8b73]" />
