@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 
+import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
-import { buildPipelineDemoReferral, getPipelineDemoScenario } from "@/lib/demo/demo-scenarios";
-import { isPersonaDemo, personaCookie, personaUser, requirePersonaDemoUser } from "@/lib/demo/persona-session";
+import { buildPipelineDemoReferral, getPipelineDemoScenario, type PipelineDemoScenario } from "@/lib/demo/demo-scenarios";
+import { isPersonaDemo, personaCookie, personaUser } from "@/lib/demo/persona-session";
+import { withApiLogging } from "@/lib/observability/api-logging";
 import { touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
@@ -33,117 +35,132 @@ type SeedAssessment = {
   version: number;
 };
 
+type JourneyCase = (typeof cases)[number];
+type DemoClient = (path: string, init?: RequestInit) => Promise<unknown>;
+
 export async function POST(request: Request) {
-  const auth = requirePersonaDemoUser(request);
-  if (!auth.ok) return auth.response;
-  const originFailure = requireSameOriginMutation(request);
-  if (originFailure) return originFailure;
-  if (!isPersonaDemo()) return Response.json({ error: "Not found." }, { status: 404 });
+  return withApiLogging(request, "/api/demo/journey", async () => {
+    if (!isPersonaDemo()) return Response.json({ error: "Not found." }, { status: 404 });
+    const auth = await requirePipelineUser(request, ["admin", "reviewer"]);
+    if (!auth.ok) return auth.response;
+    const originFailure = requireSameOriginMutation(request);
+    if (originFailure) return originFailure;
 
-  try {
-    await touchWorkspaceMember(personaUser("assessor"));
-    const template = getPipelineDemoScenario("new-intake");
-    if (!template) throw new Error("The practice case template is unavailable.");
-    const origin = process.env.PIPELINE_PERSONA_DEMO_ORIGIN!;
-    const client = (path: string, init?: RequestInit) => callDemoApi(origin, path, init);
-    const seeded: Record<string, number> = {};
-
-    for (const entry of cases) {
-      const listing = await client(`/api/referrals?workspace=all&q=${encodeURIComponent(entry.name)}&limit=20`) as { referrals: SeedReferral[] };
-      const existing = listing.referrals.find((referral) => referral.tags?.includes(journeyTag)
-        && (referral.tags.includes(entry.key) || referral.tags.includes(`pipeline-assessor-journey-${entry.key}`)));
-      if (existing) {
-        seeded[entry.key] = existing.id;
-        continue;
-      }
-
-      const input = {
-        ...buildPipelineDemoReferral(template, entry.assigned ? "Jordan Lee" : "Unassigned"),
-        name: entry.name,
-        community: entry.community,
-        county: entry.community === "San Pablo" ? "Contra Costa County" : entry.community === "Santa Clarita" ? "Los Angeles County" : "Stanislaus County",
-        owner: entry.assigned ? "Jordan Lee" : "Unassigned",
-        tags: [journeyTag, `pipeline-assessor-journey-${entry.key}`],
-        note: "Synthetic assessor orientation case. No real client or placement data.",
-      };
-      const created = await client("/api/referrals", {
-        method: "POST",
-        body: JSON.stringify({
-          referral: input,
-          ...(entry.assigned ? { assignee_id: "practice-assessor" } : {}),
-          client_mutation_id: mutationId(`${entry.key}:referral`),
-        }),
-      }) as { referral: SeedReferral };
-      let referral = created.referral;
-      seeded[entry.key] = referral.id;
-
-      if (entry.packet) {
-        const file = await uploadFaceSheet(origin, client, referral, entry.key, entry.name, entry.community);
-        const refreshed = await client(`/api/referrals/${referral.id}`) as { referral: SeedReferral };
-        referral = refreshed.referral;
-        const reviewed = await client(`/api/referrals/${referral.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({
-            if_match: referral.version,
-            if_match_sections: { documents: referral.sectionVersions.documents },
-            patch: {
-              documentName: file.name,
-              documentSizeBytes: file.size,
-              documentHash: file.sha256,
-              packetId: file.packetId,
-              packetStatus: "reviewed",
-              documentStatus: "Reviewed",
-              packetReadiness: { ready: true, blockers: [] },
-              packetCompleteness: { required_total: 1, required_ready: 1, missing_items: [] },
-            },
-          }),
-        }) as { referral: SeedReferral };
-        referral = reviewed.referral;
-      }
-
-      if (entry.assessment === "none") continue;
-      const createdAssessment = await client(`/api/referrals/${referral.id}/assessments`, {
-        method: "POST",
-        body: JSON.stringify({
-          client_mutation_id: mutationId(`${entry.key}:assessment`),
-          data: {
-            current_location: "Synthetic referral source",
-            ...(entry.assessment === "started" ? { prior_placements: "Synthetic prior placement; length and discharge reason need verification." } : {}),
-          },
-        }),
-      }) as { assessment: SeedAssessment };
-      let assessment = createdAssessment.assessment;
-
-      if (entry.assessment === "unscheduled") continue;
-      const scheduled = await client(`/api/assessments/${encodeURIComponent(assessment.assessment_id)}/schedule`, {
-        method: "POST",
-        body: JSON.stringify({
-          if_match: assessment.version,
-          client_mutation_id: mutationId(`${entry.key}:schedule`),
-          schedule: {
-            start_at: appointmentTime(entry.daysAhead),
-            duration_minutes: 60,
-            method: "zoom",
-            location: "Synthetic Zoom room - no live link",
-            status: "scheduled",
-          },
-        }),
-      }) as { assessment: SeedAssessment };
-      assessment = scheduled.assessment;
-
-      if (entry.assessment === "started") {
-        await client(`/api/assessments/${encodeURIComponent(assessment.assessment_id)}/start`, {
-          method: "POST",
-          body: JSON.stringify({ if_match: assessment.version, client_mutation_id: mutationId(`${entry.key}:start`) }),
-        });
-      }
+    try {
+      const seeded = await prepareJourney();
+      return Response.json({ primary_referral_id: seeded.taylor, seeded_count: Object.keys(seeded).length }, {
+        headers: { "Cache-Control": "private, no-store, max-age=0" },
+      });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Practice Home could not be prepared." }, { status: 503 });
     }
+  });
+}
 
-    return Response.json({ primary_referral_id: seeded.taylor, seeded_count: Object.keys(seeded).length }, {
-      headers: { "Cache-Control": "private, no-store, max-age=0" },
+async function prepareJourney() {
+  await touchWorkspaceMember(personaUser("assessor"));
+  const template = getPipelineDemoScenario("new-intake");
+  if (!template) throw new Error("The practice case template is unavailable.");
+  const origin = process.env.PIPELINE_PERSONA_DEMO_ORIGIN!;
+  const client: DemoClient = (path, init) => callDemoApi(origin, path, init);
+  const seeded: Record<string, number> = {};
+  for (const entry of cases) seeded[entry.key] = await ensureCase(origin, client, template, entry);
+  return seeded;
+}
+
+async function ensureCase(origin: string, client: DemoClient, template: PipelineDemoScenario, entry: JourneyCase) {
+  const listing = await client(`/api/referrals?workspace=all&q=${encodeURIComponent(entry.name)}&limit=20`) as { referrals: SeedReferral[] };
+  const existing = listing.referrals.find((referral) => referral.tags?.includes(journeyTag)
+    && (referral.tags.includes(entry.key) || referral.tags.includes(`pipeline-assessor-journey-${entry.key}`)));
+  if (existing) return existing.id;
+
+  let referral = await createSeedReferral(client, template, entry);
+  if (entry.packet) referral = await completePacket(origin, client, referral, entry);
+  if (entry.assessment !== "none") await completeAssessment(client, referral, entry);
+  return referral.id;
+}
+
+async function createSeedReferral(client: DemoClient, template: PipelineDemoScenario, entry: JourneyCase) {
+  const owner = entry.assigned ? "Jordan Lee" : "Unassigned";
+  const input = {
+    ...buildPipelineDemoReferral(template, owner),
+    name: entry.name,
+    community: entry.community,
+    county: entry.community === "San Pablo" ? "Contra Costa County" : entry.community === "Santa Clarita" ? "Los Angeles County" : "Stanislaus County",
+    owner,
+    tags: [journeyTag, `pipeline-assessor-journey-${entry.key}`],
+    note: "Synthetic assessor orientation case. No real client or placement data.",
+  };
+  const created = await client("/api/referrals", {
+    method: "POST",
+    body: JSON.stringify({
+      referral: input,
+      ...(entry.assigned ? { assignee_id: "practice-assessor" } : {}),
+      client_mutation_id: mutationId(`${entry.key}:referral`),
+    }),
+  }) as { referral: SeedReferral };
+  return created.referral;
+}
+
+async function completePacket(origin: string, client: DemoClient, referral: SeedReferral, entry: JourneyCase) {
+  const file = await uploadFaceSheet(origin, client, referral, entry.key, entry.name, entry.community);
+  const refreshed = await client(`/api/referrals/${referral.id}`) as { referral: SeedReferral };
+  referral = refreshed.referral;
+  const reviewed = await client(`/api/referrals/${referral.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      if_match: referral.version,
+      if_match_sections: { documents: referral.sectionVersions.documents },
+      patch: {
+        documentName: file.name,
+        documentSizeBytes: file.size,
+        documentHash: file.sha256,
+        packetId: file.packetId,
+        packetStatus: "reviewed",
+        documentStatus: "Reviewed",
+        packetReadiness: { ready: true, blockers: [] },
+        packetCompleteness: { required_total: 1, required_ready: 1, missing_items: [] },
+      },
+    }),
+  }) as { referral: SeedReferral };
+  return reviewed.referral;
+}
+
+async function completeAssessment(client: DemoClient, referral: SeedReferral, entry: Exclude<JourneyCase, { assessment: "none" }>) {
+  const createdAssessment = await client(`/api/referrals/${referral.id}/assessments`, {
+    method: "POST",
+    body: JSON.stringify({
+      client_mutation_id: mutationId(`${entry.key}:assessment`),
+      data: {
+        current_location: "Synthetic referral source",
+        ...(entry.assessment === "started" ? { prior_placements: "Synthetic prior placement; length and discharge reason need verification." } : {}),
+      },
+    }),
+  }) as { assessment: SeedAssessment };
+  let assessment = createdAssessment.assessment;
+
+  if (entry.assessment === "unscheduled") return;
+  const scheduled = await client(`/api/assessments/${encodeURIComponent(assessment.assessment_id)}/schedule`, {
+    method: "POST",
+    body: JSON.stringify({
+      if_match: assessment.version,
+      client_mutation_id: mutationId(`${entry.key}:schedule`),
+      schedule: {
+        start_at: appointmentTime(entry.daysAhead),
+        duration_minutes: 60,
+        method: "zoom",
+        location: "Synthetic Zoom room - no live link",
+        status: "scheduled",
+      },
+    }),
+  }) as { assessment: SeedAssessment };
+  assessment = scheduled.assessment;
+
+  if (entry.assessment === "started") {
+    await client(`/api/assessments/${encodeURIComponent(assessment.assessment_id)}/start`, {
+      method: "POST",
+      body: JSON.stringify({ if_match: assessment.version, client_mutation_id: mutationId(`${entry.key}:start`) }),
     });
-  } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Practice Home could not be prepared." }, { status: 503 });
   }
 }
 
@@ -164,7 +181,7 @@ async function callDemoApi(origin: string, path: string, init: RequestInit = {})
 
 async function uploadFaceSheet(
   origin: string,
-  client: (path: string, init?: RequestInit) => Promise<unknown>,
+  client: DemoClient,
   referral: SeedReferral,
   key: string,
   name: string,
