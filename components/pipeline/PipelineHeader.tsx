@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CircleHelp, GraduationCap, LogOut, Settings, TestTube2, Trash2, UserRound } from "lucide-react";
@@ -16,6 +16,8 @@ import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/c
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
+import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
+import DemoAssessmentLabButton from "@/components/pipeline/DemoAssessmentLabButton";
 
 export default function PipelineHeader() {
   const auth = usePipelineAuth();
@@ -76,7 +78,7 @@ export default function PipelineHeader() {
     };
   }, [isProfileMenuOpen]);
 
-  const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
+  const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" ? "Account" : "Eric Wilson");
   const profileAppearance = getProfileAppearance(user);
   const trashActive = activeSearchParams.get("screen") === "trash";
   const isWelcomeSurface = homeMode === "welcome"
@@ -177,19 +179,7 @@ export default function PipelineHeader() {
       </div>
 
       <div className="relative z-10 ml-auto flex items-center">
-        <ActiveAssessorSessionPill user={user} />
-        {!hideGlobalGuide ? (
-          <button
-            type="button"
-            aria-label="Open guided tutorials"
-            title="Guided tutorials"
-            data-guide-target="guided-help"
-            onClick={() => dispatchOperatorGuide({ type: "open-library" })}
-            className="mr-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 min-[360px]:flex sm:h-12 sm:w-10"
-          >
-            <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
-          </button>
-        ) : null}
+        <HeaderSessionControls user={user} hideGlobalGuide={hideGlobalGuide} />
         <div ref={profileMenuRef} className="relative">
           <button
             type="button"
@@ -214,6 +204,7 @@ export default function PipelineHeader() {
             hidden={!isProfileMenuOpen}
             className="pipeline-popover-enter absolute right-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-88px)] w-[min(320px,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-md border border-[#cfd6d2] bg-white shadow-[0_12px_30px_rgba(17,17,17,0.14)]"
           >
+            <DemoProfileMenu user={user} signedInName={signedInName} onSelect={() => setIsProfileMenuOpen(false)} onTrash={() => { setIsProfileMenuOpen(false); navigateTo("trash"); }}>
             <div className="border-b border-[#e2e6e3] px-5 py-4">
               <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Profile settings</div>
               <div className="mt-2 truncate text-[15px] font-black text-[#111111]">{signedInName}</div>
@@ -251,11 +242,53 @@ export default function PipelineHeader() {
                 <span className="text-[11px] font-black">Sign out</span>
               </button>
             ) : null}
+            </DemoProfileMenu>
           </div>
         </div>
       </div>
     </header>
   );
+}
+
+function HeaderSessionControls({ user, hideGlobalGuide }: { user: PipelineCurrentUser | null; hideGlobalGuide: boolean }) {
+  return <>
+    {user?.demoPersona ? <DemoAssessmentLabButton className="mr-1 flex h-10 shrink-0 items-center px-2 text-[12px] font-semibold text-[#08745f] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><span className="sm:hidden">Lab</span><span className="hidden sm:inline">Assessment lab</span></DemoAssessmentLabButton> : null}
+    {user?.demoPersona ? <DemoPersonaSwitch persona={user.demoPersona} /> : <ActiveAssessorSessionPill user={user} />}
+    {!hideGlobalGuide && !user?.demoPersona ? (
+      <button
+        type="button"
+        aria-label="Open guided tutorials"
+        title="Guided tutorials"
+        data-guide-target="guided-help"
+        onClick={() => dispatchOperatorGuide({ type: "open-library" })}
+        className="mr-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 min-[360px]:flex sm:h-12 sm:w-10"
+      >
+        <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
+      </button>
+    ) : null}
+  </>;
+}
+
+function DemoProfileMenu({ user, signedInName, onSelect, onTrash, children }: {
+  user: PipelineCurrentUser | null;
+  signedInName: string;
+  onSelect: () => void;
+  onTrash: () => void;
+  children: ReactNode;
+}) {
+  if (!user?.demoPersona) return children;
+  return <>
+    <div className="border-b border-[#e2e6e3] px-4 py-3">
+      <div className="text-[15px] font-semibold text-[#222b27]">{signedInName}</div>
+      <div className="mt-1 text-[12px] text-[#68736d]">{user.demoPersona === "supervisor" ? "Supervisor" : "Assessor"}</div>
+    </div>
+    <div className="p-1 text-[14px] text-[#28372f]">
+      <DemoAssessmentLabButton className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73] sm:hidden" />
+      <Link href="/settings" onClick={onSelect} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Profile</Link>
+      <Link href="/training" onClick={onSelect} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Learning Center</Link>
+      <button type="button" onClick={onTrash} className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Trash</button>
+    </div>
+  </>;
 }
 
 function normalizePathname(pathname: string | null) {

@@ -131,6 +131,8 @@ const Header = load("components/pipeline/PipelineHeader.tsx", {
   "@/components/pipeline/AssessorSessionControl": { ActiveAssessorSessionPill: () => null, AssessorSessionMenuAction: () => null },
   "@/components/pipeline/PipelineActionNav": ({ showReports }) => React.createElement("span", { "data-report-access": String(showReports) }),
   "@/components/pipeline/PipelineLogoMark": () => null,
+  "@/components/pipeline/DemoPersonaSwitch": () => null,
+  "@/components/pipeline/DemoAssessmentLabButton": () => null,
   "@/components/pipeline/pipeline-shell-context": { usePipelineShell: () => ({ homeMode: "welcome", searchOpen: false }) },
   "@/lib/auth/authenticated-fetch": {}, "@/lib/auth/entra-client": {},
   "@/components/auth/PipelineAuthProvider": { usePipelineAuth: providerModule.usePipelineAuth },
@@ -235,7 +237,7 @@ for (const screen of ["home", "referrals", "calendar", "profiles"]) {
 let respond = async () => Response.json({ fixture: true });
 const browserCache = load("lib/auth/authenticated-fetch.ts", {
   "@/lib/auth/entra-client": { pipelineAuthRequired: false },
-  "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {} },
+  "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {}, readPagePersona: () => null },
   "@/lib/auth/post-login-path": {}, "@/lib/pipeline/base-path": { toPipelinePath: (path) => path },
 }, { fetch: (...args) => respond(...args), window: { setTimeout, clearTimeout } });
 for (const endpoint of ["/api/assessments/fixture", "/api/assessments/fixture/sign", "/api/referrals/42", "/api/identity/candidates/fixture"]) {

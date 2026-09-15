@@ -3,6 +3,9 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizePipelineBasePath } from "./shared/pipeline-base-path.mjs";
 import { PIPELINE_PERMISSIONS_POLICY, pipelineContentSecurityPolicy } from "./shared/pipeline-security-headers.mjs";
+import { assertPersonaDemoIsolation } from "./shared/persona-demo-config.mjs";
+
+assertPersonaDemoIsolation();
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 const basePath = normalizePipelineBasePath(process.env.NEXT_PUBLIC_PIPELINE_BASE_PATH);

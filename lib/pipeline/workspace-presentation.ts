@@ -186,12 +186,16 @@ export function getWorkspaceWorkflowLabel(referral: Referral) {
 }
 
 export function visibleWorkspaceTags(tags: string[] | undefined) {
-  return (tags ?? []).filter((tag) => !hiddenWorkspaceTags.has(tag.trim().toLowerCase()));
+  return (tags ?? []).filter((tag) => {
+    const normalized = tag.trim().toLowerCase();
+    return !hiddenWorkspaceTags.has(normalized) && !normalized.startsWith("pipeline-assessor-journey-");
+  });
 }
 
 export function isInternalWorkspaceTag(tag: string) {
   const normalized = tag.trim().toLowerCase();
   return internalWorkspaceTags.has(normalized)
+    || normalized.startsWith("pipeline-assessor-journey-")
     || normalized.startsWith("allo-")
     || normalized.startsWith("import-")
     || normalized.startsWith("needs-");

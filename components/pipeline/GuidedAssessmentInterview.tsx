@@ -6,6 +6,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
+import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabButton";
 import { AssessmentFieldWritingGuidePanel } from "@/components/pipeline/AssessmentInterviewFields";
 import { extractionOwnedFields, latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/assessment/assessment-tool-schema";
 
 type GuidedAssessmentInterviewProps = {
+  demoPersona?: "supervisor" | "assessor";
   assessment: PipelineAssessmentRecord;
   data: AssessmentToolData;
   activeSection: AssessmentToolSection;
@@ -64,6 +66,7 @@ const guidedAssessmentScreens = buildGuidedAssessmentScreens();
 const guidedAssessmentQuestionCount = guidedAssessmentScreens.reduce((total, screen) => total + screen.questions.length, 0);
 
 export default function GuidedAssessmentInterview({
+  demoPersona,
   assessment,
   data,
   activeSection,
@@ -147,6 +150,7 @@ export default function GuidedAssessmentInterview({
           {saveTone === "saved" ? <Check size={12} className="shrink-0" aria-hidden="true" /> : null}<span className="truncate">{saveStatus}</span>
         </span>
         <div className="ml-auto flex items-center gap-3 sm:ml-3">
+          <DemoAssessmentControls persona={demoPersona} />
           <button
             type="button"
             onClick={onExitToChart}

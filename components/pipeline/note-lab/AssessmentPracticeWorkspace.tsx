@@ -19,6 +19,7 @@ import {
   type AssessmentInterviewQuestion,
 } from "@/lib/assessment/assessment-interview-schema";
 import {
+  createEmptyAssessmentToolData,
   pickAssessmentToolData,
   type AssessmentToolData,
   type AssessmentToolFieldKey,
@@ -82,16 +83,73 @@ function autosaveLabel(state: PracticeAutosaveState) {
   return "Autosaved in this browser";
 }
 
+function PracticeHeader({ walkthroughOnly, returnToPresentation, returnLabel, exitLab, reset }: {
+  walkthroughOnly: boolean;
+  returnToPresentation: boolean;
+  returnLabel: string;
+  exitLab: () => void;
+  reset: () => void;
+}) {
+  return (
+      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[#cfd8d4] bg-white px-4 py-2 sm:px-6">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-[17px] font-black text-[#202522]">{walkthroughOnly ? "Assessment lab" : "Jordan Practice"}</h1>
+            {!walkthroughOnly ? <span className="bg-[#e7f3ee] px-2 py-1 text-[9px] font-black uppercase text-[#0f6f5d]">Practice</span> : null}
+          </div>
+          <p className={`mt-0.5 text-[11px] text-[#737b77] ${walkthroughOnly ? "hidden sm:block" : ""}`}>{walkthroughOnly ? "Try the questions and Answer help. Nothing is added to your referral." : "Synthetic training record"}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {walkthroughOnly ? <button type="button" aria-label={returnLabel} onClick={exitLab} className="inline-flex h-9 items-center gap-2 px-2 text-[12px] font-semibold text-[#0f6f5d] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><ArrowLeft size={14} aria-hidden="true" /><span className="sm:hidden">Back</span><span className="hidden sm:inline">{returnLabel}</span></button> : returnToPresentation ? (
+            <Link href={toPipelinePath("/training/demo?slide=review-and-sign")} className="inline-flex h-9 items-center gap-2 border border-[#0f8b73] bg-[#e7f3ee] px-3 text-[10px] font-black text-[#0f6f5d] outline-none hover:bg-[#dceee7] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+              <ArrowLeft size={13} aria-hidden="true" />Back to presentation
+            </Link>
+          ) : null}
+          <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+            <RotateCcw size={13} aria-hidden="true" />Reset
+          </button>
+        </div>
+      </header>
+  );
+}
+
+function PracticeFooter({ walkthroughOnly, currentIndex, autosaveState, onBack, saveAndContinue, exitLab }: {
+  walkthroughOnly: boolean;
+  currentIndex: number;
+  autosaveState: PracticeAutosaveState;
+  onBack: () => void;
+  saveAndContinue: () => void;
+  exitLab: () => void;
+}) {
+  return (
+    <footer className={`flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#d9dfdb] bg-white ${walkthroughOnly ? "px-5 py-3 sm:px-8" : "mt-7 pt-5"}`}>
+      <button type="button" disabled={currentIndex === 0} onClick={onBack} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black text-[#4d5652] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} aria-hidden="true" />Back</button>
+      {!walkthroughOnly ? <span aria-live="polite" className={`order-3 w-full text-center text-[9px] font-bold sm:order-none sm:w-auto ${autosaveState === "failed" ? "text-[#a33b32]" : "text-[#747d79]"}`}>{autosaveLabel(autosaveState)}</span> : null}
+      <button type="button" onClick={walkthroughOnly && currentIndex === assessmentInterviewSections.length - 1 ? exitLab : saveAndContinue} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
+        {walkthroughOnly ? currentIndex === assessmentInterviewSections.length - 1 ? "Done" : "Next" : currentIndex === assessmentInterviewSections.length - 1 ? "Save" : "Save and continue"}
+        {currentIndex < assessmentInterviewSections.length - 1 ? <ChevronRight size={14} aria-hidden="true" /> : null}
+      </button>
+    </footer>
+  );
+}
+
+
 export default function AssessmentPracticeWorkspace({
   traineeId,
   traineeName,
   returnToPresentation = false,
+  walkthroughOnly = false,
+  onExit,
+  returnLabel = "Back to Pipeline",
 }: {
   traineeId: string;
   traineeName: string;
   returnToPresentation?: boolean;
+  walkthroughOnly?: boolean;
+  onExit?: () => void;
+  returnLabel?: string;
 }) {
-  const [data, setData] = useState(createAssessmentPracticeData);
+  const [data, setData] = useState(() => walkthroughOnly ? createEmptyAssessmentToolData() : createAssessmentPracticeData());
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>(assessmentInterviewSections[0].key);
   const [autosaveState, setAutosaveState] = useState<PracticeAutosaveState>("loading");
   const [storageReady, setStorageReady] = useState(false);
@@ -102,6 +160,9 @@ export default function AssessmentPracticeWorkspace({
   const coverage = getAssessmentInterviewCoverage(data);
   const currentIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
   const section = assessmentInterviewSections[currentIndex] ?? assessmentInterviewSections[0];
+  const navigationGroups = walkthroughOnly
+    ? [{ label: "", sections: assessmentInterviewSections.map((item) => item.key) }]
+    : assessmentPracticeNavigationGroups;
   const questions = getAssessmentInterviewQuestions(section.key, data);
   const capturedHere = questions.filter((question) => hasAssessmentInterviewValue(data[question.field])).length;
   const requiredFields = useMemo(
@@ -109,6 +170,7 @@ export default function AssessmentPracticeWorkspace({
     [data],
   );
   useEffect(() => {
+    if (walkthroughOnly) return;
     setStorageReady(false);
     try {
       const stored = readStoredAssessmentPractice(window.localStorage.getItem(storageKey));
@@ -122,16 +184,16 @@ export default function AssessmentPracticeWorkspace({
     } finally {
       setStorageReady(true);
     }
-  }, [storageKey]);
+  }, [storageKey, walkthroughOnly]);
 
   useEffect(() => {
-    if (!storageReady) return;
+    if (walkthroughOnly || !storageReady) return;
     setAutosaveState("saving");
     const timeout = window.setTimeout(() => {
       setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection, data }) ? "saved" : "failed");
     }, 300);
     return () => window.clearTimeout(timeout);
-  }, [activeSection, data, storageKey, storageReady]);
+  }, [activeSection, data, storageKey, storageReady, walkthroughOnly]);
 
   const update = (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => {
     setData((current) => ({ ...current, [field]: value }) as AssessmentToolData);
@@ -139,17 +201,17 @@ export default function AssessmentPracticeWorkspace({
 
   const reset = () => {
     try {
-      window.localStorage.removeItem(storageKey);
+      if (!walkthroughOnly) window.localStorage.removeItem(storageKey);
     } catch {
       setAutosaveState("failed");
     }
-    setData(createAssessmentPracticeData());
+    setData(walkthroughOnly ? createEmptyAssessmentToolData() : createAssessmentPracticeData());
     setActiveSection(assessmentInterviewSections[0].key);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
   };
 
   const chooseSection = (sectionKey: AssessmentToolSection) => {
-    setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection: sectionKey, data }) ? "saved" : "failed");
+    if (!walkthroughOnly) setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection: sectionKey, data }) ? "saved" : "failed");
     setActiveSection(sectionKey);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
   };
@@ -166,44 +228,29 @@ export default function AssessmentPracticeWorkspace({
       chooseSection(nextSection);
       return;
     }
-    setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection, data }) ? "saved" : "failed");
+    if (!walkthroughOnly) setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection, data }) ? "saved" : "failed");
   };
 
+  const exitLab = () => { if (onExit) onExit(); else window.location.assign(toPipelinePath("/")); };
+
+  const footer = <PracticeFooter walkthroughOnly={walkthroughOnly} currentIndex={currentIndex} autosaveState={autosaveState} onBack={() => moveSection(-1)} saveAndContinue={saveAndContinue} exitLab={exitLab} />;
   return (
     <div aria-label={`${traineeName} practice assessment`} className="pipeline-route-enter flex h-full min-h-0 flex-col overflow-hidden bg-white">
-      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[#cfd8d4] bg-white px-4 py-2 sm:px-6">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-[17px] font-black text-[#202522]">Jordan Practice</h1>
-            <span className="bg-[#e7f3ee] px-2 py-1 text-[9px] font-black uppercase text-[#0f6f5d]">Practice</span>
-          </div>
-          <p className="mt-0.5 text-[10px] text-[#737b77]">Synthetic training record</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {returnToPresentation ? (
-            <Link href={toPipelinePath("/training/demo?slide=review-and-sign")} className="inline-flex h-9 items-center gap-2 border border-[#0f8b73] bg-[#e7f3ee] px-3 text-[10px] font-black text-[#0f6f5d] outline-none hover:bg-[#dceee7] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-              <ArrowLeft size={13} aria-hidden="true" />Back to presentation
-            </Link>
-          ) : null}
-          <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-            <RotateCcw size={13} aria-hidden="true" />Reset
-          </button>
-        </div>
-      </header>
+      <PracticeHeader walkthroughOnly={walkthroughOnly} returnToPresentation={returnToPresentation} returnLabel={returnLabel} exitLab={exitLab} reset={reset} />
 
-      <div className="min-h-0 flex-1 bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
+      <div className="flex min-h-0 flex-1 flex-col bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
         <aside aria-label="Assessment section navigation" className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
           <div className="mb-5 px-2">
             <div className="flex items-end justify-between">
-              <span className="text-[10px] font-black uppercase text-[#666666]">Captured</span>
-              <strong className="text-[15px]">{coverage.captured}/{coverage.total}</strong>
+              <span className="text-[10px] font-black uppercase text-[#666666]">{walkthroughOnly ? "Section" : "Captured"}</span>
+              <strong className="text-[15px]">{walkthroughOnly ? `${currentIndex + 1}/${assessmentInterviewSections.length}` : `${coverage.captured}/${coverage.total}`}</strong>
             </div>
-            <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73]" style={{ width: `${coverage.percent}%` }} /></div>
+            <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73]" style={{ width: `${walkthroughOnly ? ((currentIndex + 1) / assessmentInterviewSections.length) * 100 : coverage.percent}%` }} /></div>
           </div>
           <nav aria-label="Practice assessment sections" className="space-y-5">
-            {assessmentPracticeNavigationGroups.map((group) => (
+            {navigationGroups.map((group) => (
               <div key={group.label}>
-                <div className="px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#8a8a8a]">{group.label}</div>
+                {group.label ? <div className="px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#8a8a8a]">{group.label}</div> : null}
                 <div className="mt-1 space-y-0.5">
                   {group.sections.map((sectionKey) => {
                     const item = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey);
@@ -214,7 +261,7 @@ export default function AssessmentPracticeWorkspace({
                     return (
                       <button key={item.key} type="button" onClick={() => chooseSection(item.key)} aria-current={active ? "step" : undefined} className={`flex w-full min-w-0 items-center justify-between gap-2 border-l-2 px-3 py-2.5 text-left text-[11px] font-black outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#595959] hover:bg-white hover:text-[#0f8b73]"}`}>
                         <span className="truncate">{item.label}</span>
-                        <span className="shrink-0 text-[9px] font-semibold opacity-65">{captured}/{sectionQuestions.length}</span>
+                        {!walkthroughOnly ? <span className="shrink-0 text-[9px] font-semibold opacity-65">{captured}/{sectionQuestions.length}</span> : null}
                       </button>
                     );
                   })}
@@ -224,12 +271,12 @@ export default function AssessmentPracticeWorkspace({
           </nav>
         </aside>
 
-        <main data-assessment-practice-scroll className="min-h-0 overflow-y-auto bg-white">
+        <main data-assessment-practice-scroll className="min-h-0 flex-1 overflow-y-auto bg-white">
           <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
             <label htmlFor="practice-section" className="mb-1 block text-[9px] font-black uppercase text-[#737373]">Assessment section</label>
             <div className="relative">
               <select id="practice-section" value={section.key} onChange={(event) => chooseSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">
-                {assessmentPracticeNavigationGroups.map((group) => (
+                {navigationGroups.map((group) => (
                   <optgroup key={group.label} label={group.label}>
                     {group.sections.map((sectionKey) => {
                       const item = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey);
@@ -248,10 +295,10 @@ export default function AssessmentPracticeWorkspace({
                 <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Section {currentIndex + 1} of {assessmentInterviewSections.length}</div>
                 <h2 className="mt-1 text-[22px] font-black text-[#202522]">{section.label}</h2>
               </div>
-              <div className="text-right">
+              {!walkthroughOnly ? <div className="text-right">
                 <div className="text-[18px] font-black">{capturedHere}/{questions.length}</div>
                 <div className="text-[9px] font-black uppercase text-[#8a8a8a]">captured here</div>
-              </div>
+              </div> : null}
             </div>
 
             <PracticeQuestions
@@ -261,20 +308,11 @@ export default function AssessmentPracticeWorkspace({
               onUpdate={update}
             />
 
-            <footer className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#d9dfdb] pt-5">
-              <button type="button" disabled={currentIndex === 0} onClick={() => moveSection(-1)} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black text-[#4d5652] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} aria-hidden="true" />Back</button>
-              <span aria-live="polite" className={`order-3 w-full text-center text-[9px] font-bold sm:order-none sm:w-auto ${autosaveState === "failed" ? "text-[#a33b32]" : "text-[#747d79]"}`}>
-                {autosaveLabel(autosaveState)}
-              </span>
-              <button type="button" onClick={saveAndContinue} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
-                {currentIndex === assessmentInterviewSections.length - 1 ? "Save" : "Save and continue"}
-                {currentIndex < assessmentInterviewSections.length - 1 ? <ChevronRight size={14} aria-hidden="true" /> : null}
-              </button>
-            </footer>
+            {!walkthroughOnly ? footer : null}
           </div>
         </main>
       </div>
-
+      {walkthroughOnly ? footer : null}
     </div>
   );
 }
@@ -351,12 +389,13 @@ function PracticeField({
       </div>
       <PracticeControl question={question} value={value} unableReason={unableReason} onUnableReasonChange={onUnableReasonChange} onUpdate={onUpdate} />
       {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
-      {hasUsefulWritingGuidance(question) ? <PracticeQuestionGuide question={question} /> : null}
+      <PracticeQuestionGuide question={question} />
     </div>
   );
 }
 
 function PracticeQuestionGuide({ question }: { question: AssessmentInterviewQuestion }) {
+  if (question.control !== "textarea") return null;
   const specification = getAssessmentFieldWritingSpec(question.field);
   const narrativeGuide = getAssessmentNarrativeGuide(question.field);
   if (!specification || !narrativeGuide) return null;
@@ -381,10 +420,6 @@ function PracticeQuestionGuide({ question }: { question: AssessmentInterviewQues
       </div>
     </details>
   );
-}
-
-function hasUsefulWritingGuidance(question: AssessmentInterviewQuestion) {
-  return question.control === "textarea" && Boolean(getAssessmentFieldWritingSpec(question.field));
 }
 
 type PracticeControlProps = {

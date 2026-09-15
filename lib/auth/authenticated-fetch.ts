@@ -10,6 +10,7 @@ import {
 import {
   clearPipelineBrowserSessionCache,
   probePipelineServerSession,
+  readPagePersona,
   renewActivePipelineSession,
   type PipelineSessionUser,
 } from "@/lib/auth/browser-session";
@@ -244,6 +245,8 @@ export async function fetchPipelineApi(
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? defaultTimeoutMs);
   const headers = new Headers(init.headers);
+  const persona = readPagePersona();
+  if (persona) headers.set("x-pipeline-persona", persona);
 
   if (init.body && !headers.has("Content-Type") && typeof init.body === "string") {
     headers.set("Content-Type", "application/json");

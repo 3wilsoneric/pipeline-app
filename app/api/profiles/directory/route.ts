@@ -33,12 +33,8 @@ export async function GET(request: Request) {
     if (community.length > 128) return jsonError("community must be 128 characters or fewer.");
     if (url.searchParams.get("cursor") && !cursor) return jsonError("cursor is invalid.");
 
-    if (cursor?.phase === "pipeline") {
-      return Response.json(
-        await pipelinePage(request, auth.user, query, community, limit, cursor.offset, true),
-        { headers: privateHeaders() },
-      );
-    }
+    const pipelineOnly = await pipelineOnlyResponse(request, auth.user, query, community, limit, cursor);
+    if (pipelineOnly) return pipelineOnly;
 
     try {
       const [clinical, pipeline] = await Promise.all([
@@ -93,6 +89,22 @@ export async function GET(request: Request) {
   });
 }
 
+async function pipelineOnlyResponse(
+  request: Request,
+  user: Parameters<typeof listPipelineClientWorkspaces>[0],
+  query: string,
+  community: string,
+  limit: number,
+  cursor: DirectoryCursor | null,
+) {
+  if (!user.demoPersona && cursor?.phase !== "pipeline") return null;
+  const offset = cursor?.phase === "pipeline" ? cursor.offset : 0;
+  return Response.json(
+    await pipelinePage(request, user, query, community, limit, offset, !user.demoPersona),
+    { headers: privateHeaders() },
+  );
+}
+
 async function pipelinePage(
   request: Request,
   user: Parameters<typeof listPipelineClientWorkspaces>[0],
@@ -118,7 +130,9 @@ async function pipelinePage(
     max_age_hours: 24,
     warning: "The Alamo client directory is unavailable; Pipeline-only client workspaces remain available.",
   };
-  try {
+  if (user.demoPersona) {
+    freshness = { status: "fresh", age_hours: 0, max_age_hours: 24, warning: null };
+  } else try {
     const metadata = await getClinicalClients(request, { query, community, limit: 1 });
     dataAsOf = metadata.data_as_of;
     freshness = metadata.freshness;
@@ -173,6 +187,14 @@ async function currentCensusPage(
   limit: number,
   cursor?: string,
 ): Promise<ClientWorkspaceDirectoryResponse> {
+  // The isolated copy has no imported census. New local client charts remain
+  // available through the ordinary All clients directory, not a fabricated stay.
+  if (user.demoPersona) return {
+    clients: [], total: 0, limit, query, community: community || null,
+    next_cursor: null, data_as_of: new Date().toISOString().slice(0, 10),
+    freshness: { status: "fresh", age_hours: 0, max_age_hours: 24, warning: null },
+    clinical_warning: null,
+  };
   const roster = await getClinicalRoster(request, { query, community, limit, cursor });
   const summaries = await getClinicalClientWorkspaceSummaries(user, roster.residents.flatMap((resident) =>
     resident.canonical_client_id ? [{ canonicalClientId: resident.canonical_client_id, residentNumbers: resident.resident_number ? [resident.resident_number] : [] }] : [],

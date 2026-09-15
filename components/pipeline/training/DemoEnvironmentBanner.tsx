@@ -20,7 +20,7 @@ export default function DemoEnvironmentBanner() {
     || assessmentMode === "guided"
   );
 
-  if (!active) return null;
+  if (!active || process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true") return null;
 
   return (
     <div role="status" data-pipeline-demo-banner="true" className="flex h-8 shrink-0 items-center justify-center gap-3 border-b border-[#9fc6b9] bg-[#173f35] px-3 text-white">

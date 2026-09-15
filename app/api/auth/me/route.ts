@@ -23,6 +23,7 @@ export async function GET(request: Request) {
           email: user.email,
           name: user.name,
           roles: user.roles,
+          demoPersona: user.demoPersona,
           delegation: user.delegation,
           assessorSessionRecoveryRequired: hasAssessorSession(request) && !user.delegation,
         },
