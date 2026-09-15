@@ -17,7 +17,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { getContactSchedulingReadiness, requireContactStore } from "@/lib/pipeline/contact-store";
 import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { hasInitialDocument, hasManualIntakeAuthorization, profileIsReady } from "@/lib/pipeline/workflow-status";
+import { profileIsReady } from "@/lib/pipeline/workflow-status";
 
 export const runtime = "nodejs";
 
@@ -85,7 +85,6 @@ async function schedulingBlockers(
 ) {
   const blockers: string[] = [];
   if (!assessorId) blockers.push("Assign an assessor before scheduling.");
-  if (!hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral)) blockers.push("Review an intake packet or authorize manual intake.");
   if (!profileIsReady(referral)) blockers.push("Complete the client name, date of birth, community, and referral source.");
   const contact = await getContactSchedulingReadiness(referral.id, referral);
   blockers.push(...contact.blockers);
