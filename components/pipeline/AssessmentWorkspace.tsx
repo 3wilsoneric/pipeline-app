@@ -130,6 +130,7 @@ type AssessmentWorkspaceProps = {
   }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
+  onOpenWorkspace?: () => void;
   onActiveSectionChange?: (section: AssessmentToolSection) => void;
   onOpenAssignedWork?: () => void | Promise<void>;
 };
@@ -266,6 +267,7 @@ export default function AssessmentWorkspace({
   onSummaryChange,
   onAssessmentSaved,
   onContinueToWorkflow,
+  onOpenWorkspace,
   onActiveSectionChange,
   onOpenAssignedWork,
 }: AssessmentWorkspaceProps) {
@@ -1004,6 +1006,8 @@ export default function AssessmentWorkspace({
     }
   };
 
+  const workspaceControl = <WorkspaceReturnButton onOpen={onOpenWorkspace} onExit={closeAssessment} disabled={isBusy} />;
+
   const openAssignedWork = async () => {
     if (closingRef.current || !onOpenAssignedWork) return;
     closingRef.current = true;
@@ -1397,6 +1401,7 @@ export default function AssessmentWorkspace({
         onReview={(field, action) => void reviewExtractedField(field, action)}
         onSectionChange={setActiveSection}
         onOpenAssignedWork={onOpenAssignedWork ? () => void openAssignedWork() : undefined}
+        workspaceControl={workspaceControl}
         onExitToChart={() => setAssessmentView("chart")}
         onDone={() => {
           setActiveSection("provenance_qc");
@@ -1410,6 +1415,7 @@ export default function AssessmentWorkspace({
   return createPortal(
     <section role="dialog" aria-modal="true" aria-label="Assessment interview" data-assessment-view="chart" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
       <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dfdb] bg-white px-4 py-2 sm:flex-nowrap sm:px-6 lg:px-9">
+        {workspaceControl}
         {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isBusy} /> : null}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -1694,6 +1700,15 @@ function assessmentCompletionTarget(
   const field = (rule.key.startsWith("unable:") ? rule.key.slice("unable:".length) : rule.fields[0]) as AssessmentToolFieldKey;
   const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === field);
   return definition ? { field, label: rule.label, section: definition.section } : null;
+}
+
+function WorkspaceReturnButton({ onOpen, onExit, disabled }: {
+  onOpen?: () => void;
+  onExit: (onClosed?: () => void) => Promise<void>;
+  disabled: boolean;
+}) {
+  if (!onOpen) return null;
+  return <button type="button" onClick={() => void onExit(onOpen)} disabled={disabled} className="flex h-9 shrink-0 items-center gap-1 border border-[#c9ceca] px-2 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50"><ChevronLeft size={14} aria-hidden="true" />Workspace</button>;
 }
 
 export function assessmentOpenLabel(assessment: Pick<PipelineAssessmentRecord, "signed_at" | "started_at" | "scheduled_start_at">) {

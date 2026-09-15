@@ -63,6 +63,67 @@ async function createReferral(request: APIRequestContext) {
   return (await response.json()).referral as Referral;
 }
 
+test("assessment can return to Intake, add documents and resume the same saved interview", async ({ page }, testInfo) => {
+  const referral = await createReferral(page.request);
+  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
+    client_mutation_id: randomUUID(), data: { current_location: "Synthetic placement" },
+  } });
+  expect(created.status(), await created.text()).toBe(201);
+  const assessment = (await created.json()).assessment;
+  const scheduledStart = new Date(Date.now() + (28 * 24 + referral.id * 2) * 60 * 60 * 1000).toISOString();
+  const scheduled = await page.request.post(`/api/assessments/${assessment.assessment_id}/schedule`, { data: {
+    if_match: assessment.version, client_mutation_id: randomUUID(), schedule: {
+      status: "scheduled", start_at: scheduledStart, duration_minutes: 60, method: "record_review",
+    },
+  } });
+  expect(scheduled.status(), await scheduled.text()).toBe(200);
+  await page.goto(`/?screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await page.locator('[data-guide-target="assessment-begin-confirm"]').click();
+  const guided = page.locator('[data-guided-assessment="true"]');
+  await expect(guided).toBeVisible();
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(guided.getByRole("button", { name: "Workspace", exact: true })).toBeVisible();
+    expect(await guided.locator("header").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`workspace-return-${width}.png`) });
+  }
+  await guided.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+  const chart = page.locator('[data-assessment-view="chart"]');
+  const answer = chart.getByRole("textbox", { name: /Prior 5150/ });
+  await answer.fill("Synthetic answer kept while updating intake and adding a document.");
+  await chart.getByRole("button", { name: "Workspace", exact: true }).click();
+  await expect(chart).toHaveCount(0);
+  const intake = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Intake/ });
+  await expect(intake).toHaveAttribute("aria-current", "page");
+  const phoneSaved = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}`) && response.request().method() === "PATCH" && response.ok());
+  await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("555-0199");
+  await phoneSaved;
+  await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+  await page.getByLabel("Choose additional referral documents").setInputFiles({
+    name: "during-assessment-note.pdf", mimeType: "application/pdf", buffer: Buffer.from("Synthetic supporting note during assessment"),
+  });
+  await expect.poll(async () => {
+    const payload = await (await page.request.get(`/api/files?referral_id=${referral.id}`)).json();
+    return payload.files.map((file: { name: string }) => file.name);
+  }).toContain("during-assessment-note.pdf");
+  const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect(saved.scheduled_start_at).toBe(scheduledStart);
+  expect(new Date(saved.started_at).getTime()).toBeLessThan(new Date(scheduledStart).getTime());
+  expect(saved.prior_5150_5250_holds).toContain("Synthetic answer kept");
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment/ }).click();
+  await expect(guided).toBeVisible();
+  await guided.getByRole("button", { name: "Workspace", exact: true }).click();
+  await expect(guided).toHaveCount(0);
+  await expect(intake).toHaveAttribute("aria-current", "page");
+  const resumed = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect(resumed.assessment_id).toBe(assessment.assessment_id);
+  expect(resumed.started_at).toBe(saved.started_at);
+  expect(resumed.scheduled_start_at).toBe(saved.scheduled_start_at);
+  expect(resumed.prior_5150_5250_holds).toBe(saved.prior_5150_5250_holds);
+  const assessments = (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
+  expect(assessments).toHaveLength(1);
+});
+
 for (const width of [390, 1440]) {
   test(`Home always shows all seven assigned active referrals at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 960 });
