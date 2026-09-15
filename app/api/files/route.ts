@@ -35,13 +35,8 @@ export async function GET(request: Request) {
     if (identityStatus && !["linked", "candidate", "unmatched"].includes(identityStatus)) return jsonError("identity_status is invalid.");
     const sourceSystem = url.searchParams.get("source_system")?.trim() || undefined;
     if (sourceSystem && !["pipeline", "alamo_platform", "allo", "import"].includes(sourceSystem)) return jsonError("source_system is invalid.");
-    const uploadedAfter = validatedDate(url.searchParams.get("uploaded_after"));
-    if (uploadedAfter === false) return jsonError("uploaded_after must be YYYY-MM-DD.");
-    const uploadedBefore = validatedDate(url.searchParams.get("uploaded_before"));
-    if (uploadedBefore === false) return jsonError("uploaded_before must be YYYY-MM-DD.");
-    if (uploadedAfter && uploadedBefore && uploadedAfter > uploadedBefore) {
-      return jsonError("uploaded_after must be on or before uploaded_before.");
-    }
+    const uploadedRange = validateUploadedRange(url.searchParams);
+    if (!uploadedRange.ok) return jsonError(uploadedRange.message);
     const community = bounded(url.searchParams.get("community"), 128);
     if (community === false) return jsonError("community must be 128 characters or fewer.");
     const owner = bounded(url.searchParams.get("owner"), 128);
@@ -59,8 +54,8 @@ export async function GET(request: Request) {
       identityStatus: identityStatus as "linked" | "candidate" | "unmatched" | undefined,
       sourceSystem: sourceSystem as "pipeline" | "alamo_platform" | "allo" | "import" | undefined,
       referralId,
-      uploadedAfter: uploadedAfter || undefined,
-      uploadedBefore: uploadedBefore || undefined,
+      uploadedAfter: uploadedRange.uploadedAfter,
+      uploadedBefore: uploadedRange.uploadedBefore,
     }));
 
     return Response.json(result, {
@@ -92,4 +87,15 @@ function validatedDate(value: string | null) {
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized) && Number.isFinite(Date.parse(`${normalized}T00:00:00Z`))
     ? normalized
     : false as const;
+}
+
+function validateUploadedRange(params: URLSearchParams) {
+  const uploadedAfter = validatedDate(params.get("uploaded_after"));
+  if (uploadedAfter === false) return { ok: false as const, message: "uploaded_after must be YYYY-MM-DD." };
+  const uploadedBefore = validatedDate(params.get("uploaded_before"));
+  if (uploadedBefore === false) return { ok: false as const, message: "uploaded_before must be YYYY-MM-DD." };
+  if (uploadedAfter && uploadedBefore && uploadedAfter > uploadedBefore) {
+    return { ok: false as const, message: "uploaded_after must be on or before uploaded_before." };
+  }
+  return { ok: true as const, uploadedAfter: uploadedAfter || undefined, uploadedBefore: uploadedBefore || undefined };
 }
