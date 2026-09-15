@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f097ffb0eb4c975a",
-  "fingerprint": "f097ffb0eb4c975a1fff4636a6d65cc89ebc84adc299b4208352bd72f0ddeeb7",
+  "generatedAt": "source-fingerprint:7f57f8f901c80529",
+  "fingerprint": "7f57f8f901c805291bdf9748de6d71d68db8c2a02672add720f388ae20f599f6",
   "totals": {
-    "files": 1058,
-    "lines": 324198,
-    "coveredFiles": 1058
+    "files": 1072,
+    "lines": 325406,
+    "coveredFiles": 1072
   },
   "entries": [
     {
@@ -242,7 +242,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 38,
+      "lines": 40,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -290,7 +290,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 36,
+      "lines": 37,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -398,7 +398,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 34,
+      "lines": 35,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -555,6 +555,30 @@
       "runtime": "next-server",
       "risk": "high",
       "lines": 66,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/demo/journey/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 246,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/demo/persona/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 19,
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
@@ -1098,7 +1122,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 255,
+      "lines": 269,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -1906,7 +1930,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1870,
+      "lines": 1882,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2081,6 +2105,30 @@
       ]
     },
     {
+      "path": "components/pipeline/DemoAssessmentLabButton.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 38,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/DemoPersonaSwitch.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 49,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/DuplicateReferralReviewDialog.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2110,7 +2158,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 683,
+      "lines": 688,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2158,7 +2206,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 473,
+      "lines": 488,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2290,7 +2338,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 353,
+      "lines": 367,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2314,7 +2362,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 91,
+      "lines": 97,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -2518,7 +2566,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3892,
+      "lines": 3900,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2566,7 +2614,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 224,
+      "lines": 128,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2722,7 +2770,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 42,
+      "lines": 43,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2794,7 +2842,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 711,
+      "lines": 799,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6131,6 +6179,18 @@
       ]
     },
     {
+      "path": "docs/TWO_PERSONA_DEMO.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 80,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/WORK_ASSESSMENT_GRAPH_PRODUCT.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -6640,7 +6700,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 393,
+      "lines": 396,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -6652,7 +6712,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 167,
+      "lines": 177,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -6700,7 +6760,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 629,
+      "lines": 638,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -6869,6 +6929,30 @@
       "runtime": "shared",
       "risk": "standard",
       "lines": 121,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/demo/persona-session.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 55,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/demo/persona-switch-save.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 20,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7369,7 +7453,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 337,
+      "lines": 341,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8669,7 +8753,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 321,
+      "lines": 329,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8705,7 +8789,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 269,
+      "lines": 273,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -8933,7 +9017,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 79,
+      "lines": 82,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8957,7 +9041,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 249,
+      "lines": 250,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -11172,6 +11256,30 @@
       ]
     },
     {
+      "path": "scripts/persona-demo-isolation.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 43,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/persona-demo.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 60,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/pilot-reset.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -11977,6 +12085,30 @@
       ]
     },
     {
+      "path": "shared/persona-demo-config.d.mts",
+      "subsystem": "Repository configuration",
+      "kind": "repository-file",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 4,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "shared/persona-demo-config.mjs",
+      "subsystem": "Repository configuration",
+      "kind": "tooling",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 53,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "shared/pipeline-base-path.d.mts",
       "subsystem": "Repository configuration",
       "kind": "repository-file",
@@ -12210,7 +12342,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 526,
+      "lines": 613,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12767,6 +12899,42 @@
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
+      ]
+    },
+    {
+      "path": "tests/persona-demo/assessment-lab.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 65,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "tests/persona-demo/assessor-journey.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 69,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/persona-demo/journey.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 207,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
