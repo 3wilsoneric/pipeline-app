@@ -256,7 +256,7 @@ async function uploadFaceSheet(
 }
 
 function syntheticFaceSheet(name: string) {
-  const content = `BT /F1 12 Tf 50 700 Td (Synthetic face sheet for ${name}) Tj ET\n`;
+  const content = `BT /F1 12 Tf 50 700 Td (SYNTHETIC WORKSHOP FACE SHEET) Tj 0 -20 Td (Client name: ${name}; training referral.) Tj 0 -20 Td (Fictional practice document. No real client information.) Tj ET\n`;
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",

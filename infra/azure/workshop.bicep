@@ -114,6 +114,9 @@ resource authentication 'Microsoft.App/containerApps/authConfigs@2025-07-01' = {
     identityProviders: {
       azureActiveDirectory: {
         enabled: true
+        // Reuse Pipeline's existing organization-approved API consent instead
+        // of asking participants for a new Microsoft Graph consent grant.
+        login: { loginParameters: ['scope=openid profile email api://${entraClientId}/access_as_user'] }
         registration: {
           clientId: entraClientId
           clientSecretSettingName: 'workshop-entra-secret'
@@ -123,6 +126,7 @@ resource authentication 'Microsoft.App/containerApps/authConfigs@2025-07-01' = {
       }
     }
     login: {
+      allowedExternalRedirectUrls: ['https://${appName}.${containerEnvironment.properties.defaultDomain}']
       cookieExpiration: { convention: 'FixedTime', timeToExpiration: '08:00:00' }
       tokenStore: { enabled: false }
     }
