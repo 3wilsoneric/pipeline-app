@@ -29,7 +29,7 @@ test.describe("Pipeline Learning Center", () => {
     expect(response?.status()).toBe(200);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "Learning Center" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open Pipeline walkthrough presentation" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open Assessor's Workshop presentation" })).toBeVisible();
     const taskTiles = page.locator('section[aria-label="Quick help"] > div > button');
     await expect(taskTiles.first()).toHaveAccessibleName("Open Check my work");
     await expect(page.getByText("Moving from Allo · Supervisor-led orientation")).toBeVisible();
@@ -260,7 +260,7 @@ test.describe("Pipeline Learning Center", () => {
     await page.goto(trainingUrl);
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.screenshot({ path: testInfo.outputPath("learning-center.png") });
-    await page.getByRole("link", { name: "Open Pipeline walkthrough presentation" }).click();
+    await page.getByRole("link", { name: "Open Assessor's Workshop presentation" }).click();
     for (const size of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       await page.setViewportSize(size);
       for (let index = 0; index < 9; index += 1) {
@@ -355,7 +355,7 @@ test.describe("Pipeline Learning Center", () => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    const presentationLink = page.getByRole("link", { name: "Open Pipeline walkthrough presentation" });
+    const presentationLink = page.getByRole("link", { name: "Open Assessor's Workshop presentation" });
     await expect(presentationLink).toHaveAttribute("href", /\/training\/demo$/);
     await presentationLink.click();
 
@@ -443,7 +443,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "Learning Center" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
-    await expect(page.getByRole("link", { name: "Open Pipeline walkthrough presentation" })).toBeInViewport();
+    await expect(page.getByRole("link", { name: "Open Assessor's Workshop presentation" })).toBeInViewport();
 
     await page.getByRole("button", { name: "Open Find a referral" }).click();
     await expect(page.getByText("Module 7 of 8", { exact: true })).toBeVisible();

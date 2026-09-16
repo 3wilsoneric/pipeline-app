@@ -1,14 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { isInternalWorkspaceTag, visibleWorkspaceTags } from "../../lib/pipeline/workspace-presentation";
 
-test("one entry leads from orientation through Language Lab to the same assessment case", async ({ page }, testInfo) => {
+test("Assessor's Workshop leads from presentation into a reset synthetic assessment case", async ({ page }, testInfo) => {
   await page.goto("/training");
-  await expect(page.getByRole("link", { name: "Open Pipeline walkthrough presentation" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Assessor's Workshop presentation" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Quick help" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open assessment lab", exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: "Open Pipeline walkthrough presentation" }).click();
+  await page.getByRole("link", { name: "Open Assessor's Workshop presentation" }).click();
   await expect(page).toHaveURL(/\/training\/demo\?journey=1/);
   await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Try the .* walkthrough|Start the assessment walkthrough|Try Language Lab in the assessment/ })).toHaveCount(0);
   await page.getByLabel("Jump to slide").selectOption("9");
   await expect(page.getByRole("heading", { name: "Write the answer, not the example" })).toBeVisible();
   await expect(page.getByText("Prior placements: setting", { exact: false })).toBeVisible();
@@ -67,7 +69,7 @@ test("explicit setup is idempotent and refuses a foreign Origin", async ({ reque
   expect(briefing.workflow.active_total).toBe(9);
 });
 
-test("opening Demo Center and resetting it restores only the original practice cases", async ({ page }) => {
+test("opening Assessor's Workshop and resetting it restores only the original practice cases", async ({ page }) => {
   const initialReset = page.waitForResponse((response) => response.url().includes("/api/demo/journey?reset=1") && response.request().method() === "POST");
   await page.goto("/training/demo?journey=1");
   await expect(page.getByRole("button", { name: "Reset demo" })).toBeVisible();
