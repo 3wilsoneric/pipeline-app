@@ -275,13 +275,6 @@ export interface ReferralStore {
   ): Promise<ReferralMutation | null>;
 }
 
-export class DuplicateReferralPacketError extends Error {
-  constructor(public readonly referralId: number) {
-    super("This packet has already been uploaded.");
-    this.name = "DuplicateReferralPacketError";
-  }
-}
-
 export class SuspectedDuplicateReferralError extends Error {
   constructor(
     public readonly referrals: Referral[],
@@ -849,7 +842,6 @@ async function createLocalReferral(
     return { referral: existingReferral, revision: state.revision, idempotentReplay: true };
   }
 
-  assertPacketIsUnique(input.documentHash);
   const creationReason = confirmLocalReferralCreation(input, options);
 
   if (state.referrals.length >= maxReferralRows) {
@@ -965,7 +957,6 @@ async function patchLocalReferral(
     }
   }
 
-  assertPacketIsUnique(patch.documentHash, current.id);
 
   const internallyTouchedSections = workflowStatusChanged
     ? [...new Set([...touchedSections, "workflow" as const])]
@@ -1764,16 +1755,6 @@ async function createPostgresReferral(
       }
     }
 
-    if (input.documentHash) {
-      await tx`select pg_advisory_xact_lock(hashtextextended(${'packet:' + input.documentHash}, 0))`;
-      const duplicate = await tx<{ referral_id: number | string }[]>`
-        select referral_id from pipeline.referrals
-        where document_sha256 = ${input.documentHash}
-        limit 1
-      `;
-      if (duplicate[0]) throw new DuplicateReferralPacketError(Number(duplicate[0].referral_id));
-    }
-
     const clientId = normalizeClientId(input.clientId) || `pipeline-client-${randomUUID()}`;
     const { personId, creationReason } = await resolvePostgresCreationPerson(tx, clientId, input, options);
     const county = resolveWorkspaceCounty(input);
@@ -1905,16 +1886,6 @@ async function patchPostgresReferral(
       const blockers = getReferralTransitionBlockers(current, patch.stage as ReferralStage, workflow);
       if (blockers.length > 0) return { ok: false, blocked: true, blockers, referral: current };
     }
-    if (patch.documentHash && patch.documentHash !== current.documentHash) {
-      await tx`select pg_advisory_xact_lock(hashtextextended(${'packet:' + patch.documentHash}, 0))`;
-      const duplicate = await tx<{ referral_id: number | string }[]>`
-        select referral_id from pipeline.referrals
-        where document_sha256 = ${patch.documentHash} and referral_id <> ${id}
-        limit 1
-      `;
-      if (duplicate[0]) throw new DuplicateReferralPacketError(Number(duplicate[0].referral_id));
-    }
-
     const nextAssigned = hasAssignedOwner(nextOwner);
     const nextAssignedAt = assignmentChanged
       ? nextAssigned ? now : undefined
@@ -2789,15 +2760,6 @@ function referralDataPayload(referral: Referral): JSONValue {
   return JSON.parse(JSON.stringify(data)) as JSONValue;
 }
 
-function assertPacketIsUnique(documentHash: string | undefined, currentReferralId?: number) {
-  if (!documentHash) return;
-
-  const duplicate = state.referrals.find(
-    (referral) => referral.id !== currentReferralId && referral.documentHash === documentHash,
-  );
-  if (duplicate) throw new DuplicateReferralPacketError(duplicate.id);
-}
-
 function storedReferralDisplayName(data: Partial<Referral>, displayName: string) {
   return data.chartSource && data.name?.trim() ? data.name : displayName;
 }
@@ -2847,7 +2809,7 @@ function suspectedLocalDuplicateReferrals(input: ReferralCreateInput) {
   const identity = suspectedDuplicateIdentity(input);
   if (!identity) return [];
   return state.referrals.filter((referral) => (
-    referral.name.trim().toLowerCase() === identity.name
+    !referral.deletedAt && referral.name.trim().toLowerCase() === identity.name
     && resolveWorkspaceCounty(referral) === identity.county
   ));
 }
@@ -2870,7 +2832,7 @@ async function lockAndConfirmPostgresDuplicate(
     select r.*, p.external_client_id, p.display_name
     from pipeline.referrals r
     join pipeline.people p on p.person_id = r.person_id
-    where lower(p.display_name) = ${identity.name}
+    where r.deleted_at is null and lower(p.display_name) = ${identity.name}
       and r.county = ${identity.county}
     order by r.created_at desc, r.referral_id desc
     limit ${maximumSuspectedDuplicateCandidates + 1}

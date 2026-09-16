@@ -7,7 +7,6 @@ import {
   getReferralMutationReplay,
   getReferralStoreRevision,
   requireReferralStore,
-  DuplicateReferralPacketError,
   softDeleteReferral,
   type ReferralConflict,
   type ReferralPatch,
@@ -272,24 +271,18 @@ type ApplyReferralPatchInput = {
 };
 
 async function applyReferralPatch(input: ApplyReferralPatchInput): Promise<Response> {
-  let result;
-  try {
-    result = await patchReferral(
-      input.id,
-      input.patch,
-      input.expectedVersion,
-      pipelineAuditActor(input.user),
-      input.expectedSectionVersions,
-      {
-        ...(input.ownerChanged ? { auditAction: "referral_reassigned", auditReason: input.handoffReason } : {}),
-        mutationId: input.mutationId,
-        mutationScope: "referral_patch",
-      },
-    );
-  } catch (error) {
-    if (error instanceof DuplicateReferralPacketError) return duplicatePacketResponse(error);
-    throw error;
-  }
+  const result = await patchReferral(
+    input.id,
+    input.patch,
+    input.expectedVersion,
+    pipelineAuditActor(input.user),
+    input.expectedSectionVersions,
+    {
+      ...(input.ownerChanged ? { auditAction: "referral_reassigned", auditReason: input.handoffReason } : {}),
+      mutationId: input.mutationId,
+      mutationScope: "referral_patch",
+    },
+  );
   if (!result) return jsonError("Referral not found.", 404);
   if (!result.ok && "blocked" in result && result.blocked) {
     return Response.json({
@@ -302,18 +295,6 @@ async function applyReferralPatch(input: ApplyReferralPatchInput): Promise<Respo
   if (!result.ok && "conflict" in result) return referralConflictResponse(result);
   if (!result.ok) return jsonError("The referral could not be saved.", 409);
   return Response.json(result, { headers: { "Cache-Control": "no-store, max-age=0" } });
-}
-
-function duplicatePacketResponse(error: DuplicateReferralPacketError): Response {
-  recordPipelineMetric("pipeline.referral.save_conflicts", 1, "count", {
-    operation: "patch",
-    result: "duplicate_packet",
-  });
-  return Response.json({
-    error: "This exact packet is already attached to a referral. Open the existing referral instead.",
-    duplicate: true,
-    referral_id: error.referralId,
-  }, { status: 409 });
 }
 
 function referralConflictResponse(result: ReferralConflict): Response {

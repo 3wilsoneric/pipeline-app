@@ -38,6 +38,7 @@ const assessmentReviewRevisionMigration = read("database/migrations/0031_assessm
 const extractionEvidenceBoundingBoxesMigration = read("database/migrations/0032_extraction_evidence_bounding_boxes.sql");
 const workflowContinuityMigration = read("database/migrations/0033_workflow_continuity.sql");
 const contactDirectoryMigration = read("database/migrations/0034_contact_directory.sql");
+const repeatedFileContentMigration = read("database/migrations/0036_allow_repeated_file_content.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
@@ -168,8 +169,11 @@ check("client-file imports stage identity review separately from documents", cli
 check("supporting uploads declare preview-only processing intent", clientWorkspaceMigration.includes("processing_intent") && documentMigration.includes("document_preview"));
 check("future client updates are approval gated", canonicalClientMigration.includes("client_update_outbox") && canonicalClientMigration.includes("pending_approval"));
 check(
-  "packet hashes cannot duplicate within the referral store",
-  migration.includes("referrals_document_sha256_unique_idx"),
+  "file content does not block separate upload or referral identities",
+  repeatedFileContentMigration.includes("drop index if exists pipeline.documents_sha256_referral_unique_idx")
+    && repeatedFileContentMigration.includes("drop index if exists pipeline.referrals_document_sha256_unique_idx")
+    && !referralStore.includes("assertPacketIsUnique")
+    && !referralStore.includes("DuplicateReferralPacketError"),
 );
 check("resident-link confirmation detects collisions", linkStore.includes("resident_already_linked"));
 check("resident-link confirmation serializes competing reviews", linkStore.includes("pg_advisory_xact_lock"));

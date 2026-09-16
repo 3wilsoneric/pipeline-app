@@ -4,7 +4,6 @@ import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   createReferral,
-  DuplicateReferralPacketError,
   listReferrals,
   requireReferralStore,
   SuspectedDuplicateReferralError,
@@ -172,16 +171,6 @@ export async function POST(request: Request) {
         },
       });
     } catch (error) {
-      if (error instanceof DuplicateReferralPacketError) {
-        return Response.json(
-          {
-            error: "This exact packet is already attached to a referral. Open the existing referral instead.",
-            duplicate: true,
-            referral_id: error.referralId,
-          },
-          { status: 409 },
-        );
-      }
       if (error instanceof SuspectedDuplicateReferralError) {
         return suspectedDuplicateResponse(auth.user, error);
       }

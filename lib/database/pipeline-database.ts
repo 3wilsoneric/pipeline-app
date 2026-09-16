@@ -52,6 +52,7 @@ const REQUIRED_PIPELINE_MIGRATIONS = [
   "0032_extraction_evidence_bounding_boxes",
   "0033_workflow_continuity",
   "0034_contact_directory",
+  "0036_allow_repeated_file_content",
 ] as const;
 
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {
