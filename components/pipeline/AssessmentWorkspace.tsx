@@ -90,6 +90,7 @@ import {
   dirtyAssessmentSections,
   editableSectionData,
   getPendingFields,
+  hasActiveAssessmentSchedule,
   hasAssessmentScheduleInput,
   hasSectionConflict,
   isOfflineAssessmentSave,
@@ -125,6 +126,7 @@ type AssessmentWorkspaceProps = {
     status: string;
     assessmentId?: string;
     scheduledStartAt?: string | null;
+    scheduleStatus?: PipelineAssessmentRecord["schedule_status"];
     startedAt?: string | null;
     signedAt?: string | null;
   }) => void;
@@ -209,12 +211,11 @@ function resolveAssessmentAutoFocus(
   focusedAssessmentId: string,
   nextRequiredSection: AssessmentToolSection | undefined,
   initialSection: AssessmentToolSection | undefined,
-  trainingAssessmentMode: TrainingAssessmentMode | undefined,
 ): AssessmentAutoFocusState | null {
   if (!assessment?.assessment_id || focusedAssessmentId === assessment.assessment_id) return null;
   return {
     assessmentId: assessment.assessment_id,
-    ...resolveAssessmentFocusState(assessment, nextRequiredSection, initialSection, trainingAssessmentMode),
+    ...resolveAssessmentFocusState(assessment, nextRequiredSection, initialSection),
   };
 }
 
@@ -222,11 +223,10 @@ function resolveAssessmentFocusState(
   assessment: PipelineAssessmentRecord | null,
   nextRequiredSection: AssessmentToolSection | undefined,
   initialSection: AssessmentToolSection | undefined,
-  trainingAssessmentMode: TrainingAssessmentMode | undefined,
 ): AssessmentFocusState {
   return {
     section: autoFocusSection(assessment, nextRequiredSection, initialSection),
-    view: assessmentInterviewView(assessment, trainingAssessmentMode),
+    view: assessmentInterviewView(assessment),
     showScheduleDialog: assessmentNeedsSchedule(assessment),
     showBeginDialog: assessmentReadyToBegin(assessment),
   };
@@ -236,16 +236,16 @@ function autoFocusSection(assessment: PipelineAssessmentRecord | null, nextRequi
   return assessment?.started_at && nextRequiredSection && !initialSection ? nextRequiredSection : undefined;
 }
 
-function assessmentInterviewView(assessment: PipelineAssessmentRecord | null, trainingAssessmentMode: TrainingAssessmentMode | undefined) {
-  return assessment?.started_at && !assessment.signed_at && trainingAssessmentMode !== "interview" ? "guided" : "chart";
+function assessmentInterviewView(assessment: PipelineAssessmentRecord | null) {
+  return assessment?.started_at && !assessment.signed_at ? "guided" : "chart";
 }
 
 function assessmentNeedsSchedule(assessment: PipelineAssessmentRecord | null) {
-  return Boolean(assessment && !assessment.scheduled_start_at && !assessment.started_at && !assessment.signed_at);
+  return Boolean(assessment && !hasActiveAssessmentSchedule(assessment) && !assessment.started_at && !assessment.signed_at);
 }
 
 function assessmentReadyToBegin(assessment: PipelineAssessmentRecord | null) {
-  return Boolean(assessment?.scheduled_start_at && !assessment.started_at && !assessment.signed_at);
+  return Boolean(assessment && hasActiveAssessmentSchedule(assessment) && !assessment.started_at && !assessment.signed_at);
 }
 
 function applyAssessmentFocus(state: AssessmentFocusState, setters: AssessmentAutoFocusSetters) {
@@ -341,7 +341,7 @@ export default function AssessmentWorkspace({
 
   const openFocusedAssessment = () => {
     applyAssessmentFocus(
-      resolveAssessmentFocusState(selected, nextRequiredTarget?.section, undefined, trainingAssessmentMode),
+      resolveAssessmentFocusState(selected, nextRequiredTarget?.section, activeSection),
       { setActiveSection, setAssessmentView, setIsFocused, setShowScheduleDialog, setShowBeginDialog },
     );
   };
@@ -618,8 +618,8 @@ export default function AssessmentWorkspace({
     setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
     setScheduleMethod(normalizeScheduleMethod(selected.scheduled_method));
     setScheduleLocation(selected.scheduled_location ?? "");
-    setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
-    setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
+    setShowScheduleDialog(assessmentNeedsSchedule(selected));
+    setShowBeginDialog(assessmentReadyToBegin(selected));
     setShowAddendum(false);
     loadRecoveryDraftForLiveAssessment(trainingAssessmentMode, loadRecoveryDraft, selected, data);
   }, [loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
@@ -659,8 +659,7 @@ export default function AssessmentWorkspace({
       selected,
       focusedAssessmentIdRef.current,
       nextRequiredTarget?.section,
-      initialSection,
-      trainingAssessmentMode,
+      initialSection ?? trainingAssessmentSection,
     );
     if (!focus) return;
     focusedAssessmentIdRef.current = focus.assessmentId;
@@ -671,7 +670,7 @@ export default function AssessmentWorkspace({
       setShowScheduleDialog,
       setShowBeginDialog,
     });
-  }, [initialSection, nextRequiredTarget, selected, trainingAssessmentMode]);
+  }, [initialSection, nextRequiredTarget, selected, trainingAssessmentSection]);
 
   const closeFromEscape = useEffectEvent(() => void closeAssessment());
 
@@ -702,10 +701,11 @@ export default function AssessmentWorkspace({
       status: selected?.status ?? "not_started",
       assessmentId: selected?.assessment_id,
       scheduledStartAt: selected?.scheduled_start_at,
+      scheduleStatus: selected?.schedule_status,
       startedAt: selected?.started_at,
       signedAt: selected?.signed_at,
     });
-  }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at, selected?.status]);
+  }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.schedule_status, selected?.signed_at, selected?.started_at, selected?.status]);
 
   const createAssessmentDraft = async () => {
     if (!referralId) return;
@@ -1434,10 +1434,10 @@ export default function AssessmentWorkspace({
         {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
           <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
         ) : null}
-        {!selected.signed_at && !selected.started_at && selected.scheduled_start_at && canEditClinical ? (
+        {assessmentReadyToBegin(selected) && canEditClinical ? (
           <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
         ) : null}
-        {selected.started_at && !selected.signed_at && trainingAssessmentMode !== "interview" && canEditClinical ? (
+        {selected.started_at && !selected.signed_at && canEditClinical ? (
           <button type="button" onClick={() => setAssessmentView("guided")} aria-label="Guided interview" title="Guided interview" className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 border border-[#c9ceca] text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73] sm:w-auto sm:px-3"><Play size={13} /><span className="hidden sm:inline">Guided interview</span></button>
         ) : null}
         {selected.signed_at ? (
@@ -1711,10 +1711,10 @@ function WorkspaceReturnButton({ onOpen, onExit, disabled }: {
   return <button type="button" onClick={() => void onExit(onOpen)} disabled={disabled} className="flex h-9 shrink-0 items-center gap-1 border border-[#c9ceca] px-2 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50"><ChevronLeft size={14} aria-hidden="true" />Workspace</button>;
 }
 
-export function assessmentOpenLabel(assessment: Pick<PipelineAssessmentRecord, "signed_at" | "started_at" | "scheduled_start_at">) {
+export function assessmentOpenLabel(assessment: Pick<PipelineAssessmentRecord, "signed_at" | "started_at" | "scheduled_start_at" | "schedule_status">) {
   if (assessment.signed_at) return "Review assessment";
   if (assessment.started_at) return "Resume assessment";
-  if (assessment.scheduled_start_at) return "Begin assessment";
+  if (hasActiveAssessmentSchedule(assessment)) return "Begin assessment";
   return "Schedule assessment";
 }
 
@@ -1730,7 +1730,7 @@ function assessmentSummaryLine(
       ? `${completion.complete} of ${completion.total} required · Next: ${nextTarget.label}`
       : `Ready to sign · ${assessor}`;
   }
-  if (assessment.scheduled_start_at) return `${new Date(assessment.scheduled_start_at).toLocaleString()} · ${assessor}`;
+  if (hasActiveAssessmentSchedule(assessment)) return `${new Date(assessment.scheduled_start_at!).toLocaleString()} · ${assessor}`;
   return `${completion.complete} of ${completion.total} required areas complete · ${assessor}`;
 }
 
