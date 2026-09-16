@@ -43,7 +43,6 @@ import DuplicateReferralReviewDialog, {
   type ReferralDuplicateReview,
 } from "@/components/pipeline/DuplicateReferralReviewDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
-import StructuredNarrativeField from "@/components/pipeline/StructuredNarrativeField";
 import type {
   Referral,
   ReferralCanvasFieldKey,
@@ -288,7 +287,6 @@ const visibleChartFieldKeys: readonly FieldKey[] = [
   "responsiblePerson",
   "phone",
   "email",
-  "summary",
   "currentMedications",
 ];
 
@@ -2250,22 +2248,6 @@ export default function ReferralPacketCanvas({
                     clientPhone={fields.phone.value}
                     clientEmail={fields.email.value}
                   /></div>
-                </ChartSection>
-
-                <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>
-                  <div className="px-5 py-4 sm:px-6" data-workspace-field="summary" onFocusCapture={() => focusWorkspaceField("summary")}>
-                    <StructuredNarrativeField
-                      field={fields.summary}
-                      kind="summary"
-                      onChange={(value) => updateField("summary", value)}
-                      saveStatus={saveStatus}
-                      saveError={saveError}
-                      saving={isSaving}
-                      hasUnsavedChanges={hasPendingWorkspaceChanges}
-                      saveActionLabel="Retry saving"
-                      onSave={hasReferral && saveError ? () => void saveWorkspaceDraft() : undefined}
-                    />
-                  </div>
                 </ChartSection>
 
                 <ChartSection title="Medication profile" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
