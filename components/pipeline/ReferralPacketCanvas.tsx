@@ -411,6 +411,7 @@ export default function ReferralPacketCanvas({
   const [ownerPrincipalId, setOwnerPrincipalId] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [duplicateReview, setDuplicateReview] = useState<ReferralDuplicateReview | null>(null);
+  const [saveAlert, setSaveAlert] = useState("");
   const [pendingOwnerChange, setPendingOwnerChange] = useState<{ principalId: string; displayName: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const permissionReadOnly = isWorkspacePermissionReadOnly(loadedReferral, viewer, trainingAssessmentMode);
@@ -1327,7 +1328,7 @@ export default function ReferralPacketCanvas({
       createdAt: new Date().toISOString(),
       ...initialDocumentInput(snapshot.initialPacket, documentHash),
     });
-    const payload = await fetchPipelineJson<{ referral?: Referral; error?: string; idempotent_replay?: boolean }>("/api/referrals", {
+    const payload = await fetchPipelineJson<{ referral?: Referral; error?: string; idempotent_replay?: boolean; warnings?: string[] }>("/api/referrals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1340,6 +1341,7 @@ export default function ReferralPacketCanvas({
       }),
     });
     if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral workspace.");
+    setSaveAlert(payload.warnings?.join(" ") ?? "");
     const saved = await mergeIdempotentCreateReplay(payload.referral, payload.idempotent_replay, snapshot, documentHash);
     return { referral: saved, created: true };
   };
@@ -2040,6 +2042,8 @@ export default function ReferralPacketCanvas({
             </button>
           </section>
         ) : null}
+
+        {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
 
         {presence.length > 0 ? (
           <div className="mb-3 flex flex-wrap items-center gap-2 border border-[#cfe4da] bg-[#f7fbf9] px-3 py-2" aria-live="polite" aria-label="People editing this workspace">

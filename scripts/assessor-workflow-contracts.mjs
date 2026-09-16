@@ -510,8 +510,8 @@ check("embedded guidance has no provider or review request path", !/Claude|Anthr
 check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
 check("assigned assessors and supervisors can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
 check("assessment start is explicit, supervisor-capable, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));
-check("assessment start requires an explicit schedule", startRoute.includes("Schedule the assessment before beginning the interview."));
-check("new assessments must be begun before signing", signRoute.includes("Begin the assessment before signing it"));
+check("assessment start allows skipping scheduling without inventing an appointment", !startRoute.includes("Schedule the assessment before beginning the interview.") && startRoute.includes("mark_started: true"));
+check("signing allows incomplete unstarted assessments while retaining signer authorization", !signRoute.includes("Begin the assessment before signing it") && signRoute.includes("canWorkAssessment"));
 check("signed addenda are limited to the signer or a supervisor", addendumRoute.includes("assessment.signed_by?.id !== auth.user.id") && addendumRoute.includes("Only the signing assessor or a supervisor"));
 check("assigned assessors and supervisors can submit a recommendation", recommendationRoute.includes("allowSupervisorOverride") && workflowStore.includes("allowSupervisorOverride") && workflowStore.includes("assigned assessor or a supervisor"));
 check("only the head supervisor can record final decisions", decisionRoute.includes('requirePipelineUser(request, ["admin"])') && decisionRoute.includes('decidedByRole: "admin"'));
@@ -574,16 +574,16 @@ check("final decisions require the current immutable review submission",
     && !workflowStore.includes("admission_decision_overridden"));
 check(
   "placement approval preserves admission gates until an explicit admission transition",
-  workflowStore.includes('snapshot.referral.stage === "Assessment"')
-    && workflowStore.includes('? "Community Review"')
+  workflowStore.includes(': "Community Review"')
     && workflowStore.includes('targetStage === "Accepted / Admitted" ? { workflowStatus: "admitted" as const }')
     && !workflowStore.includes("workflowTransitionValidated: true")
     && referralStore.match(/!metadata\?\.workflowTransitionValidated/g)?.length >= 2,
 );
 const acceptedGate = { ...referral, stage: "Community Review", admissionDecision: { outcome: "accepted" }, requirements: [] };
-check("accepted remains distinct from admitted until a date of admit is recorded",
-  referralTransitions.getReferralTransitionBlockers(acceptedGate, "Accepted / Admitted").some((item) => item.code === "admission_date_required")
-    && !referralTransitions.getReferralTransitionBlockers({ ...acceptedGate, admissionDate: "2026-09-15" }, "Accepted / Admitted").some((item) => item.code === "admission_date_required"));
+check("explicit admission can proceed with an unanswered admission-date alert",
+  referralTransitions.getReferralTransitionAlerts(acceptedGate, "Accepted / Admitted").some((item) => item.code === "admission_date_required")
+    && referralTransitions.getReferralTransitionBlockers(acceptedGate, "Accepted / Admitted").length === 0
+    && !referralTransitions.getReferralTransitionAlerts({ ...acceptedGate, admissionDate: "2026-09-15" }, "Accepted / Admitted").some((item) => item.code === "admission_date_required"));
 check("review submissions are durable and assessment-specific",
   reviewMigration.includes("create table if not exists pipeline.assessment_reviews")
     && reviewMigration.includes("unique (assessment_id)")

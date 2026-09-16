@@ -238,7 +238,7 @@ export default function ReferralWorkflowPanel({
 
   const submitTransition = (target: ReferralStage) => {
     if (target === "Accepted / Admitted" && !window.confirm(
-      "Mark this referral admitted? Confirm the accepted decision and every required admission item are complete. This closes the active referral stage and enables EHR handoff.",
+      "Mark this referral admitted? Missing dates and documents will remain visible and unresolved. This closes the active referral stage.",
     )) return;
     void runMutation(
       `transition:${target}:${currentReferral.version}`,
@@ -250,11 +250,12 @@ export default function ReferralWorkflowPanel({
   };
 
   const saveAdmissionDate = async (openPreview = true) => {
-    if (!admissionDateDraft || workflow.decision?.outcome !== "accepted") {
-      setError("Enter an admission date before continuing.");
+    if (workflow.decision?.outcome !== "accepted") {
+      setError("Record an accepted decision before preparing Meet the Client.");
       return false;
     }
-    if (admissionDateDraft === currentReferral.admissionDate) {
+    if (admissionDateDraft === (currentReferral.admissionDate ?? "")) {
+      if (!admissionDateDraft) setMessage("Admission date is not provided. You can still preview Meet the Client.");
       if (openPreview) setShowMeetClient(true);
       return true;
     }
@@ -271,10 +272,6 @@ export default function ReferralWorkflowPanel({
 
   const finishWorkspace = async () => {
     if (!onDone || busy) return;
-    if (decisionDirty.current && decisionDraft.outcome && !workflow.decision) {
-      setError("Record the decision before leaving, or choose Under review.");
-      return;
-    }
     if (admissionDateDirty.current && !await saveAdmissionDate(false)) return;
     setBusy("done");
     try {

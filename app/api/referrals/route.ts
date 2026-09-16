@@ -164,6 +164,7 @@ export async function POST(request: Request) {
         referral: result.referral,
         revision: result.revision,
         idempotent_replay: result.idempotentReplay,
+        warnings: result.warnings ?? [],
       }, {
         status: 201,
         headers: {

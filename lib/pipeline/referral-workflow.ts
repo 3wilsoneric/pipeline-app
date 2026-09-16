@@ -178,9 +178,22 @@ export function getReferralTransitionBlockers(
   targetStage: ReferralStage,
   context: WorkflowContext = {},
 ): ReferralTransitionBlocker[] {
+  return getReferralTransitionAlerts(referral, targetStage, context).filter((issue) =>
+    ["stage_sequence", "owner_required", "admission_decision_required", "decline_decision_required"].includes(issue.code),
+  );
+}
+
+export function getReferralTransitionAlerts(
+  referral: Referral,
+  targetStage: ReferralStage,
+  context: WorkflowContext = {},
+): ReferralTransitionBlocker[] {
   if (targetStage === referral.stage) return [];
 
-  if (!allowedStageTargets[referral.stage].includes(targetStage)) {
+  const acceptedDecisionTarget = getDecisionOutcome(referral, context) === "accepted"
+    && !isClosedReferralStage(referral.stage)
+    && ["Community Review", "Accepted / Admitted"].includes(targetStage);
+  if (!allowedStageTargets[referral.stage].includes(targetStage) && !acceptedDecisionTarget) {
     return [{ code: "stage_sequence", label: "Complete the current workflow step before moving this referral." }];
   }
 

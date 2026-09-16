@@ -27,9 +27,6 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (!canWorkAssessment(auth.user, assessment.assessor_id)) {
       return jsonError("Only the assigned assessor or a supervisor can sign this assessment.", 403);
     }
-    if (!assessment.started_at && assessment.status !== "complete") {
-      return jsonError("Begin the assessment before signing it.", 422);
-    }
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const command = validateAssessmentLifecycleCommand(body.value);
