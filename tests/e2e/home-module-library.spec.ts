@@ -118,9 +118,9 @@ for (const width of [390, 1440]) {
       await button.scrollIntoViewIfNeeded();
       await expect.poll(() => button.locator("img").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
     }
-    const previewButton = library.getByRole("button", { name: "Preview My work", exact: true });
+    const previewButton = library.getByRole("button", { name: "Preview Board", exact: true });
     await previewButton.click();
-    const preview = page.getByRole("dialog", { name: "My work module preview", exact: true });
+    const preview = page.getByRole("dialog", { name: "Board module preview", exact: true });
     await expect(preview).toBeVisible();
     await expect(preview.getByRole("button", { name: "Close my work module preview" })).toBeFocused();
     await expect(preview.getByRole("img")).toBeVisible();
@@ -131,7 +131,7 @@ for (const width of [390, 1440]) {
     await expect(library).toBeVisible();
     await expect(previewButton).toBeFocused();
     await expect(library.getByRole("checkbox", { name: "Search", exact: true })).toBeChecked();
-    await expect(library.getByRole("checkbox", { name: "My work", exact: true })).toBeDisabled();
+    await expect(library.getByRole("checkbox", { name: "Board", exact: true })).toBeDisabled();
     expect(writes).toHaveLength(0);
     await library.evaluate((element) => { element.scrollTop = 0; });
     await page.screenshot({ path: testInfo.outputPath(`module-gallery-${width}.png`) });

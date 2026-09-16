@@ -170,7 +170,7 @@ test("the hopper cannot be removed and keeps its selected stage when expanded ag
   await page.setViewportSize({ width: 390, height: 844 });
   await mockHopper(page);
   await page.goto("/?editHome=1");
-  await expect(page.getByRole("button", { name: "Remove My work from Home", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove Board from Home", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Open current work", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Current work", exact: true });
   const select = dialog.getByRole("combobox", { name: "Current work stage", exact: true });

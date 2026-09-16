@@ -72,7 +72,7 @@ test.describe("role-scoped home and reports", () => {
     await library.getByRole("checkbox", { name: "Search", exact: true }).check();
     await library.getByRole("checkbox", { name: "Recent work", exact: true }).check();
     await library.getByRole("checkbox", { name: "Assessments to schedule" }).check();
-    await expect(library.getByRole("checkbox", { name: "My work" })).toBeDisabled();
+    await expect(library.getByRole("checkbox", { name: "Board" })).toBeDisabled();
     await expect(page.getByRole("region", { name: "Assessments to schedule" })).toHaveCount(0);
     await library.getByRole("button", { name: "Add 3 modules", exact: true }).click();
     await expect(library).toHaveCount(0);
@@ -347,7 +347,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("dialog", { name: "Current work" })).toHaveCount(0);
   });
 
-  test("keeps Home at ten ribbons and opens a responsive lifecycle board", async ({ page }) => {
+  test("shows the lifecycle Board expanded above the remaining Home modules", async ({ page }) => {
     const stages = ["ready_to_schedule", "scheduled", "assessment", "complete_chart"] as const;
     const statuses = ["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "decision_pending"] as const;
     const firstNames = ["Avery", "Blake", "Casey", "Dana", "Elliot", "Finley", "Gray", "Harper", "Indigo", "Jules", "Kai"];
@@ -413,9 +413,17 @@ test.describe("role-scoped home and reports", () => {
     }));
 
     await page.goto("/");
-    const homeBoard = page.getByRole("region", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
-    await expect(homeBoard.getByRole("button", { name: /^Open .* Ribbon$/ })).toHaveCount(10);
-    await expect(homeBoard.getByRole("button", { name: "Open Avery Ribbon" }).getByText("Intake & scheduling", { exact: true })).toBeVisible();
+    const homeModule = page.getByRole("region", { name: "Current work", exact: true });
+    await expect(homeModule.getByRole("heading", { name: "Board", exact: true })).toBeVisible();
+    const homeBoard = homeModule.getByRole("region", { name: "Current work board" });
+    await expect(homeBoard.getByRole("button", { name: /^Open / })).toHaveCount(13);
+    for (const stage of ["Referral received", "In progress", "Decision", "Admitted"]) await expect(homeBoard.getByRole("heading", { name: stage })).toBeVisible();
+    await expect(page.locator("[data-home-module]").first()).toHaveAttribute("data-home-module", "current-work");
+    await expect(page.locator('[data-home-module="upcoming-assessments"]')).toBeVisible();
+    await homeModule.getByRole("button", { name: "Collapse Board" }).click();
+    await expect(homeBoard).toHaveCount(0);
+    await homeModule.getByRole("button", { name: "Expand Board" }).click();
+    await expect(homeBoard).toBeVisible();
     await page.getByRole("button", { name: "Open current work" }).click();
     const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
     const cards = board.getByRole("button", { name: /^Open / });

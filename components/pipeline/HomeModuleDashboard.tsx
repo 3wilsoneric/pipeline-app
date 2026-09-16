@@ -60,9 +60,9 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
   },
   {
     id: "current-work",
-    title: "My work",
+    title: "Board",
     detail: "Every assigned referral, until its work is complete.",
-    opens: "Resume a referral or expand the worklist. Supervisors see team referrals.",
+    opens: "Scan referrals by stage or open the Board full screen. Supervisors see team referrals.",
     icon: BriefcaseBusiness,
     wide: true,
   },
