@@ -9,20 +9,25 @@ if (!isAbsolute(sourceRoot ?? "") || !isAbsolute(destinationRoot ?? "")) {
   throw new Error("Absolute source and destination module paths are required.");
 }
 
-const roots = ["@azure/identity", "@azure/storage-blob", "postgres"];
+// OCR workers load modules dynamically, outside Next's standalone trace.
+// Keep the complete installed document runtime dependency graph in the image.
+const roots = ["@azure/identity", "@azure/storage-blob", "postgres", "tesseract.js", "@tesseract.js-data/eng", "pdfjs-dist", "@napi-rs/canvas"];
 const packages = new Set();
 
-function includePackage(name) {
+function includePackage(name, optional = false) {
   if (packages.has(name)) return;
   const source = join(sourceRoot, name);
   const manifestPath = join(source, "package.json");
-  if (!existsSync(manifestPath)) return;
+  if (!existsSync(manifestPath)) {
+    if (optional) return;
+    throw new Error(`Required runtime dependency is missing: ${name}`);
+  }
   packages.add(name);
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   for (const dependency of Object.keys({
     ...(manifest.dependencies ?? {}),
     ...(manifest.optionalDependencies ?? {}),
-  })) includePackage(dependency);
+  })) includePackage(dependency, Object.hasOwn(manifest.optionalDependencies ?? {}, dependency));
 }
 
 for (const root of roots) includePackage(root);
