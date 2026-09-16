@@ -126,7 +126,6 @@ export function hasInitialDocument(referral: Referral) {
 export function hasManualIntakeAuthorization(referral: Referral) {
   const authorization = referral.manualIntakeAuthorization;
   return authorization?.mode === "manual_chart"
-    && isPresent(authorization.reason)
     && isPresent(authorization.authorizedBy)
     && isPresent(authorization.authorizedAt);
 }

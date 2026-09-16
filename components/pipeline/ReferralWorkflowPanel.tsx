@@ -160,7 +160,7 @@ export default function ReferralWorkflowPanel({
     const patch: Record<string, unknown> = { status };
     if (status === "requested") {
       patch.requestedFrom = detail;
-      patch.followUpAt = item.followUpAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString();
+      patch.followUpAt = item.followUpAt ?? "";
     }
     if (status === "waived") patch.waiverReason = detail;
     if (status === "unavailable" || status === "not_applicable") patch.unavailableReason = detail;

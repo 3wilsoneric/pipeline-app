@@ -179,7 +179,7 @@ export function getReferralTransitionBlockers(
   context: WorkflowContext = {},
 ): ReferralTransitionBlocker[] {
   return getReferralTransitionAlerts(referral, targetStage, context).filter((issue) =>
-    ["stage_sequence", "owner_required", "admission_decision_required", "decline_decision_required"].includes(issue.code),
+    ["stage_sequence", "admission_decision_required", "decline_decision_required"].includes(issue.code),
   );
 }
 

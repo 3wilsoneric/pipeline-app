@@ -117,37 +117,37 @@ export function requirementDetailPresentation(item: AdmissionRequirement, status
   if (status === "requested") {
     return {
       title: `Request ${item.label}`,
-      description: "Record who is expected to provide this item. Pipeline will set a seven-day follow-up when none exists.",
-      label: "Expected provider",
+      description: "Add the expected provider if known. Missing details can be added later.",
+      label: "Expected provider (optional)",
       initialValue: item.requestedFrom ?? "",
       confirmLabel: "Mark requested",
-      minimumLength: 1,
+      minimumLength: 0,
     };
   }
   if (status === "waived") {
     return {
       title: `Waive ${item.label}`,
-      description: "The waiver and its reason remain visible in the referral record.",
-      label: "Waiver reason",
+      description: "The waiver is recorded. You can add a reason or continue without one.",
+      label: "Waiver reason (optional)",
       initialValue: item.waiverReason ?? "",
       confirmLabel: "Record waiver",
-      minimumLength: 3,
+      minimumLength: 0,
     };
   }
   return {
     title: status === "unavailable" ? `Mark ${item.label} unavailable` : `Mark ${item.label} not applicable`,
-    description: "Record why this requirement cannot or does not need to be completed.",
-    label: "Reason",
+    description: "Add any context, or continue without a reason.",
+    label: "Reason (optional)",
     initialValue: item.unavailableReason ?? "",
     confirmLabel: status === "unavailable" ? "Mark unavailable" : "Mark not applicable",
-    minimumLength: 3,
+    minimumLength: 0,
   };
 }
 
 export function requirementGroups(items: AdmissionRequirement[]): RequirementGroupPresentation[] {
   const definitions: Array<{ label: string; detail: string; gates: RequirementGate[] }> = [
-    { label: "Decision readiness", detail: "Blocking items must be resolved before an acceptance decision.", gates: ["admission_decision"] },
-    { label: "Move-in readiness", detail: "Required move-in items must be resolved before admission is recorded.", gates: ["move_in"] },
+    { label: "Decision readiness", detail: "Missing items stay visible while the decision proceeds.", gates: ["admission_decision"] },
+    { label: "Move-in readiness", detail: "Missing move-in items can be completed after admission is recorded.", gates: ["move_in"] },
     { label: "EHR readiness", detail: "These items must be resolved before the downstream handoff.", gates: ["ehr_export"] },
     { label: "Intake and assessment", detail: "Earlier profile and assessment requirements remain available for review.", gates: ["profile_completion", "pre_assessment"] },
   ];
@@ -163,12 +163,12 @@ export function resolvedRequirementCount(items: AdmissionRequirement[]) {
 
 export function requirementStatusDetail(item: AdmissionRequirement) {
   if (item.status === "requested") {
-    const followUp = item.followUpAt ? ` · follow up ${formatRequirementDate(item.followUpAt)}` : "";
-    return `Requested from ${item.requestedFrom || "provider"}${followUp}`;
+    const followUp = item.followUpAt ? ` · follow up ${formatRequirementDate(item.followUpAt)}` : " · follow-up date not provided";
+    return `Requested from ${item.requestedFrom || "provider not specified"}${followUp}`;
   }
-  if (item.status === "waived") return `Waived · ${item.waiverReason || "reason recorded in activity"}`;
-  if (item.status === "unavailable") return `Unavailable · ${item.unavailableReason || "reason recorded in activity"}`;
-  if (item.status === "not_applicable") return `Not applicable · ${item.unavailableReason || "reason recorded in activity"}`;
+  if (item.status === "waived") return `Waived · ${item.waiverReason || "reason not provided"}`;
+  if (item.status === "unavailable") return `Unavailable · ${item.unavailableReason || "reason not provided"}`;
+  if (item.status === "not_applicable") return `Not applicable · ${item.unavailableReason || "reason not provided"}`;
   if (item.status === "received") return item.evidenceDocumentName ? `Received · ${item.evidenceDocumentName}` : "Received; review the source evidence.";
   if (item.status === "reviewed") return item.evidenceDocumentName ? `Reviewed · ${item.evidenceDocumentName}` : "Reviewed and resolved.";
   if (item.status === "expired") return "Expired; request current evidence before continuing.";
