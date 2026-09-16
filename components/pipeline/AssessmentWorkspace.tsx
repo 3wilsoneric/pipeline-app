@@ -779,6 +779,7 @@ export default function AssessmentWorkspace({
         setMessage("Training assessment in progress");
         setAssessmentView("guided");
         setShowBeginDialog(false);
+        setShowScheduleDialog(false);
         return;
       }
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
@@ -796,6 +797,7 @@ export default function AssessmentWorkspace({
       setMessage("Assessment in progress");
       setAssessmentView("guided");
       setShowBeginDialog(false);
+      setShowScheduleDialog(false);
     } catch (startError) {
       setError(messageFor(startError, "The assessment could not be begun."));
       setMessage("");
@@ -1160,7 +1162,7 @@ export default function AssessmentWorkspace({
         setShowBeginDialog(true);
         return;
       }
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; warnings?: string[] }>(
         `/api/assessments/${encodeURIComponent(current.assessment_id)}/schedule`,
         {
           method: "POST",
@@ -1179,7 +1181,7 @@ export default function AssessmentWorkspace({
       );
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
-      setMessage("Assessment scheduled");
+      setMessage(payload.warnings?.length ? `Assessment scheduled. ${payload.warnings.join(" ")}` : "Assessment scheduled");
       dispatchGuideCompletion("assessment-schedule-save");
       setShowScheduleDialog(false);
       if (!payload.assessment.started_at && !payload.assessment.signed_at) setShowBeginDialog(true);
@@ -1463,8 +1465,8 @@ export default function AssessmentWorkspace({
         ) : null}
         {selected.signed_at ? (
           canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"><Plus size={14} /> Addendum</button> : <span className="text-[11px] font-black text-[#0f6f5e]">Signed</span>
-        ) : selected.started_at && canEditClinical ? (
-          <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 shrink-0 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35 sm:px-4"><span className="hidden sm:inline">Sign assessment</span><span className="sm:hidden">Sign</span></button>
+        ) : canEditClinical ? (
+          <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm(completion.missing.length > 0 ? `Sign and lock this assessment with ${completion.missing.length} unanswered required areas? Missing answers will remain visible.` : "Sign and lock this assessment?") && void signAssessment()} disabled={isBusy} className="h-10 shrink-0 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35 sm:px-4"><span className="hidden sm:inline">Sign assessment</span><span className="sm:hidden">Sign</span></button>
         ) : null}
         <DemoAssessmentControls persona={viewer?.demoPersona} />
         <button type="button" onClick={() => void closeAssessment()} disabled={isBusy} aria-label="Close assessment" title="Return to assessment workspace" className="absolute right-2 top-2 flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>

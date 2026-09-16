@@ -5,7 +5,7 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { canRecordAdmissionDecision, requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
-import { getAllowedReferralTargets, getReferralTransitionBlockers } from "@/lib/pipeline/referral-workflow";
+import { getAllowedReferralTargets, getReferralTransitionAlerts, getReferralTransitionBlockers } from "@/lib/pipeline/referral-workflow";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 
@@ -39,6 +39,7 @@ export async function GET(
       transitions: getAllowedReferralTargets(snapshot.referral.stage).map((target) => ({
         target,
         blockers: getReferralTransitionBlockers(snapshot.referral, target, snapshot.context),
+        alerts: getReferralTransitionAlerts(snapshot.referral, target, snapshot.context),
       })),
       capabilities: workflowCapabilities(auth.user, assessment,
         access.referral.workspaceStatus !== "historical" && canModifyReferral(access.referral, auth.user)),

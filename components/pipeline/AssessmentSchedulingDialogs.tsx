@@ -52,16 +52,17 @@ export function AssessmentSchedulingDialogs({
 }) {
   return (
     <>
-      {showScheduleDialog ? <ScheduleAssessmentDialog assessment={assessment} isBusy={isBusy} error={error} scheduleStart={scheduleStart} scheduleDuration={scheduleDuration} scheduleMethod={scheduleMethod} scheduleLocation={scheduleLocation} onScheduleStartChange={onScheduleStartChange} onScheduleDurationChange={onScheduleDurationChange} onScheduleMethodChange={onScheduleMethodChange} onScheduleLocationChange={onScheduleLocationChange} onClose={onCloseSchedule} onSave={onSaveSchedule} /> : null}
+      {showScheduleDialog ? <ScheduleAssessmentDialog assessment={assessment} isBusy={isBusy} error={error} canEditClinical={canEditClinical} scheduleStart={scheduleStart} scheduleDuration={scheduleDuration} scheduleMethod={scheduleMethod} scheduleLocation={scheduleLocation} onScheduleStartChange={onScheduleStartChange} onScheduleDurationChange={onScheduleDurationChange} onScheduleMethodChange={onScheduleMethodChange} onScheduleLocationChange={onScheduleLocationChange} onClose={onCloseSchedule} onSave={onSaveSchedule} onBegin={onBeginAssessment} /> : null}
       {showBeginDialog ? <BeginAssessmentDialog assessment={assessment} isBusy={isBusy} error={error} canEditClinical={canEditClinical} onClose={onCloseBegin} onBegin={onBeginAssessment} /> : null}
     </>
   );
 }
 
-function ScheduleAssessmentDialog({ assessment, isBusy, error, scheduleStart, scheduleDuration, scheduleMethod, scheduleLocation, onScheduleStartChange, onScheduleDurationChange, onScheduleMethodChange, onScheduleLocationChange, onClose, onSave }: {
+function ScheduleAssessmentDialog({ assessment, isBusy, error, canEditClinical, scheduleStart, scheduleDuration, scheduleMethod, scheduleLocation, onScheduleStartChange, onScheduleDurationChange, onScheduleMethodChange, onScheduleLocationChange, onClose, onSave, onBegin }: {
   assessment: PipelineAssessmentRecord;
   isBusy: boolean;
   error: string;
+  canEditClinical: boolean;
   scheduleStart: string;
   scheduleDuration: string;
   scheduleMethod: AssessmentScheduleMethod;
@@ -72,6 +73,7 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, scheduleStart, sc
   onScheduleLocationChange: (value: string) => void;
   onClose: () => void;
   onSave: () => void;
+  onBegin: () => void;
 }) {
   const detailField = scheduleDetailFields[scheduleMethod];
   return (
@@ -85,6 +87,7 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, scheduleStart, sc
       onClose={onClose}
       footer={<>
         <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to workspace</button>
+        {!assessment.started_at && !assessment.signed_at && canEditClinical ? <button type="button" onClick={onBegin} disabled={isBusy} className="min-h-12 border border-[#bac8c0] px-4 font-bold text-[#0f7664] hover:bg-[#f1f4f2] disabled:opacity-50">Continue without appointment</button> : null}
         <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#111111] px-6 font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : assessment.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
       </>}
     >

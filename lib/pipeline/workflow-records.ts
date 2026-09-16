@@ -305,6 +305,15 @@ export function getAdmissionDecisionBlockers(
   snapshot: WorkflowRecordSnapshot,
   input: AdmissionDecisionInput,
 ) {
+  return getAdmissionDecisionAlerts(snapshot, input).filter((issue) =>
+    !issue.code.startsWith("requirement:") && issue.code !== "decline_reason_required",
+  );
+}
+
+export function getAdmissionDecisionAlerts(
+  snapshot: WorkflowRecordSnapshot,
+  input: AdmissionDecisionInput,
+) {
   if (!snapshot.context.assessmentSigned) {
     return [{ code: "assessment_required", label: "Sign the assessment before recording the admission decision." }];
   }

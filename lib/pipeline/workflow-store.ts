@@ -436,15 +436,6 @@ export async function recordAssessmentRecommendation(
       blockers: [{ code: "assigned_assessor_required", label: "Only the assigned assessor or a supervisor can submit this recommendation." }],
     };
   }
-  if (input.outcome !== "accept" && !input.reasonNote?.trim()) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: snapshot.referral,
-      blockers: [{ code: "recommendation_reason_required", label: "Record the clinical reason for this recommendation." }],
-    };
-  }
-
   if (getReferralStoreReadiness().mode !== "postgres") {
     const now = new Date().toISOString();
     const recommendation: AssessmentRecommendation = {
@@ -589,9 +580,7 @@ export async function recordAdmissionDecision(
     } : null;
     const targetStage = input.outcome === "declined"
       ? "Declined"
-      : snapshot.referral.stage === "Assessment"
-        ? "Community Review"
-        : snapshot.referral.stage;
+      : "Community Review";
     const sections = normalizeReferralSectionVersions(snapshot.referral.sectionVersions);
     const mutation = await patchReferral(
       referralId,
@@ -1223,9 +1212,7 @@ async function recordPostgresDecision(
   const currentSections = normalizeReferralSectionVersions(row.section_versions);
   const nextStage = input.outcome === "declined"
     ? "Declined"
-    : row.stage === "Assessment"
-      ? "Community Review"
-      : row.stage;
+    : "Community Review";
   const stageChanged = nextStage !== row.stage;
   const nextSections = {
     ...currentSections,

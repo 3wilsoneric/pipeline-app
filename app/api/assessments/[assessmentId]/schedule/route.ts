@@ -61,22 +61,20 @@ async function scheduleAssessmentIfReady(
   actor: { id: string; name: string },
   canOverride: boolean,
 ) {
-  const readinessFailure = await assessmentSchedulingReadinessFailure(command, referral, assessorId);
-  return readinessFailure ?? saveAssessmentSchedule(assessmentId, command, actor, canOverride);
+  const warnings = await assessmentSchedulingAlerts(command, referral, assessorId);
+  return saveAssessmentSchedule(assessmentId, command, actor, canOverride, warnings);
 }
 
-async function assessmentSchedulingReadinessFailure(
+async function assessmentSchedulingAlerts(
   command: AssessmentScheduleCommand,
   referral: Referral,
   assessorId: string | null | undefined,
 ) {
-  if (!["scheduled", "rescheduled"].includes(command.schedule.status)) return null;
+  if (!["scheduled", "rescheduled"].includes(command.schedule.status)) return [];
   const contacts = requireContactStore();
-  if (!contacts.ok) return contacts.response;
+  if (!contacts.ok) return ["Scheduling contacts are unavailable. No contact information was verified."];
   const blockers = await schedulingBlockers(referral, assessorId);
-  return blockers.length
-    ? Response.json({ error: blockers.join(" "), code: "assessment_not_ready_to_schedule", blockers }, { status: 422 })
-    : null;
+  return blockers;
 }
 
 async function schedulingBlockers(
@@ -96,6 +94,7 @@ async function saveAssessmentSchedule(
   command: AssessmentScheduleCommand,
   actor: { id: string; name: string },
   canOverride: boolean,
+  warnings: string[],
 ) {
   try {
     const result = await patchAssessment(
@@ -108,25 +107,25 @@ async function saveAssessmentSchedule(
         allowScheduleConflict: command.allow_conflict === true && canOverride,
       },
     );
-    return mutationResponse(result, "schedule");
+    return mutationResponse(result, "schedule", warnings);
   } catch (error) {
     if (!(error instanceof AssessmentScheduleConflictError)) throw error;
-    return Response.json({
-      error: error.message,
-      code: "assessment_schedule_conflict",
-      conflicts: error.conflicts,
-      can_override: canOverride,
-    }, { status: 409 });
+    const result = await patchAssessment(assessmentId, { schedule: command.schedule }, actor, {
+      expectedVersion: command.if_match,
+      mutationId: command.client_mutation_id,
+      allowScheduleConflict: true,
+    });
+    return mutationResponse(result, "schedule", [...warnings, "This assessor has another assessment during that time. The appointment was saved with an overlap alert."]);
   }
 }
 
-function mutationResponse(result: Awaited<ReturnType<typeof patchAssessment>>, action: string) {
+function mutationResponse(result: Awaited<ReturnType<typeof patchAssessment>>, action: string, warnings: string[]) {
   if (!result) return jsonError("Assessment not found.", 404);
   if (!result.ok && "conflict" in result) {
     return Response.json({ error: `This assessment changed before its ${action} could be saved.`, ...result }, { status: 409 });
   }
   if (!result.ok) return Response.json({ error: `The assessment ${action} is blocked.`, ...result }, { status: 422 });
-  return Response.json(result, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
+  return Response.json({ ...result, warnings }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
 }
 
 function safeAssessmentId(value: string) {

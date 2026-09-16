@@ -8,20 +8,23 @@ export async function packetContentUploadResults() {
   const directory = await mkdtemp(join(tmpdir(), "pipeline-packet-content-"));
   const name = "identical file content permits independent referrals and edits while Save retries stay idempotent";
   try {
-    const store = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-store.ts", {
+    const globals = {
       process: Object.assign(Object.create(process), { env: {
         ...process.env, NODE_ENV: "test", PIPELINE_DATABASE_MODE: "disconnected",
         PIPELINE_DATABASE_URL: "", PIPELINE_REFERRAL_STORE_MODE: "local_file",
         PIPELINE_REFERRAL_STORE_PATH: join(directory, "referrals.json"),
+        PIPELINE_ASSESSMENT_STORE_MODE: "local_file",
+        PIPELINE_ASSESSMENT_STORE_PATH: join(directory, "assessments.json"),
         PIPELINE_DEMO_MODE: "false", NEXT_PUBLIC_PIPELINE_PERSONA_DEMO: "false",
       } }),
-    });
+    };
+    const store = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-store.ts", globals);
     const actor = { id: "packet-content-fixture", name: "Fixture Assessor" };
     const documentHash = "a".repeat(64);
     const input = (clientName, hash = documentHash) => ({
       name: clientName, date: "9/16/2026", stage: "New", community: "Turlock",
       county: "Stanislaus County", source: "Fixture", priority: "standard",
-      tags: [], owner: actor.name, note: "", createdAt: "2026-09-16T00:00:00Z",
+      tags: [], owner: actor.name, ownerId: actor.id, note: "", createdAt: "2026-09-16T00:00:00Z",
       dob: "1/1/1980", phone: "", email: "", payer: "", documentHash: hash,
     });
     const first = await store.createReferral(input("Content Fixture Alpha"), "content-first", actor);
@@ -38,7 +41,45 @@ export async function packetContentUploadResults() {
     await store.softDeleteReferral(first.referral.id, actor, first.referral.version);
     const restarted = await store.createReferral(input("Content Fixture Alpha"), "content-restarted", actor);
     assert.notEqual(restarted.referral.id, first.referral.id);
-    return [{ name, ok: true }];
+    const sameName = await store.createReferral(input("Content Fixture Alpha"), "same-name-alert", actor);
+    assert.notEqual(sameName.referral.id, restarted.referral.id);
+    assert.notEqual(sameName.referral.clientId, restarted.referral.clientId);
+    assert(sameName.warnings.some((warning) => warning.includes("saved separately")));
+    const assessments = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-store.ts", globals);
+    const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts", globals);
+    const completion = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-completion.ts", globals);
+    const created = await assessments.createAssessment({
+      referral_id: sameName.referral.id, assigned_assessor: actor,
+      data: schema.createEmptyAssessmentToolData(),
+      field_provenance: { primary_diagnosis: [{ review_status: "pending" }] },
+    }, actor, "incomplete-assessment");
+    assert.equal(created.ok, true, `Assessment create: ${JSON.stringify(created)}`);
+    const signed = await assessments.patchAssessment(created.assessment.assessment_id,
+      { signer: actor }, actor, { expectedVersion: created.assessment.version, mutationId: "sign-with-alerts" });
+    assert.equal(signed.ok, true, `Assessment sign: ${JSON.stringify(signed)}`);
+    assert(signed.assessment.signed_at);
+    assert.equal(signed.assessment.started_at, null);
+    assert.equal(signed.assessment.primary_diagnosis, null);
+    assert(completion.getAssessmentCompletionSummary(signed.assessment).missing.length > 0);
+    assert(signed.warnings.some((warning) => warning.code === "assessment_data_incomplete"));
+    assert(signed.warnings.some((warning) => warning.code === "assessment_extraction_unreviewed"));
+    const workflow = loadTypeScriptModule(process.cwd(), "lib/pipeline/workflow-store.ts", globals);
+    const latest = await workflow.getReferralWorkflowSnapshot(sameName.referral.id);
+    const recommendation = await workflow.recordAssessmentRecommendation(sameName.referral.id,
+      { assessmentId: signed.assessment.assessment_id, outcome: "decline", reasonNote: "" },
+      latest.referral.version, latest.referral.sectionVersions.decision, actor);
+    assert.equal(recommendation.ok, true, `Recommendation: ${JSON.stringify(recommendation)}`);
+    const forDecision = await workflow.getReferralWorkflowSnapshot(sameName.referral.id);
+    const decision = await workflow.recordAdmissionDecision(sameName.referral.id,
+      { outcome: "accepted", reasonNote: "" }, forDecision.referral.version,
+      forDecision.referral.sectionVersions.decision, actor);
+    assert.equal(decision.ok, true, `Decision: ${JSON.stringify(decision)}`);
+    const forAdmission = await workflow.getReferralWorkflowSnapshot(sameName.referral.id);
+    const admitted = await workflow.transitionReferral(sameName.referral.id, "Accepted / Admitted",
+      forAdmission.referral.version, forAdmission.referral.sectionVersions.workflow, actor);
+    assert.equal(admitted.ok, true, `Admission: ${JSON.stringify(admitted)}`);
+    assert.equal(admitted.referral.admissionDate ?? "", "");
+    return [{ name, ok: true }, { name: "matching names and incomplete assessments progress through signing, review and explicit admission without invented answers", ok: true }];
   } catch (error) {
     return [{ name, ok: false, error: String(error.message ?? error) }];
   } finally {
