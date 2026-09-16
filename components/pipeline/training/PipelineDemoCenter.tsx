@@ -307,7 +307,7 @@ export default function PipelineDemoCenter({
   const casesLoadedRef = useRef(false);
   const canWrite = environment.writable && actor.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role));
   const canReset = Boolean(actor.demoPersona) && environment.writable;
-  const resetDemo = () => window.location.assign(toPipelinePath("/training/demo?journey=1"));
+  const resetDemo = canReset ? () => window.location.assign(toPipelinePath("/training/demo?journey=1")) : undefined;
 
   const selectView = (nextView: DemoView) => {
     setView(nextView);
@@ -319,7 +319,7 @@ export default function PipelineDemoCenter({
     casesLoadedRef.current = true;
     setLoadingCases(true);
     void (async () => {
-      if (journeyPreparationRef.current) await journeyPreparationRef.current;
+      await journeyPreparationRef.current;
       return loadDemoReferrals();
     })().then((items) => {
       startTransition(() => {
@@ -353,7 +353,7 @@ export default function PipelineDemoCenter({
 
     setLaunchingId(scenario.id);
     try {
-      if (journeyPreparationRef.current) await journeyPreparationRef.current;
+      await journeyPreparationRef.current;
       const memberResult = await fetchPipelineJson<{ members: DemoAssessor[] }>("/api/members?scope=assessors");
       const assessor = memberResult.members.find((member) => member.principal_id === actor.id) ?? memberResult.members[0];
       if (!assessor) throw new Error("No active assessor is available for this practice case.");
@@ -460,7 +460,7 @@ export default function PipelineDemoCenter({
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
             <DemoTab active={view === "handoff"} label="Submittal & acceptance" onClick={() => selectView("handoff")} />
             {canUseProcessTester ? <DemoTab active={view === "tester"} label="Process tester" onClick={() => selectView("tester")} /> : null}
-            {canReset && view !== "presentation" ? <ResetDemoButton onReset={resetDemo} compact /> : null}
+            <ResetDemoButton onReset={resetDemo} compact view={view} />
           </div>
         </header>
 
@@ -488,7 +488,7 @@ export default function PipelineDemoCenter({
                 if (scenario) void launchScenario(scenario, { tutorialId: guide.tutorialId, stepId: guide.stepId }, guide.workspaceStage);
               }}
               onSlideChange={() => scrollContainerRef.current?.scrollTo({ top: 0 })}
-              onReset={canReset ? resetDemo : undefined}
+              onReset={resetDemo}
             />
           ) : view === "lab" ? (
             <ScenarioLab
@@ -642,7 +642,7 @@ function PresentationHeader({ slide, slideIndex, onSelect, onClose, onReset }: {
         <select id="presentation-slide" value={slideIndex} onChange={(event) => onSelect(Number(event.target.value))} className="h-10 w-[200px] max-w-[calc(100vw-100px)] min-w-0 border border-[#cbd5d1] bg-white px-3 text-[12px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:w-[230px]">
           {presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}
         </select>
-        {onReset ? <ResetDemoButton onReset={onReset} /> : null}
+        <ResetDemoButton onReset={onReset} />
         <button type="button" aria-label="Close presentation" title="Close presentation" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#cbd5d1] text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
           <X size={18} aria-hidden="true" />
         </button>
@@ -651,7 +651,8 @@ function PresentationHeader({ slide, slideIndex, onSelect, onClose, onReset }: {
   );
 }
 
-function ResetDemoButton({ onReset, compact = false }: { onReset: () => void; compact?: boolean }) {
+function ResetDemoButton({ onReset, compact = false, view }: { onReset?: () => void; compact?: boolean; view?: DemoView }) {
+  if (!onReset || view === "presentation") return null;
   return (
     <button
       type="button"
