@@ -128,7 +128,7 @@ test("same referral schedules, captures an assessment, returns to supervisor and
   const guided = page.locator('[data-guided-assessment="true"]');
   await expect(guided).toBeVisible();
   await expect(guided.getByRole("button", { name: "Switch to Supervisor", exact: true })).toBeVisible();
-  await guided.getByRole("button", { name: "Exit guided interview" }).click();
+  await guided.getByRole("button", { name: "Full assessment" }).click();
   const chart = page.locator('[data-assessment-view="chart"]');
   const answer = "Synthetic practice note entered immediately before switching accounts.";
   await chart.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
@@ -148,7 +148,7 @@ test("same referral schedules, captures an assessment, returns to supervisor and
   expect(saved.assessor_id).toBe("practice-assessor");
   expect(saved.scheduled_method).toBe("zoom");
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
-  await guided.getByRole("button", { name: "Exit guided interview" }).click();
+  await guided.getByRole("button", { name: "Full assessment" }).click();
   await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
   await chart.getByRole("button", { name: "Switch to Assessor", exact: true }).click();
   await expect(page.getByRole("button", { name: "Switch to Supervisor", exact: true })).toBeVisible();

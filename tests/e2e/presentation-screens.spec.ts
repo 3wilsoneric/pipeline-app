@@ -93,7 +93,7 @@ test("captures the real screens used in the assessor orientation", async ({ page
   await lab.locator("summary").click();
   await expect(lab.getByText("Use this order", { exact: true })).toBeVisible();
   await capture("assessment-language-lab.png");
-  await interview.getByRole("button", { name: "Exit guided interview" }).click();
+  await interview.getByRole("button", { name: "Full assessment" }).click();
   await interview.getByRole("navigation", { name: "Assessment sections" }).getByRole("button", { name: /Review/ }).click();
   await expect(interview.getByRole("region", { name: "Practice assessment review" })).toBeVisible();
   await capture("assessment-review.png");

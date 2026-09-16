@@ -107,6 +107,7 @@ import {
   PracticeAssessmentReview,
 } from "@/components/pipeline/AssessmentInterviewFields";
 import GuidedAssessmentInterview from "@/components/pipeline/GuidedAssessmentInterview";
+import AssessmentViewToggle from "@/components/pipeline/AssessmentViewToggle";
 import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabButton";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
@@ -1403,6 +1404,8 @@ export default function AssessmentWorkspace({
         onOpenAssignedWork={onOpenAssignedWork ? () => void openAssignedWork() : undefined}
         workspaceControl={workspaceControl}
         onExitToChart={() => setAssessmentView("chart")}
+        onClose={() => void closeAssessment()}
+        navigationDisabled={isBusy}
         onDone={() => {
           setActiveSection("provenance_qc");
           setAssessmentView("chart");
@@ -1414,7 +1417,7 @@ export default function AssessmentWorkspace({
 
   return createPortal(
     <section role="dialog" aria-modal="true" aria-label="Assessment interview" data-assessment-view="chart" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
-      <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dfdb] bg-white px-4 py-2 sm:px-6 lg:flex-nowrap lg:px-9">
+      <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dfdb] bg-white py-2 pl-4 pr-14 sm:pl-6 sm:pr-16 lg:flex-nowrap lg:pl-9 lg:pr-16">
         {workspaceControl}
         {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isBusy} /> : null}
         <div className="min-w-0 flex-1">
@@ -1438,7 +1441,7 @@ export default function AssessmentWorkspace({
           <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
         ) : null}
         {selected.started_at && !selected.signed_at && canEditClinical ? (
-          <button type="button" onClick={() => setAssessmentView("guided")} aria-label="Guided interview" title="Guided interview" className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 border border-[#c9ceca] text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73] sm:w-auto sm:px-3"><Play size={13} /><span className="hidden sm:inline">Guided interview</span></button>
+          <AssessmentViewToggle value="chart" disabled={isBusy} onChange={setAssessmentView} />
         ) : null}
         {selected.signed_at ? (
           canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"><Plus size={14} /> Addendum</button> : <span className="text-[11px] font-black text-[#0f6f5e]">Signed</span>
@@ -1446,7 +1449,7 @@ export default function AssessmentWorkspace({
           <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 shrink-0 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35 sm:px-4"><span className="hidden sm:inline">Sign assessment</span><span className="sm:hidden">Sign</span></button>
         ) : null}
         <DemoAssessmentControls persona={viewer?.demoPersona} />
-        <button type="button" onClick={() => void closeAssessment()} disabled={isBusy} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>
+        <button type="button" onClick={() => void closeAssessment()} disabled={isBusy} aria-label="Close assessment" title="Return to assessment workspace" className="absolute right-2 top-2 flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>
       </header>
       <TrainingAssessmentBanner mode={trainingAssessmentMode} />
 

@@ -277,7 +277,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
       const guided = page.locator('[data-guided-assessment="true"]');
       await expect(guided).toBeVisible();
-      await guided.getByRole("button", { name: "Exit guided interview" }).click();
+      await guided.getByRole("button", { name: "Full assessment" }).click();
       const chart = page.locator('[data-assessment-view="chart"]');
       const answer = "Synthetic final answer, entered immediately before closing.";
       let saving = false;
@@ -303,7 +303,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
       await expect(guided).toBeVisible();
-      await guided.getByRole("button", { name: "Exit guided interview" }).click();
+      await guided.getByRole("button", { name: "Full assessment" }).click();
       await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
       await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
@@ -326,7 +326,7 @@ test.describe("workflow interaction and durable feedback", () => {
       const referral = await createReferral(api, uniqueName(), pipelineActors.assessorA.id);
       const assessmentId = await startAssessment(api, referral.id);
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
-      await page.getByRole("button", { name: "Exit guided interview" }).click();
+      await page.getByRole("button", { name: "Full assessment" }).click();
       const chart = page.locator('[data-assessment-view="chart"]');
       await page.route(`**/api/assessments/${assessmentId}`, (route) => route.request().method() === "PATCH"
         ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic save unavailable" }) })

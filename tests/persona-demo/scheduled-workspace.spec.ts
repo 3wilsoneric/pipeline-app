@@ -37,7 +37,7 @@ test("scheduled work opens the same interview without manual intake or stage adv
   await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   await expect(interview).toBeVisible();
-  await interview.getByRole("button", { name: "Exit guided interview" }).click();
+  await interview.getByRole("button", { name: "Full assessment" }).click();
   const chart = page.locator('[data-assessment-view="chart"]');
   await chart.getByRole("textbox", { name: /Prior 5150/ }).fill("Synthetic handoff answer retained on the same assessment.");
   await chart.getByRole("button", { name: "Switch to Supervisor", exact: true }).click();

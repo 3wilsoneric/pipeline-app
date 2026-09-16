@@ -28,11 +28,13 @@ test.describe("assessment editing entry and return paths", () => {
         await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
         const guided = page.locator('[data-guided-assessment="true"]');
         await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
+        await expect(guided.getByRole("button", { name: "Guided interview", exact: true })).toHaveAttribute("aria-pressed", "true");
         const started = await readAssessment(api, assessment.assessment_id);
         expect(Date.parse(started.started_at!)).toBeLessThan(Date.parse(started.scheduled_start_at!));
 
-        await guided.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+        await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
         const full = page.locator('[data-assessment-view="chart"]');
+        await expect(full.getByRole("button", { name: "Full assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
         const answer = "Synthetic history entered immediately before closing the assessment.";
         await full.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
         await full.getByRole("button", { name: "Close assessment", exact: true }).click();
@@ -41,9 +43,14 @@ test.describe("assessment editing entry and return paths", () => {
         // Reopen without leaving the workspace, not just via a saved Home link.
         await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
         await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
-        await guided.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+        await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
         await full.getByRole("button", { name: "Guided interview", exact: true }).click();
+        await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
+        await guided.getByRole("button", { name: "Close assessment", exact: true }).click();
+        await expect(guided).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Resume assessment", exact: true })).toBeVisible();
+        await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
         await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
 
         await guided.getByRole("button", { name: "Workspace", exact: true }).click();
@@ -51,7 +58,7 @@ test.describe("assessment editing entry and return paths", () => {
         await expect(stages.getByRole("button", { name: /Intake/ })).toHaveAttribute("aria-current", "page");
         await stages.getByRole("button", { name: /Assessment/ }).click();
         await expect(guided).toBeVisible();
-        await guided.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+        await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
         await full.getByRole("button", { name: "Close assessment", exact: true }).click();
         await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
         await page.getByRole("button", { name: "Open current work", exact: true }).click();
@@ -175,7 +182,7 @@ test.describe("assessment editing entry and return paths", () => {
       await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=prior_history");
       const guided = page.locator('[data-guided-assessment="true"]');
       await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
-      await guided.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+      await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
       const full = page.locator('[data-assessment-view="chart"]');
       await expect(full).toBeVisible();
       await full.getByRole("button", { name: "Guided interview", exact: true }).click();

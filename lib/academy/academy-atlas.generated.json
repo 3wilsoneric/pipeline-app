@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c30812e8b6818ca7",
-  "fingerprint": "c30812e8b6818ca79f6994f12489ac2b67f33ae2c3db3d3c5db58f3b9fa473d0",
+  "generatedAt": "source-fingerprint:db45797c9c159e19",
+  "fingerprint": "db45797c9c159e19f72fd54ae196671b3b2f6a77ce59992198a3741cfa5c150c",
   "totals": {
-    "files": 1087,
-    "lines": 328159,
-    "coveredFiles": 1087
+    "files": 1088,
+    "lines": 328224,
+    "coveredFiles": 1088
   },
   "entries": [
     {
@@ -1925,12 +1925,24 @@
       ]
     },
     {
+      "path": "components/pipeline/AssessmentViewToggle.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 42,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/AssessmentWorkspace.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1896,
+      "lines": 1899,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2158,7 +2170,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 695,
+      "lines": 708,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -12534,7 +12546,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 220,
+      "lines": 227,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"

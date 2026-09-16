@@ -159,7 +159,7 @@ const presentationSlides: readonly PresentationSlide[] = [
       src: "/training/presentation/assessment-interview-current.png",
       alt: "Pipeline guided assessment interview for Taylor Rivera with real answer controls and Next at the bottom right.",
       label: "Guided interview",
-      caption: "Answer in the middle; use Back and Next at the bottom. Exit guided interview returns to the section view of these same answers.",
+      caption: "Answer in the middle; use Back and Next at the bottom. Full switches to the section view, while X returns to the assessment workspace.",
     }],
     nextLabel: "Document the interview",
   },

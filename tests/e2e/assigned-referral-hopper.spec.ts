@@ -87,7 +87,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
     expect(await guided.locator("header").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`workspace-return-${width}.png`) });
   }
-  await guided.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+  await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
   const chart = page.locator('[data-assessment-view="chart"]');
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -307,7 +307,7 @@ test("both assessment views keep answers and position when opening and closing a
     expect(await header.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`assessment-hopper-header-${width}.png`) });
   }
-  await guided.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+  await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
   const chart = page.locator('[data-assessment-view="chart"]');
   await expect(chart).toBeVisible();
   const answer = chart.getByRole("textbox", { name: /Prior 5150/ });
