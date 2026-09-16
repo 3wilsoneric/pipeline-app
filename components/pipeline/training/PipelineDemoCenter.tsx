@@ -614,7 +614,7 @@ function PresentationHeader({ slide, slideIndex, onSelect, onClose, onReset }: {
     <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8">
       <div className="hidden min-w-0 flex-1 sm:block">
         <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div>
-        <div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor's Workshop</div>
+        <div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor&apos;s Workshop</div>
       </div>
       <div className="hidden min-w-0 flex-1 text-center lg:block">
         <div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div>

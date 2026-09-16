@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:2a6b67f3ee23bbd8",
-  "fingerprint": "2a6b67f3ee23bbd80f2b885171d0637c7ffc8068d432c174458eee7448c52443",
+  "generatedAt": "source-fingerprint:7bdb34aa1c0dff2f",
+  "fingerprint": "7bdb34aa1c0dff2f4f3ff90014c2797dd731d20403e75da747a396f5a41e6c83",
   "totals": {
     "files": 1084,
-    "lines": 327675,
+    "lines": 327686,
     "coveredFiles": 1084
   },
   "entries": [
@@ -9053,7 +9053,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 82,
+      "lines": 83,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -10049,7 +10049,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 105,
+      "lines": 113,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -11105,7 +11105,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 354,
+      "lines": 356,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
