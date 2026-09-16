@@ -24,6 +24,8 @@ ARG NEXT_PUBLIC_ENTRA_CLIENT_ID
 ARG NEXT_PUBLIC_PIPELINE_API_SCOPE
 ARG NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=true
 ARG NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=true
+ARG NEXT_PUBLIC_PIPELINE_PERSONA_DEMO=false
+ARG NEXT_PUBLIC_PIPELINE_DEMO_URL
 ARG PIPELINE_DEPLOYMENT_ID
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -32,6 +34,8 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_PIPELINE_API_SCOPE=${NEXT_PUBLIC_PIPELINE_API_SCOPE} \
     NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=${NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED} \
     NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=${NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED} \
+    NEXT_PUBLIC_PIPELINE_PERSONA_DEMO=${NEXT_PUBLIC_PIPELINE_PERSONA_DEMO} \
+    NEXT_PUBLIC_PIPELINE_DEMO_URL=${NEXT_PUBLIC_PIPELINE_DEMO_URL} \
     PIPELINE_DEPLOYMENT_ID=${PIPELINE_DEPLOYMENT_ID}
 
 RUN --mount=type=secret,id=next_server_actions_encryption_key,required=true \
@@ -63,3 +67,22 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health/live').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 
 CMD ["node", "server.js"]
+
+# Only the authenticated workshop gateway is exposed. Its separate practice
+# processes keep the existing loopback-only persona and data-isolation guards.
+FROM runtime AS workshop
+ARG NEXT_PUBLIC_PIPELINE_PERSONA_DEMO=false
+ARG NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=true
+RUN test "$NEXT_PUBLIC_PIPELINE_PERSONA_DEMO" = true && test "$NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED" = false
+COPY --from=builder --chown=nextjs:nodejs /app/shared/persona-demo-config.mjs ./shared/persona-demo-config.mjs
+USER root
+RUN chown -R root:root /app && mkdir -p /app/.data/persona-demo-workshop && chown -R nextjs:nodejs /app/.data
+USER nextjs
+ENV WORKSHOP_SERVER_ENTRY=/app/server.js \
+    WORKSHOP_DATA_ROOT=/app/.data/persona-demo-workshop
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3001/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+CMD ["node", "scripts/workshop-gateway.mjs"]
+
+# Keep the existing default image and production deployment command unchanged.
+FROM runtime AS production
