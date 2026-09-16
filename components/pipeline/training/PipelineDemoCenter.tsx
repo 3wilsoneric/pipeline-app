@@ -455,7 +455,7 @@ export default function PipelineDemoCenter({
           {view === "presentation" ? (
             <PresentationDeck
               initialSlideId={initialPresentationSlide}
-              finishLabel={journey ? "Enter demo" : canWrite ? "Start practice" : "Finish"}
+              finishLabel={canWrite ? "Enter demo" : "Finish"}
               finishBusy={enteringDemo}
               finishError={journey ? error : ""}
               onExit={() => journey ? window.location.assign(toPipelinePath("/training")) : selectView("lab")}
