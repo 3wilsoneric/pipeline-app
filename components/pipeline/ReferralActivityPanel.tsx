@@ -11,15 +11,11 @@ import type {
 type ReferralActivityPanelProps = {
   referralId?: number;
   version?: number;
-  compact?: boolean;
-  onOpenFull?: () => void;
 };
 
 export default function ReferralActivityPanel({
   referralId,
   version,
-  compact = false,
-  onOpenFull,
 }: ReferralActivityPanelProps) {
   const [result, setResult] = useState<{
     referralId: number;
@@ -63,47 +59,7 @@ export default function ReferralActivityPanel({
   }
   const { events, metadata } = result;
 
-  return <ActivityContent compact={compact} events={events} metadata={metadata} onOpenFull={onOpenFull} />;
-}
-
-function ActivityContent({
-  compact,
-  events,
-  metadata,
-  onOpenFull,
-}: {
-  compact: boolean;
-  events: ReferralActivityEvent[];
-  metadata: ReferralWorkflowMetadata;
-  onOpenFull?: () => void;
-}) {
-  if (compact) return <CompactActivity events={events} onOpenFull={onOpenFull} />;
   return <FullActivity events={events} metadata={metadata} />;
-}
-
-function CompactActivity({
-  events,
-  onOpenFull,
-}: {
-  events: ReferralActivityEvent[];
-  onOpenFull?: () => void;
-}) {
-  return (
-    <section aria-label="Workspace change history" className="bg-white py-1.5">
-      <div className="flex items-center justify-between gap-3 text-[10px] text-[#737373]">
-        <span>
-          <span className="font-semibold text-[#404040]">Change history</span>
-          <span aria-hidden="true"> · </span>
-          {events.length} change{events.length === 1 ? "" : "s"}
-        </span>
-        {onOpenFull ? (
-          <button type="button" onClick={onOpenFull} className="font-semibold text-[#0f705f] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]">
-            View<span className="sr-only"> change history</span>
-          </button>
-        ) : null}
-      </div>
-    </section>
-  );
 }
 
 function FullActivity({ events, metadata }: { events: ReferralActivityEvent[]; metadata: ReferralWorkflowMetadata }) {

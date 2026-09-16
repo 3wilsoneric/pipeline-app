@@ -1938,8 +1938,12 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("textbox", { name: "SSN (optional)", exact: true })).toHaveValue("111-11-1111");
     const compactHistory = page.getByRole("region", { name: "Workspace change history" });
     await expect(compactHistory).toBeVisible();
-    await expect(compactHistory.getByText("Change history", { exact: true })).toBeVisible();
-    await compactHistory.getByRole("button", { name: "View change history", exact: true }).click();
+    const workspaceUrl = page.url();
+    const historyToggle = compactHistory.getByText("Change history", { exact: true });
+    await expect(historyToggle).toBeVisible();
+    await historyToggle.click();
+    await expect(page).toHaveURL(workspaceUrl);
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toBeVisible();
     const fullHistory = page.getByRole("region", { name: "Referral ownership and activity" });
     await expect(fullHistory).toBeVisible();
     const workspaceOwners = fullHistory.getByRole("group", { name: "Workspace owners" });
@@ -1953,7 +1957,8 @@ test.describe("Referral home and packet canvas", () => {
     await expect(ssnChange).toContainText("Value changed (masked)");
     await expect(ssnChange).not.toContainText("000-00-0000");
     await expect(ssnChange).not.toContainText("111-11-1111");
-    await page.getByRole("button", { name: "01 Intake" }).click();
+    await historyToggle.click();
+    await expect(fullHistory).not.toBeVisible();
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toHaveValue("Referral summary for packet review.");
     await page.getByRole("button", { name: "Close editor", exact: true }).click();
