@@ -337,7 +337,7 @@ function SupervisorDecisionDisclosure({ workflow, view, busy, decision, onDecisi
           <WorkflowTextArea label="Decision rationale" value={decision.reasonNote} onChange={(reasonNote) => onDecisionChange({ reasonNote })} />
           {!workflow.review ? <WorkflowNotice tone="error">Submit a signed assessment and recommendation for supervisor review before recording a final decision.</WorkflowNotice> : null}
           <div className="flex flex-wrap gap-2">
-            <PrimaryButton busy={busy.startsWith("decision:")} disabled={decisionSubmissionIsBlocked(workflow, decision.outcome, decision.reasonNote, view.incompleteDecision)} onClick={onSubmitDecision}>Record final decision</PrimaryButton>
+            <PrimaryButton busy={busy.startsWith("decision:")} disabled={decisionSubmissionIsBlocked(workflow, decision.outcome)} onClick={onSubmitDecision}>Record final decision</PrimaryButton>
             {workflow.review?.status === "submitted" && workflow.capabilities.can_request_changes ? <SecondaryButton disabled={Boolean(busy)} onClick={onRequestReviewChanges}>Request changes</SecondaryButton> : null}
           </div>
         </>

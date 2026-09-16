@@ -268,8 +268,6 @@ export function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"
 export function decisionSubmissionIsBlocked(
   workflow: WorkflowResponse,
   outcome: DecisionOutcomeDraft,
-  _note: string,
-  _incompleteDecision: AdmissionRequirement[],
 ) {
   return !outcome
     || !workflow.context.assessmentSigned
