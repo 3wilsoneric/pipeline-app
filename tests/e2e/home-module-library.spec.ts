@@ -66,6 +66,34 @@ async function mockLayout(page: Page, moduleIds: string[] = defaults) {
   return writes;
 }
 
+test("separates Home modules into distinct responsive work surfaces", async ({ page }, testInfo) => {
+  await mockLayout(page, [...defaults, "scheduling-queue"]);
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+
+  const surfaces = page.locator('[data-home-surface="true"]');
+  await expect(surfaces).toHaveCount(6);
+  const styles = await surfaces.evaluateAll((elements) => elements.map((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderTopColor: style.borderTopColor,
+      borderTopWidth: style.borderTopWidth,
+    };
+  }));
+  expect(new Set(styles.map((style) => style.borderTopColor)).size).toBeGreaterThanOrEqual(4);
+  for (const style of styles) {
+    expect(style.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(style.borderTopWidth).toBe("3px");
+  }
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(244, 246, 245)");
+  await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("home-surfaces-mobile.png"), animations: "disabled", fullPage: true });
+});
+
 test("removes search and recent work, adds a batch once, and keeps canceled selections out of Home", async ({ page }) => {
   const writes = await mockLayout(page);
   await page.goto("/?editHome=1");
