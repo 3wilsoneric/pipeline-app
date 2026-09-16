@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:963be1e5924c2020",
-  "fingerprint": "963be1e5924c2020a5a5a37dde7041f262c7d7947a56e65dd5358c64018beb7a",
+  "generatedAt": "source-fingerprint:39b5b27edb21ceb3",
+  "fingerprint": "39b5b27edb21ceb32bf85a241947d27ba90a253a8d60264eeade4c021f8678aa",
   "totals": {
-    "files": 1089,
-    "lines": 328446,
-    "coveredFiles": 1089
+    "files": 1091,
+    "lines": 328815,
+    "coveredFiles": 1091
   },
   "entries": [
     {
@@ -3365,6 +3365,18 @@
       ]
     },
     {
+      "path": "database/migrations/0035_preprovisioned_workspace_member_access.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 34,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -6268,7 +6280,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 65,
+      "lines": 69,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -11177,7 +11189,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 163,
+      "lines": 259,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -12211,6 +12223,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 68,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/workspace-member-link-postgres.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 235,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
