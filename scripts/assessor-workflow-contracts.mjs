@@ -406,7 +406,8 @@ const signedAssessmentReport = assessmentSummary.buildAssessmentSummaryReport({
   lai_vs_oral: "oral_and_lai",
   programming_notes: "Prefers a predictable morning routine.",
   family_involvement: "Sister participates in care planning.",
-}, referral);
+}, { ...referral, admissionDate: "2026-10-12" });
+check("Meet the Client uses the saved referral admission date", signedAssessmentReport.meetClient.admissionDate === "2026-10-12");
 check("assessment report carries its exact signed source version", signedAssessmentReport.signed && signedAssessmentReport.assessmentId === "assessment-summary-fixture" && signedAssessmentReport.assessmentVersion === 7);
 check("assessment reports render governed option labels instead of storage tokens",
   signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Prior setting type" && item.value === "Residential program"))
@@ -418,6 +419,7 @@ const renderedMeetClient = meetClientTemplate.renderMeetClientEmail({
   name: "<Test Client>",
 }, "Supervisor & Reviewer", "delivery-fixture", ["LIC 602 <signed>.pdf", "Medication list.pdf"]);
 check("Meet the Client subject excludes the client name", !renderedMeetClient.subject.includes("Test Client"));
+check("Meet the Client email includes the admission date", renderedMeetClient.html.includes("Admission date") && renderedMeetClient.html.includes("2026-10-12"));
 check("Meet the Client HTML escapes clinical and identity content", renderedMeetClient.html.includes("&lt;Test Client&gt;") && renderedMeetClient.html.includes("Supervisor &amp; Reviewer") && !renderedMeetClient.html.includes("<Test Client>"));
 check("Meet the Client identifies and escapes every attached admission file", renderedMeetClient.html.includes("LIC 602 &lt;signed&gt;.pdf") && renderedMeetClient.html.includes("Medication list.pdf") && !renderedMeetClient.html.includes("LIC 602 <signed>.pdf"));
 check("small packets use direct Graph delivery", attachmentPolicy.meetClientAttachmentDeliveryMode([{ byteSize: 500_000 }, { byteSize: 500_000 }]) === "direct");

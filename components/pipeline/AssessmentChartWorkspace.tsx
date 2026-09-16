@@ -21,6 +21,7 @@ type ChartPayload = {
     configured: boolean;
     allowed_recipient_domains: string[];
     eligible: boolean;
+    can_send: boolean;
     ready: boolean;
     blockers: string[];
     admission_packet: {
@@ -38,9 +39,9 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false }: { referralId?: number; embedded?: boolean }) {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, initialView = "complete" }: { referralId?: number; embedded?: boolean; initialView?: ChartView }) {
   const [payload, setPayload] = useState<ChartPayload | null>(null);
-  const [view, setView] = useState<ChartView>("complete");
+  const [view, setView] = useState<ChartView>(initialView);
   const [loading, setLoading] = useState(Boolean(referralId));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -54,6 +55,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false 
     if (!referralId) return;
     setLoading(true);
     setError("");
+    setConfirmed(false);
     try {
       const next = await fetchPipelineJson<ChartPayload>(
         `/api/referrals/${referralId}/admission-summary`,
@@ -75,7 +77,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false 
     if (!payload?.email.ready || !confirmed || sendInFlight.current) return;
     const recipientList = recipients.split(/[;,\n]/).map((value) => value.trim()).filter(Boolean);
     const requestKey = JSON.stringify([
-      payload.referral.id, payload.report?.assessmentId, payload.report?.assessmentVersion,
+      payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
       [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
       payload.email.admission_packet.files.map((file) => file.document_id).sort(),
     ]);
@@ -92,6 +94,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false 
           body: JSON.stringify({
             recipients: recipientList,
             confirmed: true,
+            if_match: payload.referral.version,
             client_mutation_id: sendRequest.current.mutationId,
           }),
         },
@@ -272,7 +275,7 @@ function MeetClientChart({
           <HeaderFact label="Name" value={summary.name} />
           <HeaderFact label="Date of birth" value={formatDate(summary.dateOfBirth)} />
           <HeaderFact label="Community" value={summary.community} />
-          <HeaderFact label="Assessment date" value={formatDate(summary.assessmentDate)} />
+          <HeaderFact label="Admission date" value={formatDate(summary.admissionDate)} />
         </div>
         <MeetSection title="A little about the client" values={summary.bio} />
         <MeetSection title="Current medications" values={summary.medications} empty="No reconciled medications were recorded." />
@@ -283,7 +286,7 @@ function MeetClientChart({
 
       <aside data-guide-target="chart-email-handoff" className="border border-[#cfd7d2] bg-[#f8faf9] p-5" aria-label="Email Meet the Client">
         <div className="flex items-center gap-2"><Mail size={15} className="text-[#0f8b73]" /><h3 className="text-[12px] font-black">Email this face sheet</h3></div>
-        {!email.eligible ? (
+        {!email.can_send ? <p className="mt-3 text-[12px] text-[#67716c]">A supervisor sends Meet the Client and the admission packet.</p> : !email.eligible ? (
           <p className="mt-3 text-[11px] leading-5 text-[#67716c]">Email becomes available after the referral has an accepted admission decision.</p>
         ) : (
           <>

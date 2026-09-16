@@ -29,6 +29,7 @@ export type WorkflowResponse = {
     can_update: boolean;
     can_recommend: boolean;
     can_decide: boolean;
+    can_email: boolean;
     can_request_changes: boolean;
     can_authorize_manual_intake: boolean;
     can_reconcile_identity: boolean;

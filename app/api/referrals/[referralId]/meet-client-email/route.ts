@@ -49,7 +49,7 @@ export async function POST(
     if (!access.ok) return access.response;
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;
-    const contextResult = await loadMeetClientContext(referralId);
+    const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion);
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
     const attachmentContext = await loadAdmissionPacket(snapshot.referral);
@@ -138,7 +138,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[] }
+  | { ok: true; mutationId: string; recipients: string[]; referralVersion: number }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 32_000);
@@ -148,22 +148,32 @@ async function prepareEmailRequest(request: Request): Promise<
   }
   const mutationId = body.value.client_mutation_id;
   if (!isMutationId(mutationId)) return { ok: false, response: jsonError("client_mutation_id is invalid.") };
+  const referralVersion = body.value.if_match;
+  if (typeof referralVersion !== "number" || !Number.isSafeInteger(referralVersion) || referralVersion < 1) {
+    return { ok: false, response: jsonError("Refresh the summary before sending.", 409) };
+  }
   const readiness = getGraphMailReadiness();
   if (!readiness.configured) {
     return { ok: false, response: jsonError("Microsoft 365 email is not configured for Pipeline.", 503) };
   }
   const recipients = validateMeetClientRecipients(body.value.recipients, readiness);
   return recipients.ok
-    ? { ok: true, mutationId, recipients: recipients.recipients }
+    ? { ok: true, mutationId, recipients: recipients.recipients, referralVersion }
     : { ok: false, response: jsonError(recipients.message) };
 }
 
-async function loadMeetClientContext(referralId: number) {
+async function loadMeetClientContext(referralId: number, referralVersion: number) {
   const [snapshot, assessmentList] = await Promise.all([
     getReferralWorkflowSnapshot(referralId),
     listAssessments({ referralId, limit: 100 }),
   ]);
   if (!snapshot) return { ok: false as const, response: jsonError("Referral not found.", 404) };
+  if (snapshot.referral.version !== referralVersion) {
+    return { ok: false as const, response: jsonError("The workspace changed. Refresh and check the admission date and summary before sending.", 409) };
+  }
+  if (!snapshot.referral.admissionDate) {
+    return { ok: false as const, response: jsonError("Set the admission date before emailing Meet the Client.", 422) };
+  }
   if (snapshot.decision?.outcome !== "accepted") {
     return { ok: false as const, response: jsonError("Record an accepted admission decision before emailing Meet the Client.", 422) };
   }

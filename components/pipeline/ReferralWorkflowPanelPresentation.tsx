@@ -29,7 +29,7 @@ import type { AdmissionRequirement, AssessmentRecommendation, AssessmentReview, 
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
 
 type RecommendationDraft = {
-  outcome: AssessmentRecommendation["outcome"];
+  outcome: AssessmentRecommendation["outcome"] | "";
   reasonCode: string;
   reasonNote: string;
 };
@@ -88,6 +88,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onOpenAssessment: () => void;
   onOpenFiles: () => void;
   onOpenProfile: (canonicalClientId: string) => void;
+  onDone?: () => void;
 };
 
 export function ReferralWorkflowPanelPresentation({
@@ -120,6 +121,7 @@ export function ReferralWorkflowPanelPresentation({
   onOpenAssessment,
   onOpenFiles,
   onOpenProfile,
+  onDone,
 }: ReferralWorkflowPanelPresentationProps) {
   const view = deriveWorkflowPanelView(workflow);
   const {
@@ -132,17 +134,19 @@ export function ReferralWorkflowPanelPresentation({
 
   return (
     <section aria-label="Admission workflow" className="space-y-6 py-2 sm:px-2">
-      <div>
+      {!workflow.context.assessmentSigned ? <div>
         <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Admission workflow</div>
         <h2 className="mt-1 text-[22px] font-black text-[#111111]">From referral to handoff</h2>
         <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#68716c]">Complete the current gate, record the clinical recommendation, obtain the supervisor decision, finish admission requirements, and prepare the EHR handoff.</p>
-      </div>
+      </div> : null}
 
       {message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
       {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
 
-      <StageProgress currentStage={currentReferral.stage} />
-      <DecisionHandoffOverview workflow={workflow} incompleteDecision={incompleteDecision} incompleteMoveIn={incompleteMoveIn} incompleteEhr={incompleteEhr} handoffStatus={handoffStatus} />
+      {!workflow.context.assessmentSigned ? <>
+        <StageProgress currentStage={currentReferral.stage} />
+        <DecisionHandoffOverview workflow={workflow} incompleteDecision={incompleteDecision} incompleteMoveIn={incompleteMoveIn} incompleteEhr={incompleteEhr} handoffStatus={handoffStatus} />
+      </> : null}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <WorkflowPrimaryColumn
@@ -179,6 +183,13 @@ export function ReferralWorkflowPanelPresentation({
         />
       </div>
 
+      {(workflow.review?.status === "submitted" || workflow.decision) && onDone ? (
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#d9dfdb] pt-5">
+          <p className="text-[12px] text-[#68716c]">Saved. You can reopen this workspace. Signed assessment corrections are recorded as addenda.</p>
+          <PrimaryButton busy={busy === "done"} disabled={Boolean(busy)} onClick={onDone}>Done</PrimaryButton>
+        </div>
+      ) : null}
+
       {pendingDetail ? <WorkflowDetailDialog pending={pendingDetail} onConfirm={onConfirmDetail} onClose={onCloseDetail} /> : null}
     </section>
   );
@@ -214,9 +225,9 @@ function WorkflowPrimaryColumn({
 > & { view: WorkflowView }) {
   return (
     <div className="space-y-5">
-      <CurrentGateCard workflow={workflow} view={view} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} manualIntakeReason={manualIntakeReason} onManualIntakeReasonChange={onManualIntakeReasonChange} onSubmitTransition={onSubmitTransition} onAuthorizeManualIntake={onAuthorizeManualIntake} onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenFiles={onOpenFiles} />
       <ClinicalRecommendationDisclosure workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitRecommendation={onSubmitRecommendation} />
-      <SupervisorDecisionDisclosure workflow={workflow} view={view} busy={busy} decision={decision} onDecisionChange={onDecisionChange} onSubmitDecision={onSubmitDecision} onRequestReviewChanges={onRequestReviewChanges} />
+      {workflow.review || workflow.decision ? <SupervisorDecisionDisclosure workflow={workflow} view={view} busy={busy} decision={decision} onDecisionChange={onDecisionChange} onSubmitDecision={onSubmitDecision} onRequestReviewChanges={onRequestReviewChanges} /> : null}
+      <CurrentGateCard workflow={workflow} view={view} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} manualIntakeReason={manualIntakeReason} onManualIntakeReasonChange={onManualIntakeReasonChange} onSubmitTransition={onSubmitTransition} onAuthorizeManualIntake={onAuthorizeManualIntake} onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenFiles={onOpenFiles} />
     </div>
   );
 }
@@ -237,6 +248,7 @@ function CurrentGateCard({
   onOpenFiles,
 }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate" | "manualIntakeReason" | "onManualIntakeReasonChange" | "onSubmitTransition" | "onAuthorizeManualIntake" | "onOpenIntake" | "onOpenAssessment" | "onOpenFiles"> & { view: WorkflowView }) {
   const { currentReferral, forwardTransition, assessmentState, showManualIntake } = view;
+  if (workflow.context.assessmentSigned && !workflow.decision) return null;
   if (assessmentState) {
     return (
       <WorkflowCard icon={<ClipboardCheck size={17} />} title="Assessment" detail={assessmentState}>
@@ -245,14 +257,14 @@ function CurrentGateCard({
     );
   }
   return (
-    <WorkflowCard icon={<ClipboardCheck size={17} />} title="Current gate" detail={currentReferral.stage}>
-      {workflow.decision?.outcome === "accepted" && currentReferral.stage !== "Accepted / Admitted" ? (
+    <WorkflowCard icon={<ClipboardCheck size={17} />} title={workflow.decision?.outcome === "accepted" ? "Admission" : "Current gate"} detail={currentReferral.stage}>
+      {workflow.decision?.outcome === "accepted" ? (
         <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-[#e3e6e4] pb-4">
           <label className="block min-w-[180px] flex-1 text-[11px] font-bold text-[#303b34]" htmlFor="workflow-admit-date">
-            Date of admit
+            Admission date
             <input id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={!workflow.capabilities.can_update || Boolean(busy)} className="mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]" />
           </label>
-          <SecondaryButton disabled={!admissionDate || admissionDate === currentReferral.admissionDate || !workflow.capabilities.can_update || Boolean(busy)} onClick={onSaveAdmissionDate}>Record date</SecondaryButton>
+          {workflow.capabilities.can_email ? <PrimaryButton busy={busy.startsWith("admit-date:")} disabled={!admissionDate || Boolean(busy)} onClick={onSaveAdmissionDate}>Prepare Meet the Client</PrimaryButton> : <p className="text-[12px] text-[#68716c]">A supervisor prepares and sends Meet the Client.</p>}
         </div>
       ) : null}
       {forwardTransition ? (
@@ -276,16 +288,41 @@ function CurrentGateCard({
 }
 
 function ClinicalRecommendationDisclosure({ workflow, busy, recommendation, onRecommendationChange, onSubmitRecommendation }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onRecommendationChange" | "onSubmitRecommendation">) {
+  if (!workflow.context.assessmentSigned) return null;
+  if (workflow.review?.status === "submitted" || workflow.decision) return <FinishedAssessmentCard workflow={workflow} />;
   return (
-    <WorkflowDisclosure key={`recommendation-${workflow.context.assessmentId || workflow.recommendation ? "ready" : "pending"}`} icon={<ShieldCheck size={17} />} title="Clinical recommendation" detail={workflow.context.assessmentSigned ? "Signed assessment available" : "Assessment signature required"} defaultOpen={Boolean(workflow.context.assessmentId || workflow.recommendation)}>
+    <WorkflowCard icon={<ShieldCheck size={17} />} title="Assessment outcome" detail="Your recommendation. The supervisor records the final decision.">
       {workflow.recommendation ? <RecordSummary title={`${formatOutcome(workflow.recommendation.outcome)} recommendation`} actor={workflow.recommendation.recommendedByName} date={workflow.recommendation.recommendedAt} note={workflow.recommendation.reasonNote} /> : null}
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <WorkflowSelect label="Recommendation" value={recommendation.outcome} onChange={(value) => onRecommendationChange({ outcome: value as AssessmentRecommendation["outcome"] })} options={[{ value: "accept", label: "Recommend acceptance" }, { value: "decline", label: "Recommend decline" }, { value: "needs_more_information", label: "Needs more information" }]} />
-        <WorkflowInput label="Reason code (optional)" value={recommendation.reasonCode} onChange={(reasonCode) => onRecommendationChange({ reasonCode })} />
-      </div>
-      <WorkflowTextArea label="Clinical rationale" value={recommendation.reasonNote} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
-      <PrimaryButton busy={busy.startsWith("recommendation:")} disabled={!workflow.capabilities.can_recommend || !workflow.context.assessmentId || workflow.review?.status === "submitted" || (recommendation.outcome !== "accept" && !recommendation.reasonNote.trim())} onClick={onSubmitRecommendation}>Submit for supervisor review</PrimaryButton>
-    </WorkflowDisclosure>
+      <fieldset disabled={!workflow.capabilities.can_recommend || Boolean(busy)} className="my-4">
+        <legend className="sr-only">Outcome recommendation</legend>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {([{ value: "accept", label: "Admit" }, { value: "decline", label: "Denied" }, { value: "needs_more_information", label: "Under review" }] as const).map((option) => (
+            <label key={option.value} className={`flex min-h-12 cursor-pointer items-center gap-3 border px-4 py-3 text-[14px] font-bold ${recommendation.outcome === option.value ? "border-[#0f8b73] bg-[#eff8f3]" : "border-[#c9ceca] bg-white"}`}>
+              <input type="radio" name="assessment-outcome" value={option.value} checked={recommendation.outcome === option.value} onChange={() => onRecommendationChange({ outcome: option.value })} className="accent-[#0f8b73]" />{option.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <WorkflowTextArea label={recommendation.outcome === "needs_more_information" ? "What needs review?" : "Reason"} value={recommendation.reasonNote} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
+      <PrimaryButton busy={busy.startsWith("recommendation:")} disabled={recommendationSubmissionIsBlocked(workflow, recommendation, busy)} onClick={onSubmitRecommendation}>Finish assessment</PrimaryButton>
+    </WorkflowCard>
+  );
+}
+
+function recommendationSubmissionIsBlocked(workflow: WorkflowResponse, recommendation: RecommendationDraft, busy: string) {
+  return Boolean(busy)
+    || !workflow.capabilities.can_recommend
+    || !workflow.context.assessmentId
+    || !recommendation.outcome
+    || (recommendation.outcome !== "accept" && !recommendation.reasonNote.trim());
+}
+
+function FinishedAssessmentCard({ workflow }: { workflow: WorkflowResponse }) {
+  return (
+    <WorkflowCard icon={<CheckCircle2 size={17} />} title="Assessment finished" detail={workflow.decision ? formatOutcome(workflow.decision.outcome) : "Under supervisor review"}>
+      {workflow.recommendation ? <RecordSummary title={`${formatOutcome(workflow.recommendation.outcome)} recommendation`} actor={workflow.recommendation.recommendedByName} date={workflow.recommendation.recommendedAt} note={workflow.recommendation.reasonNote} /> : null}
+      <p className="mt-3 text-[12px] text-[#68716c]">{workflow.decision ? "The decision is saved. Intake, files, and the signed chart remain available." : "No further assessor action is needed unless the supervisor requests changes."}</p>
+    </WorkflowCard>
   );
 }
 
@@ -297,7 +334,7 @@ function SupervisorDecisionDisclosure({ workflow, view, busy, decision, onDecisi
       {workflow.capabilities.can_decide && !workflow.decision ? (
         <>
           <DecisionReadiness workflow={workflow} outcome={decision.outcome} note={decision.reasonNote} incompleteDecision={view.incompleteDecision} />
-          <div className="mt-3 grid gap-3 sm:grid-cols-2"><WorkflowSelect label="Decision" value={decision.outcome} onChange={(value) => onDecisionChange({ outcome: value as DecisionOutcomeDraft })} options={[{ value: "", label: "Select a decision" }, { value: "accepted", label: "Accept" }, { value: "declined", label: "Decline" }]} /><WorkflowInput label="Reason code (optional)" value={decision.reasonCode} onChange={(reasonCode) => onDecisionChange({ reasonCode })} /></div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2"><WorkflowSelect label="Decision" value={decision.outcome} onChange={(value) => onDecisionChange({ outcome: value as DecisionOutcomeDraft })} options={[{ value: "", label: "Under review" }, { value: "accepted", label: "Admit" }, { value: "declined", label: "Denied" }]} /><WorkflowInput label="Reason code (optional)" value={decision.reasonCode} onChange={(reasonCode) => onDecisionChange({ reasonCode })} /></div>
           <WorkflowTextArea label="Decision rationale (required for decline)" value={decision.reasonNote} onChange={(reasonNote) => onDecisionChange({ reasonNote })} />
           {!workflow.review ? <WorkflowNotice tone="error">Submit a signed assessment and recommendation for supervisor review before recording a final decision.</WorkflowNotice> : null}
           <div className="flex flex-wrap gap-2">

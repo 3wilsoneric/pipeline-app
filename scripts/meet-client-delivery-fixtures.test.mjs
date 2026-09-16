@@ -65,14 +65,24 @@ test("invalid route identities and denied roles cannot reserve or send an email"
   assert.equal(denied.reservationCalls(), 0);
 });
 
-function deliveryFixture({ auditFailure = false, providerFailure = false, denied = false } = {}) {
+test("a missing admission date or stale preview cannot reserve or send", async () => {
+  for (const options of [{ admissionDate: "" }, { previewVersion: 3 }]) {
+    const fixture = deliveryFixture(options);
+    const response = await fixture.send();
+    assert.equal(response.status, options.admissionDate === "" ? 422 : 409);
+    assert.equal(fixture.providerCalls(), 0);
+    assert.equal(fixture.reservationCalls(), 0);
+  }
+});
+
+function deliveryFixture({ auditFailure = false, providerFailure = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4 } = {}) {
   let calls = 0;
   let reservations = 0;
   const mutationIds = new Set();
   const auditStates = [];
   const metrics = [];
   const assessment = { assessment_id: "synthetic-assessment", version: 7, signed_at: "2026-09-11T10:00:00Z" };
-  const referral = { id: 6, community: "San Pablo" };
+  const referral = { id: 6, version: 4, community: "San Pablo", admissionDate };
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error {}
   const dependencies = {
@@ -129,7 +139,7 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, denied
   return {
     auditStates, metrics, providerCalls: () => calls, reservationCalls: () => reservations,
     send: (referralId = "6") => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
-      method: "POST", body: JSON.stringify({ confirmed: true, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture" }),
+      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture" }),
     }), { params: Promise.resolve({ referralId }) }),
   };
 }
