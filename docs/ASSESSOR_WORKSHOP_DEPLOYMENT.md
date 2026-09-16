@@ -1,4 +1,17 @@
-# Hosted Assessor's Workshop
+# Assessor's Workshop deployment
+
+The active workshop is the presentation at `/training/demo` on the normal
+Pipeline site, reached from Learning Center. It ends at Home, where each attendee
+opens their own real referral using their assigned Pipeline account. Screenshot
+assets dominate the slides; Quick help remains a separate Learning Center tool.
+The presentation does not seed cases, reset records, or switch account roles.
+An explicit admin-only `?view=tester` entry preserves the existing process tester.
+
+The external workshop URL is no longer a production build input. The hosted
+configuration below is retained as historical recovery documentation, not the
+current workshop release procedure. Do not re-enable its Learning Center link.
+
+## Historical hosted configuration
 
 The Learning Center workshop opens the presentation, then the synthetic referral
 workspace with Assessor/Supervisor switching. Tooltip guides remain separate in

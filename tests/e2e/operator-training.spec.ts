@@ -32,7 +32,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("link", { name: "Open Assessor's Workshop presentation" })).toBeVisible();
     const taskTiles = page.locator('section[aria-label="Quick help"] > div > button');
     await expect(taskTiles.first()).toHaveAccessibleName("Open Check my work");
-    await expect(page.getByText("Moving from Allo · Supervisor-led orientation")).toBeVisible();
+    await expect(page.getByText("See the referral and assessment flow, then work on your own assigned referral in Pipeline.")).toBeVisible();
     await expect(page.getByText(/No presentation required/)).toBeVisible();
 
     await page.getByRole("button", { name: "Open Finish an assessment" }).click();
@@ -236,8 +236,9 @@ test.describe("Pipeline Learning Center", () => {
   test("captures current synthetic intake screens and a readable orientation", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await mockTrainingProgress(page);
-    await page.goto("/training/demo?slide=open-workspace");
-    await page.getByRole("button", { name: "Try the intake walkthrough" }).click();
+    await page.goto(trainingUrl);
+    await page.getByRole("button", { name: "Open Create a referral", exact: true }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Create a referral", exact: true }).click();
     await expect(page).toHaveURL(/trainingIntake=1/);
     const upload = page.getByRole("group", { name: "Upload initial referral document" });
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
@@ -361,7 +362,7 @@ test.describe("Pipeline Learning Center", () => {
 
     await expect(page).toHaveURL(/\/training\/demo$/);
     await expect(page.getByRole("tab", { name: "Presentation" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your referral" })).toBeVisible();
   });
 
   test("guides report selection, unapplied filters, and the export checkpoint", async ({ page }) => {
