@@ -17,6 +17,7 @@ const shell = readFileSync("components/pipeline/PipelineOperatorAcademy.tsx", "u
 const header = readFileSync("components/pipeline/PipelineHeader.tsx", "utf8");
 const appShell = readFileSync("components/pipeline/PipelineAppShell.tsx", "utf8");
 const coach = readFileSync("components/pipeline/training/PipelineGuidedCoach.tsx", "utf8");
+const workshopPage = readFileSync("app/(pipeline)/training/demo/page.tsx", "utf8");
 const demoEntry = readFileSync("components/pipeline/training/OperatorDemoEntry.tsx", "utf8");
 const curriculumView = readFileSync("components/pipeline/training/OperatorCurriculumView.tsx", "utf8");
 const lessonVideo = readFileSync("components/pipeline/training/OperatorLessonVideo.tsx", "utf8");
@@ -52,7 +53,7 @@ check("irreversible workflow boundaries require human confirmation", () => tutor
 check("every guided target is owned by a current source component", () => tutorials.operatorGuideTargetIds.every((id) => { const source = tutorials.operatorGuideTargetSources[id]; return existsSync(source) && readFileSync(source, "utf8").includes(`\"${id}\"`); }));
 check("the global coach is mounted once and remains deterministic", () => appShell.includes("<PipelineGuidedCoach />") && coach.includes("data-guide-target") && !coach.includes("ANTHROPIC") && !coach.includes("openai") && !coach.includes("Guide command") && !coach.includes("Send guide command"));
 check("the Learning Center puts the presentation first and keeps task guidance under quick help", () => learningCenterPresentsQuickHelp());
-check("the Learning Center presentation entry reuses the configured demo route", () => page.includes("getPipelineDemoEnvironment") && page.includes("demoEnvironment.entryUrl") && demoEntry.includes("toPipelinePath") && demoEntry.includes('aria-label="Open Assessor\'s Workshop presentation"'));
+check("the Learning Center presentation stays on the authenticated Pipeline site", () => !page.includes("getPipelineDemoEnvironment") && !shell.includes("demoUrl") && demoEntry.includes('toPipelinePath("/training/demo")') && workshopPage.includes("getOperatorTrainingUser") && workshopPage.includes("<PipelineWorkshopPresentation") && !workshopPage.includes("redirect("));
 check("learning guidance keeps operators in control of consequential actions and typed data", () => coach.includes("Use test records") && coach.includes("The guide never reads what you type") && curriculumView.includes("Use synthetic examples only"));
 check("lesson videos render inside curriculum activities without adding empty placeholders", () => curriculumView.includes("<OperatorLessonVideo moduleId={module.id} activityId={activity.id} />") && lessonVideo.includes("if (!video) return null") && lessonVideo.includes('loading="lazy"'));
 check("Loom embeds are host-allowlisted by parser and one shared browser policy", () => videos.parseLoomVideoUrl("https://www.loom.com/share/1234567890abcdef")?.id === "1234567890abcdef" && videos.parseLoomVideoUrl("https://evil.example/share/1234567890abcdef") === null && securityHeaders.includes('PIPELINE_LOOM_FRAME_ORIGIN = "https://www.loom.com"') && !securityHeaders.includes("*.loom.com") && nextConfig.includes("pipelineContentSecurityPolicy") && nextConfig.includes("PIPELINE_PERMISSIONS_POLICY") && proxySource.includes("PIPELINE_PERMISSIONS_POLICY"));

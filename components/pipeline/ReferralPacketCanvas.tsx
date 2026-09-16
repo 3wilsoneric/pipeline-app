@@ -35,7 +35,8 @@ import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
-import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
+import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import DuplicateReferralReviewDialog, {
@@ -366,6 +367,7 @@ export default function ReferralPacketCanvas({
     status: string;
     assessmentId?: string;
     scheduledStartAt?: string | null;
+    scheduleStatus?: PipelineAssessmentRecord["schedule_status"];
     startedAt?: string | null;
     signedAt?: string | null;
   }>({
@@ -499,6 +501,7 @@ export default function ReferralPacketCanvas({
           status: assessment.status,
           assessmentId: assessment.assessment_id,
           scheduledStartAt: assessment.scheduled_start_at,
+          scheduleStatus: assessment.schedule_status,
           startedAt: assessment.started_at,
           signedAt: assessment.signed_at,
         });
@@ -2778,6 +2781,7 @@ function ChartCompletionRail({
     status: string;
     assessmentId?: string;
     scheduledStartAt?: string | null;
+    scheduleStatus?: PipelineAssessmentRecord["schedule_status"];
     startedAt?: string | null;
     signedAt?: string | null;
   };
@@ -2821,7 +2825,7 @@ function ChartCompletionRail({
 }
 
 function assessmentRailAction(
-  summary: { signedAt?: string | null; startedAt?: string | null; scheduledStartAt?: string | null },
+  summary: { signedAt?: string | null; startedAt?: string | null; scheduledStartAt?: string | null; scheduleStatus?: PipelineAssessmentRecord["schedule_status"] },
   hasAssessor: boolean,
 ) {
   if (!hasAssessor) return "Assign assessor";
@@ -2829,13 +2833,14 @@ function assessmentRailAction(
     signed_at: summary.signedAt ?? null,
     started_at: summary.startedAt ?? null,
     scheduled_start_at: summary.scheduledStartAt ?? null,
+    schedule_status: summary.scheduleStatus,
   });
 }
 
-function assessmentRailStatus(summary: { signedAt?: string | null; startedAt?: string | null; scheduledStartAt?: string | null }) {
+function assessmentRailStatus(summary: { signedAt?: string | null; startedAt?: string | null; scheduledStartAt?: string | null; scheduleStatus?: PipelineAssessmentRecord["schedule_status"] }) {
   if (summary.signedAt) return "Signed";
   if (summary.startedAt) return "In progress";
-  return summary.scheduledStartAt ? "Scheduled" : "Not scheduled";
+  return hasActiveAssessmentSchedule({ scheduled_start_at: summary.scheduledStartAt, schedule_status: summary.scheduleStatus }) ? "Scheduled" : "Not scheduled";
 }
 
 function ChartStatusRow({ label, value, attention = false }: { label: string; value: string; attention?: boolean }) {

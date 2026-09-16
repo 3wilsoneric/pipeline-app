@@ -4,7 +4,6 @@ import { CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import OperatorDemoEntry from "@/components/pipeline/training/OperatorDemoEntry";
-import DemoAssessmentLabButton from "@/components/pipeline/DemoAssessmentLabButton";
 import OperatorGuidedTours from "@/components/pipeline/training/OperatorGuidedTours";
 import {
   emptyOperatorProgress,
@@ -14,11 +13,9 @@ import {
 
 export default function PipelineOperatorAcademy({
   assignedRoles,
-  demoUrl,
   initialProgress,
 }: {
   assignedRoles: readonly string[];
-  demoUrl: string | null;
   progressStorageKey: string;
   initialProgress: OperatorProgressRecord;
 }) {
@@ -74,12 +71,7 @@ export default function PipelineOperatorAcademy({
               <p className="mt-2 text-[15px] leading-6 text-[#606b67]">Choose a walkthrough or a task below.</p>
             </header>
 
-            <OperatorDemoEntry demoUrl={demoUrl} />
-            {process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" ? (
-              <DemoAssessmentLabButton className="mt-3 inline-flex min-h-10 items-center px-1 text-[13px] font-semibold text-[#0b6d5b] hover:text-[#18372f] focus-visible:outline-2 focus-visible:outline-[#0f8b73]">
-                Open blank assessment lab
-              </DemoAssessmentLabButton>
-            ) : null}
+            <OperatorDemoEntry />
           </>
         ) : null}
         <OperatorGuidedTours assignedRoles={assignedRoles} progress={progress} onExpandedChange={setModuleOpen} />
@@ -87,7 +79,7 @@ export default function PipelineOperatorAcademy({
         {!moduleOpen ? (
           <footer className="mt-5 flex items-center gap-2 text-[10px] leading-4 text-[#6d7773]">
             <CheckCircle2 size={14} className="shrink-0 text-[#0f8b73]" aria-hidden="true" />
-            Assessment practice uses a synthetic case. Other guides use the app’s controls: use test records, not live client data, when practicing.
+            Quick help provides separate, step-by-step guidance for individual tasks.
           </footer>
         ) : null}
       </div>

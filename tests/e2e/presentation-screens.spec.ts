@@ -130,11 +130,43 @@ test("captures the real screens used in the assessor orientation", async ({ page
   await page.locator("details").filter({ has: page.getByText("Supervisor decision", { exact: true }) }).screenshot({ path: testInfo.outputPath("supervisor-decision.png"), animations: "disabled" });
 });
 
-test("keeps the scheduling walkthrough above the full-screen appointment form", async ({ page }, testInfo) => {
+test("Workshop opens presentation-only and returns to real work", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const referralCreates: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/api/referrals")) referralCreates.push(request.url());
+  });
+  await page.goto("/training");
+  const entry = page.getByRole("link", { name: "Open Assessor's Workshop presentation" });
+  await expect(entry).toBeVisible();
+  await expect(page.getByRole("region", { name: "Quick help" })).toBeVisible();
+  await entry.click();
+  await expect(page).toHaveURL(/\/training\/demo$/);
+  await expect(page.locator('[data-demo-surface="presentation"]')).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Demo Center sections" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reset demo" })).toHaveCount(0);
+  const imageStage = page.getByRole("button", { name: "Enlarge Home · New assignments screenshot" });
+  const bounds = await imageStage.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.width).toBeGreaterThan(1300);
+  expect(bounds!.height).toBeGreaterThan(680);
+  await page.screenshot({ path: testInfo.outputPath("workshop-laptop.png"), animations: "disabled" });
+  await page.getByRole("button", { name: "Close presentation" }).click();
+  await expect(page).toHaveURL(/\/training$/);
+  await entry.click();
+  await page.getByRole("combobox", { name: "Jump to slide" }).selectOption("8");
+  await page.getByRole("button", { name: "Open your referrals" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeVisible();
+  expect(referralCreates).toHaveLength(0);
+});
+
+test("Quick help scheduling tooltip remains above the full-screen appointment form", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.route("**/api/training/progress", (route) => route.fulfill({ json: { progress: [] } }));
-  await page.goto("/training/demo?slide=schedule-assessment");
-  await page.getByRole("button", { name: "Try the scheduling walkthrough" }).click();
+  await page.goto("/training");
+  await page.getByRole("button", { name: "Open Schedule an assessment" }).click();
+  await page.getByRole("button", { name: "Open guided tooltip for Set the appointment" }).click();
   const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
   const coach = page.getByTestId("guided-coach-panel");
   await expect(schedule).toBeVisible();
@@ -186,12 +218,13 @@ test("shows a loaded real screen on every slide and supports keyboard enlargemen
       }
     }
   }
+  await slideSelect.selectOption("8");
   await page.getByRole("tab", { name: "Supervisor decision", exact: true }).click();
   await page.getByRole("button", { name: "Enlarge Supervisor decision screenshot" }).click();
   const enlarged = page.getByRole("dialog", { name: "Supervisor decision full-size screen" });
   await expect(enlarged).toBeVisible();
   await page.keyboard.press("ArrowLeft");
-  await expect(slideSelect).toHaveValue(String(count - 1));
+  await expect(slideSelect).toHaveValue("8");
   await page.keyboard.press("Escape");
   await expect(enlarged).toBeHidden();
   await expect(page.getByRole("button", { name: "Enlarge Supervisor decision screenshot" })).toBeFocused();

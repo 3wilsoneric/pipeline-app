@@ -162,6 +162,13 @@ export function hasAssessmentScheduleInput(
   return Boolean(assessment && scheduleStart);
 }
 
+export function hasActiveAssessmentSchedule(
+  assessment: Pick<PipelineAssessmentRecord, "scheduled_start_at" | "schedule_status"> | null,
+) {
+  return Boolean(assessment?.scheduled_start_at
+    && (assessment.schedule_status === "scheduled" || assessment.schedule_status === "rescheduled"));
+}
+
 export function nextAssessmentScheduleStatus(status: PipelineAssessmentRecord["schedule_status"]) {
   if (status === "scheduled") return "rescheduled" as const;
   if (status === "rescheduled") return "rescheduled" as const;

@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
-import PipelineDemoCenter from "@/components/pipeline/training/PipelineDemoCenter";
+import PipelineDemoCenter, { PipelineWorkshopPresentation } from "@/components/pipeline/training/PipelineDemoCenter";
 import { getServerComponentRequestHeaders } from "@/lib/auth/server-component-request";
 import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { getOperatorTrainingUser } from "@/lib/training/operator-training-access";
 
 export const metadata: Metadata = {
   title: "Assessor's Workshop | AHS - Pipeline",
-  description: "Presentation and isolated synthetic referral practice.",
+  description: "Assessor orientation followed by a live referral walkthrough on your Pipeline account.",
   robots: { index: false, follow: false, nocache: true },
 };
 
@@ -20,28 +20,19 @@ export default async function PipelineDemoPage({
   const requestedParams = await searchParams;
   const requestedSlide = requestedParams.slide;
   const requestHeaders = await getServerComponentRequestHeaders();
-  const [user, environment] = await Promise.all([
-    getOperatorTrainingUser(requestHeaders),
-    Promise.resolve(getPipelineDemoEnvironment()),
-  ]);
+  const user = await getOperatorTrainingUser(requestHeaders);
   if (!user) notFound();
-  redirectToExternalWorkshop(environment.entryUrl, requestHeaders.get("host"));
-  if (!environment.enabled) notFound();
-  const demoPersona = "demoPersona" in user ? user.demoPersona : undefined;
+
+  // The existing admin utility is separate from the presentation-only workshop.
+  if (requestedParams.view === "tester") {
+    const environment = getPipelineDemoEnvironment();
+    if (!user.roles.includes("admin") || !environment.enabled) notFound();
+    return <PipelineDemoCenter actor={{ id: user.id, name: user.name, email: user.email, roles: user.roles }} environment={environment} initialView="tester" />;
+  }
 
   return (
-    <PipelineDemoCenter
-      actor={{ id: user.id, name: user.name, email: user.email, roles: user.roles, demoPersona }}
-      environment={environment}
+    <PipelineWorkshopPresentation
       initialPresentationSlide={typeof requestedSlide === "string" ? requestedSlide : undefined}
-      initialView={requestedParams.view === "tester" && user.roles.includes("admin") ? "tester" : undefined}
-      journey={requestedParams.journey === "1" && Boolean(demoPersona) && environment.writable}
     />
   );
-}
-
-function redirectToExternalWorkshop(entryUrl: string | null, requestHost: string | null) {
-  if (!entryUrl?.startsWith("https://")) return;
-  if (new URL(entryUrl).host === requestHost) return;
-  redirect(entryUrl);
 }
