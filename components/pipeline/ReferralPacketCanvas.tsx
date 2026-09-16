@@ -1573,7 +1573,7 @@ export default function ReferralPacketCanvas({
       retainQueuedAdditionalFileDraft();
       return savedReferral;
     } catch (error) {
-      retryableSaveRef.current = error instanceof PipelineApiError && [0, 429, 500, 502, 503, 504].includes(error.status);
+      retryableSaveRef.current = isRetryableIntakeSave(error);
       let latestConflict: Referral | null = null;
       if (error instanceof PipelineApiError && error.status === 409) {
         const suspectedDuplicate = getSuspectedDuplicateReview(error.payload);
@@ -1588,7 +1588,7 @@ export default function ReferralPacketCanvas({
       if (!latestConflict && savedReferral) setLoadedReferral(savedReferral);
       setSaveError(error instanceof Error ? error.message : "Could not save this referral workspace.");
       void preservePendingIntake().catch(() => undefined);
-      setSavedAt(retryableSaveRef.current ? "Pending · retrying automatically" : "Pending · you can keep navigating");
+      setSavedAt(intakeSaveFailureStatus(error));
       return null;
     } finally {
       isSavingRef.current = false;
@@ -4165,4 +4165,12 @@ function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
+function isRetryableIntakeSave(error: unknown) {
+  return error instanceof PipelineApiError && [0, 429, 500, 502, 503, 504].includes(error.status);
+}
+
+function intakeSaveFailureStatus(error: unknown) {
+  return isRetryableIntakeSave(error) ? "Pending · retrying automatically" : "Pending · you can keep navigating";
 }

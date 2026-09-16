@@ -450,7 +450,6 @@ export default function AssessmentWorkspace({
     const recoveredDirty = dirtyAssessmentSections(merged, currentData);
     dirtySectionsRef.current = recoveredDirty;
     setDirtySections(recoveredDirty);
-    if (recoveredDirty.size === 0 && offlinePrincipal) void removeOfflineAssessmentDraft(offlinePrincipal, assessment.assessment_id).catch(() => undefined);
     setActiveSection((current) => initialSection ?? recovered.activeSection ?? current);
     setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
     setMessage(conflicts.length > 0 ? "Recovered changes need conflict review" : "Recovered unsaved assessment changes");
@@ -937,7 +936,7 @@ export default function AssessmentWorkspace({
       });
       setPendingOfflineSaves(result.remaining);
       const current = selectedRef.current;
-      if ((result.completed > 0 || result.conflicts > 0) && current) {
+      if (current && result.completed + result.conflicts > 0) {
         try {
           const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
             `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
@@ -948,7 +947,7 @@ export default function AssessmentWorkspace({
             setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
           } else {
             setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : "Offline changes synced");
-            if (result.remaining === 0 && dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+            if (result.remaining + dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
           }
         } catch {
           // The normal active-assessment poll will reconcile the saved version.
@@ -1003,10 +1002,12 @@ export default function AssessmentWorkspace({
       return;
     }
     if (!current || dirtySectionsRef.current.size === 0) return;
-    await persistRecoveryDraft(current);
-    // Canonical saves may fail or conflict; the recovery copy keeps navigation
-    // independent of that request and preserves the last confirmed server base.
-    void flushDirtySections().catch(() => undefined);
+    const canonical = flushDirtySections().then(() => {
+      if (dirtySectionsRef.current.size > 0) throw new Error("Answers are still pending.");
+    });
+    // A confirmed recovery copy or canonical save releases navigation; a failed
+    // request never becomes a saved or signed record.
+    await Promise.any([persistRecoveryDraft(current), canonical]);
   };
 
   usePersonaSwitchSave(async () => {

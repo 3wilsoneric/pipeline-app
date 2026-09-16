@@ -6,8 +6,10 @@ import ts from "typescript";
 import { chromium } from "@playwright/test";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
-const local = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-local-recovery.ts", { Blob, File });
 const draftTypes = loadTypeScriptModule(process.cwd(), "lib/pipeline/user-workspace-state-types.ts");
+const local = {};
+const codecSource = ts.transpileModule(readFileSync("lib/pipeline/referral-local-recovery.ts", "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+new Function("exports", "require", codecSource)(local, (name) => name.endsWith("user-workspace-state-types") ? draftTypes : {});
 const fields = Object.fromEntries(draftTypes.referralCanvasFieldKeys?.map((key) => [key, { value: "" }]) ?? []);
 // The parser's canonical field inventory is exported by the referral types owner.
 const referralTypes = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-types.ts");

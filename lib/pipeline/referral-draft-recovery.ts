@@ -42,6 +42,14 @@ export async function listServerReferralDrafts() {
   const raw = server.status === "fulfilled" ? server.value.drafts : [];
   const drafts = (Array.isArray(raw) ? raw : []).map(parsePipelineReferralDraftSummary)
     .filter((draft): draft is PipelineReferralDraftSummary => Boolean(draft));
+  mergeLocalDraftSummaries(drafts, local);
+  return drafts.sort((left, right) => Date.parse(right.saved_at) - Date.parse(left.saved_at));
+}
+
+function mergeLocalDraftSummaries(
+  drafts: PipelineReferralDraftSummary[],
+  local: PromiseSettledResult<Awaited<ReturnType<typeof listLocalReferralRecoveries>>>,
+) {
   if (local.status === "fulfilled") {
     for (const recovery of local.value) {
       if (!/^new-[0-9a-f-]{36}$/i.test(recovery.reference)) continue;
@@ -60,7 +68,6 @@ export async function listServerReferralDrafts() {
       drafts.push(summary);
     }
   }
-  return drafts.sort((left, right) => Date.parse(right.saved_at) - Date.parse(left.saved_at));
 }
 
 export function saveServerReferralDraft(draftReference: ReferralRecoveryDraftKey, draft: PipelineReferralDraft) {
