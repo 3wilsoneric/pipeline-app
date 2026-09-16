@@ -8,9 +8,10 @@ import {
   pipelineAuthRequired,
 } from "@/lib/auth/entra-client";
 import {
+  acceptWorkshopResetResponse,
   clearPipelineBrowserSessionCache,
   probePipelineServerSession,
-  readPagePersona,
+  pipelinePageHeaders,
   renewActivePipelineSession,
   type PipelineSessionUser,
 } from "@/lib/auth/browser-session";
@@ -245,8 +246,7 @@ export async function fetchPipelineApi(
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? defaultTimeoutMs);
   const headers = new Headers(init.headers);
-  const persona = readPagePersona();
-  if (persona) headers.set("x-pipeline-persona", persona);
+  for (const [key, value] of Object.entries(pipelinePageHeaders())) headers.set(key, value);
 
   if (init.body && !headers.has("Content-Type") && typeof init.body === "string") {
     headers.set("Content-Type", "application/json");
@@ -263,6 +263,7 @@ export async function fetchPipelineApi(
       signal: controller.signal,
     });
     let response = await request(headers);
+    acceptWorkshopResetResponse(response);
 
     // The encrypted HttpOnly cookie is Pipeline's normal, fast application
     // session. Only involve MSAL when the server says that session is gone.

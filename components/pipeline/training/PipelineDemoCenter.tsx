@@ -6,7 +6,6 @@ import {
   ClipboardCheck,
   ExternalLink,
   ListChecks,
-  Play,
   RefreshCcw,
   X,
 } from "lucide-react";
@@ -25,8 +24,6 @@ import {
   type PipelineDemoScenarioId,
 } from "@/lib/demo/demo-scenarios";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
-import { getOperatorGuidedTutorial } from "@/lib/training/operator-guided-tutorials";
-import { stageOperatorGuideForNavigation } from "@/lib/training/operator-guided-tour-state";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import PipelineProcessTester, { type ProcessTesterStage } from "@/components/pipeline/training/PipelineProcessTester";
@@ -47,7 +44,6 @@ type DemoReferralSummary = Pick<Referral, "id" | "name" | "community" | "tags" |
 type DemoAssessor = { principal_id: string; display_name: string };
 type DemoView = "presentation" | "lab" | "handoff" | "tester";
 type DemoWorkspaceStage = "intake" | "assessment";
-type DemoGuide = { tutorialId: string; stepId: string };
 
 type PresentationSlide = {
   id: string;
@@ -59,13 +55,6 @@ type PresentationSlide = {
   points: readonly string[];
   screenshots: readonly PresentationScreenshot[];
   rule?: string;
-  guide?: {
-    label: string;
-    scenarioId: PipelineDemoScenarioId;
-    tutorialId: string;
-    stepId: string;
-    workspaceStage?: DemoWorkspaceStage;
-  };
   nextLabel: string;
   dark?: boolean;
 };
@@ -129,12 +118,11 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Files and Activity are beside the stage navigation at the top.",
     ],
     screenshots: [{
-      src: "/training/presentation/intake-workspace.png",
-      alt: "Synthetic Pipeline Intake screen with the referral packet area highlighted and the Create a referral tooltip walkthrough open.",
+      src: "/training/presentation/intake-workspace-current.png",
+      alt: "Synthetic Pipeline Intake workspace with the initial referral document area.",
       label: "Intake and packet",
-      caption: "New-referral intake example. The guide highlights the packet upload; existing transferred records use the chart instead.",
+      caption: "New-referral intake example. Add the referral packet here; existing transferred records use the chart instead.",
     }],
-    guide: { label: "Try the intake walkthrough", scenarioId: "new-intake", tutorialId: "create-referral", stepId: "referral-packet", workspaceStage: "intake" },
     nextLabel: "Review the intake",
   },
   {
@@ -169,8 +157,8 @@ const presentationSlides: readonly PresentationSlide[] = [
     ],
     screenshots: [
       {
-        src: "/training/presentation/assessment-schedule.png",
-        alt: "Synthetic Pipeline full-screen Schedule assessment form with its scheduling tooltip walkthrough beside the date and time.",
+        src: "/training/presentation/assessment-schedule-current.png",
+        alt: "Synthetic Pipeline full-screen Schedule assessment form with date, duration, method, and meeting details.",
         label: "Schedule assessment",
         caption: "Set date and time in Pacific Time, choose the method, enter its meeting details, then select Schedule assessment.",
       },
@@ -181,7 +169,6 @@ const presentationSlides: readonly PresentationSlide[] = [
         caption: "Calendar shows the saved appointment and the ready-to-schedule queue for the selected assessor.",
       },
     ],
-    guide: { label: "Try the scheduling walkthrough", scenarioId: "assessment-preparation", tutorialId: "start-assessment", stepId: "assessment-schedule-fields", workspaceStage: "assessment" },
     nextLabel: "Open the assessment",
   },
   {
@@ -196,12 +183,11 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Pausing? Wait for saved status. Return through Home → Continue working or the same workspace. A draft is not a submittal.",
     ],
     screenshots: [{
-      src: "/training/presentation/assessment-interview.png",
+      src: "/training/presentation/assessment-interview-current.png",
       alt: "Pipeline guided assessment interview for Taylor Rivera with real answer controls and Next at the bottom right.",
       label: "Guided interview",
       caption: "Answer in the middle; use Back and Next at the bottom. Exit guided interview returns to the section view of these same answers.",
     }],
-    guide: { label: "Start the assessment walkthrough", scenarioId: "assessment-interview", tutorialId: "complete-assessment", stepId: "assessment-section-identity", workspaceStage: "assessment" },
     nextLabel: "Document the interview",
   },
   {
@@ -222,7 +208,6 @@ const presentationSlides: readonly PresentationSlide[] = [
       caption: "Select Language Lab beneath Prior placements. Its writing order, checklist, and example stay beside the answer you are working on.",
     }],
     nextLabel: "Review and sign",
-    guide: { label: "Try Language Lab in the assessment", scenarioId: "assessment-interview", tutorialId: "complete-assessment", stepId: "assessment-answer", workspaceStage: "assessment" },
   },
   {
     id: "review-and-sign",
@@ -306,6 +291,8 @@ export default function PipelineDemoCenter({
   const [enteringDemo, setEnteringDemo] = useState(false);
   const casesLoadedRef = useRef(false);
   const canWrite = environment.writable && actor.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role));
+  const canReset = Boolean(actor.demoPersona) && environment.writable;
+  const resetDemo = canReset ? () => window.location.assign(toPipelinePath("/training/demo?journey=1")) : undefined;
 
   const selectView = (nextView: DemoView) => {
     setView(nextView);
@@ -316,7 +303,10 @@ export default function PipelineDemoCenter({
     if (view !== "lab" || casesLoadedRef.current) return;
     casesLoadedRef.current = true;
     setLoadingCases(true);
-    void loadDemoReferrals().then((items) => {
+    void (async () => {
+      await journeyPreparationRef.current;
+      return loadDemoReferrals();
+    })().then((items) => {
       startTransition(() => {
         setReferrals(items);
         setLoadingCases(false);
@@ -328,19 +318,18 @@ export default function PipelineDemoCenter({
   }, [view]);
 
   useEffect(() => {
-    if (!journey || journeyPreparationRef.current) return;
-    const preparation = fetchPipelineJson("/api/demo/journey", { method: "POST" });
+    if (!canReset || journeyPreparationRef.current) return;
+    const preparation = fetchPipelineJson("/api/demo/journey?reset=1", { method: "POST" });
     journeyPreparationRef.current = preparation;
     void preparation.catch(() => undefined);
-  }, [journey]);
+  }, [canReset]);
 
   const launchScenario = async (
     scenario: PipelineDemoScenario,
-    guide?: DemoGuide,
     workspaceStage: DemoWorkspaceStage = "assessment",
   ) => {
     setError("");
-    if (navigateWithoutDemoRecord(scenario, guide)) return;
+    if (navigateWithoutDemoRecord(scenario)) return;
     if (!canWrite) {
       setError(environment.writable ? "Your demo account needs assessor, coordinator, or admin access to create practice records." : environment.reason);
       return;
@@ -348,6 +337,7 @@ export default function PipelineDemoCenter({
 
     setLaunchingId(scenario.id);
     try {
+      await journeyPreparationRef.current;
       const memberResult = await fetchPipelineJson<{ members: DemoAssessor[] }>("/api/members?scope=assessors");
       const assessor = memberResult.members.find((member) => member.principal_id === actor.id) ?? memberResult.members[0];
       if (!assessor) throw new Error("No active assessor is available for this practice case.");
@@ -414,9 +404,9 @@ export default function PipelineDemoCenter({
     setEnteringDemo(true);
     try {
       try {
-        await (journeyPreparationRef.current ?? fetchPipelineJson("/api/demo/journey", { method: "POST" }));
+        await (journeyPreparationRef.current ?? fetchPipelineJson("/api/demo/journey?reset=1", { method: "POST" }));
       } catch {
-        journeyPreparationRef.current = fetchPipelineJson("/api/demo/journey", { method: "POST" });
+        journeyPreparationRef.current = fetchPipelineJson("/api/demo/journey?reset=1", { method: "POST" });
         await journeyPreparationRef.current;
       }
       if (actor.demoPersona === "supervisor") {
@@ -448,12 +438,13 @@ export default function PipelineDemoCenter({
   return (
     <main ref={scrollContainerRef} data-demo-center="true" className="h-full min-h-0 overflow-hidden bg-white text-[#171a18]">
       <div className="flex h-full min-h-0 w-full flex-col">
-        <header className="shrink-0 border-b border-[#d8dfdc] bg-[#edf2f0]">
+        <header className="relative z-10 shrink-0 border-b border-[#d8dfdc] bg-[#edf2f0]">
           <div className="flex min-w-0 items-end gap-1 overflow-x-auto px-2 pt-1.5 sm:px-3" role="tablist" aria-label="Demo Center sections">
             <DemoTab active={view === "presentation"} label="Presentation" onClick={() => selectView("presentation")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
             <DemoTab active={view === "handoff"} label="Submittal & acceptance" onClick={() => selectView("handoff")} />
             {canUseProcessTester ? <DemoTab active={view === "tester"} label="Process tester" onClick={() => selectView("tester")} /> : null}
+            <ResetDemoButton onReset={resetDemo} compact view={view} />
           </div>
         </header>
 
@@ -464,23 +455,24 @@ export default function PipelineDemoCenter({
           {view === "presentation" ? (
             <PresentationDeck
               initialSlideId={initialPresentationSlide}
-              finishLabel={journey ? "Enter demo" : "Begin walkthrough"}
+              finishLabel={canWrite ? "Enter demo" : "Finish"}
               finishBusy={enteringDemo}
               finishError={journey ? error : ""}
-              onExit={() => selectView("lab")}
-              onBeginWalkthrough={() => {
+              onExit={() => journey ? window.location.assign(toPipelinePath("/training")) : selectView("lab")}
+              onFinish={() => {
                 if (journey) {
                   void enterDemoHome();
                   return;
                 }
+                if (!canWrite) {
+                  window.location.assign(toPipelinePath("/training"));
+                  return;
+                }
                 const scenario = getPipelineDemoScenario("new-intake");
-                if (scenario) void launchScenario(scenario, { tutorialId: "create-referral", stepId: "referral-packet" }, "intake");
-              }}
-              onStartGuide={(guide) => {
-                const scenario = getPipelineDemoScenario(guide.scenarioId);
-                if (scenario) void launchScenario(scenario, { tutorialId: guide.tutorialId, stepId: guide.stepId }, guide.workspaceStage);
+                if (scenario) void launchScenario(scenario, "intake");
               }}
               onSlideChange={() => scrollContainerRef.current?.scrollTo({ top: 0 })}
+              onReset={resetDemo}
             />
           ) : view === "lab" ? (
             <ScenarioLab
@@ -554,18 +546,18 @@ function PresentationDeck({
   finishBusy,
   finishError,
   onExit,
-  onBeginWalkthrough,
-  onStartGuide,
+  onFinish,
   onSlideChange,
+  onReset,
 }: {
   initialSlideId?: string;
   finishLabel: string;
   finishBusy: boolean;
   finishError: string;
   onExit: () => void;
-  onBeginWalkthrough: () => void;
-  onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void;
+  onFinish: () => void;
   onSlideChange: () => void;
+  onReset?: () => void;
 }) {
   const [slideIndex, setSlideIndex] = useState(() => initialPresentationSlideIndex(initialSlideId));
   const slide = presentationSlides[slideIndex] ?? presentationSlides[0];
@@ -579,11 +571,11 @@ function PresentationDeck({
 
   return (
     <section data-demo-surface="presentation" className="fixed inset-0 z-[150] flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-white">
-      <PresentationHeader slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onClose={onExit} />
-      <PresentationSlideBody slide={slide} onStartGuide={onStartGuide} />
+      <PresentationHeader slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onClose={onExit} onReset={onReset} />
+      <PresentationSlideBody slide={slide} />
       <p className="sr-only" aria-live="polite">Slide {slide.number} of {presentationSlides.length}: {slide.title}</p>
       {finishError ? <p role="alert" className="shrink-0 border-l-2 border-[#ad493c] bg-[#fff3f0] px-5 py-2 text-[12px] font-semibold text-[#8a362c]">{finishError}</p> : null}
-      <PresentationFooter slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onFinish={onBeginWalkthrough} finishLabel={finishLabel} finishBusy={finishBusy} />
+      <PresentationFooter slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onFinish={onFinish} finishLabel={finishLabel} finishBusy={finishBusy} />
     </section>
   );
 }
@@ -617,12 +609,12 @@ function presentationSlideIndexForKey(event: KeyboardEvent, slideIndex: number) 
   return null;
 }
 
-function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onClose: () => void }) {
+function PresentationHeader({ slide, slideIndex, onSelect, onClose, onReset }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onClose: () => void; onReset?: () => void }) {
   return (
     <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8">
       <div className="hidden min-w-0 flex-1 sm:block">
         <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div>
-        <div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor orientation</div>
+        <div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor&apos;s Workshop</div>
       </div>
       <div className="hidden min-w-0 flex-1 text-center lg:block">
         <div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div>
@@ -632,6 +624,7 @@ function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: P
         <select id="presentation-slide" value={slideIndex} onChange={(event) => onSelect(Number(event.target.value))} className="h-10 w-[200px] max-w-[calc(100vw-100px)] min-w-0 border border-[#cbd5d1] bg-white px-3 text-[12px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:w-[230px]">
           {presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}
         </select>
+        <ResetDemoButton onReset={onReset} />
         <button type="button" aria-label="Close presentation" title="Close presentation" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#cbd5d1] text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
           <X size={18} aria-hidden="true" />
         </button>
@@ -640,9 +633,24 @@ function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: P
   );
 }
 
-function PresentationSlideBody({ slide, onStartGuide }: { slide: PresentationSlide; onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void }) {
+function ResetDemoButton({ onReset, compact = false, view }: { onReset?: () => void; compact?: boolean; view?: DemoView }) {
+  if (!onReset || view === "presentation") return null;
+  return (
+    <button
+      type="button"
+      className={`${compact ? "ml-auto mb-1 size-8" : "size-10"} flex shrink-0 items-center justify-center border border-[#c8d6d0] bg-white text-[#176b59] hover:bg-[#f1faf6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b59]`}
+      aria-label="Reset demo"
+      title="Reset demo to the original practice cases"
+      onClick={onReset}
+    >
+      <RefreshCcw size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
+function PresentationSlideBody({ slide }: { slide: PresentationSlide }) {
   const palette = presentationPalette(slide.dark);
-  return <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`min-h-0 flex-1 overflow-y-auto ${palette.article}`}><div className="mx-auto grid min-h-full w-full max-w-[1840px] content-center gap-7 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-center lg:gap-10 lg:px-10 lg:py-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:px-12 2xl:grid-cols-[360px_minmax(0,1fr)] 2xl:gap-10 2xl:px-14"><div className="min-w-0"><div className={`text-[11px] font-black uppercase tracking-[0.12em] ${palette.eyebrow}`}>{slide.location}</div><h2 className="mt-3 max-w-[700px] text-[34px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[42px] lg:text-[36px] xl:text-[36px] 2xl:text-[44px]">{slide.title}</h2><p className={`mt-4 max-w-[680px] text-[16px] font-medium leading-7 sm:text-[18px] lg:text-[16px] lg:leading-6 xl:text-[17px] xl:leading-7 2xl:text-[18px] ${palette.summary}`}>{slide.summary}</p><PresentationPoints slide={slide} palette={palette} /><PresentationRule slide={slide} palette={palette} /><PresentationSlideActions slide={slide} onStartGuide={onStartGuide} /></div><PresentationVisual slide={slide} /></div></article>;
+  return <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`min-h-0 flex-1 overflow-y-auto ${palette.article}`}><div className="mx-auto grid min-h-full w-full max-w-[1840px] content-center gap-7 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-center lg:gap-10 lg:px-10 lg:py-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:px-12 2xl:grid-cols-[360px_minmax(0,1fr)] 2xl:gap-10 2xl:px-14"><div className="min-w-0"><div className={`text-[11px] font-black uppercase tracking-[0.12em] ${palette.eyebrow}`}>{slide.location}</div><h2 className="mt-3 max-w-[700px] text-[34px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[42px] lg:text-[36px] xl:text-[36px] 2xl:text-[44px]">{slide.title}</h2><p className={`mt-4 max-w-[680px] text-[16px] font-medium leading-7 sm:text-[18px] lg:text-[16px] lg:leading-6 xl:text-[17px] xl:leading-7 2xl:text-[18px] ${palette.summary}`}>{slide.summary}</p><PresentationPoints slide={slide} palette={palette} /><PresentationRule slide={slide} palette={palette} /></div><PresentationVisual slide={slide} /></div></article>;
 }
 
 type PresentationPalette = ReturnType<typeof presentationPalette>;
@@ -674,10 +682,6 @@ function PresentationPoints({ slide, palette }: { slide: PresentationSlide; pale
 function PresentationRule({ slide, palette }: { slide: PresentationSlide; palette: PresentationPalette }) {
   if (!slide.rule) return null;
   return <p className={`mt-4 border-l-[3px] px-4 py-2.5 text-[11px] font-bold leading-5 ${palette.rule}`}>{slide.rule}</p>;
-}
-
-function PresentationSlideActions({ slide, onStartGuide }: { slide: PresentationSlide; onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void }) {
-  return slide.guide ? <div className="mt-4"><button type="button" onClick={() => onStartGuide(slide.guide!)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"><Play size={14} aria-hidden="true" />{slide.guide.label}</button></div> : null;
 }
 
 function PresentationFooter({ slide, slideIndex, onSelect, onFinish, finishLabel, finishBusy }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onFinish: () => void; finishLabel: string; finishBusy: boolean }) {
@@ -769,21 +773,12 @@ function demoReferralRoute(referralId: number, workspaceStage: DemoWorkspaceStag
   return toPipelinePath(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=${workspaceStage}&demo=1`);
 }
 
-function navigateWithoutDemoRecord(scenario: PipelineDemoScenario, guide?: DemoGuide) {
+function navigateWithoutDemoRecord(scenario: PipelineDemoScenario) {
   if (scenario.launch === "new_referral") {
-    if (guide) stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
     window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&trainingIntake=1&demoScenario=${scenario.id}&demo=1`));
     return true;
   }
-  if (!guide) return false;
-
-  stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
-  const trainingAssessment = scenario.assessmentState === "unscheduled" ? "schedule" : "guided";
-  const tutorialStep = getOperatorGuidedTutorial(guide.tutorialId)?.steps.find((step) => step.id === guide.stepId);
-  const guidedSection = tutorialStep ? new URL(tutorialStep.route, window.location.origin).searchParams.get("assessmentSection") : null;
-  const assessmentSection = trainingAssessment === "guided" ? `&assessmentSection=${guidedSection ?? "identity"}` : "";
-  window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&workspaceStage=assessment&trainingAssessment=${trainingAssessment}${assessmentSection}&demo=1`));
-  return true;
+  return false;
 }
 
 function demoMutationId(prefix: string) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { getPipelineReadCacheCounts } from "@/lib/auth/authenticated-fetch";
+import { pipelinePageHeaders } from "@/lib/auth/browser-session";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
 import { type BrowserPerformanceSample, type BrowserPerformanceSurface } from "./browser-performance-contract";
 
@@ -92,7 +93,7 @@ export function observePipelineBrowserPerformance() {
     const batch = samples;
     samples = [];
     documentBatches += 1;
-    void fetch(toPipelinePath("/api/me/performance"), { method: "POST", credentials: "same-origin", cache: "no-store", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify(batch) }).catch(() => undefined);
+    void fetch(toPipelinePath("/api/me/performance"), { method: "POST", credentials: "same-origin", cache: "no-store", keepalive: true, headers: { "Content-Type": "application/json", ...pipelinePageHeaders() }, body: JSON.stringify(batch) }).catch(() => undefined);
   };
   const timer = window.setInterval(flush, 60_000);
   window.addEventListener("pipeline:navigation", changed);

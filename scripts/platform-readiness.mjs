@@ -52,6 +52,11 @@ const checks = [
     args: ["scripts/assessor-workflow-contracts.mjs"],
   },
   {
+    name: "Hosted workshop isolation and session boundaries",
+    command: "node",
+    args: ["--test", "scripts/persona-demo-isolation.test.mjs", "scripts/workshop-gateway.test.mjs"],
+  },
+  {
     name: "Referral intake recovery contracts",
     command: "node",
     args: ["scripts/referral-intake-recovery-contracts.mjs"],

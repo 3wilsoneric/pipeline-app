@@ -135,6 +135,7 @@ const Header = load("components/pipeline/PipelineHeader.tsx", {
   "@/components/pipeline/DemoAssessmentLabButton": () => null,
   "@/components/pipeline/pipeline-shell-context": { usePipelineShell: () => ({ homeMode: "welcome", searchOpen: false }) },
   "@/lib/auth/authenticated-fetch": {}, "@/lib/auth/entra-client": {},
+  "@/lib/auth/browser-session": { pipelinePageHeaders: () => ({}) },
   "@/components/auth/PipelineAuthProvider": { usePipelineAuth: providerModule.usePipelineAuth },
   "@/lib/pipeline/client-navigation": { usePipelineLocationSearch: () => "" },
   "@/lib/pipeline/base-path": {},
@@ -237,7 +238,7 @@ for (const screen of ["home", "referrals", "calendar", "profiles"]) {
 let respond = async () => Response.json({ fixture: true });
 const browserCache = load("lib/auth/authenticated-fetch.ts", {
   "@/lib/auth/entra-client": { pipelineAuthRequired: false },
-  "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {}, readPagePersona: () => null },
+  "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {}, pipelinePageHeaders: () => ({}), acceptWorkshopResetResponse() {} },
   "@/lib/auth/post-login-path": {}, "@/lib/pipeline/base-path": { toPipelinePath: (path) => path },
 }, { fetch: (...args) => respond(...args), window: { setTimeout, clearTimeout } });
 for (const endpoint of ["/api/assessments/fixture", "/api/assessments/fixture/sign", "/api/referrals/42", "/api/identity/candidates/fixture"]) {
@@ -314,6 +315,7 @@ class TimingObserver { constructor(run) { timingCallbacks.push(run); } observe()
 class DomObserver { observe() {} disconnect() {} }
 const createTelemetry = () => load("lib/observability/browser-performance.ts", {
   "@/lib/auth/authenticated-fetch": { getPipelineReadCacheCounts: () => ({ ...cacheCounts }) },
+  "@/lib/auth/browser-session": { pipelinePageHeaders: () => ({}) },
   "@/lib/pipeline/base-path": { fromPipelinePath: (path) => path, toPipelinePath: (path) => path },
   "./browser-performance-contract": schema,
 }, {

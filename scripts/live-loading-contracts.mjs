@@ -32,7 +32,7 @@ let calls = 0;
 let respond = async () => Response.json({ version: ++calls });
 const browser = load("lib/auth/authenticated-fetch.ts", {
   "@/lib/auth/entra-client": { pipelineAuthRequired: false },
-  "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {} },
+  "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {}, pipelinePageHeaders: () => ({}), acceptWorkshopResetResponse() {} },
   "@/lib/auth/post-login-path": {},
   "@/lib/pipeline/base-path": { toPipelinePath: (path) => path },
 }, { fetch: (...args) => respond(...args), window: { setTimeout, clearTimeout } });
@@ -76,7 +76,7 @@ function refreshTab() {
   const api = load("lib/auth/authenticated-fetch.ts", {
     "react": { useSyncExternalStore: (listen, read) => { subscribe = listen; snapshot = read; return read(); } },
     "@/lib/auth/entra-client": { pipelineAuthRequired: false },
-    "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {} },
+    "@/lib/auth/browser-session": { clearPipelineBrowserSessionCache() {}, pipelinePageHeaders: () => ({}), acceptWorkshopResetResponse() {} },
     "@/lib/auth/post-login-path": {},
     "@/lib/pipeline/base-path": { toPipelinePath: (path) => path },
   }, { fetch: async () => Response.json({ fixture: true }, { status }), window: { setTimeout, clearTimeout }, BroadcastChannel: RefreshChannel });

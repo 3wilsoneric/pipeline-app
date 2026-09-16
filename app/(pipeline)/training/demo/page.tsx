@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import PipelineDemoCenter from "@/components/pipeline/training/PipelineDemoCenter";
 import { getServerComponentRequestHeaders } from "@/lib/auth/server-component-request";
@@ -7,8 +7,8 @@ import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { getOperatorTrainingUser } from "@/lib/training/operator-training-access";
 
 export const metadata: Metadata = {
-  title: "Demo Center | AHS - Pipeline",
-  description: "Isolated synthetic rehearsal environment for the Pipeline admissions workflow.",
+  title: "Assessor's Workshop | AHS - Pipeline",
+  description: "Presentation and isolated synthetic referral practice.",
   robots: { index: false, follow: false, nocache: true },
 };
 
@@ -24,7 +24,9 @@ export default async function PipelineDemoPage({
     getOperatorTrainingUser(requestHeaders),
     Promise.resolve(getPipelineDemoEnvironment()),
   ]);
-  if (!user || !environment.enabled) notFound();
+  if (!user) notFound();
+  redirectToExternalWorkshop(environment.entryUrl, requestHeaders.get("host"));
+  if (!environment.enabled) notFound();
   const demoPersona = "demoPersona" in user ? user.demoPersona : undefined;
 
   return (
@@ -36,4 +38,10 @@ export default async function PipelineDemoPage({
       journey={requestedParams.journey === "1" && Boolean(demoPersona) && environment.writable}
     />
   );
+}
+
+function redirectToExternalWorkshop(entryUrl: string | null, requestHost: string | null) {
+  if (!entryUrl?.startsWith("https://")) return;
+  if (new URL(entryUrl).host === requestHost) return;
+  redirect(entryUrl);
 }

@@ -37,6 +37,7 @@ const nextConfig: NextConfig = {
       "node_modules/@tesseract.js-data/eng/**/*",
       "node_modules/pdfjs-dist/**/*",
       "node_modules/tesseract.js/**/*",
+      "node_modules/tesseract.js-core/**/*",
     ],
   },
   // Pipeline emits its own bounded, redacted request logs. Next's development

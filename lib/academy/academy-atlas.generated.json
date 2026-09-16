@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:fc0cf0a48fd07474",
-  "fingerprint": "fc0cf0a48fd07474d8b8228ffd997be0f18703000e82b94fd9ec74fe563c5670",
+  "generatedAt": "source-fingerprint:121598c5eaa0d057",
+  "fingerprint": "121598c5eaa0d057d5b11bf955bd916495dbe9a0e202bca9bd7bc8b896d5a001",
   "totals": {
-    "files": 1077,
-    "lines": 326659,
-    "coveredFiles": 1077
+    "files": 1084,
+    "lines": 327698,
+    "coveredFiles": 1084
   },
   "entries": [
     {
@@ -242,7 +242,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 40,
+      "lines": 48,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -566,7 +566,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 263,
+      "lines": 293,
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
@@ -1774,7 +1774,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 343,
+      "lines": 344,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -2338,7 +2338,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 386,
+      "lines": 387,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2842,7 +2842,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 799,
+      "lines": 794,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3743,7 +3743,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 66,
+      "lines": 89,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -3755,7 +3755,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 66,
+      "lines": 86,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -3984,6 +3984,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 572,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/ASSESSOR_WORKSHOP_DEPLOYMENT.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 74,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6347,6 +6359,18 @@
       ]
     },
     {
+      "path": "infra/azure/workshop.bicep",
+      "subsystem": "Azure infrastructure",
+      "kind": "infrastructure",
+      "runtime": "tooling",
+      "risk": "high",
+      "lines": 0,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
       "path": "instrumentation.ts",
       "subsystem": "Repository configuration",
       "kind": "typescript-module",
@@ -6616,7 +6640,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2409,
+      "lines": 2426,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6700,7 +6724,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 396,
+      "lines": 397,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -6712,7 +6736,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 177,
+      "lines": 199,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -7170,7 +7194,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 509,
+      "lines": 522,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -7489,7 +7513,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 112,
+      "lines": 113,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8426,7 +8450,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3311,
+      "lines": 3326,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -9029,7 +9053,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 82,
+      "lines": 83,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -9432,6 +9456,18 @@
       ]
     },
     {
+      "path": "public/training/presentation/assessment-interview-current.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "public/training/presentation/assessment-interview.png",
       "subsystem": "Static runtime",
       "kind": "asset",
@@ -9457,6 +9493,18 @@
     },
     {
       "path": "public/training/presentation/assessment-review.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "public/training/presentation/assessment-schedule-current.png",
       "subsystem": "Static runtime",
       "kind": "asset",
       "runtime": "browser",
@@ -9541,6 +9589,18 @@
     },
     {
       "path": "public/training/presentation/intake-review.png",
+      "subsystem": "Static runtime",
+      "kind": "asset",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 0,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "public/training/presentation/intake-workspace-current.png",
       "subsystem": "Static runtime",
       "kind": "asset",
       "runtime": "browser",
@@ -9989,7 +10049,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 105,
+      "lines": 113,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -11045,7 +11105,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 354,
+      "lines": 356,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11429,7 +11489,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 325,
+      "lines": 330,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12094,6 +12154,30 @@
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
+      ]
+    },
+    {
+      "path": "scripts/workshop-gateway.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 442,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/workshop-gateway.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 320,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
@@ -12967,7 +13051,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 69,
+      "lines": 109,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

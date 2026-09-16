@@ -1,14 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { isInternalWorkspaceTag, visibleWorkspaceTags } from "../../lib/pipeline/workspace-presentation";
 
-test("one entry leads from orientation through Language Lab to the same assessment case", async ({ page }, testInfo) => {
+test("Assessor's Workshop leads from presentation into a reset synthetic assessment case", async ({ page }, testInfo) => {
   await page.goto("/training");
-  await expect(page.getByRole("link", { name: "Open Pipeline walkthrough presentation" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open assessment lab" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Assessor's Workshop presentation" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Quick help" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open assessment lab", exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: "Open Pipeline walkthrough presentation" }).click();
+  await page.getByRole("link", { name: "Open Assessor's Workshop presentation" }).click();
   await expect(page).toHaveURL(/\/training\/demo\?journey=1/);
   await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Try the .* walkthrough|Start the assessment walkthrough|Try Language Lab in the assessment/ })).toHaveCount(0);
   await page.getByLabel("Jump to slide").selectOption("9");
   await expect(page.getByRole("heading", { name: "Write the answer, not the example" })).toBeVisible();
   await expect(page.getByText("Prior placements: setting", { exact: false })).toBeVisible();
@@ -56,7 +58,7 @@ test("explicit setup is idempotent and refuses a foreign Origin", async ({ reque
   expect(visibleWorkspaceTags(["pipeline-assessor-journey-v1", "pipeline-assessor-journey-taylor", "care"])).toEqual(["care"]);
   expect(isInternalWorkspaceTag("pipeline-assessor-journey-taylor")).toBe(true);
   const first = await request.post("/api/demo/journey");
-  expect(first.status()).toBe(200);
+  expect(first.status(), JSON.stringify(await first.json())).toBe(200);
   const firstBody = await first.json();
   expect(firstBody.seeded_count).toBe(9);
   const second = await request.post("/api/demo/journey");
@@ -65,4 +67,42 @@ test("explicit setup is idempotent and refuses a foreign Origin", async ({ reque
   expect((await request.post("/api/demo/journey", { headers: { Origin: "https://example.com" } })).status()).toBe(403);
   const briefing = await (await request.get("/api/operations/home")).json();
   expect(briefing.workflow.active_total).toBe(9);
+});
+
+test("opening Assessor's Workshop and resetting it restores only the original practice cases", async ({ page }) => {
+  const initialReset = page.waitForResponse((response) => response.url().includes("/api/demo/journey?reset=1") && response.request().method() === "POST");
+  await page.goto("/training/demo?journey=1");
+  await expect(page.getByRole("button", { name: "Reset demo" })).toBeVisible();
+  const first = await initialReset;
+  expect(first.status(), JSON.stringify(await first.json())).toBe(200);
+  const originalId = (await first.json()).primary_referral_id as number;
+  const original = (await (await page.request.get(`/api/referrals/${originalId}`)).json()).referral;
+  expect(original.name).toBe("Taylor Rivera");
+  const changedNote = "Changed only for the reset test.";
+  const changed = await page.request.patch(`/api/referrals/${originalId}`, { data: {
+    if_match: original.version,
+    if_match_sections: { intake: original.sectionVersions.intake },
+    client_mutation_id: crypto.randomUUID(),
+    patch: { note: changedNote },
+  } });
+  expect(changed.status(), JSON.stringify(await changed.json())).toBe(200);
+
+  await page.getByRole("button", { name: "Reset demo" }).click();
+  await expect(page).toHaveURL(/\/training\/demo\?journey=1/);
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/referrals/${originalId}`);
+    return response.status();
+  }, { timeout: 90_000 }).toBe(404);
+  const fresh = await page.request.post("/api/demo/journey");
+  expect(fresh.status()).toBe(200);
+  const freshId = (await fresh.json()).primary_referral_id as number;
+  expect(freshId).not.toBe(originalId);
+  expect((await (await page.request.get(`/api/referrals/${freshId}`)).json()).referral.note).toBe(original.note);
+  const listing = await (await page.request.get("/api/referrals?workspace=active&limit=200")).json();
+  expect(listing.referrals).toHaveLength(9);
+  expect(listing.referrals.map((referral: { name: string }) => referral.name).sort()).toEqual([
+    "Carmen Diaz", "Elena Brooks", "Iris Morgan", "Lena Park", "Maya Torres", "Micah Evans", "Noah Chen", "Samir Patel", "Taylor Rivera",
+  ]);
+  const home = await (await page.request.get("/api/operations/home")).json();
+  expect(home.workflow.active_total).toBe(9);
 });

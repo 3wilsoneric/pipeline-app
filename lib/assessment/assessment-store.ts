@@ -56,6 +56,7 @@ import {
   incrementAssessmentSectionVersions,
 } from "./assessment-sections";
 import type { AssessmentToolSection } from "./assessment-tool-schema";
+import { assertPersonaDemoIsolation } from "@/shared/persona-demo-config.mjs";
 
 type AssessmentStoreState = {
   initialized: boolean;
@@ -184,6 +185,22 @@ state.persistQueue ??= Promise.resolve();
 state.mutationQueue ??= Promise.resolve();
 
 const maxAssessmentRows = 100_000;
+
+export async function resetPersonaDemoAssessments() {
+  if (process.env.PIPELINE_PERSONA_DEMO !== "true") throw new Error("Assessment reset is available only in the persona demo.");
+  assertPersonaDemoIsolation();
+  if (getAssessmentStoreReadiness().mode !== "local_file") throw new Error("Persona demo assessments must use local storage.");
+  await withMutation(async () => {
+    await ensureLoaded();
+    await state.persistQueue;
+    state.assessments = [];
+    state.createMutations.clear();
+    state.importMutations.clear();
+    state.patchMutations.clear();
+    state.revision += 1;
+    await persist();
+  });
+}
 const maxPageSize = 200;
 const maxAuditEventsPerAssessment = 500;
 const knownAssessmentFieldKeys = new Set(

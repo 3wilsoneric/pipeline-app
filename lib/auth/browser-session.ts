@@ -54,11 +54,33 @@ let sessionProbeRequest: Promise<PipelineSessionProbe> | null = null;
 let sessionProbeCache: { probe: PipelineSessionProbe; expiresAt: number } | null = null;
 let sessionProbeGeneration = 0;
 let pagePersona: PipelineSessionUser["demoPersona"];
+// Capture once. A different tab can replace cookies without replacing this
+// page's old referral state; it must not write into the new workshop run.
+let pageWorkshopRun = typeof document === "undefined" ? undefined : document.cookie.split(";")
+  .map((value) => value.trim()).find((value) => value.startsWith("__Host-workshop-page-run="))?.split("=")[1];
 
 const sessionProbeCacheMs = 60_000;
 
 export function readPagePersona() {
   return pagePersona;
+}
+
+export function readPageWorkshopRun() {
+  return pageWorkshopRun;
+}
+
+export function pipelinePageHeaders(): Record<string, string> {
+  return {
+    ...(pagePersona ? { "x-pipeline-persona": pagePersona } : {}),
+    ...(pageWorkshopRun ? { "x-workshop-page-run": pageWorkshopRun } : {}),
+  };
+}
+
+export function acceptWorkshopResetResponse(response: Response) {
+  const nextRun = response.headers.get("x-workshop-page-run");
+  if (pageWorkshopRun && nextRun && response.headers.get("x-workshop-replaced-run") === pageWorkshopRun) {
+    pageWorkshopRun = nextRun;
+  }
 }
 
 export function readCachedPipelineSessionUser() {
@@ -78,7 +100,7 @@ export async function establishPipelineServerSession(
         if (!result) return null;
         const response = await fetch(toPipelinePath("/api/auth/session"), {
           method: "POST",
-          headers: { Authorization: `Bearer ${result.accessToken}` },
+          headers: { Authorization: `Bearer ${result.accessToken}`, ...pipelinePageHeaders() },
           credentials: "same-origin",
           cache: "no-store",
         });
@@ -107,7 +129,7 @@ export async function probePipelineServerSession(forceRefresh = false): Promise<
   if (!sessionProbeRequest) {
     const generation = sessionProbeGeneration;
     const request = fetch(toPipelinePath("/api/auth/me"), {
-      headers: pagePersona ? { "x-pipeline-persona": pagePersona } : undefined,
+      headers: pipelinePageHeaders(),
       credentials: "same-origin",
       cache: "no-store",
     }).then(async (response) => {

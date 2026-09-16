@@ -64,6 +64,7 @@ const checks = [
   { name: "compressed browser code remains bounded", ok: metrics.total_gzip_code_bytes <= budgets.total_gzip_code_bytes },
   { name: "production client output contains no source maps", ok: metrics.source_map_count === 0 },
   { name: "production client output contains no server credential markers", ok: metrics.forbidden_server_marker_count === 0 },
+  { name: "standalone output includes the installed OCR runtime binaries", ok: await hasOcrRuntimeBinaries() },
 ];
 const ok = checks.every((check) => check.ok);
 console.log(JSON.stringify({
@@ -75,6 +76,13 @@ console.log(JSON.stringify({
   note: "Only aggregate artifact sizes and marker counts are emitted. File names and bundle contents are not logged.",
 }, null, 2));
 if (!ok) process.exit(1);
+
+async function hasOcrRuntimeBinaries() {
+  const binaries = (await readdir("node_modules/tesseract.js-core")).filter((name) => name.endsWith(".wasm"));
+  const included = await Promise.all(binaries.map((name) => stat(path.join(distDirectory, "standalone/node_modules/tesseract.js-core", name))
+    .then((entry) => entry.isFile() && entry.size > 0).catch(() => false)));
+  return included.length > 0 && included.every(Boolean);
+}
 
 async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });

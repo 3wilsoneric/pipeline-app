@@ -159,6 +159,7 @@ jobs:
             NEXT_PUBLIC_PIPELINE_API_SCOPE=api://${{ vars.PIPELINE_ENTRA_CLIENT_ID }}/access_as_user
             NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=true
             NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=true
+            NEXT_PUBLIC_PIPELINE_DEMO_URL=${{ vars.PIPELINE_WORKSHOP_URL }}
             PIPELINE_DEPLOYMENT_ID=${{ github.sha }}
           secrets: |
             next_server_actions_encryption_key=${{ steps.build-key.outputs.value }}
