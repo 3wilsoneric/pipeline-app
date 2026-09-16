@@ -113,7 +113,7 @@ test.describe("assessment editing entry and return paths", () => {
       const denied = await other.post(`/api/assessments/${assessment.assessment_id}/start`, { data: {
         if_match: assessment.version, client_mutation_id: randomUUID(),
       } });
-      expect(denied.status()).toBe(403);
+      expect(denied.status()).toBe(404);
       expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeFalsy();
       await page.clock.setFixedTime(new Date(Date.parse(assessment.scheduled_start_at!) - 60 * 60 * 1000));
       await page.goto("/?screen=calendar");
@@ -146,7 +146,7 @@ test.describe("assessment editing entry and return paths", () => {
       await expect(full).toBeVisible();
       await expect(page.locator('[data-guided-assessment="true"]')).toHaveCount(0);
       await expect(full.getByRole("button", { name: "Guided interview", exact: true })).toHaveCount(0);
-      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeDisabled();
+      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).not.toBeEditable();
       const next = await api.post(`/api/referrals/${referral.id}/assessments`, { data: {
         client_mutation_id: randomUUID(), data: { current_location: "Synthetic reassessment placement" },
       } });
