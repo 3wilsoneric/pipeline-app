@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8bdf961035656b47",
-  "fingerprint": "8bdf961035656b4741d03a9b634d740bbda0a27629e83cc0796e05ed83e873ef",
+  "generatedAt": "source-fingerprint:90bc1a1594ff58d8",
+  "fingerprint": "90bc1a1594ff58d8fbf87adf9c943fe36cde3b6904ffce19b21a6f3de01d84e0",
   "totals": {
-    "files": 1093,
-    "lines": 329058,
-    "coveredFiles": 1093
+    "files": 1096,
+    "lines": 329084,
+    "coveredFiles": 1096
   },
   "entries": [
     {
@@ -1403,7 +1403,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 355,
+      "lines": 336,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1504,7 +1504,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 319,
+      "lines": 308,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -2950,7 +2950,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 42,
+      "lines": 43,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -3377,6 +3377,18 @@
       ]
     },
     {
+      "path": "database/migrations/0036_allow_repeated_file_content.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 12,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -3743,6 +3755,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 43,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0036_allow_repeated_file_content.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 15,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -6964,7 +6988,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 126,
+      "lines": 127,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -7139,7 +7163,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 670,
+      "lines": 663,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -8486,7 +8510,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3344,
+      "lines": 3306,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -9893,7 +9917,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2179,
+      "lines": 2181,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10709,7 +10733,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 513,
+      "lines": 517,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -11400,6 +11424,18 @@
       ]
     },
     {
+      "path": "scripts/packet-content-upload-fixtures.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 48,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/persona-demo-isolation.test.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -11597,7 +11633,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 256,
+      "lines": 274,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -12726,7 +12762,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "critical",
-      "lines": 722,
+      "lines": 721,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -12835,7 +12871,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2871,
+      "lines": 2872,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
