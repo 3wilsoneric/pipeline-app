@@ -12,10 +12,7 @@ export async function GET(request: Request) {
 
     const readiness = getReferralStoreReadiness();
     const [queue, sequence] = await Promise.all([
-      getMyQueueSnapshot({
-        id: auth.user.id,
-        name: auth.user.name,
-      }),
+      getMyQueueSnapshot(auth.user),
       readiness.ready ? getReferralStoreRevision() : Promise.resolve(0),
     ]);
 

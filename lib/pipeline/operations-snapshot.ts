@@ -10,7 +10,7 @@ import {
   type ActiveReferralFlowState,
 } from "@/lib/pipeline/referral-flow";
 import { isAssignedToUser, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
-import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { referralWorklistBuckets } from "@/lib/pipeline/referral-worklist-filter";
 import {
   getReferralStoreReadiness,
@@ -177,12 +177,12 @@ function currentReportMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
-export async function getMyQueueSnapshot(user: { id: string; name: string }): Promise<MyQueueSnapshot> {
-  return buildMyQueueSnapshot(await loadOperationalWork(), user);
+export async function getMyQueueSnapshot(user: PipelineUser): Promise<MyQueueSnapshot> {
+  return buildMyQueueSnapshot(homeWorkForViewer(await loadOperationalWork(user), user), user);
 }
 
 export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWorkflowSummary> {
-  const operational = await loadOperationalWork(user);
+  const operational = homeWorkForViewer(await loadOperationalWork(user), user);
   const requirementsByReferral = groupRequirementsByReferral(operational.openRequirements);
   const referralsById = new Map(operational.referrals.map((referral) => [referral.id, referral]));
   const workByReferral = new Map(operational.activeWork.map((work) => [work.referral_id, work]));
@@ -238,6 +238,22 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
       items: dataCompletion.slice(0, 6),
     },
     current_work: buildMyQueueSnapshot(operational, user),
+  };
+}
+
+function homeWorkForViewer(operational: Awaited<ReturnType<typeof loadOperationalWork>>, user: PipelineUser) {
+  if (!isAssessorUser(user)) return operational;
+  // Submitted assessments belong to the supervisor until returned for changes.
+  // Keep them accessible in Workspaces, but not in the assessor's active queue.
+  const submitted = new Set(operational.work.filter((item) =>
+    item.assessment_state === "signed" && !item.has_decision
+      && ["recommendation_submitted", "decision_pending"].includes(item.workflow_status),
+  ).map((item) => item.referral_id));
+  return {
+    ...operational,
+    work: operational.work.filter((item) => !submitted.has(item.referral_id)),
+    activeWork: operational.activeWork.filter((item) => !submitted.has(item.referral_id)),
+    openRequirements: operational.openRequirements.filter((item) => !submitted.has(item.referral_id)),
   };
 }
 

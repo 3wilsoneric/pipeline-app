@@ -49,7 +49,9 @@ export async function GET(
       snapshot.decision?.outcome,
       mail.configured,
       admissionPacket.blockers,
+      snapshot.referral.admissionDate,
     );
+    const canSend = auth.user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
 
     return Response.json({
       referral: snapshot.referral,
@@ -58,7 +60,8 @@ export async function GET(
         configured: mail.configured,
         allowed_recipient_domains: mail.allowedRecipientDomains,
         eligible: snapshot.decision?.outcome === "accepted",
-        ready: emailBlockers.length === 0,
+        can_send: canSend,
+        ready: canSend && emailBlockers.length === 0,
         blockers: emailBlockers,
         admission_packet: {
           files: admissionPacket.files.map((file) => ({
@@ -114,11 +117,13 @@ function meetClientEmailBlockers(
   outcome: string | undefined,
   configured: boolean,
   attachmentBlockers: string[],
+  admissionDate: string | undefined,
 ) {
   const blockers: string[] = [];
   if (!report) blockers.push("Complete an assessment before preparing the summary.");
   else if (!report.signed) blockers.push("Sign the assessment before preparing the summary.");
   if (outcome !== "accepted") blockers.push("Record an accepted admission decision before emailing the summary.");
+  if (!admissionDate) blockers.push("Set the admission date in Workflow before emailing the summary.");
   if (!configured) blockers.push("Configure the approved Microsoft 365 sender and recipient domains.");
   blockers.push(...attachmentBlockers);
   return blockers;

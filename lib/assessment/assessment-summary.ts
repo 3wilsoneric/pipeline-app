@@ -25,6 +25,7 @@ export type MeetClientSummary = {
   dateOfBirth: string;
   community: string;
   assessmentDate: string;
+  admissionDate: string;
   bio: string[];
   medications: string[];
   medicationNotes: AssessmentSummaryItem[];
@@ -128,6 +129,7 @@ export function buildMeetClientSummary(
     dateOfBirth: assessment.date_of_birth || referral.dob,
     community: assessment.community || referral.community,
     assessmentDate: assessment.assessment_date || "",
+    admissionDate: referral.admissionDate || "",
     bio: compactValues([
       sentence("Current setting", assessment.current_location),
       sentence("Community and routine", assessment.programming_notes),

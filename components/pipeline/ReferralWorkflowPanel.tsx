@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 
 import {
   ReferralWorkflowPanelLoading,
@@ -29,10 +30,11 @@ type ReferralWorkflowPanelProps = {
   onOpenAssessment: () => void;
   onOpenFiles: () => void;
   onOpenProfile: (canonicalClientId: string) => void;
+  onDone?: () => Promise<void>;
 };
 
 type RecommendationDraft = {
-  outcome: AssessmentRecommendation["outcome"];
+  outcome: AssessmentRecommendation["outcome"] | "";
   reasonCode: string;
   reasonNote: string;
 };
@@ -50,13 +52,15 @@ export default function ReferralWorkflowPanel({
   onOpenAssessment,
   onOpenFiles,
   onOpenProfile,
+  onDone,
 }: ReferralWorkflowPanelProps) {
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [recommendationDraft, setRecommendationDraft] = useState<RecommendationDraft>({ outcome: "accept", reasonCode: "", reasonNote: "" });
+  const [recommendationDraft, setRecommendationDraft] = useState<RecommendationDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
+  const [showMeetClient, setShowMeetClient] = useState(false);
   const [decisionDraft, setDecisionDraft] = useState<DecisionDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
   const [admissionDateDraft, setAdmissionDateDraft] = useState(referral.admissionDate ?? "");
   const [manualIntakeReason, setManualIntakeReason] = useState("");
@@ -75,7 +79,7 @@ export default function ReferralWorkflowPanel({
     setError("");
     if (!recommendationDirty.current) {
       setRecommendationDraft({
-        outcome: payload.recommendation?.outcome ?? "accept",
+        outcome: payload.recommendation?.outcome ?? "",
         reasonCode: payload.recommendation?.reasonCode ?? "",
         reasonNote: payload.recommendation?.reasonNote ?? "",
       });
@@ -178,6 +182,7 @@ export default function ReferralWorkflowPanel({
   };
 
   const submitRecommendation = () => {
+    if (!recommendationDraft.outcome) return;
     void runMutation(
       `recommendation:${currentReferral.version}:${sections.decision}`,
       `/api/referrals/${currentReferral.id}/recommendation`,
@@ -190,7 +195,7 @@ export default function ReferralWorkflowPanel({
         reason_code: recommendationDraft.reasonCode,
         reason_note: recommendationDraft.reasonNote,
       },
-      "Recommendation submitted",
+      "Assessment finished. Sent to the supervisor for review.",
     );
   };
 
@@ -244,15 +249,41 @@ export default function ReferralWorkflowPanel({
     );
   };
 
-  const saveAdmissionDate = () => {
-    if (!admissionDateDraft || workflow.decision?.outcome !== "accepted") return;
-    void runMutation(
+  const saveAdmissionDate = async (openPreview = true) => {
+    if (!admissionDateDraft || workflow.decision?.outcome !== "accepted") {
+      setError("Enter an admission date before continuing.");
+      return false;
+    }
+    if (admissionDateDraft === currentReferral.admissionDate) {
+      if (openPreview) setShowMeetClient(true);
+      return true;
+    }
+    const saved = await runMutation(
       `admit-date:${currentReferral.version}:${sections.intake}`,
       `/api/referrals/${currentReferral.id}`,
       "PATCH",
       { if_match: currentReferral.version, if_match_sections: { intake: sections.intake }, patch: { admissionDate: admissionDateDraft } },
       "Date of admit recorded",
     );
+    if (saved && openPreview) setShowMeetClient(true);
+    return Boolean(saved);
+  };
+
+  const finishWorkspace = async () => {
+    if (!onDone || busy) return;
+    if (decisionDirty.current && decisionDraft.outcome && !workflow.decision) {
+      setError("Record the decision before leaving, or choose Under review.");
+      return;
+    }
+    if (admissionDateDirty.current && !await saveAdmissionDate(false)) return;
+    setBusy("done");
+    try {
+      await onDone();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "The workspace could not be saved.");
+    } finally {
+      setBusy("");
+    }
   };
 
   const authorizeManualIntake = () => {
@@ -280,12 +311,20 @@ export default function ReferralWorkflowPanel({
     updateHandoff("mark_sent");
   };
 
+  if (showMeetClient) return (
+    <div className="space-y-4">
+      <button type="button" onClick={() => setShowMeetClient(false)} className="min-h-10 px-3 text-[12px] font-bold text-[#0f8b73] focus-visible:outline-2">Back to outcome</button>
+      <AssessmentChartWorkspace referralId={currentReferral.id} initialView="meet-client" />
+    </div>
+  );
+
   return (
     <ReferralWorkflowPanelPresentation
       workflow={workflow}
       busy={busy}
       message={message}
       error={error}
+      onDone={onDone ? () => void finishWorkspace() : undefined}
       recommendation={recommendationDraft}
       decision={decisionDraft}
       admissionDate={admissionDateDraft}
@@ -303,7 +342,7 @@ export default function ReferralWorkflowPanel({
         admissionDateDirty.current = true;
         setAdmissionDateDraft(value);
       }}
-      onSaveAdmissionDate={saveAdmissionDate}
+      onSaveAdmissionDate={() => void saveAdmissionDate()}
       onManualIntakeReasonChange={setManualIntakeReason}
       onUpdateRequirement={updateRequirement}
       onSubmitRecommendation={submitRecommendation}

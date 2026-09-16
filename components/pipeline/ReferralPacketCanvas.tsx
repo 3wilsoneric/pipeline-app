@@ -2290,6 +2290,7 @@ export default function ReferralPacketCanvas({
             <PacketPage id="admission-workflow" title="Workflow">
               <ReferralWorkflowPanel
                 referral={loadedReferral}
+                onDone={onOpenAssignedWork ? openAssignedWork : undefined}
                 onReferralChange={applyConfirmedWorkflowReferral}
                 onOpenIntake={() => openPage(1)}
                 onOpenAssessment={() => openPage(2)}
