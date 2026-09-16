@@ -361,7 +361,8 @@ test.describe("Pipeline Learning Center", () => {
     await presentationLink.click();
 
     await expect(page).toHaveURL(/\/training\/demo$/);
-    await expect(page.getByRole("tab", { name: "Presentation" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tablist", { name: "Demo Center sections" })).toHaveCount(0);
+    await expect(page.locator('[data-demo-surface="presentation"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "Find your referral" })).toBeVisible();
   });
 
