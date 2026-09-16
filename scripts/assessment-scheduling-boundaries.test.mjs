@@ -46,7 +46,7 @@ function fixture(options = {}) {
       patchAssessment: async (...args) => {
         calls.patches.push(clean(args));
         if (options.versionConflict) return { ok: false, conflict: true, assessment };
-        if (options.slotConflict) throw new ScheduleConflict("The assessor already has an assessment at this time.");
+        if (options.slotConflict && !args[3].allowScheduleConflict) throw new ScheduleConflict("The assessor already has an assessment at this time.");
         const patch = args[1];
         assessment = { ...assessment, version: assessment.version + 1 };
         if (patch.schedule) assessment = { ...assessment, schedule_status: patch.schedule.status, scheduled_start_at: patch.schedule.start_at };
@@ -86,11 +86,18 @@ test("assigned assessors and supervisors can schedule and reschedule without a p
   }
 });
 
-test("saving a no-packet appointment satisfies the real start route's schedule prerequisite", async () => {
+test("assessment start may skip scheduling without inventing an appointment", async () => {
+  const skipped = fixture();
+  const response = await skipped.post("start", { if_match: 7, client_mutation_id: "synthetic-skip" });
+  const result = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(result));
+  assert.equal(result.assessment.schedule_status, "unscheduled");
+  assert.equal(result.assessment.scheduled_start_at, undefined);
+  assert.ok(result.assessment.started_at);
+});
+
+test("saving a no-packet appointment flows directly into the real start route", async () => {
   const current = fixture();
-  const before = await current.post("start", { if_match: 7 });
-  assert.equal(before.status, 422);
-  assert.equal((await before.json()).error, "Schedule the assessment before beginning the interview.");
   const scheduled = await current.post("schedule", command);
   assert.equal(scheduled.status, 200, JSON.stringify(await scheduled.clone().json()));
   const started = await current.post("start", { if_match: 8, client_mutation_id: "synthetic-start" });
@@ -113,7 +120,7 @@ test("role, referral visibility, assignee and same-origin boundaries still deny 
   assert.equal(current.calls.access.length, 0);
 });
 
-test("assignment, profile identity and contact scheduling blockers remain enforced", async () => {
+test("assignment, profile identity and contact scheduling gaps are advisory", async () => {
   for (const [options, blocker] of [
     [{ user: supervisor, assessment: { assessor_id: null } }, "Assign an assessor before scheduling."],
     [{ referral: { dob: "" } }, "Complete the client name, date of birth, community, and referral source."],
@@ -121,9 +128,11 @@ test("assignment, profile identity and contact scheduling blockers remain enforc
   ]) {
     const current = fixture(options);
     const response = await current.post("schedule", command);
-    assert.equal(response.status, 422);
-    assert.deepEqual(await response.json(), { error: blocker, code: "assessment_not_ready_to_schedule", blockers: [blocker] });
-    assert.equal(current.calls.patches.length, 0);
+    const result = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(result));
+    assert.deepEqual(result.warnings, [blocker]);
+    assert.equal(current.calls.patches.length, 1);
+    assert.equal(result.assessment.schedule_status, "scheduled");
   }
 });
 
@@ -145,15 +154,18 @@ test("schedule and optimistic-version validation still reject malformed or stale
   assert.equal((await response.json()).conflict, true);
 });
 
-test("slot conflicts remain visible and only supervisors may authorize conflict overrides", async () => {
+test("slot conflicts remain visible as alerts while authorized scheduling continues", async () => {
   for (const user of [assessor, supervisor]) {
     const current = fixture({ user, slotConflict: true });
     const response = await current.post("schedule", { ...command, allow_conflict: true });
     const result = await response.json();
-    assert.equal(response.status, 409);
-    assert.equal(result.code, "assessment_schedule_conflict");
-    assert.equal(result.can_override, user === supervisor);
-    assert.deepEqual(result.conflicts, [{ assessment_id: "synthetic-overlap" }]);
+    assert.equal(response.status, 200, JSON.stringify(result));
     assert.equal(current.calls.patches[0][3].allowScheduleConflict, user === supervisor);
+    assert.equal(result.assessment.schedule_status, "scheduled");
+    if (user === assessor) {
+      assert.equal(current.calls.patches.length, 2);
+      assert.equal(current.calls.patches[1][3].allowScheduleConflict, true);
+      assert.deepEqual(result.warnings, ["This assessor has another assessment during that time. The appointment was saved with an overlap alert."]);
+    }
   }
 });
