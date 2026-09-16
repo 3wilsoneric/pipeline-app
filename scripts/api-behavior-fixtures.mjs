@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
+import { packetContentUploadResults } from "./packet-content-upload-fixtures.mjs";
 import {
   extractImportedClientMetadata,
   formatClientIdentityTitle,
@@ -935,6 +936,7 @@ const results = [
   ...workspaceStateValidationResults(),
 ];
 
+results.push(...await packetContentUploadResults());
 const failed = results.filter((result) => !result.ok);
 
 console.log(

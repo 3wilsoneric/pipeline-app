@@ -506,7 +506,7 @@ test.describe("referral store characterization", () => {
     }
   });
 
-  test("rejects invalid creates and duplicate packets without side effects", async ({ baseURL }) => {
+  test("rejects invalid creates and permits separate referrals with identical file content", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
     const packetHash = "a".repeat(64);
@@ -536,12 +536,11 @@ test.describe("referral store characterization", () => {
           referral: fixedReferral("Synthetic Packet Duplicate", { documentHash: packetHash }),
         },
       });
-      expect(duplicate.status()).toBe(409);
-      expect(record(await duplicate.json())).toMatchObject({
-        duplicate: true,
-        referral_id: number(first.id),
-      });
-      expect(await queryReferralCount(coordinator, "Synthetic Packet Duplicate")).toBe(0);
+      expect(duplicate.status()).toBe(201);
+      const created = record(record(await duplicate.json()).referral);
+      expect(number(created.id)).not.toBe(number(first.id));
+      expect(created.documentHash).toBe(packetHash);
+      expect(await queryReferralCount(coordinator, "Synthetic Packet Duplicate")).toBe(1);
       expect(await referralEvents(coordinator, number(first.id))).toEqual(eventsBefore);
     } finally {
       await coordinator.dispose();

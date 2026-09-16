@@ -36,6 +36,7 @@
     "0032_extraction_evidence_bounding_boxes.sql": "2ddbbb8f6c6a73989f8df21129a81c4029e4a231ea47af21496a030504a35260",
     "0033_workflow_continuity.sql": "91f2b09aa5255c7338081009639cad4723ff7a53f6ad98bb7f02b8789a58dd1e",
     "0034_contact_directory.sql": "89261b19a8212ad316dac2b86d478c2a5b3f8edcb70352a93c452ccddf4df387",
-    "0035_preprovisioned_workspace_member_access.sql": "0f9f67fee1e55ffd5360bc0db524ffff2b353a468a1f7936c4f8fc6f3d0959dd"
+    "0035_preprovisioned_workspace_member_access.sql": "0f9f67fee1e55ffd5360bc0db524ffff2b353a468a1f7936c4f8fc6f3d0959dd",
+    "0036_allow_repeated_file_content.sql": "3763fa5d072c2ade5b1d3b3f9858ee93444cb16e6259c36f84e906073817cccf"
   }
 }

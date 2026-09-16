@@ -32,6 +32,7 @@ const assessmentId = `asm_smoke_${suffix}`;
 const documentHash = "a".repeat(64);
 const checks = [];
 let expectedRollback = false;
+const smokeRollback = new Error("rollback_disposable_smoke_records");
 
 try {
   const migrations = await sql`
@@ -211,7 +212,7 @@ try {
         ok: ["assessments", "provenance", "unmapped", "audits", "work_items", "decisions", "documents", "workspace_state", "client_update_outbox", "primary_contacts"].every((key) => Number(stored[0][key]) === 1),
       });
 
-      await tx`
+      const copiedReferral = await tx`
         insert into pipeline.referrals (
           person_id, stage, community, priority, source, document_sha256,
           search_text, data, created_by, created_by_name, updated_by, updated_by_name
@@ -220,17 +221,34 @@ try {
           ${documentHash}, 'duplicate smoke record', '{}',
           'smoke', 'Pipeline smoke', 'smoke', 'Pipeline smoke'
         )
+        returning referral_id
       `;
+      const copiedDocument = await tx`
+        insert into pipeline.documents (
+          referral_id, person_id, category, file_name, content_type, byte_size,
+          sha256, blob_container, blob_key, processing_status, uploaded_by
+        ) select referral_id, person_id, category, 'smoke-copy.pdf', content_type,
+          byte_size, sha256, blob_container, blob_key || '/copy', 'uploaded', 'smoke'
+        from pipeline.documents where document_id = ${documents[0].document_id}::uuid
+        returning document_id
+      `;
+      checks.push({
+        name: "identical content permits separate referral and document identities",
+        ok: copiedReferral.length === 1 && copiedDocument.length === 1
+          && String(copiedReferral[0].referral_id) !== String(referrals[0].referral_id)
+          && copiedDocument[0].document_id !== documents[0].document_id,
+      });
+      throw smokeRollback;
     });
   } catch (error) {
-    if (error && typeof error === "object" && error.code === "23505") {
+    if (error === smokeRollback) {
       expectedRollback = true;
     } else {
       throw error;
     }
   }
 
-  checks.push({ name: "duplicate packet hashes are rejected", ok: expectedRollback });
+  checks.push({ name: "disposable smoke records are always rolled back", ok: expectedRollback });
   const failed = checks.filter((check) => !check.ok);
   console.log(JSON.stringify({
     ok: failed.length === 0,
