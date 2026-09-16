@@ -218,6 +218,9 @@ test("proxy strips identity/token/live cookies, preserves application headers, s
     req.on("data", (chunk) => { body += chunk; });
     req.on("end", () => {
       observed = { headers: req.headers, body };
+      res.setHeader("x-unapproved-peer-header", "not forwarded");
+      res.setHeader("content-disposition", "inline; filename=practice.pdf");
+      res.setHeader("content-security-policy", "default-src 'self'");
       if (req.url === "/switch") res.setHeader("set-cookie", [`pipeline_practice_persona_${upstreamPort}=assessor; Path=/; HttpOnly`, "unrelated=secret"]);
       if (req.url === "/redirect") { res.statusCode = 307; res.setHeader("location", `http://127.0.0.1:${upstreamPort}/training/demo`); }
       if (req.url === "/external") { res.statusCode = 307; res.setHeader("location", "https://evil.example"); }
@@ -238,6 +241,9 @@ test("proxy strips identity/token/live cookies, preserves application headers, s
       "content-type": "multipart/form-data; boundary=boundary", "x-pipeline-persona": "supervisor", "idempotency-key": "mutation-one", rsc: "1",
     } });
     assert.equal(response.status, 200);
+    assert.equal(response.headers["x-unapproved-peer-header"], undefined);
+    assert.equal(response.headers["content-disposition"], "inline; filename=practice.pdf");
+    assert.equal(response.headers["content-security-policy"], "default-src 'self'");
     assert.equal(observed.body, body);
     assert.equal(observed.headers.host, `127.0.0.1:${upstreamPort}`);
     assert.equal(observed.headers.origin, `http://127.0.0.1:${upstreamPort}`);

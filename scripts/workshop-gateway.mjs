@@ -20,9 +20,17 @@ const maximumBodyBytes = 101 * 1024 * 1024;
 const forwardedHeaders = new Set([
   "accept", "accept-language", "content-type", "content-length", "range", "if-range",
   "rsc", "next-router-state-tree", "next-router-prefetch", "next-router-segment-prefetch",
-  "next-url", "next-action", "x-nextjs-data", "x-pipeline-persona", "x-request-id", "idempotency-key",
+  "next-url", "next-action", "x-nextjs-data", "x-deployment-id", "x-pipeline-persona", "x-request-id", "idempotency-key",
 ]);
-const hopHeaders = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer", "transfer-encoding", "upgrade"]);
+// Header names come from these constants, never from a peer-controlled object.
+// Cookies, redirects, cache policy and generation markers are owned below.
+const forwardedResponseHeaders = new Set([
+  "content-type", "content-length", "content-encoding", "content-disposition", "content-range", "accept-ranges",
+  "etag", "last-modified", "vary", "link", "content-security-policy", "x-frame-options", "referrer-policy",
+  "permissions-policy", "strict-transport-security", "x-request-id", "server-timing", "pragma", "retry-after",
+  "x-nextjs-cache", "x-nextjs-prerender", "x-nextjs-stale-time", "x-nextjs-postponed", "x-deployment-id",
+  "x-action-revalidated", "x-action-redirect",
+]);
 
 function failure(status, message) {
   return Object.assign(new Error(message), { status });
@@ -310,7 +318,7 @@ function retainSession(session, context, now) {
 function proxyHeaders(req, session, context) {
   const origin = `http://127.0.0.1:${session.port}`;
   const headers = {};
-  for (const [key, value] of Object.entries(req.headers)) if (forwardedHeaders.has(key)) headers[key] = value;
+  for (const key of forwardedHeaders) if (req.headers[key] !== undefined) headers[key] = req.headers[key];
   const choice = context.cookies.get(roleCookie);
   const persona = choice === `${session.run}.assessor` ? "assessor" : "supervisor";
   headers.host = `127.0.0.1:${session.port}`;
@@ -335,9 +343,7 @@ function responseCookies(upstream, session) {
 
 function responseHeaders(upstream, session, config) {
   const headers = {};
-  for (const [key, value] of Object.entries(upstream.headers)) {
-    if (!hopHeaders.has(key) && !["set-cookie", "location", "cache-control", "clear-site-data"].includes(key)) headers[key] = value;
-  }
+  for (const key of forwardedResponseHeaders) if (upstream.headers[key] !== undefined) headers[key] = upstream.headers[key];
   headers["cache-control"] = "private, no-store, max-age=0";
   headers["x-content-type-options"] = "nosniff";
   if (session.replacedRun) {
