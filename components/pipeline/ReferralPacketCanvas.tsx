@@ -2493,19 +2493,26 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number;
 }) {
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
-  const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(status);
-  const label = error ? "Save failed" : confirmed ? "Saved to Pipeline" : status;
-  const Icon = error ? CircleAlert : saving ? LoaderCircle : confirmed ? CheckCircle2 : UploadCloud;
+  const presentation = workspaceSavePresentation(status, error, hasReferral, saving, dirtyCount, queuedFileCount);
+  const { Icon } = presentation;
   return <div data-testid="workspace-save-status" className="relative mt-0.5 flex min-w-0 items-start gap-1.5 text-[11px] font-bold" aria-live="polite" title={error || status}>
-    <FeedbackCue value={status} enabled={confirmed && !error} />
-    <Icon size={13} aria-hidden="true" className={`mt-0.5 shrink-0 ${saving ? "motion-safe:animate-spin" : ""} ${error ? "text-[#a4473c]" : confirmed ? "text-[#0c705f]" : "text-[#68716c]"}`} />
-    <span className={`min-w-0 ${error ? "text-[#a4473c]" : confirmed ? "text-[#0c705f]" : "text-[#59645e]"}`}>
-      <span className="block truncate">{label}</span>
+    <FeedbackCue value={status} enabled={presentation.confirmed} />
+    <Icon size={13} aria-hidden="true" className={`mt-0.5 shrink-0 ${presentation.iconClassName}`} />
+    <span className={`min-w-0 ${presentation.textClassName}`}>
+      <span className="block truncate">{presentation.label}</span>
       {created ? <span className="sr-only">Workspace created</span> : null}
-      {label !== status ? <span className="sr-only">{status}</span> : null}
+      {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
       {error ? <span role="alert" className="block break-words text-[10px] font-medium">{error}</span> : null}
     </span>
   </div>;
+}
+
+function workspaceSavePresentation(status: string, error: string, hasReferral: boolean, saving: boolean, dirtyCount: number, queuedFileCount: number) {
+  const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(status);
+  if (error) return { label: "Save failed", Icon: CircleAlert, iconClassName: "text-[#a4473c]", textClassName: "text-[#a4473c]", confirmed: false };
+  if (saving) return { label: status, Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
+  if (confirmed) return { label: "Saved to Pipeline", Icon: CheckCircle2, iconClassName: "text-[#0c705f]", textClassName: "text-[#0c705f]", confirmed: true };
+  return { label: status, Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
 }
 
 function WorkspaceSaveControl({
