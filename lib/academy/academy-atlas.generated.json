@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:21ac2b8665cac681",
-  "fingerprint": "21ac2b8665cac6817021b1f425128132cc4de884762e7d98bdb268888711a476",
+  "generatedAt": "source-fingerprint:987f5c161edbde90",
+  "fingerprint": "987f5c161edbde9053dc7033243bc308866445bf8ebc3be4054b8ebca15f9376",
   "totals": {
     "files": 1096,
-    "lines": 329115,
+    "lines": 329158,
     "coveredFiles": 1096
   },
   "entries": [
@@ -8837,7 +8837,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 22,
+      "lines": 16,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9989,7 +9989,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 160,
+      "lines": 172,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -10025,7 +10025,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 636,
+      "lines": 644,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10625,7 +10625,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 298,
+      "lines": 309,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12234,7 +12234,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 393,
+      "lines": 411,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
