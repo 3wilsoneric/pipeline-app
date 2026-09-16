@@ -67,7 +67,7 @@ async function mockLayout(page: Page, moduleIds: string[] = defaults) {
   return writes;
 }
 
-test("separates Home modules into distinct responsive work surfaces", async ({ page }, testInfo) => {
+test("separates Home modules with neutral borders and responsive spacing", async ({ page }, testInfo) => {
   await mockLayout(page, completeModuleSet);
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
@@ -82,10 +82,10 @@ test("separates Home modules into distinct responsive work surfaces", async ({ p
       borderTopWidth: style.borderTopWidth,
     };
   }));
-  expect(new Set(styles.map((style) => style.borderTopColor)).size).toBeGreaterThanOrEqual(4);
   for (const style of styles) {
     expect(style.backgroundColor).toBe("rgb(255, 255, 255)");
-    expect(style.borderTopWidth).toBe("3px");
+    expect(style.borderTopColor).toBe("rgb(217, 217, 217)");
+    expect(style.borderTopWidth).toBe("1px");
   }
   await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(244, 246, 245)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });

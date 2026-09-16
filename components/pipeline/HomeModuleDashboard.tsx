@@ -38,7 +38,6 @@ type HomeModuleDefinition = {
   detail: string;
   opens: string;
   icon: LucideIcon;
-  accentClass: string;
   wide?: boolean;
 };
 
@@ -49,7 +48,6 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
     detail: "Find a client, workspace, or document.",
     opens: "Search directly from Home, then open the matching record or file.",
     icon: Search,
-    accentClass: "border-t-[#53675f]",
     wide: true,
   },
   {
@@ -58,7 +56,6 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
     detail: "Pick up where you left off, including unfinished intake.",
     opens: "Resume a saved intake or assessment, or return to a recent workspace.",
     icon: RotateCcw,
-    accentClass: "border-t-[#42729b]",
     wide: true,
   },
   {
@@ -67,7 +64,6 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
     detail: "Every assigned referral, until its work is complete.",
     opens: "Scan referrals by stage or open the Board full screen. Supervisors see team referrals.",
     icon: BriefcaseBusiness,
-    accentClass: "border-t-[#0f8b73]",
     wide: true,
   },
   {
@@ -76,7 +72,6 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
     detail: "Referrals assigned since your last visit.",
     opens: "Open an assignment's workspace, or mark the displayed assignments seen.",
     icon: UserPlus,
-    accentClass: "border-t-[#6d659d]",
   },
   {
     id: "upcoming-assessments",
@@ -84,7 +79,6 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
     detail: "Scheduled assessments in the next seven days.",
     opens: "See the date, time, and method. Select an appointment to open its assessment workspace.",
     icon: CalendarClock,
-    accentClass: "border-t-[#b3772f]",
   },
   {
     id: "scheduling-queue",
@@ -92,7 +86,6 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
     detail: "Referrals that still need an assessment time.",
     opens: "Open the next step: assign an owner, complete intake or contact details, or schedule the assessment.",
     icon: CalendarPlus,
-    accentClass: "border-t-[#9b594d]",
   },
 ];
 
@@ -224,7 +217,7 @@ export default function HomeModuleDashboard({
       <div
         data-home-module="current-work"
         data-home-surface="true"
-        className={`mb-7 min-w-0 border-x border-b border-t-[3px] border-x-[#d2dbd7] border-b-[#d2dbd7] bg-white p-4 sm:p-5 ${definitionsById["current-work"].accentClass}`}
+        className="mb-7 min-w-0 border border-[#d9d9d9] bg-white p-4 sm:p-5"
       >
         {modules["current-work"]}
       </div>
@@ -247,7 +240,7 @@ export default function HomeModuleDashboard({
                 key={moduleId}
                 data-home-module={moduleId}
                 data-home-surface="true"
-                className={`min-w-0 border-x border-b border-t-[3px] border-x-[#d2dbd7] border-b-[#d2dbd7] bg-white p-4 sm:p-5 ${definition.accentClass} ${definition.wide ? "xl:col-span-2" : ""} ${
+                className={`min-w-0 border border-[#d9d9d9] bg-white p-4 sm:p-5 ${definition.wide ? "xl:col-span-2" : ""} ${
                   draggedModuleId === moduleId ? "scale-[0.99] opacity-55" : ""
                 } ${editing ? "border-dashed bg-[#fbfdfc] motion-safe:transition-[opacity,transform]" : ""}`}
               >

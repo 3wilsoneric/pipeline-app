@@ -493,7 +493,14 @@ test.describe("referral store characterization", () => {
         { value: "parity-batch", count: 3 },
         { value: "parity-urgent", count: 1 },
       ]);
-      expect(array(facets.months).map(record)).toEqual([{ value: "2026-09", count: 3 }]);
+      expect(array(facets.months).map(record)).toEqual([{
+        value: "2026-09", count: 3,
+        communities: [
+          { value: "San Pablo", count: 1 },
+          { value: "Santa Clarita", count: 1 },
+          { value: "Turlock", count: 1 },
+        ],
+      }]);
     } finally {
       await Promise.all([coordinator.dispose(), assessorA.dispose(), assessorB.dispose()]);
     }

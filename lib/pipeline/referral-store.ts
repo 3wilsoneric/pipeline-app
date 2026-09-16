@@ -143,7 +143,7 @@ export type ReferralFacets = {
   owners: ReferralFacetValue[];
   priorities: ReferralFacetValue[];
   tags: ReferralFacetValue[];
-  months: ReferralFacetValue[];
+  months: Array<ReferralFacetValue & { communities: ReferralFacetValue[] }>;
 };
 
 export type ReferralListResult = {
@@ -1428,9 +1428,17 @@ async function listPostgresReferralFacets(
       where ${searchClause} and lower(trim(tag)) <> 'historical'
       group by tag order by tag
     `,
-    sql<FacetRow[]>`
-      select coalesce(to_char(r.workspace_month, 'YYYY-MM'), 'unknown') as value, count(*) as count
-      from pipeline.referrals r where ${searchClause}
+    sql<Array<FacetRow & { communities: ReferralFacetValue[] }>>`
+      select coalesce(to_char(r.workspace_month, 'YYYY-MM'), 'unknown') as value, sum(r.count) as count,
+        coalesce(jsonb_agg(jsonb_build_object('value', r.community, 'count', r.count) order by r.community)
+          filter (where nullif(trim(r.community), '') is not null
+            and lower(trim(r.community)) not in ('unassigned', 'unknown', 'not recorded', 'community not recorded')),
+          '[]'::jsonb) as communities
+      from (
+        select r.workspace_month, r.community, count(*) as count
+        from pipeline.referrals r where ${searchClause}
+        group by r.workspace_month, r.community
+      ) r
       group by r.workspace_month order by r.workspace_month desc nulls last
     `,
   ]);
@@ -1442,7 +1450,7 @@ async function listPostgresReferralFacets(
     owners: mapFacetRows(owners),
     priorities: mapFacetRows(priorities),
     tags: mapFacetRows(tags),
-    months: mapFacetRows(months),
+    months: months.map((row) => ({ value: row.value, count: Number(row.count), communities: row.communities })),
   };
 }
 
@@ -3071,6 +3079,13 @@ function matchesReferralQueue(referral: Referral, queue: ReferralQueueView) {
 }
 
 function buildReferralFacets(referrals: Referral[]): ReferralFacets {
+  const monthCommunities = new Map<string, string[]>();
+  for (const referral of referrals) {
+    const month = workspaceMonthKey(referral);
+    const communities = monthCommunities.get(month) ?? [];
+    communities.push(referral.community);
+    monthCommunities.set(month, communities);
+  }
   return {
     communities: countFacet(referrals
       .map((referral) => referral.community)
@@ -3084,7 +3099,10 @@ function buildReferralFacets(referrals: Referral[]): ReferralFacets {
       if (left.value === "unknown") return 1;
       if (right.value === "unknown") return -1;
       return right.value.localeCompare(left.value);
-    }),
+    }).map((month) => ({
+      ...month,
+      communities: countFacet((monthCommunities.get(month.value) ?? []).filter(isRecordedWorkspaceCommunity)),
+    })),
   };
 }
 
