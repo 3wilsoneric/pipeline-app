@@ -26,6 +26,8 @@ test.describe("Pipeline Demo Environment", () => {
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(interview).toBeVisible();
     await expect(banner).toContainText("Practice workspace");
+    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
+    await interview.getByRole("button", { name: "Exit guided interview", exact: true }).click();
     await interview.getByRole("button", { name: "Close assessment", exact: true }).click();
     await page.getByRole("button", { name: "Open referrals", exact: true }).click();
     await expect(page).toHaveURL(/view=referrals/);
@@ -106,8 +108,8 @@ test.describe("Pipeline Demo Environment", () => {
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(interview).toBeVisible();
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await expect(interview).toHaveAttribute("data-total-questions", "151");
-    await expect(interview.getByRole("textbox", { name: "Resident number" })).toBeEditable();
+    await expect(interview).toHaveAttribute("data-total-questions", "127");
+    await expect(interview.getByRole("textbox", { name: "Resident name" })).toBeEditable();
     const desktopNextBounds = await interview.getByRole("button", { name: "Next", exact: true }).boundingBox();
     expect(desktopNextBounds).not.toBeNull();
     expect((desktopNextBounds?.x ?? 0) + (desktopNextBounds?.width ?? 0)).toBeGreaterThan(1_390);
@@ -115,10 +117,10 @@ test.describe("Pipeline Demo Environment", () => {
     const desktopBackBounds = await interview.getByRole("button", { name: "Back", exact: true }).boundingBox();
     expect(desktopBackBounds?.x ?? 100).toBeLessThan(60);
     await interview.getByRole("button", { name: "Back", exact: true }).click();
-    await interview.getByRole("textbox", { name: "Resident number" }).fill("TR-1008");
+    await interview.getByRole("textbox", { name: "Resident name" }).fill("TR-1008");
     await interview.getByRole("button", { name: "Exit guided interview" }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
-    await expect(interview.getByRole("textbox", { name: "Resident number" })).toHaveValue("TR-1008");
+    await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("TR-1008");
     await interview.getByRole("button", { name: /Clinical 0\/6/ }).click();
     await expect(interview.getByRole("heading", { name: "Current presentation" })).toBeVisible();
     await expect(interview.getByRole("textbox", { name: "Current symptoms" })).toBeEditable();
@@ -168,15 +170,15 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=identity/);
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await expect(interview).toHaveAttribute("data-total-questions", "151");
+    await expect(interview).toHaveAttribute("data-total-questions", "127");
     await expect(interview).toHaveAttribute("data-screen-index", "0");
     while (Number(await interview.getAttribute("data-screen-index")) > 0) {
       await interview.getByRole("button", { name: "Back", exact: true }).click();
     }
-    await interview.getByRole("textbox", { name: "Resident number" }).fill("TESTER-GUIDED-001");
+    await interview.getByRole("textbox", { name: "Resident name" }).fill("Tester Guided Person");
     await interview.getByRole("button", { name: "Exit guided interview" }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
-    await expect(interview.getByRole("textbox", { name: "Resident number" })).toHaveValue("TESTER-GUIDED-001");
+    await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("Tester Guided Person");
     const closeAssessment = interview.getByRole("button", { name: "Close assessment", exact: true });
     await expect(closeAssessment).toHaveCSS("border-top-width", "0px");
     await expect(closeAssessment.locator("svg")).toHaveAttribute("width", "20");
@@ -200,7 +202,7 @@ test.describe("Pipeline Demo Environment", () => {
     await tester.getByRole("button", { name: "Open assessment" }).click();
     expect(new URL(page.url()).searchParams.get("draftId")).not.toBe(firstPracticeId);
     await expect(interview).toHaveAttribute("data-screen-index", "0");
-    await expect(interview.getByRole("textbox", { name: "Resident number" })).toHaveValue("TRAINING-001");
+    await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("Taylor Rivera");
     await page.goto("/training/demo?view=tester");
     await tester.getByRole("button", { name: "Open review" }).click();
     await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=provenance_qc/);
@@ -332,7 +334,7 @@ test.describe("Pipeline Demo Environment", () => {
     await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("2");
     await startQuickHelp(page, "Create a referral");
 
-    await expect(page).toHaveURL(/view=referrals.*screen=packet.*trainingIntake=1/);
+    await expect(page).toHaveURL(/view=referrals.*screen=packet.*draftId=/);
     await expect(page.getByRole("dialog", { name: "Create a referral guided tutorial" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Upload initial referral document" })).toBeVisible();
@@ -355,7 +357,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(coach.getByText("Review these questions, then continue. Use Next for more questions in this section.", { exact: true })).toBeVisible();
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await expect(interview).toHaveAttribute("data-total-questions", "151");
+    await expect(interview).toHaveAttribute("data-total-questions", "127");
 
     const confirmSection = async (section: string, routeSection: string) => {
       await expect(page).toHaveURL(new RegExp(`assessmentSection=${routeSection}`));
@@ -513,6 +515,7 @@ async function startQuickHelp(page: import("@playwright/test").Page, title: stri
   await page.goto("/training");
   await page.getByRole("button", { name: `Open ${title}`, exact: true }).click();
   await page.getByRole("button", { name: `Start guided walkthrough: ${title}`, exact: true }).click();
+  if (title === "Create a referral") await page.getByRole("button", { name: "Create new referral", exact: true }).click();
 }
 
 async function closePresentation(page: import("@playwright/test").Page) {

@@ -239,7 +239,8 @@ test.describe("Pipeline Learning Center", () => {
     await page.goto(trainingUrl);
     await page.getByRole("button", { name: "Open Create a referral", exact: true }).click();
     await page.getByRole("button", { name: "Start guided walkthrough: Create a referral", exact: true }).click();
-    await expect(page).toHaveURL(/trainingIntake=1/);
+    await page.getByRole("button", { name: "Create new referral", exact: true }).click();
+    await expect(page).toHaveURL(/screen=packet.*draftId=/);
     const upload = page.getByRole("group", { name: "Upload initial referral document" });
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
     await expect(upload).toBeVisible();
