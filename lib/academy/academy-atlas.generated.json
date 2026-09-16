@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:39b5b27edb21ceb3",
-  "fingerprint": "39b5b27edb21ceb32bf85a241947d27ba90a253a8d60264eeade4c021f8678aa",
+  "generatedAt": "source-fingerprint:43f147b1bfecde7b",
+  "fingerprint": "43f147b1bfecde7b636df638b32e5cf66e070980f55d4bf8c226767351b2e872",
   "totals": {
-    "files": 1091,
-    "lines": 328815,
-    "coveredFiles": 1091
+    "files": 1092,
+    "lines": 328877,
+    "coveredFiles": 1092
   },
   "entries": [
     {
@@ -2950,7 +2950,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 41,
+      "lines": 42,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -3731,6 +3731,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 6,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0035_preprovisioned_workspace_member_access.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 43,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -6280,7 +6292,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 69,
+      "lines": 71,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -12234,7 +12246,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 235,
+      "lines": 251,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

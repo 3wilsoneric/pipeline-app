@@ -127,6 +127,22 @@ test("workspace member linking preserves clinical history, roles and truthful si
       for (const row of stateBefore) assert.deepEqual(stateAfter.find((r) => r.record.principal_id === row.record.principal_id && r.record.state_kind === row.record.state_kind && r.record.state_key === row.record.state_key), row);
       assert.equal(JSON.parse(result.stdout).copied_saved_state, 1);
     });
+    await t.test("schema rollback refuses to invent sign-ins and leaves records unchanged", async () => {
+      const before = await snapshot();
+      const rollback = spawnSync(binary("psql"), [url, "-v", "ON_ERROR_STOP=1", "-f", join(root, "database/rollbacks/0035_preprovisioned_workspace_member_access.sql")], { encoding: "utf8" });
+      assert.notEqual(rollback.status, 0);
+      assert.deepEqual(await snapshot(), before);
+      assert.equal((await sql`select 1 from pipeline.schema_migrations where migration_id = '0035_preprovisioned_workspace_member_access'`).length, 1);
+    });
+    await t.test("schema rollback restores the old constraint after a real fixture sign-in", async () => {
+      await sql`update pipeline.workspace_members set last_seen_at = now() where principal_id = ${targetId}`;
+      const before = await snapshot();
+      const rollback = spawnSync(binary("psql"), [url, "-v", "ON_ERROR_STOP=1", "-f", join(root, "database/rollbacks/0035_preprovisioned_workspace_member_access.sql")], { encoding: "utf8" });
+      assert.equal(rollback.status, 0, rollback.stderr);
+      assert.deepEqual(await snapshot(), before);
+      assert.equal((await sql`select 1 from pipeline.schema_migrations where migration_id = '0035_preprovisioned_workspace_member_access'`).length, 0);
+      await assert.rejects(sql`update pipeline.workspace_members set last_seen_at = null where principal_id = ${targetId}`, { code: "23514" });
+    });
   } finally {
     if (sql) await sql.end({ timeout: 5 });
     if (started) execFileSync(binary("pg_ctl"), ["-D", data, "-w", "stop", "-m", "fast"], { stdio: "pipe" });
