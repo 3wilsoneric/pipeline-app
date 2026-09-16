@@ -50,12 +50,13 @@ import type {
   ReferralSection,
   RequirementType,
 } from "@/lib/pipeline/referral-types";
-import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
+import { canModifyReferral, isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import type { ReferralCreateInput, ReferralPatch } from "@/lib/pipeline/referral-store";
 import {
   fetchCurrentPipelineUser,
   fetchPipelineJson,
   PipelineApiError,
+  type PipelineCurrentUser,
 } from "@/lib/auth/authenticated-fetch";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
@@ -214,9 +215,23 @@ const importedWorkspaceSteps: ReadonlyArray<{ page: WorkspaceStage; label: strin
   { page: 1, label: "Chart" },
 ] as const;
 
-function mutableReferralId(loadedReferral: Referral | null, routeReferralId?: number) {
-  if (!loadedReferral || loadedReferral.id !== routeReferralId || loadedReferral.workspaceStatus === "historical") return null;
+function mutableReferralId(loadedReferral: Referral | null, routeReferralId?: number, readOnly = false) {
+  if (readOnly || !loadedReferral || loadedReferral.id !== routeReferralId || loadedReferral.workspaceStatus === "historical") return null;
   return routeReferralId;
+}
+
+function isWorkspacePermissionReadOnly(referral: Referral | null, viewer: PipelineCurrentUser | null, trainingMode?: TrainingAssessmentMode) {
+  if (!referral || trainingMode) return false;
+  return !viewer?.id || !canModifyReferral(referral, { ...viewer, id: viewer.id });
+}
+
+function IntakeEditScope({ readOnly, children }: { readOnly: boolean; children: React.ReactNode }) {
+  return <>
+    {readOnly ? <p role="status" className="mb-4 text-sm font-bold text-[#595959]">Read only · Only workspace owners can make changes.</p> : null}
+    <fieldset disabled={readOnly} className="min-w-0" onDropCapture={readOnly ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined}>
+      {children}
+    </fieldset>
+  </>;
 }
 
 function visibleWorkspacePage(
@@ -392,12 +407,14 @@ export default function ReferralPacketCanvas({
   const [presence, setPresence] = useState<ReferralPresenceView[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [canSupervise, setCanSupervise] = useState(false);
+  const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
   const [ownerPrincipalId, setOwnerPrincipalId] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [duplicateReview, setDuplicateReview] = useState<ReferralDuplicateReview | null>(null);
   const [pendingOwnerChange, setPendingOwnerChange] = useState<{ principalId: string; displayName: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const editableReferralId = mutableReferralId(loadedReferral, referral?.id);
+  const permissionReadOnly = isWorkspacePermissionReadOnly(loadedReferral, viewer, trainingAssessmentMode);
+  const editableReferralId = mutableReferralId(loadedReferral, referral?.id, permissionReadOnly);
   const canvasRef = useRef<HTMLDivElement>(null);
   const loadedReferralRef = useRef<Referral | null>(null);
   const fieldsRef = useRef(fields);
@@ -542,10 +559,16 @@ export default function ReferralPacketCanvas({
     let cancelled = false;
     fetchCurrentPipelineUser()
       .then(({ user }) => {
-        if (!cancelled) setCanSupervise(Boolean(user?.roles.some((role) => role === "admin" || role === "assessment_coordinator")));
+        if (!cancelled) {
+          setViewer(user ?? null);
+          setCanSupervise(Boolean(user?.roles.some((role) => role === "admin" || role === "assessment_coordinator")));
+        }
       })
       .catch(() => {
-        if (!cancelled) setCanSupervise(false);
+        if (!cancelled) {
+          setViewer(null);
+          setCanSupervise(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -1838,11 +1861,12 @@ export default function ReferralPacketCanvas({
     loadedReferral,
     admissionDocumentCount,
     attachmentCount,
+    permissionReadOnly,
   );
-  const { readOnly: historicalReadOnly, steps: workspaceSteps } = workspacePresentation;
+  const { readOnly, historicalReadOnly, steps: workspaceSteps } = workspacePresentation;
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
-  const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, historicalReadOnly);
-  const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, historicalReadOnly);
+  const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
+  const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
     (field) => extractedCanvasFieldKeys(field.field_key).length > 0,
   );
@@ -2101,6 +2125,7 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake">
+            <IntakeEditScope readOnly={permissionReadOnly}>
             <IntakeDocumentChecklist
               initialPacket={initialPacket}
               initialPacketCategory={initialPacketCategory}
@@ -2275,6 +2300,7 @@ export default function ReferralPacketCanvas({
                 />
               </aside>
             </ClientChartFrame>
+            </IntakeEditScope>
           </PacketPage>
           ) : displayedPage === "files" ? (
             <WorkspaceFilesPage
@@ -2301,6 +2327,7 @@ export default function ReferralPacketCanvas({
           ) : displayedPage === 2 ? (
             <PacketPage id="packet-page-2" title="Assessment">
                 <AssessmentWorkspace
+                  readOnly={permissionReadOnly}
                   referralId={referralWorkspaceId}
                   trainingAssessmentMode={trainingAssessmentMode}
                   trainingAssessmentSection={trainingAssessmentSection}
@@ -2437,13 +2464,15 @@ function getWorkspacePresentation(
   referral: Referral | null,
   admissionDocumentCount: number,
   attachmentCount: number,
+  permissionReadOnly = false,
 ) {
   const usesSourceProfile = referral ? isImportedWorkspace(referral) : false;
-  const readOnly = referral?.workspaceStatus === "historical";
+  const historicalReadOnly = referral?.workspaceStatus === "historical";
   return {
-    readOnly,
+    readOnly: historicalReadOnly || permissionReadOnly,
+    historicalReadOnly,
     usesSourceProfile,
-    steps: usesSourceProfile || readOnly ? importedWorkspaceSteps : packetSteps,
+    steps: usesSourceProfile || historicalReadOnly ? importedWorkspaceSteps : packetSteps,
     filesLabel: "Files",
     admissionTitle: usesSourceProfile ? "Admission documents" : "Required for admission",
     admissionDetail: usesSourceProfile

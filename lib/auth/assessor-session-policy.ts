@@ -1,7 +1,5 @@
-import type { PipelineDelegation, PipelineRole, PipelineUser } from "@/lib/auth/pipeline-auth";
+import type { PipelineDelegation, PipelineUser } from "@/lib/auth/pipeline-auth";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
-
-const godModeRoles: PipelineRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"];
 
 export function isEligibleGodModeTarget(member: WorkspaceMember, administratorId: string) {
   return member.active
@@ -23,7 +21,7 @@ export function delegatedUserFromSession(
     id: delegation.target.id,
     email: delegation.target.email,
     name: delegation.target.name,
-    roles: godModeRoles,
+    roles: [...delegation.target.roles],
     accessScope: "pipeline",
     delegation,
   };

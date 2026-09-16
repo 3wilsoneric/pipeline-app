@@ -1,4 +1,4 @@
-import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth";
 import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { buildAssessmentSummaryReport } from "@/lib/assessment/assessment-summary";
 import { jsonError } from "@/lib/extraction/contracts";
@@ -6,10 +6,17 @@ import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-clien
 import { getGraphMailReadiness } from "@/lib/notifications/microsoft-graph-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
+import type { Referral } from "@/lib/pipeline/referral-types";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 
 export const runtime = "nodejs";
+
+function canSendAdmissionSummary(user: PipelineUser, referral: Referral) {
+  return referral.workspaceStatus !== "historical" && canModifyReferral(referral, user)
+    && user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
+}
 
 export async function GET(
   request: Request,
@@ -51,7 +58,7 @@ export async function GET(
       admissionPacket.blockers,
       snapshot.referral.admissionDate,
     );
-    const canSend = auth.user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
+    const canSend = canSendAdmissionSummary(auth.user, access.referral);
 
     return Response.json({
       referral: snapshot.referral,

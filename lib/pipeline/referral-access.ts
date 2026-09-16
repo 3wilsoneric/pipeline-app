@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { readPacketReferralId } from "@/lib/extraction/packet-referral";
-import { isReferralOwner, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
+import { canModifyReferral, isReferralOwner, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import { getDeletedReferral, getReferral, getReferralByPacketId, type ReferralFileListOptions, type ReferralListOptions } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -19,6 +19,12 @@ export function canAccessReferral(user: PipelineUser, referral: Referral) {
 
 export function canRecordAdmissionDecision(user: PipelineUser) {
   return user.roles.includes("admin");
+}
+
+export function canViewTeamReferralBoard(user: PipelineUser) {
+  return user.roles.includes("admin")
+    || (user.email.trim().toLowerCase() === "sandeep@aaahealthservices.com"
+      && canAccessSupervisorOperations(user.roles));
 }
 
 export function scopeReferralListOptions<T extends ReferralListOptions | ReferralFileListOptions>(
@@ -65,8 +71,9 @@ export async function requireMutableReferralAccess(
   user: PipelineUser,
   referralId: number,
   mutation: ReferralMutationKind = "update",
+  options: { includeDeleted?: boolean } = {},
 ) {
-  return rejectHistoricalMutation(await requireReferralAccess(user, referralId), mutation);
+  return rejectUnauthorizedMutation(await requireReferralAccess(user, referralId, options), user, mutation);
 }
 
 export async function requirePacketAccess(user: PipelineUser, packetId: string) {
@@ -88,14 +95,22 @@ export async function requireMutablePacketAccess(
   packetId: string,
   mutation: ReferralMutationKind = "update",
 ) {
-  return rejectHistoricalMutation(await requirePacketAccess(user, packetId), mutation);
+  return rejectUnauthorizedMutation(await requirePacketAccess(user, packetId), user, mutation);
 }
 
-function rejectHistoricalMutation(
+function rejectUnauthorizedMutation(
   access: Awaited<ReturnType<typeof requireReferralAccess>>,
+  user: PipelineUser,
   mutation: ReferralMutationKind,
 ) {
-  if (!access.ok || access.referral.workspaceStatus !== "historical") return access;
+  if (!access.ok) return access;
+  if (!canModifyReferral(access.referral, user)) {
+    return {
+      ok: false as const,
+      response: Response.json({ error: "Only workspace owners can change this referral." }, { status: 403 }),
+    };
+  }
+  if (access.referral.workspaceStatus !== "historical") return access;
   return {
     ok: false as const,
     response: Response.json({ error: historicalMutationMessages[mutation] }, { status: 422 }),

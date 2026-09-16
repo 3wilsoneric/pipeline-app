@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("God mode opens another account with full administrator authority", async ({ page }) => {
+test("God mode opens another account with its real permissions", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "Open profile menu for Playwright QA" }).click();
@@ -25,7 +25,7 @@ test("God mode opens another account with full administrator authority", async (
       id: "provisional:allo:jazmine-saldana",
       email: "",
       name: "Jazmine Saldana",
-      roles: ["admin", "assessment_coordinator", "reviewer", "viewer"],
+      roles: ["reviewer", "viewer"],
       delegation: {
         initiatedBy: { name: "Playwright QA" },
         target: { id: "provisional:allo:jazmine-saldana" },
@@ -42,6 +42,16 @@ test("God mode opens another account with full administrator authority", async (
     return { status: response.status, body: await response.text() };
   });
   expect(signatureAccess.status, signatureAccess.body).toBe(404);
+
+  const decisionAccess = await page.evaluate(async () => {
+    const response = await fetch("/api/referrals/1/decision", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    return response.status;
+  });
+  expect(decisionAccess).toBe(403);
 
   await page.getByRole("button", { name: "Exit God mode for Jazmine Saldana" }).click();
   await expect(page.getByRole("button", { name: "Open profile menu for Playwright QA" })).toBeVisible();

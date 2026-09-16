@@ -4,6 +4,7 @@ import { getAssessment } from "@/lib/assessment/assessment-store";
 import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { canRecordAdmissionDecision, requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
 import { getAllowedReferralTargets, getReferralTransitionBlockers } from "@/lib/pipeline/referral-workflow";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
@@ -39,7 +40,8 @@ export async function GET(
         target,
         blockers: getReferralTransitionBlockers(snapshot.referral, target, snapshot.context),
       })),
-      capabilities: workflowCapabilities(auth.user, assessment, access.referral.workspaceStatus !== "historical"),
+      capabilities: workflowCapabilities(auth.user, assessment,
+        access.referral.workspaceStatus !== "historical" && canModifyReferral(access.referral, auth.user)),
     }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   });
 }

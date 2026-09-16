@@ -33,6 +33,15 @@ export function isReferralOwner(
   return normalizeReferralOwners(referral.owners).some((owner) => owner.id.trim().toLowerCase() === userId);
 }
 
+export function canModifyReferral(
+  referral: Parameters<typeof isReferralOwner>[0],
+  user: AssignedUser & { roles: readonly string[] },
+) {
+  return user.roles.includes("admin")
+    || (user.roles.some((role) => role === "assessment_coordinator" || role === "reviewer")
+      && isReferralOwner(referral, user));
+}
+
 export function createReferralOwners(
   creator: AssignedUser,
   assignment: { ownerId?: string | null; owner?: string | null },

@@ -52,7 +52,7 @@
     "check:historical-profiles": "node scripts/historical-profile-contracts.mjs",
     "note-lab:analyze": "node scripts/analyze-note-lab-corpus.mjs",
     "note-lab:analyze:admitted": "node scripts/analyze-admitted-note-structure.mjs",
-    "check:api": "node scripts/api-behavior-fixtures.mjs",
+    "check:api": "node scripts/api-behavior-fixtures.mjs && node scripts/referral-owner-access-fixtures.mjs",
     "check:clinical": "node scripts/clinical-data-contracts.mjs && node scripts/demo-clinical-snapshot-contracts.mjs && node scripts/client-history-contracts.mjs",
     "check:clinical-presentation": "node scripts/clinical-value-presentation-contracts.mjs",
     "check:question-assistant": "node scripts/pipeline-question-assistant-contracts.mjs",

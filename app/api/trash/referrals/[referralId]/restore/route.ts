@@ -3,7 +3,7 @@ import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { canAccessReferral, requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { canAccessReferral, requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { getReferralMutationReplay, getReferralStoreRevision, requireReferralStore, restoreReferral } from "@/lib/pipeline/referral-store";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
@@ -41,7 +41,7 @@ export async function POST(
         idempotentReplay: true,
       }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
-    const access = await requireReferralAccess(auth.user, id, { includeDeleted: true });
+    const access = await requireMutableReferralAccess(auth.user, id, "update", { includeDeleted: true });
     if (!access.ok) return access.response;
     const result = await restoreReferral(id, pipelineAuditActor(auth.user), expectedVersion, mutationId.value);
     if (!result) return jsonError("Deleted referral not found.", 404);

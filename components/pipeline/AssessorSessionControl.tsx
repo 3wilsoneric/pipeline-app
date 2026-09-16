@@ -156,7 +156,7 @@ function AssessorSessionDialog({
         <div className="flex items-start justify-between gap-4 border-b border-[#e5e5e5] px-5 py-4">
           <div>
             <h2 id="assessor-session-title" className="text-[17px] font-black text-[#111111]">God mode</h2>
-            <p className="mt-1 text-[12px] leading-5 text-[#666666]">Open any active Pipeline user’s account and workspaces while retaining administrator controls.</p>
+            <p className="mt-1 text-[12px] leading-5 text-[#666666]">View Pipeline with the selected account&apos;s actual access and permissions.</p>
           </div>
           <button type="button" autoFocus onClick={onClose} disabled={Boolean(pendingId)} aria-label="Close assessor picker" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#595959] outline-none hover:bg-[#f2f2f2] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:opacity-40">
             <X size={18} strokeWidth={1.8} aria-hidden="true" />

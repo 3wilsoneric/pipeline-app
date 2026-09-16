@@ -6,7 +6,7 @@ import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import { getHomeContinuity } from "@/lib/pipeline/home-continuity";
 import type { HomeWorkflowSummary } from "@/lib/pipeline/operations-types";
 import { getHomeWorkflowSummary } from "@/lib/pipeline/operations-snapshot";
-import { isAssessorUser } from "@/lib/pipeline/referral-access";
+import { canViewTeamReferralBoard } from "@/lib/pipeline/referral-access";
 
 export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingSnapshot> {
   const today = dateKey(new Date());
@@ -32,7 +32,7 @@ export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingS
 
   return {
     generated_at: generatedAt,
-    scope: isAssessorUser(user) ? "personal" : "team",
+    scope: canViewTeamReferralBoard(user) ? "team" : "personal",
     viewer: { id: user.id, name: user.name },
     current_work: {
       total: workflow.current_work.total,
