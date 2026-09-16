@@ -2042,7 +2042,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(packet.headers()["content-type"]).toContain("image/png");
   });
 
-  test("blocks an exact duplicate packet from creating another referral", async ({ page }) => {
+  test("allows identical file content on separate referrals", async ({ page }) => {
     const packetBytes = Buffer.from(`duplicate-packet-${randomUUID()}`);
     const firstClient = `First ${randomUUID().slice(0, 8)}`;
     const secondClient = `Second ${randomUUID().slice(0, 8)}`;
@@ -2072,11 +2072,12 @@ test.describe("Referral home and packet canvas", () => {
       buffer: packetBytes,
     });
     await page.getByRole("button", { name: /^Create referral$/ }).click();
-    await expect(page.getByText("This exact packet is already attached to a referral. Open the existing referral instead.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Document checklist" }).getByText("Packet added", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("workspace-save-status")).not.toContainText("Save failed");
 
     const duplicateResponse = await page.request.get(`/api/referrals?q=${encodeURIComponent(secondClient)}`);
     const duplicateList = await duplicateResponse.json() as { total: number };
-    expect(duplicateList.total).toBe(0);
+    expect(duplicateList.total).toBe(1);
   });
 
   test("reviews a same-name and county match before creating a different person", async ({ page }) => {

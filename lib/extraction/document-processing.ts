@@ -180,9 +180,6 @@ export async function createDurableUploadTargets(
     });
   } catch (error) {
     if (error instanceof DocumentProcessingError) throw error;
-    if (databaseCode(error) === "23505") {
-      throw new DocumentProcessingError("duplicate_document", 409, "This packet was already uploaded for the referral.");
-    }
     throw new DocumentProcessingError("upload_reservation_failed", 503, "Secure upload storage is temporarily unavailable.");
   }
 
@@ -662,8 +659,4 @@ function uuid(value: string) {
 
 function iso(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
-function databaseCode(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
 }

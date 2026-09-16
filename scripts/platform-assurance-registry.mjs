@@ -170,7 +170,7 @@ export const assuranceDomains = [
       control("DT-02", "Client mutation identifiers make referral retries idempotent", "operational_browser", "tests/e2e/operational/high-traffic-capacity.scaffold.spec.ts"),
       control("DT-03", "Stale entity versions return a recoverable conflict", "operational_browser", "tests/e2e/operational/concurrent-referral-edits.scaffold.spec.ts"),
       control("DT-04", "Disjoint section edits merge without silent field loss", "operational_browser", "tests/e2e/operational/concurrent-referral-edits.scaffold.spec.ts"),
-      control("DT-05", "Duplicate packet hashes are rejected", "deterministic", "scripts/property-contracts.mjs"),
+      control("DT-05", "Content hashes do not merge independent upload and referral identities", "deterministic", "scripts/api-behavior-fixtures.mjs"),
       control("DT-06", "Migration files and checksums remain append-only", "deterministic", ["database/migration-checksums.json", "scripts/database-readiness.mjs"]),
       control("DT-07", "High-volume directories use bounded keyset pagination", "deterministic", "scripts/query-plan-audit.mjs"),
       control("DT-08", "Workflow writes and audit records commit atomically", "deterministic", ["scripts/referral-reliability-replay.mjs", "scripts/workflow-stateful-fuzz.mjs"]),

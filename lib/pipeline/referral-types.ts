@@ -277,7 +277,7 @@ export type Referral = {
   tags?: string[];
   documentName: string;
   documentSizeBytes?: number;
-  /** SHA-256 of the original packet bytes. Used to stop exact duplicate intake. */
+  /** SHA-256 of the original packet bytes for content integrity. */
   documentHash?: string;
   documentStatus: "Missing" | "Uploaded" | "Reviewed";
   /** Stable Entra object id for assignment enforcement. */

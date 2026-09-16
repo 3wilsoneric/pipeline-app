@@ -29,7 +29,7 @@ export function createMutationId() {
 }
 
 export async function hashPacket(file: File) {
-  if (!globalThis.crypto?.subtle) throw new Error("This browser cannot verify packet duplicates.");
+  if (!globalThis.crypto?.subtle) throw new Error("This browser cannot verify file integrity.");
   const digest = await globalThis.crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
