@@ -32,7 +32,7 @@ export default function PipelineHeader() {
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
-  const canAccessReports = canAccessOperationsReports(user?.roles ?? []);
+  const canAccessReports = canAccessOperationsReports(user);
   useWorkspacePresenceHeartbeat(Boolean(user));
 
   useEffect(() => {

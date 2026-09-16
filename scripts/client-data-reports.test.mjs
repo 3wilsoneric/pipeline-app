@@ -18,9 +18,18 @@ function build(id, referrals, items = new Map(), filters = {}, residents = []) {
   return reports.buildClientDataReport({ id, label: id, filters: [], cadence: "Current", audience: "Supervisors", description: "" }, { report_id: id, month: "", community: "", county: "", owner: "", client_scope: "all", care_topic: "primary_diagnosis", ...filters }, referrals, items, residents);
 }
 
-test("all client reports remain supervisor/admin only", () => {
-  for (const roles of [[], ["reviewer"], ["viewer"], ["reviewer", "viewer"]]) assert.equal(access.canAccessOperationsReports(roles), false);
-  for (const role of ["admin", "assessment_coordinator"]) assert.equal(access.canAccessOperationsReports([role]), true);
+test("reports require an approved identity and supervisor/admin role", () => {
+  for (const email of ["andrew@aaahealthservices.com", "ericwilsonalamo@outlook.com", "sandeep@aaahealthservices.com"]) {
+    assert.equal(access.canAccessOperationsReports({ email, roles: ["assessment_coordinator"] }), true);
+  }
+  assert.equal(access.canAccessOperationsReports({ email: "  ANDREW@AAAHEALTHSERVICES.COM ", roles: ["admin"] }), true);
+  assert.equal(access.canAccessOperationsReports({ email: "someone-else@aaahealthservices.com", roles: ["assessment_coordinator"] }), false);
+  assert.equal(access.canAccessOperationsReports({ email: "andrew@aaahealthservices.com", roles: ["reviewer"] }), false);
+  assert.equal(access.canAccessOperationsReports({ id: "playwright@pipeline.local", email: "playwright@pipeline.local", roles: ["admin"] }), true);
+  assert.equal(access.canAccessOperationsReports({ id: "synthetic-operator", email: "playwright@pipeline.local", roles: ["admin"] }), true);
+  assert.equal(access.canAccessOperationsReports({ email: "playwright@pipeline.local", roles: ["admin"] }), false);
+  assert.equal(access.canAccessSupervisorOperations(["assessment_coordinator"]), true);
+  assert.equal(access.canAccessSupervisorOperations(["reviewer"]), false);
 });
 
 test("report text removes reconstituted markup but preserves clinical comparisons", () => {
@@ -48,6 +57,19 @@ test("both report routes require supervisor/admin before reading data or exporti
   assert.equal((await route.GET(new Request("http://localhost/api/operations/reports"))).status, 403);
   assert.equal((await route.POST(new Request("http://localhost/api/operations/reports", { method: "POST" }))).status, 403);
   assert.equal(authenticationCalls, 2);
+});
+
+test("report routes reject an unapproved supervisor identity before touching report stores", async () => {
+  const route = loadEntry("app/api/operations/reports/route.ts", {
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: () => ({ ok: true, user: { id: "other-supervisor", email: "other-supervisor@aaahealthservices.com", name: "Other Supervisor", roles: ["assessment_coordinator"] } }) },
+    "@/lib/observability/api-logging": { withApiLogging: (_request, _path, work) => work() },
+    "@/lib/auth/request-security": { requireSameOriginMutation: () => null },
+    "@/lib/pipeline/referral-store": { requireReferralStore: () => assert.fail("Unapproved identity reached the report store") },
+    "@/lib/pipeline/operations-reporting": { ReportAccessError: class extends Error {}, getOperationsReport: () => assert.fail("Unapproved report read"), recordOperationsReportExport: () => assert.fail("Unapproved report export") },
+    "@/lib/assessment/assessment-store": {},
+  });
+  assert.equal((await route.GET(new Request("http://localhost/api/operations/reports"))).status, 403);
+  assert.equal((await route.POST(new Request("http://localhost/api/operations/reports", { method: "POST" }))).status, 403);
 });
 
 test("community totals deduplicate stable client identities, never names", () => {

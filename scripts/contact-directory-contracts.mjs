@@ -82,7 +82,7 @@ for (const [name, route] of [
 }
 check("assessor directory reads and individual mutations stay referral-scoped; supervisors can search before creation",
   contactsRoute.includes("requireReferralAccess")
-  && contactsRoute.includes("!canAccessOperationsReports(auth.user.roles)")
+  && contactsRoute.includes("!canAccessSupervisorOperations(auth.user.roles)")
   && contactsRoute.includes("requireMutableReferralAccess")
   && contactRoute.includes("requireMutableReferralAccess")
   && linksRoute.includes("requireReferralAccess")

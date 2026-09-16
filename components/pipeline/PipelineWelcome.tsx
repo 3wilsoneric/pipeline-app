@@ -168,8 +168,8 @@ export default function PipelineWelcome({
 
   return (
     <>
-      <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
-        <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-2 sm:px-6 lg:px-8">
+      <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-[#f4f6f5] text-[#202320] outline-none">
+        <div className="mx-auto w-full max-w-[1380px] px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8">
           <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
 
           {error ? (
@@ -360,8 +360,8 @@ type BriefingPanelProps = {
 
 function SectionHeader({ title, detail, icon }: { title: string; detail: string; icon?: ReactNode }) {
   return (
-    <div className="flex h-12 items-center justify-between gap-3 px-1">
-      <h2 className="flex items-center gap-2.5 text-[15px] font-bold">{icon}{title}</h2>
+    <div className="flex min-h-12 items-center justify-between gap-3 border-b border-[#e1e6e3] px-1 pb-2">
+      <h2 className="flex items-center gap-2.5 text-[16px] font-extrabold text-[#202723]">{icon}{title}</h2>
       <span className="text-[11px] font-bold text-[#626a65]">{detail}</span>
     </div>
   );
@@ -373,7 +373,7 @@ function UnavailableLine() {
 
 function HomeSkeleton() {
   return (
-    <div aria-label="Loading home" aria-busy="true" className="mt-2 animate-pulse space-y-5" aria-live="polite">
+    <div aria-label="Loading home" aria-busy="true" className="mt-2 animate-pulse space-y-6" aria-live="polite">
       <div aria-hidden="true">
         <div className="flex h-14 items-center justify-between border-y border-[#e1e6e3] px-3">
           <span>

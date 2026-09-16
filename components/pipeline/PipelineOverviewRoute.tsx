@@ -26,7 +26,7 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
-import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import { canAccessOperationsReports, canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import type { TrainingAssessmentMode } from "@/lib/training/mock-assessment";
 import { assessmentToolSections, type AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import {
@@ -157,7 +157,8 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     : undefined;
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
-  const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser.roles) : undefined);
+  const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser) : undefined);
+  const [teamAccess, setTeamAccess] = useState<boolean | undefined>(() => initialUser ? canAccessSupervisorOperations(initialUser.roles) : undefined);
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
   // Header links and browser history also leave Home without calling navigate.
@@ -183,19 +184,23 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     };
     // Reuse the request-validated effective user, not a local/MSAL guess.
     // Each GET still validates its live session; role/session refresh remains.
-    if (initialUser) warmDirectories(canAccessOperationsReports(initialUser.roles));
+    if (initialUser) warmDirectories(canAccessSupervisorOperations(initialUser.roles));
     fetchCurrentPipelineUser()
       .then(({ user }) => {
         if (cancelled) return;
         setViewerId(user.id);
-        setReportAccess(canAccessOperationsReports(user.roles));
+        setReportAccess(canAccessOperationsReports(user));
+        setTeamAccess(canAccessSupervisorOperations(user.roles));
         // Warm the first workspace page and complete current census after authentication.
         // GET-only reads use the same cache as navigation; no charts or files
         // are downloaded in bulk and no background user session is created.
-        if (!initialUser) warmDirectories(canAccessOperationsReports(user.roles));
+        if (!initialUser) warmDirectories(canAccessSupervisorOperations(user.roles));
       })
       .catch(() => {
-        if (!cancelled) setReportAccess(false);
+        if (!cancelled) {
+          setReportAccess(false);
+          setTeamAccess(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -371,7 +376,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onResumeDraft={resumeReferralDraft}
-        canViewTeam={reportAccess}
+        canViewTeam={teamAccess}
       />
     );
   }

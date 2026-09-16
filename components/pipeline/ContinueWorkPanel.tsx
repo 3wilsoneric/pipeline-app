@@ -18,14 +18,14 @@ export default function ContinueWorkPanel({
   onResumeDraft: (draftKey: `new-${string}`, intakeField?: PipelineWorkspaceLocation["intakeField"]) => void;
 }) {
   if (items.length === 0) return (
-    <section aria-label="Continue working" className="border-y border-[#cfd8d4] bg-[#f7fbf9] px-4 py-4">
+    <section aria-label="Continue working" className="bg-[#f7fbf9] px-4 py-4">
       <h2 className="text-[14px] font-bold text-[#25302b]">Recent work</h2>
       <p className="mt-1 text-[13px] text-[#647069]">{unavailable ? "Recent work could not be loaded." : "No recent work yet."}</p>
     </section>
   );
   const [primary, ...secondary] = items;
   return (
-    <section aria-label="Continue working" className="border-y border-[#cfd8d4] bg-[#f7fbf9]">
+    <section aria-label="Continue working" className="bg-[#f7fbf9]">
       <button
         type="button"
         onClick={() => openResumeItem(primary, onOpenPacket, onResumeDraft)}

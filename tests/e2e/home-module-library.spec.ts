@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const defaults = ["search", "recent-work", "current-work", "new-assignments", "upcoming-assessments"];
+const defaults = ["current-work", "new-assignments", "upcoming-assessments"];
+const completeModuleSet = ["search", "recent-work", ...defaults, "scheduling-queue"];
 const serverStateEnabled = process.env.PIPELINE_DESKTOP_E2E === "true";
 
 for (const entry of ["click", "shortcut"]) {
@@ -37,7 +38,7 @@ async function moduleOrder(page: Page) {
 }
 
 async function mockLayout(page: Page, moduleIds: string[] = defaults) {
-  let layout = { schema: 2, module_ids: moduleIds, locked: true };
+  let layout = { schema: 3, module_ids: moduleIds, locked: true };
   const writes: typeof layout[] = [];
   if (!serverStateEnabled) {
     const home = await page.request.get("/api/operations/home");
@@ -66,8 +67,36 @@ async function mockLayout(page: Page, moduleIds: string[] = defaults) {
   return writes;
 }
 
+test("separates Home modules into distinct responsive work surfaces", async ({ page }, testInfo) => {
+  await mockLayout(page, completeModuleSet);
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+
+  const surfaces = page.locator('[data-home-surface="true"]');
+  await expect(surfaces).toHaveCount(6);
+  const styles = await surfaces.evaluateAll((elements) => elements.map((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderTopColor: style.borderTopColor,
+      borderTopWidth: style.borderTopWidth,
+    };
+  }));
+  expect(new Set(styles.map((style) => style.borderTopColor)).size).toBeGreaterThanOrEqual(4);
+  for (const style of styles) {
+    expect(style.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(style.borderTopWidth).toBe("3px");
+  }
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(244, 246, 245)");
+  await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("home-surfaces-mobile.png"), animations: "disabled", fullPage: true });
+});
+
 test("removes search and recent work, adds a batch once, and keeps canceled selections out of Home", async ({ page }) => {
-  const writes = await mockLayout(page);
+  const writes = await mockLayout(page, ["search", "recent-work", ...defaults]);
   await page.goto("/?editHome=1");
   await page.getByRole("button", { name: "Remove Search from Home", exact: true }).click();
   await page.getByRole("button", { name: "Remove Recent work from Home", exact: true }).click();
@@ -148,7 +177,7 @@ test("captures real Home module previews with synthetic data", async ({ page, ba
   expect(["127.0.0.1", "localhost"]).toContain(new URL(baseURL!).hostname);
   await page.setViewportSize({ width: 824, height: 1100 });
   await page.clock.setFixedTime(new Date("2026-09-14T16:00:00.000Z"));
-  await mockLayout(page, [...defaults, "scheduling-queue"]);
+  await mockLayout(page, completeModuleSet);
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
@@ -185,7 +214,7 @@ test("captures real Home module previews with synthetic data", async ({ page, ba
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Continue working", exact: true })).toContainText("Taylor Rivera");
   await page.evaluate(() => document.fonts.ready);
-  for (const id of [...defaults.filter((id) => id !== "search"), "scheduling-queue"]) {
+  for (const id of completeModuleSet.filter((id) => id !== "search")) {
     if (id === "current-work") await page.setViewportSize({ width: 1440, height: 1100 });
     await page.locator(`[data-home-module="${id}"]`).screenshot({ path: testInfo.outputPath(`${id}.png`), animations: "disabled" });
     if (id === "current-work") await page.setViewportSize({ width: 824, height: 1100 });
@@ -266,7 +295,7 @@ test("layout loading cannot overwrite an edit made against an unfinished read", 
   const gate = new Promise<void>((resolve) => { release = resolve; });
   await page.route("**/api/me/home-layout", async (route) => {
     await gate;
-    await route.fulfill({ json: { layout: { schema: 2, module_ids: ["recent-work"], locked: true } } });
+    await route.fulfill({ json: { layout: { schema: 3, module_ids: ["recent-work"], locked: true } } });
   });
   await page.goto("/?editHome=1");
   await expect(page.getByRole("button", { name: "Add module", exact: true })).toBeDisabled();
@@ -282,7 +311,8 @@ test("the layout API migrates legacy order, preserves removals, and scopes setti
   const save = (layout: unknown) => request.put("/api/me/home-layout", { headers: { origin }, data: { layout } });
   const legacy = await save({ schema: 1, module_ids: ["scheduling-queue"], locked: true });
   expect(legacy.status()).toBe(200);
-  expect((await legacy.json()).layout).toEqual({ schema: 2, module_ids: ["search", "recent-work", "scheduling-queue"], locked: true });
+  expect((await legacy.json()).layout).toEqual({ schema: 3, module_ids: ["scheduling-queue"], locked: true });
+  expect((await (await save({ schema: 2, module_ids: ["search", "recent-work", ...defaults], locked: true })).json()).layout).toEqual({ schema: 3, module_ids: defaults, locked: true });
   expect((await save({ schema: 2, module_ids: ["recent-work"], locked: true })).status()).toBe(200);
   expect((await (await request.get("/api/me/home-layout")).json()).layout.module_ids).toEqual(["recent-work"]);
   expect((await save({ schema: 2, module_ids: ["search", "search"], locked: true })).status()).toBe(400);
@@ -291,5 +321,5 @@ test("the layout API migrates legacy order, preserves removals, and scopes setti
   expect((await (await request.get("/api/me/home-layout")).json()).layout.module_ids).toEqual(defaults);
   await request.delete("/api/auth/assessor-session", { headers: { origin } });
   expect((await (await request.get("/api/me/home-layout")).json()).layout.module_ids).toEqual(["recent-work"]);
-  expect((await save({ schema: 2, module_ids: defaults, locked: true })).status()).toBe(200);
+  expect((await save({ schema: 3, module_ids: defaults, locked: true })).status()).toBe(200);
 });

@@ -12,7 +12,7 @@ import {
   type ContactImportSummary,
 } from "@/lib/pipeline/contact-import";
 import { contactDisplayName } from "@/lib/pipeline/contact-types";
-import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import { canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 
 export type ContactDirectoryImportProps = {
   roles?: readonly string[];
@@ -44,7 +44,7 @@ export default function ContactDirectoryImport({ roles, className = "", onImport
 
   const effectiveRoles = roles ?? resolvedRoles;
   if (!effectiveRoles) return <p role={error ? "alert" : "status"} className={`bg-white py-4 text-[12px] ${error ? "text-[#a42d2d]" : "text-[#626b65]"}`}>{error ?? "Loading directory..."}</p>;
-  if (!canAccessOperationsReports(effectiveRoles)) return null;
+  if (!canAccessSupervisorOperations(effectiveRoles)) return null;
 
   const chooseFile = (selected: File | null) => {
     setPreview(null);

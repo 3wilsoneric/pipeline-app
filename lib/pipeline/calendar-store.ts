@@ -18,7 +18,7 @@ import type {
 } from "@/lib/pipeline/calendar-types";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
-import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import { canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import { normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { listReferrals } from "@/lib/pipeline/referral-store";
 import type { Referral, RequirementGate, RequirementStatus } from "@/lib/pipeline/referral-types";
@@ -110,7 +110,7 @@ export async function getAssessmentCalendar(
   return {
     ...range,
     ...data,
-    scope: canAccessOperationsReports(user.roles) ? "team" : "personal",
+    scope: canAccessSupervisorOperations(user.roles) ? "team" : "personal",
     timezone: "America/Los_Angeles",
     viewer: { id: user.id, name: user.name },
     generated_at: new Date().toISOString(),
@@ -123,7 +123,7 @@ async function getPostgresAssessmentCalendar(
   options: AssessmentCalendarOptions,
 ) {
   const sql = getPipelineSql();
-  const restricted = !canAccessOperationsReports(user.roles);
+  const restricted = !canAccessSupervisorOperations(user.roles);
   const ownerAliases = normalizedOwnerAliases(user);
   const queueLimit = Math.min(200, Math.max(1, options.queueLimit ?? 24));
   const queueSearch = options.queueSearch?.trim().toLowerCase() ?? "";
@@ -381,7 +381,7 @@ async function getLocalAssessmentCalendar(
   options: AssessmentCalendarOptions,
 ) {
   const referrals: Referral[] = [];
-  const restricted = !canAccessOperationsReports(user.roles);
+  const restricted = !canAccessSupervisorOperations(user.roles);
   let referralCursor: string | undefined;
   do {
     const page = await listReferrals(scopeReferralListOptions(user, {
@@ -494,7 +494,7 @@ function matchesQueueOptions(item: PipelineUnscheduledAssessment, user: Pipeline
   if (options.queueCommunity && item.community !== options.queueCommunity) return false;
   if (options.queueOwner && ownerFilterKey(item.ownerId, item.owner) !== options.queueOwner) return false;
   // Personal calendars are already referral-scoped, including legacy owner aliases.
-  if (options.queueMine && canAccessOperationsReports(user.roles)) {
+  if (options.queueMine && canAccessSupervisorOperations(user.roles)) {
     const aliases = new Set(normalizedOwnerAliases(user));
     if (item.ownerId !== user.id && !aliases.has(item.owner.trim().toLowerCase())) return false;
   }

@@ -139,7 +139,7 @@ const Header = load("components/pipeline/PipelineHeader.tsx", {
   "@/components/auth/PipelineAuthProvider": { usePipelineAuth: providerModule.usePipelineAuth },
   "@/lib/pipeline/client-navigation": { usePipelineLocationSearch: () => "" },
   "@/lib/pipeline/base-path": {},
-  "@/lib/pipeline/report-access": { canAccessOperationsReports: (roles) => roles.includes("admin") },
+  "@/lib/pipeline/report-access": { canAccessOperationsReports: (principal) => principal?.roles.includes("admin") },
   "@/lib/training/operator-guided-tour-state": {},
 }).default;
 for (const roles of [["viewer"], ["admin"]]) {
@@ -193,7 +193,10 @@ const rootStubs = {
   },
   "@/components/pipeline/ClientProfileDirectory": { default: () => null, preloadCurrentClientDirectory: async () => { startupReads.push("current-clients"); } },
   "@/components/pipeline/referral-home-directory-model": { buildReferralParams: () => "kind=all" },
-  "@/lib/pipeline/report-access": { canAccessOperationsReports: (roles) => roles.includes("admin") },
+  "@/lib/pipeline/report-access": {
+    canAccessOperationsReports: (principal) => principal?.roles.includes("admin"),
+    canAccessSupervisorOperations: (roles) => roles.includes("admin"),
+  },
 };
 const Overview = load("components/pipeline/PipelineOverviewRoute.tsx", {}, {
   require: (id) => rootStubs[id] ?? (id.startsWith("@/") ? {} : require(id)),
