@@ -125,13 +125,21 @@ check("assessment coordinators may remain assessors when that is their operating
   identity_status: "entra_linked",
   merged_into_principal_id: null,
 }));
-check("Andrew and administrators never appear as assignable assessors", !memberEligibility.isAssignableAssessorMember({
+check("Andrew can receive assessments while retaining his supervisor roles", memberEligibility.isAssignableAssessorMember({
   principal_id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9",
   active: true,
   roles: ["assessment_coordinator", "reviewer", "viewer"],
   identity_status: "entra_linked",
   merged_into_principal_id: null,
-}) && !memberEligibility.isAssignableAssessorMember({
+}));
+check("Andrew's retired provisional identity remains excluded", !memberEligibility.isAssignableAssessorMember({
+  principal_id: "provisional:allo:andrew-dominici",
+  active: false,
+  roles: ["reviewer", "viewer"],
+  identity_status: "provisional",
+  merged_into_principal_id: null,
+}));
+check("administrators remain excluded from assessor assignment", !memberEligibility.isAssignableAssessorMember({
   principal_id: "admin-1",
   active: true,
   roles: ["admin", "reviewer", "viewer"],
