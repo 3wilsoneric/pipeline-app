@@ -11,6 +11,8 @@ Azure Container Apps EasyAuth requires the existing Pipeline Microsoft Entra
 application on every public request. The gateway also requires its authenticated
 principal and tenant headers. Azure strips external attempts to supply those
 headers. The existing application's user assignments apply to workshop access.
+The login requests Pipeline's existing `access_as_user` scope alongside OpenID
+profile/email claims, reusing its organization-approved consent grant.
 The gateway validates the public host and mutation origin before forwarding.
 
 Each authenticated principal has an independent loopback Next.js process, private
