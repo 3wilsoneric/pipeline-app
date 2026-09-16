@@ -204,6 +204,7 @@ export type ReferralCreateResult = {
   referral: Referral;
   revision: number;
   idempotentReplay: boolean;
+  warnings?: string[];
 };
 
 export type DeletedReferralListResult = {
@@ -879,7 +880,7 @@ async function createLocalReferral(
   );
   await persist();
 
-  return { referral, revision: state.revision, idempotentReplay: false };
+  return { referral, revision: state.revision, idempotentReplay: false, warnings: [creationReason].filter((reason) => typeof reason === "string") };
 }
 
 async function patchLocalReferral(
@@ -1811,7 +1812,7 @@ async function createPostgresReferral(
       `;
     }
     const revision = await bumpReferralRevision(tx);
-    return { referral, revision, idempotentReplay: false };
+    return { referral, revision, idempotentReplay: false, warnings: [creationReason].filter((reason) => typeof reason === "string") };
   });
 }
 
@@ -2769,7 +2770,7 @@ function confirmLocalReferralCreation(input: ReferralCreateInput, options: Refer
     const source = requireEpisodeSource(input, state.referrals.find((referral) => referral.id === options.newEpisodeSourceReferralId));
     return chartEpisodeCreationReason(source.id);
   }
-  const distinctIds = requireSuspectedDuplicateConfirmation(suspectedLocalDuplicateReferrals(input), options);
+  const distinctIds = suspectedLocalDuplicateReferrals(input).map((referral) => referral.id);
   return distinctPersonConfirmationReason(distinctIds);
 }
 
@@ -2781,7 +2782,7 @@ async function resolvePostgresCreationPerson(tx: TransactionSql, clientId: strin
     `;
     return { personId: people[0].person_id, creationReason: chartEpisodeCreationReason(source.id) };
   }
-  const distinctIds = await lockAndConfirmPostgresDuplicate(tx, input, options);
+  const distinctIds = await findPostgresNameMatches(tx, input);
   const people = await tx<{ person_id: string }[]>`
     insert into pipeline.people (external_client_id, display_name, date_of_birth)
     values (${clientId}, ${input.name}, ${dateToSql(input.dob)}::date)
@@ -2820,14 +2821,12 @@ function suspectedDuplicateIdentity(input: ReferralCreateInput) {
   return name && county ? { name, county } : null;
 }
 
-async function lockAndConfirmPostgresDuplicate(
+async function findPostgresNameMatches(
   tx: TransactionSql,
   input: ReferralCreateInput,
-  options: ReferralCreateOptions,
 ) {
   const identity = suspectedDuplicateIdentity(input);
   if (!identity) return [];
-  await tx`select pg_advisory_xact_lock(hashtextextended(${`referral_identity:${identity.name}:${identity.county}`}, 0))`;
   const duplicateRows = await tx<ReferralRow[]>`
     select r.*, p.external_client_id, p.display_name
     from pipeline.referrals r
@@ -2837,33 +2836,12 @@ async function lockAndConfirmPostgresDuplicate(
     order by r.created_at desc, r.referral_id desc
     limit ${maximumSuspectedDuplicateCandidates + 1}
   `;
-  return requireSuspectedDuplicateConfirmation(duplicateRows.map(mapReferralRow), options);
-}
-
-function requireSuspectedDuplicateConfirmation(
-  matches: Referral[],
-  options: ReferralCreateOptions,
-) {
-  if (matches.length === 0) return [];
-  const confirmed = new Set(
-    (options.confirmedDistinctReferralIds ?? []).filter((id) => Number.isSafeInteger(id) && id > 0),
-  );
-  if (
-    matches.length > maximumSuspectedDuplicateCandidates
-    || confirmed.size !== matches.length
-    || matches.some((referral) => !confirmed.has(referral.id) || !options.canReviewSuspectedDuplicate?.(referral))
-  ) {
-    throw new SuspectedDuplicateReferralError(
-      matches.slice(0, maximumSuspectedDuplicateCandidates),
-      matches.length > maximumSuspectedDuplicateCandidates,
-    );
-  }
-  return matches.map((referral) => referral.id).sort((left, right) => left - right);
+  return duplicateRows.map((row) => Number(row.referral_id));
 }
 
 function distinctPersonConfirmationReason(referralIds: number[]) {
   return referralIds.length > 0
-    ? `Confirmed as a different person after reviewing referral${referralIds.length === 1 ? "" : "s"} ${referralIds.join(", ")}.`
+    ? "A matching client name and county exists. This referral was saved separately; no client records were merged."
     : undefined;
 }
 

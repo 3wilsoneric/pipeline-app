@@ -264,7 +264,7 @@ function CurrentGateCard({
             Admission date
             <input id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={!workflow.capabilities.can_update || Boolean(busy)} className="mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]" />
           </label>
-          {workflow.capabilities.can_email ? <PrimaryButton busy={busy.startsWith("admit-date:")} disabled={!admissionDate || Boolean(busy)} onClick={onSaveAdmissionDate}>Prepare Meet the Client</PrimaryButton> : <p className="text-[12px] text-[#68716c]">A supervisor prepares and sends Meet the Client.</p>}
+          {workflow.capabilities.can_email ? <PrimaryButton busy={busy.startsWith("admit-date:")} disabled={Boolean(busy)} onClick={onSaveAdmissionDate}>Prepare Meet the Client</PrimaryButton> : <p className="text-[12px] text-[#68716c]">A supervisor prepares and sends Meet the Client.</p>}
         </div>
       ) : null}
       {forwardTransition ? (
@@ -273,7 +273,7 @@ function CurrentGateCard({
             {forwardTransition.blockers.map((blocker) => <div key={blocker.code} className="text-[11px] leading-5 text-[#7a4c0d]">{blocker.label}</div>)}
             <div className="flex flex-wrap gap-2 pt-1"><SecondaryButton onClick={onOpenIntake}>Open intake</SecondaryButton><SecondaryButton onClick={onOpenFiles}>Open files</SecondaryButton><SecondaryButton onClick={onOpenAssessment}>Open assessment</SecondaryButton></div>
           </div>
-        ) : <PrimaryButton busy={busy === `transition:${forwardTransition.target}`} disabled={!workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</PrimaryButton>
+        ) : <div className="space-y-3">{forwardTransition.alerts?.length ? <div role="status" className="bg-[#fff9ec] px-3 py-2 text-[11px] leading-5 text-[#7a4c0d]">{forwardTransition.alerts.map((alert) => <div key={alert.code}>{alert.label}</div>)}<div className="mt-1 font-bold">You can continue with these items unanswered.</div></div> : null}<PrimaryButton busy={busy === `transition:${forwardTransition.target}`} disabled={!workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</PrimaryButton></div>
       ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>}
 
       {showManualIntake ? (
@@ -313,8 +313,7 @@ function recommendationSubmissionIsBlocked(workflow: WorkflowResponse, recommend
   return Boolean(busy)
     || !workflow.capabilities.can_recommend
     || !workflow.context.assessmentId
-    || !recommendation.outcome
-    || (recommendation.outcome !== "accept" && !recommendation.reasonNote.trim());
+    || !recommendation.outcome;
 }
 
 function FinishedAssessmentCard({ workflow }: { workflow: WorkflowResponse }) {
@@ -335,10 +334,10 @@ function SupervisorDecisionDisclosure({ workflow, view, busy, decision, onDecisi
         <>
           <DecisionReadiness workflow={workflow} outcome={decision.outcome} note={decision.reasonNote} incompleteDecision={view.incompleteDecision} />
           <div className="mt-3 grid gap-3 sm:grid-cols-2"><WorkflowSelect label="Decision" value={decision.outcome} onChange={(value) => onDecisionChange({ outcome: value as DecisionOutcomeDraft })} options={[{ value: "", label: "Under review" }, { value: "accepted", label: "Admit" }, { value: "declined", label: "Denied" }]} /><WorkflowInput label="Reason code (optional)" value={decision.reasonCode} onChange={(reasonCode) => onDecisionChange({ reasonCode })} /></div>
-          <WorkflowTextArea label="Decision rationale (required for decline)" value={decision.reasonNote} onChange={(reasonNote) => onDecisionChange({ reasonNote })} />
+          <WorkflowTextArea label="Decision rationale" value={decision.reasonNote} onChange={(reasonNote) => onDecisionChange({ reasonNote })} />
           {!workflow.review ? <WorkflowNotice tone="error">Submit a signed assessment and recommendation for supervisor review before recording a final decision.</WorkflowNotice> : null}
           <div className="flex flex-wrap gap-2">
-            <PrimaryButton busy={busy.startsWith("decision:")} disabled={decisionSubmissionIsBlocked(workflow, decision.outcome, decision.reasonNote, view.incompleteDecision)} onClick={onSubmitDecision}>Record final decision</PrimaryButton>
+            <PrimaryButton busy={busy.startsWith("decision:")} disabled={decisionSubmissionIsBlocked(workflow, decision.outcome)} onClick={onSubmitDecision}>Record final decision</PrimaryButton>
             {workflow.review?.status === "submitted" && workflow.capabilities.can_request_changes ? <SecondaryButton disabled={Boolean(busy)} onClick={onRequestReviewChanges}>Request changes</SecondaryButton> : null}
           </div>
         </>

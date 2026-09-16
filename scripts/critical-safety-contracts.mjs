@@ -23,31 +23,31 @@ check("an owner is required to begin workflow", hasBlocker(
   workflow.getReferralTransitionBlockers(referral("New"), "Packet Needed"),
   "owner_required",
 ));
-check("an initial packet is required for packet review", hasBlocker(
-  workflow.getReferralTransitionBlockers(referral("Packet Needed", { owner: "Operator" }), "Packet Review"),
+check("missing initial packets remain visible as alerts", hasBlocker(
+  workflow.getReferralTransitionAlerts(referral("Packet Needed", { owner: "Operator" }), "Packet Review"),
   "initial_packet_required",
 ));
-check("human packet review is required before assessment", hasBlocker(
-  workflow.getReferralTransitionBlockers(referral("Packet Review", { owner: "Operator", packetStatus: "ready_for_review" }), "Assessment"),
+check("unreviewed packets remain visible as alerts", hasBlocker(
+  workflow.getReferralTransitionAlerts(referral("Packet Review", { owner: "Operator", packetStatus: "ready_for_review" }), "Assessment"),
   "packet_review_required",
 ));
-check("a completed assessment is required before community review", hasBlocker(
-  workflow.getReferralTransitionBlockers(referral("Assessment"), "Community Review", { assessmentComplete: false }),
+check("incomplete assessments remain visible as alerts", hasBlocker(
+  workflow.getReferralTransitionAlerts(referral("Assessment"), "Community Review", { assessmentComplete: false }),
   "assessment_required",
 ));
 check("acceptance requires an accepted decision", hasBlocker(
   workflow.getReferralTransitionBlockers(referral("Community Review"), "Accepted / Admitted", { requirements: [] }),
   "admission_decision_required",
 ));
-check("move-in requirements block acceptance", hasBlocker(
-  workflow.getReferralTransitionBlockers(referral("Community Review"), "Accepted / Admitted", {
+check("move-in requirements remain visible as alerts", hasBlocker(
+  workflow.getReferralTransitionAlerts(referral("Community Review"), "Accepted / Admitted", {
     decision: { outcome: "accepted" },
     requirements: [{ id: "requirement", type: "tb_test", label: "TB test", status: "needed", requiredFor: "move_in", blocker: true }],
   }),
   "requirement:tb_test",
 ));
-check("unresolved admission-decision requirements block admission", hasBlocker(
-  workflow.getReferralTransitionBlockers(referral("Community Review"), "Accepted / Admitted", {
+check("unresolved admission-decision requirements remain visible as alerts", hasBlocker(
+  workflow.getReferralTransitionAlerts(referral("Community Review"), "Accepted / Admitted", {
     decision: { outcome: "accepted" },
     requirements: [{ id: "requirement", type: "medication_list", label: "Signed medication list", status: "needed", requiredFor: "admission_decision", blocker: true }],
   }),
@@ -57,10 +57,21 @@ check("declining requires a declined decision", hasBlocker(
   workflow.getReferralTransitionBlockers(referral("Assessment"), "Declined", {}),
   "decline_decision_required",
 ));
-check("declining requires a reason", hasBlocker(
-  workflow.getReferralTransitionBlockers(referral("Assessment"), "Declined", { decision: { outcome: "declined", reasonNote: "" } }),
+check("missing decline reasons remain visible as alerts", hasBlocker(
+  workflow.getReferralTransitionAlerts(referral("Assessment"), "Declined", { decision: { outcome: "declined", reasonNote: "" } }),
   "decline_reason_required",
 ));
+
+check("missing readiness data never blocks an authorized sequential continuation", [
+  [referral("Packet Needed", { owner: "Operator" }), "Packet Review", {}],
+  [referral("Packet Review", { owner: "Operator" }), "Assessment", {}],
+  [referral("Assessment"), "Community Review", { assessmentComplete: false }],
+  [referral("Community Review"), "Accepted / Admitted", {
+    decision: { outcome: "accepted" },
+    requirements: [{ type: "tb_test", label: "TB test", status: "needed", requiredFor: "move_in", blocker: true }],
+  }],
+  [referral("Assessment"), "Declined", { decision: { outcome: "declined", reasonNote: "" } }],
+].every(([current, target, context]) => workflow.getReferralTransitionBlockers(current, target, context).length === 0));
 
 check("the final retry dead-letters", extraction.getExtractionFailureDisposition(5, 5, true).status === "dead_letter");
 check("non-retryable extraction dead-letters immediately", extraction.getExtractionFailureDisposition(1, 5, false).status === "dead_letter");
@@ -108,7 +119,7 @@ check("a cancelled scheduled assessment returns to ready to schedule", assessmen
   schedule_status: "scheduled",
   field_provenance: {},
 }, "assessment_cancelled") === "ready_to_schedule");
-check("pending assessment provenance remains completion-blocking review work", sameValues(
+check("pending assessment provenance remains unresolved review work", sameValues(
   assessmentLifecycle.getPendingAssessmentFields({
     assessor: [{ review_status: "pending" }],
   }),

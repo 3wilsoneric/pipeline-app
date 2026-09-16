@@ -305,6 +305,33 @@ export function getAdmissionDecisionBlockers(
   snapshot: WorkflowRecordSnapshot,
   input: AdmissionDecisionInput,
 ) {
+  return getAdmissionDecisionAlerts(snapshot, input).filter((issue) =>
+    !issue.code.startsWith("requirement:") && issue.code !== "decline_reason_required",
+  );
+}
+
+export function getAdmissionDecisionAlerts(
+  snapshot: WorkflowRecordSnapshot,
+  input: AdmissionDecisionInput,
+) {
+  const reviewBlockers = getAdmissionReviewBlockers(snapshot);
+  if (reviewBlockers.length > 0) return reviewBlockers;
+  if (input.outcome === "accepted") {
+    const incomplete = getBlockingRequirementsForGates(snapshot.work_items, ["admission_decision"]);
+    if (incomplete.length > 0) {
+      return incomplete.map((requirement) => ({
+        code: `requirement:${requirement.type}`,
+        label: `${requirement.label} is still required before acceptance.`,
+      }));
+    }
+  }
+  if (input.outcome === "declined" && !input.reasonNote?.trim()) {
+    return [{ code: "decline_reason_required", label: "Record why there will be no admission." }];
+  }
+  return [];
+}
+
+function getAdmissionReviewBlockers(snapshot: WorkflowRecordSnapshot) {
   if (!snapshot.context.assessmentSigned) {
     return [{ code: "assessment_required", label: "Sign the assessment before recording the admission decision." }];
   }
@@ -322,18 +349,6 @@ export function getAdmissionDecisionBlockers(
   }
   if (!snapshot.recommendation || snapshot.review.recommendationId !== snapshot.recommendation.recommendationId) {
     return [{ code: "recommendation_required", label: "The open supervisor review must include the current assessor recommendation." }];
-  }
-  if (input.outcome === "accepted") {
-    const incomplete = getBlockingRequirementsForGates(snapshot.work_items, ["admission_decision"]);
-    if (incomplete.length > 0) {
-      return incomplete.map((requirement) => ({
-        code: `requirement:${requirement.type}`,
-        label: `${requirement.label} is still required before acceptance.`,
-      }));
-    }
-  }
-  if (input.outcome === "declined" && !input.reasonNote?.trim()) {
-    return [{ code: "decline_reason_required", label: "Record why there will be no admission." }];
   }
   return [];
 }

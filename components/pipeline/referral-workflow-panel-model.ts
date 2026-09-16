@@ -24,6 +24,7 @@ export type WorkflowResponse = {
   transitions: Array<{
     target: ReferralStage;
     blockers: Array<{ code: string; label: string }>;
+    alerts?: Array<{ code: string; label: string }>;
   }>;
   capabilities: {
     can_update: boolean;
@@ -267,15 +268,11 @@ export function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"
 export function decisionSubmissionIsBlocked(
   workflow: WorkflowResponse,
   outcome: DecisionOutcomeDraft,
-  note: string,
-  incompleteDecision: AdmissionRequirement[],
 ) {
   return !outcome
     || !workflow.context.assessmentSigned
     || Boolean(workflow.decision)
     || workflow.review?.status !== "submitted"
-    || (outcome === "accepted" && incompleteDecision.length > 0)
-    || (outcome === "declined" && !note.trim())
     || !workflow.recommendation;
 }
 

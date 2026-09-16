@@ -52,7 +52,7 @@ const preparationActions = [
   (state) => { state.admissionDateRecorded = state.admissionDateRecorded || state.decision === "accepted"; },
   (state) => { state.manualIntakeAuthorized = true; },
 ];
-const transitionGateBlockers = {
+const transitionGateAlerts = {
   "Packet Needed": (state) => state.ownerAssigned ? [] : ["owner_required"],
   "Packet Review": (state) => state.packetAttached || state.manualIntakeAuthorized
     ? []
@@ -61,7 +61,7 @@ const transitionGateBlockers = {
     ? []
     : ["packet_review_required"],
   "Community Review": (state) => state.assessmentComplete ? [] : ["assessment_required"],
-  "Accepted / Admitted": acceptedBlockerCodes,
+  "Accepted / Admitted": acceptedAlertCodes,
   Declined: (state) => {
     if (state.decision !== "declined") return ["decline_decision_required"];
     return state.declineReason ? [] : ["decline_reason_required"];
@@ -82,8 +82,11 @@ for (const stage of workflow.boardStages) {
           .map((item) => item.code)
           .sort();
         const expectedCodes = expectedBlockerCodes(state, target).sort();
+        const actualAlerts = workflow.getReferralTransitionAlerts(toReferral(state), target, toContext(state))
+          .map((item) => item.code).sort();
+        const expectedAlerts = expectedAlertCodes(state, target).sort();
         exhaustiveCases += 1;
-        if (!sameValues(actualCodes, expectedCodes)) {
+        if (!sameValues(actualCodes, expectedCodes) || !sameValues(actualAlerts, expectedAlerts)) {
           recordFailure(-1, exhaustiveCases, "bounded_transition_oracle_mismatch", {
             stage,
             target,
@@ -91,6 +94,8 @@ for (const stage of workflow.boardStages) {
             decision,
             actualCodes,
             expectedCodes,
+            actualAlerts,
+            expectedAlerts,
           });
         }
       }
@@ -106,6 +111,7 @@ for (let trace = 0; trace < traces; trace += 1) {
     applyRandomPreparation(state);
     const beforeStage = state.stage;
     const beforeAuditCount = state.audit.length;
+    const beforeReadiness = [state.admissionDateRecorded, state.moveInReady, state.declineReason];
     const target = workflow.boardStages[integer(0, workflow.boardStages.length)];
     const referral = toReferral(state);
     const context = toContext(state);
@@ -157,16 +163,20 @@ for (let trace = 0; trace < traces; trace += 1) {
       "terminal_outcomes_are_exclusive",
     );
     invariant(
-      state.stage !== "Accepted / Admitted" || (state.decision === "accepted" && state.moveInReady && state.admissionDateRecorded),
+      state.stage !== "Accepted / Admitted" || state.decision === "accepted",
       trace,
       step,
-      "admission_requires_accepted_decision_date_and_move_in_readiness",
+      "admission_requires_an_explicit_accepted_decision",
     );
     invariant(
-      state.stage !== "Declined" || (state.decision === "declined" && state.declineReason),
+      state.stage !== "Declined" || state.decision === "declined",
       trace,
       step,
-      "decline_requires_decision_and_reason",
+      "decline_requires_an_explicit_declined_decision",
+    );
+    invariant(
+      sameValues(beforeReadiness, [state.admissionDateRecorded, state.moveInReady, state.declineReason]),
+      trace, step, "transitions_never_invent_missing_readiness_data",
     );
 
     state.clockMs += integer(0, 18) * 60 * 60 * 1_000;
@@ -275,12 +285,20 @@ function applyRandomPreparation(state) {
 }
 
 function expectedBlockerCodes(state, target) {
-  if (target === state.stage) return [];
-  if (!allowedTargets[state.stage].includes(target)) return ["stage_sequence"];
-  return transitionGateBlockers[target]?.(state) ?? [];
+  return expectedAlertCodes(state, target).filter((code) => [
+    "stage_sequence", "owner_required", "admission_decision_required", "decline_decision_required",
+  ].includes(code));
 }
 
-function acceptedBlockerCodes(state) {
+function expectedAlertCodes(state, target) {
+  if (target === state.stage) return [];
+  const acceptedTarget = state.decision === "accepted" && !isTerminal(state.stage)
+    && ["Community Review", "Accepted / Admitted"].includes(target);
+  if (!allowedTargets[state.stage].includes(target) && !acceptedTarget) return ["stage_sequence"];
+  return transitionGateAlerts[target]?.(state) ?? [];
+}
+
+function acceptedAlertCodes(state) {
   const blockers = [];
   if (state.decision !== "accepted") blockers.push("admission_decision_required");
   if (!state.admissionDateRecorded) blockers.push("admission_date_required");

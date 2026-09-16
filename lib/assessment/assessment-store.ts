@@ -118,7 +118,7 @@ export type AssessmentStoreReadiness = {
 };
 
 export type AssessmentMutation =
-  | { ok: true; assessment: PipelineAssessmentRecord; revision: number }
+  | { ok: true; assessment: PipelineAssessmentRecord; revision: number; warnings?: ReturnType<typeof getAssessmentCompletionBlockers> }
   | { ok: false; conflict: true; assessment: PipelineAssessmentRecord }
   | {
       ok: false;
@@ -620,17 +620,12 @@ async function createLocalAssessment(
       unmapped_fields: input.unmapped_fields ?? [],
       audit_events: [createAuditEvent(assessmentId, input.referral_id, "assessment_created", actor, [])],
     };
-    const blockers = getAssessmentCompletionBlockers(assessment);
-    if (status === "complete" && blockers.length > 0) {
-      return { ok: false, blocked: true, assessment, blockers };
-    }
-
     state.assessments = [assessment, ...state.assessments];
     state.revision += 1;
     if (mutationId) state.createMutations.set(mutationId, assessmentId);
     await persist();
     await syncLocalReferralWorkflow(assessment, actor, "assessment_created");
-    return { ok: true, assessment, revision: state.revision };
+    return { ok: true, assessment, revision: state.revision, warnings: status === "complete" ? getAssessmentCompletionBlockers(assessment) : [] };
   });
 }
 
@@ -719,10 +714,6 @@ async function patchLocalAssessment(
     assertPatchMatchesSection(patch, options.section);
     const prepared = prepareAssessmentPatch(current, patch, actor);
     const candidate = prepared.candidate;
-    const blockers = getAssessmentCompletionBlockers(candidate);
-    if (candidate.status === "complete" && blockers.length > 0) {
-      return { ok: false, blocked: true, assessment: current, blockers };
-    }
     candidate.audit_events = appendAuditEvent(
       current.audit_events,
       createAuditEvent(assessmentId, current.referral_id, prepared.action, actor, prepared.changedFields),
@@ -732,7 +723,7 @@ async function patchLocalAssessment(
     if (options.mutationId) state.patchMutations.set(options.mutationId, assessmentId);
     await persist();
     await syncLocalReferralWorkflow(candidate, actor, prepared.action);
-    return { ok: true, assessment: candidate, revision: state.revision };
+    return { ok: true, assessment: candidate, revision: state.revision, warnings: candidate.status === "complete" ? getAssessmentCompletionBlockers(candidate) : [] };
   });
 }
 
@@ -1140,11 +1131,6 @@ async function createPostgresAssessment(
     unmapped_fields: input.unmapped_fields ?? [],
     audit_events: [],
   };
-  const blockers = getAssessmentCompletionBlockers(assessment);
-  if (status === "complete" && blockers.length > 0) {
-    return { ok: false, blocked: true, assessment, blockers };
-  }
-
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
     if (mutationId) {
@@ -1160,7 +1146,7 @@ async function createPostgresAssessment(
     if (mutationId) await saveAssessmentIdempotency(tx, "assessment_create", mutationId, assessmentId);
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after creation.");
-    return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
+    return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx), warnings: status === "complete" ? getAssessmentCompletionBlockers(saved) : [] };
   });
 }
 
@@ -1268,10 +1254,6 @@ async function patchPostgresAssessment(
       if (!referralRows[0]) throw new Error("The assessment referral no longer exists.");
     }
     const candidate = prepared.candidate;
-    const blockers = getAssessmentCompletionBlockers(candidate);
-    if (candidate.status === "complete" && blockers.length > 0) {
-      return { ok: false, blocked: true, assessment: current, blockers };
-    }
     const updated = await updateAssessmentRow(tx, candidate, current.version);
     if (!updated) {
       const latest = await getAssessmentInTransaction(tx, assessmentId);
@@ -1285,7 +1267,7 @@ async function patchPostgresAssessment(
     }
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after update.");
-    return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
+    return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx), warnings: candidate.status === "complete" ? getAssessmentCompletionBlockers(saved) : [] };
   });
 }
 
@@ -1371,10 +1353,6 @@ function prepareAssessmentPatch(
   if (patch.mark_started && current.status === "complete") {
     throw new Error("A completed assessment cannot be started again.");
   }
-  if (patch.signer && !current.started_at && current.status !== "complete") {
-    throw new Error("Begin the assessment before signing it.");
-  }
-
   const currentData = pickAssessmentToolData(current);
   const requestedData = { ...(patch.data ?? {}) };
   const emptyData = createEmptyAssessmentToolData();
