@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f2c08e79c7bd60db",
-  "fingerprint": "f2c08e79c7bd60db2c0f41e5f2494a219463aeec4626537a108647e4b5d7bd28",
+  "generatedAt": "source-fingerprint:8761f08ef2e3f231",
+  "fingerprint": "8761f08ef2e3f23174d126e7c259e69d540ac43f7a568a2fa8e747211ac3737f",
   "totals": {
-    "files": 1096,
-    "lines": 329183,
-    "coveredFiles": 1096
+    "files": 1098,
+    "lines": 329524,
+    "coveredFiles": 1098
   },
   "entries": [
     {
@@ -1942,7 +1942,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1919,
+      "lines": 1931,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2578,7 +2578,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4119,
+      "lines": 4169,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -7036,7 +7036,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 20,
+      "lines": 28,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7609,7 +7609,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "critical",
-      "lines": 483,
+      "lines": 546,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8365,7 +8365,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 88,
+      "lines": 112,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -8381,6 +8381,18 @@
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/pipeline/referral-local-recovery.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 92,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
       ]
     },
     {
@@ -11433,6 +11445,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/pending-save-recovery-fixtures.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 92,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
       ]
     },
     {

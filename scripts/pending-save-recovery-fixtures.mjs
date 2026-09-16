@@ -87,5 +87,6 @@ try {
   console.log("PASS: encrypted answers and all file bytes survive reload; principals are isolated; aborted transactions reject; completed intake cleanup succeeds.");
 } finally {
   await browser.close();
+  server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
 }
