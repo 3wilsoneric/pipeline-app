@@ -364,7 +364,7 @@ function responseHeaders(upstream, session, config) {
 function sendFailure(res, error) {
   if (res.destroyed) return;
   if (res.headersSent) { res.destroy(); return; }
-  const status = error.status || 502;
+  const status = Number.isInteger(error.status) && error.status >= 400 && error.status <= 599 ? Number(error.status) : 502;
   res.writeHead(status, { "content-type": "application/json", "connection": "close", "cache-control": "private, no-store", "x-content-type-options": "nosniff", ...(status === 503 ? { "retry-after": "10" } : {}) });
   res.end(JSON.stringify({ error: error.status ? error.message : "The practice session is unavailable. Please reload." }));
 }
@@ -390,7 +390,7 @@ export function createWorkshopGateway(config, manager = createSessionManager(con
           session.run = session.rotateRun();
           session.fresh = true;
         }
-        try { res.writeHead(response.statusCode, responseHeaders(response, session, config)); }
+        try { res.writeHead(Number(response.statusCode), responseHeaders(response, session, config)); }
         catch (error) { response.destroy(); sendFailure(res, error); return; }
         response.once("error", () => res.destroy());
         response.pipe(res);
