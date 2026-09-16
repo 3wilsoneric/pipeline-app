@@ -89,7 +89,10 @@ export async function packetContentUploadResults() {
 }
 
 async function verifyMissingWorkflowDetails(store, input, actor, globals) {
-  const created = await store.createReferral({ ...input("Missing Details Fixture"), owner: "Unassigned", ownerId: undefined }, "missing-details", actor);
+  const created = await store.createReferral({
+    ...input("Missing Details Fixture"), owner: "Unassigned", ownerId: undefined, documentStatus: "Missing",
+    requirements: [{ id: "8f650e15-89eb-4fad-aa34-0e5bc11c149e", type: "tb_test", label: "TB test", status: "needed", requiredFor: "move_in", owner: "Unassigned", dueAt: "", nextStep: "", blocker: true, version: 1 }],
+  }, "missing-details", actor);
   const authorization = { mode: "manual_chart", reason: "", authorizedBy: actor.id, authorizedByName: actor.name, authorizedAt: "2026-09-16T12:00:00.000Z" };
   const authorized = await store.patchReferral(created.referral.id, { manualIntakeAuthorization: authorization }, created.referral.version, actor);
   assert.equal(authorized.ok, true, JSON.stringify(authorized));
