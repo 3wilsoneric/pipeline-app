@@ -880,7 +880,7 @@ async function createLocalReferral(
   );
   await persist();
 
-  return { referral, revision: state.revision, idempotentReplay: false, warnings: creationReason ? [creationReason] : [] };
+  return { referral, revision: state.revision, idempotentReplay: false, warnings: [creationReason].filter((reason) => typeof reason === "string") };
 }
 
 async function patchLocalReferral(
@@ -1812,7 +1812,7 @@ async function createPostgresReferral(
       `;
     }
     const revision = await bumpReferralRevision(tx);
-    return { referral, revision, idempotentReplay: false, warnings: creationReason ? [creationReason] : [] };
+    return { referral, revision, idempotentReplay: false, warnings: [creationReason].filter((reason) => typeof reason === "string") };
   });
 }
 

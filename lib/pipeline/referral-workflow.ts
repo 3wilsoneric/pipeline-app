@@ -190,55 +190,75 @@ export function getReferralTransitionAlerts(
 ): ReferralTransitionBlocker[] {
   if (targetStage === referral.stage) return [];
 
-  const acceptedDecisionTarget = getDecisionOutcome(referral, context) === "accepted"
-    && !isClosedReferralStage(referral.stage)
-    && ["Community Review", "Accepted / Admitted"].includes(targetStage);
-  if (!allowedStageTargets[referral.stage].includes(targetStage) && !acceptedDecisionTarget) {
+  if (!isAllowedTransition(referral, targetStage, context)) {
     return [{ code: "stage_sequence", label: "Complete the current workflow step before moving this referral." }];
   }
 
-  if (targetStage === "Packet Needed" && isUnassignedOwner(referral.owner)) {
-    return [{ code: "owner_required", label: "Assign an owner before starting the referral workflow." }];
-  }
-
-  if (targetStage === "Packet Review" && !hasInitialPacket(referral)) {
-    return [{ code: "initial_packet_required", label: "Upload the initial referral packet before packet review." }];
-  }
-
-  if (targetStage === "Assessment" && !isPacketReviewed(referral)) {
-    return [{ code: "packet_review_required", label: "Review the extracted packet fields before assessment." }];
-  }
-
-  if (targetStage === "Community Review" && !isAssessmentComplete(referral, context)) {
-    return [{ code: "assessment_required", label: "Complete the assessment before community review." }];
-  }
-
   if (targetStage === "Accepted / Admitted") {
-    const blockers: ReferralTransitionBlocker[] = [];
-    if (getDecisionOutcome(referral, context) !== "accepted") {
-      blockers.push({ code: "admission_decision_required", label: "Record an admission decision of yes before acceptance." });
-    }
-    if (!referral.admissionDate?.trim()) {
-      blockers.push({ code: "admission_date_required", label: "Record the date of admit before marking the client admitted." });
-    }
-    for (const requirement of getBlockingRequirementsForGates(
-      context.requirements ?? referral.requirements ?? [],
-      ["admission_decision", "move_in"],
-    )) {
-      blockers.push({ code: `requirement:${requirement.type}`, label: `${requirement.label} is still required.` });
-    }
-    return blockers;
+    return getAdmissionTransitionAlerts(referral, context);
   }
 
   if (targetStage === "Declined") {
-    if (getDecisionOutcome(referral, context) !== "declined") {
-      return [{ code: "decline_decision_required", label: "Record an admission decision of no before declining." }];
-    }
-    if (!hasValue(context.decision?.reasonNote ?? referral.admissionDecision?.reasonNote ?? referral.assessment?.postAssessment.reason)) {
-      return [{ code: "decline_reason_required", label: "Record why there will be no admission." }];
-    }
+    return getDeclineTransitionAlerts(referral, context);
   }
 
+  return getInitialTransitionAlerts(referral, targetStage, context);
+}
+
+function isAllowedTransition(referral: Referral, targetStage: ReferralStage, context: WorkflowContext) {
+  const acceptedDecisionTarget = getDecisionOutcome(referral, context) === "accepted"
+    && !isClosedReferralStage(referral.stage)
+    && ["Community Review", "Accepted / Admitted"].includes(targetStage);
+  return allowedStageTargets[referral.stage].includes(targetStage) || acceptedDecisionTarget;
+}
+
+function getInitialTransitionAlerts(
+  referral: Referral,
+  targetStage: ReferralStage,
+  context: WorkflowContext,
+): ReferralTransitionBlocker[] {
+  switch (targetStage) {
+    case "Packet Needed":
+      return isUnassignedOwner(referral.owner)
+        ? [{ code: "owner_required", label: "Assign an owner before starting the referral workflow." }] : [];
+    case "Packet Review":
+      return !hasInitialPacket(referral)
+        ? [{ code: "initial_packet_required", label: "Upload the initial referral packet before packet review." }] : [];
+    case "Assessment":
+      return !isPacketReviewed(referral)
+        ? [{ code: "packet_review_required", label: "Review the extracted packet fields before assessment." }] : [];
+    case "Community Review":
+      return !isAssessmentComplete(referral, context)
+        ? [{ code: "assessment_required", label: "Complete the assessment before community review." }] : [];
+    default:
+      return [];
+  }
+}
+
+function getAdmissionTransitionAlerts(referral: Referral, context: WorkflowContext): ReferralTransitionBlocker[] {
+  const alerts: ReferralTransitionBlocker[] = [];
+  if (getDecisionOutcome(referral, context) !== "accepted") {
+    alerts.push({ code: "admission_decision_required", label: "Record an admission decision of yes before acceptance." });
+  }
+  if (!referral.admissionDate?.trim()) {
+    alerts.push({ code: "admission_date_required", label: "Record the date of admit before marking the client admitted." });
+  }
+  for (const requirement of getBlockingRequirementsForGates(
+    context.requirements ?? referral.requirements ?? [],
+    ["admission_decision", "move_in"],
+  )) {
+    alerts.push({ code: `requirement:${requirement.type}`, label: `${requirement.label} is still required.` });
+  }
+  return alerts;
+}
+
+function getDeclineTransitionAlerts(referral: Referral, context: WorkflowContext): ReferralTransitionBlocker[] {
+  if (getDecisionOutcome(referral, context) !== "declined") {
+    return [{ code: "decline_decision_required", label: "Record an admission decision of no before declining." }];
+  }
+  if (!hasValue(context.decision?.reasonNote ?? referral.admissionDecision?.reasonNote ?? referral.assessment?.postAssessment.reason)) {
+    return [{ code: "decline_reason_required", label: "Record why there will be no admission." }];
+  }
   return [];
 }
 
