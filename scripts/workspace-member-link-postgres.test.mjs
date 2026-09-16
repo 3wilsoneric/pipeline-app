@@ -44,38 +44,11 @@ test("workspace member linking preserves clinical history, roles and truthful si
     };
     await sql`insert into pipeline.workspace_members (principal_id, display_name, email, roles, last_seen_at, identity_status, source_system, source_identity)
       values (${sourceId}, 'Original Fixture Name', null, array['reviewer','viewer'], null, 'provisional', 'fixture', 'assessor')`;
-    const [person] = await sql`insert into pipeline.people (display_name) values ('Synthetic fixture only') returning person_id`;
-    const referralIds = {};
-    for (const kind of ["active", "historical", "deleted", "closed", "other"]) {
-      const [referral] = await sql`insert into pipeline.referrals (person_id, stage, community, owner_id, owner_name, data,
-        workspace_status, deleted_at, delete_after, deleted_by, deleted_by_name, closed_at, created_by, created_by_name, updated_by, updated_by_name)
-        values (${person.person_id}, 'Assessment', 'Fixture', ${kind === 'other' ? 'other:fixture' : sourceId}, 'Original Fixture Name',
-          ${sql.json({ ownerId: kind === 'other' ? 'other:fixture' : sourceId, owners: [{ id: kind === 'other' ? 'other:fixture' : sourceId, name: 'Original Fixture Name' }], untouched: 'original' })},
-          ${kind === 'historical' ? 'historical' : 'active'}, ${kind === 'deleted' ? new Date('2026-01-01') : null},
-          ${kind === 'deleted' ? new Date('2026-02-01') : null},
-          ${kind === 'deleted' ? 'fixture' : null}, ${kind === 'deleted' ? 'Fixture' : null},
-          ${kind === 'closed' ? new Date('2026-01-01') : null}, 'fixture', 'Fixture', 'fixture', 'Fixture') returning referral_id`;
-      referralIds[kind] = referral.referral_id;
-      await sql`insert into pipeline.work_items (referral_id, person_id, type, label, gate, status, owner_id, owner_name, next_action)
-        values (${referral.referral_id}, ${person.person_id}, 'fixture', 'Fixture requirement', 'pre_assessment', 'needed',
-          ${kind === 'other' ? 'other:fixture' : sourceId}, 'Original Fixture Name', 'Fixture')`;
-    }
+    const referralIds = await seedReferralFixtures(sql);
     await sql`insert into pipeline.user_workspace_state (principal_id, state_kind, state_key, payload, version, expires_at)
       values (${sourceId}, 'workflow_continuity', 'resume', '{"position":"original"}', 4, now() + interval '1 day'),
         (${sourceId}, 'recent_destination', 'expired', '{"position":"expired"}', 1, now() - interval '1 day')`;
-    for (const [id, kind, status, signed] of [
-      ['open-draft', 'active', 'draft', false], ['open-review', 'active', 'needs_review', false],
-      ['complete', 'active', 'complete', false], ['signed-complete', 'active', 'complete', true],
-      ['signed-review', 'active', 'needs_review', true], ['historical', 'historical', 'draft', false],
-      ['deleted', 'deleted', 'draft', false], ['closed', 'closed', 'draft', false], ['other', 'other', 'draft', false],
-    ]) {
-      await sql`insert into pipeline.assessments (assessment_id, referral_id, revision_root_id, assessor_id, assessor_name,
-        status, data, signed_at, signed_by, signed_by_name, created_by, created_by_name, updated_by, updated_by_name)
-        values (${id}, ${referralIds[kind]}, ${id}, ${kind === 'other' ? 'other:fixture' : sourceId}, 'Original Fixture Name',
-          ${status}, ${sql.json({ assessor: 'Original Fixture Name', diagnosis: 'Unchanged synthetic fixture', signature: signed })},
-          ${signed ? new Date('2026-01-01') : null}, ${signed ? sourceId : null}, ${signed ? 'Original Fixture Name' : null},
-          'fixture', 'Fixture', 'fixture', 'Fixture')`;
-    }
+    await seedAssessmentFixtures(sql, referralIds);
 
     await t.test("invalid immutable ID and plan mode make no writes", async () => {
       const before = await snapshot();
@@ -102,38 +75,8 @@ test("workspace member linking preserves clinical history, roles and truthful si
       assert.equal(report.reassigned_assessments, 2);
       assert.equal(report.copied_saved_state, 1);
       const after = await snapshot();
-      for (const row of before.assessments) {
-        const original = row.record;
-        const current = after.assessments.find((r) => r.record.assessment_id === original.assessment_id).record;
-        if (!['open-draft', 'open-review'].includes(original.assessment_id)) {
-          assert.deepEqual(current, original);
-        } else {
-          assert.equal(current.assessor_id, targetId);
-          assert.equal(current.version, original.version + 1);
-          assert.deepEqual(current.section_versions, { ...original.section_versions, identity: original.section_versions.identity + 1 });
-          for (const key of Object.keys(original).filter((key) => !['assessor_id','version','section_versions','updated_at'].includes(key))) {
-            assert.deepEqual(current[key], original[key], key);
-          }
-        }
-      }
-      for (const table of ['referrals', 'work_items']) {
-        const key = table === 'referrals' ? 'referral_id' : 'work_item_id';
-        for (const row of before[table]) {
-          const original = row.record;
-          const current = after[table].find((r) => r.record[key] === original[key]).record;
-          if (original.owner_id !== sourceId) assert.deepEqual(current, original);
-          else {
-            assert.equal(current.owner_id, targetId);
-            assert.equal(current.version, original.version + 1);
-            if (table === 'referrals') assert.equal(current.assignment_version, original.assignment_version + 1);
-            if (table === 'referrals') {
-              assert.deepEqual(current.section_versions, { ...original.section_versions, intake: original.section_versions.intake + 1 });
-              assert.deepEqual(current.data, { ...original.data, ownerId: targetId, owners: original.data.owners.map((owner) => ({ ...owner, id: targetId })) });
-            }
-            for (const field of Object.keys(original).filter((field) => !['owner_id','version','assignment_version','updated_at', ...(table === 'referrals' ? ['section_versions','data'] : [])].includes(field))) assert.deepEqual(current[field], original[field], field);
-          }
-        }
-      }
+      assertAssessmentLinks(before.assessments, after.assessments);
+      assertOwnershipLinks(before, after);
       const [target] = await sql`select * from pipeline.workspace_members where principal_id = ${targetId}`;
       assert.equal(target.last_seen_at, null);
       assert.deepEqual(target.roles, ['reviewer','viewer']);
@@ -190,6 +133,94 @@ test("workspace member linking preserves clinical history, roles and truthful si
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+function fixtureOwner(kind) {
+  return kind === 'other' ? 'other:fixture' : sourceId;
+}
+
+function fixtureDeletion(kind) {
+  if (kind !== 'deleted') return [null, null, null, null];
+  return [new Date('2026-01-01'), new Date('2026-02-01'), 'fixture', 'Fixture'];
+}
+
+async function seedReferralFixtures(sql) {
+  const [person] = await sql`insert into pipeline.people (display_name) values ('Synthetic fixture only') returning person_id`;
+  const referralIds = {};
+  for (const kind of ["active", "historical", "deleted", "closed", "other"]) {
+    const owner = fixtureOwner(kind);
+    const deletion = fixtureDeletion(kind);
+    const [referral] = await sql`insert into pipeline.referrals (person_id, stage, community, owner_id, owner_name, data,
+      workspace_status, deleted_at, delete_after, deleted_by, deleted_by_name, closed_at, created_by, created_by_name, updated_by, updated_by_name)
+      values (${person.person_id}, 'Assessment', 'Fixture', ${owner}, 'Original Fixture Name',
+        ${sql.json({ ownerId: owner, owners: [{ id: owner, name: 'Original Fixture Name' }], untouched: 'original' })},
+        ${kind === 'historical' ? 'historical' : 'active'}, ${deletion[0]}, ${deletion[1]}, ${deletion[2]}, ${deletion[3]},
+        ${kind === 'closed' ? new Date('2026-01-01') : null}, 'fixture', 'Fixture', 'fixture', 'Fixture') returning referral_id`;
+    referralIds[kind] = referral.referral_id;
+    await sql`insert into pipeline.work_items (referral_id, person_id, type, label, gate, status, owner_id, owner_name, next_action)
+      values (${referral.referral_id}, ${person.person_id}, 'fixture', 'Fixture requirement', 'pre_assessment', 'needed',
+        ${owner}, 'Original Fixture Name', 'Fixture')`;
+  }
+  return referralIds;
+}
+
+async function seedAssessmentFixtures(sql, referralIds) {
+  for (const [id, kind, status, signed] of [
+    ['open-draft', 'active', 'draft', false], ['open-review', 'active', 'needs_review', false],
+    ['complete', 'active', 'complete', false], ['signed-complete', 'active', 'complete', true],
+    ['signed-review', 'active', 'needs_review', true], ['historical', 'historical', 'draft', false],
+    ['deleted', 'deleted', 'draft', false], ['closed', 'closed', 'draft', false], ['other', 'other', 'draft', false],
+  ]) {
+    await sql`insert into pipeline.assessments (assessment_id, referral_id, revision_root_id, assessor_id, assessor_name,
+      status, data, signed_at, signed_by, signed_by_name, created_by, created_by_name, updated_by, updated_by_name)
+      values (${id}, ${referralIds[kind]}, ${id}, ${fixtureOwner(kind)}, 'Original Fixture Name',
+        ${status}, ${sql.json({ assessor: 'Original Fixture Name', diagnosis: 'Unchanged synthetic fixture', signature: signed })},
+        ${signed ? new Date('2026-01-01') : null}, ${signed ? sourceId : null}, ${signed ? 'Original Fixture Name' : null},
+        'fixture', 'Fixture', 'fixture', 'Fixture')`;
+  }
+}
+
+function assertPreservedFields(current, original, changed) {
+  for (const key of Object.keys(original).filter((key) => !changed.includes(key))) {
+    assert.deepEqual(current[key], original[key], key);
+  }
+}
+
+function assertAssessmentLinks(before, after) {
+  for (const { record: original } of before) {
+    const current = after.find((r) => r.record.assessment_id === original.assessment_id).record;
+    if (!['open-draft', 'open-review'].includes(original.assessment_id)) {
+      assert.deepEqual(current, original);
+    } else {
+      assert.equal(current.assessor_id, targetId);
+      assert.equal(current.version, original.version + 1);
+      assert.deepEqual(current.section_versions, { ...original.section_versions, identity: original.section_versions.identity + 1 });
+      assertPreservedFields(current, original, ['assessor_id','version','section_versions','updated_at']);
+    }
+  }
+}
+
+function assertOwnershipLinks(before, after) {
+  for (const table of ['referrals', 'work_items']) {
+    const key = table === 'referrals' ? 'referral_id' : 'work_item_id';
+    for (const { record: original } of before[table]) {
+      const current = after[table].find((r) => r.record[key] === original[key]).record;
+      if (original.owner_id !== sourceId) {
+        assert.deepEqual(current, original);
+        continue;
+      }
+      assert.equal(current.owner_id, targetId);
+      assert.equal(current.version, original.version + 1);
+      const changed = ['owner_id','version','updated_at'];
+      if (table === 'referrals') {
+        assert.equal(current.assignment_version, original.assignment_version + 1);
+        assert.deepEqual(current.section_versions, { ...original.section_versions, intake: original.section_versions.intake + 1 });
+        assert.deepEqual(current.data, { ...original.data, ownerId: targetId, owners: original.data.owners.map((owner) => ({ ...owner, id: targetId })) });
+        changed.push('assignment_version','section_versions','data');
+      }
+      assertPreservedFields(current, original, changed);
+    }
+  }
+}
 
 function availablePort() {
   return new Promise((resolve, reject) => {

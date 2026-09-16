@@ -29,30 +29,11 @@ const sql = postgres(databaseUrl, databaseOptions());
 try {
   const result = await sql.begin(async (tx) => {
     await tx`select pg_advisory_xact_lock(hashtextextended('pipeline_workspace_member_link', 0))`;
-    const provisionalRows = await tx`
-      select roles, active, identity_status, merged_into_principal_id
-      from pipeline.workspace_members
-      where principal_id = ${provisionalId}
-      for update
-    `;
-    if (provisionalRows.length !== 1) throw new Error("provisional_not_found");
-    const source = provisionalRows[0];
-    const existingTargets = await tx`
-      select active, identity_status from pipeline.workspace_members
-      where principal_id = ${targetPrincipalId} for update
-    `;
-    const existingTarget = existingTargets[0];
-    if (existingTarget && (!existingTarget.active || existingTarget.identity_status !== 'entra_linked')) {
-      throw new Error("target_identity_conflict");
-    }
+    const source = await prepareLinkSource(tx);
     if (source.identity_status === 'merged') {
-      if (source.merged_into_principal_id !== targetPrincipalId || !existingTarget) {
-        throw new Error("target_identity_conflict");
-      }
       return { referrals: 0, work_items: 0, assessments: 0, saved_state: 0, idempotent_replay: true };
     }
-    if (!source.active || source.identity_status !== 'provisional') throw new Error("provisional_not_found");
-    const roles = Array.isArray(source.roles) ? source.roles.filter((role) => ['reviewer', 'viewer'].includes(role)) : [];
+    const roles = provisionalRoles(source);
 
     const targetRows = await tx`
       insert into pipeline.workspace_members (
@@ -139,15 +120,7 @@ try {
       from changed returning entity_id
     `;
 
-    const stores = new Set();
-    if (referrals.length || workItems.length) stores.add('referrals');
-    if (referrals.length) stores.add('client_workspaces');
-    if (workItems.length) stores.add('workflow');
-    if (assessments.length) stores.add('assessments');
-    if (stores.size) {
-      await tx`update pipeline.store_revisions set revision = revision + 1, updated_at = now()
-        where store_name in ${tx([...stores])}`;
-    }
+    await advanceStoreRevisions(tx, referrals.length, workItems.length, assessments.length);
 
     const savedState = await tx`
       insert into pipeline.user_workspace_state (
@@ -173,9 +146,9 @@ try {
       ) values (
         'workspace_member', ${provisionalId}, 'workspace_member_identity_linked',
         'system:identity-link', 'Pipeline identity linker',
-        array['principal_id'],
-        ${tx.json({ identity_status: "provisional" })},
-        ${tx.json({ identity_status: "entra_linked" })},
+        array['identity_status', 'active', 'merged_into_principal_id'],
+        ${tx.json({ identity_status: "provisional", active: true })},
+        ${tx.json({ identity_status: "merged", active: false, merged_into_principal_id: targetPrincipalId })},
         ${tx.json({ target_principal_id: targetPrincipalId, referrals: referrals.length,
           work_items: workItems.length, assessments: assessments.length,
           copied_saved_state: savedState.length, source_saved_state_preserved: true,
@@ -211,6 +184,41 @@ try {
 function readArgument(name) {
   const prefix = `${name}=`;
   return process.argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length);
+}
+
+async function prepareLinkSource(tx) {
+  const sources = await tx`select roles, active, identity_status, merged_into_principal_id
+    from pipeline.workspace_members where principal_id = ${provisionalId} for update`;
+  if (sources.length !== 1) throw new Error("provisional_not_found");
+  const targets = await tx`select active, identity_status from pipeline.workspace_members
+    where principal_id = ${targetPrincipalId} for update`;
+  const source = sources[0];
+  const target = targets[0];
+  validateLinkTarget(target);
+  if (source.identity_status === 'merged') {
+    if (source.merged_into_principal_id !== targetPrincipalId || !target) throw new Error("target_identity_conflict");
+    return source;
+  }
+  if (!source.active || source.identity_status !== 'provisional') throw new Error("provisional_not_found");
+  return source;
+}
+
+function validateLinkTarget(target) {
+  if (target && (!target.active || target.identity_status !== 'entra_linked')) throw new Error("target_identity_conflict");
+}
+
+function provisionalRoles(source) {
+  return Array.isArray(source.roles) ? source.roles.filter((role) => ['reviewer', 'viewer'].includes(role)) : [];
+}
+
+async function advanceStoreRevisions(tx, referrals, workItems, assessments) {
+  const stores = new Set();
+  if (referrals || workItems) stores.add('referrals');
+  if (referrals) stores.add('client_workspaces');
+  if (workItems) stores.add('workflow');
+  if (assessments) stores.add('assessments');
+  if (stores.size) await tx`update pipeline.store_revisions set revision = revision + 1, updated_at = now()
+    where store_name in ${tx([...stores])}`;
 }
 
 function safePrincipal(value) {
