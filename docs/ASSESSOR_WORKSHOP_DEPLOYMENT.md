@@ -13,6 +13,9 @@ principal and tenant headers. Azure strips external attempts to supply those
 headers. The existing application's user assignments apply to workshop access.
 The login requests Pipeline's existing `access_as_user` scope alongside OpenID
 profile/email claims, reusing its organization-approved consent grant.
+The native authentication redirect/origin allowlist contains only the workshop's
+own HTTPS origin, so cookie-authenticated demo actions pass its CSRF checks while
+the gateway continues to reject other mutation origins.
 The gateway validates the public host and mutation origin before forwarding.
 
 Each authenticated principal has an independent loopback Next.js process, private

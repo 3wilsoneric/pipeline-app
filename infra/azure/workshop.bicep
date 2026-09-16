@@ -126,6 +126,7 @@ resource authentication 'Microsoft.App/containerApps/authConfigs@2025-07-01' = {
       }
     }
     login: {
+      allowedExternalRedirectUrls: ['https://${appName}.${containerEnvironment.properties.defaultDomain}']
       cookieExpiration: { convention: 'FixedTime', timeToExpiration: '08:00:00' }
       tokenStore: { enabled: false }
     }
