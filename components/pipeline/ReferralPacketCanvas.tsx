@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  CircleAlert,
   Circle,
   ClipboardCheck,
   FileText,
@@ -43,7 +44,6 @@ import DuplicateReferralReviewDialog, {
   type ReferralDuplicateReview,
 } from "@/components/pipeline/DuplicateReferralReviewDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
-import StructuredNarrativeField from "@/components/pipeline/StructuredNarrativeField";
 import type {
   Referral,
   ReferralCanvasFieldKey,
@@ -288,7 +288,6 @@ const visibleChartFieldKeys: readonly FieldKey[] = [
   "responsiblePerson",
   "phone",
   "email",
-  "summary",
   "currentMedications",
 ];
 
@@ -1893,9 +1892,23 @@ export default function ReferralPacketCanvas({
       >
         <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#d9d9d9] lg:flex lg:gap-3">
-            <h1 data-testid="workspace-identity-title" className="min-w-0 max-w-[10rem] shrink-0 truncate py-3 text-[14px] font-bold text-[#111111] sm:max-w-[18rem] lg:max-w-[26rem]" title={workspaceTitle}>
-              {workspaceTitle}
-            </h1>
+            <div className="min-w-0 max-w-[10rem] shrink-0 py-2 sm:max-w-[18rem] lg:max-w-[26rem]">
+              <h1 data-testid="workspace-identity-title" className="truncate text-[14px] font-bold text-[#111111]" title={workspaceTitle}>
+                {workspaceTitle}
+              </h1>
+              {editingControlsVisible ? (
+                <WorkspaceSaveStatus
+                  status={saveStatus}
+                  error={saveError}
+                  createdWorkspaceId={createdWorkspaceId}
+                  referralId={editableReferralId}
+                  hasReferral={hasReferral}
+                  saving={isSaving}
+                  dirtyCount={dirtyKeys.size}
+                  queuedFileCount={queuedFileCount}
+                />
+              ) : null}
+            </div>
             <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={openPage} />
 
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:ml-auto">
@@ -1984,18 +1997,6 @@ export default function ReferralPacketCanvas({
               ) : null}
             </div>
           </div>
-          {editingControlsVisible ? (
-            <WorkspaceSaveStatus
-              status={saveStatus}
-              error={saveError}
-              createdWorkspaceId={createdWorkspaceId}
-              referralId={editableReferralId}
-              hasReferral={hasReferral}
-              saving={isSaving}
-              dirtyCount={dirtyKeys.size}
-              queuedFileCount={queuedFileCount}
-            />
-          ) : null}
         </div>
 
         {recoveredDraftAt ? (
@@ -2091,7 +2092,6 @@ export default function ReferralPacketCanvas({
         <WorkspaceChangeHistory
           activePage={displayedPage}
           referral={loadedReferral}
-          onOpenFull={() => openPage("activity")}
         />
 
         <div key={displayedPage} className="pipeline-step-enter">
@@ -2250,22 +2250,6 @@ export default function ReferralPacketCanvas({
                     clientPhone={fields.phone.value}
                     clientEmail={fields.email.value}
                   /></div>
-                </ChartSection>
-
-                <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>
-                  <div className="px-5 py-4 sm:px-6" data-workspace-field="summary" onFocusCapture={() => focusWorkspaceField("summary")}>
-                    <StructuredNarrativeField
-                      field={fields.summary}
-                      kind="summary"
-                      onChange={(value) => updateField("summary", value)}
-                      saveStatus={saveStatus}
-                      saveError={saveError}
-                      saving={isSaving}
-                      hasUnsavedChanges={hasPendingWorkspaceChanges}
-                      saveActionLabel="Retry saving"
-                      onSave={hasReferral && saveError ? () => void saveWorkspaceDraft() : undefined}
-                    />
-                  </div>
                 </ChartSection>
 
                 <ChartSection title="Medication profile" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
@@ -2509,12 +2493,26 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number;
 }) {
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
-  const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(status);
-  return <div data-testid="workspace-save-status" className="relative flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1 text-[11px] font-medium" aria-live="polite">
-    <FeedbackCue value={status} enabled={confirmed && !error} />
-    {created ? <span className="pipeline-control-enter inline-flex items-center gap-1.5 rounded-sm bg-[#eaf5ef] px-2 py-1 font-bold text-[#0c705f]"><CheckCircle2 size={13} aria-hidden="true" />Workspace created</span> : null}
-    {error ? <span role="alert" className="min-w-0 break-words text-[#a4473c]">{error}</span> : <span className={`inline-flex items-center gap-1.5 ${confirmed ? "text-[#0c705f]" : "text-[#68716c]"}`}>{confirmed && !created ? <CheckCircle2 size={13} aria-hidden="true" /> : null}{status}</span>}
+  const presentation = workspaceSavePresentation(status, error, hasReferral, saving, dirtyCount, queuedFileCount);
+  const { Icon } = presentation;
+  return <div data-testid="workspace-save-status" className="relative mt-0.5 flex min-w-0 items-start gap-1.5 text-[11px] font-bold" aria-live="polite" title={error || status}>
+    <FeedbackCue value={status} enabled={presentation.confirmed} />
+    <Icon size={13} aria-hidden="true" className={`mt-0.5 shrink-0 ${presentation.iconClassName}`} />
+    <span className={`min-w-0 ${presentation.textClassName}`}>
+      <span className="block truncate">{presentation.label}</span>
+      {created ? <span className="sr-only">Workspace created</span> : null}
+      {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
+      {error ? <span role="alert" className="block break-words text-[10px] font-medium">{error}</span> : null}
+    </span>
   </div>;
+}
+
+function workspaceSavePresentation(status: string, error: string, hasReferral: boolean, saving: boolean, dirtyCount: number, queuedFileCount: number) {
+  const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(status);
+  if (error) return { label: "Save failed", Icon: CircleAlert, iconClassName: "text-[#a4473c]", textClassName: "text-[#a4473c]", confirmed: false };
+  if (saving) return { label: status, Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
+  if (confirmed) return { label: "Saved to Pipeline", Icon: CheckCircle2, iconClassName: "text-[#0c705f]", textClassName: "text-[#0c705f]", confirmed: true };
+  return { label: status, Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
 }
 
 function WorkspaceSaveControl({
@@ -4058,22 +4056,24 @@ function initialPacketDropzonePresentation({
 function WorkspaceChangeHistory({
   activePage,
   referral,
-  onOpenFull,
 }: {
   activePage: WorkspaceView;
   referral: Referral | null;
-  onOpenFull: () => void;
 }) {
   if (!referral || activePage === "activity") return null;
   return (
-    <div className="mb-3">
-      <ReferralActivityPanel
-        compact
-        referralId={referral.id}
-        version={referral.version}
-        onOpenFull={onOpenFull}
-      />
-    </div>
+    <section aria-label="Workspace change history" className="mb-3">
+      <details className="group bg-[#f8faf9]">
+        <summary className="flex cursor-pointer list-none items-center gap-2 bg-[#eef7f3] px-3 py-2 text-[12px] font-bold text-[#0c705f] hover:bg-[#e4f2eb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] [&::-webkit-details-marker]:hidden">
+          <History size={15} aria-hidden="true" />
+          <span>Change history</span>
+          <ChevronDown size={15} aria-hidden="true" className="ml-auto transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="px-3 pb-4">
+          <ReferralActivityPanel referralId={referral.id} version={referral.version} />
+        </div>
+      </details>
+    </section>
   );
 }
 

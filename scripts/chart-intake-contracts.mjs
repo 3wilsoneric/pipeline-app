@@ -59,6 +59,17 @@ assert.equal(combinedRecord.gender, "Female");
 assert(context.clientReferralSections(profile)[0].facts.some((fact) => fact.value === "Old episode only"));
 assert.equal(load("lib/pipeline/referral-validation.ts").validateReferralCreateInput(seed).ok, true);
 
+const intakeCanvas = readFileSync("components/pipeline/ReferralPacketCanvas.tsx", "utf8");
+const visibleFields = intakeCanvas.match(/const visibleChartFieldKeys[^=]*=\s*\[([\s\S]*?)\];/);
+assert(visibleFields, "intake declares its visible progress fields");
+assert.doesNotMatch(visibleFields[1], /"summary"/, "hidden summary is not counted as intake work");
+assert.doesNotMatch(intakeCanvas, /<ChartSection title="Referral summary"|<StructuredNarrativeField/, "intake does not render the removed summary editor");
+const persistence = load("lib/pipeline/referral-canvas-persistence.ts");
+const intakeFields = Object.fromEntries(persistence.persistedCanvasFieldKeys.map(key => [key, { value: persistence.referralCanvasValue(source, key) }]));
+assert.equal(intakeFields.summary.value, source.note, "saved summary remains available to charts and recovery");
+const contactPatch = persistence.buildReferralCanvasPatch({ keys: new Set(["phone"]), fields: intakeFields, conserved: "no", tags: [], requirements: [] });
+assert.equal(Object.hasOwn(contactPatch, "note"), false, "editing intake does not clear the stored summary");
+
 let user = { id: "assessor-a", name: "Assessor A", roles: ["reviewer"] };
 let originAllowed = true;
 let accessAllowed = true;
