@@ -3,7 +3,7 @@ import "server-only";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
-import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import { canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { normalizedOwnerAliases, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import {
@@ -67,7 +67,7 @@ export async function listWorkspaceActivity(
   options: WorkspaceActivityOptions = {},
 ): Promise<WorkspaceActivityResponse> {
   const scope = options.scope ?? "attention";
-  const canViewTeam = canAccessOperationsReports(user.roles);
+  const canViewTeam = canAccessSupervisorOperations(user.roles);
   if (scope === "team" && !canViewTeam) throw new WorkspaceActivityAccessError();
   const limit = Math.min(100, Math.max(1, options.limit ?? 40));
   const since = normalizeSince(options.since);
@@ -90,7 +90,7 @@ async function listPostgresWorkspaceActivity(
   const sql = getPipelineSql();
   const cursor = decodeKeysetCursor(options.cursor);
   const aliases = normalizedOwnerAliases(user);
-  const restrictToAssigned = options.scope === "mine" || !canAccessOperationsReports(user.roles);
+  const restrictToAssigned = options.scope === "mine" || !canAccessSupervisorOperations(user.roles);
   const attentionStatuses = [...attentionWorkflowStatuses];
   const rows = await sql<WorkspaceActivityRow[]>`
     with related_events as (
@@ -217,7 +217,7 @@ async function listLocalWorkspaceActivity(
     sort: "updated_desc",
     workspaceStatus: "active",
     includeTotal: false,
-    ...(options.scope === "mine" || options.scope === "assigned" || !canAccessOperationsReports(user.roles)
+    ...(options.scope === "mine" || options.scope === "assigned" || !canAccessSupervisorOperations(user.roles)
       ? { assignedOwnerId: user.id, assignedOwnerNames: normalizedOwnerAliases(user) }
       : {}),
   };

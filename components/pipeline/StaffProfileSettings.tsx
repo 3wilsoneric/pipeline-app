@@ -8,7 +8,7 @@ import { ArrowRight, BriefcaseBusiness, LayoutDashboard, LoaderCircle, Phone, Sa
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { StaffProfilePreferences } from "@/lib/pipeline/staff-profile";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
-import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import { canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import ContactDirectoryImport from "@/components/pipeline/ContactDirectoryImport";
 
 type ProfileResponse = { member: WorkspaceMember };
@@ -119,7 +119,7 @@ function StaffProfileSettingsView({ member, form, loading, saving, message, onSa
         </header>
 
         <ProfileSettingsBody member={member} form={form} loading={loading} saving={saving} message={message} onSave={onSave} onUpdateField={onUpdateField} />
-        {member && canAccessOperationsReports(member.roles) ? (
+        {member && canAccessSupervisorOperations(member.roles) ? (
           <details className="mt-8 border-t border-[#cfd6d2] pt-5">
             <summary className="cursor-pointer text-[16px] font-black text-[#18211d]">Referral directory</summary>
             <div className="mt-4"><ContactDirectoryImport roles={member.roles} /></div>

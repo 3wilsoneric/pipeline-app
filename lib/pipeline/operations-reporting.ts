@@ -161,7 +161,7 @@ const visibleReportIds: OperationsReportId[] = [
 ];
 
 export function getOperationsReportCatalog(user: PipelineUser) {
-  if (!canAccessOperationsReports(user.roles)) return [];
+  if (!canAccessOperationsReports(user)) return [];
   return visibleReportIds.flatMap((id) => reportCatalog.filter((definition) => definition.id === id));
 }
 
@@ -170,7 +170,7 @@ export async function getOperationsReport(
   filters: OperationsReportFilters,
   options: { export?: boolean; request?: Request } = {},
 ): Promise<OperationsReportResponse> {
-  if (!canAccessOperationsReports(user.roles)) throw new ReportAccessError();
+  if (!canAccessOperationsReports(user)) throw new ReportAccessError();
   const catalog = getOperationsReportCatalog(user);
   const definition = reportCatalog.find((item) => item.id === filters.report_id);
   if (!definition) throw new ReportAccessError();
@@ -223,7 +223,7 @@ export async function recordOperationsReportExport(
   user: PipelineUser,
   response: OperationsReportResponse,
 ) {
-  if (!canAccessOperationsReports(user.roles)) throw new ReportAccessError();
+  if (!canAccessOperationsReports(user)) throw new ReportAccessError();
   if (!getPipelineDatabaseReadiness().ready) return;
   const actor = pipelineAuditActor(user);
   const sql = getPipelineSql();
@@ -431,7 +431,7 @@ export function operationsReportCsv(response: OperationsReportResponse) {
 
 export class ReportAccessError extends Error {
   constructor() {
-    super("This report is not available for the signed-in role.");
+    super("Reports are not available for this account.");
     this.name = "ReportAccessError";
   }
 }

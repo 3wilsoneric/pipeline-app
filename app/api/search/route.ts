@@ -211,7 +211,7 @@ async function searchLocal(query: string, user: Parameters<typeof scopeReferralL
     files: files.files,
     clients: pipelineClients.clients,
     destinations: searchSiteDestinations(query, {
-      includeReports: canAccessOperationsReports(user.roles),
+      includeReports: canAccessOperationsReports(user),
     }),
     counts: {
       referrals: referrals.total,

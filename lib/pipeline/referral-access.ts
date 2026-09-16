@@ -3,7 +3,7 @@ import "server-only";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { readPacketReferralId } from "@/lib/extraction/packet-referral";
 import { isReferralOwner, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
-import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import { canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import { getDeletedReferral, getReferral, getReferralByPacketId, type ReferralFileListOptions, type ReferralListOptions } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
@@ -25,7 +25,7 @@ export function scopeReferralListOptions<T extends ReferralListOptions | Referra
   user: PipelineUser,
   options: T,
 ): T {
-  const personalScope = options.scope === "mine" || (options.scope === "team" && !canAccessOperationsReports(user.roles));
+  const personalScope = options.scope === "mine" || (options.scope === "team" && !canAccessSupervisorOperations(user.roles));
   if (!personalScope && !isAssessorUser(user)) return options;
   return {
     ...options,

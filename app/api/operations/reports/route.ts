@@ -15,14 +15,14 @@ import {
   recordOperationsReportExport,
   ReportAccessError,
 } from "@/lib/pipeline/operations-reporting";
-import { operationsReportRoles } from "@/lib/pipeline/report-access";
+import { canAccessOperationsReports, operationsReportRoles } from "@/lib/pipeline/report-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/operations/reports", async () => {
-    const auth = await requirePipelineUser(request, [...operationsReportRoles]);
+    const auth = await requireOperationsReportUser(request);
     if (!auth.ok) return auth.response;
     const readiness = requireReferralStore();
     if (!readiness.ok) return readiness.response;
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/operations/reports", async () => {
-    const auth = await requirePipelineUser(request, [...operationsReportRoles]);
+    const auth = await requireOperationsReportUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -74,6 +74,14 @@ export async function POST(request: Request) {
       throw error;
     }
   });
+}
+
+async function requireOperationsReportUser(request: Request) {
+  const auth = await requirePipelineUser(request, [...operationsReportRoles]);
+  if (!auth.ok) return auth;
+  return canAccessOperationsReports(auth.user)
+    ? auth
+    : { ok: false as const, response: jsonError("Reports are not available for this account.", 403) };
 }
 
 function requireReportAssessmentStore(filters: OperationsReportFilters) {

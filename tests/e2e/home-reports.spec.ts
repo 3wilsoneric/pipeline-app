@@ -43,6 +43,20 @@ test.describe("role-scoped home and reports", () => {
     });
   }
 
+  test("hides Reports from a supervisor who is not on the approved identity list", async ({ page }) => {
+    await page.route("**/api/auth/me", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.user.id = "unapproved-supervisor@aaahealthservices.com";
+      payload.user.email = "unapproved-supervisor@aaahealthservices.com";
+      payload.user.roles = ["assessment_coordinator"];
+      await route.fulfill({ response, json: payload });
+    });
+    await page.goto("/?screen=operations");
+    await expect(page).not.toHaveURL(/screen=operations/);
+    await expect(page.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
+  });
+
   test("presents the operational briefing without dashboard clutter", async ({ page }) => {
     await page.goto("/");
 
@@ -50,6 +64,8 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Search", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Continue working", exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
@@ -63,8 +79,8 @@ test.describe("role-scoped home and reports", () => {
     await page.goto("/settings");
     await page.getByRole("link", { name: "Edit Home", exact: true }).click();
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Remove Search from Home" }).click();
-    await page.getByRole("button", { name: "Remove Recent work from Home" }).click();
+    await expect(page.getByRole("region", { name: "Search" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Continue working" })).toHaveCount(0);
     await page.getByRole("button", { name: "Add module" }).click();
 
     const library = page.getByRole("dialog", { name: "Home module library" });
