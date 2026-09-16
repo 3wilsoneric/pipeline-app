@@ -278,9 +278,9 @@ function CurrentGateCard({
 
       {showManualIntake ? (
         <div className="mt-4 border-t border-[#e3e6e4] pt-4">
-          <label className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]" htmlFor="manual-intake-reason">Chart-only exception</label>
-          <textarea id="manual-intake-reason" value={manualIntakeReason} onChange={(event) => onManualIntakeReasonChange(event.target.value)} rows={2} placeholder="Explain why intake must proceed without packet extraction" className="mt-2 w-full border border-[#c9ceca] px-3 py-2 text-[11px] outline-none focus:border-[#0f8b73]" />
-          <SecondaryButton disabled={manualIntakeReason.trim().length < 10 || Boolean(busy)} onClick={onAuthorizeManualIntake}>Authorize manual intake</SecondaryButton>
+          <label className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]" htmlFor="manual-intake-reason">Manual intake note (optional)</label>
+          <textarea id="manual-intake-reason" value={manualIntakeReason} onChange={(event) => onManualIntakeReasonChange(event.target.value)} rows={2} placeholder="Add any context, or continue without a note" className="mt-2 w-full border border-[#c9ceca] px-3 py-2 text-[11px] outline-none focus:border-[#0f8b73]" />
+          <SecondaryButton disabled={Boolean(busy)} onClick={onAuthorizeManualIntake}>Authorize manual intake</SecondaryButton>
         </div>
       ) : null}
     </WorkflowCard>

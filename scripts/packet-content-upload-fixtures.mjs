@@ -63,6 +63,7 @@ export async function packetContentUploadResults() {
     assert(completion.getAssessmentCompletionSummary(signed.assessment).missing.length > 0);
     assert(signed.warnings.some((warning) => warning.code === "assessment_data_incomplete"));
     assert(signed.warnings.some((warning) => warning.code === "assessment_extraction_unreviewed"));
+    await verifyMissingWorkflowDetails(store, input, actor, globals);
     const workflow = loadTypeScriptModule(process.cwd(), "lib/pipeline/workflow-store.ts", globals);
     const latest = await workflow.getReferralWorkflowSnapshot(sameName.referral.id);
     const recommendation = await workflow.recordAssessmentRecommendation(sameName.referral.id,
@@ -84,5 +85,37 @@ export async function packetContentUploadResults() {
     return [{ name, ok: false, error: String(error.message ?? error) }];
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function verifyMissingWorkflowDetails(store, input, actor, globals) {
+  const created = await store.createReferral({
+    ...input("Missing Details Fixture"), owner: "Unassigned", ownerId: undefined, documentStatus: "Missing",
+    requirements: [{ id: "8f650e15-89eb-4fad-aa34-0e5bc11c149e", type: "tb_test", label: "TB test", status: "needed", requiredFor: "move_in", owner: "Unassigned", dueAt: "", nextStep: "", blocker: true, version: 1 }],
+  }, "missing-details", actor);
+  const authorization = { mode: "manual_chart", reason: "", authorizedBy: actor.id, authorizedByName: actor.name, authorizedAt: "2026-09-16T12:00:00.000Z" };
+  const authorized = await store.patchReferral(created.referral.id, { manualIntakeAuthorization: authorization }, created.referral.version, actor);
+  assert.equal(authorized.ok, true, JSON.stringify(authorized));
+  const status = loadTypeScriptModule(process.cwd(), "lib/pipeline/workflow-status.ts", globals);
+  assert.equal(status.hasManualIntakeAuthorization(authorized.referral), true);
+  assert.equal(authorized.referral.manualIntakeAuthorization.reason, "");
+  assert.equal(authorized.referral.documentStatus, "Missing");
+  const workflow = loadTypeScriptModule(process.cwd(), "lib/pipeline/workflow-store.ts", globals);
+  const advanced = await workflow.transitionReferral(created.referral.id, "Packet Needed", authorized.referral.version, authorized.referral.sectionVersions.workflow, actor);
+  assert.equal(advanced.ok, true, JSON.stringify(advanced));
+  assert.equal(advanced.referral.owner, "Unassigned");
+  for (const requirementStatus of ["requested", "waived", "unavailable", "not_applicable"]) {
+    const snapshot = await workflow.getReferralWorkflowSnapshot(created.referral.id);
+    const item = snapshot.work_items[0];
+    const changed = await workflow.patchReferralWorkItem(created.referral.id, item.id, {
+      status: requirementStatus, requestedFrom: "", followUpAt: "", dueAt: "", nextStep: "", waiverReason: "", unavailableReason: "",
+    }, item.version, actor);
+    assert.equal(changed.ok, true, JSON.stringify(changed));
+    assert.equal(changed.record.status, requirementStatus);
+    assert.equal(changed.record.nextStep, "");
+    assert.equal(changed.record.dueAt, "");
+    assert.equal(changed.record.followUpAt, undefined);
+    assert.equal(changed.record.waiverReason, undefined);
+    assert.equal(changed.record.unavailableReason, undefined);
   }
 }

@@ -286,7 +286,7 @@ function applyRandomPreparation(state) {
 
 function expectedBlockerCodes(state, target) {
   return expectedAlertCodes(state, target).filter((code) => [
-    "stage_sequence", "owner_required", "admission_decision_required", "decline_decision_required",
+    "stage_sequence", "admission_decision_required", "decline_decision_required",
   ].includes(code));
 }
 

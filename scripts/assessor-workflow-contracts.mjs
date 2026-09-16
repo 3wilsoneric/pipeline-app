@@ -629,7 +629,7 @@ const requestedRequirement = {
   dueAt: "2026-09-16T12:00:00.000Z",
 };
 check(
-  "requested information requires a source and follow-up date",
+  "requested information exposes missing source and follow-up details",
   records.validateWorkItem({ ...requestedRequirement, requestedFrom: undefined })?.code === "requested_from_required"
     && records.validateWorkItem({ ...requestedRequirement, followUpAt: undefined })?.code === "follow_up_required"
     && records.validateWorkItem(requestedRequirement) === null,

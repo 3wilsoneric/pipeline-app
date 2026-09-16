@@ -19,8 +19,8 @@ const check = (name, condition) => checks.push({ name, ok: Boolean(condition) })
 
 check("workflow does not allow stage skipping", !workflow.getAllowedReferralTargets("New").includes("Assessment"));
 check("accepted referrals are terminal", workflow.getAllowedReferralTargets("Accepted / Admitted").length === 0);
-check("an owner is required to begin workflow", hasBlocker(
-  workflow.getReferralTransitionBlockers(referral("New"), "Packet Needed"),
+check("an unassigned owner remains visible as an alert", hasBlocker(
+  workflow.getReferralTransitionAlerts(referral("New"), "Packet Needed"),
   "owner_required",
 ));
 check("missing initial packets remain visible as alerts", hasBlocker(
@@ -63,6 +63,7 @@ check("missing decline reasons remain visible as alerts", hasBlocker(
 ));
 
 check("missing readiness data never blocks an authorized sequential continuation", [
+  [referral("New"), "Packet Needed", {}],
   [referral("Packet Needed", { owner: "Operator" }), "Packet Review", {}],
   [referral("Packet Review", { owner: "Operator" }), "Assessment", {}],
   [referral("Assessment"), "Community Review", { assessmentComplete: false }],

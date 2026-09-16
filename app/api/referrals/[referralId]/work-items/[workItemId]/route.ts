@@ -114,7 +114,7 @@ function validatePatch(value: Record<string, unknown>) {
     if (value[field] !== undefined && (typeof value[field] !== "string" || value[field].length > maximum)) return { ok: false as const, error: `${field} is invalid.` };
   }
   for (const field of ["dueAt", "requestedAt", "followUpAt"] as const) {
-    if (typeof value[field] === "string" && (!value[field].trim() || !Number.isFinite(Date.parse(value[field])))) {
+    if (typeof value[field] === "string" && value[field].trim() && !Number.isFinite(Date.parse(value[field]))) {
       return { ok: false as const, error: `${field} must be a valid date.` };
     }
   }

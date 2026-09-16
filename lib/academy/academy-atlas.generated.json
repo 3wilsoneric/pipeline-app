@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:3200f7adfe59f99d",
-  "fingerprint": "3200f7adfe59f99d25ec36f6dde28c5d5e3b3bb96007665bbe686bf1bb3b2a53",
+  "generatedAt": "source-fingerprint:f2c08e79c7bd60db",
+  "fingerprint": "f2c08e79c7bd60db2c0f41e5f2494a219463aeec4626537a108647e4b5d7bd28",
   "totals": {
     "files": 1096,
-    "lines": 329156,
+    "lines": 329183,
     "coveredFiles": 1096
   },
   "entries": [
@@ -8789,7 +8789,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 158,
+      "lines": 157,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -8801,7 +8801,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 1765,
+      "lines": 1759,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -10625,7 +10625,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 309,
+      "lines": 310,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11429,7 +11429,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 89,
+      "lines": 122,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

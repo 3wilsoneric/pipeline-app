@@ -36,8 +36,8 @@ export async function POST(
     if (!Number.isInteger(body.value?.if_match_section) || Number(body.value?.if_match_section) < 1) {
       return jsonError("if_match_section must be a positive documents section version number.");
     }
+    if (!["undefined", "string"].includes(typeof body.value?.reason)) return jsonError("reason must be text when provided.");
     const reason = typeof body.value?.reason === "string" ? body.value.reason.trim() : "";
-    if (reason.length < 10) return jsonError("Explain why intake is proceeding without extraction in at least 10 characters.");
     if (reason.length > 1_000) return jsonError("reason must be 1,000 characters or fewer.");
     const mutationId = validateClientMutationId(body.value?.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);

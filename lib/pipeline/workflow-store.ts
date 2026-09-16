@@ -36,7 +36,6 @@ import {
   getEhrHandoffBlockers,
   getWorkItemAuditAction,
   normalizeWorkItem,
-  validateWorkItem,
   workflowStatusAfterWorkItem,
   workItemChangedFields,
   type AdmissionDecisionInput,
@@ -785,11 +784,6 @@ export async function patchReferralWorkItem(
     version: (current.version ?? 1) + 1,
     updatedAt: now,
   });
-  const blocker = validateWorkItem(next);
-  if (blocker) {
-    return { ok: false, blocked: true, referral: snapshot.referral, blockers: [blocker] };
-  }
-
   if (getReferralStoreReadiness().mode !== "postgres") {
     const requirements = snapshot.work_items.map((item) => item.id === workItemId ? next : item);
     const workflowStatus = workflowStatusAfterWorkItem(snapshot, requirements);
