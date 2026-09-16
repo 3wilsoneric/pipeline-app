@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   ExternalLink,
   ListChecks,
+  Maximize2,
   RefreshCcw,
   X,
 } from "lucide-react";
@@ -52,11 +53,8 @@ type PresentationSlide = {
   location: string;
   title: string;
   summary: string;
-  points: readonly string[];
   screenshots: readonly PresentationScreenshot[];
-  rule?: string;
   nextLabel: string;
-  dark?: boolean;
 };
 
 type PresentationScreenshot = {
@@ -71,13 +69,9 @@ const presentationSlides: readonly PresentationSlide[] = [
     id: "referral-map",
     number: 1,
     navLabel: "Map",
-    location: "From Allo to Pipeline",
-    title: "Find your referral. Keep the work together.",
-    summary: "Home is the starting point. Select your assignment to open its existing workspace.",
-    points: [
-      "The packet, intake, appointment, and assessment stay with that referral.",
-      "Use + only when taking a new referral—not to reopen an assignment.",
-    ],
+    location: "Pipeline referral workflow",
+    title: "Find your referral",
+    summary: "Open an assigned referral from Home and keep its work in one workspace.",
     screenshots: [{
       src: "/training/presentation/assessor-home.png",
       alt: "Pipeline Home with Taylor Rivera in New assignments and the current work queue.",
@@ -85,19 +79,14 @@ const presentationSlides: readonly PresentationSlide[] = [
       caption: "Select the name under New assignments to open that referral. The + in the top navigation is for a new referral, not an assigned one.",
     }],
     nextLabel: "See the main screens",
-    dark: true,
   },
   {
     id: "find-work",
     number: 2,
     navLabel: "Screens",
     location: "Home · Workspaces · Calendar · Clients",
-    title: "Where everything lives",
-    summary: "Home shows work needing attention. Workspaces holds referrals; Clients lists current residents from the Alamo platform.",
-    points: [
-      "Home → Continue working reopens saved work when there is something to resume.",
-      "Workspaces shows recent updates first. Use search and owner filters; supervisors can switch Mine / All.",
-    ],
+    title: "Where the work lives",
+    summary: "Home shows next work; Workspaces, Calendar, and Clients give you other views.",
     screenshots: [
       { src: "/training/presentation/assessor-workspaces.png", alt: "Pipeline Workspaces with recent referrals and the workspace search and owner filters.", label: "Workspaces", caption: "Workspaces → select the name to open the existing record. Search and owner filters are above the list." },
       { src: "/training/presentation/assessor-home.png", alt: "Pipeline Home with current work and new assignments.", label: "Home", caption: "Select a work item or new assignment. Continue working appears here when there is saved work to resume." },
@@ -112,11 +101,7 @@ const presentationSlides: readonly PresentationSlide[] = [
     navLabel: "Workspace",
     location: "Workspaces → referral",
     title: "Inside the workspace",
-    summary: "New referrals use Intake, Assessment, and Chart. Transferred Allo records open as charts; they do not need a new intake or assessment just because they were imported.",
-    points: [
-      "Intake holds the packet and client information. Assessment is where the interview is completed.",
-      "Files and Activity are beside the stage navigation at the top.",
-    ],
+    summary: "The referral packet, intake, assessment, chart, and files stay together.",
     screenshots: [{
       src: "/training/presentation/intake-workspace-current.png",
       alt: "Synthetic Pipeline Intake workspace with the initial referral document area.",
@@ -130,12 +115,8 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 4,
     navLabel: "Intake",
     location: "Workspace → Intake",
-    title: "Review intake before scheduling",
-    summary: "Open the packet and check the information recorded in Intake, including the contact details needed to arrange the interview.",
-    points: [
-      "Check identity, county, community, and medications against the source. Saving a contact does not call or message anyone.",
-      "Keep conflicting sources visible and leave unsupported facts unrecorded.",
-    ],
+    title: "Review intake",
+    summary: "Check identity and contact details against the referral packet before scheduling.",
     screenshots: [{
       src: "/training/presentation/intake-review.png",
       alt: "Synthetic Pipeline chart-style intake showing identity, referral details, and contact information for Taylor Rivera.",
@@ -149,12 +130,8 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 5,
     navLabel: "Schedule",
     location: "Workspace → Assessment → Schedule",
-    title: "Arrange the assessment",
-    summary: "After reviewing intake and arranging the interview, open Assessment → Schedule. Enter the date and time in Pacific Time, duration, and method.",
-    points: [
-      "Add the address, phone number, or Zoom link. Record review needs no meeting details; scheduling does not send an invitation.",
-      "The saved appointment appears on Calendar. Open its linked referral on the day, or reschedule it if plans change.",
-    ],
+    title: "Schedule the assessment",
+    summary: "Set the time, method, and meeting details in the same workspace.",
     screenshots: [
       {
         src: "/training/presentation/assessment-schedule-current.png",
@@ -176,12 +153,8 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 6,
     navLabel: "Assessment",
     location: "Workspace → Assessment → Open assessment",
-    title: "Pick up where you left off",
-    summary: "The guided interview works through one group of questions at a time. The full assessment organizes the same answers into 12 sections.",
-    points: [
-      "Use Next within the interview. Close the guided view to review the full assessment.",
-      "Pausing? Wait for saved status. Return through Home → Continue working or the same workspace. A draft is not a submittal.",
-    ],
+    title: "Resume the interview",
+    summary: "Use the guided questions or review the same answers in the full assessment.",
     screenshots: [{
       src: "/training/presentation/assessment-interview-current.png",
       alt: "Pipeline guided assessment interview for Taylor Rivera with real answer controls and Next at the bottom right.",
@@ -195,12 +168,8 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 7,
     navLabel: "Document",
     location: "Assessment → History → Prior placements → Language Lab",
-    title: "Language Lab stays beside the answer",
-    summary: "In History, select Language Lab beneath Prior placements. The writing order, checklist, and example open where you are working.",
-    points: [
-      "Use the example for structure—not as facts about your client.",
-      "Language Lab stays beneath the same answer in the guided interview and full assessment.",
-    ],
+    title: "Write beside the answer",
+    summary: "Language Lab is available beneath the Prior placements question.",
     screenshots: [{
       src: "/training/presentation/assessment-language-lab.png",
       alt: "Pipeline assessment History screen with Language Lab expanded beneath the Prior placements answer.",
@@ -215,11 +184,7 @@ const presentationSlides: readonly PresentationSlide[] = [
     navLabel: "Sign",
     location: "Assessment → Review → Sign assessment",
     title: "Review, then sign",
-    summary: "Review names missing required answers and unresolved information. Signing locks the completed assessment; later information is recorded as an addendum.",
-    points: [
-      "Select Review at the bottom of the left rail. Saved status and Sign assessment are in the top bar.",
-      "A signed assessment still needs Submit for supervisor review in Workflow.",
-    ],
+    summary: "Resolve missing required answers before signing the assessment.",
     screenshots: [{
       src: "/training/presentation/assessment-review.png",
       alt: "Synthetic Pipeline Review section showing completion counts, narrative fields, overall progress, and the Sign assessment action.",
@@ -233,39 +198,29 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 9,
     navLabel: "Decision",
     location: "Workspace → Workflow",
-    title: "Submit for supervisor review",
-    summary: "The assessor submits the signed assessment and recommendation. The authorized supervisor records acceptance, decline, or a request for changes.",
-    points: [
-      "Submit for supervisor review freezes the signed assessment revision under review.",
-      "Acceptance is not admission. The admission and handoff requirements still need to be completed.",
-    ],
+    title: "Submit for a decision",
+    summary: "The assessor submits; a supervisor reviews and records the decision.",
     screenshots: [
       { src: "/training/presentation/assessment-submittal.png", alt: "Pipeline Workflow showing the assessor recommendation and Submit for supervisor review control.", label: "Assessor submittal", caption: "Open Workflow beside the workspace tabs. Record the recommendation and rationale, then select Submit for supervisor review." },
       { src: "/training/presentation/supervisor-decision.png", alt: "Pipeline Workflow showing a submitted assessment and the supervisor admission decision controls.", label: "Supervisor decision", caption: "The authorized supervisor reviews the submittal and records a decision. This view has permissions that an assessor account may not have." },
     ],
-    nextLabel: "Review the writing guide",
-  },
-  {
-    id: "language-lab-overview",
-    number: 10,
-    navLabel: "Language Lab",
-    location: "Assessment → History → Prior placements",
-    title: "Write the answer, not the example",
-    summary: "Prior placements asks for the setting, time there, why it ended, and the source. Language Lab puts that writing order beside the actual answer.",
-    points: [
-      "Name a packet or collateral source when it differs from what the client says.",
-      "Leave unsupported details unanswered; record why when the field asks for it.",
-    ],
-    screenshots: [{
-      src: "/training/presentation/assessment-language-lab.png",
-      alt: "Assessment History with Language Lab expanded below the Prior placements field.",
-      label: "Prior placements · Language Lab",
-      caption: "Use the field's writing order, checklist, and example as structure. Enter only what this interview or its named sources support.",
-    }],
-    rule: "Prior placements: setting · time there · exit reason · named source · next verification.",
-    nextLabel: "Enter practice Home",
+    nextLabel: "Open your referrals",
   },
 ] as const;
+
+export function PipelineWorkshopPresentation({ initialPresentationSlide }: { initialPresentationSlide?: string }) {
+  return (
+    <PresentationDeck
+      initialSlideId={initialPresentationSlide}
+      finishLabel="Open your referrals"
+      finishBusy={false}
+      finishError=""
+      onExit={() => window.location.assign(toPipelinePath("/training"))}
+      onFinish={() => window.location.assign(toPipelinePath("/"))}
+      onSlideChange={() => undefined}
+    />
+  );
+}
 
 export default function PipelineDemoCenter({
   actor,
@@ -571,7 +526,7 @@ function PresentationDeck({
 
   return (
     <section data-demo-surface="presentation" className="fixed inset-0 z-[150] flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-white">
-      <PresentationHeader slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onClose={onExit} onReset={onReset} />
+      <PresentationHeader slideIndex={slideIndex} onSelect={selectSlide} onClose={onExit} onReset={onReset} />
       <PresentationSlideBody slide={slide} />
       <p className="sr-only" aria-live="polite">Slide {slide.number} of {presentationSlides.length}: {slide.title}</p>
       {finishError ? <p role="alert" className="shrink-0 border-l-2 border-[#ad493c] bg-[#fff3f0] px-5 py-2 text-[12px] font-semibold text-[#8a362c]">{finishError}</p> : null}
@@ -609,15 +564,12 @@ function presentationSlideIndexForKey(event: KeyboardEvent, slideIndex: number) 
   return null;
 }
 
-function PresentationHeader({ slide, slideIndex, onSelect, onClose, onReset }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onClose: () => void; onReset?: () => void }) {
+function PresentationHeader({ slideIndex, onSelect, onClose, onReset }: { slideIndex: number; onSelect: (index: number) => void; onClose: () => void; onReset?: () => void }) {
   return (
     <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8">
       <div className="hidden min-w-0 flex-1 sm:block">
         <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div>
         <div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor&apos;s Workshop</div>
-      </div>
-      <div className="hidden min-w-0 flex-1 text-center lg:block">
-        <div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div>
       </div>
       <nav aria-label="Presentation slides" className="ml-auto flex min-w-0 items-center gap-2">
         <label htmlFor="presentation-slide" className="sr-only">Jump to slide</label>
@@ -649,44 +601,23 @@ function ResetDemoButton({ onReset, compact = false, view }: { onReset?: () => v
 }
 
 function PresentationSlideBody({ slide }: { slide: PresentationSlide }) {
-  const palette = presentationPalette(slide.dark);
-  return <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`min-h-0 flex-1 overflow-y-auto ${palette.article}`}><div className="mx-auto grid min-h-full w-full max-w-[1840px] content-center gap-7 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-center lg:gap-10 lg:px-10 lg:py-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:px-12 2xl:grid-cols-[360px_minmax(0,1fr)] 2xl:gap-10 2xl:px-14"><div className="min-w-0"><div className={`text-[11px] font-black uppercase tracking-[0.12em] ${palette.eyebrow}`}>{slide.location}</div><h2 className="mt-3 max-w-[700px] text-[34px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[42px] lg:text-[36px] xl:text-[36px] 2xl:text-[44px]">{slide.title}</h2><p className={`mt-4 max-w-[680px] text-[16px] font-medium leading-7 sm:text-[18px] lg:text-[16px] lg:leading-6 xl:text-[17px] xl:leading-7 2xl:text-[18px] ${palette.summary}`}>{slide.summary}</p><PresentationPoints slide={slide} palette={palette} /><PresentationRule slide={slide} palette={palette} /></div><PresentationVisual slide={slide} /></div></article>;
-}
-
-type PresentationPalette = ReturnType<typeof presentationPalette>;
-
-function presentationPalette(dark?: boolean) {
-  return dark ? {
-    article: "bg-[#143d34] text-white",
-    eyebrow: "text-[#8be0c5]",
-    summary: "text-[#d2e5df]",
-    list: "border-white/20",
-    point: "border-white/15 text-[#e4efeb]",
-    number: "text-[#8be0c5]",
-    rule: "border-[#8be0c5] bg-white/10 text-[#e1eee9]",
-  } : {
-    article: "bg-[#fbfcfb] text-[#17221e]",
-    eyebrow: "text-[#0c705f]",
-    summary: "text-[#52605a]",
-    list: "border-[#d5ddda]",
-    point: "border-[#e0e5e2] text-[#37433e]",
-    number: "text-[#0c705f]",
-    rule: "border-[#0f8b73] bg-[#edf6f3] text-[#355047]",
-  };
-}
-
-function PresentationPoints({ slide, palette }: { slide: PresentationSlide; palette: PresentationPalette }) {
-  return <ul className={`mt-5 border-y ${palette.list}`}>{slide.points.map((point, index) => <li key={point} className={`grid grid-cols-[30px_minmax(0,1fr)] gap-2 border-b py-2.5 last:border-b-0 ${palette.point}`}><span className={`text-[10px] font-black tabular-nums ${palette.number}`}>{String(index + 1).padStart(2, "0")}</span><span className="text-[14px] font-medium leading-6 2xl:text-[16px]">{point}</span></li>)}</ul>;
-}
-
-function PresentationRule({ slide, palette }: { slide: PresentationSlide; palette: PresentationPalette }) {
-  if (!slide.rule) return null;
-  return <p className={`mt-4 border-l-[3px] px-4 py-2.5 text-[11px] font-bold leading-5 ${palette.rule}`}>{slide.rule}</p>;
+  return (
+    <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className="relative min-h-0 flex-1 overflow-hidden bg-[#edf1ee]">
+      <PresentationVisual slide={slide} />
+      <div className="pointer-events-none absolute bottom-4 left-4 right-4 z-10 sm:right-auto sm:bottom-6 sm:left-6 sm:max-w-[600px] lg:left-8">
+        <div className="bg-white/95 px-4 py-3 text-[#17221e] sm:px-5 sm:py-4">
+          <div className="text-[10px] font-bold uppercase text-[#0c705f]">{slide.location}</div>
+          <h2 className="mt-1 text-[24px] font-semibold leading-tight sm:text-[28px]">{slide.title}</h2>
+          <p className="mt-1 text-[13px] font-medium leading-5 text-[#52605a] sm:text-[14px]">{slide.summary}</p>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function PresentationFooter({ slide, slideIndex, onSelect, onFinish, finishLabel, finishBusy }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onFinish: () => void; finishLabel: string; finishBusy: boolean }) {
   const isLast = slideIndex === presentationSlides.length - 1;
-  return <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white px-4 py-3 sm:px-8 lg:px-10"><button type="button" disabled={slideIndex === 0} onClick={() => onSelect(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[11px] font-bold text-[#5d6863] outline-none hover:text-[#17221e] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:invisible"><ArrowLeft size={14} aria-hidden="true" />Previous</button><div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">{presentationSlides.map((item, index) => <span key={item.id} className={`h-1.5 transition-[width,background-color] ${index === slideIndex ? "w-8 bg-[#0f8b73]" : "w-1.5 bg-[#cbd4d0]"}`} />)}</div>{isLast ? <button type="button" disabled={finishBusy} onClick={onFinish} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:opacity-60">{finishBusy ? "Preparing demo..." : finishLabel}<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" onClick={() => onSelect(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">{slide.nextLabel}<ArrowRight size={14} aria-hidden="true" /></button>}</footer>;
+  return <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white px-4 py-3 sm:px-8 lg:px-10"><button type="button" disabled={slideIndex === 0} onClick={() => onSelect(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[11px] font-bold text-[#5d6863] outline-none hover:text-[#17221e] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:invisible"><ArrowLeft size={14} aria-hidden="true" />Previous</button><div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">{presentationSlides.map((item, index) => <span key={item.id} className={`h-1.5 transition-[width,background-color] ${index === slideIndex ? "w-8 bg-[#0f8b73]" : "w-1.5 bg-[#cbd4d0]"}`} />)}</div>{isLast ? <button type="button" disabled={finishBusy} onClick={onFinish} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:opacity-60">{finishBusy ? "Opening..." : finishLabel}<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" aria-label={`Next slide: ${slide.nextLabel}`} onClick={() => onSelect(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">Next<ArrowRight size={14} aria-hidden="true" /></button>}</footer>;
 }
 
 function PresentationVisual({ slide }: { slide: PresentationSlide }) {
@@ -704,23 +635,23 @@ function PresentationScreenshots({ screenshots }: { screenshots: readonly Presen
   }, [expanded]);
 
   return (
-    <figure className="min-w-0 overflow-hidden border border-[#bfcac5] bg-white shadow-[0_24px_70px_rgba(20,48,39,0.14)]">
-      <div className="flex min-h-11 items-stretch justify-between border-b border-[#d5ddda] bg-[#f2f6f4]">
+    <figure className="flex h-full min-h-0 min-w-0 flex-col bg-white">
+      <div className="flex h-10 shrink-0 items-stretch justify-between border-b border-[#d5ddda] bg-[#f2f6f4]">
         <div role={screenshots.length > 1 ? "tablist" : undefined} aria-label={screenshots.length > 1 ? "Slide screenshots" : undefined} className="flex min-w-0 overflow-x-auto">
           {screenshots.map((screenshot, index) => screenshots.length > 1 ? (
             <button key={screenshot.src} type="button" role="tab" aria-selected={index === selectedIndex} onClick={() => setSelectedIndex(index)} className={`shrink-0 border-b-2 px-4 text-[11px] font-black ${index === selectedIndex ? "border-[#0f8b73] bg-white text-[#183a31]" : "border-transparent text-[#65706b] hover:text-[#25322d]"}`}>{screenshot.label}</button>
           ) : <span key={screenshot.src} className="flex items-center px-4 text-[10px] font-black uppercase tracking-[0.09em] text-[#0c705f]">{screenshot.label}</span>)}
         </div>
-        <button type="button" onClick={() => setExpanded(true)} className="shrink-0 px-4 text-[9px] font-black uppercase tracking-[0.09em] text-[#5e6a65] hover:bg-white hover:text-[#0c705f]">View full size</button>
+        <button type="button" aria-label="View full-size screenshot" title="View full-size screenshot" onClick={() => setExpanded(true)} className="flex size-10 shrink-0 items-center justify-center text-[#5e6a65] hover:bg-white hover:text-[#0c705f] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"><Maximize2 size={16} aria-hidden="true" /></button>
       </div>
-      <button type="button" aria-label={`Enlarge ${selected.label} screenshot`} onClick={() => setExpanded(true)} className="relative block aspect-video w-full lg:max-h-[calc(100dvh-330px)] cursor-zoom-in overflow-hidden bg-[#e8edeb] outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#0f8b73]">
-        <Image key={selected.src} src={toPipelinePath(selected.src)} alt={selected.alt} fill unoptimized loading="eager" sizes="(max-width: 1023px) 100vw, 68vw" className="object-contain object-top" />
+      <button type="button" aria-label={`Enlarge ${selected.label} screenshot`} onClick={() => setExpanded(true)} className="relative block min-h-0 w-full flex-1 cursor-zoom-in overflow-hidden bg-[#e8edeb] outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#0f8b73]">
+        <Image key={selected.src} src={toPipelinePath(selected.src)} alt={selected.alt} fill unoptimized loading="eager" sizes="100vw" className="object-contain" />
       </button>
-      <figcaption className="border-t border-[#d5ddda] bg-white px-4 py-3 text-[14px] font-medium leading-6 text-[#52605a]">{selected.caption}</figcaption>
+      <figcaption className="sr-only">{selected.caption}</figcaption>
       {expanded ? <dialog ref={dialogRef} onClose={() => setExpanded(false)} className="fixed inset-0 m-0 flex h-dvh max-h-none w-screen max-w-none flex-col border-0 bg-[#0d1713] p-0 text-white" aria-label={`${selected.label} full-size screen`}>
-        <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-white/20 px-5 sm:px-8"><div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8be0c5]">Synthetic Pipeline screen</div><div className="mt-1 text-[14px] font-black">{selected.label}</div></div><button type="button" onClick={() => dialogRef.current?.close()} className="h-10 border border-white/30 px-4 text-[11px] font-black hover:border-[#8be0c5] hover:text-[#8be0c5]">Close full-size screen</button></header>
+        <header className="flex min-h-14 shrink-0 items-center justify-between gap-4 border-b border-white/20 px-5 sm:px-8"><div className="text-[14px] font-semibold">{selected.label}</div><button type="button" aria-label="Close full-size screenshot" title="Close full-size screenshot" onClick={() => dialogRef.current?.close()} className="flex size-10 items-center justify-center border border-white/30 hover:border-[#8be0c5] hover:text-[#8be0c5] focus-visible:ring-2 focus-visible:ring-[#8be0c5]"><X size={18} aria-hidden="true" /></button></header>
         <div className="relative min-h-0 flex-1"><Image src={toPipelinePath(selected.src)} alt={selected.alt} fill unoptimized sizes="100vw" className="object-contain" /></div>
-        <p className="shrink-0 border-t border-white/20 px-5 py-3 text-center text-[12px] font-semibold text-[#d5e2dd] sm:px-8">{selected.caption}</p>
+        <p className="sr-only">{selected.caption}</p>
       </dialog> : null}
     </figure>
   );
