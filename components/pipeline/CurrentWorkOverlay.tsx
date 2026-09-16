@@ -29,7 +29,7 @@ export default function CurrentWorkOverlay({
   const dataGeneration = usePipelineDataGeneration();
   const currentBriefing = briefing ?? loadedBriefing;
   const briefingReady = Boolean(currentBriefing);
-  const title = currentBriefing?.scope === "team" ? "Team referrals" : "Assigned referrals";
+  const scopeLabel = currentBriefing?.scope === "team" ? "Team referrals" : "Assigned to you";
   const portalReady = useSyncExternalStore(subscribeToBrowser, browserSnapshot, serverSnapshot);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -131,10 +131,11 @@ export default function CurrentWorkOverlay({
       >
         <header className="flex h-[64px] shrink-0 items-center justify-between gap-4 border-b border-[#dfe4e1] px-4 sm:h-[70px] sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-baseline gap-3">
-            <h1 id="current-work-title" className="truncate text-[20px] font-black text-[#111111] sm:text-[23px]">{title}</h1>
+            <h1 id="current-work-title" className="truncate text-[20px] font-black text-[#111111] sm:text-[23px]">Board</h1>
             <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#68706b]">
               {currentBriefing ? `${currentBriefing.workflow.active_total.toLocaleString()} active` : ""}
             </span>
+            <span className="hidden shrink-0 text-[11px] font-semibold text-[#68706b] sm:inline">{scopeLabel}</span>
           </div>
           <button
             ref={closeButtonRef}

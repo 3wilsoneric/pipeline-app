@@ -26,7 +26,7 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
     <section aria-label="Current work board" className="bg-white">
       {unavailable ? (
         <div className="px-4 py-12 text-center text-[13px] font-medium text-[#8a5a10]">
-          Current work is temporarily unavailable. Close this view and try again.
+          The Board is temporarily unavailable. Close this view and try again.
         </div>
       ) : (layout === "board" ? boardItems : items).length === 0 ? (
         <p className="px-1 py-5 text-[13px] font-medium text-[#626b65]">No active referral work.</p>
