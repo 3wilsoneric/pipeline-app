@@ -114,6 +114,7 @@ import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSch
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 
 type AssessmentWorkspaceProps = {
+  readOnly?: boolean;
   referralId?: number;
   trainingAssessmentMode?: TrainingAssessmentMode;
   trainingAssessmentSection?: AssessmentToolSection;
@@ -257,7 +258,26 @@ function applyAssessmentFocus(state: AssessmentFocusState, setters: AssessmentAu
   setters.setShowBeginDialog(state.showBeginDialog);
 }
 
+function assessmentWorkspacePermissions(
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
+  viewer: PipelineCurrentUser | null,
+  selected: PipelineAssessmentRecord | null,
+  assignedAssessorId: string | undefined,
+  readOnly: boolean,
+) {
+  if (readOnly) return { canSupervise: false, canEditClinical: false, canCreateAssignedAssessment: false, canAddAddendum: false };
+  const canSupervise = canSuperviseAssessment(trainingAssessmentMode, viewer);
+  const canCreateClinical = canCreateAssessment(trainingAssessmentMode, viewer);
+  return {
+    canSupervise,
+    canEditClinical: canEditAssessment(trainingAssessmentMode, viewer, selected, canSupervise),
+    canCreateAssignedAssessment: Boolean(viewer && canCreateClinical && (assignedAssessorId === viewer.id || canSupervise)),
+    canAddAddendum: canAddAssessmentAddendum(trainingAssessmentMode, viewer, selected, canSupervise),
+  };
+}
+
 export default function AssessmentWorkspace({
+  readOnly = false,
   referralId,
   trainingAssessmentMode,
   trainingAssessmentSection,
@@ -315,11 +335,9 @@ export default function AssessmentWorkspace({
   const offlinePrincipal = assessmentOfflinePrincipal(trainingAssessmentMode, viewer);
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
-  const canSupervise = canSuperviseAssessment(trainingAssessmentMode, viewer);
-  const canCreateClinical = canCreateAssessment(trainingAssessmentMode, viewer);
-  const canEditClinical = canEditAssessment(trainingAssessmentMode, viewer, selected, canSupervise);
-  const canCreateAssignedAssessment = Boolean(viewer && canCreateClinical && (assignedAssessorId === viewer.id || canSupervise));
-  const canAddAddendum = canAddAssessmentAddendum(trainingAssessmentMode, viewer, selected, canSupervise);
+  const { canSupervise, canEditClinical, canCreateAssignedAssessment, canAddAddendum } = assessmentWorkspacePermissions(
+    trainingAssessmentMode, viewer, selected, assignedAssessorId, readOnly,
+  );
   const coverage = useMemo(() => getAssessmentInterviewCoverage(draft), [draft]);
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
@@ -1380,7 +1398,7 @@ export default function AssessmentWorkspace({
     );
   }
 
-  if (assessmentView === "guided" && selected.started_at && !selected.signed_at) {
+  if (!readOnly && assessmentView === "guided" && selected.started_at && !selected.signed_at) {
     const saveStatus = assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves });
     return createPortal(
       <GuidedAssessmentInterview
@@ -1653,8 +1671,8 @@ export default function AssessmentWorkspace({
 
       <AssessmentSchedulingDialogs
         assessment={selected}
-        showScheduleDialog={showScheduleDialog}
-        showBeginDialog={showBeginDialog}
+        showScheduleDialog={!readOnly && showScheduleDialog}
+        showBeginDialog={!readOnly && showBeginDialog}
         isBusy={isBusy}
         error={error}
         canEditClinical={canEditClinical}

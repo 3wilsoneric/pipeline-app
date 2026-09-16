@@ -8,6 +8,7 @@ const ts = require("typescript");
 
 export function loadTypeScriptModule(root, filePath, globals = {}) {
   const source = readFileSync(join(root, filePath), "utf8");
+  if (filePath.endsWith(".json")) return JSON.parse(source);
   const output = ts.transpileModule(source, {
     compilerOptions: {
       esModuleInterop: true,

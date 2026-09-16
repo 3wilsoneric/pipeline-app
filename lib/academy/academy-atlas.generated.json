@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:43f147b1bfecde7b",
-  "fingerprint": "43f147b1bfecde7b636df638b32e5cf66e070980f55d4bf8c226767351b2e872",
+  "generatedAt": "source-fingerprint:8bdf961035656b47",
+  "fingerprint": "8bdf961035656b4741d03a9b634d740bbda0a27629e83cc0796e05ed83e873ef",
   "totals": {
-    "files": 1092,
-    "lines": 328877,
-    "coveredFiles": 1092
+    "files": 1093,
+    "lines": 329058,
+    "coveredFiles": 1093
   },
   "entries": [
     {
@@ -1147,7 +1147,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 141,
+      "lines": 148,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1452,7 +1452,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 64,
+      "lines": 66,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1942,7 +1942,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1899,
+      "lines": 1917,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2578,7 +2578,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4086,
+      "lines": 4115,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -6736,7 +6736,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 45,
+      "lines": 43,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -8197,7 +8197,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 963,
+      "lines": 964,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -8257,7 +8257,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 132,
+      "lines": 147,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8377,7 +8377,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 127,
+      "lines": 136,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9893,7 +9893,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2158,
+      "lines": 2179,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10001,7 +10001,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 634,
+      "lines": 636,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11844,6 +11844,18 @@
       ]
     },
     {
+      "path": "scripts/referral-owner-access-fixtures.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 67,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/referral-reliability-replay.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -11970,7 +11982,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "high",
-      "lines": 208,
+      "lines": 209,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -12114,7 +12126,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 80,
+      "lines": 81,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -12378,7 +12390,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 67,
+      "lines": 77,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

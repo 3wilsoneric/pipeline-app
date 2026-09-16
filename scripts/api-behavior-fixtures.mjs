@@ -62,6 +62,24 @@ const results = [
     }
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ scope: "someone-else" })), "scope must be mine or team.");
   }),
+  run("referral boards and edits follow ownership rather than supervisor visibility", () => {
+    const vince = { id: "vince-id", name: "Vince Ceja", email: "vince@aaahealthservices.com", roles: ["reviewer", "viewer"] };
+    const sandeep = { id: "sandeep-id", name: "Sandeep", email: "sandeep@aaahealthservices.com", roles: ["assessment_coordinator", "reviewer", "viewer"] };
+    const andrew = { ...sandeep, id: "andrew-id", email: "andrew@aaahealthservices.com" };
+    const owned = { ownerId: vince.id, owner: vince.name, owners: [] };
+    const foreign = { ownerId: "other-assessor", owner: "Another Assessor", owners: [] };
+    assert(!referralAccess.canViewTeamReferralBoard(vince), "Assessors must receive their own board");
+    assert(referralAccess.canViewTeamReferralBoard(sandeep), "Sandeep can see the team board");
+    assert(!referralAccess.canViewTeamReferralBoard(andrew), "Coordinator roles alone must not grant the team board");
+    assert(referralAccess.canViewTeamReferralBoard({ ...vince, roles: ["admin"] }), "The actual administrator retains the full board");
+    assert(referralOwnership.canModifyReferral(owned, vince), "An assigned assessor can change their workspace");
+    assert(!referralOwnership.canModifyReferral(foreign, vince), "An assessor cannot change a foreign workspace");
+    assert(!referralAccess.canAccessReferral(vince, foreign), "An assessor cannot read a foreign referral by direct URL");
+    assert(!referralOwnership.canModifyReferral(owned, sandeep), "Team visibility must not grant foreign workspace edits");
+    assert(!referralOwnership.canModifyReferral(owned, andrew), "A non-owner coordinator cannot edit a workspace");
+    assert(!referralOwnership.canModifyReferral(owned, { ...vince, roles: ["viewer"] }), "Read-only roles cannot edit even when assigned");
+    assert(referralOwnership.canModifyReferral(foreign, { ...vince, roles: ["admin"] }), "Real administrator authority remains available outside assessor impersonation");
+  }),
   run("work continuity validates, merges, and canonicalizes exact workspace destinations", () => {
     const location = workContinuity.parsePipelineWorkspaceLocation({ view: "assessment", assessmentSection: "medication" });
     assert(location?.assessmentSection === "medication", "A known assessment section must be retained");
@@ -125,7 +143,7 @@ const results = [
       "Unknown modules must be rejected",
     );
   }),
-  run("God mode keeps the selected account identity while retaining administrator authority", () => {
+  run("God mode uses the selected account identity and permissions", () => {
     const administrator = {
       id: "admin-1",
       email: "admin@example.com",
@@ -161,8 +179,11 @@ const results = [
     const effective = assessorSessionPolicy.delegatedUserFromSession(administrator, delegation);
     assert(effective?.id === member.principal_id, "The imported assignment principal must remain the effective identity");
     assert(effective?.name === member.display_name, "The assessor name must remain clean in the product UI");
-    assert(effective?.roles.join(",") === "admin,assessment_coordinator,reviewer,viewer", "God mode must retain complete administrator authority");
+    assert(effective?.roles.join(",") === member.roles.join(","), "God mode must use the selected account's real roles");
     assert(effective?.email === "", "The selected account email must remain its own identity alias");
+    assert(!referralAccess.canViewTeamReferralBoard(effective), "Impersonating an assessor must not reveal the team board");
+    assert(!referralOwnership.canModifyReferral({ ownerId: "foreign-owner" }, effective), "God mode must not bypass the target's ownership permissions");
+    assert(!referralAccess.canRecordAdmissionDecision(effective), "God mode must not elevate an assessor to admission decision authority");
     const actor = assessorSessionPolicy.pipelineAuditActor(effective);
     assert(actor.id === member.principal_id, "Writes must retain the effective assessor principal");
     assert(actor.name.includes(member.display_name) && actor.name.includes(administrator.name), "Write attribution must retain both identities");

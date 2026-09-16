@@ -9,8 +9,8 @@ import {
   referralFlowStateForWorkspaceFocus,
   type ActiveReferralFlowState,
 } from "@/lib/pipeline/referral-flow";
-import { isAssignedToUser, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
-import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { isAssignedToUser, isReferralOwner, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
+import { canViewTeamReferralBoard, isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { referralWorklistBuckets } from "@/lib/pipeline/referral-worklist-filter";
 import {
   getReferralStoreReadiness,
@@ -242,18 +242,19 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
 }
 
 function homeWorkForViewer(operational: Awaited<ReturnType<typeof loadOperationalWork>>, user: PipelineUser) {
-  if (!isAssessorUser(user)) return operational;
+  if (canViewTeamReferralBoard(user)) return operational;
+  const owned = new Set(operational.referrals.filter((referral) => isReferralOwner(referral, user)).map((referral) => referral.id));
   // Submitted assessments belong to the supervisor until returned for changes.
   // Keep them accessible in Workspaces, but not in the assessor's active queue.
-  const submitted = new Set(operational.work.filter((item) =>
+  const submitted = new Set(operational.work.filter((item) => isAssessorUser(user) &&
     item.assessment_state === "signed" && !item.has_decision
       && ["recommendation_submitted", "decision_pending"].includes(item.workflow_status),
   ).map((item) => item.referral_id));
   return {
     ...operational,
-    work: operational.work.filter((item) => !submitted.has(item.referral_id)),
-    activeWork: operational.activeWork.filter((item) => !submitted.has(item.referral_id)),
-    openRequirements: operational.openRequirements.filter((item) => !submitted.has(item.referral_id)),
+    work: operational.work.filter((item) => owned.has(item.referral_id) && !submitted.has(item.referral_id)),
+    activeWork: operational.activeWork.filter((item) => owned.has(item.referral_id) && !submitted.has(item.referral_id)),
+    openRequirements: operational.openRequirements.filter((item) => owned.has(item.referral_id) && !submitted.has(item.referral_id)),
   };
 }
 

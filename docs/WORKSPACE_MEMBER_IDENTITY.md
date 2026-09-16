@@ -61,7 +61,7 @@ Pipeline administrators can open the profile menu and choose **God mode** to ope
 God mode:
 
 - uses the selected person's exact principal ID for their account-specific state, assignments, referrals, assessments, drafts, recents, and training data;
-- retains the complete administrator role set, allowing the administrator to inspect and change every Pipeline workspace while that account context is selected;
+- uses the selected account's roles and ownership permissions, showing the same referral board and edit access that person has when signed in normally;
 - lasts for the full authenticated browser session and remains visibly identified in the header until the administrator exits God mode;
 - records entry and exit audit events and attributes ordinary workspace changes to both the selected account and the initiating administrator;
 - records signatures, signed-assessment addenda, admission decisions, manual-intake authorization, outbound email, and EHR handoffs under the initiating administrator's accountable identity; and

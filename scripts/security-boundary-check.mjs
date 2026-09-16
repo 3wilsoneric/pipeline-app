@@ -113,8 +113,9 @@ check("God mode can select any other active non-merged Pipeline account",
   assessorSessionRoute.includes("isEligibleGodModeTarget(member, auth.user.id)")
   && assessorSessionPolicy.includes("member.principal_id !== administratorId")
   && assessorSessionPolicy.includes('member.identity_status !== "merged"'));
-check("God mode retains administrator authority in the selected account context",
-  assessorSessionPolicy.includes('const godModeRoles: PipelineRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"]'));
+check("God mode uses the selected account's permissions without administrator promotion",
+  assessorSessionPolicy.includes("roles: [...delegation.target.roles]")
+  && !assessorSessionPolicy.includes("godModeRoles"));
 check("God mode mutations are same-origin and do not call Entra or invitation APIs",
   assessorSessionRoute.includes("requireSameOriginMutation(request)")
   && !/graph\.microsoft|invite|invitation|entra/i.test(assessorSessionRoute));
