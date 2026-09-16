@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8761f08ef2e3f231",
-  "fingerprint": "8761f08ef2e3f23174d126e7c259e69d540ac43f7a568a2fa8e747211ac3737f",
+  "generatedAt": "source-fingerprint:d0f7a33194cec32c",
+  "fingerprint": "d0f7a33194cec32ca1ea31d20ffe22076d7a4c9cb957b82a938e952b650b0840",
   "totals": {
     "files": 1098,
-    "lines": 329524,
+    "lines": 329543,
     "coveredFiles": 1098
   },
   "entries": [
@@ -1942,7 +1942,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1931,
+      "lines": 1932,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2578,7 +2578,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4169,
+      "lines": 4177,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -8365,7 +8365,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 112,
+      "lines": 119,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -11453,7 +11453,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 92,
+      "lines": 95,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
