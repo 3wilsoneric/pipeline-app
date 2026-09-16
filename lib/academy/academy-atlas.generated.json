@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8333670e20c49ff5",
-  "fingerprint": "8333670e20c49ff5939f00f3938f17adcb2ea1839f6c39812963e8ee4eb46fc1",
+  "generatedAt": "source-fingerprint:21ac2b8665cac681",
+  "fingerprint": "21ac2b8665cac6817021b1f425128132cc4de884762e7d98bdb268888711a476",
   "totals": {
     "files": 1096,
-    "lines": 329089,
+    "lines": 329115,
     "coveredFiles": 1096
   },
   "entries": [
@@ -8549,7 +8549,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 307,
+      "lines": 327,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -8777,7 +8777,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 493,
+      "lines": 499,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
