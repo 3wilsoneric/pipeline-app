@@ -234,7 +234,8 @@ test.describe("Pipeline Demo Environment", () => {
     });
     await page.goto("/training/demo?journey=1");
     await expect(page.getByRole("tablist", { name: "Demo Center sections" })).toHaveCount(0);
-    await page.getByRole("combobox", { name: "Jump to slide" }).selectOption("9");
+    const slideSelect = page.getByRole("combobox", { name: "Jump to slide" });
+    await slideSelect.selectOption(String(await slideSelect.locator("option").count() - 1));
     await page.getByRole("button", { name: "Open your referrals", exact: true }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeVisible();
