@@ -17,6 +17,11 @@ const checks = [
     args: ["scripts/directory-prewarm-contracts.mjs"],
   },
   {
+    name: "Workspace community counts by month and access scope",
+    command: "node",
+    args: ["--test", "scripts/workspace-community-counts.test.mjs"],
+  },
+  {
     name: "Tracked repository hygiene",
     command: "node",
     args: ["scripts/code-hygiene-audit.mjs"],
