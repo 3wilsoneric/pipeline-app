@@ -160,7 +160,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(begin).toBeHidden();
     const guided = page.locator('[data-guided-assessment="true"]');
     await expect(guided).toBeVisible();
-    await guided.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+    await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Assessment interview" }).getByLabel("Resident name")).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });

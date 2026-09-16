@@ -19,7 +19,7 @@ test.describe("assessment outcome and admission handoff", () => {
     try {
       const { referral, assessment } = await completedAssessment(assessor);
       await page.goto(`${workspace(referral.id)}&workspaceStage=assessment&assessmentSection=review`);
-      await page.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+      await page.getByRole("button", { name: "Full assessment", exact: true }).click();
       page.once("dialog", (dialog) => dialog.accept());
       await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Assessment outcome", exact: true })).toBeVisible();

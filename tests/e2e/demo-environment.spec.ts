@@ -27,7 +27,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(interview).toBeVisible();
     await expect(banner).toContainText("Practice workspace");
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await interview.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+    await interview.getByRole("button", { name: "Full assessment", exact: true }).click();
     await interview.getByRole("button", { name: "Close assessment", exact: true }).click();
     await page.getByRole("button", { name: "Open referrals", exact: true }).click();
     await expect(page).toHaveURL(/view=referrals/);
@@ -118,7 +118,7 @@ test.describe("Pipeline Demo Environment", () => {
     expect(desktopBackBounds?.x ?? 100).toBeLessThan(60);
     await interview.getByRole("button", { name: "Back", exact: true }).click();
     await interview.getByRole("textbox", { name: "Resident name" }).fill("TR-1008");
-    await interview.getByRole("button", { name: "Exit guided interview" }).click();
+    await interview.getByRole("button", { name: "Full assessment" }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("TR-1008");
     await interview.getByRole("button", { name: /Clinical 0\/6/ }).click();
@@ -176,7 +176,7 @@ test.describe("Pipeline Demo Environment", () => {
       await interview.getByRole("button", { name: "Back", exact: true }).click();
     }
     await interview.getByRole("textbox", { name: "Resident name" }).fill("Tester Guided Person");
-    await interview.getByRole("button", { name: "Exit guided interview" }).click();
+    await interview.getByRole("button", { name: "Full assessment" }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("Tester Guided Person");
     const closeAssessment = interview.getByRole("button", { name: "Close assessment", exact: true });
@@ -207,7 +207,7 @@ test.describe("Pipeline Demo Environment", () => {
     await tester.getByRole("button", { name: "Open review" }).click();
     await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=provenance_qc/);
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await interview.getByRole("button", { name: "Exit guided interview", exact: true }).click();
+    await interview.getByRole("button", { name: "Full assessment", exact: true }).click();
     await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
     expect(writes).toEqual([]);
   });
@@ -310,7 +310,7 @@ test.describe("Pipeline Demo Environment", () => {
     await interview.locator('[data-guide-target~="assessment-answer-help"]:visible').first().click();
     await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
     await coach.getByRole("button", { name: "Pause tutorial" }).click();
-    await interview.getByRole("button", { name: "Exit guided interview" }).click();
+    await interview.getByRole("button", { name: "Full assessment" }).click();
     const chartLab = interview.locator("details").filter({ has: page.getByLabel("Language Lab for Prior placements", { exact: true }) });
     await chartLab.locator("summary").click();
     await expect(chartLab.getByText("Use this order", { exact: true })).toBeVisible();
@@ -395,7 +395,7 @@ test.describe("Pipeline Demo Environment", () => {
     await coach.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(coach.getByRole("heading", { name: "Review the full assessment" })).toBeVisible();
     await expect(coach).toContainText("Do not sign a practice record.");
-    await interview.getByRole("button", { name: "Exit guided interview" }).click();
+    await interview.getByRole("button", { name: "Full assessment" }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect.poll(() => errors).toEqual([]);
   });

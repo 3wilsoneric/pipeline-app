@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
+import AssessmentViewToggle from "@/components/pipeline/AssessmentViewToggle";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabButton";
@@ -49,6 +50,8 @@ type GuidedAssessmentInterviewProps = {
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
   onSectionChange: (section: AssessmentToolSection) => void;
   onExitToChart: () => void;
+  onClose: () => void;
+  navigationDisabled: boolean;
   onDone: () => void;
   onOpenAssignedWork?: () => void;
   workspaceControl?: ReactNode;
@@ -84,6 +87,8 @@ export default function GuidedAssessmentInterview({
   onReview,
   onSectionChange,
   onExitToChart,
+  onClose,
+  navigationDisabled,
   onDone,
   onOpenAssignedWork,
   workspaceControl,
@@ -140,7 +145,7 @@ export default function GuidedAssessmentInterview({
       data-screen-section={screen.section}
       className="fixed inset-0 z-[90] flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-white text-[#181b19]"
     >
-      <header className="relative flex min-h-14 shrink-0 flex-wrap items-center gap-y-1 border-b border-[#e0e4e1] px-4 py-2 sm:h-16 sm:flex-nowrap sm:px-6 lg:px-9">
+      <header className="relative flex min-h-14 shrink-0 flex-wrap items-center gap-y-1 border-b border-[#e0e4e1] px-4 py-2 sm:min-h-16 sm:px-6 lg:flex-nowrap lg:px-9">
         <div className="flex min-w-0 items-center gap-2.5">
           <PipelineLogoMark size={23} />
           {workspaceControl}
@@ -159,13 +164,21 @@ export default function GuidedAssessmentInterview({
         </span>
         <div className="ml-auto flex items-center gap-3 sm:ml-3">
           <DemoAssessmentControls persona={demoPersona} />
+          <AssessmentViewToggle
+            value="guided"
+            disabled={navigationDisabled}
+            fullGuideTarget="assessment-guided-exit"
+            onChange={(view) => {
+              if (view === "chart") onExitToChart();
+            }}
+          />
           <button
             type="button"
-            onClick={onExitToChart}
-            data-guide-target="assessment-guided-exit"
-            aria-label="Exit guided interview"
-            title="View full assessment"
-            className="flex h-10 w-10 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"
+            onClick={onClose}
+            disabled={navigationDisabled}
+            aria-label="Close assessment"
+            title="Return to assessment workspace"
+            className="flex h-10 w-10 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50"
           >
             <X size={20} />
           </button>
