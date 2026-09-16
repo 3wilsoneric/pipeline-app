@@ -1,0 +1,91 @@
+"use client";
+
+import { fetchCurrentPipelineUser } from "@/lib/auth/authenticated-fetch";
+import { loadOfflineReferralDrafts, removeOfflineReferralDraft, saveOfflineReferralDraft } from "@/lib/offline/offline-assessment-store";
+import { parsePipelineReferralDraft, type PipelineReferralDraft } from "@/lib/pipeline/user-workspace-state-types";
+import type { ReferralRecoveryDraftKey } from "@/lib/pipeline/referral-draft-recovery";
+
+export type ReferralLocalRecovery = {
+  draft: PipelineReferralDraft;
+  ownerPrincipalId: string;
+  initialPacket: File | null;
+  pendingDocuments: Record<string, File>;
+  additionalFiles: File[];
+};
+
+type FileDescription = { key: string; name: string; type: string; size: number; lastModified: number };
+type RecoveryHeader = { reference: string; draft: PipelineReferralDraft; ownerPrincipalId: string; files: FileDescription[] };
+
+// File bytes and their identifying metadata share the encrypted, expiring record.
+// Blob framing avoids base64 copies of large intake packets.
+export function encodeReferralRecovery(reference: ReferralRecoveryDraftKey, recovery: ReferralLocalRecovery) {
+  const entries: Array<[string, File]> = Object.entries(recovery.pendingDocuments).map(([key, file]) => [`document:${key}`, file]);
+  if (recovery.initialPacket) entries.push(["packet", recovery.initialPacket]);
+  recovery.additionalFiles.forEach((file, index) => entries.push([`additional:${index}`, file]));
+  const header: RecoveryHeader = {
+    reference: String(reference ?? "new"), draft: recovery.draft, ownerPrincipalId: recovery.ownerPrincipalId,
+    files: entries.map(([key, file]) => ({ key, name: file.name, type: file.type, size: file.size, lastModified: file.lastModified })),
+  };
+  return new Blob([JSON.stringify(header), "\n", ...entries.map(([, file]) => file)]);
+}
+
+export function decodeReferralRecovery(buffer: ArrayBuffer): ReferralLocalRecovery & { reference: string } {
+  const bytes = new Uint8Array(buffer);
+  const boundary = bytes.indexOf(10);
+  if (boundary < 0) throw new Error("The pending intake copy is incomplete.");
+  const header = JSON.parse(new TextDecoder().decode(bytes.subarray(0, boundary))) as RecoveryHeader;
+  const draft = parsePipelineReferralDraft(header.draft);
+  if (!draft) throw new Error("The pending intake copy is invalid.");
+  const result: ReferralLocalRecovery & { reference: string } = {
+    reference: header.reference, draft, ownerPrincipalId: header.ownerPrincipalId,
+    initialPacket: null, pendingDocuments: {}, additionalFiles: [],
+  };
+  let offset = boundary + 1;
+  for (const entry of header.files) {
+    if (!Number.isSafeInteger(entry.size) || entry.size < 0 || offset + entry.size > bytes.length) throw new Error("A pending file is incomplete.");
+    const file = new File([buffer.slice(offset, offset + entry.size)], entry.name, { type: entry.type, lastModified: entry.lastModified });
+    offset += entry.size;
+    if (entry.key === "packet") result.initialPacket = file;
+    else if (entry.key.startsWith("document:")) result.pendingDocuments[entry.key.slice(9)] = file;
+    else result.additionalFiles.push(file);
+  }
+  if (offset !== bytes.length) throw new Error("The pending intake copy has unexpected data.");
+  return result;
+}
+
+export async function referralRecoveryPrincipal() {
+  const { user } = await fetchCurrentPipelineUser();
+  if (!user?.id) throw new Error("Your account could not be confirmed for the pending copy.");
+  return user.id;
+}
+
+const queues = new Map<string, Promise<void>>();
+
+export function saveLocalReferralRecovery(principal: string, reference: ReferralRecoveryDraftKey, recovery: ReferralLocalRecovery) {
+  if (!principal) return Promise.reject(new Error("Your account is still loading."));
+  const key = `${principal}:${reference ?? "new"}`;
+  const payload = encodeReferralRecovery(reference, recovery);
+  const next = (queues.get(key) ?? Promise.resolve()).catch(() => undefined)
+    .then(() => saveOfflineReferralDraft(principal, String(reference ?? "new"), payload));
+  queues.set(key, next.catch(() => undefined));
+  return next;
+}
+
+export async function listLocalReferralRecoveries() {
+  const principal = await referralRecoveryPrincipal();
+  const records = await loadOfflineReferralDrafts(principal);
+  return records.map(decodeReferralRecovery);
+}
+
+export async function loadLocalReferralRecovery(reference: ReferralRecoveryDraftKey) {
+  const drafts = await listLocalReferralRecoveries();
+  return drafts.find((draft) => draft.reference === String(reference ?? "new")) ?? null;
+}
+
+export async function clearLocalReferralRecovery(reference: ReferralRecoveryDraftKey) {
+  const principal = await referralRecoveryPrincipal();
+  const key = `${principal}:${reference ?? "new"}`;
+  await queues.get(key);
+  await removeOfflineReferralDraft(principal, String(reference ?? "new"));
+  queues.delete(key);
+}

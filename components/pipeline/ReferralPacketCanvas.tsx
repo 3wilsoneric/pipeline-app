@@ -10,7 +10,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  CircleAlert,
   Circle,
   ClipboardCheck,
   FileText,
@@ -71,6 +70,13 @@ import {
   parsePipelineReferralDraft,
   type PipelineReferralDraft,
 } from "@/lib/pipeline/user-workspace-state-types";
+import {
+  clearLocalReferralRecovery,
+  loadLocalReferralRecovery,
+  referralRecoveryPrincipal,
+  saveLocalReferralRecovery,
+  type ReferralLocalRecovery,
+} from "@/lib/pipeline/referral-local-recovery";
 import { createDefaultAdmissionRequirements } from "@/lib/pipeline/workflow-records";
 import type { ReferralChangeSnapshot, ReferralPresenceView } from "@/lib/pipeline/collaboration-types";
 import { getReferralPatchSections, normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
@@ -427,6 +433,7 @@ export default function ReferralPacketCanvas({
   const conservedRef = useRef(conserved);
   const dirtyKeysRef = useRef(dirtyKeys);
   const isSavingRef = useRef(isSaving);
+  const retryableSaveRef = useRef(false);
   const draftRevisionRef = useRef(0);
   const creationMutationIdRef = useRef(newReferralCreationMutationId(newDraftKey));
   const patchMutationIdsRef = useRef(new Map<string, string>());
@@ -578,7 +585,7 @@ export default function ReferralPacketCanvas({
 
   const captureRecoveryDraft = (): CanvasSessionDraft | null => {
     const activeDirtyKeys = dirtyKeysRef.current;
-    if (activeDirtyKeys.size === 0 && Object.keys(pendingDocumentsRef.current).length === 0) return null;
+    if (!workspaceHasQueuedChanges(activeDirtyKeys, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) return null;
     return {
       schema: 1,
       savedAt: new Date().toISOString(),
@@ -600,12 +607,59 @@ export default function ReferralPacketCanvas({
     };
   };
 
+  const preservePendingIntake = async () => {
+    const draft = captureRecoveryDraft();
+    if (!draft || trainingIntakeMode) return;
+    const reference = recoveryDraftReferenceRef.current;
+    const recovery: ReferralLocalRecovery = {
+      draft, ownerPrincipalId: ownerPrincipalIdRef.current,
+      initialPacket: initialPacketRef.current,
+      pendingDocuments: { ...pendingDocumentsRef.current }, additionalFiles: [...additionalFilesRef.current],
+    };
+    const principal = viewer?.id ?? await referralRecoveryPrincipal();
+    try {
+      await saveLocalReferralRecovery(principal, reference, recovery);
+    } catch (localError) {
+      if (recovery.initialPacket || Object.keys(recovery.pendingDocuments).length || recovery.additionalFiles.length) throw localError;
+      await saveServerReferralDraft(reference, draft);
+    }
+  };
+
+  const restoreLocalFiles = (recovery: ReferralLocalRecovery) => {
+    initialPacketRef.current = recovery.initialPacket;
+    setInitialPacket(recovery.initialPacket);
+    pendingDocumentsRef.current = recovery.pendingDocuments;
+    setPendingDocuments(recovery.pendingDocuments);
+    additionalFilesRef.current = recovery.additionalFiles;
+    setAdditionalFiles(recovery.additionalFiles);
+    ownerPrincipalIdRef.current = recovery.ownerPrincipalId;
+    setOwnerPrincipalId(recovery.ownerPrincipalId);
+    if (recovery.initialPacket) {
+      dirtyKeysRef.current.add("initialPacket");
+      setDirtyKeys(new Set(dirtyKeysRef.current));
+      setRecoveredPacketName("");
+    }
+  };
+
+  const loadIntakeRecovery = async (reference: ReferralRecoveryDraftKey) => {
+    const [server, local] = await Promise.allSettled([
+      loadServerReferralDraft(reference), loadLocalReferralRecovery(reference),
+    ]);
+    const localRecovery = local.status === "fulfilled" ? local.value : null;
+    const serverDraft = server.status === "fulfilled" ? server.value : null;
+    if (localRecovery && (!serverDraft || localRecovery.initialPacket || localRecovery.additionalFiles.length > 0 || Object.keys(localRecovery.pendingDocuments).length > 0 || Date.parse(localRecovery.draft.savedAt) >= Date.parse(serverDraft.savedAt))) {
+      return { draft: localRecovery.draft, local: localRecovery };
+    }
+    return { draft: serverDraft, local: localRecovery };
+  };
+
   const persistRecoveryDraft = (reportStatus: boolean) => {
     const draft = captureRecoveryDraft();
     if (!draft) return;
     const revision = draftRevisionRef.current;
     const reference = recoveryDraftReferenceRef.current;
     if (serverDraftsEnabled) {
+      void preservePendingIntake().catch(() => undefined);
       void saveServerReferralDraft(reference, draft)
         .then(() => {
           if (reportStatus && !loadedReferralRef.current && draftRevisionRef.current === revision) setSavedAt("Draft saved");
@@ -613,7 +667,7 @@ export default function ReferralPacketCanvas({
         .catch((error) => {
           if (reportStatus && draftRevisionRef.current === revision) {
             const message = error instanceof Error ? error.message : "Could not save the recovery draft.";
-            setSaveError(`${message} Your changes are still open in this tab.`);
+            setSavedAt(`Pending · ${message}`);
           }
         });
       return;
@@ -750,9 +804,10 @@ export default function ReferralPacketCanvas({
       };
       if (serverDraftsEnabled) {
         setDraftRecoveryLoading(true);
-        void loadServerReferralDraft(newDraftKey).then((draft) => {
+        void loadIntakeRecovery(newDraftKey).then(({ draft, local }) => {
           if (cancelled) return;
           const recovered = draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null;
+          if (local) restoreLocalFiles(local);
           setSavedAt(recovered ? "Recovered unsaved changes" : "Draft");
         }).catch(() => {
           if (!cancelled) setSaveError("Could not check for a recovery draft.");
@@ -842,9 +897,11 @@ export default function ReferralPacketCanvas({
         };
         if (serverDraftsEnabled) {
           setDraftRecoveryLoading(true);
-          void loadServerReferralDraft(record.id)
-            .then((draft) => {
-              if (!cancelled) finishRecovery(draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null);
+          void loadIntakeRecovery(record.id)
+            .then(({ draft, local }) => {
+              if (cancelled) return;
+              finishRecovery(draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null);
+              if (local) restoreLocalFiles(local);
             })
             .catch(() => {
               if (!cancelled) setSaveError("Could not check for a recovery draft.");
@@ -1290,13 +1347,14 @@ export default function ReferralPacketCanvas({
   });
 
   useEffect(() => {
-    if (!loadedReferral || trainingIntakeMode || isSaving || saveError || uploadingDocumentIds.size > 0 || remoteChange?.conflicts.length) return;
-    if (!workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket)) return;
+    if (!loadedReferral || trainingIntakeMode || isSaving || uploadingDocumentIds.size > 0 || remoteChange?.conflicts.length) return;
+    if (saveError && !retryableSaveRef.current) return;
+    if (!workspaceHasQueuedChanges(dirtyKeys, pendingDocuments, initialPacket, additionalFiles)) return;
     const timer = window.setTimeout(() => {
       autosaveReferral();
-    }, 400);
+    }, saveError ? 10_000 : 400);
     return () => window.clearTimeout(timer);
-  }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, remoteChange?.conflicts.length, saveError, tagsInput, trainingIntakeMode, uploadingDocumentIds.size]);
+  }, [additionalFiles, conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, remoteChange?.conflicts.length, saveError, tagsInput, trainingIntakeMode, uploadingDocumentIds.size]);
 
   const persistReferralSave = async (
     snapshot: ReferralSaveSnapshot,
@@ -1503,7 +1561,7 @@ export default function ReferralPacketCanvas({
         setCreatedWorkspaceId(savedReferral.id);
         recoveryDraftReferenceRef.current = savedReferral.id;
         onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
-        void clearSessionDraft(newDraftKey);
+        void preservePendingIntake().then(() => clearSessionDraft(newDraftKey)).catch(() => undefined);
         setSavedAt(snapshot.initialPacket ? "Referral created; uploading packet..." : "Referral created");
       }
       savedReferral = await uploadAndLinkInitialPacket(savedReferral, snapshot, documentHash);
@@ -1515,6 +1573,7 @@ export default function ReferralPacketCanvas({
       retainQueuedAdditionalFileDraft();
       return savedReferral;
     } catch (error) {
+      retryableSaveRef.current = isRetryableIntakeSave(error);
       let latestConflict: Referral | null = null;
       if (error instanceof PipelineApiError && error.status === 409) {
         const suspectedDuplicate = getSuspectedDuplicateReview(error.payload);
@@ -1528,6 +1587,8 @@ export default function ReferralPacketCanvas({
       }
       if (!latestConflict && savedReferral) setLoadedReferral(savedReferral);
       setSaveError(error instanceof Error ? error.message : "Could not save this referral workspace.");
+      void preservePendingIntake().catch(() => undefined);
+      setSavedAt(intakeSaveFailureStatus(error));
       return null;
     } finally {
       isSavingRef.current = false;
@@ -1547,9 +1608,7 @@ export default function ReferralPacketCanvas({
 
   const openAssignedWork = async () => {
     if (!onOpenAssignedWork) return;
-    if (isSavingRef.current) throw new Error("Workspace changes are still saving. Try again when they finish.");
-    const pending = workspaceHasPendingChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current);
-    if (pending && !await saveWorkspaceDraft()) throw new Error("Save this workspace's pending changes before switching referrals.");
+    await preservePendingIntake();
     onOpenAssignedWork();
   };
 
@@ -1560,19 +1619,9 @@ export default function ReferralPacketCanvas({
   });
 
   const openSchedulingFromIntake = async () => {
-    if (!loadedReferralRef.current || isSavingRef.current) return;
-    if (!loadedReferralRef.current.ownerId) {
-      setSaveError("Assign an assessor before scheduling the assessment.");
-      focusWorkspaceField("owner");
-      canvasRef.current?.querySelector<HTMLElement>('[data-workspace-field="owner"] select')?.focus();
-      return;
-    }
-    if (workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) {
-      const savedReferral = await saveWorkspaceDraft();
-      if (!savedReferral) return;
-    }
-    if (workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) return;
-    setSchedulingReferralId(loadedReferralRef.current.id);
+    const current = loadedReferralRef.current;
+    if (!current) return;
+    setSchedulingReferralId(current.id);
     openPage(2);
   };
 
@@ -1925,7 +1974,7 @@ export default function ReferralPacketCanvas({
               {editingControlsVisible ? (
                 <WorkspaceSaveStatus
                   status={saveStatus}
-                  error={saveError}
+                  error={saveError ? `Pending · ${saveError}` : ""}
                   createdWorkspaceId={createdWorkspaceId}
                   referralId={editableReferralId}
                   hasReferral={hasReferral}
@@ -1942,7 +1991,7 @@ export default function ReferralPacketCanvas({
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
                 onOpen={openAssignedWork}
-                disabled={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange, isSaving, draftRecoveryLoading)}
+                disabled={draftRecoveryLoading}
               />
               {loadedReferral && editingControlsVisible ? (
                 <button
@@ -2543,7 +2592,7 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
 
 function workspaceSavePresentation(status: string, error: string, hasReferral: boolean, saving: boolean, dirtyCount: number, queuedFileCount: number) {
   const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(status);
-  if (error) return { label: "Save failed", Icon: CircleAlert, iconClassName: "text-[#a4473c]", textClassName: "text-[#a4473c]", confirmed: false };
+  if (error) return { label: "Pending", Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (saving) return { label: status, Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (confirmed) return { label: "Saved to Pipeline", Icon: CheckCircle2, iconClassName: "text-[#0c705f]", textClassName: "text-[#0c705f]", confirmed: true };
   return { label: status, Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
@@ -3867,6 +3916,7 @@ function newReferralCreationMutationId(draftReference?: `new-${string}`) {
 
 async function clearSessionDraft(draftReference?: ReferralRecoveryDraftKey) {
   if (usesServerReferralDrafts()) {
+    await clearLocalReferralRecovery(draftReference).catch(() => undefined);
     await clearServerReferralDraft(draftReference).catch(() => undefined);
     return;
   }
@@ -4115,4 +4165,12 @@ function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
+function isRetryableIntakeSave(error: unknown) {
+  return error instanceof PipelineApiError && [0, 429, 500, 502, 503, 504].includes(error.status);
+}
+
+function intakeSaveFailureStatus(error: unknown) {
+  return isRetryableIntakeSave(error) ? "Pending · retrying automatically" : "Pending · you can keep navigating";
 }

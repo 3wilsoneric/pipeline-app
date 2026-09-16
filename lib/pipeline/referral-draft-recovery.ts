@@ -1,5 +1,6 @@
 "use client";
 
+import { clearLocalReferralRecovery, listLocalReferralRecoveries } from "@/lib/pipeline/referral-local-recovery";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
   parsePipelineReferralDraft,
@@ -25,7 +26,7 @@ export function usesServerReferralDrafts() {
 
 export async function loadServerReferralDraft(draftReference?: ReferralRecoveryDraftKey) {
   const key = draftKey(draftReference);
-  const payload = await fetchPipelineJson<DraftResponse>(`/api/me/referral-drafts/${encodeURIComponent(key)}`, { cache: "no-store" });
+  const payload = await fetchPipelineJson<DraftResponse>(`/api/me/referral-drafts/${encodeURIComponent(key)}`, { cache: "no-store" }, { timeoutMs: 3_000 });
   const version = Number.isSafeInteger(payload.version) && Number(payload.version) >= 0 ? Number(payload.version) : 0;
   versions.set(key, version);
   if (!payload.draft) return null;
@@ -33,11 +34,40 @@ export async function loadServerReferralDraft(draftReference?: ReferralRecoveryD
 }
 
 export async function listServerReferralDrafts() {
-  const payload = await fetchPipelineJson<{ drafts?: unknown }>("/api/me/referral-drafts", { cache: "no-store" });
-  if (!Array.isArray(payload.drafts)) return [];
-  return payload.drafts
-    .map(parsePipelineReferralDraftSummary)
+  const [server, local] = await Promise.allSettled([
+    fetchPipelineJson<{ drafts?: unknown }>("/api/me/referral-drafts", { cache: "no-store" }, { timeoutMs: 3_000 }),
+    listLocalReferralRecoveries(),
+  ]);
+  if (server.status === "rejected" && local.status === "rejected") throw server.reason;
+  const raw = server.status === "fulfilled" ? server.value.drafts : [];
+  const drafts = (Array.isArray(raw) ? raw : []).map(parsePipelineReferralDraftSummary)
     .filter((draft): draft is PipelineReferralDraftSummary => Boolean(draft));
+  mergeLocalDraftSummaries(drafts, local);
+  return drafts.sort((left, right) => Date.parse(right.saved_at) - Date.parse(left.saved_at));
+}
+
+function mergeLocalDraftSummaries(
+  drafts: PipelineReferralDraftSummary[],
+  local: PromiseSettledResult<Awaited<ReturnType<typeof listLocalReferralRecoveries>>>,
+) {
+  if (local.status === "fulfilled") {
+    for (const recovery of local.value) {
+      if (!/^new-[0-9a-f-]{36}$/i.test(recovery.reference)) continue;
+      const current = drafts.find((draft) => draft.draft_key === recovery.reference);
+      if (current && Date.parse(current.saved_at) >= Date.parse(recovery.draft.savedAt)) continue;
+      const fields = Object.values(recovery.draft.fields);
+      const summary: PipelineReferralDraftSummary = {
+        draft_key: recovery.reference as `new-${string}`, version: current?.version ?? 0,
+        saved_at: recovery.draft.savedAt,
+        expires_at: new Date(Date.parse(recovery.draft.savedAt) + 7 * 24 * 60 * 60 * 1_000).toISOString(),
+        client_name: recovery.draft.fields.name.value, community: recovery.draft.fields.community.value,
+        packet_name: recovery.draft.initialPacketName,
+        completed_fields: fields.filter((field) => field.value.trim()).length, total_fields: fields.length,
+      };
+      if (current) drafts.splice(drafts.indexOf(current), 1);
+      drafts.push(summary);
+    }
+  }
 }
 
 export function saveServerReferralDraft(draftReference: ReferralRecoveryDraftKey, draft: PipelineReferralDraft) {
@@ -52,7 +82,7 @@ export function saveServerReferralDraft(draftReference: ReferralRecoveryDraftKey
     if (Number.isSafeInteger(version) && version > 0) versions.set(key, version);
   });
   saveQueues.set(key, next);
-  void next.finally(() => {
+  void next.catch(() => undefined).finally(() => {
     if (saveQueues.get(key) === next) saveQueues.delete(key);
   });
   return next;
@@ -68,9 +98,10 @@ export function clearServerReferralDraft(draftReference?: ReferralRecoveryDraftK
       body: JSON.stringify({ if_match: versions.get(key) ?? 0 }),
     });
     versions.set(key, 0);
+    await clearLocalReferralRecovery(draftReference);
   });
   saveQueues.set(key, next);
-  void next.finally(() => {
+  void next.catch(() => undefined).finally(() => {
     if (saveQueues.get(key) === next) saveQueues.delete(key);
   });
   return next;

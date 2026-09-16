@@ -152,7 +152,7 @@ export function hasSectionConflict(
 }
 
 export function isOfflineAssessmentSave(error: unknown, offlinePrincipal: string): error is PipelineApiError {
-  return error instanceof PipelineApiError && error.status === 0 && Boolean(offlinePrincipal);
+  return error instanceof PipelineApiError && (error.status === 0 || error.status === 429 || error.status >= 500) && Boolean(offlinePrincipal);
 }
 
 export function hasAssessmentScheduleInput(

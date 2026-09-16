@@ -30,7 +30,7 @@ type StoredKey = { id: string; key: CryptoKey; createdAt: number };
 type StoredRecord = EncryptedPayload & {
   id: string;
   principal: string;
-  kind: "assessment-draft" | "assessment-working-set";
+  kind: "assessment-draft" | "assessment-working-set" | "referral-draft";
   updatedAt: number;
   expiresAt: number;
 };
@@ -108,14 +108,16 @@ export async function saveOfflineAssessmentDraft(
   const id = await recordId(principal, "assessment-draft", assessmentId);
   const encrypted = await encryptPayload(key, principal, id, draft);
   const now = Date.now();
-  await request(database.transaction(recordsStore, "readwrite").objectStore(recordsStore).put({
+  const transaction = database.transaction(recordsStore, "readwrite");
+  transaction.objectStore(recordsStore).put({
     id,
     principal,
     kind: "assessment-draft",
     updatedAt: now,
     expiresAt: now + expiryMs,
     ...encrypted,
-  } satisfies StoredRecord));
+  } satisfies StoredRecord);
+  await transactionDone(transaction);
   database.close();
 }
 
@@ -212,13 +214,15 @@ export async function queueOfflineAssessmentMutation(principalId: string, mutati
   const id = await recordId(principal, "assessment-mutation", mutation.dedupeKey);
   const encrypted = await encryptPayload(key, principal, id, mutation);
   const now = Date.now();
-  await request(database.transaction(mutationsStore, "readwrite").objectStore(mutationsStore).put({
+  const transaction = database.transaction(mutationsStore, "readwrite");
+  transaction.objectStore(mutationsStore).put({
     id,
     principal,
     updatedAt: now,
     expiresAt: now + expiryMs,
     ...encrypted,
-  } satisfies StoredMutation));
+  } satisfies StoredMutation);
+  await transactionDone(transaction);
   database.close();
   notifyOfflineStateChanged();
 }
@@ -280,6 +284,17 @@ async function removeFlushedMutation(database: IDBDatabase, flushed: StoredMutat
     }
   }
   await done;
+}
+
+export async function pendingOfflineRecoveryDrafts(principalId: string) {
+  const database = await openDatabase();
+  try {
+    const principal = await hashValue(principalId);
+    const records = await recordsForPrincipal<StoredRecord>(database, recordsStore, principal);
+    return records.filter((record) => record.kind !== "assessment-working-set" && record.expiresAt > Date.now()).length;
+  } finally {
+    database.close();
+  }
 }
 
 export async function clearPipelineOfflineData() {
@@ -351,22 +366,70 @@ async function getOrCreateKey(database: IDBDatabase, principal: string) {
 }
 
 async function encryptPayload(key: CryptoKey, principal: string, record: string, value: unknown): Promise<EncryptedPayload> {
+  return encryptBytes(key, principal, record, encode(JSON.stringify(value)));
+}
+
+async function encryptBytes(key: CryptoKey, principal: string, record: string, bytes: BufferSource): Promise<EncryptedPayload> {
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await window.crypto.subtle.encrypt(
-    { name: "AES-GCM", iv, additionalData: encode(`${principal}:${record}`) },
-    key,
-    encode(JSON.stringify(value)),
+    { name: "AES-GCM", iv, additionalData: encode(`${principal}:${record}`) }, key, bytes,
   );
   return { iv: iv.buffer, ciphertext };
 }
 
-async function decryptPayload<T>(key: CryptoKey, principal: string, record: string, value: EncryptedPayload) {
-  const plaintext = await window.crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: value.iv, additionalData: encode(`${principal}:${record}`) },
-    key,
-    value.ciphertext,
+function decryptBytes(key: CryptoKey, principal: string, record: string, value: EncryptedPayload) {
+  return window.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: value.iv, additionalData: encode(`${principal}:${record}`) }, key, value.ciphertext,
   );
-  return JSON.parse(new TextDecoder().decode(plaintext)) as T;
+}
+
+async function decryptPayload<T>(key: CryptoKey, principal: string, record: string, value: EncryptedPayload) {
+  return JSON.parse(new TextDecoder().decode(await decryptBytes(key, principal, record, value))) as T;
+}
+
+export async function saveOfflineReferralDraft(principalId: string, draftKey: string, payload: Blob) {
+  const database = await openDatabase();
+  try {
+    const principal = await hashValue(principalId);
+    const key = await getOrCreateKey(database, principal);
+    const id = await recordId(principal, "referral-draft", draftKey);
+    const encrypted = await encryptBytes(key, principal, id, await payload.arrayBuffer());
+    const now = Date.now();
+    const transaction = database.transaction(recordsStore, "readwrite");
+    transaction.objectStore(recordsStore).put({
+      id, principal, kind: "referral-draft", updatedAt: now, expiresAt: now + expiryMs, ...encrypted,
+    } satisfies StoredRecord);
+    await transactionDone(transaction);
+  } finally {
+    database.close();
+  }
+}
+
+export async function loadOfflineReferralDrafts(principalId: string) {
+  const database = await openDatabase();
+  try {
+    const principal = await hashValue(principalId);
+    const key = await getOrCreateKey(database, principal);
+    const records = await recordsForPrincipal<StoredRecord>(database, recordsStore, principal);
+    return await Promise.all(records
+      .filter((record) => record.kind === "referral-draft" && record.expiresAt > Date.now())
+      .map((record) => decryptBytes(key, principal, record.id, record)));
+  } finally {
+    database.close();
+  }
+}
+
+export async function removeOfflineReferralDraft(principalId: string, draftKey: string) {
+  const database = await openDatabase();
+  try {
+    const principal = await hashValue(principalId);
+    const id = await recordId(principal, "referral-draft", draftKey);
+    const transaction = database.transaction(recordsStore, "readwrite");
+    transaction.objectStore(recordsStore).delete(id);
+    await transactionDone(transaction);
+  } finally {
+    database.close();
+  }
 }
 
 async function removeExpired(database: IDBDatabase, principal: string) {

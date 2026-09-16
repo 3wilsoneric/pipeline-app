@@ -229,7 +229,7 @@ export default function GuidedAssessmentInterview({
 function GuidedAssessmentStatusBanner({ error, hasConflicts, onExitToChart }: Pick<GuidedAssessmentInterviewProps, "error" | "hasConflicts" | "onExitToChart">) {
   if (!error && !hasConflicts) return null;
   return (
-    <div className={`flex shrink-0 items-center justify-between gap-4 px-4 py-2.5 text-[11px] font-semibold sm:px-6 lg:px-9 ${error ? "bg-[#fff1ee] text-[#9d382b]" : "bg-[#fff8e8] text-[#795016]"}`}>
+    <div className={`flex shrink-0 items-center justify-between gap-4 px-4 py-2.5 text-[11px] font-semibold sm:px-6 lg:px-9 ${error ? "bg-[#f1f4f2] text-[#59645e]" : "bg-[#fff8e8] text-[#795016]"}`}>
       <span>{error || "Another editor changed answers you were working on."}</span>
       <button type="button" onClick={onExitToChart} className="shrink-0 font-black underline underline-offset-2">Review changes</button>
     </div>
