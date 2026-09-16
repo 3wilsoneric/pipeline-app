@@ -22,7 +22,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/operations/reports", async () => {
-    const auth = await requireOperationsReportUser(request);
+    const auth = authorizeOperationsReportUser(await requirePipelineUser(request, [...operationsReportRoles]));
     if (!auth.ok) return auth.response;
     const readiness = requireReferralStore();
     if (!readiness.ok) return readiness.response;
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/operations/reports", async () => {
-    const auth = await requireOperationsReportUser(request);
+    const auth = authorizeOperationsReportUser(await requirePipelineUser(request, [...operationsReportRoles]));
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -76,8 +76,7 @@ export async function POST(request: Request) {
   });
 }
 
-async function requireOperationsReportUser(request: Request) {
-  const auth = await requirePipelineUser(request, [...operationsReportRoles]);
+function authorizeOperationsReportUser(auth: Awaited<ReturnType<typeof requirePipelineUser>>) {
   if (!auth.ok) return auth;
   return canAccessOperationsReports(auth.user)
     ? auth
