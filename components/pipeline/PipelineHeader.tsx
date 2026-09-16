@@ -9,6 +9,7 @@ import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/componen
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import { fetchCurrentPipelineUser, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
+import { pipelinePageHeaders } from "@/lib/auth/browser-session";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { getAccountDisplayName } from "@/lib/auth/entra-client";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
@@ -331,7 +332,7 @@ function useWorkspacePresenceHeartbeat(enabled: boolean) {
       void fetch(toPipelinePath("/api/me/presence"), {
         method: "POST",
         credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...pipelinePageHeaders() },
       }).catch(() => undefined);
     };
     const interval = window.setInterval(heartbeat, 30_000);

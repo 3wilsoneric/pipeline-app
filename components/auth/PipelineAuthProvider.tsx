@@ -29,6 +29,7 @@ import {
 } from "@/lib/auth/authenticated-fetch";
 import {
   establishPipelineServerSession,
+  pipelinePageHeaders,
   probePipelineServerSession,
   restorePipelineAccountSilently,
   type PipelineSessionUser,
@@ -294,7 +295,7 @@ function PipelineAuthBootstrap({ children, initialUser }: { children: React.Reac
       clearPostLoginPath();
       clearPipelineClientSessionCache();
       await clearPipelineOfflineData().catch(() => undefined);
-      await fetch(toPipelinePath("/api/auth/session"), { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
+      await fetch(toPipelinePath("/api/auth/session"), { method: "DELETE", credentials: "same-origin", headers: pipelinePageHeaders() }).catch(() => undefined);
       await instance.logoutRedirect({ postLogoutRedirectUri: `${window.location.origin}${toPipelinePath("/sign-in")}` });
     },
   }), [account, error, initialUser, instance, status]);
