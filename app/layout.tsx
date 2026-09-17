@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import PipelineAuthProvider from "@/components/auth/PipelineAuthProvider";
 import DesktopRuntime from "@/components/desktop/DesktopRuntime";
+import PipelineMaintenanceCover from "@/components/pipeline/PipelineMaintenanceCover";
 import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { getPipelineServerEntryUser } from "@/lib/auth/server-entry";
@@ -42,12 +43,14 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const initialUser = await getPipelineServerEntryUser();
+  const temporarilyDisabled = process.env.PIPELINE_MAINTENANCE_MODE === "true";
   return (
     <html lang="en" className={`${pipelineSans.variable} h-full antialiased`}>
       <body className="pipeline-interactions min-h-full">
         <PipelineAuthProvider initialUser={initialUser}>
           <DesktopRuntime />
-          {children}
+          {temporarilyDisabled ? <div inert aria-hidden="true">{children}</div> : children}
+          {temporarilyDisabled ? <PipelineMaintenanceCover /> : null}
         </PipelineAuthProvider>
       </body>
     </html>
