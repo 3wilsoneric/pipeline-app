@@ -372,7 +372,7 @@ const riskAnswerGuide = narrativeGuide.getAssessmentNarrativeGuide("behavioral_h
 const guideCoverage = narrativeGuide.getAssessmentNarrativeGuideCoverage();
 const activeQuestions = interviewSchema.assessmentInterviewQuestions;
 check("retired questions are absent from the active assessment", !activeQuestions.some((question) =>
-  /hallucinat|secondary_diagnos|acuity|lai_vs_oral|resident_number|admit_date/.test(question.field)));
+  /hallucinat|primary_diagnosis|acuity|lai_vs_oral|resident_number|admit_date/.test(question.field)));
 const injectionDetail = activeQuestions.find((question) => question.field === "im_injections_details");
 check("injection details appear and become required after yes", injectionDetail?.showWhen?.field === "im_injections"
   && injectionDetail.showWhen.value === "yes" && injectionDetail.requiredWhen?.value === "yes");
@@ -409,6 +409,8 @@ const signedAssessmentReport = assessmentSummary.buildAssessmentSummaryReport({
   updated_by: { id: "assessor-1", name: "Assigned Assessor" },
   medications_at_intake: ["Olanzapine 10 mg nightly", "Metformin 500 mg twice daily"],
   current_location: "County treatment center",
+  primary_diagnosis: "Recorded primary condition",
+  secondary_diagnoses: ["Recorded secondary condition", "Another recorded condition"],
   prior_setting_bucket: "residential_program",
   conservatorship_type: "temporary",
   lai_vs_oral: "oral_and_lai",
@@ -417,6 +419,9 @@ const signedAssessmentReport = assessmentSummary.buildAssessmentSummaryReport({
 }, { ...referral, admissionDate: "2026-10-12" });
 check("Meet the Client uses the saved referral admission date", signedAssessmentReport.meetClient.admissionDate === "2026-10-12");
 check("assessment report carries its exact signed source version", signedAssessmentReport.signed && signedAssessmentReport.assessmentId === "assessment-summary-fixture" && signedAssessmentReport.assessmentVersion === 7);
+check("the chart includes secondary answers without relabeling the existing primary diagnosis",
+  signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Primary diagnosis" && item.value === "Recorded primary condition"))
+  && signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Secondary diagnosis" && item.value === "Recorded secondary condition\nAnother recorded condition")));
 check("assessment reports render governed option labels instead of storage tokens",
   signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Prior setting type" && item.value === "Residential program"))
   && signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Conserved status" && item.value === "TCon"))

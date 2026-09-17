@@ -57,7 +57,6 @@ const excludedChartFields = new Set<AssessmentToolFieldKey>([
   "assessment_notes",
   "extraction_date",
   "admit_date",
-  "secondary_diagnoses",
   "acuity_level",
   "lai_vs_oral",
   "resident_number",

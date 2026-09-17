@@ -161,7 +161,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
 
   q("diagnosis_categories", "Diagnoses", "multi_select", { options: diagnosisOptions, span: "full" }),
   q("diagnosis_other_detail", "Diagnoses", "text", { showWhen: includes("diagnosis_categories", "other"), requiredWhen: includes("diagnosis_categories", "other") }),
-  q("primary_diagnosis", "Diagnoses", "text"),
+  q("secondary_diagnoses", "Diagnoses", "textarea", { placeholder: "Secondary diagnosis" }),
   q("current_symptoms", "Current presentation", "textarea", { span: "full" }),
   q("cognition_orientation", "Current presentation", "textarea", { span: "full" }),
 

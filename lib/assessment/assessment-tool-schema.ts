@@ -285,7 +285,7 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("prior_awol_failed_placements", "Prior AWOL / failed placements", "prior_history", "string", false),
 
   field("primary_diagnosis", "Primary diagnosis", "diagnosis_clinical", "string", false, ["referral.primary_diagnosis"]),
-  field("secondary_diagnoses", "Secondary diagnoses", "diagnosis_clinical", "string_list", false),
+  field("secondary_diagnoses", "Secondary diagnosis", "diagnosis_clinical", "string_list", false),
   field("diagnosis_categories", "Diagnosis categories", "diagnosis_clinical", "string_list", true),
   field("diagnosis_other_detail", "Other diagnosis", "diagnosis_clinical", "string", false),
   field("current_symptoms", "Current symptoms", "diagnosis_clinical", "string", true),

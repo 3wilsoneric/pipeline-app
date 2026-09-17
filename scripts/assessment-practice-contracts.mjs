@@ -53,6 +53,17 @@ check("device answers retain the existing persisted mobility field",
   schema.pickAssessmentToolData(nonAmbulatoryData).mobility === "Wheelchair"
   && schema.assessmentToolFieldForExtractionKey("assessment.mobility") === "mobility"
   && nonAmbulatoryData.mobility === "Wheelchair");
+const clinicalQuestions = interview.getAssessmentInterviewQuestions("diagnosis_clinical", data);
+check("the field below diagnosis choices is Secondary diagnosis, not Primary diagnosis",
+  clinicalQuestions[clinicalQuestions.findIndex((question) => question.field === "diagnosis_categories") + 1]?.field === "secondary_diagnoses"
+  && clinicalQuestions.find((question) => question.field === "secondary_diagnoses")?.control === "textarea"
+  && interview.assessmentInterviewFieldLabel("secondary_diagnoses") === "Secondary diagnosis"
+  && !clinicalQuestions.some((question) => question.field === "primary_diagnosis"));
+const diagnosisData = schema.pickAssessmentToolData({ primary_diagnosis: "Recorded primary condition", secondary_diagnoses: ["Recorded secondary condition"] });
+check("primary and secondary diagnoses remain separate stored answers",
+  diagnosisData.primary_diagnosis === "Recorded primary condition"
+  && diagnosisData.secondary_diagnoses[0] === "Recorded secondary condition"
+  && !interview.getRequiredAssessmentInterviewQuestions(diagnosisData).some((question) => question.field === "secondary_diagnoses"));
 check("language guidance comes from the canonical writing specification",
   workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Example")
   && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")
