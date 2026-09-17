@@ -10,13 +10,7 @@ assertPersonaDemoIsolation();
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 const basePath = normalizePipelineBasePath(process.env.NEXT_PUBLIC_PIPELINE_BASE_PATH);
 const isDevelopment = process.env.NODE_ENV !== "production";
-const connectSources = isDevelopment
-  ? "'self' https://login.microsoftonline.com https://*.msauth.net https://*.msftauth.net ws://localhost:* ws://127.0.0.1:*"
-  : "'self' https://login.microsoftonline.com https://*.msauth.net https://*.msftauth.net";
-const scriptSources = isDevelopment
-  ? "'self' 'unsafe-inline' 'unsafe-eval'"
-  : "'self' 'unsafe-inline'";
-const contentSecurityPolicy = pipelineContentSecurityPolicy({ scriptSources, connectSources });
+const contentSecurityPolicy = pipelineContentSecurityPolicy({ development: isDevelopment, storageAccount: process.env.AZURE_STORAGE_ACCOUNT });
 
 const nextConfig: NextConfig = {
   basePath: basePath || undefined,
@@ -61,12 +55,16 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [
-          { key: "Content-Security-Policy", value: contentSecurityPolicy },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "Permissions-Policy", value: PIPELINE_PERMISSIONS_POLICY },
         ],
+      },
+      {
+        // API document/evidence routes supply their own restrictive policies.
+        source: "/((?!api(?:/|$)).*)",
+        headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy }],
       },
       {
         source: "/api/referrals/:referralId/packet",

@@ -2,9 +2,21 @@ import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
 import test from "node:test";
 import { clean, loadEntry } from "./contact-import-fixtures.mjs";
+import { pipelineContentSecurityPolicy } from "../shared/pipeline-security-headers.mjs";
 
 const referral = { id: 42, community: "Synthetic community" };
 const packet = () => new File(["%PDF-1.4\nSynthetic upload bytes\n%%EOF"], "synthetic.pdf", { type: "application/pdf" });
+
+test("upload policy permits only the configured valid storage account without weakening other directives", () => {
+  const policy = pipelineContentSecurityPolicy({ storageAccount: "pipelinesynthetic" });
+  assert.match(policy, /connect-src [^;]* https:\/\/pipelinesynthetic\.blob\.core\.windows\.net;/);
+  assert.doesNotMatch(policy, /\*\.blob|unsafe-eval/);
+  for (const storageAccount of ["", "https://evil.invalid", "ok; connect-src *", "UPPERCASE", "ab", "a".repeat(25)]) {
+    assert.equal(pipelineContentSecurityPolicy({ storageAccount }), pipelineContentSecurityPolicy());
+  }
+  assert.match(policy, /object-src 'none'; frame-ancestors 'none';/);
+  assert.match(pipelineContentSecurityPolicy({ development: true }), /'unsafe-eval'/);
+});
 
 function fixture({ azure = false, lostReservation = false, lostCompletion = false, failWrites = false } = {}) {
   const reservations = new Map();

@@ -9,6 +9,32 @@ test.describe("field exit saves and single uploads", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Requires isolated operational stores.");
   test.setTimeout(90_000);
 
+  test("the served policy permits a PUT to the runtime storage account and rejects other accounts", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const { page, context } = await actorPage(browser, "assessorA", url);
+    try {
+      const response = await page.goto("/");
+      const policy = response!.headers()["content-security-policy"];
+      expect(policy).toContain("https://pipelinesynthetic.blob.core.windows.net");
+      expect(policy).not.toContain("https://*.blob.core.windows.net");
+      let transfers = 0;
+      await page.route("https://*.blob.core.windows.net/**", async (route) => {
+        transfers += 1;
+        await route.fulfill({ status: 201, headers: { "Access-Control-Allow-Origin": new URL(url).origin } });
+      });
+      const put = (account: string) => page.evaluate(async (account) => {
+        try {
+          return (await fetch(`https://${account}.blob.core.windows.net/raw/synthetic`, {
+            method: "PUT", headers: { "x-ms-blob-type": "BlockBlob", "Content-Type": "application/octet-stream" }, body: "Synthetic bytes only",
+          })).status;
+        } catch { return 0; }
+      }, account);
+      expect(await put("pipelinesynthetic")).toBe(201);
+      expect(await put("otheraccount")).toBe(0);
+      expect(transfers).toBe(1);
+    } finally { await context.close(); }
+  });
+
   test("intake saves only the departed cell, even while that save is slow", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessorA", url);
@@ -202,6 +228,10 @@ test.describe("field exit saves and single uploads", () => {
       const download = await api.get(`/api/referrals/${created[0]}/packet`);
       expect(download.status()).toBe(200);
       expect(await download.body()).toEqual(packet.buffer);
+      const saved = await readReferral(api, created[0]);
+      const evidence = await api.get(`/api/packets/${saved.packetId}/evidence/referral.packet_summary`);
+      expect(evidence.status()).toBe(200);
+      expect(evidence.headers()["content-security-policy"]).toBe("sandbox; default-src 'none'; img-src 'self' data:");
       expect(created).toHaveLength(1);
     } finally { await context.close(); await api.dispose(); }
   });

@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth/pipeline-auth";
 import { getCanonicalPageRedirect } from "@/lib/auth/canonical-origin";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
-import { PIPELINE_PERMISSIONS_POLICY } from "@/shared/pipeline-security-headers.mjs";
+import { PIPELINE_PERMISSIONS_POLICY, pipelineContentSecurityPolicy } from "@/shared/pipeline-security-headers.mjs";
 
 export async function proxy(request: NextRequest) {
   const canonicalUrl = getCanonicalPageRedirect(request);
@@ -124,6 +124,13 @@ function withSecurityHeaders(response: Response, request: NextRequest) {
   response.headers.set("X-Frame-Options", sameOriginPacketPreview ? "SAMEORIGIN" : "DENY");
   response.headers.set("Referrer-Policy", "no-referrer");
   response.headers.set("Permissions-Policy", PIPELINE_PERMISSIONS_POLICY);
+  // The storage account is injected at container runtime, after next build.
+  if (!pathname.startsWith("/api/")) {
+    response.headers.set("Content-Security-Policy", pipelineContentSecurityPolicy({
+      development: process.env.NODE_ENV !== "production",
+      storageAccount: process.env.AZURE_STORAGE_ACCOUNT,
+    }));
+  }
   if (request.nextUrl.protocol === "https:") {
     response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
