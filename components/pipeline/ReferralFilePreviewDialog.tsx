@@ -7,6 +7,7 @@ import { FileText, X } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 type FilePreviewMetadata = {
   category: string;
@@ -59,6 +60,7 @@ export default function ReferralFilePreviewDialog({ file, onClose }: { file: Ref
   }, [onClose]);
 
   const showPagination = Boolean(metadata && (pageIndex > 0 || metadata.next_page_after !== undefined));
+  const originalUrl = originalFileUrl(file, metadata);
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-stretch justify-end bg-black/25" role="dialog" aria-modal="true" aria-label={`Preview ${file.name}`}>
       <button type="button" aria-label="Close file preview" onClick={onClose} className="absolute inset-0 cursor-default" />
@@ -69,8 +71,8 @@ export default function ReferralFilePreviewDialog({ file, onClose }: { file: Ref
             <h2 className="truncate text-[15px] font-black text-[#111111]">{file.name}</h2>
             <p className="mt-1 text-[11px] text-[#737373]">{previewDetail(file, metadata, isLocalPacket)}</p>
           </div>
-          {file.downloadUrl || file.previewUrl ? (
-            <a href={file.downloadUrl ?? file.previewUrl} target="_blank" rel="noreferrer" className="h-9 border border-[#0f8b73] px-3 py-2 text-[10px] font-black text-[#0f8b73] hover:bg-[#effaf5]">
+          {originalUrl ? (
+            <a href={originalUrl} target="_blank" rel="noreferrer" className="h-9 border border-[#0f8b73] px-3 py-2 text-[10px] font-black text-[#0f8b73] hover:bg-[#effaf5]">
               Open original
             </a>
           ) : null}
@@ -121,6 +123,11 @@ export default function ReferralFilePreviewDialog({ file, onClose }: { file: Ref
   );
 }
 
+function originalFileUrl(file: ReferralFile, metadata: FilePreviewMetadata | null) {
+  return file.downloadUrl ?? file.previewUrl
+    ?? (metadata?.malware_scan_status === "clean" ? toPipelinePath(`/api/files/${file.id}/download`) : undefined);
+}
+
 function PreviewBody({
   file,
   metadata,
@@ -155,6 +162,9 @@ function PreviewBody({
         ))}
       </div>
     );
+  }
+  if (metadata?.malware_scan_status === "clean") {
+    return <iframe src={file.previewUrl ?? toPipelinePath(`/api/files/${file.id}/preview`)} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
   }
   const scanPending = metadata?.malware_scan_status === "pending";
   return (

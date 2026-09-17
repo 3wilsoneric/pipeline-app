@@ -5,6 +5,7 @@ import { getDocumentPreviewAsset, getDocumentReferralId, isDocumentId, proxyDocu
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import { localFileBytesResponse } from "@/lib/pipeline/local-file-response";
 
 export async function GET(request: Request, context: { params: Promise<{ documentId: string }> }) {
   return withApiLogging(request, "/api/files/[documentId]/preview", async () => {
@@ -23,7 +24,7 @@ export async function GET(request: Request, context: { params: Promise<{ documen
       return Response.json({ error: "A page is required for a thumbnail." }, { status: 400 });
     }
     if (!getPipelineDatabaseReadiness().ready) {
-      return Response.json({ error: "File storage is temporarily unavailable." }, { status: 503 });
+      return localFileBytesResponse(auth.user, documentId);
     }
     const referralId = await getDocumentReferralId(documentId);
     if (!referralId) return Response.json({ error: "Preview not found." }, { status: 404 });

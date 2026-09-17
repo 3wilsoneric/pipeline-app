@@ -43,8 +43,10 @@ import DuplicateReferralReviewDialog, {
   type ReferralDuplicateReview,
 } from "@/components/pipeline/DuplicateReferralReviewDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
+import UploadedDocumentList from "@/components/pipeline/UploadedDocumentList";
 import type {
   Referral,
+  ReferralFile,
   ReferralCanvasFieldKey,
   ReferralSection,
   RequirementType,
@@ -376,7 +378,7 @@ export default function ReferralPacketCanvas({
   const [documents, setDocuments] = useState<Record<string, string>>({});
   const [pendingDocuments, setPendingDocuments] = useState<Record<string, File>>({});
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
-  const [workspaceFiles, setWorkspaceFiles] = useState<{ id: string; name: string; category: string }[]>([]);
+  const [workspaceFiles, setWorkspaceFiles] = useState<ReferralFile[]>([]);
   const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Set<string>>(() => new Set());
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
   const [initialPacketCategory, setInitialPacketCategory] = useState<InitialDocumentCategory>("face_sheet");
@@ -487,7 +489,28 @@ export default function ReferralPacketCanvas({
       .then((files) => { if (!cancelled) setWorkspaceFiles(files); })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [loadedReferral?.id]);
+  }, [loadedReferral?.id, loadedReferral?.sectionVersions?.documents, loadedReferral?.sectionVersions?.workflow]);
+
+  useEffect(() => {
+    const refreshDocuments = (event: Event) => {
+      if ((event as CustomEvent).detail?.referralId !== loadedReferralRef.current?.id) return;
+      const id = loadedReferralRef.current!.id;
+      void Promise.all([
+        loadWorkspaceFileInventory(id),
+        fetchPipelineJson<{ referral: Referral }>(`/api/referrals/${id}/canvas`, { cache: "no-store" }),
+      ]).then(([files, result]) => {
+        if (loadedReferralRef.current?.id !== id) return;
+        setWorkspaceFiles(files);
+        loadedReferralRef.current = result.referral;
+        setLoadedReferral(result.referral);
+        const next = mergePendingDocumentNames(documentsFromReferral(result.referral), pendingDocumentsRef.current);
+        documentsRef.current = next;
+        setDocuments(next);
+      }).catch(() => setSaveError("The file changed, but the refreshed file list could not load. Reload to see it."));
+    };
+    window.addEventListener("pipeline:documents-changed", refreshDocuments);
+    return () => window.removeEventListener("pipeline:documents-changed", refreshDocuments);
+  }, []);
 
   useEffect(() => {
     initialPacketRef.current = initialPacket;
@@ -834,6 +857,7 @@ export default function ReferralPacketCanvas({
       if (cancelled) return;
       const savedRecord = canvasPayload.referral ?? null;
       const record = savedRecord;
+      loadedReferralRef.current = record;
       setLoadedReferral(record);
       additionalFilesRef.current = [];
       setAdditionalFiles([]);
@@ -1168,7 +1192,7 @@ export default function ReferralPacketCanvas({
       additionalFilesRef.current = remaining;
       setAdditionalFiles(remaining);
     }
-    void loadWorkspaceFileInventory(referral.id).then(setWorkspaceFiles).catch(() => undefined);
+    window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id } }));
   };
 
   const retainQueuedAdditionalFileDraft = () => {
@@ -2780,7 +2804,7 @@ function WorkspaceFilesPage({
   uploadingDocumentIds: Set<string>;
   onAttach: (requirementId: string, file: File) => void;
   additionalFiles: File[];
-  workspaceFiles: { id: string; name: string; category: string }[];
+  workspaceFiles: ReferralFile[];
   onAddFiles: (files: File[]) => void;
 }) {
   return (
@@ -2840,7 +2864,7 @@ function IntakeDocumentChecklist({
   onInitialPacketClear: () => void;
   onAttach: (requirementId: string, file: File) => void;
   additionalFiles: File[];
-  workspaceFiles: { id: string; name: string; category: string }[];
+  workspaceFiles: ReferralFile[];
   onAddFiles: (files: File[]) => void;
 }) {
   const documentItems = [...requirements, ...attachments];
@@ -3190,12 +3214,11 @@ function InitialPacketDropzone({
 
 function AdditionalDocumentDropzone({ queued, files, onAdd }: {
   queued: File[];
-  files: { id: string; name: string; category: string }[];
+  files: ReferralFile[];
   onAdd: (files: File[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const otherFiles = files.filter((file) => file.category === "Other");
   return (
     <section aria-label="Additional referral documents" className="mb-5">
       <div className="mb-2 text-[11px] font-black uppercase text-[#3e4742]">Other referral documents</div>
@@ -3211,25 +3234,25 @@ function AdditionalDocumentDropzone({ queued, files, onAdd }: {
         <button type="button" onClick={() => inputRef.current?.click()} className="h-9 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]">Add files</button>
         <input ref={inputRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic" aria-label="Choose additional referral documents" className="sr-only" onChange={(event) => { onAdd(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
       </div>
-      {queued.length || otherFiles.length ? (
+      {queued.length ? (
         <ul className="mt-2 divide-y divide-[#e1e4e2]" aria-label="Additional referral file list">
           {queued.map((file, index) => <li key={`queued:${index}:${file.name}`} className="flex gap-2 py-2 text-[11px]"><FileText size={14} className="shrink-0 text-[#8a6a16]" /><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="font-bold text-[#8a6a16]">Queued</span></li>)}
-          {otherFiles.map((file) => <li key={file.id} className="flex gap-2 py-2 text-[11px]"><FileText size={14} className="shrink-0 text-[#0f8b73]" /><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="font-bold text-[#0f8b73]">Uploaded</span></li>)}
         </ul>
       ) : null}
+      <UploadedDocumentList files={files} />
     </section>
   );
 }
 
 async function loadWorkspaceFileInventory(referralId: number) {
-  const files: { id: string; name: string; category: string }[] = [];
+  const files: ReferralFile[] = [];
   let cursor: string | null = null;
   do {
     const result: {
-      files: { id: string; name: string; category: string }[];
+      files: ReferralFile[];
       next_cursor: string | null;
     } = await fetchPipelineJson<{
-      files: { id: string; name: string; category: string }[];
+      files: ReferralFile[];
       next_cursor: string | null;
     }>(`/api/files?referral_id=${referralId}&limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { cache: "no-store" });
     files.push(...result.files);

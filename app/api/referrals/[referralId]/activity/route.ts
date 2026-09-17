@@ -4,6 +4,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { getReferralActivitySnapshot } from "@/lib/pipeline/referral-activity";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,9 @@ export async function GET(
     if (!access.ok) return access.response;
     const snapshot = await getReferralActivitySnapshot(referralId);
     if (!snapshot) return jsonError("Referral not found.", 404);
+    if (!canModifyReferral(access.referral, auth.user) || access.referral.workspaceStatus === "historical") {
+      for (const event of snapshot.events) delete event.undo;
+    }
     return Response.json(snapshot, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });

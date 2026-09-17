@@ -6,6 +6,7 @@ import { getDocumentOriginalAsset, getDocumentReferralId, isDocumentId } from "@
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import { localFileBytesResponse } from "@/lib/pipeline/local-file-response";
 
 export const runtime = "nodejs";
 
@@ -15,11 +16,9 @@ export async function GET(request: Request, context: { params: Promise<{ documen
     if (!auth.ok) return auth.response;
     const store = requireReferralStore();
     if (!store.ok) return store.response;
-    if (!getPipelineDatabaseReadiness().ready) {
-      return Response.json({ error: "File storage is temporarily unavailable." }, { status: 503 });
-    }
     const { documentId } = await context.params;
     if (!isDocumentId(documentId)) return Response.json({ error: "File not found." }, { status: 404 });
+    if (!getPipelineDatabaseReadiness().ready) return localFileBytesResponse(auth.user, documentId);
     const referralId = await getDocumentReferralId(documentId);
     if (!referralId) return Response.json({ error: "File not found." }, { status: 404 });
     const access = await requireReferralAccess(auth.user, referralId);

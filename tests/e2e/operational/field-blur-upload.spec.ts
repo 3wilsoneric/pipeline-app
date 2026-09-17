@@ -1,9 +1,15 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createCanvas } from "@napi-rs/canvas";
-import { actorApiContext, actorPage, requireOperationalBaseURL, syntheticReferralInput } from "../support/pipeline-actors";
+import { actorApiContext, operationalActorHeaders, requireOperationalBaseURL, syntheticReferralInput } from "../support/pipeline-actors";
+
+async function actorPage(browser: Browser, actor: "assessorA", baseURL: string) {
+  // These tests observe or interrupt requests. A service worker can bypass Playwright's routing/body capture.
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders: operationalActorHeaders(actor, baseURL), serviceWorkers: "block" });
+  return { context, page: await context.newPage() };
+}
 
 test.describe("field exit saves and single uploads", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Requires isolated operational stores.");
@@ -131,7 +137,7 @@ test.describe("field exit saves and single uploads", () => {
       await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
       await expect(editor).toHaveCount(0);
       await expect.poll(async () => (await read()).im_injections).toBe("unable_to_assess");
-      expect((await read()).unable_to_assess_reasons.im_injections).toBe("Synthetic source unavailable");
+      await expect.poll(async () => (await read()).unable_to_assess_reasons.im_injections).toBe("Synthetic source unavailable");
     } finally { await context.close(); await api.dispose(); }
   });
 
@@ -165,6 +171,7 @@ test.describe("field exit saves and single uploads", () => {
       });
       const input = page.getByLabel("Choose additional referral documents");
       await expect(page.getByRole("combobox", { name: "Assessor", exact: true })).toHaveValue("assessor-a");
+      await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
       await expect.poll(() => interrupted, { timeout: 20_000 }).toBe(true);
@@ -179,6 +186,8 @@ test.describe("field exit saves and single uploads", () => {
       expect(transfers).toBe(1);
       await page.reload();
       await expect(page.getByRole("combobox", { name: "Assessor", exact: true })).toHaveValue("assessor-a");
+      await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+      await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
       await expect.poll(() => reservations.length).toBe(2);
       await expect(page.getByTestId("workspace-save-status")).toContainText("Files uploaded");
@@ -232,6 +241,14 @@ test.describe("field exit saves and single uploads", () => {
       const evidence = await api.get(`/api/packets/${saved.packetId}/evidence/referral.packet_summary`);
       expect(evidence.status()).toBe(200);
       expect(evidence.headers()["content-security-policy"]).toBe("sandbox; default-src 'none'; img-src 'self' data:");
+      const removal = await api.delete(`/api/files/${files[0].id}`, { data: { confirmed: true } });
+      expect(removal.status()).toBe(200);
+      expect((await api.get(`/api/referrals/${created[0]}/packet`)).status()).toBe(404);
+      expect((await api.get(`/api/packets/${saved.packetId}/evidence/referral.packet_summary`)).status()).toBe(404);
+      const restored = await api.post(`/api/files/${files[0].id}`, { data: { confirmed: true, deletion_id: (await removal.json()).deletion_id } });
+      expect(restored.status()).toBe(200);
+      expect(await (await api.get(`/api/referrals/${created[0]}/packet`)).body()).toEqual(packet.buffer);
+      expect((await readReferral(api, created[0])).name).toBe(saved.name);
       expect(created).toHaveLength(1);
     } finally { await context.close(); await api.dispose(); }
   });

@@ -4,6 +4,7 @@ import type { CompleteUploadResponse } from "@/lib/extraction/contracts";
 import { requirementForDocumentCategory } from "@/lib/pipeline/document-requirements";
 import type { ReferralActor } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot, patchReferralWorkItem } from "@/lib/pipeline/workflow-store";
+import { assertDocumentAvailable } from "./document-lifecycle";
 
 type UploadedDocument = NonNullable<CompleteUploadResponse["documents"]>[number];
 
@@ -19,6 +20,7 @@ export async function reconcileUploadedDocumentRequirements(
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const snapshot = await getReferralWorkflowSnapshot(referralId);
+      await assertDocumentAvailable(document.document_id);
       const requirement = snapshot?.work_items.find((item) => item.type === requirementType);
       if (!requirement || ["reviewed", "waived"].includes(requirement.status) || requirement.evidenceDocumentId) {
         reconciled = true;

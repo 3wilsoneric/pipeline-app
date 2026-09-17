@@ -1,0 +1,65 @@
+"use client";
+
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, FileText, X } from "lucide-react";
+import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import type { ReferralFile } from "@/lib/pipeline/referral-types";
+import ReferralFilePreviewDialog from "./ReferralFilePreviewDialog";
+
+export default function UploadedDocumentList({ files }: { files: ReferralFile[] }) {
+  const [preview, setPreview] = useState<ReferralFile | null>(null);
+  const [deleting, setDeleting] = useState<ReferralFile | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (deleting) dialog.current?.showModal();
+    else dialog.current?.close();
+  }, [deleting]);
+  const remove = async () => {
+    if (!deleting || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await fetchPipelineJson(`/api/files/${deleting.id}`, {
+        method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }),
+      });
+      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: deleting.referralId } }));
+      setDeleting(null);
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "The file could not be deleted. Try again."); }
+    finally { setBusy(false); }
+  };
+  if (!files.length && !deleting) return null;
+  return <section aria-label="Uploaded documents" className="my-4">
+    <h3 className="mb-2 text-[11px] font-black uppercase tracking-wide text-[#0f8b73]">Uploaded files</h3>
+    <ul className="grid gap-2 sm:grid-cols-2">
+      {files.map((file) => <li key={file.id} className="flex items-center gap-3 rounded border border-[#cddfd6] bg-white p-3 shadow-sm">
+        <button type="button" aria-label={`Preview ${file.name}`} onClick={() => setPreview(file)} className="relative flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded border border-[#dbe5df] bg-[#f6faf8] text-[#0f8b73] focus-visible:outline-2">
+          {file.thumbnailUrl ? <Image src={file.thumbnailUrl} alt="" fill sizes="48px" unoptimized className="object-contain" /> : <FileText size={25} />}
+        </button>
+        <div className="min-w-0 flex-1">
+          <button type="button" onClick={() => setPreview(file)} className="block max-w-full truncate text-left text-[12px] font-bold text-[#173c2b] underline-offset-2 hover:underline">{file.name}</button>
+          {/^[0-9a-f-]{36}$/i.test(file.id)
+            ? <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#128049]"><CheckCircle2 size={14} aria-hidden="true" />Uploaded</span>
+            : <span className="mt-1 block text-[11px] text-[#737373]">Recorded file</span>}
+          <div className="mt-1 flex gap-3 text-[11px] text-[#0f7059]">
+            <button type="button" onClick={() => setPreview(file)} className="underline">Preview</button>
+            {file.downloadUrl ? <a href={file.downloadUrl} target="_blank" rel="noreferrer" className="underline">Open original</a> : <span className="text-[#737373]">{file.previewStatus === "unavailable" ? "Preview unavailable" : "Preview processing"}</span>}
+          </div>
+        </div>
+        {/^[0-9a-f-]{36}$/i.test(file.id) ? <button type="button" aria-label={`Delete ${file.name}`} title="Delete file" onClick={() => { setError(""); setDeleting(file); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-[#737373] hover:bg-[#fff1ee] hover:text-[#9d352a] focus-visible:outline-2"><X size={17} /></button> : null}
+      </li>)}
+    </ul>
+    {preview ? <ReferralFilePreviewDialog key={preview.id} file={preview} onClose={() => setPreview(null)} /> : null}
+    <dialog ref={dialog} onCancel={(event) => { if (busy) event.preventDefault(); else setDeleting(null); }} className="m-auto w-[min(92vw,440px)] rounded border border-[#ccd8d0] bg-white p-6 shadow-xl backdrop:bg-black/40" aria-labelledby="delete-document-title">
+      <h2 id="delete-document-title" className="text-lg font-bold">Delete this file?</h2>
+      <p className="mt-3 break-words text-sm"><strong>{deleting?.name}</strong> will leave this workspace. You can restore it from Change history for 24 hours. Entered chart values stay unchanged.</p>
+      {error ? <p role="alert" className="mt-3 text-sm text-[#a63d2f]">{error}</p> : null}
+      <div className="mt-5 flex justify-end gap-3">
+        <button type="button" autoFocus disabled={busy} onClick={() => setDeleting(null)} className="rounded border px-4 py-2 text-sm font-bold">Cancel</button>
+        <button type="button" disabled={busy} onClick={() => void remove()} className="rounded bg-[#a63d2f] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{busy ? "Deleting…" : "Delete file"}</button>
+      </div>
+    </dialog>
+  </section>;
+}

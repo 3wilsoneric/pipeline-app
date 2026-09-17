@@ -5,6 +5,7 @@ import { maxUploadFileBytes } from "@/lib/extraction/contracts";
 import { extractionErrorResponse, ingestLocalMockPacketFile } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutablePacketAccess } from "@/lib/pipeline/referral-access";
+import { assertPacketNotDeleted } from "@/lib/pipeline/document-lifecycle";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     }
 
     try {
+      await assertPacketNotDeleted(packetId);
       const result = await ingestLocalMockPacketFile({
         packetId,
         fileId,

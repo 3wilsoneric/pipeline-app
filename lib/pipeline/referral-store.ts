@@ -57,6 +57,7 @@ import {
 } from "@/lib/pipeline/workspace-presentation";
 import { resolveWorkspaceMonth, workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
 import { assertPersonaDemoIsolation } from "@/shared/persona-demo-config.mjs";
+import { documentMutationDisposition, detachDocument, documentUndoMilliseconds, restoreDocumentLinks, type LocalUploadedDocument } from "./document-lifecycle-policy";
 
 type ReferralStoreState = {
   initialized: boolean;
@@ -65,6 +66,7 @@ type ReferralStoreState = {
   nextId: number;
   referrals: Referral[];
   auditEvents: StoredReferralAuditEvent[];
+  uploadedDocuments: LocalUploadedDocument[];
   createMutations: Map<string, number>;
   patchMutations: Map<string, number>;
   persistQueue: Promise<void>;
@@ -76,6 +78,7 @@ type ReferralStoreFile = {
   next_id: number;
   referrals: Referral[];
   audit_events?: StoredReferralAuditEvent[];
+  uploaded_documents?: LocalUploadedDocument[];
   create_mutations?: Record<string, number>;
   patch_mutations?: Record<string, number>;
 };
@@ -311,12 +314,14 @@ const state =
     nextId: 1,
     referrals: [],
     auditEvents: [],
+    uploadedDocuments: [],
     createMutations: new Map<string, number>(),
     patchMutations: new Map<string, number>(),
     persistQueue: Promise.resolve(),
   });
 
 state.auditEvents ??= [];
+state.uploadedDocuments ??= [];
 state.createMutations ??= new Map<string, number>();
 state.patchMutations ??= new Map<string, number>();
 
@@ -332,6 +337,7 @@ export async function resetPersonaDemoReferrals() {
   await state.persistQueue;
   state.referrals = [];
   state.auditEvents = [];
+  state.uploadedDocuments = [];
   state.createMutations.clear();
   state.patchMutations.clear();
   state.revision += 1;
@@ -463,6 +469,74 @@ export async function listLocalReferralAuditEvents(id: number) {
     .filter((event) => event.referral_id === id)
     .sort((left, right) => right.created_at.localeCompare(left.created_at))
     .slice(0, 100);
+}
+
+export async function getLocalUploadedDocument(id: string) {
+  await ensureLoaded();
+  return state.uploadedDocuments.find((document) => document.file.id === id) ?? null;
+}
+
+export async function getLocalDeletedPacket(packetId: string) {
+  await ensureLoaded();
+  return state.uploadedDocuments.find((document) => document.packetId === packetId && document.deletedAt) ?? null;
+}
+
+export async function recordLocalUploadedDocument(document: LocalUploadedDocument, actor: ReferralActor) {
+  await ensureLoaded();
+  if (state.uploadedDocuments.some((entry) => entry.file.id === document.file.id)) return;
+  state.uploadedDocuments.push(document);
+  appendDocumentAudit(document, "document_uploaded", actor);
+  state.revision += 1;
+  await persist();
+}
+
+export async function mutateLocalUploadedDocument(id: string, action: "delete" | "restore", actor: ReferralActor, authorize: (referral: Referral) => void, deletionId?: string) {
+  await ensureLoaded();
+  const document = state.uploadedDocuments.find((entry) => entry.file.id === id);
+  const index = state.referrals.findIndex((referral) => referral.id === document?.file.referralId && !isDeletedReferral(referral));
+  if (!document || index < 0) return null;
+  const current = state.referrals[index];
+  authorize(current);
+  assertMutableWorkspace(current);
+  const now = new Date().toISOString();
+  const disposition = documentMutationDisposition(document, action, deletionId);
+  if (disposition === "replay") return document;
+  if (disposition === "unavailable") return null;
+  const next = updateLocalDocumentState(document, current, action, now);
+  state.referrals[index] = { ...next, workflowStatus: resolveReferralWorkflowStatusAfterReferralChange(current, next), version: (current.version ?? 1) + 1, updatedAt: now, updatedBy: actor,
+    sectionVersions: incrementReferralSections(normalizeReferralSectionVersions(current.sectionVersions), ["documents", "workflow"]) };
+  appendDocumentAudit(document, action === "delete" ? "document_deleted" : "document_restored", actor);
+  state.revision += 1;
+  await persist();
+  return document;
+}
+
+function updateLocalDocumentState(document: LocalUploadedDocument, current: Referral, action: "delete" | "restore", now: string) {
+  if (action === "delete") {
+    const detached = detachDocument(current, document.file, now, current.packetId === document.packetId);
+    Object.assign(document, { deletedAt: now, undoUntil: new Date(Date.now() + documentUndoMilliseconds).toISOString(),
+      deletionId: randomUUID(), recovery: detached.recovery });
+    return detached.referral;
+  }
+  const next = restoreDocumentLinks(current, document.recovery ?? { requirements: [] }, now);
+  delete document.deletedAt;
+  delete document.undoUntil;
+  delete document.recovery;
+  return next;
+}
+
+function appendDocumentAudit(document: LocalUploadedDocument, action: string, actor: ReferralActor) {
+  state.auditEvents.unshift({ audit_event_id: randomUUID(), referral_id: document.file.referralId!, action,
+    actor_id: actor.id, actor_name: actor.name, changed_fields: ["document"], before_values: null,
+    after_values: { document: document.file.name },
+    metadata: { document_id: document.file.id, deletion_id: document.deletionId ?? null, undo_until: document.undoUntil ?? null },
+    from_version: null, to_version: 1, created_at: new Date().toISOString() });
+}
+
+export async function localDocumentUndoState(referralId: number) {
+  await ensureLoaded();
+  return state.uploadedDocuments.filter((entry) => entry.file.referralId === referralId && entry.deletedAt)
+    .map((entry) => ({ document_id: entry.file.id, deletion_id: entry.deletionId, undo_until: entry.undoUntil }));
 }
 
 export async function listReferralsByClient(clientId: string) {
@@ -622,6 +696,7 @@ async function ensureLoaded() {
         : [];
 
       state.referrals = referrals.map(normalizeReferral);
+      state.uploadedDocuments = parsed.uploaded_documents ?? [];
       state.auditEvents = Array.isArray(parsed.audit_events)
         ? parsed.audit_events.filter(isStoredReferralAuditEvent).slice(0, 100_000)
         : [];
@@ -661,6 +736,7 @@ async function persist() {
     next_id: state.nextId,
     referrals: state.referrals,
     audit_events: state.auditEvents,
+    uploaded_documents: state.uploadedDocuments,
     create_mutations: Object.fromEntries(state.createMutations),
     patch_mutations: Object.fromEntries(state.patchMutations),
   };
@@ -1592,6 +1668,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         limit 1
       ) latest_referral on true
       where d.deleted_at is null
+        and d.processing_status <> 'reserved'
         and (r.referral_id is null or r.deleted_at is null)
       union all
       select
@@ -3158,7 +3235,16 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
     includedIds.add(requirement.evidenceDocumentId);
   }
 
-  return files;
+  const recorded = state.uploadedDocuments.filter((document) => document.file.referralId === referral.id);
+  const recordedIds = new Set(recorded.map((document) => document.file.id));
+  return [
+    ...files.filter((file) => !recordedIds.has(file.id) && !recorded.some((document) => (
+      file.id.startsWith(`referral-${referral.id}-packet`) && file.name === document.file.name
+    ))),
+    ...recorded.filter((document) => !document.deletedAt).map((document) => ({
+      ...document.file, referralName: referral.name, owner: referral.owner, community: referral.community,
+    })),
+  ];
 }
 
 function appendLocalAdditionalFiles(referral: Referral, files: ReferralFile[], includedIds: Set<string>) {
