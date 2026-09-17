@@ -37,11 +37,11 @@ async function syntheticHome(page: Page) {
   await page.evaluate(() => document.fonts.ready);
 }
 
-for (const width of [1440, 1024, 390]) {
+for (const width of [1440, 1024, 437, 390]) {
   test(`emerald Home and assessment stay legible and usable at ${width}px`, async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    await page.setViewportSize({ width, height: width === 437 ? 536 : width === 390 ? 844 : 1000 });
     await syntheticHome(page);
     await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(237, 243, 242)");
     await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", "0px");
@@ -58,14 +58,22 @@ for (const width of [1440, 1024, 390]) {
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1");
     const assessment = page.locator('[data-assessment-view="chart"]');
     await expect(assessment).toBeVisible();
+    await expect(assessment.locator("main")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(assessment).toHaveCSS("backdrop-filter", "none");
+    const actions = assessment.locator('footer[aria-label="Assessment actions"]');
+    const buttonStyles = await actions.locator("button").evaluateAll((buttons) => buttons.filter((button) => button.getBoundingClientRect().width > 0).map((button) => {
+      const style = getComputedStyle(button);
+      return [style.height, style.borderRadius, style.fontSize, style.fontWeight, style.borderTopWidth].join("/");
+    }));
+    expect(new Set(buttonStyles).size).toBe(1);
     const secondary = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
     await expect(secondary).toHaveCSS("font-size", "16px");
     await secondary.fill("Synthetic referral history prepared for the interview.");
     await secondary.press("Tab");
     await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toHaveCSS("background-color", "rgb(255, 255, 255)");
     if (width >= 1024) {
-      await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(233, 241, 240)");
-      await expect(assessment.locator('button[aria-current="step"]')).toHaveCSS("border-top-color", "rgb(152, 205, 183)");
+      await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(234, 241, 248)");
+      await expect(assessment.locator('button[aria-current="step"]')).toHaveCSS("border-top-color", "rgb(165, 205, 184)");
     }
     if (width >= 1200) {
       const reference = await assessment.getByRole("complementary", { name: "Captured assessment answers" }).boundingBox();
@@ -80,9 +88,11 @@ for (const width of [1440, 1024, 390]) {
     await expect(begin).toBeVisible();
     await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
     await expect(begin).toHaveCount(0);
+    await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCSS("background-color", "rgb(0, 126, 96)");
     await expect(secondary).toHaveValue("Synthetic referral history prepared for the interview.");
     await assessment.locator("main").evaluate((element) => { element.scrollTop = element.scrollHeight; });
     await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
+    await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toHaveCSS("background-color", "rgb(0, 126, 96)");
     await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
     expect(errors).toEqual([]);
   });

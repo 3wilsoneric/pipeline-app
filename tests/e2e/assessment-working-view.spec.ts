@@ -115,7 +115,10 @@ test("fits desktop, tablet, and phone and resets section scroll", async ({ page 
   }
   await assessment.locator("main").evaluate((element) => { element.scrollTop = element.scrollHeight; });
   await assessment.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
-  await expect(assessment.getByRole("heading", { name: "History", exact: true })).toBeInViewport();
+  await expect(assessment.getByLabel("Assessment section", { exact: true })).toHaveValue("prior_history");
+  await expect(assessment.getByLabel("Assessment section", { exact: true })).toBeInViewport();
+  await expect(assessment.getByRole("button", { name: /^Placement trajectory/ })).toBeInViewport();
+  await expect.poll(() => assessment.locator("main").evaluate((element) => element.scrollTop)).toBe(0);
   await page.screenshot({ path: "outputs/assessment-working-mobile.png" });
 });
 
@@ -135,7 +138,7 @@ test("captured answers sit beside the questionnaire and remaining navigation sta
   const nav = assessment.getByRole("navigation", { name: "Assessment sections", exact: true });
   await nav.getByRole("button", { name: "Jump to Communication and participation", exact: true }).click();
   await expect(assessment.getByRole("region", { name: "Communication and participation", exact: true }).getByRole("button", { name: /^Communication and participation/ })).toHaveAttribute("aria-expanded", "true");
-  await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(233, 241, 240)");
+  await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(234, 241, 248)");
   await expect(nav.getByRole("button", { name: /^Client & referral/ })).not.toBeVisible();
   await nav.getByText("Referral details", { exact: true }).click();
   await nav.getByRole("button", { name: /^Client & referral/ }).click();
