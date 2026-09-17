@@ -294,7 +294,7 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
 
   field("adl_needs", "ADL needs", "functional_adl", "string", false),
   field("prompting_level", "Prompting level", "functional_adl", "string", false),
-  field("mobility", "Mobility", "functional_adl", "string", false, ["assessment.mobility"]),
+  field("mobility", "Type of device", "functional_adl", "string", false, ["assessment.mobility"]),
   field("self_care_status", "Self-care status", "functional_adl", "string", false),
   field("dress_assistance_level", "Ability to dress", "functional_adl", "string", true),
   field("dress_assistance_details", "Dressing assistance needed", "functional_adl", "string", false),

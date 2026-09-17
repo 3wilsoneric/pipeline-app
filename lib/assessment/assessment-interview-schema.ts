@@ -174,7 +174,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("prompting_level", "Daily living", "text"),
   q("self_care_status", "Daily living", "text"),
   q("ambulatory", "Mobility", "yes_no", { options: yesNo }),
-  q("mobility", "Mobility", "textarea", { showWhen: equals("ambulatory", "no"), requiredWhen: equals("ambulatory", "no"), span: "full", placeholder: "Describe assistance, device, or transfer needs" }),
+  q("mobility", "Mobility", "text", { showWhen: equals("ambulatory", "no"), requiredWhen: equals("ambulatory", "no"), span: "full", placeholder: "Type of device" }),
   q("language_barrier", "Communication and participation", "yes_no", { options: yesNo }),
   q("language_barrier_details", "Communication and participation", "textarea", { showWhen: equals("language_barrier", "yes"), requiredWhen: equals("language_barrier", "yes"), span: "full" }),
   q("linear_conversation", "Communication and participation", "yes_no", { options: yesNo }),
