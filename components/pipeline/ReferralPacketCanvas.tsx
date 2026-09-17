@@ -426,6 +426,7 @@ export default function ReferralPacketCanvas({
   const permissionReadOnly = isWorkspacePermissionReadOnly(loadedReferral, viewer, trainingAssessmentMode);
   const editableReferralId = mutableReferralId(loadedReferral, referral?.id, permissionReadOnly);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
   const loadedReferralRef = useRef<Referral | null>(null);
   const fieldsRef = useRef(fields);
   const tagsInputRef = useRef(tagsInput);
@@ -1295,6 +1296,20 @@ export default function ReferralPacketCanvas({
     });
   };
 
+  const navigatePage = async (page: WorkspaceView) => {
+    if (page === activePage) return;
+    try {
+      await assessmentNavigationRef.current?.();
+      if (activePage === 1 && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
+        await openQuestionnaireFromIntake();
+      } else {
+        openPage(page);
+      }
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Your last changes could not be saved. Try again before leaving this page.");
+    }
+  };
+
   const focusWorkspaceField = (key: FieldKey) => {
     lastFocusRef.current = key;
     if (activePage === 1 && onWorkspaceLocationChange) {
@@ -1703,10 +1718,11 @@ export default function ReferralPacketCanvas({
   });
 
   const openQuestionnaireFromIntake = async () => {
-    const current = loadedReferralRef.current;
-    if (!current) return;
+    const id = activeReferralId(loadedReferralRef.current, referral);
+    if (!id) return;
     await preservePendingIntake();
-    setPreparingReferralId(current.id);
+    await intakeSaveQueueRef.current;
+    setPreparingReferralId(id);
     openPage(2);
   };
 
@@ -2060,7 +2076,7 @@ export default function ReferralPacketCanvas({
               <h1 data-testid="workspace-identity-title" className="truncate text-[14px] font-bold text-[#111111]" title={workspaceTitle}>
                 {workspaceTitle}
               </h1>
-              {editingControlsVisible ? (
+              {editingControlsVisible && displayedPage !== 2 ? (
                 <WorkspaceSaveStatus
                   status={saveStatus}
                   error={saveError ? `Pending · ${saveError}` : ""}
@@ -2073,7 +2089,7 @@ export default function ReferralPacketCanvas({
                 />
               ) : null}
             </div>
-            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={openPage} />
+            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={(page) => void navigatePage(page)} />
 
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:ml-auto">
               <WorkspaceAssignedWorkControl
@@ -2085,7 +2101,7 @@ export default function ReferralPacketCanvas({
               {loadedReferral && editingControlsVisible ? (
                 <button
                   type="button"
-                  onClick={() => openPage("workflow")}
+                  onClick={() => void navigatePage("workflow")}
                   aria-current={displayedPage === "workflow" ? "page" : undefined}
                   aria-label="Admission workflow"
                   title="Workflow"
@@ -2101,7 +2117,7 @@ export default function ReferralPacketCanvas({
               ) : null}
               <button
                 type="button"
-                onClick={() => openPage("files")}
+                onClick={() => void navigatePage("files")}
                 aria-current={displayedPage === "files" ? "page" : undefined}
                 aria-label="Workspace files"
                 title="Files"
@@ -2116,7 +2132,7 @@ export default function ReferralPacketCanvas({
               </button>
               <button
                 type="button"
-                onClick={() => openPage("activity")}
+                onClick={() => void navigatePage("activity")}
                 aria-current={displayedPage === "activity" ? "page" : undefined}
                 aria-label="Workspace activity"
                 title="Activity"
@@ -2485,6 +2501,8 @@ export default function ReferralPacketCanvas({
                   initialSection={routedWorkspaceLocation.view === "assessment" ? routedWorkspaceLocation.assessmentSection : undefined}
                   assignedAssessorId={loadedReferral?.ownerId}
                   startQuestionnaire={preparingReferralId === referralWorkspaceId}
+                  workspaceTitle={workspaceTitle}
+                  beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onContinueToWorkflow={() => openPage("workflow")}

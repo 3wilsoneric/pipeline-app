@@ -51,6 +51,14 @@
 .groupNavigation p { margin: 24px 10px 0; color: #617168; font-size: 12px; line-height: 1.7; }
 
 .worksheet { --folder-fill: #ede4d0; --folder-edge: #cbbd9d; min-width: 0; }
+.embedded { display: flex; flex-direction: column; min-width: 0; background: #fff; }
+.file article[aria-label="Referral preparation chart"] { overflow: clip; }
+.embedded > div:has(> main) { align-items: flex-start; }
+.embedded main { overflow: visible; scroll-margin-top: 64px; background: #fff; }
+.embedded aside[aria-label="Preparation navigation"] { position: sticky; top: 66px; align-self: flex-start; overflow: visible; background: #f7faf8; }
+.embedded .worksheet { padding: 0; border: 1px solid #bfcac5; border-radius: 0; background: #fff; box-shadow: none; }
+.embedded .worksheet > div { border: 0; border-radius: 0; box-shadow: none; }
+.embedded > footer { position: sticky; bottom: 0; z-index: 10; border-top: 1px solid #bfcac5; box-shadow: 0 -3px 12px rgb(30 55 43 / 4%); }
 .questionGroup + .questionGroup { border-top: 1px solid #d5dfd9; }
 .questionGroup h4 { padding: 12px 18px; border-bottom: 1px solid #e0e6e2; background: #f4f7f5; color: #36594a; font-size: 12px; font-weight: 600; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 20px; }

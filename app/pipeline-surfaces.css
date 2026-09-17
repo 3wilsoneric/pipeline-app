@@ -253,6 +253,8 @@
 .pipeline-surfaces [aria-label="Workspace gallery"] strong[title] { font-size: 15px; }
 
 /* Keep the color in the frame and wayfinding, not behind clinical answers. */
+.pipeline-surfaces #packet-page-2:has([data-assessment-view="preparation"]) { overflow: clip; }
+
 .pipeline-surfaces [data-assessment-view="chart"] {
   padding: 12px;
   background: radial-gradient(ellipse at 0 0, #159c7b, transparent 65%),

@@ -178,7 +178,10 @@ for (const width of [1440, 390]) {
     const questionnaire = page.getByRole("button", { name: "Open questionnaire", exact: true });
     await questionnaire.scrollIntoViewIfNeeded();
     await expect(questionnaire).toBeInViewport();
+    await folder.locator('[data-workspace-field="dob"] input').fill("1972-05-08");
     await questionnaire.click();
-    await expect(page.locator('[data-assessment-view="chart"]')).toBeVisible();
+    await expect(page.getByTestId("preparation-client-folder")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
+    await expect(page.locator("#assessment-date_of_birth")).toHaveValue("1972-05-08");
   });
 }

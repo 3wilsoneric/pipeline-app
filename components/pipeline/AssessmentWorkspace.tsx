@@ -2,8 +2,7 @@
 
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from "react";
 import {
   AlertTriangle,
   CalendarClock,
@@ -102,9 +101,8 @@ import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabB
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
-import AssessmentPreparation, { PreparationNavigation } from "@/components/pipeline/AssessmentPreparation";
+import AssessmentPreparation, { PreparationNavigation, AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
-import preparationStyles from "@/components/pipeline/AssessmentPreparation.module.css";
 
 type AssessmentWorkspaceProps = {
   readOnly?: boolean;
@@ -114,6 +112,8 @@ type AssessmentWorkspaceProps = {
   initialSection?: AssessmentToolSection;
   assignedAssessorId?: string;
   startQuestionnaire?: boolean;
+  workspaceTitle?: string;
+  beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
     captured: number;
@@ -261,6 +261,8 @@ export default function AssessmentWorkspace({
   initialSection,
   assignedAssessorId,
   startQuestionnaire = false,
+  workspaceTitle,
+  beforeWorkspaceNavigationRef,
   packetEvidenceVersion,
   onSummaryChange,
   onAssessmentSaved,
@@ -323,9 +325,11 @@ export default function AssessmentWorkspace({
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : null;
   const setNotebookView = (view: "prepare" | "assessment") => setNotebookPage({ assessmentId: selectedId, view });
   const preparing = !trainingAssessmentMode && (notebookView === "prepare" || (notebookView === null && assessmentReadyToBegin(selected)));
+  const embeddedPreparation = preparing && Boolean(workspaceTitle);
   const preparationGroup = preparationGroupForSection(activeSection);
   const preparationIndex = assessmentPreparationGroups.indexOf(preparationGroup);
   const visibleSectionKey = preparing ? preparationGroup.key : activeSection;
+  const previousVisibleSectionRef = useRef(visibleSectionKey);
   const QuestionPage = preparing ? AssessmentPreparation : AssessmentWorkingSection;
   const { canSupervise, canEditClinical, canCreateAssignedAssessment, canAddAddendum } = assessmentWorkspacePermissions(
     trainingAssessmentMode, viewer, selected, assignedAssessorId, readOnly,
@@ -348,7 +352,11 @@ export default function AssessmentWorkspace({
 
   useEffect(() => {
     if (chartScrollRef.current) chartScrollRef.current.scrollTop = 0;
-  }, [visibleSectionKey, preparing, isFocused]);
+    if (embeddedPreparation && previousVisibleSectionRef.current !== visibleSectionKey) {
+      chartScrollRef.current?.scrollIntoView({ block: "start" });
+    }
+    previousVisibleSectionRef.current = visibleSectionKey;
+  }, [visibleSectionKey, preparing, isFocused, embeddedPreparation]);
 
   const openFocusedAssessment = () => {
     applyAssessmentFocus(
@@ -675,10 +683,10 @@ export default function AssessmentWorkspace({
     });
   }, [initialSection, nextRequiredTarget, selected, trainingAssessmentMode, trainingAssessmentSection]);
 
-  const closeFromEscape = useEffectEvent(() => void closeAssessment());
+  const closeFromEscape = useEffectEvent(() => void exitFocusedAssessment());
 
   useEffect(() => {
-    if (!isFocused) return;
+    if (!isFocused || (embeddedPreparation && !showBeginDialog && !showScheduleDialog)) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => handleAssessmentEscape(event, {
       showBeginDialog,
@@ -693,7 +701,7 @@ export default function AssessmentWorkspace({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isFocused, showBeginDialog, showScheduleDialog]);
+  }, [isFocused, embeddedPreparation, showBeginDialog, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -1013,22 +1021,28 @@ export default function AssessmentWorkspace({
   };
 
   const closeAssessment = (onClosed?: () => void) => saveAndCloseAssessment(onClosed).catch(() => undefined);
+  const exitFocusedAssessment = () => closeAssessment(workspaceTitle && !trainingAssessmentMode ? () => {
+    setNotebookView("prepare");
+    setIsFocused(true);
+  } : undefined);
   const saveForHeaderNavigation = useEffectEvent(() => saveAndCloseAssessment());
 
   useEffect(() => {
     if (!isFocused) return;
-    setAssessmentFocused(true);
+    setAssessmentFocused(!embeddedPreparation);
     const content = contentRef.current;
     const previousIsolation = content?.style.isolation ?? "";
-    if (content) content.style.isolation = "isolate";
+    if (content && !embeddedPreparation) content.style.isolation = "isolate";
     const save = () => saveForHeaderNavigation();
     beforeNavigationRef.current = save;
+    if (beforeWorkspaceNavigationRef) beforeWorkspaceNavigationRef.current = save;
     return () => {
       setAssessmentFocused(false);
       if (content) content.style.isolation = previousIsolation;
       if (beforeNavigationRef.current === save) beforeNavigationRef.current = null;
+      if (beforeWorkspaceNavigationRef?.current === save) beforeWorkspaceNavigationRef.current = null;
     };
-  }, [beforeNavigationRef, contentRef, isFocused, setAssessmentFocused]);
+  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedPreparation, isFocused, setAssessmentFocused]);
 
   const workspaceControl = <WorkspaceReturnButton onOpen={onOpenWorkspace} onExit={closeAssessment} disabled={isClosing} />;
 
@@ -1407,15 +1421,37 @@ export default function AssessmentWorkspace({
     );
   }
 
-  return createPortal(
-    <section role="dialog" aria-modal="false" aria-label="Assessment interview" data-assessment-view="chart" className={`${contentRef.current ? "absolute" : "fixed"} inset-0 z-[90] flex flex-col overflow-hidden bg-white`}>
-      <AssessmentInterviewHeader name={draft.resident_name} community={draft.community} phase={selected.signed_at ? "Signed" : selected.started_at ? "Assessment" : "Questionnaire"} view="chart" disabled={isClosing} onClose={() => void closeAssessment()} />
-
-      {!trainingAssessmentMode ? <nav aria-label="Client file pages" className={preparationStyles.filePages}>
-        {onOpenWorkspace ? <button type="button" disabled={isClosing} onClick={() => void closeAssessment(onOpenWorkspace)}>Referral</button> : null}
-        <button type="button" aria-current={preparing ? "page" : undefined} onClick={() => { setWorkingTarget(null); setNotebookView("prepare"); }}>Prepare</button>
-        <button type="button" aria-current={!preparing ? "page" : undefined} onClick={() => { setWorkingTarget(null); setNotebookView("assessment"); }}>Assessment</button>
-      </nav> : null}
+  return (
+    <AssessmentFileSurface
+      title={embeddedPreparation ? workspaceTitle : undefined}
+      container={contentRef.current}
+      header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} phase={selected.signed_at ? "Signed" : selected.started_at ? "Assessment" : "Questionnaire"} view="chart" disabled={isClosing} onClose={() => void exitFocusedAssessment()} />}
+      pages={<AssessmentFileNavigation hidden={Boolean(trainingAssessmentMode)} disabled={isClosing} preparing={preparing}
+        onReferral={onOpenWorkspace ? () => void closeAssessment(onOpenWorkspace) : undefined}
+        onPrepare={() => { setWorkingTarget(null); setNotebookView("prepare"); }}
+        onAssessment={() => { setWorkingTarget(null); setNotebookView("assessment"); }}
+      />}
+      dialogs={<AssessmentSchedulingDialogs
+        assessment={selected}
+        showScheduleDialog={!readOnly && showScheduleDialog}
+        showBeginDialog={!readOnly && showBeginDialog}
+        isBusy={isBusy}
+        error={error}
+        canEditClinical={canEditClinical}
+        scheduleStart={scheduleStart}
+        scheduleDuration={scheduleDuration}
+        scheduleMethod={scheduleMethod}
+        scheduleLocation={scheduleLocation}
+        onScheduleStartChange={setScheduleStart}
+        onScheduleDurationChange={setScheduleDuration}
+        onScheduleMethodChange={setScheduleMethod}
+        onScheduleLocationChange={setScheduleLocation}
+        onCloseSchedule={() => setShowScheduleDialog(false)}
+        onSaveSchedule={() => void saveSchedule()}
+        onCloseBegin={() => setShowBeginDialog(false)}
+        onBeginAssessment={() => void beginAssessment()}
+      />}
+    >
 
       {showAddendum ? (
         <div className="shrink-0 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
@@ -1565,16 +1601,17 @@ export default function AssessmentWorkspace({
       </div>
 
       <footer aria-label="Assessment actions" className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-white px-4 py-2 sm:px-6 lg:px-8">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {!embeddedPreparation ? <div className="flex min-w-0 flex-wrap items-center gap-2">
           {trainingAssessmentMode ? workspaceControl : null}
           {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isClosing} /> : null}
           <DemoAssessmentControls persona={viewer?.demoPersona} />
-        </div>
+        </div> : null}
         <span data-guide-target="assessment-save-status" aria-live="polite" className={`order-last flex min-w-0 basis-full items-center gap-1.5 text-[11px] sm:order-none sm:flex-1 sm:basis-auto sm:justify-end ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#9a6115]" : "text-[#0c705f]"}`}>
           {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
           <span className="truncate">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
         </span>
         <div className="flex flex-wrap items-center gap-2">
+          {embeddedPreparation && selected.started_at ? <button type="button" onClick={() => setNotebookView("assessment")} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold text-[#0c705f]">Return to assessment<ChevronRight size={14} /></button> : null}
           {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold text-[#444444] hover:text-[#0f8b73]"><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</button> : null}
           {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]"><Play size={13} fill="currentColor" />Begin assessment</button> : null}
           {selected.signed_at ? (
@@ -1586,28 +1623,7 @@ export default function AssessmentWorkspace({
         </div>
       </footer>
 
-      <AssessmentSchedulingDialogs
-        assessment={selected}
-        showScheduleDialog={!readOnly && showScheduleDialog}
-        showBeginDialog={!readOnly && showBeginDialog}
-        isBusy={isBusy}
-        error={error}
-        canEditClinical={canEditClinical}
-        scheduleStart={scheduleStart}
-        scheduleDuration={scheduleDuration}
-        scheduleMethod={scheduleMethod}
-        scheduleLocation={scheduleLocation}
-        onScheduleStartChange={setScheduleStart}
-        onScheduleDurationChange={setScheduleDuration}
-        onScheduleMethodChange={setScheduleMethod}
-        onScheduleLocationChange={setScheduleLocation}
-        onCloseSchedule={() => setShowScheduleDialog(false)}
-        onSaveSchedule={() => void saveSchedule()}
-        onCloseBegin={() => setShowBeginDialog(false)}
-        onBeginAssessment={() => void beginAssessment()}
-      />
-    </section>,
-    contentRef.current ?? document.body,
+    </AssessmentFileSurface>
   );
 }
 

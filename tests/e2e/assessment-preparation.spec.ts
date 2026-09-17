@@ -41,6 +41,17 @@ async function choosePreparationGroup(page: Page, label: string, key: string) {
   await expect(page.getByRole("article", { name: "Referral preparation worksheet" })).toBeVisible();
 }
 
+async function openWorkspacePage(page: Page, label: string, value: string) {
+  if ((page.viewportSize()?.width ?? 0) < 1024) await page.getByRole("combobox", { name: "Workspace stage", exact: true }).selectOption(value);
+  else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: new RegExp(label) }).click();
+}
+
+async function reviewFullAssessment(page: Page) {
+  await choosePreparationGroup(page, "Legal & supports", "legal_conservatorship");
+  await page.getByRole("button", { name: "Review assessment", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toBeVisible();
+}
+
 for (const width of [1440, 390]) {
   test(`referral preparation survives switching, quick exit, reload, and beginning the same assessment at ${width}px`, async ({ page }, testInfo) => {
     test.setTimeout(90_000);
@@ -50,9 +61,22 @@ for (const width of [1440, 390]) {
     const referral = await createReferral(page);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
     await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
-    const notebook = page.getByRole("dialog", { name: "Assessment interview", exact: true });
-    const pages = notebook.getByRole("navigation", { name: "Client file pages" });
-    await expect(pages.getByRole("button", { name: "Prepare", exact: true })).toHaveAttribute("aria-current", "page");
+    const notebook = page.locator("[data-assessment-view]");
+    const pages = page.getByRole("navigation", { name: "Client file pages" });
+    await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
+    await expect(page.getByTestId("preparation-client-folder")).toContainText(referral.name);
+    await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
+    await expect(pages).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Workspace files", exact: true })).toBeVisible();
+    await expect(notebook.getByRole("button", { name: "Begin assessment", exact: true })).toBeInViewport();
+    await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
+    await notebook.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    const schedule = page.locator('[data-assessment-scheduling="fullscreen"]');
+    await expect(schedule).toBeVisible();
+    const closeSchedule = schedule.getByRole("button", { name: /Close/ });
+    // The real pointer action detects toolbar overlap, unlike visibility alone.
+    await closeSchedule.click();
+    await expect(schedule).toHaveCount(0);
     await expect(notebook.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await expect(notebook.locator("#assessment-resident_name")).toHaveValue(referral.name);
     await expect(notebook.locator("#assessment-date_of_birth")).toHaveValue("1980-04-12");
@@ -75,13 +99,13 @@ for (const width of [1440, 390]) {
     await expect(device).toBeVisible();
     await device.fill("Uses a walker according to the referral.");
     // Exit directly from the last edited field, without waiting for an autosave timer.
-    await pages.getByRole("button", { name: "Referral", exact: true }).click();
+    await openWorkspacePage(page, "Intake", "1");
     await expect(notebook).toHaveCount(0);
     await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
     await choosePreparationGroup(page, "Daily support", "functional_adl");
     await expect(device).toHaveValue("Uses a walker according to the referral.");
     await page.reload();
-    await expect(pages.getByRole("button", { name: "Prepare", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
     await expect(device).toHaveValue("Uses a walker according to the referral.");
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessmentId}`)).json()).assessment.mobility).toBe("Uses a walker according to the referral.");
     for (const group of assessmentPreparationGroups) await choosePreparationGroup(page, group.label, group.key);
@@ -112,7 +136,7 @@ for (const width of [1440, 390]) {
     await secondary.fill("Updated during the interview.");
     await pages.getByRole("button", { name: "Prepare", exact: true }).click();
     await expect(secondary).toHaveValue("Updated during the interview.");
-    await pages.getByRole("button", { name: "Assessment", exact: true }).click();
+    await notebook.getByRole("button", { name: "Return to assessment", exact: true }).click();
     await page.reload();
     await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     const saved = (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
@@ -124,6 +148,41 @@ for (const width of [1440, 390]) {
     expect(saved[0].current_self_harm_ideation).toBeNull();
     expect(errors).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`assessment-${width}.png`) });
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`integrated preparation preserves the last answer through workspace controls at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const referral = await createReferral(page);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
+    // Enter through the real workspace tab, not the separate notes-lab route.
+    await openWorkspacePage(page, "Questionnaire", "2");
+    await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
+    const { assessments } = await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json();
+    expect(assessments).toHaveLength(1);
+    const id = assessments[0].assessment_id;
+    for (const destination of ["Files", "Activity", "Chart", "Intake"]) {
+      const value = `Last answer before ${destination}`;
+      await page.locator("#assessment-current_location").fill(value);
+      if (destination === "Files" || destination === "Activity") {
+        await page.getByRole("button", { name: `Workspace ${destination.toLowerCase()}`, exact: true }).click();
+      } else {
+        await openWorkspacePage(page, destination, destination === "Chart" ? "3" : "1");
+      }
+      await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toHaveCount(0);
+      await expect.poll(async () => (await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).toBe(value);
+      await openWorkspacePage(page, "Questionnaire", "2");
+      await expect(page.locator("#assessment-current_location")).toHaveValue(value);
+    }
+    await reviewFullAssessment(page);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open questionnaire", exact: true })).toHaveCount(0);
+    // Escape on an inline file page must not close or collapse it.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
   });
 }
 
@@ -143,18 +202,18 @@ test("preparation remains keyboard navigable and motion-free with reduced motion
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-    const result = await axe.run('[aria-label="Client file pages"], [aria-label="Preparation groups"]', { runOnly: ["color-contrast", "button-name"] });
+    const result = await axe.run('[aria-label="Workspace stages"], [aria-label="Preparation groups"]', { runOnly: ["color-contrast", "button-name"] });
     return result.violations.map(({ id }) => id);
   });
   expect(violations).toEqual([]);
   const pages = page.getByRole("navigation", { name: "Client file pages" });
-  await pages.getByRole("button", { name: "Prepare", exact: true }).focus();
-  await page.keyboard.press("Tab");
-  await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toBeFocused();
+  await choosePreparationGroup(page, "Legal & supports", "legal_conservatorship");
+  await page.getByRole("button", { name: "Review assessment", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(worksheet).toHaveCount(0);
   await pages.getByRole("button", { name: "Prepare", exact: true }).click();
   await expect(worksheet).toBeVisible();
+  await choosePreparationGroup(page, "Referral & placement", "identity");
   await page.getByRole("button", { name: "Next group", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Clinical history", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Previous", exact: true }).click();
@@ -173,7 +232,7 @@ test("preparation preserves the signed assessment's read-only boundary", async (
   } });
   expect(signed.status()).toBe(200);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-  const notebook = page.getByRole("dialog", { name: "Assessment interview", exact: true });
+  const notebook = page.locator("[data-assessment-view]");
   await notebook.getByRole("navigation", { name: "Client file pages" }).getByRole("button", { name: "Prepare", exact: true }).click();
   await choosePreparationGroup(page, "Clinical history", "prior_history");
   await expect(notebook.locator("#assessment-secondary_diagnoses")).toHaveValue("Signed synthetic diagnosis");
@@ -193,15 +252,16 @@ test("a queued preparation save stays visible and keeps answers across views", a
     else await route.continue();
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-  const notebook = page.getByRole("dialog", { name: "Assessment interview", exact: true });
+  const notebook = page.locator("[data-assessment-view]");
   const location = notebook.locator("#assessment-current_location");
   await location.fill("Unsaved but retained referral notes");
   await notebook.getByRole("heading", { name: "Referral & placement", exact: true }).click();
   await expect(notebook.locator('[data-guide-target="assessment-save-status"]')).toHaveText("1 change waiting to sync");
   expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.current_location).not.toBe("Unsaved but retained referral notes");
   const pages = notebook.getByRole("navigation", { name: "Client file pages" });
-  await pages.getByRole("button", { name: "Assessment", exact: true }).click();
+  await reviewFullAssessment(page);
   await pages.getByRole("button", { name: "Prepare", exact: true }).click();
+  await choosePreparationGroup(page, "Referral & placement", "identity");
   await expect(location).toHaveValue("Unsaved but retained referral notes");
   await expect(notebook.locator('[data-guide-target="assessment-save-status"]')).not.toHaveText("All changes saved");
   await page.unroute(`**/api/assessments/${assessment.assessment_id}`);

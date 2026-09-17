@@ -1,11 +1,65 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { assessmentPreparationGroups, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import { WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
 import { assessmentWorkingCounts, groupWorkingQuestions } from "@/components/pipeline/assessment-working-view";
 import folderStyles from "@/components/pipeline/ClientFolder.module.css";
 import styles from "@/components/pipeline/AssessmentPreparation.module.css";
+import { ClientChartFrame, ClientChartHeader } from "@/components/pipeline/ClientMedicalChart";
+
+export function AssessmentFileNavigation({ hidden, disabled, preparing, onReferral, onPrepare, onAssessment }: {
+  hidden: boolean;
+  disabled: boolean;
+  preparing: boolean;
+  onReferral?: () => void;
+  onPrepare: () => void;
+  onAssessment: () => void;
+}) {
+  if (hidden) return null;
+  return <nav aria-label="Client file pages" className={styles.filePages}>
+    {onReferral ? <button type="button" disabled={disabled} onClick={onReferral}>Referral</button> : null}
+    <button type="button" aria-current={preparing ? "page" : undefined} onClick={onPrepare}>Prepare</button>
+    <button type="button" aria-current={!preparing ? "page" : undefined} onClick={onAssessment}>Assessment</button>
+  </nav>;
+}
+
+export function AssessmentFileSurface({ title, container, header, pages, dialogs, children }: {
+  title?: string;
+  container: HTMLElement | null;
+  header: React.ReactNode;
+  pages: React.ReactNode;
+  dialogs: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  if (title) return <>
+    <PreparationFile title={title}>
+      <section role="region" aria-label="Referral preparation" data-assessment-view="preparation" className={styles.embedded}>{children}</section>
+    </PreparationFile>
+    {createPortal(dialogs, container?.parentElement ?? document.body)}
+  </>;
+  return createPortal(
+    <section role="dialog" aria-modal="false" aria-label="Assessment interview" data-assessment-view="chart" className={`${container ? "absolute" : "fixed"} inset-0 z-[90] flex flex-col overflow-hidden bg-white`}>
+      {header}{pages}{children}{dialogs}
+    </section>,
+    container ?? document.body,
+  );
+}
+
+function PreparationFile({ title, children }: { title: string; children: React.ReactNode }) {
+  return <div data-testid="preparation-client-folder" className={`${folderStyles.recordFolder} ${styles.file}`}>
+    <strong className={folderStyles.tab}><span className={folderStyles.tabLabel}>{title}</span></strong>
+    <div className={folderStyles.body}>
+      <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
+        <ClientChartFrame label="Referral preparation chart">
+          <ClientChartHeader title="Assessment preparation">{null}</ClientChartHeader>
+          {children}
+        </ClientChartFrame>
+      </div>
+    </div>
+  </div>;
+}
 
 export function PreparationNavigation({ active, data, pending, onChange }: Pick<WorkingSectionProps, "data" | "pending"> & {
   active: AssessmentToolSection;
