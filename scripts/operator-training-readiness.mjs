@@ -80,7 +80,7 @@ check("guided workflows are action-led", tutorials.operatorGuidedTutorials.every
   tutorial.id === "complete-assessment"
     ? tutorial.steps.filter((step) => step.id.startsWith("assessment-section-") && step.advance === "confirm" && step.route.includes("trainingAssessment=guided") && step.route.includes("assessmentSection=")).length === 12
       && tutorial.steps.some((step) => step.target === "assessment-answer" && step.advance === "target-input")
-      && tutorial.steps.some((step) => step.target === "assessment-guided-exit" && step.advance === "target-click")
+      && tutorial.steps.some((step) => step.id === "assessment-sign" && step.target === "assessment-section-review" && step.advance === "target-click")
     : tutorial.steps.filter((step) => step.advance !== "confirm").length / tutorial.steps.length >= 0.6
 ) && tutorial.steps.every((step) => step.phase.trim() && step.instruction.trim() && step.completion.trim())));
 check("Loom video URLs are fail-closed to the reviewed host and route shape", videos.parseLoomVideoUrl("https://www.loom.com/share/1234567890abcdef")?.id === "1234567890abcdef" && videos.parseLoomVideoUrl("https://www.loom.com/embed/1234567890abcdef")?.id === "1234567890abcdef" && videos.parseLoomVideoUrl("https://attacker.example/share/1234567890abcdef") === null && videos.parseLoomVideoUrl("http://www.loom.com/share/1234567890abcdef") === null);

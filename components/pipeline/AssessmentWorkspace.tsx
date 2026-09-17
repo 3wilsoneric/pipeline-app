@@ -15,7 +15,6 @@ import {
   Play,
   Plus,
   RefreshCw,
-  X,
 } from "lucide-react";
 
 import {
@@ -37,18 +36,14 @@ import {
   type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
-import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import {
   assessmentInterviewFieldLabel,
   assessmentInterviewSections,
-  getAssessmentUnableReason,
   getAssessmentInterviewCoverage,
   getAssessmentInterviewQuestions,
   getRequiredAssessmentInterviewQuestions,
-  getAssessmentInterviewSnapshot,
-  hasAssessmentInterviewValue,
   setAssessmentUnableReason,
-  type AssessmentInterviewQuestion,
 } from "@/lib/assessment/assessment-interview-schema";
 import {
   fieldsForAssessmentSection,
@@ -73,10 +68,7 @@ import {
   buildTrainingAssessment,
   type TrainingAssessmentMode,
 } from "@/lib/training/mock-assessment";
-import {
-  assessmentPracticeSectionGuidance,
-  getAssessmentPracticeReview,
-} from "@/lib/training/assessment-practice";
+import { getAssessmentPracticeReview } from "@/lib/training/assessment-practice";
 import {
   assessmentFromConflict,
   assessmentOfflinePrincipal,
@@ -94,7 +86,6 @@ import {
   hasAssessmentScheduleInput,
   hasSectionConflict,
   isOfflineAssessmentSave,
-  latestPendingProvenance,
   loadRecoveryDraftForLiveAssessment,
   nextAssessmentScheduleStatus,
   nullableTrimmedText,
@@ -102,12 +93,10 @@ import {
   type AssessmentFieldConflict,
   type AssessmentRemoteChange,
 } from "@/components/pipeline/assessment-workspace-state";
-import {
-  AssessmentField,
-  PracticeAssessmentReview,
-} from "@/components/pipeline/AssessmentInterviewFields";
-import GuidedAssessmentInterview from "@/components/pipeline/GuidedAssessmentInterview";
-import AssessmentViewToggle from "@/components/pipeline/AssessmentViewToggle";
+import { PracticeAssessmentReview } from "@/components/pipeline/AssessmentInterviewFields";
+import AssessmentWorkingSection, { AssessmentWorkingNavigation } from "@/components/pipeline/AssessmentWorkingSection";
+import { assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
+import AssessmentInterviewHeader from "@/components/pipeline/AssessmentInterviewHeader";
 import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabButton";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
@@ -171,10 +160,8 @@ const assessmentSectionGuideTargets: Readonly<Record<AssessmentToolSection, stri
 const assessmentSectionGuideTargetList = Object.values(assessmentSectionGuideTargets).join(" ");
 
 type AssessmentEscapeContext = {
-  assessmentView: "guided" | "chart";
   showBeginDialog: boolean;
   showScheduleDialog: boolean;
-  setAssessmentView: (view: "guided" | "chart") => void;
   setShowBeginDialog: (show: boolean) => void;
   setShowScheduleDialog: (show: boolean) => void;
   closeAssessment: () => void;
@@ -182,7 +169,6 @@ type AssessmentEscapeContext = {
 
 type AssessmentFocusState = {
   section?: AssessmentToolSection;
-  view: "guided" | "chart";
   showScheduleDialog: boolean;
   showBeginDialog: boolean;
 };
@@ -191,7 +177,6 @@ type AssessmentAutoFocusState = AssessmentFocusState & { assessmentId: string };
 
 type AssessmentAutoFocusSetters = {
   setActiveSection: (section: AssessmentToolSection) => void;
-  setAssessmentView: (view: "guided" | "chart") => void;
   setIsFocused: (focused: boolean) => void;
   setShowScheduleDialog: (show: boolean) => void;
   setShowBeginDialog: (show: boolean) => void;
@@ -201,10 +186,6 @@ function handleAssessmentEscape(event: KeyboardEvent, context: AssessmentEscapeC
   if (event.key !== "Escape" || event.defaultPrevented) return;
   if (context.showBeginDialog) context.setShowBeginDialog(false);
   if (context.showScheduleDialog) context.setShowScheduleDialog(false);
-  if (context.assessmentView === "guided" && !context.showBeginDialog && !context.showScheduleDialog) {
-    context.setAssessmentView("chart");
-    return;
-  }
   context.closeAssessment();
 }
 
@@ -228,7 +209,6 @@ function resolveAssessmentFocusState(
 ): AssessmentFocusState {
   return {
     section: autoFocusSection(assessment, nextRequiredSection, initialSection),
-    view: assessmentInterviewView(assessment),
     showScheduleDialog: assessmentNeedsSchedule(assessment),
     showBeginDialog: assessmentReadyToBegin(assessment),
   };
@@ -236,10 +216,6 @@ function resolveAssessmentFocusState(
 
 function autoFocusSection(assessment: PipelineAssessmentRecord | null, nextRequiredSection: AssessmentToolSection | undefined, initialSection: AssessmentToolSection | undefined) {
   return assessment?.started_at && nextRequiredSection && !initialSection ? nextRequiredSection : undefined;
-}
-
-function assessmentInterviewView(assessment: PipelineAssessmentRecord | null) {
-  return assessment?.started_at && !assessment.signed_at ? "guided" : "chart";
 }
 
 function assessmentNeedsSchedule(assessment: PipelineAssessmentRecord | null) {
@@ -252,7 +228,6 @@ function assessmentReadyToBegin(assessment: PipelineAssessmentRecord | null) {
 
 function applyAssessmentFocus(state: AssessmentFocusState, setters: AssessmentAutoFocusSetters) {
   if (state.section) setters.setActiveSection(state.section);
-  setters.setAssessmentView(state.view);
   setters.setIsFocused(true);
   setters.setShowScheduleDialog(state.showScheduleDialog);
   setters.setShowBeginDialog(state.showBeginDialog);
@@ -292,6 +267,7 @@ export default function AssessmentWorkspace({
   onActiveSectionChange,
   onOpenAssignedWork,
 }: AssessmentWorkspaceProps) {
+  const { contentRef, beforeNavigationRef, setAssessmentFocused } = usePipelineShell();
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
@@ -307,7 +283,8 @@ export default function AssessmentWorkspace({
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [showBeginDialog, setShowBeginDialog] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [assessmentView, setAssessmentView] = useState<"guided" | "chart">("chart");
+  const [workingTarget, setWorkingTarget] = useState<{ field: AssessmentToolFieldKey } | null>(null);
+  const chartScrollRef = useRef<HTMLElement>(null);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
   const [scheduleMethod, setScheduleMethod] = useState<"in_person" | "phone" | "zoom" | "record_review">("in_person");
@@ -346,25 +323,25 @@ export default function AssessmentWorkspace({
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
   const sectionQuestions = useMemo(() => getAssessmentInterviewQuestions(activeSection, draft), [activeSection, draft]);
   const sectionDefinition = assessmentInterviewSections.find((section) => section.key === activeSection) ?? assessmentInterviewSections[0];
-  const sectionGroups = useMemo(() => groupAssessmentQuestions(sectionQuestions), [sectionQuestions]);
-  const interviewSnapshot = useMemo(() => getAssessmentInterviewSnapshot(draft), [draft]);
   const requiredInterviewFields = useMemo(
     () => new Set(getRequiredAssessmentInterviewQuestions(draft).map((question) => question.field)),
     [draft],
   );
   const activeSectionIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
-  const activeSectionCaptured = sectionQuestions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
-  const nextUnansweredQuestion = sectionQuestions.find((question) => !hasAssessmentInterviewValue(draft[question.field]));
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
   const practiceReview = useMemo(
     () => trainingAssessmentMode ? getAssessmentPracticeReview(draft) : null,
     [draft, trainingAssessmentMode],
   );
 
+  useEffect(() => {
+    if (chartScrollRef.current) chartScrollRef.current.scrollTop = 0;
+  }, [activeSection, isFocused]);
+
   const openFocusedAssessment = () => {
     applyAssessmentFocus(
       resolveAssessmentFocusState(selected, nextRequiredTarget?.section, activeSection),
-      { setActiveSection, setAssessmentView, setIsFocused, setShowScheduleDialog, setShowBeginDialog },
+      { setActiveSection, setIsFocused, setShowScheduleDialog, setShowBeginDialog },
     );
   };
 
@@ -680,7 +657,6 @@ export default function AssessmentWorkspace({
     focusedAssessmentIdRef.current = focus.assessmentId;
     applyAssessmentFocus(focus, {
       setActiveSection,
-      setAssessmentView,
       setIsFocused,
       setShowScheduleDialog,
       setShowBeginDialog,
@@ -693,10 +669,8 @@ export default function AssessmentWorkspace({
     if (!isFocused) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => handleAssessmentEscape(event, {
-      assessmentView,
       showBeginDialog,
       showScheduleDialog,
-      setAssessmentView,
       setShowBeginDialog,
       setShowScheduleDialog,
       closeAssessment: closeFromEscape,
@@ -707,7 +681,7 @@ export default function AssessmentWorkspace({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [assessmentView, isFocused, showBeginDialog, showScheduleDialog]);
+  }, [isFocused, showBeginDialog, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -738,7 +712,6 @@ export default function AssessmentWorkspace({
       upsertAssessment(payload.assessment, true);
       setMessage("Assessment draft created");
       setActiveSection("identity");
-      setAssessmentView("chart");
       setIsFocused(true);
       setShowScheduleDialog(true);
       setShowBeginDialog(false);
@@ -773,7 +746,6 @@ export default function AssessmentWorkspace({
         });
         upsertAssessment(updated, true);
         setMessage("Training assessment in progress");
-        setAssessmentView("guided");
         setShowBeginDialog(false);
         setShowScheduleDialog(false);
         return;
@@ -791,7 +763,6 @@ export default function AssessmentWorkspace({
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
       setMessage("Assessment in progress");
-      setAssessmentView("guided");
       setShowBeginDialog(false);
       setShowScheduleDialog(false);
     } catch (startError) {
@@ -1019,8 +990,8 @@ export default function AssessmentWorkspace({
     if (current) await clearRecoveryDraft(current.assessment_id);
   });
 
-  const closeAssessment = async (onClosed?: () => void) => {
-    if (closingRef.current) return;
+  const saveAndCloseAssessment = async (onClosed?: () => void) => {
+    if (closingRef.current) throw new Error("Assessment navigation is already in progress.");
     closingRef.current = true;
     setIsClosing(true);
     setMessage("Saving last changes...");
@@ -1033,11 +1004,30 @@ export default function AssessmentWorkspace({
       onClosed?.();
     } catch (saveError) {
       setError(messageFor(saveError, "Your last changes could not be saved. Keep this assessment open and try again."));
+      throw saveError;
     } finally {
       closingRef.current = false;
       setIsClosing(false);
     }
   };
+
+  const closeAssessment = (onClosed?: () => void) => saveAndCloseAssessment(onClosed).catch(() => undefined);
+  const saveForHeaderNavigation = useEffectEvent(() => saveAndCloseAssessment());
+
+  useEffect(() => {
+    if (!isFocused) return;
+    setAssessmentFocused(true);
+    const content = contentRef.current;
+    const previousIsolation = content?.style.isolation ?? "";
+    if (content) content.style.isolation = "isolate";
+    const save = () => saveForHeaderNavigation();
+    beforeNavigationRef.current = save;
+    return () => {
+      setAssessmentFocused(false);
+      if (content) content.style.isolation = previousIsolation;
+      if (beforeNavigationRef.current === save) beforeNavigationRef.current = null;
+    };
+  }, [beforeNavigationRef, contentRef, isFocused, setAssessmentFocused]);
 
   const workspaceControl = <WorkspaceReturnButton onOpen={onOpenWorkspace} onExit={closeAssessment} disabled={isClosing} />;
 
@@ -1413,88 +1403,9 @@ export default function AssessmentWorkspace({
     );
   }
 
-  if (!readOnly && assessmentView === "guided" && selected.started_at && !selected.signed_at) {
-    const saveStatus = assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves });
-    return createPortal(
-      <GuidedAssessmentInterview
-        key={selected.assessment_id}
-        demoPersona={viewer?.demoPersona}
-        assessment={selected}
-        data={draft}
-        activeSection={activeSection}
-        sectionGuideTarget={assessmentSectionGuideTargets[activeSection]}
-        startAtSectionBeginning={Boolean(trainingAssessmentMode)}
-        requiredFields={requiredInterviewFields}
-        disabled={isBusy || !canEditClinical}
-        reviewDisabled={isBusy || !canEditClinical}
-        saveStatus={saveStatus}
-        saveTone={error || !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "pending" : "saved"}
-        error={error}
-        hasConflicts={Boolean(remoteChange?.conflicts.length)}
-        onChange={updateField}
-        onReview={(field, action) => void reviewExtractedField(field, action)}
-        onSectionChange={setActiveSection}
-        onOpenAssignedWork={onOpenAssignedWork ? () => void openAssignedWork() : undefined}
-        workspaceControl={workspaceControl}
-        onExitToChart={() => setAssessmentView("chart")}
-        onClose={() => void closeAssessment()}
-        navigationDisabled={isClosing}
-        onDone={() => {
-          setActiveSection("provenance_qc");
-          setAssessmentView("chart");
-        }}
-      />,
-      document.body,
-    );
-  }
-
   return createPortal(
-    <section role="dialog" aria-modal="true" aria-label="Assessment interview" data-assessment-view="chart" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
-      <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dfdb] bg-white py-2 pl-4 pr-14 sm:pl-6 sm:pr-16 lg:flex-nowrap lg:pl-9 lg:pr-16">
-        {workspaceControl}
-        {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isClosing} /> : null}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-[17px] font-black">{formatClientIdentityTitle({ name: draft.resident_name || "Client", community: draft.community })} assessment</h2>
-            <StatusLabel status={selected.status} />
-          </div>
-          <div className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#737373]">
-            <span>{formatDate(selected.assessment_date)}</span><span aria-hidden="true">·</span><span>{selected.assessor || "Unassigned"}</span>
-            {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
-          </div>
-        </div>
-        <span data-guide-target="assessment-save-status" aria-live="polite" className={`order-last flex min-w-0 basis-full items-center justify-end gap-1.5 text-[10px] sm:order-none sm:max-w-[220px] sm:shrink-0 sm:basis-auto ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#9a6115]" : "text-[#0c705f]"}`}>
-          {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={12} className="shrink-0" aria-hidden="true" /> : null}
-          <span className="truncate">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
-        </span>
-        {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
-          <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
-        ) : null}
-        {assessmentReadyToBegin(selected) && canEditClinical ? (
-          <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
-        ) : null}
-        {selected.started_at && !selected.signed_at && canEditClinical ? (
-          <AssessmentViewToggle value="chart" onChange={setAssessmentView} />
-        ) : null}
-        {selected.signed_at ? (
-          canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"><Plus size={14} /> Addendum</button> : <span className="text-[11px] font-black text-[#0f6f5e]">Signed</span>
-        ) : canEditClinical ? (
-          <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm(completion.missing.length > 0 ? `Sign and lock this assessment with ${completion.missing.length} unanswered required areas? Missing answers will remain visible.` : "Sign and lock this assessment?") && void signAssessment()} disabled={isBusy} className="h-10 shrink-0 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35 sm:px-4"><span className="hidden sm:inline">Sign assessment</span><span className="sm:hidden">Sign</span></button>
-        ) : null}
-        <DemoAssessmentControls persona={viewer?.demoPersona} />
-        <button type="button" onClick={() => void closeAssessment()} disabled={isClosing} aria-label="Close assessment" title="Return to assessment workspace" className="absolute right-2 top-2 flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>
-      </header>
-      <TrainingAssessmentBanner mode={trainingAssessmentMode} />
-
-      <AssessmentReadiness
-        completion={completion}
-        nextTarget={nextRequiredTarget}
-        started={Boolean(selected.started_at)}
-        signed={Boolean(selected.signed_at)}
-        canContinue={Boolean(onContinueToWorkflow)}
-        onOpenTarget={(target) => setActiveSection(target.section)}
-        onContinue={continueToWorkflow}
-      />
+    <section role="dialog" aria-modal="false" aria-label="Assessment interview" data-assessment-view="chart" className={`${contentRef.current ? "absolute" : "fixed"} inset-0 z-[90] flex flex-col overflow-hidden bg-white`}>
+      <AssessmentInterviewHeader name={draft.resident_name} community={draft.community} view="chart" disabled={isClosing} onClose={() => void closeAssessment()} />
 
       {showAddendum ? (
         <div className="shrink-0 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
@@ -1518,37 +1429,16 @@ export default function AssessmentWorkspace({
       ) : null}
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-[230px] shrink-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
-          <div className="mb-5 px-2">
-            <div className="flex items-end justify-between"><span className="text-[10px] font-black uppercase text-[#666666]">Required</span><strong className="text-[15px]">{completion.complete}/{completion.total}</strong></div>
-            <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73] transition-[width]" style={{ width: `${completion.percent}%` }} /></div>
-            <p className="mt-2 text-[10px] leading-4 text-[#737373]">{completion.missing.length ? `${completion.missing.length} required areas remain` : "Ready to sign"}</p>
-          </div>
-          <nav data-guide-target="assessment-section-nav" aria-label="Assessment sections" className="space-y-5">
-            {assessmentNavigationGroups.map((group) => (
-              <div key={group.label}>
-                <div className="px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#8a8a8a]">{group.label}</div>
-                <div className="mt-1 space-y-0.5">
-                  {group.sections.map((sectionKey) => {
-                    const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey);
-                    if (!section) return null;
-                    const questions = getAssessmentInterviewQuestions(section.key, draft);
-                    const filled = questions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
-                    const active = activeSection === section.key;
-                    return <button key={section.key} type="button" data-guide-target={`assessment-section-nav ${assessmentSectionGuideTargets[section.key]}`} onClick={() => setActiveSection(section.key)} aria-current={active ? "step" : undefined} className={`flex w-full items-center justify-between gap-3 border-l-2 px-3 py-2.5 text-left text-[11px] font-black transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#595959] hover:bg-white hover:text-[#0f8b73]"}`}><span>{section.label}</span><span className="text-[9px] font-semibold opacity-65">{filled}/{questions.length}</span></button>;
-                  })}
-                </div>
-              </div>
-            ))}
-          </nav>
+        <aside aria-label="Assessment navigation" className="hidden w-[248px] shrink-0 overflow-y-auto bg-[#f7faf4] px-5 py-5 lg:block">
+          <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} groups={assessmentNavigationGroups} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} />
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-y-auto bg-white">
-          <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
-            <label htmlFor="assessment-section-mobile" className="mb-1 block text-[9px] font-black uppercase text-[#737373]">Assessment section</label>
+        <main ref={chartScrollRef} className="min-w-0 flex-1 overflow-y-auto bg-[#f7faf4]">
+          <div className="bg-[#f7faf4] px-3 py-2 lg:hidden">
+            <label htmlFor="assessment-section-mobile" className="mb-1 block text-[11px] font-bold text-[#315d41]">Assessment section</label>
             <div className="relative">
-              <select data-guide-target={`assessment-section-nav ${assessmentSectionGuideTargetList}`} id="assessment-section-mobile" value={activeSection} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); return section ? <option key={section.key} value={section.key}>{section.label}</option> : null; })}</optgroup>)}</select>
-              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
+              <select data-guide-target={`assessment-section-nav ${assessmentSectionGuideTargetList}`} id="assessment-section-mobile" value={activeSection} onChange={(event) => { setWorkingTarget(null); setActiveSection(event.target.value as AssessmentToolSection); }} className="h-10 w-full appearance-none rounded border border-[#cddace] bg-white px-3 pr-10 text-[12px] font-bold text-[#234c36] outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); const counts = assessmentWorkingCounts(getAssessmentInterviewQuestions(sectionKey, draft), draft, pendingFields); return section ? <option key={section.key} value={section.key}>{section.label} · {assessmentWorkingCountLabel(counts)}</option> : null; })}</optgroup>)}</select>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#58715e]" />
             </div>
           </div>
 
@@ -1595,54 +1485,27 @@ export default function AssessmentWorkspace({
             </div>
           ) : null}
 
-          <div className="mx-auto max-w-[980px] px-5 py-7 sm:px-8">
-            <div className="mb-7 flex flex-wrap items-start justify-between gap-4 border-b border-[#d9dfdb] pb-5">
-              <div className="max-w-2xl">
-                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Section {activeSectionIndex + 1} of {assessmentInterviewSections.length}</div>
-                <h3 className="mt-1 text-[22px] font-black">{sectionDefinition.label}</h3>
-                <p className="mt-1 text-[12px] leading-5 text-[#737373]">{sectionDefinition.description}</p>
-                {trainingAssessmentMode ? <p className="mt-2 max-w-[760px] border-l-2 border-[#0f8b73] pl-3 text-[11px] font-semibold leading-5 text-[#315e50]"><span className="font-black">Practice focus:</span> {assessmentPracticeSectionGuidance[activeSection]}</p> : null}
-                <p className={`mt-3 text-[11px] font-semibold ${selected.started_at ? "text-[#315e50]" : "text-[#9a6115]"}`}>{!selected.started_at ? "Preview mode · open Interview setup when you are ready to begin entering answers." : nextUnansweredQuestion ? `Next: ${assessmentInterviewFieldLabel(nextUnansweredQuestion.field)}` : "This section is complete. Continue when ready."}</p>
-              </div>
-              <div className="text-right"><div className="text-[18px] font-black">{activeSectionCaptured}/{sectionQuestions.length}</div><div className="text-[9px] font-black uppercase text-[#8a8a8a]">captured here</div></div>
+          <div className="w-full px-3 py-4 sm:px-5 lg:pl-8 lg:pr-6">
+            <div className="mb-3">
+              <h3 className="text-[21px] font-bold text-[#213629]">{sectionDefinition.label}</h3>
+                {!selected.started_at ? <p className="mt-2 text-[12px] font-semibold text-[#9a6115]">Begin assessment to enter answers.</p> : null}
             </div>
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
-            <div className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
-          {sectionGroups.map((group) => (
-            <div key={group.label} className="grid gap-4 py-5 lg:grid-cols-[190px_minmax(0,1fr)]">
-              <div>
-                <h4 className="text-[11px] font-black text-[#333333]">{group.label}</h4>
-                <p className="mt-1 text-[10px] leading-4 text-[#8a8a8a]">Answer what is known; conditional follow-ups appear as needed.</p>
-              </div>
-              <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
-                {group.questions.map((question) => {
-                  const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === question.field);
-                  if (!definition) return null;
-                  return (
-                    <AssessmentField
-                      key={question.field}
-                      definition={definition}
-                      question={question}
-                      value={draft[question.field]}
-                      unableReason={getAssessmentUnableReason(draft, question.field)}
-                      required={requiredInterviewFields.has(question.field)}
-                      pending={pendingFields.includes(question.field)}
-                      pendingProvenance={latestPendingProvenance(selected, question.field)}
-                      disabled={isBusy || Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
-                      reviewDisabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
-                      onChange={(value) => updateField(question.field, value)}
-                      onReview={(action) => void reviewExtractedField(question.field, action)}
-                      onUnableReasonChange={(reason) => updateField(
-                        "unable_to_assess_reasons",
-                        setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, question.field, reason),
-                      )}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-            </div>
+            <AssessmentWorkingSection
+              key={`${selected.assessment_id}-${activeSection}`}
+              section={activeSection}
+              assessment={selected}
+              data={draft}
+              pending={pendingFields}
+              questions={sectionQuestions}
+              required={requiredInterviewFields}
+              target={workingTarget}
+              disabled={isBusy || Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
+              reviewDisabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
+              onChange={updateField}
+              onReview={(field, action) => void reviewExtractedField(field, action)}
+              onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
+            />
 
             <div className="mt-7 flex items-center justify-between gap-3">
               <button type="button" onClick={() => setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key)} disabled={activeSectionIndex <= 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} /> Previous</button>
@@ -1666,23 +1529,29 @@ export default function AssessmentWorkspace({
           </div>
         </main>
 
-        <aside className="hidden w-[290px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#fbfcfb] px-5 py-5 xl:block">
-          <h3 className="text-[12px] font-black">{trainingAssessmentMode ? "Practice guide" : "Interview guide"}</h3>
-          <p className="mt-1 text-[10px] leading-4 text-[#737373]">{trainingAssessmentMode ? assessmentPracticeSectionGuidance[activeSection] : "Answers save automatically. Conditional questions appear only when relevant."}</p>
-          <div className="mt-5 border-y border-[#d9dfdb] py-4">
-            <div className="flex items-end justify-between"><span className="text-[9px] font-black uppercase text-[#737373]">Overall progress</span><strong className="text-[20px]">{completion.percent}%</strong></div>
-            <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73]" style={{ width: `${completion.percent}%` }} /></div>
-            <p className="mt-2 text-[10px] text-[#737373]">{coverage.captured} of {coverage.total} total fields captured</p>
-          </div>
-          <div className="mt-5">
-            <div className="text-[9px] font-black uppercase text-[#737373]">Key answers</div>
-            <div className="mt-2 divide-y divide-[#e1e4e2]">
-              {interviewSnapshot.map((item) => <button key={item.label} type="button" onClick={() => setActiveSection(item.section)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:text-[#0f8b73]"><span className="text-[10px] font-semibold text-[#595959]">{item.label}</span><span className={`text-[10px] font-black ${item.value === "Not answered" ? "text-[#9a6115]" : "text-[#111111]"}`}>{item.value}</span></button>)}
-            </div>
-          </div>
-          {completion.missing.length > 0 ? <div className="mt-5"><div className="text-[9px] font-black uppercase text-[#737373]">Still required</div><div className="mt-2 space-y-2">{completion.missing.slice(0, 6).map((item) => <div key={item.key} className="text-[10px] leading-4 text-[#595959]">{item.label}</div>)}</div>{completion.missing.length > 6 ? <div className="mt-2 text-[9px] text-[#8a8a8a]">+ {completion.missing.length - 6} more</div> : null}</div> : null}
-        </aside>
       </div>
+
+      <footer aria-label="Assessment actions" className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-white px-4 py-2 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {workspaceControl}
+          {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isClosing} /> : null}
+          <DemoAssessmentControls persona={viewer?.demoPersona} />
+        </div>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`order-last flex min-w-0 basis-full items-center gap-1.5 text-[11px] sm:order-none sm:flex-1 sm:basis-auto sm:justify-end ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#9a6115]" : "text-[#0c705f]"}`}>
+          {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
+          <span className="truncate">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold text-[#444444] hover:text-[#0f8b73]"><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</button> : null}
+          {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]"><Play size={13} fill="currentColor" />Begin assessment</button> : null}
+          {selected.signed_at ? (
+            <>
+              {canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold hover:text-[#0f8b73]"><Plus size={14} />Addendum</button> : <span className="text-[11px] font-bold text-[#0f6f5e]">Signed</span>}
+              {onContinueToWorkflow ? <button type="button" onClick={continueToWorkflow} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white hover:bg-[#0b6d5b]">Continue to recommendation<ChevronRight size={14} /></button> : null}
+            </>
+          ) : canEditClinical ? <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm(completion.missing.length > 0 ? `Sign and lock this assessment with ${completion.missing.length} unanswered required areas? Missing answers will remain visible.` : "Sign and lock this assessment?") && void signAssessment()} disabled={isBusy} className="h-10 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button> : null}
+        </div>
+      </footer>
 
       <AssessmentSchedulingDialogs
         assessment={selected}
@@ -1705,7 +1574,7 @@ export default function AssessmentWorkspace({
         onBeginAssessment={() => void beginAssessment()}
       />
     </section>,
-    document.body,
+    contentRef.current ?? document.body,
   );
 }
 
@@ -1770,72 +1639,6 @@ function assessmentSummaryLine(
   return `${completion.complete} of ${completion.total} required areas complete · ${assessor}`;
 }
 
-function AssessmentReadiness({
-  completion,
-  nextTarget,
-  started,
-  signed,
-  canContinue,
-  onOpenTarget,
-  onContinue,
-}: {
-  completion: ReturnType<typeof getAssessmentCompletionSummary>;
-  nextTarget: AssessmentCompletionTarget | null;
-  started: boolean;
-  signed: boolean;
-  canContinue: boolean;
-  onOpenTarget: (target: AssessmentCompletionTarget) => void;
-  onContinue: () => void;
-}) {
-  if (!started) return null;
-  const presentation = assessmentReadinessPresentation(completion, signed, nextTarget);
-  return (
-    <section aria-label="Assessment readiness" className="flex shrink-0 flex-col gap-3 border-b border-[#d9dfdb] bg-[#f7faf8] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 text-[11px] font-black text-[#244a40]">
-          <Check size={13} className={presentation.iconClassName} />
-          {presentation.title}
-        </div>
-        <div className="mt-1 flex items-center gap-2 text-[10px] text-[#68716c]">
-          <span>{completion.percent}% complete</span>
-          {presentation.nextLabel ? <><span aria-hidden="true">·</span><span className="truncate">Next: {presentation.nextLabel}</span></> : null}
-        </div>
-      </div>
-      <AssessmentReadinessAction signed={signed} canContinue={canContinue} nextTarget={nextTarget} onOpenTarget={onOpenTarget} onContinue={onContinue} />
-    </section>
-  );
-}
-
-function assessmentReadinessPresentation(
-  completion: ReturnType<typeof getAssessmentCompletionSummary>,
-  signed: boolean,
-  nextTarget: AssessmentCompletionTarget | null,
-) {
-  if (signed) return { title: "Assessment signed and locked", iconClassName: "text-[#0f8b73]", nextLabel: "" };
-  if (completion.missing.length === 0) return { title: "Ready to sign", iconClassName: "text-[#0f8b73]", nextLabel: "" };
-  return { title: `${completion.missing.length} required areas remain`, iconClassName: "text-[#8a611f]", nextLabel: nextTarget?.label ?? "" };
-}
-
-function AssessmentReadinessAction({
-  signed,
-  canContinue,
-  nextTarget,
-  onOpenTarget,
-  onContinue,
-}: {
-  signed: boolean;
-  canContinue: boolean;
-  nextTarget: AssessmentCompletionTarget | null;
-  onOpenTarget: (target: AssessmentCompletionTarget) => void;
-  onContinue: () => void;
-}) {
-  if (signed && canContinue) {
-    return <button type="button" onClick={onContinue} className="flex h-9 shrink-0 items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[10px] font-black text-white hover:bg-[#0b6d5b]">Continue to recommendation <ChevronRight size={13} /></button>;
-  }
-  if (!nextTarget) return null;
-  return <button type="button" onClick={() => onOpenTarget(nextTarget)} className="flex h-9 min-w-0 shrink-0 items-center justify-center gap-2 border border-[#a9bdb5] bg-white px-4 text-[10px] font-black text-[#174f43] hover:border-[#0f8b73]">Next required: <span className="max-w-[240px] truncate">{nextTarget.label}</span><ChevronRight size={13} /></button>;
-}
-
 function normalizeScheduleMethod(method: PipelineAssessmentRecord["scheduled_method"] | "video") {
   if (method === "video" || method === "zoom") return "zoom";
   if (method === "phone" || method === "record_review" || method === "in_person") return method;
@@ -1851,15 +1654,6 @@ function dispatchGuideCompletion(target: string) {
   document
     .querySelector<HTMLElement>(`[data-guide-target~="${target}"]`)
     ?.dispatchEvent(new CustomEvent("pipeline:guide-complete", { bubbles: true }));
-}
-
-function TrainingAssessmentBanner({ mode }: { mode?: TrainingAssessmentMode }) {
-  if (!mode) return null;
-  return (
-    <div className="shrink-0 border-b border-[#b9d8cd] bg-[#f1f8f5] px-5 py-2 text-[10px] font-semibold text-[#315e50]">
-      Practice case · Taylor Rivera · synthetic · changes stay in this guide
-    </div>
-  );
 }
 
 function updateTrainingAssessment(
@@ -1898,16 +1692,6 @@ function setAssessmentValue(
   return next;
 }
 
-function groupAssessmentQuestions(questions: readonly AssessmentInterviewQuestion[]) {
-  const groups: Array<{ label: string; questions: AssessmentInterviewQuestion[] }> = [];
-  for (const question of questions) {
-    const current = groups.at(-1);
-    if (!current || current.label !== question.group) groups.push({ label: question.group, questions: [question] });
-    else current.questions.push(question);
-  }
-  return groups;
-}
-
 let mutationSequence = 0;
 
 function mutationId(prefix: string) {
@@ -1920,12 +1704,4 @@ function mutationId(prefix: string) {
 
 function messageFor(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "Date not entered";
-  const parsed = new Date(`${value}T12:00:00`);
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : parsed.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 }

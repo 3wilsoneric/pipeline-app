@@ -30,7 +30,7 @@ export default function PipelineHeader() {
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
-  const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
+  const { homeMode, searchOpen, setSearchOpen, setHomeMode, beforeNavigationRef } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
   const canAccessReports = canAccessOperationsReports(user);
   useWorkspacePresenceHeartbeat(Boolean(user));
@@ -88,7 +88,17 @@ export default function PipelineHeader() {
     && !searchOpen;
   const hideGlobalGuide = pathname === "/note-lab" || pathname.startsWith("/note-lab/");
 
-  const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations" | "trash") => {
+  const runNavigation = useCallback(async (action: () => void) => {
+    try {
+      if (beforeNavigationRef.current) await beforeNavigationRef.current();
+    } catch {
+      // The active editor owns the save error and keeps the working copy open.
+      return;
+    }
+    action();
+  }, [beforeNavigationRef]);
+
+  const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations" | "trash") => void runNavigation(() => {
     if (target === "operations" && !canAccessReports) return;
     setSearchOpen(false);
     setHomeMode("workspace");
@@ -106,14 +116,14 @@ export default function PipelineHeader() {
               ? "/?screen=trash"
             : "/";
     navigatePipelineDestination(pathname, destination, router);
-  };
+  });
 
-  const focusHomeSearch = useCallback(() => {
+  const focusHomeSearch = useCallback(() => void runNavigation(() => {
     setHomeMode("welcome");
     const onHome = pathname === "/" && activeSearchParams.size === 0;
     if (!onHome) navigatePipelineDestination(pathname, "/", router);
     setSearchOpen(true);
-  }, [activeSearchParams, pathname, router, setHomeMode, setSearchOpen]);
+  }), [activeSearchParams, pathname, router, runNavigation, setHomeMode, setSearchOpen]);
 
   useEffect(() => {
     const focusSearchFromKeyboard = (event: KeyboardEvent) => {
@@ -133,7 +143,14 @@ export default function PipelineHeader() {
   }, [focusHomeSearch]);
 
   return (
-    <header className="relative flex h-[68px] shrink-0 items-center overflow-visible bg-white px-3 max-[359px]:px-1 sm:h-[74px] sm:px-5 lg:px-6 xl:h-[82px] xl:px-8">
+    <header data-pipeline-header="true" onClickCapture={(event) => {
+      if (!beforeNavigationRef.current || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || link.origin !== window.location.origin) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void runNavigation(() => { setIsProfileMenuOpen(false); router.push(`${link.pathname}${link.search}${link.hash}`); });
+    }} className="relative z-10 flex h-[68px] shrink-0 items-center overflow-visible bg-white px-3 max-[359px]:px-1 sm:h-[74px] sm:px-5 lg:px-6 xl:h-[82px] xl:px-8">
       <div className="relative z-10 flex shrink-0 items-center">
         <div
           role={isWelcomeSurface ? "img" : undefined}
@@ -235,7 +252,7 @@ export default function PipelineHeader() {
                 type="button"
                 onClick={() => {
                   setIsProfileMenuOpen(false);
-                  void auth.signOut();
+                  void runNavigation(() => { void auth.signOut(); });
                 }}
                 className="flex min-h-11 w-full items-center gap-3 border-t border-[#e5e5e5] px-4 py-2.5 text-left text-[#737373] outline-none transition-colors hover:bg-[#fff8ed] hover:text-[#8a5a10] focus-visible:bg-[#fff8ed] focus-visible:text-[#8a5a10]"
               >

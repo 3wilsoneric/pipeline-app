@@ -215,10 +215,10 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
       ...assessmentSectionGuideSteps.map((item): OperatorGuideStep => item.id.startsWith("assessment-section-") ? {
         ...item,
         advance: "confirm",
-        instruction: "Review the questions in this section. Use Next for more questions, then Continue to move to the next section of the guide.",
+        instruction: "Open a subsection to review its questions. Use the section links to jump around, then Continue to move to the next section of the guide.",
       } : item),
       step("assessment-save", assessmentSectionRoute("provenance_qc"), "assessment-save-status", "Save and sign", "Confirm autosave status", "The save indicator distinguishes a saved draft from work that is pending or failed to persist.", "Confirm that the highlighted status says Practice changes saved locally before continuing.", "The training assessment has a visible locally saved state.", "Visible persistence status protects work during interruptions and handoffs.", "In live work, do not leave or sign while save failure, queued changes, or unresolved conflicts are visible.", "confirm", "left"),
-      step("assessment-sign", assessmentSectionRoute("provenance_qc"), "assessment-guided-exit", "Save and sign", "Review the full assessment", "The full assessment shows missing answers and the signature controls.", "Select Full to review every section together. Sign authorized work only when ready.", "The full assessment is open for review.", "Signature is a clinical accountability boundary and must remain a deliberate human action.", "The guide never clicks Sign assessment or records a signature for you.", "target-click", "left"),
+      step("assessment-sign", assessmentSectionRoute("provenance_qc"), "assessment-section-review", "Save and sign", "Review the full assessment", "Section links show unanswered questions, and captured answers remain beside the questions.", "Select Review. Check missing answers and autosave before signing authorized work.", "The full assessment is open for review.", "Signature is a clinical accountability boundary and must remain a deliberate human action.", "The guide never clicks Sign assessment or records a signature for you.", "target-click", "left"),
     ],
   }),
   tutorial({
@@ -302,7 +302,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
 ];
 
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "calendar-view", "workspace-results", "assessment-stage", "assessment-section-identity", "assessment-section-prior-placement", "assessment-section-history", "assessment-answer-help", "assessment-section-clinical", "assessment-section-function", "assessment-section-medication", "assessment-section-substance-use", "assessment-section-behavior-safety", "assessment-section-physical-health", "assessment-section-legal", "assessment-section-support-goals", "assessment-section-review", "assessment-guided-exit", "chart-stage", "chart-meet-client-tab", "operations-report-apply"],
+  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "calendar-view", "workspace-results", "assessment-stage", "assessment-section-identity", "assessment-section-prior-placement", "assessment-section-history", "assessment-answer-help", "assessment-section-clinical", "assessment-section-function", "assessment-section-medication", "assessment-section-substance-use", "assessment-section-behavior-safety", "assessment-section-physical-health", "assessment-section-legal", "assessment-section-support-goals", "assessment-section-review", "chart-stage", "chart-meet-client-tab", "operations-report-apply"],
   "target-input": ["workspace-search", "intake-identity", "intake-medications", "assessment-answer"],
   "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "assessment-schedule-method", "operations-report-select", "operations-summary"],
 };
@@ -326,7 +326,6 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "intake-medications": "components/pipeline/ReferralPacketCanvas.tsx",
   "create-workspace": "components/pipeline/ReferralPacketCanvas.tsx",
   "assessment-stage": "components/pipeline/ReferralPacketCanvas.tsx",
-  "assessment-guided-exit": "components/pipeline/GuidedAssessmentInterview.tsx",
   "assessment-schedule-fields": "components/pipeline/AssessmentSchedulingDialogs.tsx",
   "assessment-schedule-method": "components/pipeline/AssessmentSchedulingDialogs.tsx",
   "assessment-schedule-save": "components/pipeline/AssessmentSchedulingDialogs.tsx",
