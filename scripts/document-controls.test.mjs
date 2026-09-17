@@ -76,11 +76,18 @@ test("disposable PostgreSQL document deletion, audit, undo and retention", async
     const completion = { packet_id: randomUUID(), status: "received", documents: [{ document_id: documentId, filename: "synthetic.pdf" }] };
     await Promise.all(Array.from({ length: 8 }, () => owner.recordUploadedDocuments(id, completion, actor)));
     assert.equal(Number((await sql`select count(*) from pipeline.audit_events where action = 'document_uploaded'`)[0].count), 1);
-    await assert.rejects(owner.changeDocument(documentId, id, "delete", actor, { ...user, id: "other", name: "Other" }), /permission/);
+    await assert.rejects(owner.changeDocument(documentId, id, "delete", actor, { ...user, accessScope: "note_lab" }), /permission/);
     const deletions = await Promise.all(Array.from({ length: 8 }, () => owner.changeDocument(documentId, id, "delete", actor, user)));
     assert.equal(new Set(deletions.map((entry) => entry.deletion_id)).size, 1);
     assert.equal(Number((await sql`select count(*) from pipeline.audit_events where action = 'document_deleted'`)[0].count), 1);
     const deletion = deletions[0];
+    const recoveryBefore = (await sql`select row_to_json(d)::text as snapshot from pipeline.documents d where document_id = ${documentId}`)[0].snapshot;
+    const rollback = await sql.reserve();
+    try { await rollback.unsafe(readFileSync(join(root, "database/rollbacks/0037_document_undo.sql"), "utf8")); }
+    finally { rollback.release(); }
+    assert.equal((await sql`select row_to_json(d)::text as snapshot from pipeline.documents d where document_id = ${documentId}`)[0].snapshot, recoveryBefore);
+    assert.equal(Number((await sql`select count(*) from pipeline.schema_migrations where migration_id = '0037_document_undo'`)[0].count), 1);
+    assert.equal(Number((await sql`select count(*) from pipeline.audit_events where action = 'document_deleted'`)[0].count), 1);
     assert.equal((await sql`select status from pipeline.work_items where work_item_id = ${item.id}`)[0].status, "needed");
     await owner.changeDocument(documentId, id, "restore", actor, user, deletion.deletion_id);
     await owner.changeDocument(documentId, id, "restore", actor, user, deletion.deletion_id);

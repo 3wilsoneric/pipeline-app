@@ -16,6 +16,14 @@ Use `docs/PRODUCTION_ACCEPTANCE_CHECKLIST.md` for release evidence and
    checksum index, manifest, CycloneDX SBOM, smoke result, and operator identity
    in the release record.
 
+Routine Azure releases run the existing backup and migrator jobs with the candidate
+image before updating the application. Each step checks the execution it started;
+either failure stops application rollout. The initial-bootstrap path retains its
+separate first-deployment sequence. Migration 0037 is additive: its rollback drill
+verifies that recovery columns, indexes, and migration history remain present.
+Roll back the application only, retaining document recovery and audit data. Keep
+retention in dry-run while deletion recovery is under investigation.
+
 For desktop distribution, keep both desktop flags off through the migration and
 normal web smoke. Enable them together only after migration
 `0006_user_workspace_state` is present, then follow
