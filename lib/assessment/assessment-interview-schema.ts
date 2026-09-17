@@ -222,12 +222,14 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("use_pattern", "Use pattern", "select", { options: useFrequencyOptions, showWhen: equals("substance_abuse_history", "yes"), requiredWhen: equals("substance_abuse_history", "yes") }),
   q("substance_effect_on_baseline", "Use pattern", "textarea", { showWhen: equals("substance_abuse_history", "yes"), span: "full" }),
   q("longest_sobriety_period", "Recovery history", "select", { options: sobrietyPeriodOptions, showWhen: equals("substance_abuse_history", "yes") }),
-  q("substance_use_insight", "Recovery history", "yes_no", { options: yesNo, showWhen: equals("substance_abuse_history", "yes"), requiredWhen: equals("substance_abuse_history", "yes") }),
+  q("substance_use_insight", "Recovery history", "select", { options: [
+    { value: "yes", label: "Acknowledge" },
+    { value: "no", label: "Doesn't acknowledge" },
+  ], showWhen: equals("substance_abuse_history", "yes"), requiredWhen: equals("substance_abuse_history", "yes") }),
   q("substance_use_insight_details", "Recovery history", "textarea", { showWhen: equals("substance_abuse_history", "yes"), requiredWhen: equals("substance_abuse_history", "yes"), span: "full" }),
   q("treatment_history", "Recovery history", "textarea", { showWhen: equals("substance_abuse_history", "yes"), span: "full" }),
 
   q("behavioral_history", "Current behavior", "textarea", { span: "full", placeholder: "Describe challenging behaviors, patterns, and triggers" }),
-  q("triggers", "Current behavior", "textarea", { span: "full" }),
   q("physical_altercations", "Current behavior", "yes_no", { options: yesNo }),
   q("physical_altercation_details", "Current behavior", "textarea", { showWhen: equals("physical_altercations", "yes"), requiredWhen: equals("physical_altercations", "yes"), span: "full" }),
   q("self_harm_history", "Self-harm", "yes_no", { options: yesNo }),

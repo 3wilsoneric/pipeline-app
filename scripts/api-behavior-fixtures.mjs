@@ -1585,7 +1585,7 @@ function assessmentSchemaResults() {
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 127, "Expected 127 focused user-facing interview questions");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 126, "Expected 126 focused user-facing interview questions");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1596,7 +1596,7 @@ function assessmentSchemaResults() {
         .filter((field) => !interviewFields.has(field));
       assert(
         JSON.stringify(nonInterviewFields) === JSON.stringify([
-          "resident_number", "assessor", "admit_date", "primary_diagnosis", "acuity_level",
+          "resident_number", "assessor", "admit_date", "primary_diagnosis", "acuity_level", "triggers",
           "responds_to_internal_stimuli", "auditory_hallucinations", "auditory_hallucination_nature",
           "auditory_hallucination_frequency", "auditory_hallucination_triggers", "visual_hallucinations",
           "visual_hallucination_details", "visual_hallucination_recent", "olfactory_hallucinations",
@@ -1818,6 +1818,21 @@ function assessmentValidationResults() {
         if_match: 1,
         patch: { data: { unable_to_assess_reasons: { language_barrier: "The client could not participate." } } },
       }));
+    }),
+    run("acknowledgement dropdown preserves legacy insight answers and explanations", () => {
+      assertValid(assessmentValidation.validateAssessmentPatchRequest({
+        if_match: 1,
+        patch: { data: {
+          substance_use_insight: "unable_to_assess",
+          unable_to_assess_reasons: { substance_use_insight: "Previously recorded explanation." },
+        } },
+      }));
+      for (const substance_use_insight of ["yes", "no", null]) {
+        assertValid(assessmentValidation.validateAssessmentPatchRequest({
+          if_match: 1,
+          patch: { data: { substance_use_insight } },
+        }));
+      }
     }),
     run("assessment patch requires optimistic versions and known fields", () => {
       assertInvalid(

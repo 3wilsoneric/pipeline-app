@@ -64,6 +64,23 @@ check("primary and secondary diagnoses remain separate stored answers",
   diagnosisData.primary_diagnosis === "Recorded primary condition"
   && diagnosisData.secondary_diagnoses[0] === "Recorded secondary condition"
   && !interview.getRequiredAssessmentInterviewQuestions(diagnosisData).some((question) => question.field === "secondary_diagnoses"));
+const insightQuestion = interview.getAssessmentInterviewQuestions("substance_use", { ...data, substance_abuse_history: "yes" })
+  .find((question) => question.field === "substance_use_insight");
+check("Recovery history uses the two acknowledgement choices without changing saved values",
+  insightQuestion?.group === "Recovery history" && insightQuestion.control === "select"
+  && JSON.stringify(insightQuestion.options) === JSON.stringify([
+    { value: "yes", label: "Acknowledge" },
+    { value: "no", label: "Doesn't acknowledge" },
+  ])
+  && interview.assessmentInterviewOptionLabel("substance_use_insight", "yes") === "Acknowledge"
+  && interview.assessmentInterviewOptionLabel("substance_use_insight", "no") === "Doesn't acknowledge");
+check("Recovery history stays conditional on a reported substance-use history",
+  [null, "no", "unable_to_assess"].every((substance_abuse_history) => !interview.getAssessmentInterviewQuestions(
+    "substance_use", { ...data, substance_abuse_history },
+  ).some((question) => question.field === "substance_use_insight")));
+check("the separate Triggers question is removed without deleting historical answers",
+  !interview.assessmentInterviewQuestions.some((question) => question.field === "triggers")
+  && schema.pickAssessmentToolData({ triggers: "Previously recorded context" }).triggers === "Previously recorded context");
 check("language guidance comes from the canonical writing specification",
   workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Example")
   && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")

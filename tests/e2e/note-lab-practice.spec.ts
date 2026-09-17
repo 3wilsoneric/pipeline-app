@@ -1,6 +1,26 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Assessment practice lab", () => {
+  test("uses acknowledgement choices in Recovery history and removes the separate Triggers question", async ({ page }) => {
+    await page.goto("/note-lab/practice");
+    const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
+    await sectionRail.getByRole("button", { name: /^Substance use\b/ }).click();
+    const history = page.getByRole("group", { name: "History of substance abuse", exact: true });
+    await history.getByRole("button", { name: "Yes", exact: true }).click();
+    const insight = page.getByRole("combobox", { name: "Insight into substance use *", exact: true });
+    await expect(insight.getByRole("option")).toHaveText(["Select...", "Acknowledge", "Doesn't acknowledge"]);
+    await insight.selectOption({ label: "Acknowledge" });
+    await expect(insight).toHaveValue("yes");
+    await insight.selectOption({ label: "Doesn't acknowledge" });
+    await expect(insight).toHaveValue("no");
+    await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "Insight into substance use *", exact: true })).toHaveValue("no");
+    await sectionRail.getByRole("button", { name: /^Behavior & safety\b/ }).click();
+    await expect(page.locator('[data-practice-field="triggers"]')).toHaveCount(0);
+    await expect(page.locator('[data-practice-field="behavioral_history"]')).toBeVisible();
+  });
+
   test("captures and restores secondary diagnosis separately from primary diagnosis", async ({ page }) => {
     await page.goto("/note-lab/practice");
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
@@ -70,6 +90,14 @@ test.describe("Assessment practice lab", () => {
     await sectionRail.getByRole("button", { name: /^Function\b/ }).click();
     await expect(sectionRail.getByRole("button", { name: /^Function\b/ })).toHaveAttribute("aria-current", "step");
     await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
+    const ambulatory = page.getByRole("group", { name: "Ambulatory", exact: true });
+    await ambulatory.getByRole("button", { name: "No", exact: true }).click();
+    const device = page.getByRole("textbox", { name: "Type of device *", exact: true });
+    await device.fill("Wheelchair");
+    await ambulatory.getByRole("button", { name: "Yes", exact: true }).click();
+    await expect(device).toHaveCount(0);
+    await ambulatory.getByRole("button", { name: "No", exact: true }).click();
+    await expect(device).toHaveValue("Wheelchair");
     const adlGuidance = page.locator("details").filter({ has: page.getByLabel("Answer help for ADL needs") });
     await page.getByLabel("Answer help for ADL needs").click();
     await expect(adlGuidance).toHaveAttribute("open", "");
