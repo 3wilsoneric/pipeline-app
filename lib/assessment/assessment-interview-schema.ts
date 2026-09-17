@@ -235,7 +235,6 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("treatment_history", "Recovery history", "textarea", { showWhen: equals("substance_abuse_history", "yes"), span: "full" }),
 
   q("behavioral_history", "Current behavior", "textarea", { span: "full", placeholder: "Describe behaviors, patterns, and recent events" }),
-  q("triggers", "Current behavior", "textarea", { span: "full", placeholder: "Known triggers, early signs, and what helps", help: "Optional. Describe situations that bring on a response and supports that help." }),
   q("physical_altercations", "Current behavior", "yes_no", { options: yesNo }),
   q("physical_altercation_details", "Current behavior", "textarea", { showWhen: equals("physical_altercations", "yes"), span: "full", placeholder: "What happened, when, the context, and the outcome", help: "Optional. Include an approximate date and response or support used, if known." }),
   q("self_harm_history", "Self-harm", "yes_no", { options: yesNo }),

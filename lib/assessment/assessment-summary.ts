@@ -64,6 +64,7 @@ export function selectSignedAssessment(
 }
 
 const excludedChartFields = new Set<AssessmentToolFieldKey>([
+  "triggers",
   "aggression_risk",
   "unable_to_assess_reasons",
   "source_file",
@@ -167,7 +168,6 @@ export function buildMeetClientSummary(
       ["linear_conversation_details", "Communication support"],
       ["special_diet_details", "Diet"],
       ["current_safety_measures", "Current safety support"],
-      ["triggers", "Triggers and what helps"],
     ]),
     preparedFromAssessmentId: assessment.assessment_id,
     preparedFromAssessmentVersion: assessment.version,

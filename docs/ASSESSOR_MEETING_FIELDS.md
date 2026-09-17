@@ -4,7 +4,7 @@ The owner requested the proposed injection, acknowledgment, triggers, and physic
 
 - IM injections reveals optional frequency, last injection, and next due entries. Existing injection notes remain separate. Each entry supports named medications on separate lines, approximate dates, and unknown values.
 - Acknowledgment now explicitly concerns the impact of substance use. Saved `yes`/`no` values remain compatible; `partially` and `not_discussed` are additional choices. Notes are optional. The Recovery History grouping, sobriety choices, and treatment-history content remain unchanged.
-- Triggers and what helps reuses the existing `triggers` data, so historical answers appear in the restored question.
+- On follow-up, the owner requested removal of Triggers. The question is absent from the interview, current summary/profile, and newly requested extraction targets. Stored trigger history remains intact.
 - Physical altercation Yes reveals optional prompts for the event, timing, context, and outcome.
 - Aggression Risk remains absent from the interview and is removed from the current chart summary, profile presentation, and newly requested extraction targets. Its stored data is retained; no migration, stored-answer deletion, or rewrite of existing signed records or generated packet files occurs. Assault and elopement questions remain.
 

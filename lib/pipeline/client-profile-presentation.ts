@@ -92,7 +92,6 @@ const profileSections: SectionDefinition[] = [
       { label: "Mobility", sources: ["mobility"] },
       { label: "Self-care", sources: ["self_care_status"] },
       { label: "Behavioral history", sources: ["behavioral_history"], maxItems: 10 },
-      { label: "Known triggers", sources: ["triggers"], maxItems: 10 },
       { label: "SI/HI history", sources: ["si_hi_history"] },
       { label: "Elopement risk", sources: ["elopement_risk"] },
       { label: "Responds to internal stimuli", sources: ["responds_to_internal_stimuli"] },
