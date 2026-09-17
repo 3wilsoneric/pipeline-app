@@ -18,7 +18,7 @@ export async function POST(
   context: { params: Promise<{ packetId: string; fieldKey: string }> },
 ) {
   return withApiLogging(request, "/api/packets/[packetId]/fields/[fieldKey]/review", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

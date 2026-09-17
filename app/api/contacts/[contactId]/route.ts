@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export async function PATCH(request: Request, context: { params: Promise<{ contactId: string }> }) {
   return withApiLogging(request, "/api/contacts/[contactId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

@@ -500,8 +500,8 @@ check(
 );
 check("signed assessments are immutable and use append-only addenda", assessmentStore.includes("This assessment is signed") && assessmentStore.includes("addAssessmentAddendum") && migration.includes("assessment_addenda"));
 check("creating or importing an assessment does not start its performance clock", assessmentStore.match(/started_at: null,/g)?.length >= 2 && assessmentStore.includes("started_at: current?.started_at ?? null"));
-check("assessment assignment is preserved while supervisors can cover unassigned work", assessmentAccess.includes("assessmentAssigneeForReferral") && assessmentAccess.includes("referral.ownerId") && assessmentAccess.includes("isAssessmentSupervisor(user)"));
-check("assessment creation and import use one assigned-assessor-or-supervisor rule", assessmentCreateRoute.includes("canWorkAssessment") && assessmentImportRoute.includes("canWorkAssessment") && assessmentCreateRoute.includes("assigned assessor or a supervisor") && assessmentImportRoute.includes("assigned assessor or a supervisor"));
+check("assessment assignment is preserved while approved teammates can cover unassigned work", assessmentAccess.includes("assessmentAssigneeForReferral") && assessmentAccess.includes("referral.ownerId") && assessmentAccess.includes("canEditWorkspace(user)"));
+check("assessment creation and import use the shared workspace rule", assessmentCreateRoute.includes("canWorkAssessment") && assessmentImportRoute.includes("canWorkAssessment") && assessmentAccess.includes("canEditWorkspace(user)"));
 check(
   "assessment drafts remain open when intake evidence or profile fields are incomplete",
   !assessmentCreateRoute.includes("hasInitialDocument")
@@ -520,23 +520,23 @@ check("the interview has no redundant generic assessment-notes question", !asses
 check("embedded guidance has no provider or review request path", !/Claude|Anthropic|AI review|note-coach/.test(assessmentWorkspace)
   && !/fetch|provider|model/i.test(read("lib/assessment/assessment-narrative-guide.ts"))
   && !/fetch|provider|model/i.test(read("lib/assessment/assessment-field-writing-spec.ts")));
-check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
-check("assigned assessors and supervisors can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
-check("assessment start is explicit, supervisor-capable, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));
+check("approved teammates can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
+check("approved teammates can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
+check("assessment start is explicit, shared, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));
 check("assessment start allows skipping scheduling without inventing an appointment", !startRoute.includes("Schedule the assessment before beginning the interview.") && startRoute.includes("mark_started: true"));
 check("signing allows incomplete unstarted assessments while retaining signer authorization", !signRoute.includes("Begin the assessment before signing it") && signRoute.includes("canWorkAssessment"));
-check("signed addenda are limited to the signer or a supervisor", addendumRoute.includes("assessment.signed_by?.id !== auth.user.id") && addendumRoute.includes("Only the signing assessor or a supervisor"));
+check("approved teammates can add attributed addenda without rewriting signed originals", addendumRoute.includes("requirePipelineUser(request)") && addendumRoute.includes("requireMutableReferralAccess") && addendumRoute.includes("addAssessmentAddendum") && !addendumRoute.includes("assessment.signed_by?.id !== auth.user.id"));
 check("assigned assessors and supervisors can submit a recommendation", recommendationRoute.includes("allowSupervisorOverride") && workflowStore.includes("allowSupervisorOverride") && workflowStore.includes("assigned assessor or a supervisor"));
-check("only the head supervisor can record final decisions", decisionRoute.includes('requirePipelineUser(request, ["admin"])') && decisionRoute.includes('decidedByRole: "admin"'));
+check("approved teammates record decisions with their actual role", decisionRoute.includes("requirePipelineUser(request)") && decisionRoute.includes("decidedByRole: auth.user.roles[0]"));
 check("authorized referral users can open signed assessment charts", admissionSummaryRoute.includes("requirePipelineUser(request)") && admissionSummaryRoute.includes("requireReferralAccess") && !admissionSummaryRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
-check("only supervisors can send Meet the Client", meetClientEmailRoute.includes('["admin", "assessment_coordinator"]'));
+check("approved teammates can explicitly send Meet the Client", meetClientEmailRoute.includes("requirePipelineUser(request)") && meetClientEmailRoute.includes("requireMutableReferralAccess"));
 check("Meet the Client requires explicit recipient confirmation and same-origin protection", meetClientEmailRoute.includes("body.value.confirmed !== true") && meetClientEmailRoute.includes("requireSameOriginMutation"));
-check("Meet the Client requires an accepted decision and signed assessment", meetClientEmailRoute.includes('snapshot.decision?.outcome !== "accepted"') && meetClientEmailRoute.includes("selectSignedAssessment") && meetClientEmailRoute.includes("recommended?.signed_at"));
-check("summary and email pin the supervisor-approved assessment id and version",
+check("Meet the Client requires an accepted decision and signed assessment", meetClientEmailRoute.includes('snapshot.decision?.outcome !== "accepted"') && meetClientEmailRoute.includes("selectSignedAssessment") && read("lib/assessment/assessment-summary.ts").includes("assessment?.signed_at"));
+check("summary and email select the signed assessment independently of the acceptance version",
   admissionSummaryRoute.includes("snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId")
-    && admissionSummaryRoute.includes("snapshot.decision?.assessmentVersion")
+    && admissionSummaryRoute.includes("selectSignedAssessment")
     && meetClientEmailRoute.includes("snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId")
-    && meetClientEmailRoute.includes("snapshot.decision?.assessmentVersion")
+    && meetClientEmailRoute.includes("selectSignedAssessment")
     && deliveryAudit.includes("assessment_version")
     && deliveryAudit.includes("review_version"));
 check("email recipients are constrained to approved organization domains", graphMail.includes("PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS") && graphMail.includes("allowedRecipientDomains.includes(emailDomain(value))"));
@@ -577,14 +577,14 @@ check("the Chart workspace contains only the complete chart and Meet the Client 
 check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes("<AdmissionPacketSummary")
   && assessmentChartWorkspace.includes("listed admission files")
   && assessmentChartWorkspace.includes("Email summary + packet"));
-check("the complete chart is generated only from a signed assessment", admissionSummaryRoute.includes("selectSignedAssessment") && admissionSummaryRoute.includes("recommended?.signed_at") && admissionSummaryRoute.includes("find((item) => item.signed_at)"));
-check("only supervisors can move a referral to trash", referralRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
-check("only supervisors can authorize intake without an initial packet", manualIntakeRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
-check("final decisions require the current immutable review submission",
-  workflowStore.includes("review_not_ready")
-    && workflowStore.includes('review.status !== "submitted"')
-    && workflowStore.includes("review.recommendationId !== recommendation.recommendationId")
-    && !workflowStore.includes("admission_decision_overridden"));
+check("the complete chart is generated only from a signed assessment", admissionSummaryRoute.includes("selectSignedAssessment") && read("lib/assessment/assessment-summary.ts").includes("return assessment?.signed_at ? assessment : null"));
+check("approved teammates can move a referral to trash", referralRoute.includes("requirePipelineUser(request)") && referralRoute.includes("requireMutableReferralAccess"));
+check("approved teammates can authorize intake without an initial packet", manualIntakeRoute.includes("requirePipelineUser(request)") && manualIntakeRoute.includes("requireMutableReferralAccess"));
+check("acceptance is independent and acknowledges only an actual matching submitted review",
+  workflowStore.includes("const submittedReview = reviewForDecision(")
+    && workflowStore.includes("reviewId: submittedReview?.reviewId")
+    && workflowStore.includes("review.assessmentVersion === Number(assessment.version)")
+    && !workflowStore.includes("review_not_ready"));
 check(
   "placement approval preserves admission gates until an explicit admission transition",
   workflowStore.includes(': "Community Review"')

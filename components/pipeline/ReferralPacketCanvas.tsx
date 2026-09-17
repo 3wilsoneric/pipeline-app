@@ -51,7 +51,7 @@ import type {
   ReferralSection,
   RequirementType,
 } from "@/lib/pipeline/referral-types";
-import { canModifyReferral, isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
+import { canEditWorkspace, canModifyReferral, isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import type { ReferralCreateInput, ReferralPatch } from "@/lib/pipeline/referral-store";
 import {
   fetchCurrentPipelineUser,
@@ -237,7 +237,7 @@ function isWorkspacePermissionReadOnly(referral: Referral | null, viewer: Pipeli
 
 function IntakeEditScope({ readOnly, children }: { readOnly: boolean; children: React.ReactNode }) {
   return <>
-    {readOnly ? <p role="status" className="mb-4 text-sm font-bold text-[#595959]">Read only · Only workspace owners can make changes.</p> : null}
+    {readOnly ? <p role="status" className="mb-4 text-sm font-bold text-[#595959]">Sign in with an approved Pipeline account to make changes.</p> : null}
     <fieldset disabled={readOnly} className="min-w-0" onDropCapture={readOnly ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined}>
       {children}
     </fieldset>
@@ -596,7 +596,7 @@ export default function ReferralPacketCanvas({
       .then(({ user }) => {
         if (!cancelled) {
           setViewer(user ?? null);
-          setCanSupervise(Boolean(user?.roles.some((role) => role === "admin" || role === "assessment_coordinator")));
+          setCanSupervise(canEditWorkspace(user));
         }
       })
       .catch(() => {

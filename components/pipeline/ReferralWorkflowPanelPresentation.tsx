@@ -291,7 +291,7 @@ function ClinicalRecommendationDisclosure({ workflow, busy, recommendation, onRe
   if (!workflow.context.assessmentId && !workflow.decision) return null;
   if (workflow.review?.status === "submitted" || workflow.decision) return <FinishedAssessmentCard workflow={workflow} />;
   return (
-    <WorkflowCard icon={<ShieldCheck size={17} />} title="Assessment outcome" detail="Save your recommendation now. Signing and the supervisor decision are separate.">
+    <WorkflowCard icon={<ShieldCheck size={17} />} title="Assessment outcome" detail="Save your recommendation now. Signing and the admission decision are separate.">
       {workflow.recommendation ? <RecordSummary title={`${formatOutcome(workflow.recommendation.outcome)} recommendation`} actor={workflow.recommendation.recommendedByName} date={workflow.recommendation.recommendedAt} note={workflow.recommendation.reasonNote} /> : null}
       <fieldset disabled={!workflow.capabilities.can_recommend || Boolean(busy)} className="my-4">
         <legend className="sr-only">Outcome recommendation</legend>
@@ -327,7 +327,7 @@ function FinishedAssessmentCard({ workflow }: { workflow: WorkflowResponse }) {
 
 function SupervisorDecisionDisclosure({ workflow, view, busy, decision, onDecisionChange, onSubmitDecision, onRequestReviewChanges }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "decision" | "onDecisionChange" | "onSubmitDecision" | "onRequestReviewChanges"> & { view: WorkflowView }) {
   return (
-    <WorkflowDisclosure key={`decision-${view.decisionDisclosureKey}`} icon={<CheckCircle2 size={17} />} title="Supervisor decision" detail={workflow.capabilities.can_decide ? "Supervisor authority" : "Visible to the assigned team"} defaultOpen={view.decisionDisclosureIsOpen}>
+    <WorkflowDisclosure key={`decision-${view.decisionDisclosureKey}`} icon={<CheckCircle2 size={17} />} title="Admission decision" detail={workflow.capabilities.can_decide ? "Available to the team" : "Visible to the team"} defaultOpen={view.decisionDisclosureIsOpen}>
       {workflow.decision ? <RecordSummary title={`${formatOutcome(workflow.decision.outcome)} decision`} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} /> : null}
       {workflow.review ? <ReviewSummary review={workflow.review} /> : null}
       {workflow.capabilities.can_decide && !workflow.decision ? (

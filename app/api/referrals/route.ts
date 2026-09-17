@@ -80,11 +80,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/referrals", async () => {
-    const auth = await requirePipelineUser(request, [
-      "admin",
-      "assessment_coordinator",
-      "reviewer",
-    ]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -110,9 +106,6 @@ export async function POST(request: Request) {
       : null;
     if (body.value.assignee_id !== undefined && !selectedOwner) {
       return jsonError("Choose an active assessor as owner.", 422);
-    }
-    if (selectedOwner && isAssessorUser(auth.user) && selectedOwner.principal_id !== auth.user.id) {
-      return jsonError("Assessors can assign new referrals only to themselves.", 403);
     }
     const knownOwner = selectedOwner || assignment.ownerId ? null : await resolveKnownPipelineUser(assignment.owner);
     if (!selectedOwner && !assignment.ownerId && !knownOwner && !isUnassignedOwner(assignment.owner)) {

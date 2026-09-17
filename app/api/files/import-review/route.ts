@@ -8,7 +8,7 @@ const statuses = new Set(["unmatched", "candidate", "confirmed", "rejected", "im
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/files/import-review", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const url = new URL(request.url);
     const query = url.searchParams.get("q")?.trim() ?? "";

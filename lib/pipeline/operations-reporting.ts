@@ -24,7 +24,7 @@ import {
 } from "@/lib/pipeline/operations-report-types";
 import { getSupervisorExceptionSnapshot } from "@/lib/pipeline/operations-snapshot";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
-import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { getReferralStoreReadiness, listReferralFacets, listReferrals, listReferralFiles } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { getConfirmedReferralClinicalIdentities } from "./client-workspace-store";
@@ -658,10 +658,9 @@ async function assessmentScheduleRows(user: PipelineUser, filters: OperationsRep
     }));
 }
 
-async function assessmentCompletionRows(user: PipelineUser, filters: OperationsReportFilters) {
+async function assessmentCompletionRows(_user: PipelineUser, filters: OperationsReportFilters) {
   const report = await getAssessmentCompletionReport(filters.month);
   return report.rows
-    .filter((row) => !isAssessorUser(user) || row.assessor_id === user.id || row.assessor_name === user.name)
     .map((row) => ({
       row_id: row.assessor_id ?? `legacy:${row.assessor_name}`,
       referral_id: null,

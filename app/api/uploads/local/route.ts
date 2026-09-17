@@ -13,7 +13,7 @@ const multipartOverheadBytes = 1024 * 1024;
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/uploads/local", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

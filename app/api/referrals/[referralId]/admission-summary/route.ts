@@ -14,8 +14,7 @@ import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 export const runtime = "nodejs";
 
 function canSendAdmissionSummary(user: PipelineUser, referral: Referral) {
-  return referral.workspaceStatus !== "historical" && canModifyReferral(referral, user)
-    && user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
+  return referral.workspaceStatus !== "historical" && canModifyReferral(referral, user);
 }
 
 export async function GET(

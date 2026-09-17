@@ -63,8 +63,8 @@ test.describe("independent assessor workflow steps", () => {
       expect(intake.status(), await intake.text()).toBe(200);
       const activity = await (await admin.get(`/api/referrals/${referral.id}/activity`)).text();
       expect(activity).not.toMatch(/assessment_signed|meet_client_email_sent|ehr_handoff_sent/);
-      const denied = await assessor.put(`/api/referrals/${referral.id}/decision`, { data: {} });
-      expect(denied.status()).toBe(403);
+      const invalid = await assessor.put(`/api/referrals/${referral.id}/decision`, { data: {} });
+      expect(invalid.status()).toBe(400);
       const beforeSign = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
       expect(beforeSign.report).toBeNull();
       const acceptedBeforeSigning = await acceptedCount(admin);

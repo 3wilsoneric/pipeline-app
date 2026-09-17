@@ -3,6 +3,11 @@ import { isUnassignedOwner, normalizeOwnerName } from "./referral-owner-identity
 
 export { isUnassignedOwner, normalizeOwnerName } from "./referral-owner-identity";
 
+export function canEditWorkspace(user: { roles: readonly string[]; accessScope?: string } | null | undefined) {
+  return Boolean(user && user.accessScope !== "note_lab"
+    && user.roles.some((role) => ["admin", "assessment_coordinator", "reviewer", "viewer"].includes(role)));
+}
+
 type AssignedUser = {
   id: string;
   email?: string;
@@ -37,9 +42,8 @@ export function canModifyReferral(
   referral: Parameters<typeof isReferralOwner>[0],
   user: AssignedUser & { roles: readonly string[] },
 ) {
-  return user.roles.includes("admin")
-    || (user.roles.some((role) => role === "assessment_coordinator" || role === "reviewer")
-      && isReferralOwner(referral, user));
+  void referral;
+  return canEditWorkspace(user);
 }
 
 export function createReferralOwners(

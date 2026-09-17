@@ -2,8 +2,7 @@ import "server-only";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { readPacketReferralId } from "@/lib/extraction/packet-referral";
-import { canModifyReferral, isReferralOwner, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
-import { canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
+import { canEditWorkspace, canModifyReferral, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { getDeletedReferral, getReferral, getReferralByPacketId, type ReferralFileListOptions, type ReferralListOptions } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
@@ -14,25 +13,22 @@ export function isAssessorUser(user: PipelineUser) {
 }
 
 export function canAccessReferral(user: PipelineUser, referral: Referral) {
-  return !isAssessorUser(user) || isReferralOwner(referral, user);
+  return canModifyReferral(referral, user);
 }
 
 export function canRecordAdmissionDecision(user: PipelineUser) {
-  return user.roles.includes("admin");
+  return canEditWorkspace(user);
 }
 
 export function canViewTeamReferralBoard(user: PipelineUser) {
-  return user.roles.includes("admin")
-    || (user.email.trim().toLowerCase() === "sandeep@aaahealthservices.com"
-      && canAccessSupervisorOperations(user.roles));
+  return canEditWorkspace(user);
 }
 
 export function scopeReferralListOptions<T extends ReferralListOptions | ReferralFileListOptions>(
   user: PipelineUser,
   options: T,
 ): T {
-  const personalScope = options.scope === "mine" || (options.scope === "team" && !canAccessSupervisorOperations(user.roles));
-  if (!personalScope && !isAssessorUser(user)) return options;
+  if (options.scope !== "mine") return options;
   return {
     ...options,
     assignedOwnerId: user.id,
@@ -107,7 +103,7 @@ function rejectUnauthorizedMutation(
   if (!canModifyReferral(access.referral, user)) {
     return {
       ok: false as const,
-      response: Response.json({ error: "Only workspace owners can change this referral." }, { status: 403 }),
+      response: Response.json({ error: "Pipeline workspace access is required." }, { status: 403 }),
     };
   }
   if (access.referral.workspaceStatus !== "historical") return access;
@@ -130,13 +126,7 @@ export function assignedOwnerForPatch(
   if (requestedOwner === undefined) {
     return { ok: true as const, owner: current.owner, ownerId: current.ownerId };
   }
-  if (isAssessorUser(user) && !normalizedOwnerAliases(user).includes(requestedOwner.trim().toLowerCase())) {
-    return {
-      ok: false as const,
-      response: Response.json({ error: "Assessors cannot reassign referrals." }, { status: 403 }),
-    };
-  }
-  if (isAssessorUser(user) && normalizedOwnerAliases(user).includes(requestedOwner.trim().toLowerCase())) {
+  if (normalizedOwnerAliases(user).includes(requestedOwner.trim().toLowerCase())) {
     return { ok: true as const, owner: requestedOwner, ownerId: user.id };
   }
   if (requestedOwner.trim().toLowerCase() === current.owner.trim().toLowerCase()) {

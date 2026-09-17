@@ -1,6 +1,6 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
-import { isAssessmentSupervisor } from "@/lib/assessment/assessment-access";
+import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -27,7 +27,7 @@ export async function GET(request: Request, context: { params: Promise<{ referra
 
 export async function PUT(request: Request, context: { params: Promise<{ referralId: string }> }) {
   return withApiLogging(request, "/api/referrals/[referralId]/recommendation", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -60,7 +60,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
       Number(body.value.if_match),
       Number(body.value.if_match_section),
       pipelineAuditActor(auth.user),
-      { allowSupervisorOverride: isAssessmentSupervisor(auth.user), mutationId: mutationId.value },
+      { allowSupervisorOverride: canEditWorkspace(auth.user), mutationId: mutationId.value },
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) return Response.json({ error: "This recommendation changed in another session.", ...result }, { status: 409 });

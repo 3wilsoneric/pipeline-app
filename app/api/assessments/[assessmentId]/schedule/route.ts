@@ -4,7 +4,7 @@ import {
   patchAssessment,
   requireAssessmentStore,
 } from "@/lib/assessment/assessment-store";
-import { canWorkAssessment, isAssessmentSupervisor } from "@/lib/assessment/assessment-access";
+import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import {
   validateAssessmentScheduleCommand,
   type AssessmentScheduleCommand,
@@ -23,7 +23,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ assessmentId: string }> }) {
   return withApiLogging(request, "/api/assessments/[assessmentId]/schedule", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -48,7 +48,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
       access.referral,
       assessment.assessor_id,
       pipelineAuditActor(auth.user),
-      isAssessmentSupervisor(auth.user),
+      canWorkAssessment(auth.user, assessment.assessor_id),
     );
   });
 }

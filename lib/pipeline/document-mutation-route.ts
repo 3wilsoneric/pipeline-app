@@ -9,7 +9,7 @@ import { requireReferralStore } from "./referral-store";
 import { changeDocument, documentReferralIncludingDeleted } from "./document-lifecycle";
 
 export async function documentMutationResponse(request: Request, documentId: string, action: "delete" | "restore") {
-  const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+  const auth = await requirePipelineUser(request);
   if (!auth.ok) return auth.response;
   const originFailure = requireSameOriginMutation(request);
   if (originFailure) return originFailure;

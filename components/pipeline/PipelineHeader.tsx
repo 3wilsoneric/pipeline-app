@@ -1,5 +1,7 @@
 "use client";
 
+import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
+
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -232,7 +234,7 @@ export default function PipelineHeader() {
             <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
             {user?.roles.includes("admin") ? <ProfileProcessTesterLink onSelect={() => setIsProfileMenuOpen(false)} /> : null}
             <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
-            {user?.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)) ? (
+            {canEditWorkspace(user) ? (
               <button
                 type="button"
                 aria-current={trashActive ? "page" : undefined}

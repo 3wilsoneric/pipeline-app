@@ -102,7 +102,7 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, denied
   class GraphMailDeliveryError extends Error {}
   const dependencies = {
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
-      assert.deepEqual(Array.from(roles), ["admin", "assessment_coordinator"]);
+      assert.equal(roles, undefined);
       return denied ? { ok: false, response: jsonError("Forbidden", 403) } : { ok: true, user: { id: "synthetic-coordinator" } };
     } },
     "@/lib/auth/assessor-session-policy": { pipelineAccountableActor: () => ({ id: "synthetic-coordinator", name: "Synthetic Coordinator" }) },

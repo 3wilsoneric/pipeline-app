@@ -106,8 +106,8 @@ test.describe("assessment outcome and admission handoff", () => {
         await expect(page.getByLabel("Admission date", { exact: true })).toHaveValue("2026-10-12");
         await page.setViewportSize({ width: 390, height: 844 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-        const deniedSend = await assessor.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { confirmed: true, if_match: after.referral.version, recipients: ["synthetic@example.invalid"], client_mutation_id: randomUUID() } });
-        expect(deniedSend.status()).toBe(403);
+        const unavailableSend = await assessor.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { confirmed: true, if_match: after.referral.version, recipients: ["synthetic@example.invalid"], client_mutation_id: randomUUID() } });
+        expect(unavailableSend.status()).toBe(503);
       } finally { await context.close(); await assessor.dispose(); await admin.dispose(); }
     });
   }

@@ -23,7 +23,7 @@ export async function GET(
   context: { params: Promise<{ draftKey: string }> },
 ) {
   return withApiLogging(request, "/api/me/referral-drafts/[draftKey]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const readinessFailure = requireWorkspaceState();
     if (readinessFailure) return readinessFailure;
@@ -45,7 +45,7 @@ export async function PUT(
   context: { params: Promise<{ draftKey: string }> },
 ) {
   return withApiLogging(request, "/api/me/referral-drafts/[draftKey]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -97,7 +97,7 @@ export async function DELETE(
   context: { params: Promise<{ draftKey: string }> },
 ) {
   return withApiLogging(request, "/api/me/referral-drafts/[draftKey]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

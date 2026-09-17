@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/trash/referrals", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const store = requireReferralStore();
     if (!store.ok) return store.response;

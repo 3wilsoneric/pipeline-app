@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ assessmentId: string }> }) {
   return withApiLogging(request, "/api/assessments/[assessmentId]/addenda", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -23,10 +23,6 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (!assessment) return jsonError("Assessment not found.", 404);
     const access = await requireMutableReferralAccess(auth.user, assessment.referral_id);
     if (!access.ok) return access.response;
-    const isSupervisor = auth.user.roles.includes("admin") || auth.user.roles.includes("assessment_coordinator");
-    if (assessment.signed_by?.id !== auth.user.id && !isSupervisor) {
-      return jsonError("Only the signing assessor or a supervisor can add an addendum.", 403);
-    }
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const command = validateAssessmentAddendumCommand(body.value);

@@ -93,7 +93,7 @@ test.describe("assessment preparation", () => {
   test("preparation, scheduling and starting retain one record without starting the interview early", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessorA", url);
-    const other = await actorApiContext("assessorB", url);
+    const other = await actorApiContext("outsider", url);
     try {
       const referral = await createReferral(api);
       const created = await api.post(`/api/referrals/${referral.id}/assessments`, { data: {
@@ -106,7 +106,7 @@ test.describe("assessment preparation", () => {
       const denied = await other.patch(`/api/assessments/${draft.assessment_id}`, { data: {
         if_match: draft.version, patch: { data: { prior_5150_5250_holds: "Must not replace the assigned assessor's answer." } },
       } });
-      expect(denied.status()).toBe(404);
+      expect(denied.status()).toBe(403);
       const schedule = await api.post(`/api/assessments/${draft.assessment_id}/schedule`, { data: {
         if_match: draft.version, client_mutation_id: randomUUID(),
         schedule: { status: "scheduled", start_at: new Date(Date.now() + (30 + referral.id) * 86_400_000).toISOString(), duration_minutes: 60, method: "record_review" },

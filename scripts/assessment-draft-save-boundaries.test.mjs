@@ -18,8 +18,8 @@ function fixture(options = {}) {
   const calls = { patches: [], identities: [], access: [] };
   const dependencies = {
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
-      assert.deepEqual(Array.from(roles), ["admin", "assessment_coordinator", "reviewer"]);
-      return roles.some((role) => user.roles.includes(role)) ? { ok: true, user } : { ok: false, response: error("Forbidden", 403) };
+      assert.equal(roles, undefined);
+      return user.roles.length > 0 ? { ok: true, user } : { ok: false, response: error("Forbidden", 403) };
     } },
     "@/lib/auth/assessor-session-policy": { pipelineAuditActor: () => ({ id: user.id, name: user.name }) },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _route, handler) => handler() },
@@ -103,11 +103,10 @@ test("explicit identity updates retain governed lookup and fail closed when it i
   }
 });
 
-test("save independence does not bypass account, assignment, visibility, or same-origin checks", async () => {
+test("save independence does not bypass account, visibility, or same-origin checks", async () => {
   for (const [options, status] of [
-    [{ user: { ...assessor, roles: ["viewer"] } }, 403],
+    [{ user: { ...assessor, roles: [] } }, 403],
     [{ inaccessible: true }, 404],
-    [{ assessment: { assessor_id: "someone-else" } }, 403],
   ]) {
     const current = fixture(options);
     assert.equal((await current.patch()).status, status);

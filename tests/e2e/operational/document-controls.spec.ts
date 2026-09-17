@@ -6,7 +6,7 @@ import { actorApiContext, actorPage, requireOperationalBaseURL, syntheticReferra
 test("upload preview, original, cancel/delete, audit and restore preserve chart data", async ({ browser, baseURL }) => {
   const url = requireOperationalBaseURL(baseURL);
   const api = await actorApiContext("assessorA", url);
-  const stranger = await actorApiContext("assessorB", url);
+  const stranger = await actorApiContext("outsider", url);
   const { page, context } = await actorPage(browser, "assessorA", url);
   try {
     await api.get("/api/auth/me");
@@ -33,8 +33,8 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     await history.locator("summary").click();
     await expect(history.getByText("Document uploaded", { exact: true })).toBeVisible();
     await history.locator("summary").click();
-    expect((await stranger.get(`/api/files/${file.id}`)).status()).toBe(404);
-    expect((await stranger.delete(`/api/files/${file.id}`, { data: { confirmed: true } })).status()).toBe(404);
+    expect((await stranger.get(`/api/files/${file.id}`)).status()).toBe(403);
+    expect((await stranger.delete(`/api/files/${file.id}`, { data: { confirmed: true } })).status()).toBe(403);
     expect((await api.delete(`/api/files/${file.id}`, { data: { confirmed: false } })).status()).toBe(400);
     await list.getByRole("button", { name: `Preview ${packet.name}`, exact: true }).click();
     const preview = page.getByRole("dialog", { name: `Preview ${packet.name}`, exact: true });

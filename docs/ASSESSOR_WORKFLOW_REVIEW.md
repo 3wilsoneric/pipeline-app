@@ -17,6 +17,8 @@ This product change allows incomplete work to progress and separates acceptance,
 | Report accepted work | Early acceptance without an assessment ID is attributed to the referral's first assessment revision family, in both adapters. Later unrelated assessments are not all counted as new accepted clients. |
 | Recover unfinished work | Existing encrypted browser/server recovery remains. Late recovery responses no longer overwrite a newer edit or a completed server/file save, and local-only recovery is never labeled Saved to Pipeline. |
 
+Current access policy: [Shared workspace editing](SHARED_WORKSPACE_EDITING.md) supersedes the assignment and supervisor-only permissions described in this original review. All approved Pipeline roles can edit active work and record acceptance.
+
 ## Boundaries retained
 
 Authentication, assignment visibility, supervisor decision authority, same-origin checks, optimistic concurrency, mutation replay, signed-record integrity, and delivery authorization are preserved. Storage failures are not reported as successful saves. Navigation retains the only copy when neither browser nor server can preserve it.

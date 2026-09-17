@@ -2,8 +2,8 @@ import "server-only";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
-import { normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
-import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { canEditWorkspace, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
+import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { getReferralStoreReadiness, listReferrals } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { listResidentLinks } from "@/lib/pipeline/resident-link-store";
@@ -124,9 +124,9 @@ export async function getClinicalClientWorkspaceSummaries(
     }
   }
 
-  const assessor = isAssessorUser(user);
-  const ownerId = assessor ? user.id : null;
-  const ownerNames = assessor ? normalizedOwnerAliases(user) : [];
+  const restricted = !canEditWorkspace(user);
+  const ownerId = restricted ? user.id : null;
+  const ownerNames = restricted ? normalizedOwnerAliases(user) : [];
   const sql = getPipelineSql();
   const rows = await sql<{
     canonical_client_id: string;
@@ -246,9 +246,9 @@ async function listPostgresPipelineClientWorkspaces(
   const community = options.community?.trim() || null;
   const limit = boundedLimit(options.limit);
   const offset = boundedOffset(options.offset);
-  const assessor = isAssessorUser(user);
-  const ownerId = assessor ? user.id : null;
-  const ownerNames = assessor ? normalizedOwnerAliases(user) : [];
+  const restricted = !canEditWorkspace(user);
+  const ownerId = restricted ? user.id : null;
+  const ownerNames = restricted ? normalizedOwnerAliases(user) : [];
   const excludeConfirmed = options.excludeConfirmed !== false;
   const rows = await sql<PipelineClientRow[]>`
     with visible_referrals as (

@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/contacts/import", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     return new Response(contactImportTemplate, {
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="contact-directory-template.csv"' },
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/contacts/import", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

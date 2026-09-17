@@ -12,7 +12,7 @@ export async function GET(
   context: { params: Promise<{ residentId: string }> },
 ) {
   return withApiLogging(request, "/api/clinical/residents/[residentId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer", "viewer"]);
     if (!auth.ok) return auth.response;
 
     try {

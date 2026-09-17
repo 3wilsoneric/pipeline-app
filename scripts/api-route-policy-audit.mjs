@@ -45,12 +45,12 @@ const governedReadMutations = new Set([
   "app/api/me/performance/route.ts#POST",
 ]);
 const roleRestrictedReads = new Map([
-  ["app/api/operations/supervisor-queue/route.ts#GET", ["admin", "assessment_coordinator"]],
+  ["app/api/operations/supervisor-queue/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
   ["app/api/profiles/[residentKey]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
   ["app/api/profiles/[residentKey]/source-documents/[documentId]/thumbnail/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
   ["app/api/profiles/[residentKey]/source-documents/[documentId]/preview/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
   ["app/api/clinical/clients/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
-  ["app/api/clinical/residents/[residentId]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer"]],
+  ["app/api/clinical/residents/[residentId]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
 ]);
 
 const routeFiles = findRouteFiles(apiRoot);
@@ -78,6 +78,8 @@ for (const absoluteFile of routeFiles) {
     const isInternal = route.startsWith("/api/internal/");
     const isPublic = publicMethods.has(key);
     const isMutation = mutationMethods.has(method);
+    const sharedWorkspace = /^\/api\/(referrals|assessments|files|packets|uploads|contacts|resident-links|trash)(\/|$)/.test(route);
+    const personalRecovery = /^\/api\/me\/(assessment-drafts|referral-drafts)(\/|$)/.test(route);
     const roleList = pipelineRoles(body);
 
     methods.push({ key, route, method, boundary: isInternal ? "worker" : isPublic ? "public" : "user" });
@@ -128,7 +130,8 @@ for (const absoluteFile of routeFiles) {
       check(`${key} resolves assessment ownership before access`, enforcesReferralAccess(body));
     }
     if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key) && !ownerScopedMethods.has(key) && !authenticatedBaseMethods.has(key) && !authenticatedPipelineSelfMethods.has(key) && !governedReadMutations.has(key)) {
-      check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));
+      if (sharedWorkspace || personalRecovery) check(`${key} permits every authenticated Pipeline role`, body.includes("requirePipelineUser(request)") || roleList.includes("viewer"));
+      else check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));
     }
     if (isMutation && authenticatedPipelineSelfMethods.has(key)) {
       check(`${key} mutates only the signed-in staff member`, body.includes("auth.user"));
@@ -141,6 +144,9 @@ for (const absoluteFile of routeFiles) {
     }
     if (key === "app/api/note-lab/session/route.ts#POST") {
       check(`${key} writes only principal-scoped reviewer state`, body.includes("submitNoteLabReview(auth.user.id"));
+    }
+    if (personalRecovery) {
+      check(`${key} keeps recovery principal-scoped`, body.includes("auth.user.id") || (body.includes("authorize(auth.user, context)") && sourceText.includes("userId: user.id")));
     }
     if (personalStateWrites.has(key)) {
       check(`${key} writes only principal-scoped personal state`, body.includes("auth.user.id") && body.includes("requirePipelineUser("));
@@ -202,6 +208,10 @@ function resolvedFunctionText(statement, source, declarations) {
   const delegate = text.match(/return\s+(\w+)\(\s*request\b/)?.[1];
   const declaration = delegate ? declarations.get(delegate) : null;
   if (declaration) text += `\n${declaration.getText(source)}`;
+  if (text.includes("documentMutationResponse(request,")
+    && source.text.includes('import { documentMutationResponse } from "@/lib/pipeline/document-mutation-route"')) {
+    text += `\n${readFileSync(path.join(root, "lib/pipeline/document-mutation-route.ts"), "utf8")}`;
+  }
   return text;
 }
 

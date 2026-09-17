@@ -36,7 +36,7 @@ export async function POST(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]/meet-client-email", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

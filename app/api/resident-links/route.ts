@@ -77,7 +77,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/resident-links", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

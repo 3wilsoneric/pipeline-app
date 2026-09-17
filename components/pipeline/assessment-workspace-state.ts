@@ -1,3 +1,4 @@
+import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { PipelineApiError, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import {
@@ -85,16 +86,12 @@ export function assessmentOfflinePrincipal(
   return viewer?.id ?? viewer?.email ?? "";
 }
 
-function viewerHasAnyRole(viewer: PipelineCurrentUser | null, roles: readonly string[]) {
-  return Boolean(viewer?.roles.some((role) => roles.includes(role)));
-}
-
 export function canSuperviseAssessment(
   trainingAssessmentMode: TrainingAssessmentMode | undefined,
   viewer: PipelineCurrentUser | null,
 ) {
   if (trainingAssessmentMode) return true;
-  return viewerHasAnyRole(viewer, ["admin", "assessment_coordinator"]);
+  return canEditWorkspace(viewer);
 }
 
 export function canCreateAssessment(
@@ -102,7 +99,7 @@ export function canCreateAssessment(
   viewer: PipelineCurrentUser | null,
 ) {
   if (trainingAssessmentMode) return true;
-  return viewerHasAnyRole(viewer, ["admin", "assessment_coordinator", "reviewer"]);
+  return canEditWorkspace(viewer);
 }
 
 export function canEditAssessment(
@@ -113,7 +110,8 @@ export function canEditAssessment(
 ) {
   if (trainingAssessmentMode) return true;
   if (!viewer || !selected) return false;
-  return selected.assessor_id === viewer.id || canSupervise;
+  void canSupervise;
+  return canEditWorkspace(viewer);
 }
 
 export function canAddAssessmentAddendum(
@@ -124,7 +122,8 @@ export function canAddAssessmentAddendum(
 ) {
   if (trainingAssessmentMode) return true;
   if (!viewer) return false;
-  return selected?.signed_by?.id === viewer.id || canSupervise;
+  void canSupervise;
+  return Boolean(selected && canEditWorkspace(viewer));
 }
 
 export function loadRecoveryDraftForLiveAssessment(
