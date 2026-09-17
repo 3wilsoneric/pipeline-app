@@ -23,6 +23,18 @@ test.describe("Responsive application navigation", () => {
       for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
         await expect(page.getByRole("button", { name })).toBeVisible();
       }
+      for (const [name, color] of [
+        ["Open referrals", "rgb(12, 112, 95)"],
+        ["Open calendar", "rgb(23, 107, 120)"],
+        ["Open client profiles", "rgb(75, 104, 173)"],
+        ["Open reports", "rgb(89, 101, 45)"],
+        ["Create new referral", "rgb(169, 71, 61)"],
+      ]) {
+        await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", color);
+      }
+      await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toHaveCSS("background-color", "rgb(231, 243, 238)");
+      await expect(page.getByRole("complementary", { name: "Workspace navigation", exact: true })).toHaveCSS("border-top-left-radius", "7px");
+      await expect(page.locator('[data-guide-target="workspace-search"]')).toHaveCSS("border-top-left-radius", "5px");
       await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
       await expect(page.getByRole("button", { name: /Open profile menu/ })).toBeVisible();
       await expectNoDocumentOverflow(page);
@@ -75,8 +87,8 @@ async function expandMonth(button: Locator) {
 }
 
 async function expectCommunityRowsAreAdjacent(archive: Locator) {
-  const allCommunities = archive.getByRole("button", { name: "All communities", exact: true });
-  const firstCommunity = archive.getByRole("button", { name: "San Pablo", exact: true });
+  const allCommunities = archive.getByRole("button", { name: "All communities 2,583", exact: true });
+  const firstCommunity = archive.getByRole("button", { name: "San Pablo 7", exact: true });
   const [allBox, firstBox] = await Promise.all([
     allCommunities.evaluate((element) => {
       const box = element.getBoundingClientRect();
@@ -117,8 +129,8 @@ async function mockReferralDirectory(page: Page) {
           priorities: [],
           tags: [],
           months: [
-            { value: "2026-09", count: 2583 },
-            { value: "2026-08", count: 4 },
+            { value: "2026-09", count: 2583, communities: [{ value: "San Pablo", count: 7 }, { value: "Turlock", count: 5 }] },
+            { value: "2026-08", count: 4, communities: [] },
           ],
         },
       }),
