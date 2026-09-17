@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { AxeResults } from "axe-core";
 
 async function syntheticHome(page: Page) {
   await page.route("**/api/operations/home", async (route) => {
@@ -43,11 +44,26 @@ for (const width of [1440, 1024, 437, 390]) {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: width === 437 ? 536 : width === 390 ? 844 : 1000 });
     await syntheticHome(page);
-    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(237, 243, 242)");
+    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(245, 246, 248)");
     await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", "0px");
-    const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).backgroundImage));
+    const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, "::before").backgroundColor));
     expect(new Set(stageColors).size).toBe(4);
+    const firstCard = page.locator('[data-board-card]').first();
+    await expect(firstCard).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(firstCard).toHaveCSS("border-top-left-radius", "10px");
+    await expect(firstCard.locator(':scope > span:last-child')).toHaveCSS("background-image", "none");
+    await expect(firstCard.locator(':scope > span:last-child')).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const stageHeader = page.locator('[data-board-stage="received"] > div:first-child');
+    await expect(stageHeader).toHaveCSS("background-image", "none");
+    expect((await stageHeader.boundingBox())!.height).toBeLessThanOrEqual(48);
     await expect(page.locator("[data-home-surface]").first()).toHaveCSS("backdrop-filter", "none");
+    await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    const contrast = await page.evaluate(async () => {
+      const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+      const result = await axe.run('[aria-label="Current work board"]', { runOnly: ["color-contrast"] });
+      return result.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }));
+    });
+    expect(contrast).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`home-${width}.png`) });
     await page.getByRole("button", { name: "Collapse Board", exact: true }).click();
