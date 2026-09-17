@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:d0f7a33194cec32c",
-  "fingerprint": "d0f7a33194cec32ca1ea31d20ffe22076d7a4c9cb957b82a938e952b650b0840",
+  "generatedAt": "source-fingerprint:fa033bb032f426e8",
+  "fingerprint": "fa033bb032f426e8e58b01ffb81a03e3d2eb737c3bbd12b2c96984eb32543f17",
   "totals": {
-    "files": 1098,
-    "lines": 329543,
-    "coveredFiles": 1098
+    "files": 1100,
+    "lines": 329618,
+    "coveredFiles": 1100
   },
   "entries": [
     {
@@ -1702,7 +1702,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 56,
+      "lines": 59,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2363,6 +2363,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 31,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/PipelineMaintenanceCover.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 39,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -12619,6 +12631,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 102,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/maintenance-cover.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 33,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
