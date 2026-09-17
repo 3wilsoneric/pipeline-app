@@ -398,6 +398,7 @@ export default function ReferralPacketCanvas({
     total: 52,
     status: "not_started",
   });
+  const [hasSignedAssessment, setHasSignedAssessment] = useState(false);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const serverDraftsEnabled = usesServerReferralDrafts() && !trainingIntakeMode;
@@ -513,7 +514,8 @@ export default function ReferralPacketCanvas({
   }, [ownerPrincipalId]);
 
   useEffect(() => {
-    const referralId = editableReferralId;
+    const referralId = loadedReferral?.id ?? referral?.id;
+    setHasSignedAssessment(false);
     if (!referralId) {
       setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
       return;
@@ -523,6 +525,7 @@ export default function ReferralPacketCanvas({
     fetchPipelineJson<AssessmentListResponse>(`/api/referrals/${referralId}/assessments`, { cache: "no-store" })
       .then((payload) => {
         if (cancelled) return;
+        setHasSignedAssessment(payload.assessments.some((assessment) => Boolean(assessment.signed_at)));
         const assessment = payload.assessments[0];
         if (!assessment) return;
         setAssessmentSummary({
@@ -542,7 +545,7 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
     };
-  }, [editableReferralId]);
+  }, [loadedReferral?.id, referral?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2017,7 +2020,7 @@ export default function ReferralPacketCanvas({
     permissionReadOnly,
   );
   const { readOnly, historicalReadOnly, steps } = workspacePresentation;
-  const workspaceSteps = steps.map((step) => step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt
+  const workspaceSteps = steps.filter((step) => step.page !== 3 || hasSignedAssessment || Boolean(assessmentSummary.signedAt)).map((step) => step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt
     ? { ...step, label: "Questionnaire" }
     : step);
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);

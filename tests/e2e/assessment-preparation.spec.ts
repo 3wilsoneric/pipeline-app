@@ -121,13 +121,12 @@ for (const width of [1440, 390]) {
     await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(notebook.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
     const reference = notebook.getByRole("complementary", { name: "Captured assessment answers" });
-    if (width < 1200) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    if (width < 960) await reference.getByRole("button", { name: /^Captured answers/ }).click();
     await reference.getByRole("combobox", { name: "Reference information" }).selectOption("prior_history");
     await expect(reference).toContainText("Documented secondary diagnosis from the synthetic referral.");
     await reference.evaluate((element) => element.setAttribute("data-reference-retained", "true"));
-    if (width < 1024) await notebook.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("functional_adl");
-    else await notebook.getByRole("navigation", { name: "Assessment sections", exact: true }).getByRole("button", { name: /^Function/ }).click();
-    if (width < 1200) await expect(reference.getByRole("button", { name: /^Captured answers/ })).toHaveAttribute("aria-expanded", "true");
+    await notebook.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("functional_adl");
+    if (width < 960) await expect(reference.getByRole("button", { name: /^Captured answers/ })).toHaveAttribute("aria-expanded", "true");
     await expect(reference.getByRole("combobox", { name: "Reference information" })).toHaveValue("prior_history");
     await expect(reference).toHaveAttribute("data-reference-retained", "true");
     await expect(reference).toContainText("Documented secondary diagnosis from the synthetic referral.");
@@ -162,13 +161,13 @@ for (const width of [1440, 390]) {
     const { assessments } = await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json();
     expect(assessments).toHaveLength(1);
     const id = assessments[0].assessment_id;
-    for (const destination of ["Files", "Activity", "Chart", "Intake"]) {
+    for (const destination of ["Files", "Activity", "Intake"]) {
       const value = `Last answer before ${destination}`;
       await page.locator("#assessment-current_location").fill(value);
       if (destination === "Files" || destination === "Activity") {
         await page.getByRole("button", { name: `Workspace ${destination.toLowerCase()}`, exact: true }).click();
       } else {
-        await openWorkspacePage(page, destination, destination === "Chart" ? "3" : "1");
+        await openWorkspacePage(page, destination, "1");
       }
       await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toHaveCount(0);
       await expect.poll(async () => (await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).toBe(value);

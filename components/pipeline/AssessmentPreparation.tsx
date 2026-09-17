@@ -41,7 +41,8 @@ export function AssessmentFileSurface({ title, container, header, pages, dialogs
   </>;
   return createPortal(
     <section role="dialog" aria-modal="false" aria-label="Assessment interview" data-assessment-view="chart" className={`${container ? "absolute" : "fixed"} inset-0 z-[90] flex flex-col overflow-hidden bg-white`}>
-      {header}{pages}{children}{dialogs}
+      <div className={styles.interviewHeader}>{header}{pages}</div>
+      {children}{dialogs}
     </section>,
     container ?? document.body,
   );

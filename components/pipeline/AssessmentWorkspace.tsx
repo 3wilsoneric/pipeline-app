@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   CalendarClock,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
@@ -94,8 +93,7 @@ import {
   type AssessmentRemoteChange,
 } from "@/components/pipeline/assessment-workspace-state";
 import { PracticeAssessmentReview } from "@/components/pipeline/AssessmentInterviewFields";
-import AssessmentWorkingSection, { AssessmentRemainingQuestions, AssessmentWorkingNavigation } from "@/components/pipeline/AssessmentWorkingSection";
-import { assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
+import AssessmentWorkingSection, { AssessmentWorkingNavigation } from "@/components/pipeline/AssessmentWorkingSection";
 import AssessmentInterviewHeader from "@/components/pipeline/AssessmentInterviewHeader";
 import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabButton";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
@@ -160,8 +158,6 @@ const assessmentSectionGuideTargets: Readonly<Record<AssessmentToolSection, stri
   social_support: "assessment-section-support-goals",
   provenance_qc: "assessment-section-review",
 };
-
-const assessmentSectionGuideTargetList = Object.values(assessmentSectionGuideTargets).join(" ");
 
 type AssessmentEscapeContext = {
   showBeginDialog: boolean;
@@ -289,7 +285,7 @@ export default function AssessmentWorkspace({
   const [isFocused, setIsFocused] = useState(false);
   const [workingTarget, setWorkingTarget] = useState<{ field: AssessmentToolFieldKey } | null>(null);
   const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "prepare" | "assessment" } | null>(null);
-  const [referenceGroup, setReferenceGroup] = useState("section");
+  const [referenceGroup, setReferenceGroup] = useState("all");
   const chartScrollRef = useRef<HTMLElement>(null);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
@@ -369,6 +365,9 @@ export default function AssessmentWorkspace({
 
   useEffect(() => {
     const routedSection = initialSection ?? trainingAssessmentSection;
+    // A reflected history update can arrive after the user has chosen the next section.
+    const currentRouteSection = new URLSearchParams(window.location.search).get("assessmentSection");
+    if (currentRouteSection && currentRouteSection !== routedSection) return;
     if (routedSection) setActiveSection(routedSection);
   }, [initialSection, trainingAssessmentSection]);
 
@@ -1475,9 +1474,9 @@ export default function AssessmentWorkspace({
       ) : null}
 
       <div className="flex min-h-0 flex-1">
-        <aside aria-label={preparing ? "Preparation navigation" : "Assessment navigation"} className="order-last hidden w-[280px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#f7faf4] px-5 py-5 lg:block">
-          {preparing ? <PreparationNavigation active={preparationGroup.key} data={draft} pending={pendingFields} onChange={setActiveSection} /> : <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} groups={assessmentNavigationGroups} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} />}
-        </aside>
+        {preparing ? <aside aria-label="Preparation navigation" className="order-last hidden w-[280px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#f7faf4] px-5 py-5 lg:block">
+          <PreparationNavigation active={preparationGroup.key} data={draft} pending={pendingFields} onChange={setActiveSection} />
+        </aside> : null}
 
         <main ref={chartScrollRef} className="min-w-0 flex-1 overflow-y-auto bg-[#f7faf4]">
           {preparing ? <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
@@ -1485,14 +1484,7 @@ export default function AssessmentWorkspace({
             <select id="preparation-group-mobile" value={preparationGroup.key} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="min-h-11 w-full rounded border border-[#cddace] bg-white px-3 text-[14px] text-[#234c36]">
               {assessmentPreparationGroups.map((group) => <option key={group.key} value={group.key}>{group.label}</option>)}
             </select>
-          </div> : <div className="bg-[#f7faf4] px-3 py-2 lg:hidden">
-            <label htmlFor="assessment-section-mobile" className="mb-1 block text-[11px] font-bold text-[#315d41]">Assessment section</label>
-            <div className="relative">
-              <select data-guide-target={`assessment-section-nav ${assessmentSectionGuideTargetList}`} id="assessment-section-mobile" value={activeSection} onChange={(event) => { setWorkingTarget(null); setActiveSection(event.target.value as AssessmentToolSection); }} className="h-10 w-full appearance-none rounded border border-[#cddace] bg-white px-3 pr-10 text-[12px] font-bold text-[#234c36] outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); const counts = assessmentWorkingCounts(getAssessmentInterviewQuestions(sectionKey, draft), draft, pendingFields); return section ? <option key={section.key} value={section.key}>{section.label} · {assessmentWorkingCountLabel(counts)}</option> : null; })}</optgroup>)}</select>
-              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#58715e]" />
-            </div>
-            <AssessmentRemainingQuestions section={activeSection} data={draft} pending={pendingFields} expandedByDefault={false} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} />
-          </div>}
+          </div> : <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} groups={assessmentNavigationGroups} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} />}
 
           {error ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[11px] font-semibold text-[#59645e]">{error}</div> : null}
           {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
@@ -1537,8 +1529,8 @@ export default function AssessmentWorkspace({
             </div>
           ) : null}
 
-          <div className="w-full px-3 py-4 sm:px-5 lg:pl-8 lg:pr-6">
-            <div className="mb-3">
+          <div className="w-full px-3 py-3 sm:px-4">
+            <div className={preparing ? "mb-3" : "sr-only"}>
               <h3 className="text-[21px] font-bold text-[#213629]">{preparing ? preparationGroup.label : sectionDefinition.label}</h3>
                 {preparing ? <p className="mt-2 text-[12px] leading-5 text-[#657167]">Use documented information; leave unknowns unanswered. These are the same answers used in the assessment.</p> : null}
             </div>
@@ -1552,6 +1544,10 @@ export default function AssessmentWorkspace({
               questions={preparing ? preparationQuestions(preparationGroup, draft) : sectionQuestions}
               required={requiredInterviewFields}
               target={workingTarget}
+              sectionNavigation={!preparing ? <div className="mt-7 flex items-center justify-between gap-3">
+                <button type="button" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key); }} disabled={activeSectionIndex <= 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} /> Previous</button>
+                <button type="button" data-guide-target="assessment-next-section" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key); }} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section <ChevronRight size={14} /></button>
+            </div> : null}
               disabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
               reviewDisabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
               onChange={updateField}
@@ -1562,9 +1558,9 @@ export default function AssessmentWorkspace({
               onFieldBlur={commitAnswer}
               onReview={(field, action) => void reviewExtractedField(field, action)}
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
-              referenceGroup={trainingAssessmentMode ? undefined : referenceGroup}
-              onReferenceGroupChange={trainingAssessmentMode ? undefined : setReferenceGroup}
-              onReferenceEdit={trainingAssessmentMode ? undefined : (field) => {
+              referenceGroup={referenceGroup}
+              onReferenceGroupChange={setReferenceGroup}
+              onReferenceEdit={(field) => {
                 setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
                 setWorkingTarget({ field });
               }}
@@ -1576,10 +1572,7 @@ export default function AssessmentWorkspace({
                 if (preparationIndex === assessmentPreparationGroups.length - 1) setNotebookView("assessment");
                 else setActiveSection(assessmentPreparationGroups[preparationIndex + 1].key);
               }} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white">{preparationIndex === assessmentPreparationGroups.length - 1 ? "Review assessment" : "Next group"}<ChevronRight size={14} /></button>
-            </div> : <div className="mt-7 flex items-center justify-between gap-3">
-              <button type="button" onClick={() => setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key)} disabled={activeSectionIndex <= 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} /> Previous</button>
-              <button type="button" data-guide-target="assessment-next-section" onClick={() => setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key)} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section <ChevronRight size={14} /></button>
-            </div>}
+            </div> : null}
 
             {selected.unmapped_fields.length > 0 ? (
               <details className="mt-7 border-t border-[#d9dfdb] py-4">

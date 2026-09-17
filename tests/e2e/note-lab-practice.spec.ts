@@ -17,9 +17,9 @@ test.describe("Assessment practice lab", () => {
     await expect(secondary).toHaveValue(answer);
     await secondary.press("Tab");
     await expect(secondary).toHaveValue(answer);
-    const sections = full.getByRole("navigation", { name: "Assessment sections", exact: true });
-    await sections.getByRole("button", { name: /^Function/ }).click();
-    await sections.getByRole("button", { name: /^Clinical/ }).click();
+    const sections = full.getByRole("combobox", { name: "Assessment section", exact: true });
+    await sections.selectOption("functional_adl");
+    await sections.selectOption("diagnosis_clinical");
     await full.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     await expect(full.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).toHaveValue(answer);
   });
