@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { AxeResults } from "axe-core";
 import { randomUUID } from "node:crypto";
+import { pipelineWorkspaceLocationFromSearchParams } from "../../lib/pipeline/work-continuity";
 
 async function syntheticHome(page: Page) {
   await page.route("**/api/operations/home", async (route) => {
@@ -21,6 +22,7 @@ async function syntheticHome(page: Page) {
     payload.scope = "team";
     payload.unavailable_sections = [];
     payload.continuity.unavailable = false;
+    payload.continuity.resume_items = [];
     payload.workflow.active_total = 5;
     payload.workflow.active_items = items.slice(0, 5);
     payload.workflow.board_items = items;
@@ -50,19 +52,33 @@ for (const width of [1440, 1024, 437, 390]) {
     const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, "::before").backgroundColor));
     expect(new Set(stageColors).size).toBe(4);
     const firstCard = page.locator('[data-board-card]').first();
-    const folderTab = firstCard.locator(':scope > strong');
-    const folderBody = firstCard.locator(':scope > span');
+    const folderTab = firstCard.locator('[data-folder-name]');
+    const folderBody = firstCard.locator('[data-folder-body]');
     await expect(folderTab).toHaveText("Taylor Rivera");
-    await expect(folderTab).toHaveCSS("font-size", "16px");
-    await expect(folderTab).toHaveCSS("background-color", "rgb(237, 228, 208)");
-    await expect(folderBody).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(folderTab).toHaveCSS("font-size", "14px");
+    await expect(folderTab).toHaveCSS("background-image", /linear-gradient/);
+    await expect(folderBody).toHaveCSS("background-image", /linear-gradient/);
     await expect(folderBody.locator(':scope > span')).toHaveCSS("background-color", "rgb(255, 255, 255)");
     const tabBox = (await folderTab.boundingBox())!;
     const bodyBox = (await folderBody.boundingBox())!;
     expect(tabBox.y + tabBox.height - bodyBox.y).toBe(1);
+    const statusTab = firstCard.locator('[data-board-status]');
+    await expect(statusTab).toHaveText("Ready to schedule");
+    await expect(statusTab).toHaveCSS("font-size", "10px");
+    const statusBox = (await statusTab.boundingBox())!;
+    expect(statusBox.x).toBeGreaterThan(tabBox.x + tabBox.width);
+    expect(statusBox.height).toBeLessThan(tabBox.height);
     await expect(firstCard.locator('button, a, input, select')).toHaveCount(0);
-    const longName = page.getByRole('button', { name: 'Open Christopher Montgomery-Worthington', exact: true }).locator(':scope > strong');
+    const longName = page.getByRole('button', { name: 'Open Christopher Montgomery-Worthington', exact: true }).locator('[data-folder-name]');
     expect(await longName.evaluate((element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true);
+    expect(await longName.locator(":scope > span").evaluate((element) => {
+      const style = getComputedStyle(element);
+      return (element.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)) / parseFloat(style.lineHeight);
+    })).toBeLessThanOrEqual(3);
+    if (width >= 1024) {
+      const columns = await page.locator('[data-current-work-board]').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+      expect(columns).toBe(width < 1280 ? 2 : 4);
+    }
     const stageHeader = page.locator('[data-board-stage="received"] > div:first-child');
     await expect(stageHeader).toHaveCSS("background-image", "none");
     expect((await stageHeader.boundingBox())!.height).toBeLessThanOrEqual(48);
@@ -124,11 +140,98 @@ for (const width of [1440, 1024, 437, 390]) {
   });
 }
 
+test("board folders fan halfway on hover and keyboard focus without fetching or changing the click path", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  // Home already prefetches one upcoming workspace independently of the board.
+  const warmup = page.waitForResponse("**/api/referrals/910103/canvas");
+  await syntheticHome(page);
+  await warmup;
+  const stack = page.locator('[data-board-stage="received"] [data-folder-stack]');
+  const cards = stack.locator('[data-board-card]');
+  const first = cards.first();
+  const second = cards.nth(1);
+  await stack.scrollIntoViewIfNeeded();
+  await page.mouse.move(1, 1);
+  const gap = async () => (await second.boundingBox())!.y - (await first.boundingBox())!.y;
+  const height = (await first.boundingBox())!.height;
+  await expect.poll(gap).toBeLessThan(height * 0.35);
+  const compactGap = await gap();
+  const requests: string[] = [];
+  page.on("request", (request) => { if (["fetch", "xhr"].includes(request.resourceType())) requests.push(request.url()); });
+  await first.locator('[data-folder-name]').hover();
+  await expect.poll(gap).toBeGreaterThan(height * 0.5);
+  expect(await gap()).toBeLessThan(height * 0.65);
+  const action = first.getByText("Schedule the assessment", { exact: true });
+  await expect(action.locator("..")).toHaveCSS("opacity", "1");
+  const actionBox = (await action.boundingBox())!;
+  expect(actionBox.y + actionBox.height).toBeLessThan((await second.boundingBox())!.y);
+  await page.screenshot({ path: testInfo.outputPath("folder-stack-expanded.png") });
+  await page.mouse.move(1, 1);
+  await expect.poll(gap).toBe(compactGap);
+  await expect(action.locator("..")).toHaveCSS("opacity", "0");
+  await first.focus();
+  await expect(first).toBeFocused();
+  await expect(first).toHaveCSS("outline-width", "2px");
+  await expect(first).toHaveAccessibleDescription("Ready to schedule Schedule the assessment");
+  await expect.poll(gap).toBeGreaterThan(height * 0.5);
+  await page.keyboard.press("Tab");
+  await expect(second).toBeFocused();
+  expect(requests).toEqual([]);
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/referralId=910102/);
+  expect(pipelineWorkspaceLocationFromSearchParams(new URL(page.url()).searchParams)).toEqual({ view: "intake" });
+  await page.goto("/");
+  const scheduled = page.getByRole("button", { name: "Open Morgan Chen", exact: true });
+  await scheduled.locator('[data-folder-name]').click();
+  await expect(page).toHaveURL(/referralId=910103/);
+  expect(pipelineWorkspaceLocationFromSearchParams(new URL(page.url()).searchParams)).toEqual({ view: "assessment", assessmentSection: "identity" });
+});
+
+test("hovering a lower folder keeps the intended client under the pointer", async ({ page }) => {
+  await syntheticHome(page);
+  const folder = page.getByRole("button", { name: "Open Christopher Montgomery-Worthington", exact: true });
+  const tab = folder.locator('[data-folder-name]');
+  await tab.scrollIntoViewIfNeeded();
+  const box = (await tab.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(1, y);
+  await page.mouse.move(x, y);
+  await page.locator('[data-board-stage="received"]').evaluate(async (element) => {
+    await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
+  });
+  await expect.poll(async () => (await tab.boundingBox())!.y).toBe(box.y);
+  await expect(folder.getByText("Complete the referral details", { exact: true }).locator("..")).toHaveCSS("opacity", "1");
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest("button")?.getAttribute("aria-label"), { x, y })).toBe("Open Christopher Montgomery-Worthington");
+  await page.mouse.click(x, y);
+  await expect(page).toHaveURL(/referralId=910102/);
+});
+
+test("touch users see open folder previews and open a referral with one tap", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, hasTouch: true, isMobile: true, viewport: { width: 1024, height: 900 } });
+  const page = await context.newPage();
+  try {
+    await syntheticHome(page);
+    const cards = page.locator('[data-board-stage="received"] [data-board-card]');
+    const first = cards.first();
+    const second = cards.nth(1);
+    expect(await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(false);
+    const firstBox = (await first.boundingBox())!;
+    expect((await second.boundingBox())!.y).toBeGreaterThan(firstBox.y + firstBox.height);
+    await expect(first.getByText("Schedule the assessment", { exact: true }).locator("..")).toHaveCSS("opacity", "1");
+    await first.locator('[data-folder-name]').tap();
+    await expect(page).toHaveURL(/referralId=910101/);
+    expect(pipelineWorkspaceLocationFromSearchParams(new URL(page.url()).searchParams)).toEqual({ view: "intake" });
+  } finally {
+    await context.close();
+  }
+});
+
 test("reduced motion removes card movement and the standalone lab stays unthemed", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await syntheticHome(page);
   const card = page.locator("[data-board-card]").first();
-  await card.hover();
+  await card.locator('[data-folder-name]').hover();
   await expect(card).toHaveCSS("transform", "none");
   await expect(card).toHaveCSS("transition-duration", "0s");
   await card.focus();

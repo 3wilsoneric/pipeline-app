@@ -165,14 +165,9 @@
   color: var(--stage-accent);
 }
 
-.pipeline-surfaces [data-board-card] {
-  height: auto;
-  margin-bottom: 16px;
-}
-
 .pipeline-surfaces [data-board-card]:focus-visible { outline: 2px solid var(--surface-accent); outline-offset: 2px; }
 .pipeline-surfaces [data-board-status] { color: var(--stage-accent); border-color: var(--stage-accent); }
-.pipeline-surfaces [data-board-outcome="accepted"] [data-board-status] { color: #067e60; border-color: #067e60; }
+.pipeline-surfaces [data-board-outcome="accepted"] [data-board-status] { color: #096f54; border-color: #096f54; }
 .pipeline-surfaces [data-board-outcome="declined"] [data-board-status] { color: #af453b; border-color: #af453b; }
 
 .pipeline-surfaces [data-board-stage] > div:last-child > p {

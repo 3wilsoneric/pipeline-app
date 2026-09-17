@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
@@ -11,6 +11,7 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import folderStyles from "./ClientFolder.module.css";
+import boardStyles from "./ReferralWorkflowTracker.module.css";
 
 export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons" }: {
   briefing: HomeBriefingSnapshot;
@@ -67,7 +68,7 @@ function ReferralLifecycleBoard({ items, showOwner, onOpenPacket }: {
         </select>
         <ChevronDown size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#176f60]" aria-hidden="true" />
       </label>
-      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-4">
+      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {referralBoardStages.map((stage) => {
           const stageItems = items.filter((item) => referralBoardStageForStatus(item.workflow_status) === stage.key);
           return <div key={stage.key} data-board-stage={stage.key} className={`${mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`}>
@@ -75,7 +76,7 @@ function ReferralLifecycleBoard({ items, showOwner, onOpenPacket }: {
               <h2 className="truncate text-[12px] font-extrabold uppercase text-[#303b34]">{stage.label}</h2>
               <strong className="text-[12px] font-bold tabular-nums text-[#5d6861]">{stageItems.length.toLocaleString()}</strong>
             </div>
-            <div className="space-y-2">
+            <div data-folder-stack className={boardStyles.stack}>
               {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} stage={stage.key} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
               {stageItems.length === 0 ? <p className="py-5 text-center text-[11px] font-medium text-[#77817a]">No referrals here</p> : null}
             </div>
@@ -92,20 +93,20 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
   showOwner: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
+  const descriptionId = useId();
   const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const decision = stage === "decision" ? decisionPresentation(item) : null;
   const status = decision?.label ?? (stage === "in_progress" && item.assessment_state === "scheduled" ? "Assessment scheduled" : workflowStatusLabels[item.workflow_status]);
-  return <button type="button" data-board-card data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={folderStyles.folder}>
-    <strong className={folderStyles.tab}><span className={folderStyles.tabLabel}>{name}</span></strong>
-    <span className={folderStyles.body}>
-      <span className={folderStyles.paper}>
-        <span className="flex items-center justify-between gap-3 border-b border-[#d8e1da] bg-[#f1f7f3] px-3 py-3">
-          <span data-board-status className={`border-l-[3px] pl-2 text-[11px] font-bold leading-4 ${decision?.tone ?? "text-[#176f60]"} ${decision?.accent ?? boardAccent(stage)}`}>{status}</span>
-          <span aria-hidden="true" className={folderStyles.open}><ArrowRight size={16} /></span>
-        </span>
-        <span className="block min-h-[84px] px-3 py-3">
-          <span className="block text-[9px] font-bold uppercase tracking-[0.07em] text-[#59685f]">Next step</span>
-          <span className="mt-1.5 block text-[13px] leading-5 text-[#25382e] [overflow-wrap:anywhere]">{item.next_action}</span>
+  return <button type="button" data-board-card data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
+    <span className={boardStyles.tabs}>
+      <strong data-folder-name className={`${folderStyles.tab} ${boardStyles.nameTab}`}><span className={folderStyles.tabLabel}>{name}</span></strong>
+      <span id={`${descriptionId}-status`} data-board-status className={boardStyles.statusTab}>{status}</span>
+    </span>
+    <span data-folder-body className={`${folderStyles.body} ${boardStyles.body}`}>
+      <span className={`${folderStyles.paper} ${boardStyles.paper}`}>
+        <span className={boardStyles.nextStep}>
+          <span id={`${descriptionId}-action`} className={boardStyles.actionText}>{item.next_action}</span>
+          <ArrowRight size={15} aria-hidden="true" />
         </span>
         <span className={`grid gap-px border-t border-[#dde3de] bg-[#dde3de] ${showOwner ? "grid-cols-2" : "grid-cols-1"}`}>
           <span className="min-w-0 bg-white px-3 py-3">
@@ -133,12 +134,6 @@ function boardRule(stage: ReferralBoardStage) {
   if (stage === "in_progress") return "border-t-[#4866ad]";
   if (stage === "decision") return "border-t-[#b77b27]";
   return "border-t-[#78844d]";
-}
-
-function boardAccent(stage: ReferralBoardStage) {
-  if (stage === "received") return "border-l-[#0f8b73]";
-  if (stage === "in_progress") return "border-l-[#4866ad]";
-  return "border-l-[#78844d]";
 }
 
 export function WorkflowCardSkeleton() {
