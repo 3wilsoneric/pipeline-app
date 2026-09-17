@@ -11,9 +11,7 @@ import {
   FileText,
   Files,
   FolderOpen,
-  LayoutGrid,
   Link2,
-  List,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -24,8 +22,7 @@ import type { LucideIcon } from "lucide-react";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
-import ReferralWorkspaceGallery from "@/components/pipeline/ReferralWorkspaceGallery";
-import WorkspaceActivityFeed from "@/components/pipeline/WorkspaceActivityFeed";
+import WorkspaceMultiFilter from "@/components/pipeline/WorkspaceMultiFilter";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { pipelineCommunities } from "@/lib/pipeline/community-config";
@@ -40,16 +37,13 @@ import {
   getEmptyReferralState,
   hasReferralPagination,
   presentCommunity,
-  referralFilterCommunity,
+  referralFilterCommunities,
   referralFilterCount,
   referralFilterMonth,
-  referralFilterWithCommunity,
   referralScopeLabel,
 } from "@/components/pipeline/referral-home-directory-model";
 import type {
   ReferralFilter,
-  WorkspaceLayout,
-  WorkspaceSection,
   WorkspaceScope,
 } from "@/components/pipeline/referral-home-directory-model";
 
@@ -78,10 +72,6 @@ type ReferralHomeDirectoryProps = {
   canViewTeam: boolean;
   scope: WorkspaceScope;
   onScopeChange: (scope: WorkspaceScope) => void;
-  workspaceSection: WorkspaceSection;
-  onWorkspaceSectionChange: (section: WorkspaceSection) => void;
-  workspaceLayout: WorkspaceLayout;
-  onWorkspaceLayoutChange: (layout: WorkspaceLayout) => void;
   filter: ReferralFilter;
   onFilterChange: (filter: ReferralFilter) => void;
   onShowFiles: () => void;
@@ -96,10 +86,10 @@ type ReferralHomeDirectoryProps = {
   onReviewIdentityChange: (value: boolean) => void;
   fileCategory: string;
   onFileCategoryChange: (value: string) => void;
-  fileCommunity: string;
-  onFileCommunityChange: (value: string) => void;
-  fileOwner: string;
-  onFileOwnerChange: (value: string) => void;
+  fileCommunities: string[];
+  onFileCommunitiesChange: (value: string[]) => void;
+  fileOwners: string[];
+  onFileOwnersChange: (value: string[]) => void;
   fileMonth: string;
   onFileMonthChange: (value: string) => void;
   onClearFileFilters: () => void;
@@ -144,9 +134,7 @@ export function ReferralHomeDirectory(props: ReferralHomeDirectoryProps) {
         <h1 className="sr-only">Referral workspaces</h1>
         <ReferralDraftResumeList onResume={props.onResumeDraft} className="mb-3 mt-3" />
         <DirectoryHeader {...props} />
-        {props.workspaceSection === "activity" ? (
-          <WorkspaceActivityFeed canViewTeam={props.canViewTeam} onOpenPacket={props.onOpenPacket} />
-        ) : <WorkspaceDirectoryBody {...props} />}
+        <WorkspaceDirectoryBody {...props} />
       </div>
       {props.previewDialog}
       {props.reviewDialog}
@@ -171,27 +159,8 @@ export function ReferralHomeDirectory(props: ReferralHomeDirectoryProps) {
 function DirectoryHeader(props: ReferralHomeDirectoryProps) {
   return (
     <div className="mb-3 flex min-h-12 flex-wrap items-end justify-between gap-3 border-b border-[#cfd7d3]">
-      <div role="tablist" aria-label="Workspace directory sections" className="flex self-stretch">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={props.workspaceSection === "workspaces"}
-          onClick={() => props.onWorkspaceSectionChange("workspaces")}
-          className={`border-b-[3px] px-3 text-[11px] font-black uppercase tracking-[0.08em] ${props.workspaceSection === "workspaces" ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#68716c] hover:text-[#202723]"}`}
-        >
-          Workspaces <span className="ml-1 text-[9px] tabular-nums text-[#68716c]">{formatDirectoryCount(props.allPacketTotal)}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={props.workspaceSection === "activity"}
-          onClick={() => props.onWorkspaceSectionChange("activity")}
-          className={`border-b-[3px] px-3 text-[11px] font-black uppercase tracking-[0.08em] ${props.workspaceSection === "activity" ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#68716c] hover:text-[#202723]"}`}
-        >
-          Activity
-        </button>
-      </div>
-      {props.workspaceSection === "workspaces" ? <div className="flex flex-wrap items-center gap-3"><WorkspaceScopeSelector {...props} /><LayoutSelector {...props} /></div> : null}
+      <div className="py-3 text-[12px] font-bold text-[#303638]">Workspaces <span className="ml-1 text-[11px] tabular-nums text-[#68716c]">{formatDirectoryCount(props.allPacketTotal)}</span></div>
+      <WorkspaceScopeSelector {...props} />
     </div>
   );
 }
@@ -204,16 +173,6 @@ function WorkspaceScopeSelector(props: ReferralHomeDirectoryProps) {
         {scopes.map((scope) => <button key={scope} type="button" aria-pressed={props.scope === scope} onClick={() => props.onScopeChange(scope)} className={`h-8 px-3 text-[11px] font-bold ${props.scope === scope ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}>{scope === "mine" ? "Mine" : "All"}</button>)}
       </div>
       <span className="text-[10px] text-[#68716c]">Recently updated first</span>
-    </div>
-  );
-}
-
-function LayoutSelector(props: ReferralHomeDirectoryProps) {
-  const filesActive = props.filter.kind === "files";
-  return (
-    <div role="group" aria-label="Workspace layout" aria-hidden={filesActive} className={`pipeline-segmented mb-2 flex border border-[#cfd7d3] bg-white p-0.5 ${filesActive ? "invisible" : ""}`}>
-      <button type="button" disabled={filesActive} aria-label="Show workspaces as a list" aria-pressed={props.workspaceLayout === "list"} onClick={() => props.onWorkspaceLayoutChange("list")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${props.workspaceLayout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={13} />List</button>
-      <button type="button" disabled={filesActive} aria-label="Show workspaces as a gallery" aria-pressed={props.workspaceLayout === "gallery"} onClick={() => props.onWorkspaceLayoutChange("gallery")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${props.workspaceLayout === "gallery" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={13} />Gallery</button>
     </div>
   );
 }
@@ -254,7 +213,7 @@ function WorkspaceSearch(props: ReferralHomeDirectoryProps) {
       {props.searchTerm ? (
         <button type="button" aria-label="Clear workspace search" onClick={() => props.onSearchTermChange("")} className="flex h-8 w-8 shrink-0 items-center justify-center text-[#737373] hover:text-[#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"><X size={15} /></button>
       ) : null}
-      <span className="hidden shrink-0 text-[9px] font-bold text-[#737373] md:inline">
+      <span className="hidden shrink-0 text-[9px] font-bold text-[#68716c] md:inline">
         {props.resultCountLabel === "Loading..." ? <PipelineArcadeLoader label={props.loadingLabel} compact decorative={props.visibleReferrals.length === 0} /> : props.resultCountLabel}
       </span>
     </div>
@@ -280,26 +239,20 @@ function ReferralFilterToolbar(props: ReferralHomeDirectoryProps) {
 function ReferralFilterControls(props: ReferralHomeDirectoryProps) {
   return (
     <>
-      <select aria-label="Filter workspaces by community" value={referralFilterCommunity(props.filter)} onChange={(event) => props.onFilterChange(referralFilterWithCommunity(props.filter, event.target.value))} className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]">
-        <option value="">All communities</option>
-        {props.recordedCommunityFacets.map((community) => <option key={community.value} value={community.value}>{presentCommunity(community.value)}</option>)}
-      </select>
-      <select aria-label="Filter workspaces by county" value={props.filter.kind === "county" ? props.filter.value : ""} onChange={(event) => props.onFilterChange(event.target.value ? { kind: "county", value: event.target.value } : { kind: "all" })} className="h-10 min-w-0 border border-[#9fcfc2] bg-[#f7fbf9] px-2 text-[12px] font-black text-[#0c705f] outline-none focus:border-[#0f8b73]">
+      <WorkspaceMultiFilter label="Filter workspaces by community" noun="communities" values={referralFilterCommunities(props.filter)} options={props.recordedCommunityFacets.map((community) => community.value)} onChange={(communities) => props.onFilterChange({ ...props.filter, communities })} />
+      <select aria-label="Filter workspaces by county" value={props.filter.county ?? ""} onChange={(event) => props.onFilterChange({ ...props.filter, county: event.target.value })} className="h-10 min-w-0 border border-[#9fcfc2] bg-[#f7fbf9] px-2 text-[12px] font-black text-[#0c705f] outline-none focus:border-[#0f8b73]">
         <option value="">All counties</option>
         {props.facets.counties.map((county) => <option key={county.value} value={county.value}>{county.value} ({formatDirectoryCount(county.count)})</option>)}
       </select>
-      <select aria-label="Filter by owner" value={props.filter.kind === "owner" ? props.filter.value : ""} onChange={(event) => props.onFilterChange(event.target.value ? { kind: "owner", value: event.target.value } : { kind: "all" })} className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]">
-        <option value="">All owners</option>
-        {props.ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
-      </select>
+      <WorkspaceMultiFilter label="Filter by owner" noun="owners" values={props.filter.owners ?? []} options={props.ownerOptions} onChange={(owners) => props.onFilterChange({ ...props.filter, owners })} />
     </>
   );
 }
 
 function FileFilterToolbar(props: ReferralHomeDirectoryProps) {
-  const hasFilters = Boolean(props.fileCategory || props.fileCommunity || props.fileOwner || props.fileMonth);
+  const hasFilters = Boolean(props.fileCategory || props.fileCommunities.length || props.fileOwners.length || props.fileMonth);
   return (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2.5">
+    <div className="flex flex-wrap items-center gap-2 px-2 py-2.5">
       <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Files</span>
       <button type="button" onClick={() => props.onReviewIdentityChange(false)} className={`h-9 shrink-0 border px-3 text-[11px] font-black ${!props.reviewIdentity ? "border-[#0f8b73] bg-[#effaf5] text-[#0c705f]" : "border-[#d9d9d9] text-[#595959]"}`}>Linked files</button>
       <button type="button" onClick={() => props.onReviewIdentityChange(true)} className={`h-9 shrink-0 border px-3 text-[11px] font-black ${props.reviewIdentity ? "border-[#b07b21] bg-[#fffaf0] text-[#8a5a10]" : "border-[#d9d9d9] text-[#595959]"}`}>Needs identity</button>
@@ -313,8 +266,8 @@ function FileFilterSelects(props: ReferralHomeDirectoryProps) {
   return (
     <>
       <select aria-label="Filter files by category" value={props.fileCategory} onChange={(event) => props.onFileCategoryChange(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">All categories</option>{fileCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select>
-      <select aria-label="Filter files by community" value={props.fileCommunity} onChange={(event) => props.onFileCommunityChange(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">All communities</option>{pipelineCommunities.map((community) => <option key={community} value={community}>{community}</option>)}</select>
-      <select aria-label="Filter files by owner" value={props.fileOwner} onChange={(event) => props.onFileOwnerChange(event.target.value)} className="h-9 max-w-[160px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">All owners</option>{props.fileOwnerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select>
+      <div className="w-full sm:w-52"><WorkspaceMultiFilter label="Filter files by community" noun="communities" values={props.fileCommunities} options={[...pipelineCommunities]} onChange={props.onFileCommunitiesChange} /></div>
+      <div className="w-full sm:w-48"><WorkspaceMultiFilter label="Filter files by owner" noun="owners" values={props.fileOwners} options={props.fileOwnerOptions} onChange={props.onFileOwnersChange} /></div>
       <select aria-label="Filter files by upload month" value={props.fileMonth} onChange={(event) => props.onFileMonthChange(event.target.value)} className="h-9 max-w-[170px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">All months</option>{props.fileMonthOptions.map((month) => <option key={month} value={month}>{formatMonthKey(month)}</option>)}</select>
     </>
   );
@@ -324,7 +277,7 @@ function WorkspaceDirectoryNavigation(props: ReferralHomeDirectoryProps) {
   return (
     <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
       <nav aria-label="Workspace views" className="grid grid-cols-2 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0">
-        <WorkspaceNavItem icon={FolderOpen} label="All workspaces" compactLabel="All" count={props.allPacketTotal} active={props.filter.kind === "all" || ["community", "monthCommunity", "county", "month", "owner", "priority"].includes(props.filter.kind)} onClick={() => props.onFilterChange({ kind: "all" })} />
+        <WorkspaceNavItem icon={FolderOpen} label="All workspaces" compactLabel="All" count={props.allPacketTotal} active={props.filter.kind === "all"} onClick={() => props.onFilterChange({ kind: "all" })} />
         <WorkspaceNavItem icon={Files} label="All files" compactLabel="Files" count={props.allFileTotal} active={props.filter.kind === "files"} onClick={props.onShowFiles} />
       </nav>
       <button type="button" aria-label="Browse workspaces by month and community" onClick={() => props.onBrowseOpenChange(true)} className="mt-1 flex h-11 w-full items-center gap-3 border border-[#d9dfdc] bg-[#f8faf9] px-3 text-left text-[#303638] outline-none hover:border-[#9fcfc2] hover:bg-[#f2f8f6] focus-visible:ring-2 focus-visible:ring-[#0f8b73] xl:hidden">
@@ -343,7 +296,7 @@ function DirectoryResults(props: ReferralHomeDirectoryProps) {
     <div className="px-5 py-16 text-center">
       <div className="text-[15px] font-black text-[#111111]">{props.workspaceLoading ? <PipelineArcadeLoader label="Loading workspaces" /> : emptyReferralState.title}</div>
       {!props.workspaceLoading ? <p className="mx-auto mt-2 max-w-[420px] text-[12px] leading-5 text-[#737373]">{emptyReferralState.detail}</p> : null}
-      {!props.workspaceLoading && props.filter.kind !== "all" ? <button type="button" onClick={() => props.onFilterChange({ kind: "all" })} className="mt-4 h-9 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0f8b73] hover:bg-[#effaf5]">Show all workspaces</button> : null}
+      {!props.workspaceLoading && referralFilterCount(props.filter) > 0 ? <button type="button" onClick={() => props.onFilterChange({ kind: "all" })} className="mt-4 h-9 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0f8b73] hover:bg-[#effaf5]">Show all workspaces</button> : null}
     </div>
   );
 }
@@ -351,12 +304,12 @@ function DirectoryResults(props: ReferralHomeDirectoryProps) {
 function ReferralDirectoryResults(props: ReferralHomeDirectoryProps) {
   return (
     <>
-      {props.workspaceLayout === "gallery" ? <ReferralWorkspaceGallery referrals={props.visibleReferrals} onOpenPacket={props.onOpenPacket} progressByReferral={props.progressByReferral} /> : <ReferralWorklist referrals={props.visibleReferrals} onOpenPacket={props.onOpenPacket} progressByReferral={props.progressByReferral} />}
+      <ReferralWorklist referrals={props.visibleReferrals} onOpenPacket={props.onOpenPacket} progressByReferral={props.progressByReferral} />
       {hasReferralPagination(props.referralPage, props.referralNextCursor) ? (
         <div className="flex items-center justify-between border-t border-[#d9d9d9] px-5 py-3">
-          <button type="button" disabled={props.referralPage === 0 || props.isLoading} onClick={props.onReferralPrevious} className="h-8 px-2 text-[11px] font-black text-[#0f8b73] disabled:text-[#b3b3b3]">Previous</button>
+          <button type="button" disabled={props.referralPage === 0 || props.isLoading} onClick={props.onReferralPrevious} className="h-8 px-2 text-[11px] font-black text-[#096f54] disabled:text-[#b3b3b3]">Previous</button>
           <span className="text-[11px] text-[#737373]">Page {props.referralPage + 1}</span>
-          <button type="button" disabled={!props.referralNextCursor || props.isLoading} onClick={props.onReferralNext} className="h-8 px-2 text-[11px] font-black text-[#0f8b73] disabled:text-[#b3b3b3]">Next</button>
+          <button type="button" disabled={!props.referralNextCursor || props.isLoading} onClick={props.onReferralNext} className="h-8 px-2 text-[11px] font-black text-[#096f54] disabled:text-[#b3b3b3]">Next</button>
         </div>
       ) : null}
     </>
@@ -396,9 +349,9 @@ function LinkedFileResults(props: ReferralHomeDirectoryProps) {
       <div className="divide-y divide-[#d9d9d9]">{props.visibleFiles.map((file) => <LinkedFileRow key={file.id} file={file} onOpenPacket={props.onOpenPacket} onOpenProfile={props.onOpenProfile} onPreviewFile={props.onPreviewFile} />)}</div>
       {props.fileTotal > 100 ? (
         <div className="flex items-center justify-between border-t border-[#d9d9d9] px-5 py-3">
-          <button type="button" disabled={props.filePage === 0} onClick={props.onFilePrevious} className="h-8 px-2 text-[11px] font-black text-[#0f8b73] disabled:text-[#b3b3b3]">Previous</button>
+          <button type="button" disabled={props.filePage === 0} onClick={props.onFilePrevious} className="h-8 px-2 text-[11px] font-black text-[#096f54] disabled:text-[#b3b3b3]">Previous</button>
           <span className="text-[11px] font-normal text-[#737373]">Page {props.filePage + 1}</span>
-          <button type="button" disabled={!props.fileNextCursor} onClick={props.onFileNext} className="h-8 px-2 text-[11px] font-black text-[#0f8b73] disabled:text-[#b3b3b3]">Next</button>
+          <button type="button" disabled={!props.fileNextCursor} onClick={props.onFileNext} className="h-8 px-2 text-[11px] font-black text-[#096f54] disabled:text-[#b3b3b3]">Next</button>
         </div>
       ) : null}
     </>
@@ -442,19 +395,20 @@ function WorkspaceArchiveNavigation({ months, communities, filter, expandedMonth
   onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void;
 }) {
   const selectedMonth = referralFilterMonth(filter);
-  const selectedCommunity = referralFilterCommunity(filter);
+  const selectedCommunities = referralFilterCommunities(filter);
   return (
     <nav aria-label="Browse workspaces by date and community">
-      <div>{months.length === 0 ? <div className="px-3 py-4 text-[11px] leading-5 text-[#737373]">Dated workspaces will appear here.</div> : months.map((month) => <WorkspaceArchiveMonth key={month.value} month={month} communities={communities} selectedMonth={selectedMonth} selectedCommunity={selectedCommunity} expanded={expandedMonth === month.value} onExpandedMonthChange={onExpandedMonthChange} onFilterChange={onFilterChange} />)}</div>
+      <div>{months.length === 0 ? <div className="px-3 py-4 text-[11px] leading-5 text-[#737373]">Dated workspaces will appear here.</div> : months.map((month) => <WorkspaceArchiveMonth key={month.value} month={month} communities={communities} filter={filter} selectedMonth={selectedMonth} selectedCommunities={selectedCommunities} expanded={expandedMonth === month.value} onExpandedMonthChange={onExpandedMonthChange} onFilterChange={onFilterChange} />)}</div>
     </nav>
   );
 }
 
-function WorkspaceArchiveMonth({ month, communities, selectedMonth, selectedCommunity, expanded, onExpandedMonthChange, onFilterChange }: {
+function WorkspaceArchiveMonth({ month, communities, filter, selectedMonth, selectedCommunities, expanded, onExpandedMonthChange, onFilterChange }: {
   month: ReferralFacets["months"][number];
   communities: Array<{ name: string; count: number }>;
   selectedMonth: string;
-  selectedCommunity: string;
+  filter: ReferralFilter;
+  selectedCommunities: string[];
   expanded: boolean;
   onExpandedMonthChange: (month: string) => void;
   onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void;
@@ -462,16 +416,16 @@ function WorkspaceArchiveMonth({ month, communities, selectedMonth, selectedComm
   const monthSelected = selectedMonth === month.value;
   return (
     <div className="mb-1">
-      <button type="button" aria-expanded={expanded} onClick={() => { onExpandedMonthChange(expanded ? "" : month.value); onFilterChange({ kind: "month", value: month.value }); }} className={`flex h-10 w-full items-center gap-2 border px-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]" : "border-transparent text-[#444a47] hover:border-[#e0e5e2] hover:bg-[#f8faf9]"}`}>
+      <button type="button" aria-expanded={expanded} onClick={() => { onExpandedMonthChange(expanded ? "" : month.value); onFilterChange({ ...filter, kind: "all", month: month.value }); }} className={`flex h-10 w-full items-center gap-2 border px-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]" : "border-transparent text-[#444a47] hover:border-[#e0e5e2] hover:bg-[#f8faf9]"}`}>
         {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}<span className="min-w-0 flex-1 truncate text-[11px] font-black">{formatMonthKey(month.value)}</span><span className="shrink-0 text-[9px] font-black tabular-nums text-[#595959]">{formatDirectoryCount(month.count)}</span>
       </button>
-      {expanded ? <div className="ml-4 border-l border-[#dce3e0] pl-2 pt-1"><button type="button" aria-current={monthSelected && !selectedCommunity ? "page" : undefined} onClick={() => onFilterChange({ kind: "month", value: month.value }, true)} className={`flex min-h-9 w-full items-center gap-2 px-2 text-left text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected && !selectedCommunity ? "bg-[#effaf5] text-[#0c705f]" : "text-[#646b67] hover:bg-[#f8faf9] hover:text-[#202320]"}`}><span className="min-w-0 flex-1 truncate">All communities</span><span className="shrink-0 text-[9px] font-black tabular-nums">{formatDirectoryCount(month.count)}</span></button>{communities.map(({ name }) => <WorkspaceArchiveCommunity key={`${month.value}-${name}`} month={month.value} name={name} count={month.communities.find((community) => community.value === name)?.count ?? 0} active={monthSelected && selectedCommunity === name} onFilterChange={onFilterChange} />)}</div> : null}
+      {expanded ? <div className="ml-4 border-l border-[#dce3e0] pl-2 pt-1"><button type="button" aria-current={monthSelected && !selectedCommunities.length ? "page" : undefined} onClick={() => onFilterChange({ ...filter, kind: "all", month: month.value, communities: [] }, true)} className={`flex min-h-9 w-full items-center gap-2 px-2 text-left text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected && !selectedCommunities.length ? "bg-[#effaf5] text-[#0c705f]" : "text-[#646b67] hover:bg-[#f8faf9] hover:text-[#202320]"}`}><span className="min-w-0 flex-1 truncate">All communities</span><span className="shrink-0 text-[9px] font-black tabular-nums">{formatDirectoryCount(month.count)}</span></button>{communities.map(({ name }) => <WorkspaceArchiveCommunity key={`${month.value}-${name}`} name={name} count={month.communities.find((community) => community.value === name)?.count ?? 0} active={monthSelected && selectedCommunities.includes(name)} onSelect={() => onFilterChange({ ...filter, kind: "all", month: month.value, communities: selectedCommunities.includes(name) ? selectedCommunities.filter((community) => community !== name) : [...selectedCommunities, name] }, true)} />)}</div> : null}
     </div>
   );
 }
 
-function WorkspaceArchiveCommunity({ month, name, count, active, onFilterChange }: { month: string; name: string; count: number; active: boolean; onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void }) {
-  return <button type="button" aria-current={active ? "page" : undefined} onClick={() => onFilterChange({ kind: "monthCommunity", month, community: name }, true)} className={`flex min-h-9 w-full items-center gap-2 px-2 text-left text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${active ? "bg-[#effaf5] text-[#0c705f]" : "text-[#646b67] hover:bg-[#f8faf9] hover:text-[#202320]"}`}><span className="min-w-0 flex-1 truncate">{presentCommunity(name)}</span><span className="shrink-0 text-[9px] font-black tabular-nums">{formatDirectoryCount(count)}</span></button>;
+function WorkspaceArchiveCommunity({ name, count, active, onSelect }: { name: string; count: number; active: boolean; onSelect: () => void }) {
+  return <button type="button" aria-pressed={active} onClick={onSelect} className={`flex min-h-9 w-full items-center gap-2 px-2 text-left text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${active ? "bg-[#effaf5] text-[#0c705f]" : "text-[#646b67] hover:bg-[#f8faf9] hover:text-[#202320]"}`}><span className="min-w-0 flex-1 truncate">{presentCommunity(name)}</span><span className="shrink-0 text-[9px] font-black tabular-nums">{formatDirectoryCount(count)}</span></button>;
 }
 
 function WorkspaceBrowseDialog({ months, communities, filter, expandedMonth, onExpandedMonthChange, onFilterChange, onClose }: {

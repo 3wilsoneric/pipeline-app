@@ -14,7 +14,7 @@ import {
   recentMonthKeys,
   referralFilterMonth,
 } from "@/components/pipeline/referral-home-directory-model";
-import type { ReferralFilter, WorkspaceLayout, WorkspaceSection, WorkspaceScope } from "@/components/pipeline/referral-home-directory-model";
+import type { ReferralFilter, WorkspaceScope } from "@/components/pipeline/referral-home-directory-model";
 import { fetchPipelineJson, readPipelineJsonCache, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import {
@@ -30,7 +30,6 @@ import type { ReferralFacets } from "@/lib/pipeline/referral-store";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 
-const workspaceLayoutStorageKey = "pipeline:workspace-layout";
 const workspaceSearchSettleMs = 40;
 
 function shouldShowDirectoryLoading(silent: boolean, previousRequest: string) {
@@ -88,8 +87,6 @@ function ReferralHome({
   const [initialDirectory] = useState(() => readPipelineJsonCache<ReferralDirectoryPayload>(
     `/api/referrals/directory?${buildReferralParams({ kind: "all" }, searchTerm, undefined, scope)}`,
   ));
-  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>("workspaces");
-  const [workspaceLayout, setWorkspaceLayout] = useState<WorkspaceLayout>("list");
   const [referrals, setReferrals] = useState<Referral[]>(initialDirectory?.referrals ?? []);
   const [progressByReferral, setProgressByReferral] = useState<Record<number, ReferralProgress>>(initialDirectory?.progress ?? {});
   const [referralTotal, setReferralTotal] = useState(initialDirectory?.total ?? 0);
@@ -104,8 +101,8 @@ function ReferralHome({
   const [filePage, setFilePage] = useState(0);
   const [fileCursors, setFileCursors] = useState<string[]>([""]);
   const [fileCategory, setFileCategory] = useState("");
-  const [fileCommunity, setFileCommunity] = useState("");
-  const [fileOwner, setFileOwner] = useState("");
+  const [fileCommunities, setFileCommunities] = useState<string[]>([]);
+  const [fileOwners, setFileOwners] = useState<string[]>([]);
   const [fileMonth, setFileMonth] = useState("");
   const [reviewIdentity, setReviewIdentity] = useState(false);
   const [importItems, setImportItems] = useState<ClientFileImportReviewItem[] | null>(null);
@@ -127,16 +124,6 @@ function ReferralHome({
     const timeout = window.setTimeout(() => setRequestSearchTerm(searchTerm), workspaceSearchSettleMs);
     return () => window.clearTimeout(timeout);
   }, [searchTerm]);
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem(workspaceLayoutStorageKey);
-    if (saved === "list" || saved === "gallery") setWorkspaceLayout(saved);
-  }, []);
-
-  const selectWorkspaceLayout = (layout: WorkspaceLayout) => {
-    setWorkspaceLayout(layout);
-    window.localStorage.setItem(workspaceLayoutStorageKey, layout);
-  };
 
   const loadReferrals = useCallback(async (signal?: AbortSignal, silent = false) => {
     if (filter.kind === "files") {
@@ -241,8 +228,8 @@ function ReferralHome({
     const params = new URLSearchParams({ limit: "100", q: requestSearchTerm, identity_status: "linked", scope });
     if (fileCursors[filePage]) params.set("cursor", fileCursors[filePage]);
     if (fileCategory) params.set("category", fileCategory);
-    if (fileCommunity) params.set("community", fileCommunity);
-    if (fileOwner) params.set("owner", fileOwner);
+    for (const community of [...fileCommunities].sort()) params.append("community", community);
+    for (const owner of [...fileOwners].sort()) params.append("owner", owner);
     if (fileMonth) {
       const bounds = calendarMonthBounds(fileMonth);
       params.set("uploaded_after", bounds.from);
@@ -264,7 +251,7 @@ function ReferralHome({
         }
       });
     return () => { cancelled = true; };
-  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, filter.kind, requestSearchTerm, reviewIdentity, scope, dataGeneration]);
+  }, [fileCategory, fileCommunities, fileCursors, fileMonth, fileOwners, filePage, filter.kind, requestSearchTerm, reviewIdentity, scope, dataGeneration]);
 
   useEffect(() => {
     if (filter.kind !== "files" || !reviewIdentity) return;
@@ -290,7 +277,7 @@ function ReferralHome({
     setFilePage(0);
     setFileCursors([""]);
     setFiles(null);
-  }, [fileCategory, fileCommunity, fileMonth, fileOwner, filter.kind, requestSearchTerm, reviewIdentity]);
+  }, [fileCategory, fileCommunities, fileMonth, fileOwners, filter.kind, requestSearchTerm, reviewIdentity]);
 
   const monthOptions = useMemo(() => facets.months.map((entry) => entry.value), [facets.months]);
   const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
@@ -342,10 +329,6 @@ function ReferralHome({
       canViewTeam={canViewTeam}
       scope={scope}
       onScopeChange={onScopeChange}
-      workspaceSection={workspaceSection}
-      onWorkspaceSectionChange={setWorkspaceSection}
-      workspaceLayout={workspaceLayout}
-      onWorkspaceLayoutChange={selectWorkspaceLayout}
       filter={filter}
       onFilterChange={selectFilter}
       onShowFiles={() => {
@@ -365,13 +348,13 @@ function ReferralHome({
       onReviewIdentityChange={setReviewIdentity}
       fileCategory={fileCategory}
       onFileCategoryChange={setFileCategory}
-      fileCommunity={fileCommunity}
-      onFileCommunityChange={setFileCommunity}
-      fileOwner={fileOwner}
-      onFileOwnerChange={setFileOwner}
+      fileCommunities={fileCommunities}
+      onFileCommunitiesChange={setFileCommunities}
+      fileOwners={fileOwners}
+      onFileOwnersChange={setFileOwners}
       fileMonth={fileMonth}
       onFileMonthChange={setFileMonth}
-      onClearFileFilters={() => { setFileCategory(""); setFileCommunity(""); setFileOwner(""); setFileMonth(""); }}
+      onClearFileFilters={() => { setFileCategory(""); setFileCommunities([]); setFileOwners([]); setFileMonth(""); }}
       visibleReferrals={visibleReferrals}
       progressByReferral={progressByReferral}
       visibleFiles={visibleFiles}

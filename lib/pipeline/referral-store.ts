@@ -111,8 +111,10 @@ export type ReferralListOptions = {
   sort?: ReferralSort;
   stage?: ReferralStage;
   community?: string;
+  communities?: string[];
   county?: string;
   owner?: string;
+  owners?: string[];
   priority?: Priority;
   tag?: string;
   month?: string;
@@ -163,7 +165,9 @@ export type ReferralFileListOptions = {
   clientId?: string;
   canonicalClientId?: string;
   community?: string;
+  communities?: string[];
   owner?: string;
+  owners?: string[];
   category?: string;
   identityStatus?: "linked" | "candidate" | "unmatched";
   sourceSystem?: "pipeline" | "alamo_platform" | "allo" | "import";
@@ -691,9 +695,11 @@ async function listLocalReferrals(
 
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const sort = options.sort ?? "updated_desc";
+  const communities = selectedListFilterValues(options.community, options.communities);
+  const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
   const matching = state.referrals
     .filter((referral) => !isDeletedReferral(referral))
-    .filter((referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens) && matchesReferralFilters(referral, options))
+    .filter((referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens) && matchesReferralFilters(referral, options, communities, owners))
     .sort((left, right) => compareReferrals(left, right, sort));
   const cursor = decodeReferralSortCursor(options.cursor, sort);
   const limit = clampPageSize(options.limit);
@@ -790,7 +796,8 @@ async function listLocalReferralFiles(
   await ensureLoaded();
 
   const queryTokens = normalizedSearchTokens(options.query ?? "");
-  const owner = options.owner ? normalizeOwnerName(options.owner) : "";
+  const communities = selectedListFilterValues(options.community, options.communities);
+  const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
   const matching = state.referrals
     .filter((referral) => !isDeletedReferral(referral))
     .filter((referral) => !options.referralId || referral.id === options.referralId)
@@ -799,8 +806,8 @@ async function listLocalReferralFiles(
     .flatMap(getReferralFiles)
     .filter((file) => matchesSearchTokens(searchableFileText(file), queryTokens))
     .filter((file) => !options.canonicalClientId || file.canonicalClientId === options.canonicalClientId)
-    .filter((file) => !options.community || file.community === options.community)
-    .filter((file) => !owner || normalizeOwnerName(file.owner ?? "Unassigned") === owner)
+    .filter((file) => !communities.length || communities.includes(file.community ?? ""))
+    .filter((file) => !owners.length || owners.includes(normalizeOwnerName(file.owner)))
     .filter((file) => !options.category || file.category === options.category)
     .filter((file) => !options.identityStatus || (file.identityStatus ?? "linked") === options.identityStatus)
     .filter((file) => !options.sourceSystem || (file.sourceSystem ?? "pipeline") === options.sourceSystem)
@@ -1223,9 +1230,9 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const stage = options.stage ?? null;
-  const community = options.community?.trim() || null;
+  const communities = selectedListFilterValues(options.community, options.communities);
   const county = options.county?.trim() || null;
-  const owner = options.owner ? normalizeOwnerName(options.owner) : null;
+  const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
   const assignedOwnerId = options.assignedOwnerId?.trim() || null;
   const assignedOwnerNames = options.assignedOwnerNames ?? [];
   const priority = options.priority ?? null;
@@ -1268,13 +1275,13 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           where r.search_text not ilike ('%' || search_term.value || '%')
         ))
         and (${stage}::text is null or r.stage = ${stage})
-        and (${community}::text is null or r.community = ${community})
+        and (${communities.length === 0} or r.community = any(${communities}::text[]))
         and (${county}::text is null or r.county = ${county})
-        and (${owner}::text is null or case
+        and (${owners.length === 0} or case
           when lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
             then 'Unassigned'
           else trim(r.owner_name)
-        end = ${owner})
+        end = any(${owners}::text[]))
         and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
           or exists (
             select 1
@@ -1532,8 +1539,8 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
   const referralId = normalizeReferralFileReferralId(options.referralId);
   const clientId = options.clientId?.trim() || null;
   const canonicalClientId = options.canonicalClientId?.trim() || null;
-  const community = options.community?.trim() || null;
-  const owner = options.owner ? normalizeOwnerName(options.owner) : null;
+  const communities = selectedListFilterValues(options.community, options.communities);
+  const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
   const category = options.category?.trim() || null;
   const identityStatus = options.identityStatus ?? null;
   const sourceSystem = options.sourceSystem ?? null;
@@ -1676,8 +1683,12 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         and (${referralId}::bigint is null or file_rows.referral_id = ${referralId})
         and (${clientId}::text is null or external_client_id = ${clientId})
         and (${canonicalClientId}::text is null or canonical_client_id = ${canonicalClientId})
-        and (${community}::text is null or file_rows.community = ${community})
-        and (${owner}::text is null or lower(trim(coalesce(file_rows.owner_name, 'Unassigned'))) = ${owner})
+        and (${communities.length === 0} or file_rows.community = any(${communities}::text[]))
+        and (${owners.length === 0} or case
+          when lower(coalesce(nullif(trim(file_rows.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
+            then 'Unassigned'
+          else trim(file_rows.owner_name)
+        end = any(${owners}::text[]))
         and (${category}::text is null or file_rows.category = ${category})
         and (${identityStatus}::text is null or file_rows.identity_status = ${identityStatus})
         and (${sourceSystem}::text is null or file_rows.source_system = ${sourceSystem})
@@ -2966,12 +2977,12 @@ function isStoredReferralAuditEvent(value: unknown): value is StoredReferralAudi
     && candidate.changed_fields.every((field) => typeof field === "string");
 }
 
-function matchesReferralFilters(referral: Referral, options: ReferralListOptions) {
+function matchesReferralFilters(referral: Referral, options: ReferralListOptions, communities: string[], owners: string[]) {
   if (!matchesWorkspaceStatus(referral, options.workspaceStatus)) return false;
   if (options.stage && referral.stage !== options.stage) return false;
-  if (options.community && referral.community !== options.community) return false;
+  if (communities.length && !communities.includes(referral.community)) return false;
   if (options.county && resolveWorkspaceCounty(referral) !== options.county) return false;
-  if (options.owner && normalizeOwnerName(referral.owner) !== normalizeOwnerName(options.owner)) return false;
+  if (owners.length && !owners.includes(normalizeOwnerName(referral.owner))) return false;
   if (options.priority && referral.priority !== options.priority) return false;
   if (options.tag && !(referral.tags ?? []).includes(options.tag)) return false;
   if (options.month && workspaceMonthKey(referral) !== options.month) return false;
@@ -2981,6 +2992,10 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
   if (!matchesAssignmentScope(referral, options)) return false;
   return true;
+}
+
+function selectedListFilterValues(single: string | undefined, multiple: string[] | undefined) {
+  return multiple ?? (single ? [single] : []);
 }
 
 function hasPostOutcomeAssessment(referral: Referral) {

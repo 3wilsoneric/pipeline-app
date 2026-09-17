@@ -197,11 +197,15 @@ await measureJourney("referral_community_filter", "filter", async () => {
       && ["/api/referrals", "/api/referrals/directory"].includes(url.pathname)
       && url.searchParams.get("community") === "San Pablo";
   });
-  await page.getByLabel("Filter workspaces by community").selectOption("San Pablo");
+  await page.getByRole("button", { name: "Filter workspaces by community" }).click();
+  await page.getByRole("checkbox", { name: "San Pablo", exact: true }).check();
+  await page.keyboard.press("Escape");
   await filteredDirectory;
   await page.getByRole("button", { name: `Open ${seededReferralName} referral workspace`, exact: true }).waitFor({ state: "visible" });
 });
-await page.getByLabel("Filter workspaces by community").selectOption("");
+await page.getByRole("button", { name: "Filter workspaces by community" }).click();
+await page.getByRole("button", { name: "All communities", exact: true }).click();
+await page.keyboard.press("Escape");
 await measureJourney("referrals_to_home_current_work", "queue", async () => {
   await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
   await page.getByRole("region", { name: "Current work", exact: true }).waitFor({ state: "visible" });
