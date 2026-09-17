@@ -73,8 +73,9 @@ test("separates Home modules with light emerald surfaces and responsive spacing"
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
 
-  const surfaces = page.locator('[data-home-surface="true"]');
-  await expect(surfaces).toHaveCount(6);
+  await expect(page.locator('[data-home-surface="true"]')).toHaveCount(6);
+  await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", "0px");
+  const surfaces = page.locator('[data-home-surface="true"]:not([data-home-module="current-work"])');
   const styles = await surfaces.evaluateAll((elements) => elements.map((element) => {
     const style = getComputedStyle(element);
     return {
@@ -85,10 +86,10 @@ test("separates Home modules with light emerald surfaces and responsive spacing"
   }));
   for (const style of styles) {
     expect(style.backgroundColor).toMatch(/^rgba?\(255, 255, 255/);
-    expect(style.borderTopColor).toBe("rgb(220, 231, 226)");
+    expect(style.borderTopColor).toBe("rgb(206, 219, 215)");
     expect(style.borderTopWidth).toBe("1px");
   }
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(242, 247, 245)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(237, 243, 242)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -290,7 +291,7 @@ test("an empty Home can add modules again or restore defaults", async ({ page })
   await expect.poll(() => moduleOrder(page)).toEqual(["current-work", ...defaults.filter((id) => id !== "current-work")]);
 });
 
-test("layout loading cannot overwrite an edit made against an unfinished read", async ({ page }) => {
+test("waits for saved layout before allowing edits and keeps the Board", async ({ page }) => {
   test.skip(!serverStateEnabled, "Async server reads are covered by test:e2e:desktop; browser-only layouts load synchronously.");
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -303,7 +304,7 @@ test("layout loading cannot overwrite an edit made against an unfinished read", 
   await expect(page.getByRole("button", { name: /^Remove .* from Home$/ })).toHaveCount(0);
   release();
   await expect(page.getByRole("button", { name: "Add module", exact: true })).toBeEnabled();
-  await expect.poll(() => moduleOrder(page)).toEqual(["recent-work"]);
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work", "recent-work"]);
 });
 
 test("the layout API migrates legacy order, preserves removals, and scopes settings to the signed-in user", async ({ request, baseURL }) => {

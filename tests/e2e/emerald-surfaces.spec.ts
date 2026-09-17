@@ -43,8 +43,10 @@ for (const width of [1440, 1024, 390]) {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
     await syntheticHome(page);
-    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(242, 247, 245)");
-    await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", width === 390 ? "11px" : "14px");
+    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(237, 243, 242)");
+    await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", "0px");
+    const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).backgroundImage));
+    expect(new Set(stageColors).size).toBe(4);
     await expect(page.locator("[data-home-surface]").first()).toHaveCSS("backdrop-filter", "none");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`home-${width}.png`) });
@@ -62,8 +64,14 @@ for (const width of [1440, 1024, 390]) {
     await secondary.press("Tab");
     await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toHaveCSS("background-color", "rgb(255, 255, 255)");
     if (width >= 1024) {
-      await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(248, 251, 249)");
-      await expect(assessment.locator('button[aria-current="step"]')).toHaveCSS("border-top-color", "rgb(206, 229, 217)");
+      await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(233, 241, 240)");
+      await expect(assessment.locator('button[aria-current="step"]')).toHaveCSS("border-top-color", "rgb(152, 205, 183)");
+    }
+    if (width >= 1200) {
+      const reference = await assessment.getByRole("complementary", { name: "Captured assessment answers" }).boundingBox();
+      const editor = await assessment.locator('[data-assessment-question-editor]').boundingBox();
+      expect(reference!.x + reference!.width).toBeLessThan(editor!.x);
+      expect(Math.abs(reference!.y - editor!.y)).toBeLessThan(2);
     }
     expect(await assessment.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`assessment-${width}.png`) });
@@ -88,7 +96,7 @@ test("reduced motion removes card movement and the standalone lab stays unthemed
   await expect(card).toHaveCSS("transform", "none");
   await expect(card).toHaveCSS("transition-duration", "0s");
   await card.focus();
-  expect(await card.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe("none");
+  await expect(card).toHaveCSS("outline-width", "2px");
   await page.goto("/note-lab/practice");
   await expect(page.getByTestId("standalone-review-shell")).toBeVisible();
   await expect(page.locator(".pipeline-surfaces")).toHaveCount(0);
