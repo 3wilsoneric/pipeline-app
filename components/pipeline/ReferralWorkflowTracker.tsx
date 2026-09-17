@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { activeReferralFlowStates, referralBoardStageForStatus, referralBoardStages, type ReferralBoardStage } from "@/lib/pipeline/referral-flow";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
@@ -97,6 +98,12 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
   const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const decision = stage === "decision" ? decisionPresentation(item) : null;
   const status = decision?.label ?? (stage === "in_progress" && item.assessment_state === "scheduled" ? "Assessment scheduled" : workflowStatusLabels[item.workflow_status]);
+  const details = [
+    { label: "Community", value: item.community },
+    ...(showOwner ? [{ label: "Assessor", value: item.owner || "Unassigned" }] : []),
+    { label: "File progress", value: `${Math.round(item.completion_pct)}% complete` },
+    { label: "Documents needed", value: String(item.missing_document_count) },
+  ];
   return <button type="button" data-board-card data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
     <span className={boardStyles.tabs}>
       <strong data-folder-name className={`${folderStyles.tab} ${boardStyles.nameTab}`}><span className={folderStyles.tabLabel}>{name}</span></strong>
@@ -104,19 +111,19 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
     </span>
     <span data-folder-body className={`${folderStyles.body} ${boardStyles.body}`}>
       <span className={`${folderStyles.paper} ${boardStyles.paper}`}>
+        <span className={boardStyles.fileIndex}>
+          <span>Referral #{item.referral_id}</span>
+          {item.last_activity_at ? <span>Updated {formatProfileDate(item.last_activity_at)}</span> : null}
+        </span>
         <span className={boardStyles.nextStep}>
           <span id={`${descriptionId}-action`} className={boardStyles.actionText}>{item.next_action}</span>
           <ArrowRight size={15} aria-hidden="true" />
         </span>
-        <span className={`grid gap-px border-t border-[#dde3de] bg-[#dde3de] ${showOwner ? "grid-cols-2" : "grid-cols-1"}`}>
-          <span className="min-w-0 bg-white px-3 py-3">
-            <span className="block text-[9px] font-bold uppercase tracking-[0.07em] text-[#59685f]">Community</span>
-            <span className="mt-1 block text-[12px] font-semibold leading-5 text-[#25382e] [overflow-wrap:anywhere]">{item.community}</span>
-          </span>
-          {showOwner ? <span className="min-w-0 bg-white px-3 py-3">
-            <span className="block text-[9px] font-bold uppercase tracking-[0.07em] text-[#59685f]">Assessor</span>
-            <span className="mt-1 block text-[12px] font-semibold leading-5 text-[#25382e] [overflow-wrap:anywhere]">{item.owner || "Unassigned"}</span>
-          </span> : null}
+        <span data-folder-details className={boardStyles.details}>
+          {details.map(({ label, value }) => <span key={label} className={boardStyles.detail}>
+            <span className={boardStyles.detailLabel}>{label}</span>
+            <span className={boardStyles.detailValue} title={value}>{value}</span>
+          </span>)}
         </span>
       </span>
     </span>

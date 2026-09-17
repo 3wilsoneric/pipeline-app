@@ -36,8 +36,10 @@
   margin: 0;
   padding: 6px 7px 8px;
   border-radius: 9px 11px 0 0;
-  font-size: 14px;
-  line-height: 18px;
+  color: #1c2923;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 20px;
   background: linear-gradient(#f5eddd, var(--folder-fill));
 }
 
@@ -52,9 +54,9 @@
   border-radius: 6px 6px 0 0;
   background: var(--status-fill);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 75%);
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 13px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
   text-align: left;
   overflow-wrap: anywhere;
 }
@@ -65,7 +67,7 @@
 .body {
   position: relative;
   flex: none;
-  height: 206px;
+  min-height: 250px;
   padding: 8px 8px 22px;
   overflow: hidden;
   border-radius: 8px;
@@ -96,19 +98,26 @@
 }
 
 .paper { position: relative; flex: 1; min-height: 0; overflow: hidden; }
-.nextStep { display: flex; align-items: flex-start; gap: 8px; min-height: 76px; padding: 14px 12px; color: #344039; }
+.fileIndex { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; padding: 9px 11px 0; color: #536157; font-size: 10px; font-weight: 650; line-height: 14px; font-variant-numeric: tabular-nums; }
+.nextStep { display: flex; align-items: flex-start; gap: 8px; min-height: 64px; padding: 9px 11px 12px; color: #26372e; }
 .nextStep svg { flex: none; margin-top: 2px; color: #768079; }
-.actionText { display: -webkit-box; flex: 1; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; line-height: 20px; }
+.actionText { display: -webkit-box; flex: 1; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; font-weight: 650; line-height: 21px; }
+.details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; border-top: 1px solid #dde3de; background: #dde3de; }
+.detail { min-width: 0; padding: 8px 11px; background: #fff; }
+.detail:first-child:nth-last-child(3) { grid-column: 1 / -1; }
+.detailLabel { display: block; color: #536157; font-size: 10px; font-weight: 700; line-height: 14px; }
+.detailValue { display: -webkit-box; margin-top: 3px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: #25382e; font-size: 13px; font-weight: 650; line-height: 18px; font-variant-numeric: tabular-nums; }
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
-  .folder:not(:last-child) { margin-bottom: -174px; }
-  .folder:not(:last-child):is(:hover, :focus-within) { margin-bottom: -106px; }
+  .body { height: 250px; }
+  .folder:not(:last-child) { margin-bottom: -218px; }
+  .folder:not(:last-child):is(:hover, :focus-within) { margin-bottom: -130px; }
   .folder { transition: margin-bottom 160ms ease-out; }
 
   /* Stacked files expose the name and status, then the next action on hover.
      Keep the covered details from peeking through around the next file's tabs. */
   .folder:not(:last-child) .paper > * { opacity: 0; }
-  .folder:not(:last-child):is(:hover, :focus-within) .nextStep { opacity: 1; }
+  .folder:not(:last-child):is(:hover, :focus-within) :is(.fileIndex, .nextStep) { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
