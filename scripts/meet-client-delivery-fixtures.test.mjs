@@ -4,6 +4,10 @@ import { createRequire } from "node:module";
 import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
+import { resolve } from "node:path";
+import { loadTypeScriptModule } from "./ts-module-loader.mjs";
+
+const summaryOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-summary.ts");
 
 const require = createRequire(import.meta.url);
 const source = ts.transpileModule(readFileSync("app/api/referrals/[referralId]/meet-client-email/route.ts", "utf8"), {
@@ -65,23 +69,34 @@ test("invalid route identities and denied roles cannot reserve or send an email"
   assert.equal(denied.reservationCalls(), 0);
 });
 
-test("a missing admission date or stale preview cannot reserve or send", async () => {
-  for (const options of [{ admissionDate: "" }, { previewVersion: 3 }]) {
+test("acceptance at a draft version allows an explicit send after signing, without an admission date", async () => {
+  const fixture = deliveryFixture({ admissionDate: "", decisionVersion: 1 });
+  assert.equal((await fixture.send()).status, 200);
+  assert.equal(fixture.providerCalls(), 1);
+  assert.equal(fixture.audits[0].assessmentVersion, 7);
+});
+
+test("stale previews and unsigned or unrelated assessments cannot reserve or send", async () => {
+  for (const [options, status] of [
+    [{ previewVersion: 3 }, 409],
+    [{ signed: false }, 422],
+    [{ decisionAssessmentId: "different-assessment" }, 422],
+  ]) {
     const fixture = deliveryFixture(options);
-    const response = await fixture.send();
-    assert.equal(response.status, options.admissionDate === "" ? 422 : 409);
+    assert.equal((await fixture.send()).status, status);
     assert.equal(fixture.providerCalls(), 0);
     assert.equal(fixture.reservationCalls(), 0);
   }
 });
 
-function deliveryFixture({ auditFailure = false, providerFailure = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4 } = {}) {
+function deliveryFixture({ auditFailure = false, providerFailure = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
   let calls = 0;
   let reservations = 0;
   const mutationIds = new Set();
   const auditStates = [];
   const metrics = [];
-  const assessment = { assessment_id: "synthetic-assessment", version: 7, signed_at: "2026-09-11T10:00:00Z" };
+  const audits = [];
+  const assessment = { assessment_id: "synthetic-assessment", version: 7, signed_at: signed ? "2026-09-11T10:00:00Z" : null };
   const referral = { id: 6, version: 4, community: "San Pablo", admissionDate };
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error {}
@@ -93,7 +108,7 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, denied
     "@/lib/auth/assessor-session-policy": { pipelineAccountableActor: () => ({ id: "synthetic-coordinator", name: "Synthetic Coordinator" }) },
     "@/lib/auth/request-security": { requireSameOriginMutation: () => null },
     "@/lib/assessment/assessment-store": { requireAssessmentStore: () => ({ ok: true }), listAssessments: async () => ({ assessments: [assessment] }) },
-    "@/lib/assessment/assessment-summary": { buildMeetClientSummary: () => ({ preparedFromAssessmentId: assessment.assessment_id }) },
+    "@/lib/assessment/assessment-summary": { ...summaryOwner, buildMeetClientSummary: () => ({ preparedFromAssessmentId: assessment.assessment_id }) },
     "@/lib/extraction/contracts": { jsonError, readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
     "@/lib/notifications/meet-client-attachments": {
       getMeetClientAttachmentInventory: async () => ({ ready: true, totalBytes: 800, blockers: [] }),
@@ -114,6 +129,7 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, denied
     "@/lib/pipeline/meet-client-delivery-audit": {
       reserveMeetClientDelivery: async (audit) => {
         reservations += 1;
+        audits.push(audit);
         if (mutationIds.has(audit.mutationId)) return false;
         mutationIds.add(audit.mutationId);
         return true;
@@ -125,7 +141,7 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, denied
     },
     "@/lib/pipeline/referral-access": { requireMutableReferralAccess: async () => ({ ok: true }) },
     "@/lib/pipeline/referral-store": { requireReferralStore: () => ({ ok: true }) },
-    "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, decision: { outcome: "accepted", decisionId: "synthetic-decision", assessmentId: assessment.assessment_id, assessmentVersion: 7 } }) },
+    "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, decision: { outcome: "accepted", decisionId: "synthetic-decision", assessmentId: decisionAssessmentId, assessmentVersion: decisionVersion } }) },
   };
   const exports = {};
   vm.runInNewContext(source, {
@@ -137,7 +153,7 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, denied
     },
   });
   return {
-    auditStates, metrics, providerCalls: () => calls, reservationCalls: () => reservations,
+    auditStates, metrics, audits, providerCalls: () => calls, reservationCalls: () => reservations,
     send: (referralId = "6") => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
       method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture" }),
     }), { params: Promise.resolve({ referralId }) }),

@@ -11,7 +11,7 @@ import { pickAssessmentToolData } from "@/lib/assessment/assessment-tool-schema"
 import { validateAssessmentCreateRequest } from "@/lib/assessment/assessment-validation";
 import {
   assessmentClientIdentityErrorResponse,
-  resolveAssessmentClientIdentity,
+  resolveDraftAssessmentClientIdentity,
 } from "@/lib/assessment/assessment-client-identity";
 import { assessmentAssigneeForReferral, canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
@@ -81,7 +81,7 @@ export async function POST(
     });
 
     try {
-      const identity = await resolveAssessmentClientIdentity(request, referralId);
+      const identity = await resolveDraftAssessmentClientIdentity(request, referralId);
       const result = await createAssessment(
         {
           referral_id: referralId,

@@ -73,8 +73,11 @@ async function assessmentSchedulingAlerts(
   if (!["scheduled", "rescheduled"].includes(command.schedule.status)) return [];
   const contacts = requireContactStore();
   if (!contacts.ok) return ["Scheduling contacts are unavailable. No contact information was verified."];
-  const blockers = await schedulingBlockers(referral, assessorId);
-  return blockers;
+  try {
+    return await schedulingBlockers(referral, assessorId);
+  } catch {
+    return ["Scheduling contacts are unavailable. The appointment can still be saved."];
+  }
 }
 
 async function schedulingBlockers(

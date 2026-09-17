@@ -50,6 +50,19 @@ export type AssessmentSummaryReport = {
 };
 
 const chartSectionLabels = new Map(assessmentInterviewSections.map((section) => [section.key, section.label]));
+
+export function selectSignedAssessment(
+  assessments: PipelineAssessmentRecord[],
+  assessmentId?: string,
+) {
+  // Acceptance records the information available then; signing can happen later.
+  // Sending records the actual signed version in its own delivery audit.
+  const assessment = assessmentId
+    ? assessments.find((item) => item.assessment_id === assessmentId)
+    : assessments.find((item) => item.signed_at);
+  return assessment?.signed_at ? assessment : null;
+}
+
 const excludedChartFields = new Set<AssessmentToolFieldKey>([
   "unable_to_assess_reasons",
   "source_file",

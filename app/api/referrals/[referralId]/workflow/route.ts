@@ -55,7 +55,7 @@ function workflowCapabilities(
   const canUpdate = mutable && user.roles.some((role) => workflowRoles.has(role));
   return {
     can_update: canUpdate,
-    can_recommend: canUpdate && Boolean(assessment?.signed_at) && canWorkAssessment(user, assessment?.assessor_id ?? null),
+    can_recommend: canUpdate && Boolean(assessment) && canWorkAssessment(user, assessment?.assessor_id ?? null),
     can_decide: mutable && canRecordAdmissionDecision(user),
     can_email: mutable && user.roles.some((role) => workflowSupervisorRoles.has(role)),
     can_request_changes: mutable && canRecordAdmissionDecision(user),

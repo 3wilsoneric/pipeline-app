@@ -685,13 +685,15 @@ export default function ReferralPacketCanvas({
     if (!draft) return;
     const revision = draftRevisionRef.current;
     const reference = recoveryDraftReferenceRef.current;
+    const canReportRecovery = () => reportStatus && draftRevisionRef.current === revision
+      && (!loadedReferralRef.current || dirtyKeysRef.current.size > 0);
     if (serverDraftsEnabled) {
       void preservePendingIntake(false)
         .then(() => {
-          if (reportStatus && draftRevisionRef.current === revision) setSavedAt("Saved on this device; not synced");
+          if (canReportRecovery()) setSavedAt("Saved on this device; not synced");
         })
         .catch((error) => {
-          if (reportStatus && draftRevisionRef.current === revision) {
+          if (canReportRecovery()) {
             const message = error instanceof Error ? error.message : "Could not save on this device.";
             setSavedAt(`Pending · ${message}`);
           }
@@ -834,7 +836,7 @@ export default function ReferralPacketCanvas({
           if (cancelled) return;
           const recovered = draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null;
           if (local) restoreLocalFiles(local);
-          setSavedAt(recovered ? "Recovered unsaved changes" : "Draft");
+          if (recovered || dirtyKeysRef.current.size === 0) setSavedAt(recovered ? "Recovered unsaved changes" : "Draft");
         }).catch(() => {
           if (!cancelled) setSaveError("Could not check for a recovery draft.");
         }).finally(() => {
@@ -2460,7 +2462,6 @@ export default function ReferralPacketCanvas({
                   fieldTotal={visibleChartFieldKeys.length}
                   assessmentSummary={assessmentSummary}
                   continuing={isSaving}
-                  blocked={uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
                   hasReferral={Boolean(loadedReferral) || trainingIntakeMode}
                   hasAssessor={Boolean(loadedReferral?.ownerId) || trainingIntakeMode}
                   onContinue={() => void continueToAssessment()}
@@ -2706,7 +2707,8 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
 }
 
 function workspaceSavePresentation(status: string, error: string, hasReferral: boolean, saving: boolean, dirtyCount: number, queuedFileCount: number) {
-  const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(status);
+  const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0
+    && status !== "Saved on this device; not synced" && /^(Saved |All changes saved|Packet uploaded)/.test(status);
   if (error) return { label: "Pending", Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (saving) return { label: status, Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (confirmed) return { label: "Saved to Pipeline", Icon: CheckCircle2, iconClassName: "text-[#0c705f]", textClassName: "text-[#0c705f]", confirmed: true };
@@ -2755,7 +2757,7 @@ function workspaceSaveControlState(saving: boolean, hasReferral: boolean, hasCha
   return {
     ...mode,
     visible: !hasReferral || retry,
-    disabled: saving || blocked || !hasChanges,
+    disabled: saving || blocked || (hasReferral && !hasChanges),
     expandedLabel: saving ? mode.busyLabel : mode.label,
     compactLabel: saving ? "Working..." : mode.compactLabel,
   };
@@ -2964,7 +2966,6 @@ function ChartCompletionRail({
   fieldTotal,
   assessmentSummary,
   continuing,
-  blocked,
   hasReferral,
   hasAssessor,
   onContinue,
@@ -2982,7 +2983,6 @@ function ChartCompletionRail({
     signedAt?: string | null;
   };
   continuing: boolean;
-  blocked: boolean;
   hasReferral: boolean;
   hasAssessor: boolean;
   onContinue: () => void;
@@ -3011,7 +3011,7 @@ function ChartCompletionRail({
       {hasReferral ? <button
         type="button"
         onClick={onContinue}
-        disabled={continuing || blocked}
+        disabled={continuing}
         className="flex min-h-11 w-full items-center justify-between gap-3 bg-[#111111] px-4 py-3 text-left text-[13px] font-bold leading-5 text-white transition-colors hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d2d2d2] md:col-start-2 md:row-start-1 md:row-span-3"
       >
         <span>{action}</span><ArrowRight size={16} className="shrink-0" aria-hidden="true" />

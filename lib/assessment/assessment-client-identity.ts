@@ -65,6 +65,18 @@ export async function resolveAssessmentClientIdentity(
   return { canonicalClientId, residentKey };
 }
 
+export async function resolveDraftAssessmentClientIdentity(request: Request, referralId: number) {
+  try {
+    return await resolveAssessmentClientIdentity(request, referralId);
+  } catch (error) {
+    const response = assessmentClientIdentityErrorResponse(error);
+    if (!response || (response.status !== 409 && response.status < 500)) throw error;
+    // A draft belongs to the authorized referral even when its census identity
+    // cannot be verified. Leave it unlinked; explicit identity updates stay strict.
+    return { canonicalClientId: null, residentKey: null };
+  }
+}
+
 export function assessmentClientIdentityErrorResponse(error: unknown) {
   if (error instanceof AssessmentClientIdentityError) {
     return Response.json(

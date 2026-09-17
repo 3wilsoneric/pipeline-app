@@ -175,6 +175,7 @@ test.describe("field exit saves and single uploads", () => {
       await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
       await expect.poll(() => interrupted, { timeout: 20_000 }).toBe(true);
+      await expect(page.getByRole("button", { name: "Open questionnaire", exact: true })).toBeEnabled();
       const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
       await phone.fill("555-0199");
       await phone.blur();

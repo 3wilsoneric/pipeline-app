@@ -62,7 +62,7 @@ test.describe("workflow store characterization", () => {
     }
   });
 
-  test("requires a signed assigned assessment and replays one recommendation", async ({ baseURL }) => {
+  test("allows an unsigned assigned recommendation and replays one signed submission", async ({ baseURL }) => {
     const actors = await workflowActors(baseURL);
     try {
       let referral = await createWorkflowReferral(actors.coordinator);
@@ -74,7 +74,8 @@ test.describe("workflow store characterization", () => {
         "workflow-characterization-unsigned-recommendation",
       );
       const unsigned = await actors.assessor.put(`/api/referrals/${referral.id}/recommendation`, { data: unsignedRequest });
-      await responseRecord(unsigned, 422);
+      await responseRecord(unsigned, 200);
+      expect((await reviewSnapshot(actors.supervisor, referral.id)).review).toBeNull();
 
       const viewer = await actors.viewer.put(`/api/referrals/${referral.id}/recommendation`, { data: unsignedRequest });
       expect(viewer.status()).toBe(403);
