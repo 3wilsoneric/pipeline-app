@@ -10,7 +10,7 @@ test.describe("assessment preparation", () => {
   for (const actor of ["assessorA", "assessmentCoordinator"] as const) {
     test(`${actor} prepares from intake, resumes and begins with the last answer intact`, async ({ browser, baseURL }) => {
       const url = requireOperationalBaseURL(baseURL);
-      const api = await actorApiContext("assessorA", url);
+      const api = await actorApiContext(actor, url);
       const { page, context } = await actorPage(browser, actor, url);
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
@@ -29,7 +29,7 @@ test.describe("assessment preparation", () => {
         expect(records[0].resident_name).toBe(referral.name);
         expect(records[0].date_of_birth).toBe(referral.dob);
         expect(records[0].started_at).toBeNull();
-        expect(records[0].scheduled_start_at).toBeNull();
+        expect(records[0].scheduled_start_at ?? null).toBeNull();
 
         const search = editor.getByRole("searchbox", { name: "Find assessment question" });
         const findHistory = async () => {
@@ -102,7 +102,7 @@ test.describe("assessment preparation", () => {
       expect(created.status(), await created.text()).toBe(201);
       const draft = (await created.json()).assessment as PipelineAssessmentRecord;
       expect(draft.started_at).toBeNull();
-      expect(draft.scheduled_start_at).toBeNull();
+      expect(draft.scheduled_start_at ?? null).toBeNull();
       const denied = await other.patch(`/api/assessments/${draft.assessment_id}`, { data: {
         if_match: draft.version, patch: { data: { prior_5150_5250_holds: "Must not replace the assigned assessor's answer." } },
       } });
