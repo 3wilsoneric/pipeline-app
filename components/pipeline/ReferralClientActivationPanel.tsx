@@ -180,7 +180,7 @@ export default function ReferralClientActivationPanel({
         )}
 
         {message ? <div role="status" className="border-l-2 border-[#0f8b73] bg-[#effaf5] px-3 py-2 text-[10px] font-semibold leading-4 text-[#174f43]">{message}</div> : null}
-        {error ? <div role="alert" className="border-l-2 border-[#a63d2f] bg-[#fff5f2] px-3 py-2 text-[10px] font-semibold leading-4 text-[#8b3328]">{error}</div> : null}
+        {error ? <div role="alert" className="border-l-2 border-[#9aa7a0] bg-[#f7faf9] px-3 py-2 text-[10px] font-semibold leading-4 text-[#59645e]">{error}</div> : null}
       </div>
     </section>
   );
@@ -238,7 +238,7 @@ function CandidateIdentity({
   return (
     <div>
       <div className="flex items-center gap-2 text-[11px] font-black text-[#8a5a10]"><CircleAlert size={15} /> Review required</div>
-      {resident ? <IdentityFacts resident={resident} /> : <p className="mt-2 text-[10px] text-[#8b3328]">Governed identity evidence is unavailable, so this candidate cannot be confirmed.</p>}
+      {resident ? <IdentityFacts resident={resident} /> : <p className="mt-2 text-[10px] text-[#59645e]">Governed identity evidence is unavailable, so this candidate cannot be confirmed.</p>}
       {candidateCount > 1 ? <p className="mt-2 text-[10px] font-bold text-[#8a5a10]">{candidateCount} possible matches exist. Review one at a time; confirming one blocks the others.</p> : null}
       <p className="mt-2 text-[9px] text-[#737373]">Candidate created by {link.created_by.name}. No records are joined yet.</p>
       {canReview ? (
@@ -249,7 +249,7 @@ function CandidateIdentity({
           </label>
           <div className="mt-2 flex flex-wrap gap-2">
             <button type="button" disabled={Boolean(busy) || !resident} onClick={() => void onReview("confirm")} className="h-9 bg-[#0f8b73] px-3 text-[10px] font-black text-white disabled:opacity-40">{busy === "confirm" ? "Confirming..." : "Confirm identity"}</button>
-            <button type="button" disabled={Boolean(busy) || !rejectionNote.trim()} onClick={() => void onReview("reject")} className="h-9 border border-[#a63d2f] px-3 text-[10px] font-black text-[#a63d2f] disabled:opacity-40">{busy === "reject" ? "Rejecting..." : "Reject match"}</button>
+            <button type="button" disabled={Boolean(busy) || !rejectionNote.trim()} onClick={() => void onReview("reject")} className="h-9 border border-[#9aa7a0] px-3 text-[10px] font-black text-[#9aa7a0] disabled:opacity-40">{busy === "reject" ? "Rejecting..." : "Reject match"}</button>
           </div>
         </div>
       ) : <p className="mt-2 text-[10px] font-bold text-[#737373]">A reviewer or supervisor must confirm or reject this candidate.</p>}

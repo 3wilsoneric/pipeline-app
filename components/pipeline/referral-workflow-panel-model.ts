@@ -1,4 +1,4 @@
-import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
+import { referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type {
   AdmissionDecision,
   AdmissionRequirement,
@@ -79,7 +79,7 @@ export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
   const assessmentState = currentAssessmentState(workflow);
   return {
     currentReferral: workflow.referral,
-    forwardTransition: workflow.transitions.find((transition) => transition.target !== "Declined"),
+    forwardTransition: workflow.transitions.find((transition) => transition.target === referralStageDefinitions[referralStageDefinitions.findIndex((stage) => stage.stage === workflow.referral.stage) + 1]?.stage && transition.target !== "Declined"),
     assessmentState,
     showManualIntake: !assessmentState
       && workflow.capabilities.can_authorize_manual_intake
@@ -88,7 +88,7 @@ export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
     incompleteDecision,
     incompleteMoveIn,
     incompleteEhr,
-    ehrIsBlocked: incompleteDecision.length + incompleteMoveIn.length + incompleteEhr.length > 0,
+    ehrIsBlocked: workflow.decision?.outcome !== "accepted",
     handoffStatus,
     decisionDisclosureIsOpen,
     decisionDisclosureKey: disclosureState(decisionDisclosureIsOpen),
@@ -148,7 +148,7 @@ export function requirementGroups(items: AdmissionRequirement[]): RequirementGro
   const definitions: Array<{ label: string; detail: string; gates: RequirementGate[] }> = [
     { label: "Decision readiness", detail: "Missing items stay visible while the decision proceeds.", gates: ["admission_decision"] },
     { label: "Move-in readiness", detail: "Missing move-in items can be completed after admission is recorded.", gates: ["move_in"] },
-    { label: "EHR readiness", detail: "These items must be resolved before the downstream handoff.", gates: ["ehr_export"] },
+    { label: "EHR readiness", detail: "Track remaining paperwork alongside the downstream handoff.", gates: ["ehr_export"] },
     { label: "Intake and assessment", detail: "Earlier profile and assessment requirements remain available for review.", gates: ["profile_completion", "pre_assessment"] },
   ];
   return definitions.flatMap((definition) => {
@@ -171,7 +171,7 @@ export function requirementStatusDetail(item: AdmissionRequirement) {
   if (item.status === "not_applicable") return `Not applicable · ${item.unavailableReason || "reason not provided"}`;
   if (item.status === "received") return item.evidenceDocumentName ? `Received · ${item.evidenceDocumentName}` : "Received; review the source evidence.";
   if (item.status === "reviewed") return item.evidenceDocumentName ? `Reviewed · ${item.evidenceDocumentName}` : "Reviewed and resolved.";
-  if (item.status === "expired") return "Expired; request current evidence before continuing.";
+  if (item.status === "expired") return "Expired; request current evidence when available.";
   return item.nextStep;
 }
 
@@ -200,7 +200,7 @@ export function admissionReadinessLabel(workflow: WorkflowResponse, blockerCount
 
 function requirementNextAction(requirements: AdmissionRequirement[], suffix: string) {
   const next = [...requirements].sort((left, right) => left.dueAt.localeCompare(right.dueAt))[0];
-  return `${next.label} is still required ${suffix}.`;
+  return `${next.label} can be completed ${suffix}.`;
 }
 
 export function transitionActionLabel(target: ReferralStage) {
@@ -244,7 +244,7 @@ function acceptedHandoffNextAction(
   const admissionBlockers = [...incompleteDecision, ...incompleteMoveIn];
   if (admissionBlockers.length > 0) return "Admission can be recorded with open items. Complete the remaining paperwork when available.";
   if (workflow.referral.stage !== "Accepted / Admitted") return "Admission requirements are complete. Confirm the move-in and mark the person admitted.";
-  if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "before the EHR handoff can be queued");
+  if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "alongside the EHR handoff");
   if (handoffStatus === "queued") return "Confirm the downstream transfer, then record the handoff as sent or failed.";
   if (handoffStatus === "failed") return "Review the recorded failure, correct the downstream issue, and retry the handoff.";
   if (handoffStatus === "sent") return "Pipeline's admission and EHR handoff are complete; roster availability and identity linking remain governed separately.";

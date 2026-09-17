@@ -400,14 +400,6 @@ export async function recordAssessmentRecommendation(
   if (normalizeReferralSectionVersions(snapshot.referral.sectionVersions).decision !== expectedDecisionVersion) {
     return { ok: false, conflict: true, referral: snapshot.referral, record: snapshot.recommendation ?? undefined };
   }
-  if (snapshot.decision) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: snapshot.referral,
-      blockers: [{ code: "decision_already_recorded", label: "The supervisor decision has already been recorded." }],
-    };
-  }
   const existingSubmission = snapshot.reviews.find((review) => review.assessmentId === input.assessmentId);
   if (existingSubmission) {
     return {
@@ -461,7 +453,7 @@ export async function recordAssessmentRecommendation(
       {
         assessmentRecommendation: recommendation,
         ...(review ? { assessmentReview: review, assessmentReviewHistory: [...snapshot.reviews, review] } : {}),
-        workflowStatus: review ? "recommendation_submitted" : "decision_pending",
+        workflowStatus: snapshot.decision ? snapshot.referral.workflowStatus : review ? "recommendation_submitted" : "decision_pending",
       },
       expectedVersion,
       actor,
@@ -1003,8 +995,8 @@ async function recordPostgresRecommendation(
     `;
     if (existing[0]) return { ok: true, record: mapRecommendation(existing[0]), referral: fallback };
   }
-  const referralRows = await tx<{ version: number; data: unknown; section_versions: unknown }[]>`
-    select version, data, section_versions
+  const referralRows = await tx<{ version: number; workflow_status: NonNullable<Referral["workflowStatus"]>; data: unknown; section_versions: unknown }[]>`
+    select version, workflow_status, data, section_versions
     from pipeline.referrals
     where referral_id = ${referralId} and deleted_at is null
     for update
@@ -1038,17 +1030,6 @@ async function recordPostgresRecommendation(
       blockers: [{ code: "assigned_assessor_required", label: "Only the assigned assessor or a supervisor can submit this recommendation." }],
     };
   }
-  const decisionRows = await tx<{ exists: boolean }[]>`
-    select exists(select 1 from pipeline.admission_decisions where referral_id = ${referralId}) as exists
-  `;
-  if (decisionRows[0]?.exists) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: fallback,
-      blockers: [{ code: "decision_already_recorded", label: "The supervisor decision has already been recorded." }],
-    };
-  }
   const priorReviewRows = await tx<ReviewRow[]>`
     select review_id, referral_id, assessment_id, assessment_version,
            recommendation_id, recommendation_version, submission_number, status,
@@ -1075,7 +1056,7 @@ async function recordPostgresRecommendation(
   const data = isRecord(referralRow.data) ? referralRow.data : {};
   await tx`
     update pipeline.referrals
-    set workflow_status = ${review ? "recommendation_submitted" : "decision_pending"},
+    set workflow_status = case when exists (select 1 from pipeline.admission_decisions where referral_id = ${referralId}) then ${referralRow.workflow_status} else ${review ? "recommendation_submitted" : "decision_pending"} end,
         data = ${tx.json({ ...data, assessmentRecommendation: recommendation, ...(review ? { assessmentReview: review } : {}) })},
         version = version + 1,
         section_versions = ${tx.json({

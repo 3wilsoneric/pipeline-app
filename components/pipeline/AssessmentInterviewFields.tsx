@@ -45,11 +45,11 @@ export function AssessmentField(props: AssessmentFieldProps) {
   );
 }
 
-function AssessmentFieldHeader({ id, definition, value, required, pending }: Pick<AssessmentFieldProps, "definition" | "value" | "required" | "pending"> & { id: string }) {
+function AssessmentFieldHeader({ id, definition, value, pending }: Pick<AssessmentFieldProps, "definition" | "value" | "required" | "pending"> & { id: string }) {
   return (
     <div className="mb-1.5 flex items-center justify-between gap-2">
-      <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}{required ? " *" : ""}</label>
-      {pending ? <span className="bg-[#fff3dc] px-2 py-0.5 text-[9px] font-black uppercase text-[#9a6115]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : required ? <span className="text-[9px] font-semibold uppercase text-[#9a6115]">Required</span> : <span className="text-[9px] font-semibold uppercase text-[#999999]">Optional</span>}
+      <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}</label>
+      {pending ? <span className="bg-[#f2f5f3] px-2 py-0.5 text-[9px] font-black uppercase text-[#59645e]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : <span className="text-[9px] font-semibold uppercase text-[#737373]">Unanswered</span>}
     </div>
   );
 }
@@ -57,15 +57,15 @@ function AssessmentFieldHeader({ id, definition, value, required, pending }: Pic
 function PendingAssessmentSuggestion({ pending, pendingProvenance, reviewDisabled, disabled, onReview }: AssessmentFieldProps) {
   if (!pending || !pendingProvenance) return null;
   return (
-    <div className="mb-2 border-l-2 border-[#c9892a] bg-[#fffaf0] px-3 py-2">
-      <div className="text-[10px] leading-4 text-[#70480d]">
+    <div className="mb-2 border-l-2 border-[#c9ceca] bg-[#f7faf9] px-3 py-2">
+      <div className="text-[10px] leading-4 text-[#59645e]">
         Suggested from <strong>{assessmentEvidenceSource(pendingProvenance)}</strong>
         {assessmentEvidenceLocation(pendingProvenance)}
         {Number.isFinite(pendingProvenance.confidence) ? ` · ${Math.round(pendingProvenance.confidence * 100)}% confidence` : ""}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" disabled={reviewDisabled} onClick={() => onReview("accept")} className="h-8 bg-[#0f8b73] px-3 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:opacity-50">Use</button>
-        <button type="button" disabled={reviewDisabled} onClick={() => onReview("reject")} className="h-8 border border-[#c9a978] bg-white px-3 text-[10px] font-black text-[#70480d] hover:border-[#9a6115] disabled:opacity-50">Reject</button>
+        <button type="button" disabled={reviewDisabled} onClick={() => onReview("reject")} className="h-8 border border-[#c9a978] bg-white px-3 text-[10px] font-black text-[#59645e] hover:border-[#59645e] disabled:opacity-50">Reject</button>
         {!disabled ? <span className="self-center text-[9px] text-[#8a6c43]">Or correct the answer below.</span> : null}
       </div>
     </div>
@@ -98,10 +98,10 @@ function YesNoAssessmentField({ id, definition, question, value, unableReason, r
         })}
       </div>
       {value === "unable_to_assess" ? (
-        <div className="mt-2 border-l-2 border-[#c9892a] bg-[#fffaf0] px-3 py-2.5">
-          <label htmlFor={`${id}-unable-reason`} className="text-[10px] font-black text-[#70480d]">Why could this not be assessed? *</label>
-          <textarea id={`${id}-unable-reason`} value={unableReason} readOnly={readOnly} required rows={3} maxLength={2000} onChange={(event) => onUnableReasonChange(event.target.value)} placeholder="Record the missing source, unavailable client response, or other reason." className="mt-1.5 w-full resize-y border border-[#d7bd8e] bg-white px-3 py-2 text-[11px] leading-5 outline-none placeholder:text-[#a58b65] focus:border-[#9a6115] read-only:bg-[#f5f1e9]" />
-          {!unableReason.trim() ? <p className="mt-1 text-[9px] font-semibold text-[#9a6115]">An explanation is required before this assessment can be signed.</p> : null}
+        <div className="mt-2 border-l-2 border-[#c9ceca] bg-[#f7faf9] px-3 py-2.5">
+          <label htmlFor={`${id}-unable-reason`} className="text-[10px] font-black text-[#59645e]">Context (optional)</label>
+          <textarea id={`${id}-unable-reason`} value={unableReason} readOnly={readOnly} rows={3} maxLength={2000} onChange={(event) => onUnableReasonChange(event.target.value)} placeholder="Record the missing source, unavailable client response, or other reason." className="mt-1.5 w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[11px] leading-5 outline-none placeholder:text-[#737373] focus:border-[#59645e] read-only:bg-[#f5f1e9]" />
+          {!unableReason.trim() ? <p className="mt-1 text-[9px] font-semibold text-[#59645e]">Add context when available. You can continue and sign without it.</p> : null}
         </div>
       ) : null}
     </>
@@ -230,7 +230,7 @@ function AssessmentFieldWritingGuide({ specification }: { specification: NonNull
           <p className="mt-2 text-[10px] leading-4 text-[#4f5652]">{specification.strongExample}</p>
         </div>
       </div>
-      <p className="mt-3 border-l-2 border-[#d2a759] bg-[#fffaf0] px-2 py-1.5 text-[9px] leading-4 text-[#70480d]">{specification.guardrail}</p>
+      <p className="mt-3 border-l-2 border-[#d2a759] bg-[#f7faf9] px-2 py-1.5 text-[9px] leading-4 text-[#59645e]">{specification.guardrail}</p>
     </>
   );
 }

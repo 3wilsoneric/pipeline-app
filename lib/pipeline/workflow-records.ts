@@ -403,15 +403,8 @@ function isEhrQueueAction(action: "queue" | "mark_sent" | "mark_failed" | "retry
 }
 
 function getEhrQueueReadinessBlockers(snapshot: WorkflowRecordSnapshot): WorkItemValidationIssue[] {
-  if (snapshot.referral.stage !== "Accepted / Admitted" || snapshot.decision?.outcome !== "accepted") {
+  if (snapshot.decision?.outcome !== "accepted") {
     return [{ code: "accepted_referral_required", label: "Accept the referral before queueing the EHR handoff." }];
-  }
-  const incomplete = getBlockingRequirementsForGates(
-    snapshot.work_items,
-    ["admission_decision", "move_in", "ehr_export"],
-  );
-  if (incomplete.length > 0) {
-    return incomplete.map((item) => ({ code: `requirement:${item.type}`, label: `${item.label} is still required for EHR handoff.` }));
   }
   return snapshot.referral.ehrHandoff?.status === "sent"
     ? [{ code: "ehr_handoff_already_sent", label: "This EHR handoff has already been recorded as sent." }]

@@ -511,9 +511,9 @@ function ImportIdentityReviewDialog({ item, onClose, onSaved }: {
           {loading ? <div className="px-4 py-5 text-center text-[11px] text-[#737373]">Searching clients...</div> : null}
           {!loading && clients.length === 0 ? <div className="px-4 py-5 text-center text-[11px] text-[#737373]">No matching client workspaces.</div> : null}
         </div>
-        {error ? <div className="mt-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-3 py-2 text-[11px] text-[#59332d]" role="alert">{error}</div> : null}
+        {error ? <div className="mt-3 border-l-2 border-[#9aa7a0] bg-[#f7faf9] px-3 py-2 text-[11px] text-[#59645e]" role="alert">{error}</div> : null}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <button type="button" disabled={saving} onClick={() => void save("reject")} className="h-10 border border-[#a63d2f] px-3 text-[11px] font-black text-[#a63d2f] disabled:opacity-50">Reject match</button>
+          <button type="button" disabled={saving} onClick={() => void save("reject")} className="h-10 border border-[#9aa7a0] px-3 text-[11px] font-black text-[#9aa7a0] disabled:opacity-50">Reject match</button>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" disabled={saving || Boolean(selected)} onClick={() => void save("create_client")} className="h-10 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0c705f] disabled:border-[#d9d9d9] disabled:text-[#a0a0a0]">Create client workspace</button>
             <button type="button" disabled={!selected || saving} onClick={() => void save("confirm")} className="h-10 bg-[#0f8b73] px-4 text-[11px] font-black text-white disabled:bg-[#d9d9d9]">{saving ? "Saving..." : "Confirm client"}</button>

@@ -1609,6 +1609,7 @@ async function syncLocalReferralWorkflow(
   if (action === "assessment_assigned") return;
   const referral = await loadLocalAssessmentReferral(assessment.referral_id);
   if (!referral) throw new Error("The assessment referral no longer exists.");
+  if (referral.admissionDecision || ["approved_for_placement", "accepted", "admitted", "declined", "closed"].includes(referral.workflowStatus ?? "")) return;
   const { patchReferral } = await import("@/lib/pipeline/referral-store");
   const workflowStatus = getReferralWorkflowStatusAfterAssessment(assessment, action);
   if (referral.workflowStatus === workflowStatus) return;
@@ -1645,7 +1646,8 @@ async function syncPostgresReferralWorkflow(
         updated_by_name = ${actor.name},
         updated_at = now()
     where referral_id = ${assessment.referral_id}
-      and workflow_status not in ('accepted', 'declined', 'closed')
+      and workflow_status not in ('approved_for_placement', 'accepted', 'admitted', 'declined', 'closed')
+      and not exists (select 1 from pipeline.admission_decisions where referral_id = ${assessment.referral_id})
       and workflow_status is distinct from ${workflowStatus}
     returning version, workflow_status
   `;

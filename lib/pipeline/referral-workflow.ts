@@ -159,18 +159,8 @@ export type ReferralTransitionBlocker = {
   label: string;
 };
 
-const allowedStageTargets: Record<ReferralStage, readonly ReferralStage[]> = {
-  New: ["Packet Needed", "Declined"],
-  "Packet Needed": ["Packet Review", "Declined"],
-  "Packet Review": ["Assessment", "Declined"],
-  Assessment: ["Community Review", "Declined"],
-  "Community Review": ["Accepted / Admitted", "Declined"],
-  "Accepted / Admitted": [],
-  Declined: [],
-};
-
 export function getAllowedReferralTargets(stage: ReferralStage) {
-  return allowedStageTargets[stage];
+  return boardStages.filter((target) => target !== stage);
 }
 
 export function getReferralTransitionBlockers(
@@ -179,7 +169,7 @@ export function getReferralTransitionBlockers(
   context: WorkflowContext = {},
 ): ReferralTransitionBlocker[] {
   return getReferralTransitionAlerts(referral, targetStage, context).filter((issue) =>
-    ["stage_sequence", "admission_decision_required", "decline_decision_required"].includes(issue.code),
+    ["admission_decision_required", "decline_decision_required"].includes(issue.code),
   );
 }
 
@@ -190,9 +180,6 @@ export function getReferralTransitionAlerts(
 ): ReferralTransitionBlocker[] {
   if (targetStage === referral.stage) return [];
 
-  if (!isAllowedTransition(referral, targetStage, context)) {
-    return [{ code: "stage_sequence", label: "Complete the current workflow step before moving this referral." }];
-  }
 
   if (targetStage === "Accepted / Admitted") {
     return getAdmissionTransitionAlerts(referral, context);
@@ -205,13 +192,6 @@ export function getReferralTransitionAlerts(
   return getInitialTransitionAlerts(referral, targetStage, context);
 }
 
-function isAllowedTransition(referral: Referral, targetStage: ReferralStage, context: WorkflowContext) {
-  const acceptedDecisionTarget = getDecisionOutcome(referral, context) === "accepted"
-    && !isClosedReferralStage(referral.stage)
-    && ["Community Review", "Accepted / Admitted"].includes(targetStage);
-  return allowedStageTargets[referral.stage].includes(targetStage) || acceptedDecisionTarget;
-}
-
 function getInitialTransitionAlerts(
   referral: Referral,
   targetStage: ReferralStage,
@@ -220,16 +200,16 @@ function getInitialTransitionAlerts(
   switch (targetStage) {
     case "Packet Needed":
       return isUnassignedOwner(referral.owner)
-        ? [{ code: "owner_required", label: "Assign an owner before starting the referral workflow." }] : [];
+        ? [{ code: "owner_required", label: "An owner can be assigned when ready." }] : [];
     case "Packet Review":
       return !hasInitialPacket(referral)
-        ? [{ code: "initial_packet_required", label: "Upload the initial referral packet before packet review." }] : [];
+        ? [{ code: "initial_packet_required", label: "Add the referral packet when available." }] : [];
     case "Assessment":
       return !isPacketReviewed(referral)
-        ? [{ code: "packet_review_required", label: "Review the extracted packet fields before assessment." }] : [];
+        ? [{ code: "packet_review_required", label: "Packet review can be completed as information arrives." }] : [];
     case "Community Review":
       return !isAssessmentComplete(referral, context)
-        ? [{ code: "assessment_required", label: "Complete the assessment before community review." }] : [];
+        ? [{ code: "assessment_required", label: "The assessment can be completed alongside community review." }] : [];
     default:
       return [];
   }
@@ -241,13 +221,13 @@ function getAdmissionTransitionAlerts(referral: Referral, context: WorkflowConte
     alerts.push({ code: "admission_decision_required", label: "Record an admission decision of yes before acceptance." });
   }
   if (!referral.admissionDate?.trim()) {
-    alerts.push({ code: "admission_date_required", label: "Record the date of admit before marking the client admitted." });
+    alerts.push({ code: "admission_date_required", label: "The admission date can be added when known." });
   }
   for (const requirement of getBlockingRequirementsForGates(
     context.requirements ?? referral.requirements ?? [],
     ["admission_decision", "move_in"],
   )) {
-    alerts.push({ code: `requirement:${requirement.type}`, label: `${requirement.label} is still required.` });
+    alerts.push({ code: `requirement:${requirement.type}`, label: `${requirement.label} can be completed when available.` });
   }
   return alerts;
 }

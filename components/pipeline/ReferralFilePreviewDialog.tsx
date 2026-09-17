@@ -145,7 +145,7 @@ function PreviewBody({
     return <iframe src={file.previewUrl} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
   }
   if (loading) return <div className="py-20 text-center text-[13px] font-black text-[#737373]">Loading page previews</div>;
-  if (error) return <div className="border-l-2 border-[#a63d2f] bg-white px-4 py-3 text-[12px] font-semibold text-[#59332d]" role="alert">{error}</div>;
+  if (error) return <div className="border-l-2 border-[#9aa7a0] bg-white px-4 py-3 text-[12px] font-semibold text-[#59645e]" role="alert">{error}</div>;
   if (metadata?.pages.length) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

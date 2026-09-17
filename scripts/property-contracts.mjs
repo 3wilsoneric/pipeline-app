@@ -96,10 +96,11 @@ for (let index = 0; index < 1_000; index += 1) {
     decision: null,
     requirements: [],
   });
-  if (!allowed) transitionsConstrained &&= blockers.some((item) => item.code === "stage_sequence");
+  transitionsConstrained &&= allowed;
+  if (!["Accepted / Admitted", "Declined"].includes(target)) transitionsConstrained &&= blockers.length === 0;
   if (source === target) transitionsConstrained &&= blockers.length === 0;
 }
-check("workflow fuzzing rejects non-sequential transitions", transitionsConstrained, 1_000);
+check("workflow fuzzing permits revisiting and skipping active stages", transitionsConstrained, 1_000);
 
 const profileSearch = siteSearch.searchSiteDestinations("client profiles");
 const typoSearch = siteSearch.searchSiteDestinations("profles");

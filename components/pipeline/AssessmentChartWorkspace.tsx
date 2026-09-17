@@ -173,7 +173,7 @@ function AssessmentRecord({ report, embedded }: { report: AssessmentSummaryRepor
 function ChartStatusMessage({ error, message }: { error: string; message: string }) {
   const text = error || message;
   if (!text) return null;
-  return <div role={error ? "alert" : "status"} className={`mt-4 border-l-2 px-4 py-3 text-[12px] ${error ? "border-[#a4473c] bg-[#fff7f5] text-[#6e342d]" : "border-[#0f8b73] bg-[#f0f8f5] text-[#285f53]"}`}>{text}</div>;
+  return <div role={error ? "alert" : "status"} className={`mt-4 border-l-2 px-4 py-3 text-[12px] ${error ? "border-[#59645e] bg-[#f7faf9] text-[#59645e]" : "border-[#0f8b73] bg-[#f0f8f5] text-[#285f53]"}`}>{text}</div>;
 }
 
 function ChartTab({ active, icon, label, onClick, guideTarget }: { active: boolean; icon: React.ReactNode; label: string; onClick: () => void; guideTarget?: string }) {

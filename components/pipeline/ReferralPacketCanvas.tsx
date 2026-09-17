@@ -2179,7 +2179,7 @@ export default function ReferralPacketCanvas({
                     }
                     setDeleteDialogOpen(true);
                   }}
-                  className="flex h-9 w-9 items-center justify-center text-[#737373] hover:bg-[#fff3f1] hover:text-[#a9473d] disabled:opacity-50"
+                  className="flex h-9 w-9 items-center justify-center text-[#737373] hover:bg-[#f7faf9] hover:text-[#a9473d] disabled:opacity-50"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -2261,7 +2261,7 @@ export default function ReferralPacketCanvas({
         ) : null}
 
         {extractionConflict ? (
-          <section aria-label="Extracted field conflict" className="mb-3 border border-[#d4a39d] bg-[#fff3f1] px-4 py-3" aria-live="assertive">
+          <section aria-label="Extracted field conflict" className="mb-3 border border-[#d4a39d] bg-[#f7faf9] px-4 py-3" aria-live="assertive">
             <div className="text-[12px] font-black text-[#7c3229]">This extracted field was reviewed in another session.</div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div><span className="text-[9px] font-black uppercase text-[#737373]">Your value</span><div className="mt-1 text-[11px]">{extractionConflict.attemptedValue || "Empty"}</div></div>
@@ -2463,7 +2463,6 @@ export default function ReferralPacketCanvas({
                   assessmentSummary={assessmentSummary}
                   continuing={isSaving}
                   hasReferral={Boolean(loadedReferral) || trainingIntakeMode}
-                  hasAssessor={Boolean(loadedReferral?.ownerId) || trainingIntakeMode}
                   onContinue={() => void continueToAssessment()}
                 />
               </aside>
@@ -2967,7 +2966,6 @@ function ChartCompletionRail({
   assessmentSummary,
   continuing,
   hasReferral,
-  hasAssessor,
   onContinue,
 }: {
   fieldCount: number;
@@ -2984,11 +2982,10 @@ function ChartCompletionRail({
   };
   continuing: boolean;
   hasReferral: boolean;
-  hasAssessor: boolean;
   onContinue: () => void;
 }) {
   const percent = fieldTotal === 0 ? 0 : Math.round((fieldCount / fieldTotal) * 100);
-  const action = assessmentRailAction(assessmentSummary, hasAssessor);
+  const action = assessmentRailAction(assessmentSummary);
   const status = assessmentRailStatus(assessmentSummary);
 
   return (
@@ -3022,9 +3019,7 @@ function ChartCompletionRail({
 
 function assessmentRailAction(
   summary: { signedAt?: string | null; startedAt?: string | null; scheduledStartAt?: string | null; scheduleStatus?: PipelineAssessmentRecord["schedule_status"] },
-  hasAssessor: boolean,
 ) {
-  if (!hasAssessor) return "Assign assessor";
   return assessmentOpenLabel({
     signed_at: summary.signedAt ?? null,
     started_at: summary.startedAt ?? null,
@@ -3112,7 +3107,7 @@ function InitialPacketDropzone({
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-[12px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Initial document</h3>
-          <p className="mt-1 text-[11px] leading-5 text-[#595959]">Required for a new referral. Extraction proposes chart values that can be corrected at any time.</p>
+          <p className="mt-1 text-[11px] leading-5 text-[#595959]">Add documents whenever available. Suggested chart values can be corrected at any time.</p>
         </div>
         <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]">
           Document type
@@ -3206,7 +3201,7 @@ function InitialPacketDropzone({
           }}
         />
       </div>
-      {selectionError ? <p role="alert" className="mt-2 text-[11px] font-semibold leading-5 text-[#a4473c]">{selectionError}</p> : null}
+      {selectionError ? <p role="alert" className="mt-2 text-[11px] font-semibold leading-5 text-[#59645e]">{selectionError}</p> : null}
       {message ? <p className="mt-2 text-[11px] leading-5 text-[#737373]">{message}</p> : null}
     </section>
   );

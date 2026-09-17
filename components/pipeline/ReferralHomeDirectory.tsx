@@ -227,9 +227,9 @@ function WorkspaceDirectoryBody(props: ReferralHomeDirectoryProps) {
           {props.filter.kind === "files" ? <FileFilterToolbar {...props} /> : <ReferralFilterToolbar {...props} />}
         </div>
         {props.loadError && props.filter.kind !== "files" ? (
-          <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[12px] font-semibold text-[#59332d]" role="alert">
+          <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#9aa7a0] bg-[#f7faf9] px-4 py-3 text-[12px] font-semibold text-[#59645e]" role="alert">
             <span>{props.loadError}</span>
-            <button type="button" onClick={props.onRetry} className="flex h-8 items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#a63d2f]">
+            <button type="button" onClick={props.onRetry} className="flex h-8 items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#9aa7a0]">
               <RefreshCw size={13} /> Retry
             </button>
           </div>
@@ -304,7 +304,7 @@ function FileFilterToolbar(props: ReferralHomeDirectoryProps) {
       <button type="button" onClick={() => props.onReviewIdentityChange(false)} className={`h-9 shrink-0 border px-3 text-[11px] font-black ${!props.reviewIdentity ? "border-[#0f8b73] bg-[#effaf5] text-[#0c705f]" : "border-[#d9d9d9] text-[#595959]"}`}>Linked files</button>
       <button type="button" onClick={() => props.onReviewIdentityChange(true)} className={`h-9 shrink-0 border px-3 text-[11px] font-black ${props.reviewIdentity ? "border-[#b07b21] bg-[#fffaf0] text-[#8a5a10]" : "border-[#d9d9d9] text-[#595959]"}`}>Needs identity</button>
       {!props.reviewIdentity ? <FileFilterSelects {...props} /> : null}
-      {!props.reviewIdentity && hasFilters ? <button type="button" onClick={props.onClearFileFilters} className="h-9 shrink-0 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]">Clear</button> : null}
+      {!props.reviewIdentity && hasFilters ? <button type="button" onClick={props.onClearFileFilters} className="h-9 shrink-0 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#9aa7a0]">Clear</button> : null}
     </div>
   );
 }

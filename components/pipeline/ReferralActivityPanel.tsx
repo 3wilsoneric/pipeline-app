@@ -178,7 +178,7 @@ function RestoreDocument({ event, referralId }: { event: ReferralActivityEvent; 
   return <div className="mt-2 text-[11px]">
     <button type="button" disabled={busy} onClick={() => void restore()} className="font-bold text-[#0f7059] underline disabled:opacity-50">{busy ? "Restoring…" : "Restore file"}</button>
     <span className="ml-2 text-[#737373]">Available until {formatTimestamp(event.undo!.until)}</span>
-    {error ? <p role="alert" className="mt-1 text-[#a63d2f]">{error}</p> : null}
+    {error ? <p role="alert" className="mt-1 text-[#9aa7a0]">{error}</p> : null}
   </div>;
 }
 
@@ -254,7 +254,7 @@ function WorkflowFact({
   return (
     <div className="min-w-0 bg-white px-4 py-3">
       <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</div>
-      <div className={`mt-1 truncate text-[14px] font-black ${attention ? "text-[#a63d2f]" : "text-[#111111]"}`}>{value}</div>
+      <div className={`mt-1 truncate text-[14px] font-black ${attention ? "text-[#9aa7a0]" : "text-[#111111]"}`}>{value}</div>
       <div className="mt-1 truncate text-[10px] text-[#737373]">{detail}</div>
     </div>
   );

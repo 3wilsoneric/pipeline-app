@@ -891,7 +891,24 @@ export default function AssessmentWorkspace({
     offlineSyncRef.current = true;
     try {
       const result = await flushOfflineAssessmentMutations(offlinePrincipal, async (mutation) => {
-        await fetchPipelineJson(mutation.url, { method: mutation.method, body: mutation.body });
+        const next = saveQueueRef.current.then(async () => {
+          const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(mutation.url, { method: mutation.method, body: mutation.body });
+          const current = selectedRef.current;
+          const saved = payload.assessment;
+          if (!current || current.assessment_id !== saved.assessment_id || saved.version <= current.version) return;
+          const sent = JSON.parse(mutation.body) as { patch?: { data?: Partial<AssessmentToolData> } };
+          // Acknowledged answers become the comparison base; newer typing stays
+          // local without being mistaken for another person's concurrent edit.
+          const base = pickAssessmentToolData(baseDataRef.current);
+          for (const definition of assessmentToolFieldDefinitions) {
+            const field = definition.key;
+            if (sent.patch?.data?.[field] !== undefined && sameAssessmentValue(sent.patch.data[field], saved[field])) base[field] = saved[field] as never;
+          }
+          baseDataRef.current = base;
+          receiveRemoteAssessment(saved, false);
+        });
+        saveQueueRef.current = next.catch(() => undefined);
+        await next;
       });
       setPendingOfflineSaves(result.remaining);
       const current = selectedRef.current;
@@ -1531,7 +1548,7 @@ export default function AssessmentWorkspace({
           {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isClosing} /> : null}
           <DemoAssessmentControls persona={viewer?.demoPersona} />
         </div>
-        <span data-guide-target="assessment-save-status" aria-live="polite" className={`order-last flex min-w-0 basis-full items-center gap-1.5 text-[11px] sm:order-none sm:flex-1 sm:basis-auto sm:justify-end ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#9a6115]" : "text-[#0c705f]"}`}>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`order-last flex min-w-0 basis-full items-center gap-1.5 text-[11px] sm:order-none sm:flex-1 sm:basis-auto sm:justify-end ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]"}`}>
           {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
           <span className="truncate">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
         </span>
@@ -1543,7 +1560,7 @@ export default function AssessmentWorkspace({
               {canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold hover:text-[#0f8b73]"><Plus size={14} />Addendum</button> : <span className="text-[11px] font-bold text-[#0f6f5e]">Signed</span>}
               {onContinueToWorkflow ? <button type="button" onClick={continueToWorkflow} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white hover:bg-[#0b6d5b]">Continue to recommendation<ChevronRight size={14} /></button> : null}
             </>
-          ) : canEditClinical ? <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm(completion.missing.length > 0 ? `Sign and lock this assessment with ${completion.missing.length} unanswered required areas? Missing answers will remain visible.` : "Sign and lock this assessment?") && void signAssessment()} disabled={isBusy} className="h-10 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button> : null}
+          ) : canEditClinical ? <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? Unanswered items can remain blank. Later additions use an addendum or correction.") && void signAssessment()} disabled={isBusy} className="h-10 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button> : null}
         </div>
       </footer>
 
@@ -1625,11 +1642,11 @@ function assessmentSummaryLine(
   if (assessment.signed_at) return `Signed · ${assessor}`;
   if (assessment.started_at) {
     return nextTarget
-      ? `${completion.complete} of ${completion.total} required · Next: ${nextTarget.label}`
+      ? `${completion.complete} of ${completion.total} captured · Next: ${nextTarget.label}`
       : `Ready to sign · ${assessor}`;
   }
   if (hasActiveAssessmentSchedule(assessment)) return `${new Date(assessment.scheduled_start_at!).toLocaleString()} · ${assessor}`;
-  return `${completion.complete} of ${completion.total} required areas complete · ${assessor}`;
+  return `${completion.complete} of ${completion.total} captured · ${assessor}`;
 }
 
 function normalizeScheduleMethod(method: PipelineAssessmentRecord["scheduled_method"] | "video") {
