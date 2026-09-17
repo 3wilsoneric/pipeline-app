@@ -112,12 +112,10 @@ for (const width of [1440, 1024, 437, 390]) {
     await expect(secondary).toHaveCSS("font-size", "16px");
     await secondary.fill("Synthetic referral history prepared for the interview.");
     await secondary.press("Tab");
-    await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    if (width >= 1024) {
-      await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(234, 241, 248)");
-      await expect(assessment.locator('button[aria-current="step"]')).toHaveCSS("border-top-color", "rgb(165, 205, 184)");
-    }
-    if (width >= 1200) {
+    await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toHaveCSS("background-image", /linear-gradient/);
+    await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCount(0);
+    await expect(assessment.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("diagnosis_clinical");
+    if (width >= 960) {
       const reference = await assessment.getByRole("complementary", { name: "Captured assessment answers" }).boundingBox();
       const editor = await assessment.locator('[data-assessment-question-editor]').boundingBox();
       expect(reference!.x + reference!.width).toBeLessThan(editor!.x);

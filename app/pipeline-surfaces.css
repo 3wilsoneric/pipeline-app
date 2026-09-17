@@ -277,114 +277,6 @@
   background: #fff;
 }
 
-.pipeline-surfaces [data-assessment-view="chart"] main > div:first-child:has(#assessment-section-mobile) {
-  padding: 12px 16px 0;
-  border-bottom: 1px solid #dce3e8;
-  background: #f2f6fa;
-}
-
-.pipeline-surfaces [aria-label="Assessment navigation"] {
-  padding: 20px 16px;
-  background-color: #eaf1f8;
-  background-image: linear-gradient(160deg, rgb(255 255 255 / 40%), transparent 65%, rgb(161 192 217 / 15%));
-  border-color: #d5dfe8;
-  box-shadow: 1px 0 0 #fff inset;
-}
-
-.pipeline-surfaces [aria-label="Assessment navigation"] input[type="search"] {
-  border: 1px solid #ccd7e2;
-  border-radius: 5px;
-  background: rgb(255 255 255 / 80%);
-  font-size: 13px;
-  color: var(--surface-ink);
-}
-
-.pipeline-surfaces [aria-label="Assessment sections"] button { font-size: 13px; }
-.pipeline-surfaces [aria-label="Assessment sections"] button[data-guide-target] {
-  padding: 6px 10px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  color: #374758;
-  background: transparent;
-}
-
-.pipeline-surfaces [aria-label="Assessment sections"] button[data-guide-target][aria-current="step"] {
-  color: #185f49;
-  border-color: #a5cdb8;
-  background: linear-gradient(110deg, #edf7cb, #caf2e7);
-  box-shadow: 0 1px 0 #fff inset, 0 2px 3px rgb(27 69 51 / 5%);
-}
-
-.pipeline-surfaces [aria-label="Assessment sections"] button[data-guide-target] > span > span:first-child { font-weight: 600; }
-.pipeline-surfaces [aria-label="Assessment sections"] h3 { border-bottom: 1px solid #cdd9e4; padding: 0 0 7px 10px; font-size: 11px; color: #465b73; }
-.pipeline-surfaces [aria-label="Assessment sections"] > div:nth-child(2) h3 { color: #86632d; border-color: #dfd6c5; }
-.pipeline-surfaces [aria-label="Assessment sections"] > div:nth-child(3) h3 { color: #35675b; border-color: #c4d8cf; }
-.pipeline-surfaces [aria-label="Assessment navigation"] > details {
-  padding: 10px 12px;
-  border: 1px solid #e2cfa9;
-  border-radius: 6px;
-  background: linear-gradient(110deg, #fffdf7, #faeed7);
-  box-shadow: 0 1px 0 #fff inset;
-}
-.pipeline-surfaces [aria-label="Assessment navigation"] > details > summary { color: #74551f; font-size: 13px; }
-.pipeline-surfaces [aria-label="Assessment navigation"] [aria-label="Remaining assessment questions"] { max-height: min(240px, 26dvh); }
-.pipeline-surfaces [aria-label="Remaining assessment questions"] button { padding-inline: 4px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #3f4a58; }
-.pipeline-surfaces [aria-label="Remaining assessment questions"] button:hover { background: rgb(255 255 255 / 80%); }
-
-.pipeline-surfaces [aria-label="Captured assessment answers"] {
-  padding: 16px;
-  border-color: #c4d6e4;
-  border-radius: var(--surface-radius);
-  background: #fff;
-  box-shadow: 0 2px 4px rgb(36 66 91 / 4%), 0 8px 14px -12px rgb(36 66 91 / 30%);
-}
-
-.pipeline-surfaces [aria-label="Captured assessment answers"] > :is(h4, button) {
-  margin: -16px -16px 0;
-  padding: 12px 16px;
-  width: calc(100% + 32px);
-  min-height: 44px;
-  border-radius: 6px 6px 0 0;
-  background: linear-gradient(100deg, #f6faff, #deedf9);
-  font-size: 13px;
-  font-weight: 600;
-  color: #315976;
-}
-.pipeline-surfaces [aria-label="Captured assessment answers"] > button[aria-expanded="false"] { margin-bottom: -16px; border-radius: 6px; }
-.pipeline-surfaces [aria-label="Captured assessment answers"] section h5 { color: #627286; font-size: 11px; }
-.pipeline-surfaces [aria-label="Captured assessment answers"] section > div { border-color: #dce4eb; }
-.pipeline-surfaces [aria-label="Captured assessment answers"] button > span:nth-child(2) { color: var(--surface-ink); font-size: 16px; font-weight: 500; }
-.pipeline-surfaces [aria-label="Captured assessment answers"] section button:hover { background: #f3f7fb; }
-
-.pipeline-surfaces [data-assessment-question-editor] > div:first-child {
-  border: 0;
-  background: transparent;
-}
-
-.pipeline-surfaces [data-assessment-question-editor] > div > section {
-  --question-accent: #168a69;
-  margin-bottom: 12px;
-  padding: 0;
-  border: 1px solid #d0d9df;
-  border-radius: var(--surface-radius);
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(32 45 60 / 4%), 0 8px 14px -12px rgb(32 45 60 / 28%);
-}
-.pipeline-surfaces [data-assessment-question-editor] > div > section:nth-child(2) { --question-accent: #3784a9; }
-.pipeline-surfaces [data-assessment-question-editor] > div > section:nth-child(3) { --question-accent: #bb8733; }
-.pipeline-surfaces [data-assessment-question-editor] > div > section > h5 {
-  padding-inline: 18px;
-  border-radius: 6px;
-  background: #fff;
-  box-shadow: 3px 0 0 var(--question-accent) inset;
-}
-.pipeline-surfaces [data-assessment-question-editor] h5:has([aria-expanded="true"]) { border-bottom: 1px solid #e0e6eb; border-radius: 6px 6px 0 0; }
-.pipeline-surfaces [data-assessment-question-editor] h5 button { min-height: 58px; padding-block: 12px; }
-.pipeline-surfaces [data-assessment-question-editor] h5 button > span > span:first-child { color: var(--surface-ink); font-size: 15px; font-weight: 600; }
-.pipeline-surfaces [data-assessment-question-editor] h5 button > span > span:last-child { color: var(--surface-muted); font-size: 12px; font-weight: 400; }
-.pipeline-surfaces [data-assessment-question-editor] [id^="working-group-"] { padding: 0; }
-.pipeline-surfaces [data-assessment-question-editor] [id^="working-group-"] > div { padding: 20px 18px; border-radius: 0 0 6px 6px; }
-
 .pipeline-surfaces [data-working-field] label[for] { font-size: 13px; font-weight: 600; color: #3c4958; }
 .pipeline-surfaces [data-working-field] :is(textarea, select, input:not([type="checkbox"])) {
   border-color: #c9d3dc;
@@ -459,31 +351,6 @@
 
 .pipeline-surfaces [data-home-module="new-assignments"] button { font-size: 12px; }
 
-@media (min-width: 1200px) {
-  .pipeline-surfaces [aria-label="Captured assessment answers"] { position: sticky; top: 12px; max-height: calc(100dvh - 260px); overflow-y: auto; scrollbar-gutter: stable; }
-  .pipeline-surfaces [data-assessment-working-section] { display: grid; grid-template-columns: minmax(220px, 0.36fr) minmax(0, 1fr); align-items: start; gap: 20px; }
-  .pipeline-surfaces [data-assessment-working-section] > * { margin-block: 0; }
-  .pipeline-surfaces [aria-label="Captured assessment answers"] > div { grid-template-columns: minmax(0, 1fr); }
-}
-
-@media (max-width: 1023px) {
-  /* The section selector already names the page in the compact layout. */
-  .pipeline-surfaces [data-assessment-view="chart"] main > div:has(> [data-assessment-working-section]) > div:first-child > h3 {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .pipeline-surfaces [data-assessment-view="chart"] main > div:has(> [data-assessment-working-section]) > div:first-child:not(:has(p)) { margin: 0; }
-  .pipeline-surfaces [data-assessment-view="chart"] main > div:has(#assessment-section-mobile) > details { margin: 0; padding: 8px 0; border: 0; }
-  .pipeline-surfaces [data-assessment-view="chart"] main > div:has(#assessment-section-mobile) > details > summary { font-size: 12px; color: #6f592f; }
-  .pipeline-surfaces #assessment-section-mobile { min-height: 36px; padding-block: 6px; border: 1px solid #cbd6e0; border-radius: 5px; background: #fff; font-size: 14px; font-weight: 600; color: var(--surface-ink); }
-}
-
 @media (max-width: 639px) {
   .pipeline-surfaces [data-guide-target="home-workspace"] > div { padding-top: 12px; }
   .pipeline-surfaces [data-guide-target="workspace-directory"] > div:first-child { padding: 12px 12px 28px; }
@@ -497,11 +364,6 @@
   .pipeline-surfaces [data-assessment-client-header] { height: 44px; padding-inline: 12px; }
   .pipeline-surfaces [data-assessment-client-header] h2 { font-size: 16px; }
   .pipeline-surfaces [data-assessment-view="chart"] main > div:has(> [data-assessment-working-section]) { padding: 12px; }
-  .pipeline-surfaces [data-assessment-working-section] { gap: 12px; display: flex; flex-direction: column; }
-  .pipeline-surfaces [data-assessment-working-section] > * { width: 100%; margin-block: 0; }
-  .pipeline-surfaces [data-assessment-question-editor] h5 { padding-inline: 14px; }
-  .pipeline-surfaces [data-assessment-question-editor] h5 button { min-height: 52px; padding-block: 10px; }
-  .pipeline-surfaces [data-assessment-question-editor] [id^="working-group-"] > div { padding-inline: 14px; }
   .pipeline-surfaces [aria-label="Assessment actions"] { justify-content: flex-start; gap: 6px; padding: 8px 10px max(8px, env(safe-area-inset-bottom)); }
   .pipeline-surfaces [aria-label="Assessment actions"] > div:first-child,
   .pipeline-surfaces [aria-label="Assessment actions"] > div:last-child { display: contents; }
