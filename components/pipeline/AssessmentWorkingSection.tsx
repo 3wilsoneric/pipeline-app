@@ -119,6 +119,8 @@ type WorkingSectionProps = WorkingData & {
   reviewDisabled: boolean;
   target: QuestionTarget | null;
   onChange: (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => void;
+  onFieldFocus: (field: AssessmentToolFieldKey) => void;
+  onFieldBlur: (field: AssessmentToolFieldKey) => void;
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
   onUnableReasonChange: (field: AssessmentToolFieldKey, reason: string) => void;
 };
@@ -185,9 +187,11 @@ function WorkingQuestionGroup(props: WorkingSectionProps & { group: ReturnType<t
   );
 }
 
-function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange }: WorkingSectionProps & { question: AssessmentInterviewQuestion }) {
+function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur }: WorkingSectionProps & { question: AssessmentInterviewQuestion }) {
   const definition = assessmentToolFieldDefinitions.find((definition) => definition.key === question.field)!;
-  return <div data-working-field={question.field} className={question.span === "full" ? "sm:col-span-2" : "min-w-0"}>
+  return <div data-working-field={question.field} onFocusCapture={() => onFieldFocus(question.field)} onBlur={(event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) onFieldBlur(question.field);
+  }} className={question.span === "full" ? "sm:col-span-2" : "min-w-0"}>
     <AssessmentField definition={definition} question={question} value={data[question.field]} unableReason={getAssessmentUnableReason(data, question.field)} required={required.has(question.field)} pending={pending.includes(question.field)} pendingProvenance={latestPendingProvenance(assessment, question.field)} disabled={disabled} reviewDisabled={reviewDisabled} onChange={(value) => onChange(question.field, value)} onReview={(action) => onReview(question.field, action)} onUnableReasonChange={(reason) => onUnableReasonChange(question.field, reason)} />
   </div>;
 }

@@ -42,6 +42,7 @@ import {
   assessmentInterviewSections,
   getAssessmentInterviewCoverage,
   getAssessmentInterviewQuestions,
+  getAssessmentUnableReason,
   getRequiredAssessmentInterviewQuestions,
   setAssessmentUnableReason,
 } from "@/lib/assessment/assessment-interview-schema";
@@ -307,6 +308,7 @@ export default function AssessmentWorkspace({
   const initializedAssessmentIdRef = useRef("");
   const focusedAssessmentIdRef = useRef("");
   const preparationRequestedRef = useRef(false);
+  const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string } | null>(null);
   const onActiveSectionChangeRef = useRef(onActiveSectionChange);
   const packetSyncKeysRef = useRef(new Set<string>());
   const dirty = dirtySections.size > 0;
@@ -806,36 +808,20 @@ export default function AssessmentWorkspace({
     setDirtySections(nextDirty);
     setRemoteChange(conflicts.length > 0 || announce ? { assessment: latest, conflicts } : null);
     if (announce) {
-      setMessage(conflicts.length > 0
-        ? `${conflicts.length} field conflict${conflicts.length === 1 ? "" : "s"} need review`
-        : `Updated by ${latest.updated_by.name}`);
+      setMessage(remoteAssessmentMessage(conflicts.length, latest.updated_by.name));
     }
   }, []);
 
-  const saveSectionNow = useCallback(async (section: AssessmentToolSection) => {
+  const saveSectionNow = useCallback(async (section: AssessmentToolSection, captured?: Partial<AssessmentToolData>) => {
     const current = selectedRef.current;
-    if (!canSaveAssessmentSection(current, dirtySectionsRef.current, section)) return;
+    if (!canSaveAssessmentSection(current, dirtySectionsRef.current, section, Boolean(captured))) return;
     if (hasSectionConflict(remoteChangeRef.current, section)) {
       throw new Error(`Resolve the ${sectionLabels[section]} conflict before saving.`);
     }
 
-    const sentData = editableSectionData(draftRef.current, section);
-    if (trainingAssessmentMode) {
-      const saved = updateTrainingAssessment(current, pickAssessmentToolData(draftRef.current));
-      selectedRef.current = saved;
-      baseDataRef.current = pickAssessmentToolData(saved);
-      draftRef.current = pickAssessmentToolData(saved);
-      setDraft(draftRef.current);
-      setAssessments((items) => [saved, ...items.filter((item) => item.assessment_id !== saved.assessment_id)]);
-      setDirtySections(() => {
-        const next = new Set<AssessmentToolSection>();
-        dirtySectionsRef.current = next;
-        return next;
-      });
-      setMessage("Practice changes saved locally");
-      setError("");
-      return;
-    }
+    const sentData = captured ?? editableSectionData(draftRef.current, section);
+    if (Object.entries(sentData).every(([field, value]) => sameAssessmentValue(current[field as AssessmentToolFieldKey], value))) return;
+    setMessage("Saving changes...");
     const requestBody = JSON.stringify({
       section,
       if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
@@ -843,7 +829,7 @@ export default function AssessmentWorkspace({
       patch: { data: sentData },
     });
     try {
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+      const payload = trainingAssessmentMode ? { assessment: updateTrainingAssessment(current, sentData) } : await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
         `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
         {
           method: "PATCH",
@@ -868,13 +854,13 @@ export default function AssessmentWorkspace({
       const nextDirty = dirtyAssessmentSections(nextDraft, savedData);
       dirtySectionsRef.current = nextDirty;
       setDirtySections(nextDirty);
-      setMessage(nextDirty.size > 0 ? "Saving changes..." : "All changes saved");
+      setMessage(nextDirty.size > 0 ? "Unsaved changes" : trainingAssessmentMode ? "Practice changes saved locally" : "All changes saved");
       setError("");
-      if (nextDirty.size === 0) void clearRecoveryDraft(saved.assessment_id);
+      if (nextDirty.size === 0 && !trainingAssessmentMode) void clearRecoveryDraft(saved.assessment_id);
     } catch (saveError) {
       if (isOfflineAssessmentSave(saveError, offlinePrincipal)) {
         await queueOfflineAssessmentMutation(offlinePrincipal, {
-          dedupeKey: `${current.assessment_id}:${section}`,
+          dedupeKey: `${current.assessment_id}:${section}${captured ? `:${Object.keys(captured).sort().join(",")}` : ""}`,
           url: `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
           method: "PATCH",
           body: requestBody,
@@ -957,8 +943,8 @@ export default function AssessmentWorkspace({
     };
   }, [offlinePrincipal, syncOfflineChanges]);
 
-  const queueSectionSave = useCallback((section: AssessmentToolSection) => {
-    const next = saveQueueRef.current.then(() => saveSectionNow(section));
+  const queueSectionSave = useCallback((section: AssessmentToolSection, captured?: Partial<AssessmentToolData>) => {
+    const next = saveQueueRef.current.then(() => saveSectionNow(section, captured));
     saveQueueRef.current = next.catch(() => undefined);
     return next;
   }, [saveSectionNow]);
@@ -1237,12 +1223,9 @@ export default function AssessmentWorkspace({
     const next = setAssessmentValue(draftRef.current, key, value);
     draftRef.current = next;
     setDraft(next);
-    const section = assessmentToolFieldDefinitions.find((definition) => definition.key === key)?.section;
-    if (section) {
-      dirtySectionsRef.current = new Set(dirtySectionsRef.current).add(section);
-      setDirtySections(dirtySectionsRef.current);
-    }
-    setMessage("Saving changes...");
+    dirtySectionsRef.current = dirtyAssessmentSections(next, baseDataRef.current);
+    setDirtySections(dirtySectionsRef.current);
+    setMessage("Unsaved changes");
     setError("");
   };
 
@@ -1258,32 +1241,35 @@ export default function AssessmentWorkspace({
     baseDataRef.current = nextBase;
     setDraft(nextDraft);
     const remaining = change.conflicts.filter((item) => item.field !== field);
-    setRemoteChange(remaining.length > 0 ? { ...change, conflicts: remaining } : null);
+    const nextRemote = remaining.length > 0 ? { ...change, conflicts: remaining } : null;
+    remoteChangeRef.current = nextRemote;
+    setRemoteChange(nextRemote);
     const nextDirty = dirtyAssessmentSections(nextDraft, nextBase);
+    dirtySectionsRef.current = nextDirty;
     setDirtySections(nextDirty);
     setMessage(remaining.length > 0 ? `${remaining.length} field conflicts still need review` : "Conflict resolved; saving changes...");
+    if (!useLatest) void queueSectionSave(conflict.section, { [field]: structuredClone(nextDraft[field]) }).catch(() => undefined);
   };
 
-  useEffect(() => {
-    const current = selectedRef.current;
-    if (!current || dirtySections.size === 0) return;
-    const timer = window.setTimeout(() => {
-      for (const section of dirtySections) {
-        if (!remoteChangeRef.current?.conflicts.some((conflict) => conflict.section === section)) {
-          void queueSectionSave(section).catch(() => undefined);
-        }
-      }
-    }, 400);
-    return () => window.clearTimeout(timer);
-  }, [dirtySections, draft, queueSectionSave]);
+  const focusAnswer = (field: AssessmentToolFieldKey) => {
+    if (focusedFieldRef.current?.field === field) return;
+    focusedFieldRef.current = { field, value: JSON.stringify(draftRef.current[field]), reason: getAssessmentUnableReason(draftRef.current, field) };
+  };
 
-  useEffect(() => {
-    if (trainingAssessmentMode) return;
-    const current = selectedRef.current;
-    if (!current || dirtySections.size === 0) return;
-    const timer = window.setTimeout(() => void persistRecoveryDraft(current).catch(() => undefined), 350);
-    return () => window.clearTimeout(timer);
-  }, [dirtySections, draft, persistRecoveryDraft, trainingAssessmentMode]);
+  const commitAnswer = (field: AssessmentToolFieldKey) => {
+    const focus = focusedFieldRef.current;
+    focusedFieldRef.current = null;
+    if (!focus || focus.field !== field) return;
+    const data = draftRef.current;
+    if (focus.value !== JSON.stringify(data[field])) {
+      const section = assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section;
+      void queueSectionSave(section, { [field]: structuredClone(data[field]) }).catch(() => undefined);
+    }
+    if (focus.reason !== getAssessmentUnableReason(data, field)) {
+      // Reasons belong to the canonical QC section, not the question's section.
+      void queueSectionSave("provenance_qc", { unable_to_assess_reasons: { ...data.unable_to_assess_reasons } }).catch(() => undefined);
+    }
+  };
 
   useEffect(() => {
     if (trainingAssessmentMode) return;
@@ -1509,6 +1495,8 @@ export default function AssessmentWorkspace({
               disabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
               reviewDisabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
               onChange={updateField}
+              onFieldFocus={focusAnswer}
+              onFieldBlur={commitAnswer}
               onReview={(field, action) => void reviewExtractedField(field, action)}
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
             />
@@ -1709,4 +1697,10 @@ function mutationId(prefix: string) {
 
 function messageFor(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function remoteAssessmentMessage(conflicts: number, updatedBy: string) {
+  return conflicts > 0
+    ? `${conflicts} field conflict${conflicts === 1 ? "" : "s"} need review`
+    : `Updated by ${updatedBy}`;
 }

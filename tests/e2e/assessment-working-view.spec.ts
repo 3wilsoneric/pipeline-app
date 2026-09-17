@@ -48,6 +48,7 @@ test("edits captured answers beside remaining questions without folding during a
   const field = assessment.getByRole("textbox", { name: "Current symptoms", exact: false });
   const answer = "Synthetic client reports evening anxiety. Facility records and interview agree. Confirm the current support plan.";
   await field.fill(answer);
+  await field.blur();
   await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
   await expect(field).toBeVisible();
   await expect(captured).toContainText(answer);
@@ -68,6 +69,7 @@ test("finds an exact question across sections and preserves answers when exiting
   const field = assessment.getByRole("textbox", { name: "Medication refused", exact: false });
   await expect(field).toBeFocused();
   await field.fill("Synthetic medication A");
+  await field.blur();
   await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
   await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toContainText("Synthetic medication A");
   await assessment.getByRole("button", { name: "Close assessment", exact: true }).click();
