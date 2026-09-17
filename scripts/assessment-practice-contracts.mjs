@@ -81,6 +81,10 @@ check("Recovery history stays conditional on a reported substance-use history",
 check("the separate Triggers question is removed without deleting historical answers",
   !interview.assessmentInterviewQuestions.some((question) => question.field === "triggers")
   && schema.pickAssessmentToolData({ triggers: "Previously recorded context" }).triggers === "Previously recorded context");
+check("Aggression risk is removed without deleting historical answers or the other safety questions",
+  !interview.assessmentInterviewQuestions.some((question) => question.field === "aggression_risk")
+  && schema.pickAssessmentToolData({ aggression_risk: "Previously recorded assessment" }).aggression_risk === "Previously recorded assessment"
+  && ["assault_history", "physical_altercations", "si_hi_history"].every((field) => interview.assessmentInterviewQuestions.some((question) => question.field === field)));
 check("language guidance comes from the canonical writing specification",
   workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Example")
   && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")

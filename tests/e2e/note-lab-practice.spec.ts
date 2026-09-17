@@ -18,6 +18,7 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByRole("combobox", { name: "Insight into substance use *", exact: true })).toHaveValue("no");
     await sectionRail.getByRole("button", { name: /^Behavior & safety\b/ }).click();
     await expect(page.locator('[data-practice-field="triggers"]')).toHaveCount(0);
+    await expect(page.locator('[data-practice-field="aggression_risk"]')).toHaveCount(0);
     await expect(page.locator('[data-practice-field="behavioral_history"]')).toBeVisible();
   });
 

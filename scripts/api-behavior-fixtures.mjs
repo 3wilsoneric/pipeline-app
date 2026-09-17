@@ -1585,7 +1585,7 @@ function assessmentSchemaResults() {
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 126, "Expected 126 focused user-facing interview questions");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 125, "Expected 125 focused user-facing interview questions");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1596,7 +1596,7 @@ function assessmentSchemaResults() {
         .filter((field) => !interviewFields.has(field));
       assert(
         JSON.stringify(nonInterviewFields) === JSON.stringify([
-          "resident_number", "assessor", "admit_date", "primary_diagnosis", "acuity_level", "triggers",
+          "resident_number", "assessor", "admit_date", "primary_diagnosis", "acuity_level", "triggers", "aggression_risk",
           "responds_to_internal_stimuli", "auditory_hallucinations", "auditory_hallucination_nature",
           "auditory_hallucination_frequency", "auditory_hallucination_triggers", "visual_hallucinations",
           "visual_hallucination_details", "visual_hallucination_recent", "olfactory_hallucinations",

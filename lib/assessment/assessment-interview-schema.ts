@@ -242,7 +242,6 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("assaults_last_two_years_count", "Assault and elopement", "number", { showWhen: equals("assault_history", "yes"), requiredWhen: equals("assault_history", "yes"), min: 0 }),
   q("elopement_history", "Assault and elopement", "yes_no", { options: yesNo }),
   q("elopement_risk", "Assault and elopement", "textarea", { showWhen: equals("elopement_history", "yes"), requiredWhen: equals("elopement_history", "yes"), span: "full" }),
-  q("aggression_risk", "Assault and elopement", "textarea"),
   q("si_hi_history", "Assault and elopement", "textarea"),
 
   q("physical_health_concerns", "Current health", "yes_no", { options: yesNo }),
