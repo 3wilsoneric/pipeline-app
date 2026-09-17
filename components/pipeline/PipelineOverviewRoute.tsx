@@ -442,12 +442,12 @@ function recordNavigatedWorkspace(
 
 function getTrainingAssessmentMode(params: URLSearchParams): TrainingAssessmentMode | undefined {
   const mode = params.get("trainingAssessment");
-  return mode === "schedule" || mode === "interview" || mode === "guided" ? mode : undefined;
+  return mode === "prepare" || mode === "schedule" || mode === "interview" || mode === "guided" ? mode : undefined;
 }
 
 function getTrainingAssessmentSection(params: URLSearchParams): AssessmentToolSection | undefined {
   const mode = getTrainingAssessmentMode(params);
-  if (mode !== "interview" && mode !== "guided") return undefined;
+  if (!mode) return undefined;
   const section = params.get("assessmentSection");
   return assessmentToolSections.find((candidate) => candidate === section);
 }

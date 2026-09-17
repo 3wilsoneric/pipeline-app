@@ -72,6 +72,7 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, grou
           {!matches.length ? <p role="status" className="text-[12px] text-[#657967]">No matching questions.</p> : null}
         </nav>
       ) : null}
+      <AssessmentRemainingQuestions section={activeSection} data={data} pending={pending} onJump={onJump} />
       <nav data-guide-target="assessment-section-nav" aria-label="Assessment sections" className="space-y-5">
         {interviewGroups.map((group) => <div key={group.label}>
           <h3 className="text-[10px] font-semibold text-[#657967]">{group.label}</h3>
@@ -86,6 +87,27 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, grou
       </nav>
     </>
   );
+}
+
+export function AssessmentRemainingQuestions({ section, data, pending, onJump, expandedByDefault = true }: WorkingData & {
+  section: AssessmentToolSection;
+  onJump: (section: AssessmentToolSection, field: AssessmentToolFieldKey) => void;
+  expandedByDefault?: boolean;
+}) {
+  const questions = getAssessmentInterviewQuestions(section, data).filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured");
+  return <details key={section} open={expandedByDefault} className="mb-5 border-b border-[#d9dfdb] pb-4">
+    <summary className="cursor-pointer py-2 text-[13px] font-bold text-[#294735]">Remaining in this section · {questions.length}</summary>
+    <nav aria-label="Remaining assessment questions" className="max-h-[35dvh] overflow-y-auto">
+      {questions.map((question) => {
+        const status = assessmentQuestionStatus(question, data, pending);
+        return <button key={question.field} type="button" onClick={() => onJump(section, question.field)} className="block min-h-11 w-full py-2 text-left text-[12px] font-semibold text-[#315d41] hover:text-[#0f7664] focus-visible:outline-2 focus-visible:outline-[#0f8b73]">
+          <span className="block">{assessmentInterviewFieldLabel(question.field)}</span>
+          <span className="mt-0.5 block text-[10px] font-normal text-[#69756b]">{status === "verify" ? "Needs verification" : status === "reason" ? "Reason missing" : "Unanswered"}</span>
+        </button>;
+      })}
+      {!questions.length ? <p className="py-2 text-[12px] text-[#657167]">No unanswered questions in this section.</p> : null}
+    </nav>
+  </details>;
 }
 
 type WorkingSectionProps = WorkingData & {
@@ -126,14 +148,14 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   }, [localTarget, openGroup]);
 
   return (
-    <div data-assessment-working-section className="grid items-start gap-5 min-[1200px]:grid-cols-[minmax(0,1fr)_256px]">
+    <div data-assessment-working-section className="space-y-5">
+      <CapturedAssessmentAnswers section={props.section} data={data} pending={pending} questions={questions} onEdit={(field) => { setOpenGroup(questions.find((question) => question.field === field)!.group); setLocalTarget({ field }); }} />
       <div ref={editor} data-assessment-question-editor className="min-w-0">
         <div className="divide-y divide-[#d8e2d7]">
           {groups.map((group, index) => <WorkingQuestionGroup key={group.label} {...props} group={group} index={index} open={openGroup === group.label} onToggle={() => { setLocalTarget(null); setOpenGroup(openGroup === group.label ? null : group.label); }} />)}
         </div>
         {openGroup ? <button type="button" onClick={() => { setLocalTarget(null); setOpenGroup(nextWorkingGroup(groups, openGroup, data, pending)); }} className="mt-4 flex min-h-10 items-center gap-2 rounded bg-[#234c36] px-4 text-[12px] font-bold text-white hover:bg-[#173b28]">Next group <ChevronRight size={15} aria-hidden="true" /></button> : null}
       </div>
-      <CapturedAssessmentAnswers section={props.section} data={data} pending={pending} questions={questions} onEdit={(field) => { setOpenGroup(questions.find((question) => question.field === field)!.group); setLocalTarget({ field }); }} />
     </div>
   );
 }
@@ -176,10 +198,10 @@ function CapturedAssessmentAnswers({ section, data, pending, questions, onEdit }
   const groups = groupWorkingQuestions(captured);
   const id = `captured-answers-${section}`;
   return (
-    <aside aria-label="Captured assessment answers" className="order-first min-w-0 rounded bg-[#edf2e9] px-4 py-4 min-[1200px]:sticky min-[1200px]:top-0 min-[1200px]:order-none min-[1200px]:max-h-[calc(100dvh-240px)] min-[1200px]:overflow-y-auto">
+    <aside aria-label="Captured assessment answers" className="min-w-0 border border-[#d8e2d7] bg-white px-4 py-4">
       <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)} className="flex w-full items-center justify-between gap-3 text-left text-[13px] font-bold text-[#294735] focus-visible:outline-2 focus-visible:outline-[#0f8b73] min-[1200px]:hidden"><span>Captured answers · {captured.length}</span><ChevronDown size={16} aria-hidden="true" className={expanded ? "rotate-180" : ""} /></button>
       <h4 className="hidden text-[14px] font-bold text-[#294735] min-[1200px]:block">Captured answers</h4>
-      <div id={id} className={expanded ? "max-h-[45dvh] overflow-y-auto min-[1200px]:max-h-none min-[1200px]:overflow-visible" : "hidden min-[1200px]:block"}>
+      <div id={id} className={expanded ? "max-h-[45dvh] overflow-y-auto min-[1200px]:max-h-none min-[1200px]:overflow-visible min-[1200px]:grid min-[1200px]:grid-cols-2 min-[1200px]:gap-x-6" : "hidden min-[1200px]:grid min-[1200px]:grid-cols-2 min-[1200px]:gap-x-6"}>
       {!captured.length ? <p className="mt-4 text-[12px] text-[#667364]">No answers captured in this section.</p> : null}
       {groups.map((group) => <section key={group.label} className="mt-5"><h5 className="mb-1 text-[11px] font-bold text-[#5e705c]">{group.label}</h5>
         <div className="divide-y divide-[#d8e1d2]">{group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} onEdit={onEdit} />)}</div>
@@ -194,7 +216,7 @@ function CapturedAnswer({ question, data, pending, onEdit }: WorkingData & { que
   const reason = getAssessmentUnableReason(data, question.field);
   return <button type="button" aria-label={`Edit ${assessmentInterviewFieldLabel(question.field)}`} onClick={() => onEdit(question.field)} className="group block w-full py-3 text-left focus-visible:outline-2 focus-visible:outline-[#0f8b73]">
     <span className="flex items-start justify-between gap-2 text-[11px] font-semibold text-[#5d6b5a]"><span>{assessmentInterviewFieldLabel(question.field)}</span><Pencil size={12} aria-hidden="true" className="mt-0.5 shrink-0 text-[#6a8069] group-hover:text-[#0f7664]" /></span>
-    <span className="mt-1 block whitespace-pre-wrap break-words text-[12px] font-semibold leading-5 text-[#253a2a]">{capturedAssessmentAnswer(question, data)}</span>
+    <span className="mt-1 block whitespace-pre-wrap break-words text-[14px] font-semibold leading-6 text-[#253a2a]">{capturedAssessmentAnswer(question, data)}</span>
     {reason ? <span className="mt-1 block break-words text-[11px] leading-4 text-[#667364]">{reason}</span> : null}
     {status === "verify" ? <span className="mt-1 block text-[10px] font-bold text-[#916118]">Needs verification</span> : status === "reason" ? <span className="mt-1 block text-[10px] font-bold text-[#916118]">Reason missing</span> : null}
   </button>;

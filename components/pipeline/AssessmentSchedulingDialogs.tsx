@@ -86,7 +86,7 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, canEditClinical, 
       error={error}
       onClose={onClose}
       footer={<>
-        <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to workspace</button>
+        <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to questionnaire</button>
         {!assessment.started_at && !assessment.signed_at && canEditClinical ? <button type="button" onClick={onBegin} disabled={isBusy} className="min-h-12 border border-[#bac8c0] px-4 font-bold text-[#0f7664] hover:bg-[#f1f4f2] disabled:opacity-50">Continue without appointment</button> : null}
         <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#111111] px-6 font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : assessment.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
       </>}
@@ -195,7 +195,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
             <header className="border-b border-[#d9dfdb] px-6 py-5">
               <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{assessment.assessor || "Assigned assessor"}</div>
               <h3 className="mt-1 text-[23px] font-black">Begin assessment</h3>
-              <p className="mt-2 text-[11px] leading-5 text-[#737373]">Starting records the interview start time and unlocks the questionnaire. Every answer saves back to this assessment as you work.</p>
+              <p className="mt-2 text-[13px] leading-5 text-[#737373]">Your prepared answers stay here. Begin when the interview starts; complete or update them as you go.</p>
             </header>
             <div className="px-6 py-5">
               <dl className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
@@ -206,7 +206,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
               {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
             </div>
             <footer className="flex items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-6 py-4">
-              <button type="button" onClick={onClose} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">Back to workspace</button>
+              <button type="button" onClick={onClose} disabled={isBusy} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">Back to questionnaire</button>
               <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical} className="flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-45"><Play size={13} fill="currentColor" /> {isBusy ? "Starting..." : "Begin assessment"}</button>
             </footer>
           </section>

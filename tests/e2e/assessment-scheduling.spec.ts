@@ -29,7 +29,7 @@ for (const viewport of [
     await dialog.getByLabel("Assessment method").selectOption("zoom");
     await dialog.getByLabel("Zoom meeting link").fill("https://example.invalid/synthetic-appointment");
 
-    for (const name of ["Close schedule", "Back to workspace", "Schedule assessment"]) {
+    for (const name of ["Close schedule", "Back to questionnaire", "Schedule assessment"]) {
       const bounds = await dialog.getByRole("button", { name, exact: true }).boundingBox();
       expect(bounds).not.toBeNull();
       expect(bounds!.x).toBeGreaterThanOrEqual(0);

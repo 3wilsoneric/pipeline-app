@@ -401,7 +401,7 @@ export default function ReferralPacketCanvas({
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState<number | null>(null);
-  const [schedulingReferralId, setSchedulingReferralId] = useState<number | null>(null);
+  const [preparingReferralId, setPreparingReferralId] = useState<number | null>(null);
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
   const [isBulkReviewing, setIsBulkReviewing] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -1267,7 +1267,7 @@ export default function ReferralPacketCanvas({
   };
 
   const openPage = (page: WorkspaceView) => {
-    if (page !== 2) setSchedulingReferralId(null);
+    if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(workspaceLocationForPage(page));
@@ -1618,19 +1618,20 @@ export default function ReferralPacketCanvas({
     if (pending && !await saveWorkspaceDraft()) throw new Error("Finish saving this intake before switching accounts.");
   });
 
-  const openSchedulingFromIntake = async () => {
+  const openQuestionnaireFromIntake = async () => {
     const current = loadedReferralRef.current;
     if (!current) return;
-    setSchedulingReferralId(current.id);
+    await preservePendingIntake();
+    setPreparingReferralId(current.id);
     openPage(2);
   };
 
   const continueToAssessment = async () => {
     if (trainingIntakeMode) {
-      window.location.assign(toPipelinePath("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule&demo=1"));
+      window.location.assign(toPipelinePath("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&demo=1"));
       return;
     }
-    await openSchedulingFromIntake();
+    await openQuestionnaireFromIntake();
   };
 
   const reviewExtractedField = async (
@@ -1914,7 +1915,10 @@ export default function ReferralPacketCanvas({
     attachmentCount,
     permissionReadOnly,
   );
-  const { readOnly, historicalReadOnly, steps: workspaceSteps } = workspacePresentation;
+  const { readOnly, historicalReadOnly, steps } = workspacePresentation;
+  const workspaceSteps = steps.map((step) => step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt
+    ? { ...step, label: "Questionnaire" }
+    : step);
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
@@ -2386,7 +2390,7 @@ export default function ReferralPacketCanvas({
                   trainingAssessmentSection={trainingAssessmentSection}
                   initialSection={routedWorkspaceLocation.view === "assessment" ? routedWorkspaceLocation.assessmentSection : undefined}
                   assignedAssessorId={loadedReferral?.ownerId}
-                  startScheduling={schedulingReferralId === referralWorkspaceId}
+                  startQuestionnaire={preparingReferralId === referralWorkspaceId}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onContinueToWorkflow={() => openPage("workflow")}

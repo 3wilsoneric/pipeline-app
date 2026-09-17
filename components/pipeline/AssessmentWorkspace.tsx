@@ -94,7 +94,7 @@ import {
   type AssessmentRemoteChange,
 } from "@/components/pipeline/assessment-workspace-state";
 import { PracticeAssessmentReview } from "@/components/pipeline/AssessmentInterviewFields";
-import AssessmentWorkingSection, { AssessmentWorkingNavigation } from "@/components/pipeline/AssessmentWorkingSection";
+import AssessmentWorkingSection, { AssessmentRemainingQuestions, AssessmentWorkingNavigation } from "@/components/pipeline/AssessmentWorkingSection";
 import { assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
 import AssessmentInterviewHeader from "@/components/pipeline/AssessmentInterviewHeader";
 import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabButton";
@@ -109,7 +109,7 @@ type AssessmentWorkspaceProps = {
   trainingAssessmentSection?: AssessmentToolSection;
   initialSection?: AssessmentToolSection;
   assignedAssessorId?: string;
-  startScheduling?: boolean;
+  startQuestionnaire?: boolean;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
     captured: number;
@@ -184,8 +184,8 @@ type AssessmentAutoFocusSetters = {
 
 function handleAssessmentEscape(event: KeyboardEvent, context: AssessmentEscapeContext) {
   if (event.key !== "Escape" || event.defaultPrevented) return;
-  if (context.showBeginDialog) context.setShowBeginDialog(false);
-  if (context.showScheduleDialog) context.setShowScheduleDialog(false);
+  if (context.showBeginDialog) { context.setShowBeginDialog(false); return; }
+  if (context.showScheduleDialog) { context.setShowScheduleDialog(false); return; }
   context.closeAssessment();
 }
 
@@ -194,11 +194,13 @@ function resolveAssessmentAutoFocus(
   focusedAssessmentId: string,
   nextRequiredSection: AssessmentToolSection | undefined,
   initialSection: AssessmentToolSection | undefined,
+  openSchedule: boolean,
 ): AssessmentAutoFocusState | null {
   if (!assessment?.assessment_id || focusedAssessmentId === assessment.assessment_id) return null;
   return {
     assessmentId: assessment.assessment_id,
     ...resolveAssessmentFocusState(assessment, nextRequiredSection, initialSection),
+    showScheduleDialog: openSchedule,
   };
 }
 
@@ -209,8 +211,8 @@ function resolveAssessmentFocusState(
 ): AssessmentFocusState {
   return {
     section: autoFocusSection(assessment, nextRequiredSection, initialSection),
-    showScheduleDialog: assessmentNeedsSchedule(assessment),
-    showBeginDialog: assessmentReadyToBegin(assessment),
+    showScheduleDialog: false,
+    showBeginDialog: false,
   };
 }
 
@@ -218,12 +220,8 @@ function autoFocusSection(assessment: PipelineAssessmentRecord | null, nextRequi
   return assessment?.started_at && nextRequiredSection && !initialSection ? nextRequiredSection : undefined;
 }
 
-function assessmentNeedsSchedule(assessment: PipelineAssessmentRecord | null) {
-  return Boolean(assessment && !hasActiveAssessmentSchedule(assessment) && !assessment.started_at && !assessment.signed_at);
-}
-
 function assessmentReadyToBegin(assessment: PipelineAssessmentRecord | null) {
-  return Boolean(assessment && hasActiveAssessmentSchedule(assessment) && !assessment.started_at && !assessment.signed_at);
+  return Boolean(assessment && !assessment.started_at && !assessment.signed_at && assessment.status !== "complete");
 }
 
 function applyAssessmentFocus(state: AssessmentFocusState, setters: AssessmentAutoFocusSetters) {
@@ -258,7 +256,7 @@ export default function AssessmentWorkspace({
   trainingAssessmentSection,
   initialSection,
   assignedAssessorId,
-  startScheduling = false,
+  startQuestionnaire = false,
   packetEvidenceVersion,
   onSummaryChange,
   onAssessmentSaved,
@@ -308,7 +306,7 @@ export default function AssessmentWorkspace({
   const closingRef = useRef(false);
   const initializedAssessmentIdRef = useRef("");
   const focusedAssessmentIdRef = useRef("");
-  const schedulingRequestedRef = useRef(false);
+  const preparationRequestedRef = useRef(false);
   const onActiveSectionChangeRef = useRef(onActiveSectionChange);
   const packetSyncKeysRef = useRef(new Set<string>());
   const dirty = dirtySections.size > 0;
@@ -434,7 +432,7 @@ export default function AssessmentWorkspace({
 
   const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (!offlinePrincipal) return;
-    if (!assessment.started_at || assessment.signed_at || !canEditClinical) {
+    if (assessment.signed_at || !canEditClinical) {
       await removeOfflineAssessmentWorkingSet(offlinePrincipal, assessment.assessment_id);
       return;
     }
@@ -610,8 +608,7 @@ export default function AssessmentWorkspace({
     setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
     setScheduleMethod(normalizeScheduleMethod(selected.scheduled_method));
     setScheduleLocation(selected.scheduled_location ?? "");
-    setShowScheduleDialog(assessmentNeedsSchedule(selected));
-    setShowBeginDialog(assessmentReadyToBegin(selected));
+    setShowBeginDialog(false);
     setShowAddendum(false);
     loadRecoveryDraftForLiveAssessment(trainingAssessmentMode, loadRecoveryDraft, selected, data);
   }, [loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
@@ -652,6 +649,7 @@ export default function AssessmentWorkspace({
       focusedAssessmentIdRef.current,
       nextRequiredTarget?.section,
       initialSection ?? trainingAssessmentSection,
+      trainingAssessmentMode === "schedule",
     );
     if (!focus) return;
     focusedAssessmentIdRef.current = focus.assessmentId;
@@ -661,7 +659,7 @@ export default function AssessmentWorkspace({
       setShowScheduleDialog,
       setShowBeginDialog,
     });
-  }, [initialSection, nextRequiredTarget, selected, trainingAssessmentSection]);
+  }, [initialSection, nextRequiredTarget, selected, trainingAssessmentMode, trainingAssessmentSection]);
 
   const closeFromEscape = useEffectEvent(() => void closeAssessment());
 
@@ -713,7 +711,7 @@ export default function AssessmentWorkspace({
       setMessage("Assessment draft created");
       setActiveSection("identity");
       setIsFocused(true);
-      setShowScheduleDialog(true);
+      setShowScheduleDialog(false);
       setShowBeginDialog(false);
     } catch (createError) {
       setError(messageFor(createError, "The assessment record could not be created."));
@@ -723,23 +721,26 @@ export default function AssessmentWorkspace({
     }
   };
 
-  const scheduleFromIntake = useEffectEvent(() => {
+  const prepareFromIntake = useEffectEvent(() => {
     void createAssessmentDraft();
   });
 
   useEffect(() => {
-    if (!startScheduling || isLoading || selected || !canCreateAssignedAssessment || schedulingRequestedRef.current) return;
-    schedulingRequestedRef.current = true;
-    scheduleFromIntake();
-  }, [canCreateAssignedAssessment, isLoading, selected, startScheduling]);
+    if (!startQuestionnaire || isLoading || selected || !canCreateAssignedAssessment || preparationRequestedRef.current) return;
+    preparationRequestedRef.current = true;
+    prepareFromIntake();
+  }, [canCreateAssignedAssessment, isLoading, selected, startQuestionnaire]);
 
   const beginAssessment = async () => {
-    const current = selectedRef.current;
-    if (!current || current.started_at || current.signed_at) return;
+    if (!assessmentReadyToBegin(selectedRef.current) || isBusy) return;
     setIsBusy(true);
     setError("");
     setMessage("Beginning assessment...");
     try {
+      await saveBeforeExit();
+      await saveQueueRef.current;
+      const current = selectedRef.current;
+      if (!current || !assessmentReadyToBegin(current)) return;
       if (trainingAssessmentMode) {
         const updated = updateTrainingAssessment(current, {
           started_at: new Date().toISOString(),
@@ -760,7 +761,8 @@ export default function AssessmentWorkspace({
           }),
         },
       );
-      upsertAssessment(payload.assessment, true);
+      // Merge the lifecycle response without replacing locally queued answers.
+      receiveRemoteAssessment(payload.assessment, false);
       await onAssessmentSaved?.(payload.assessment);
       setMessage("Assessment in progress");
       setShowBeginDialog(false);
@@ -802,7 +804,7 @@ export default function AssessmentWorkspace({
     const nextDirty = dirtyAssessmentSections(merged, latestData);
     dirtySectionsRef.current = nextDirty;
     setDirtySections(nextDirty);
-    setRemoteChange({ assessment: latest, conflicts });
+    setRemoteChange(conflicts.length > 0 || announce ? { assessment: latest, conflicts } : null);
     if (announce) {
       setMessage(conflicts.length > 0
         ? `${conflicts.length} field conflict${conflicts.length === 1 ? "" : "s"} need review`
@@ -1139,8 +1141,7 @@ export default function AssessmentWorkspace({
   };
 
   const saveSchedule = async () => {
-    const current = selectedRef.current;
-    if (!hasAssessmentScheduleInput(current, scheduleStart)) return;
+    if (!hasAssessmentScheduleInput(selectedRef.current, scheduleStart) || isBusy) return;
     const start = operationalInputToIso(scheduleStart);
     if (!start) {
       setError("Choose a valid assessment date and time in Pacific Time.");
@@ -1150,6 +1151,10 @@ export default function AssessmentWorkspace({
     setError("");
     setMessage("Saving schedule...");
     try {
+      await saveBeforeExit();
+      await saveQueueRef.current;
+      const current = selectedRef.current;
+      if (!hasAssessmentScheduleInput(current, scheduleStart)) return;
       if (trainingAssessmentMode) {
         const updated = updateTrainingAssessment(current, {
           scheduled_start_at: start,
@@ -1162,7 +1167,7 @@ export default function AssessmentWorkspace({
         setMessage("Practice appointment saved locally");
         dispatchGuideCompletion("assessment-schedule-save");
         setShowScheduleDialog(false);
-        setShowBeginDialog(true);
+        setShowBeginDialog(trainingAssessmentMode === "schedule");
         return;
       }
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; warnings?: string[] }>(
@@ -1182,12 +1187,12 @@ export default function AssessmentWorkspace({
           }),
         },
       );
-      upsertAssessment(payload.assessment, true);
+      receiveRemoteAssessment(payload.assessment, false);
       await onAssessmentSaved?.(payload.assessment);
       setMessage(payload.warnings?.length ? `Assessment scheduled. ${payload.warnings.join(" ")}` : "Assessment scheduled");
       dispatchGuideCompletion("assessment-schedule-save");
       setShowScheduleDialog(false);
-      if (!payload.assessment.started_at && !payload.assessment.signed_at) setShowBeginDialog(true);
+      setShowBeginDialog(false);
     } catch (scheduleError) {
       setError(messageFor(scheduleError, "The assessment schedule could not be saved."));
       setMessage("");
@@ -1364,7 +1369,7 @@ export default function AssessmentWorkspace({
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
     return (
       <AssessmentEmpty
-        title="Create the referral before scheduling an assessment"
+        title="Save the referral to open its questionnaire"
         detail="The assessment needs a referral ID so its history, files, and edits stay attached to one intake episode."
       />
     );
@@ -1377,9 +1382,9 @@ export default function AssessmentWorkspace({
   if (!selected) {
     return (
       <AssessmentEmpty
-        title="Assessment not scheduled"
-        detail="The assigned assessor schedules the interview here. Pipeline will keep the same assessment open through scheduling, interview, review, and signature."
-        action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-schedule-open" onClick={createAssessmentDraft} disabled={isBusy} className="h-10 bg-[#0f8b73] px-5 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] disabled:opacity-50">Schedule assessment</button> : null}
+        title="Questionnaire"
+        detail="Fill in what you know from the referral. Schedule and begin the interview when ready."
+        action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-open" onClick={createAssessmentDraft} disabled={isBusy} className="h-10 bg-[#0f8b73] px-5 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] disabled:opacity-50">Open questionnaire</button> : null}
         error={error}
       />
     );
@@ -1394,7 +1399,7 @@ export default function AssessmentWorkspace({
             <CalendarClock size={16} />
           </span>
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2"><h2 className="text-[14px] font-extrabold text-[#202522]">Assessment</h2><StatusLabel status={selected.status} /></div>
+            <div className="flex flex-wrap items-center gap-2"><h2 className="text-[14px] font-extrabold text-[#202522]">{selected.started_at || selected.signed_at ? "Assessment" : "Questionnaire"}</h2><StatusLabel status={selected.status} /></div>
             <p className="mt-0.5 truncate text-[11px] text-[#68716c]">{assessmentSummaryLine(selected, completion, nextRequiredTarget)}</p>
           </div>
         </div>
@@ -1405,7 +1410,7 @@ export default function AssessmentWorkspace({
 
   return createPortal(
     <section role="dialog" aria-modal="false" aria-label="Assessment interview" data-assessment-view="chart" className={`${contentRef.current ? "absolute" : "fixed"} inset-0 z-[90] flex flex-col overflow-hidden bg-white`}>
-      <AssessmentInterviewHeader name={draft.resident_name} community={draft.community} view="chart" disabled={isClosing} onClose={() => void closeAssessment()} />
+      <AssessmentInterviewHeader name={draft.resident_name} community={draft.community} phase={selected.signed_at ? "Signed" : selected.started_at ? "Assessment" : "Questionnaire"} view="chart" disabled={isClosing} onClose={() => void closeAssessment()} />
 
       {showAddendum ? (
         <div className="shrink-0 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
@@ -1429,7 +1434,7 @@ export default function AssessmentWorkspace({
       ) : null}
 
       <div className="flex min-h-0 flex-1">
-        <aside aria-label="Assessment navigation" className="hidden w-[248px] shrink-0 overflow-y-auto bg-[#f7faf4] px-5 py-5 lg:block">
+        <aside aria-label="Assessment navigation" className="order-last hidden w-[280px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#f7faf4] px-5 py-5 lg:block">
           <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} groups={assessmentNavigationGroups} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} />
         </aside>
 
@@ -1440,6 +1445,7 @@ export default function AssessmentWorkspace({
               <select data-guide-target={`assessment-section-nav ${assessmentSectionGuideTargetList}`} id="assessment-section-mobile" value={activeSection} onChange={(event) => { setWorkingTarget(null); setActiveSection(event.target.value as AssessmentToolSection); }} className="h-10 w-full appearance-none rounded border border-[#cddace] bg-white px-3 pr-10 text-[12px] font-bold text-[#234c36] outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); const counts = assessmentWorkingCounts(getAssessmentInterviewQuestions(sectionKey, draft), draft, pendingFields); return section ? <option key={section.key} value={section.key}>{section.label} · {assessmentWorkingCountLabel(counts)}</option> : null; })}</optgroup>)}</select>
               <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#58715e]" />
             </div>
+            <AssessmentRemainingQuestions section={activeSection} data={draft} pending={pendingFields} expandedByDefault={false} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} />
           </div>
 
           {error ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[11px] font-semibold text-[#59645e]">{error}</div> : null}
@@ -1488,7 +1494,7 @@ export default function AssessmentWorkspace({
           <div className="w-full px-3 py-4 sm:px-5 lg:pl-8 lg:pr-6">
             <div className="mb-3">
               <h3 className="text-[21px] font-bold text-[#213629]">{sectionDefinition.label}</h3>
-                {!selected.started_at ? <p className="mt-2 text-[12px] font-semibold text-[#9a6115]">Begin assessment to enter answers.</p> : null}
+                {!selected.started_at && !selected.signed_at ? <p className="mt-2 text-[12px] text-[#657167]">Prepare from the referral. These answers stay with you during the interview.</p> : null}
             </div>
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <AssessmentWorkingSection
@@ -1500,7 +1506,7 @@ export default function AssessmentWorkspace({
               questions={sectionQuestions}
               required={requiredInterviewFields}
               target={workingTarget}
-              disabled={isBusy || Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
+              disabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
               reviewDisabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
               onChange={updateField}
               onReview={(field, action) => void reviewExtractedField(field, action)}
@@ -1568,9 +1574,9 @@ export default function AssessmentWorkspace({
         onScheduleDurationChange={setScheduleDuration}
         onScheduleMethodChange={setScheduleMethod}
         onScheduleLocationChange={setScheduleLocation}
-        onCloseSchedule={() => { setShowScheduleDialog(false); setIsFocused(false); }}
+        onCloseSchedule={() => setShowScheduleDialog(false)}
         onSaveSchedule={() => void saveSchedule()}
-        onCloseBegin={() => { setShowBeginDialog(false); setIsFocused(false); }}
+        onCloseBegin={() => setShowBeginDialog(false)}
         onBeginAssessment={() => void beginAssessment()}
       />
     </section>,
@@ -1619,8 +1625,7 @@ function WorkspaceReturnButton({ onOpen, onExit, disabled }: {
 export function assessmentOpenLabel(assessment: Pick<PipelineAssessmentRecord, "signed_at" | "started_at" | "scheduled_start_at" | "schedule_status">) {
   if (assessment.signed_at) return "Review assessment";
   if (assessment.started_at) return "Resume assessment";
-  if (hasActiveAssessmentSchedule(assessment)) return "Begin assessment";
-  return "Schedule assessment";
+  return "Open questionnaire";
 }
 
 function assessmentSummaryLine(

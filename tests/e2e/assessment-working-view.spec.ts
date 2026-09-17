@@ -14,6 +14,32 @@ async function revealAppNavigation(page: Page) {
   await expect(page.locator("#pipeline-app-navigation")).toHaveCSS("opacity", "1");
 }
 
+test("prepares answers before an appointment and uses Remaining to finish the same questionnaire", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1");
+  const assessment = page.getByRole("dialog", { name: "Assessment interview", exact: true });
+  await expect(assessment.locator("[data-assessment-client-header]")).toContainText("Questionnaire");
+  await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toHaveCount(0);
+  const remaining = assessment.getByRole("navigation", { name: "Remaining assessment questions" });
+  await remaining.getByRole("button", { name: /^Secondary diagnosis/ }).click();
+  const field = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+  await expect(field).toBeFocused();
+  const answer = "Synthetic diagnosis prepared from referral documents";
+  await field.pressSequentially(answer);
+  await expect(field).toHaveValue(answer);
+  await expect(remaining.getByRole("button", { name: /^Secondary diagnosis/ })).toHaveCount(0);
+  await assessment.getByRole("button", { name: "Begin assessment", exact: true }).click();
+  const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+  await expect(begin).toContainText("Not scheduled");
+  await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+  await expect(begin).toHaveCount(0);
+  await expect(field).toHaveValue(answer);
+  await expect(assessment.locator("[data-assessment-client-header]")).not.toContainText("Questionnaire");
+  await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toContainText(answer);
+  expect(errors).toEqual([]);
+});
+
 test("edits captured answers beside remaining questions without folding during autosave", async ({ page }) => {
   const assessment = await openWorkingAssessment(page, "diagnosis_clinical");
   const captured = assessment.getByRole("complementary", { name: "Captured assessment answers" });
@@ -91,15 +117,16 @@ test("fits desktop, tablet, and phone and resets section scroll", async ({ page 
   await page.screenshot({ path: "outputs/assessment-working-mobile.png" });
 });
 
-test("Full uses the available width with floating subsection links", async ({ page }) => {
+test("the main questionnaire uses the left pane and remaining navigation stays on the right", async ({ page }) => {
   const assessment = await openWorkingAssessment(page);
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1920, height: 1080 }]) {
     await page.setViewportSize(viewport);
     const editor = (await assessment.locator("[data-assessment-question-editor]").boundingBox())!;
-    expect(editor.width).toBeGreaterThan(viewport.width === 1440 ? 840 : 1320);
-    expect(editor.x).toBeGreaterThanOrEqual(280);
+    expect(editor.width).toBeGreaterThan(viewport.width === 1440 ? 1000 : 1450);
+    expect(editor.x).toBeLessThan(80);
     const panel = (await assessment.locator("[data-assessment-working-section]").boundingBox())!;
-    expect(viewport.width - panel.x - panel.width).toBeLessThanOrEqual(24);
+    const nav = (await assessment.getByRole("complementary", { name: "Assessment navigation", exact: true }).boundingBox())!;
+    expect(nav.x).toBeGreaterThanOrEqual(panel.x + panel.width);
   }
   const nav = assessment.getByRole("navigation", { name: "Assessment sections", exact: true });
   await nav.getByRole("button", { name: "Jump to Communication and participation", exact: true }).click();

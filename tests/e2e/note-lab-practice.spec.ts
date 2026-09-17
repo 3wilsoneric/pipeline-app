@@ -3,9 +3,8 @@ import { expect, test } from "@playwright/test";
 test.describe("Assessment practice lab", () => {
   test("the real assessment renderer preserves typed spaces and newlines in secondary diagnoses", async ({ page }) => {
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical");
-    const guided = page.locator('[data-guided-assessment="true"]');
-    await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
     const full = page.locator('[data-assessment-view="chart"]');
+    await expect(full).toBeVisible();
     const secondary = full.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
     await secondary.fill("");
     await secondary.pressSequentially("Synthetic secondary ");
@@ -18,8 +17,10 @@ test.describe("Assessment practice lab", () => {
     await expect(secondary).toHaveValue(answer);
     await secondary.press("Tab");
     await expect(secondary).toHaveValue(answer);
-    await full.getByRole("button", { name: "Guided interview", exact: true }).click();
-    await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
+    const sections = full.getByRole("navigation", { name: "Assessment sections", exact: true });
+    await sections.getByRole("button", { name: /^Function/ }).click();
+    await sections.getByRole("button", { name: /^Clinical/ }).click();
+    await full.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     await expect(full.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).toHaveValue(answer);
   });
 
