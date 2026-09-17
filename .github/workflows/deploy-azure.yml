@@ -207,6 +207,44 @@ jobs:
               enableDemoCenter='${{ inputs.enable_demo_center }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}'
 
+      - name: Back up and migrate before application rollout
+        if: ${{ !inputs.initial_database_bootstrap }}
+        shell: bash
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          JOB_PREFIX: ${{ steps.foundation.outputs.name_prefix }}-${{ steps.foundation.outputs.environment }}
+          CANDIDATE_IMAGE: ${{ steps.foundation.outputs.registry_server }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # Use the existing jobs' identity/secrets with the candidate image.
+          # The running application stays on the old image until both succeed.
+          for operation in backup migrate; do
+            job="$(printf '%s-database-%s' "$JOB_PREFIX" "$operation" | cut -c1-32)"
+            execution="$(az containerapp job start \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$job" \
+              --container-name "database-$operation" \
+              --image "$CANDIDATE_IMAGE" \
+              --query name --output tsv)"
+            test -n "$execution"
+            for attempt in {1..90}; do
+              status="$(az containerapp job execution show \
+                --resource-group "$RESOURCE_GROUP" \
+                --name "$job" \
+                --job-execution-name "$execution" \
+                --query properties.status --output tsv)"
+              if [[ "$status" == "Succeeded" ]]; then
+                echo "$job execution $execution succeeded."
+                break
+              fi
+              if [[ "$status" == "Failed" || "$status" == "Stopped" || "$status" == "Degraded" || "$attempt" == 90 ]]; then
+                echo "$job execution $execution did not succeed: $status. Application rollout stopped." >&2
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+
       - name: Deploy runtime and scheduled jobs
         id: runtime
         shell: bash
@@ -261,6 +299,7 @@ jobs:
           echo "database_migration_job=$(jq -r '.databaseMigrationJobName.value' runtime-outputs.json)" >> "$GITHUB_OUTPUT"
 
       - name: Create and verify pre-migration database backup
+        if: ${{ inputs.initial_database_bootstrap }}
         shell: bash
         run: |
           set -euo pipefail
@@ -290,6 +329,7 @@ jobs:
           done
 
       - name: Apply checksum-guarded database changes
+        if: ${{ inputs.initial_database_bootstrap }}
         shell: bash
         run: |
           set -euo pipefail
