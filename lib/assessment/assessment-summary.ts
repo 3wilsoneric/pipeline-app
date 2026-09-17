@@ -64,6 +64,7 @@ export function selectSignedAssessment(
 }
 
 const excludedChartFields = new Set<AssessmentToolFieldKey>([
+  "aggression_risk",
   "unable_to_assess_reasons",
   "source_file",
   "match_confidence",
@@ -155,6 +156,9 @@ export function buildMeetClientSummary(
       ["prn_patterns", "PRN pattern and effect"],
       ["im_injections", "IM injections"],
       ["im_injections_details", "Injection details"],
+      ["injection_frequency", "Injection frequency"],
+      ["last_injection", "Last injection"],
+      ["next_injection_due", "Next injection due"],
     ]),
     supportSnapshot: buildItems(assessment, [
       ["mobility", "Mobility"],
@@ -163,7 +167,7 @@ export function buildMeetClientSummary(
       ["linear_conversation_details", "Communication support"],
       ["special_diet_details", "Diet"],
       ["current_safety_measures", "Current safety support"],
-      ["triggers", "Known triggers"],
+      ["triggers", "Triggers and what helps"],
     ]),
     preparedFromAssessmentId: assessment.assessment_id,
     preparedFromAssessmentVersion: assessment.version,

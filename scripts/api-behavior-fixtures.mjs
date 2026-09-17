@@ -1573,12 +1573,12 @@ function referralHardeningResults() {
 function assessmentSchemaResults() {
   return [
     run("assessment schema exposes the complete governed interview", () => {
-      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 159, "Expected 159 assessment fields, including preserved legacy data");
+      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 162, "Expected 162 assessment fields, including injection timing and preserved legacy data");
       assert(
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 125, "Expected 125 focused user-facing interview questions");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 129, "Expected 129 focused user-facing interview questions");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1589,7 +1589,7 @@ function assessmentSchemaResults() {
         .filter((field) => !interviewFields.has(field));
       assert(
         JSON.stringify(nonInterviewFields) === JSON.stringify([
-          "resident_number", "assessor", "admit_date", "primary_diagnosis", "acuity_level", "triggers", "aggression_risk",
+          "resident_number", "assessor", "admit_date", "primary_diagnosis", "acuity_level", "aggression_risk",
           "responds_to_internal_stimuli", "auditory_hallucinations", "auditory_hallucination_nature",
           "auditory_hallucination_frequency", "auditory_hallucination_triggers", "visual_hallucinations",
           "visual_hallucination_details", "visual_hallucination_recent", "olfactory_hallucinations",
@@ -1608,8 +1608,8 @@ function assessmentSchemaResults() {
         "Every interview section must contain at least one question",
       );
       assert(
-        referralExtractionSchema.assessmentWorkbookExtractionTargets.length === assessmentSchema.assessmentToolFieldDefinitions.length - 5,
-        "Expected every user-facing field except server-owned assignment and job-supplied provenance",
+        referralExtractionSchema.assessmentWorkbookExtractionTargets.length === assessmentSchema.assessmentToolFieldDefinitions.length - 6,
+        "Expected fields except server-owned assignment, job-supplied provenance, and retired aggression risk",
       );
       assert(
         referralExtractionSchema.referralPacketExtractionTargets.some((field) => field.field_key === "assessment_tool.mobility")
@@ -1737,7 +1737,7 @@ function assessmentSchemaResults() {
       assert(!assessmentInterview.getAssessmentInterviewQuestions("medication", data).some((question) => question.field === "im_injections_details"), "Injection details must stay hidden until injections are reported");
       data.im_injections = "yes";
       assert(assessmentInterview.getAssessmentInterviewQuestions("medication", data).some((question) => question.field === "im_injections_details"), "Reported injections must reveal the detail question");
-      assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "im_injections_details"), "Reported injections must require their details");
+      assert(!assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "im_injections_details"), "Reported injections must allow unanswered details");
       data.language_barrier = "yes";
       assert(assessmentInterview.getAssessmentInterviewQuestions("functional_adl", data).some((question) => question.field === "language_barrier_details"), "A language barrier must reveal its detail question");
       assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "language_barrier_details"), "A revealed language support detail must be required");

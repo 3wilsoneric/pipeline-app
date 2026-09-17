@@ -140,6 +140,9 @@ export type AssessmentToolData = {
   medication_refusals_30_days: number | null;
   im_injections: string | null;
   im_injections_details: string | null;
+  injection_frequency: string | null;
+  last_injection: string | null;
+  next_injection_due: string | null;
 
   substances: string[];
   use_pattern: string | null;
@@ -314,7 +317,7 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("ambulatory", "Ambulatory", "functional_adl", "string", true),
 
   field("behavioral_history", "Behavioral history", "behavioral_risk", "string", false, ["assessment.behaviors"]),
-  field("triggers", "Triggers", "behavioral_risk", "string", false),
+  field("triggers", "Triggers and what helps", "behavioral_risk", "string", false),
   field("si_hi_history", "SI / HI history", "behavioral_risk", "string", false),
   field("elopement_risk", "Elopement risk", "behavioral_risk", "string", false),
   field("aggression_risk", "Aggression risk", "behavioral_risk", "string", false),
@@ -379,6 +382,9 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("medication_refusals_30_days", "Refusals in the last 30 days", "medication", "integer", false),
   field("im_injections", "IM injections", "medication", "string", true),
   field("im_injections_details", "Injection details", "medication", "string", false),
+  field("injection_frequency", "Injection frequency", "medication", "string", false),
+  field("last_injection", "Last injection", "medication", "string", false),
+  field("next_injection_due", "Next injection due", "medication", "string", false),
 
   field("substances", "Substances", "substance_use", "string_list", false),
   field("use_pattern", "Use pattern", "substance_use", "string", false),
@@ -389,8 +395,8 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("substance_effect_on_baseline", "Effect on baseline behavior", "substance_use", "string", false),
   field("longest_sobriety_months", "Longest sobriety in the last five years", "substance_use", "integer", false),
   field("longest_sobriety_period", "Longest sobriety in the last five years", "substance_use", "string", false),
-  field("substance_use_insight", "Insight into substance use", "substance_use", "string", false),
-  field("substance_use_insight_details", "Substance-use insight details", "substance_use", "string", false),
+  field("substance_use_insight", "Acknowledgment of substance-use impact", "substance_use", "string", false),
+  field("substance_use_insight_details", "Substance-use impact notes", "substance_use", "string", false),
 
   field("physical_health_concerns", "Physical health concerns", "physical_health", "string", true),
   field("physical_health_diagnoses", "Physical health diagnoses", "physical_health", "string", false),
@@ -566,6 +572,9 @@ export function createEmptyAssessmentToolData(): AssessmentToolData {
     medication_refusals_30_days: null,
     im_injections: null,
     im_injections_details: null,
+    injection_frequency: null,
+    last_injection: null,
+    next_injection_due: null,
     substances: [],
     use_pattern: null,
     treatment_history: null,

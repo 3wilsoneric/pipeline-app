@@ -66,20 +66,22 @@ check("primary and secondary diagnoses remain separate stored answers",
   && !interview.getRequiredAssessmentInterviewQuestions(diagnosisData).some((question) => question.field === "secondary_diagnoses"));
 const insightQuestion = interview.getAssessmentInterviewQuestions("substance_use", { ...data, substance_abuse_history: "yes" })
   .find((question) => question.field === "substance_use_insight");
-check("Recovery history uses the two acknowledgement choices without changing saved values",
+check("acknowledgement names the impact and preserves saved yes/no values",
   insightQuestion?.group === "Recovery history" && insightQuestion.control === "select"
   && JSON.stringify(insightQuestion.options) === JSON.stringify([
-    { value: "yes", label: "Acknowledge" },
-    { value: "no", label: "Doesn't acknowledge" },
+    { value: "yes", label: "Acknowledges impact" },
+    { value: "partially", label: "Partially acknowledges impact" },
+    { value: "no", label: "Does not acknowledge impact" },
+    { value: "not_discussed", label: "Not discussed" },
   ])
-  && interview.assessmentInterviewOptionLabel("substance_use_insight", "yes") === "Acknowledge"
-  && interview.assessmentInterviewOptionLabel("substance_use_insight", "no") === "Doesn't acknowledge");
+  && interview.assessmentInterviewOptionLabel("substance_use_insight", "yes") === "Acknowledges impact"
+  && interview.assessmentInterviewOptionLabel("substance_use_insight", "no") === "Does not acknowledge impact");
 check("Recovery history stays conditional on a reported substance-use history",
   [null, "no", "unable_to_assess"].every((substance_abuse_history) => !interview.getAssessmentInterviewQuestions(
     "substance_use", { ...data, substance_abuse_history },
   ).some((question) => question.field === "substance_use_insight")));
-check("the separate Triggers question is removed without deleting historical answers",
-  !interview.assessmentInterviewQuestions.some((question) => question.field === "triggers")
+check("Triggers and what helps reuses the saved triggers answer",
+  interview.assessmentInterviewQuestions.some((question) => question.field === "triggers")
   && schema.pickAssessmentToolData({ triggers: "Previously recorded context" }).triggers === "Previously recorded context");
 check("Aggression risk is removed without deleting historical answers or the other safety questions",
   !interview.assessmentInterviewQuestions.some((question) => question.field === "aggression_risk")

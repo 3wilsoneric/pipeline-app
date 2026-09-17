@@ -374,8 +374,8 @@ const activeQuestions = interviewSchema.assessmentInterviewQuestions;
 check("retired questions are absent from the active assessment", !activeQuestions.some((question) =>
   /hallucinat|primary_diagnosis|acuity|lai_vs_oral|resident_number|admit_date/.test(question.field)));
 const injectionDetail = activeQuestions.find((question) => question.field === "im_injections_details");
-check("injection details appear and become required after yes", injectionDetail?.showWhen?.field === "im_injections"
-  && injectionDetail.showWhen.value === "yes" && injectionDetail.requiredWhen?.value === "yes");
+check("injection details appear after yes and remain optional", injectionDetail?.showWhen?.field === "im_injections"
+  && injectionDetail.showWhen.value === "yes" && !injectionDetail.requiredWhen);
 const sobrietyQuestion = activeQuestions.find((question) => question.field === "longest_sobriety_period");
 check("sobriety uses a bounded month-or-year menu", sobrietyQuestion?.control === "select"
   && sobrietyQuestion.options?.at(-1)?.label === "More than 2 years");

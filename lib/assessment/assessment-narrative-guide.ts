@@ -300,7 +300,7 @@ const trackAssignments: ReadonlyArray<{
   { track: "daily_support", fields: ["dress_assistance_details", "bathing_assistance_details", "adl_needs", "mobility"] },
   { track: "treatment_participation", fields: ["peer_interaction_notes", "staff_interaction_notes", "programming_notes"] },
   { track: "legal_status", fields: ["forensic_involvement_details", "arrest_last_two_years_details", "court_requirements", "court_dates", "probation_parole_justice"] },
-  { track: "medication_reconciliation", fields: ["medications_at_intake", "prn_patterns", "im_injections_details"] },
+  { track: "medication_reconciliation", fields: ["medications_at_intake", "prn_patterns", "im_injections_details", "injection_frequency", "last_injection", "next_injection_due"] },
   { track: "substance_pattern", fields: ["substance_effect_on_baseline", "substance_use_insight_details", "treatment_history"] },
   { track: "behavior_pattern", fields: ["behavioral_history", "triggers", "physical_altercation_details", "last_assault_details", "elopement_risk", "aggression_risk"] },
   { track: "safety_history", fields: ["last_self_harm_incident", "current_self_harm_details", "current_safety_measures", "si_hi_history"] },

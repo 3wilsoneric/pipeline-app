@@ -95,7 +95,6 @@ const profileSections: SectionDefinition[] = [
       { label: "Known triggers", sources: ["triggers"], maxItems: 10 },
       { label: "SI/HI history", sources: ["si_hi_history"] },
       { label: "Elopement risk", sources: ["elopement_risk"] },
-      { label: "Aggression risk", sources: ["aggression_risk"] },
       { label: "Responds to internal stimuli", sources: ["responds_to_internal_stimuli"] },
       { label: "Prior hospitalizations", sources: ["prior_hospitalizations_count", "hospitalization_count"], format: "count" },
       { label: "Most recent hospitalization", sources: ["most_recent_hospitalization"], format: "date" },
