@@ -463,6 +463,7 @@
 .pipeline-surfaces [data-home-module="new-assignments"] button { font-size: 12px; }
 
 @media (min-width: 1200px) {
+  .pipeline-surfaces [aria-label="Captured assessment answers"] { position: sticky; top: 12px; max-height: calc(100dvh - 260px); overflow-y: auto; scrollbar-gutter: stable; }
   .pipeline-surfaces [data-assessment-working-section] { display: grid; grid-template-columns: minmax(220px, 0.36fr) minmax(0, 1fr); align-items: start; gap: 20px; }
   .pipeline-surfaces [data-assessment-working-section] > * { margin-block: 0; }
   .pipeline-surfaces [aria-label="Captured assessment answers"] > div { grid-template-columns: minmax(0, 1fr); }
