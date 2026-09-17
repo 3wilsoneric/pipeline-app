@@ -1,4 +1,5 @@
 import { Check, ChevronDown, Sparkles } from "lucide-react";
+import { useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
 import {
@@ -133,7 +134,18 @@ function MultiSelectAssessmentField({ id, definition, question, value, readOnly,
 
 function TextareaAssessmentField({ id, definition, question, value, readOnly, onChange }: AssessmentFieldControlProps) {
   const isList = definition.value_type === "string_list";
-  return <><textarea data-guide-target="assessment-answer" id={id} value={fieldStringValue(value)} readOnly={readOnly} rows={isList ? 3 : 4} onChange={(event) => onChange(isList ? listFromLines(event.target.value) : event.target.value || null)} placeholder={question.placeholder ?? (isList ? "One item per line" : "Enter assessment detail")} className="w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73] read-only:bg-[#f4f6f5]" /><AssessmentFieldWritingGuidePanel field={definition.key} /></>;
+  const stringValue = fieldStringValue(value);
+  const [listEdit, setListEdit] = useState<{ source: string; text: string } | null>(null);
+  // Keep typing whitespace locally while autosave receives valid list items.
+  // A changed source value (for example, conflict resolution) replaces the edit.
+  if (listEdit && listEdit.source !== stringValue) setListEdit(null);
+  const displayedValue = isList && listEdit?.source === stringValue ? listEdit.text : stringValue;
+  return <><textarea data-guide-target="assessment-answer" id={id} value={displayedValue} readOnly={readOnly} rows={isList ? 3 : 4} onChange={(event) => {
+    const text = event.target.value;
+    const next = isList ? listFromLines(text) : text || null;
+    if (isList) setListEdit({ source: fieldStringValue(next), text });
+    onChange(next);
+  }} onBlur={() => setListEdit(null)} placeholder={question.placeholder ?? (isList ? "One item per line" : "Enter assessment detail")} className="w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73] read-only:bg-[#f4f6f5]" /><AssessmentFieldWritingGuidePanel field={definition.key} /></>;
 }
 
 function BasicAssessmentField({ id, definition, question, value, readOnly, onChange }: AssessmentFieldControlProps) {

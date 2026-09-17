@@ -1,6 +1,28 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Assessment practice lab", () => {
+  test("the real assessment renderer preserves typed spaces and newlines in secondary diagnoses", async ({ page }) => {
+    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical");
+    const guided = page.locator('[data-guided-assessment="true"]');
+    await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
+    const full = page.locator('[data-assessment-view="chart"]');
+    const secondary = full.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    await secondary.fill("");
+    await secondary.pressSequentially("Synthetic secondary ");
+    await expect(secondary).toHaveValue("Synthetic secondary ");
+    await secondary.pressSequentially("condition");
+    await secondary.press("Enter");
+    await expect(secondary).toHaveValue("Synthetic secondary condition\n");
+    await secondary.pressSequentially("Additional documented condition");
+    const answer = "Synthetic secondary condition\nAdditional documented condition";
+    await expect(secondary).toHaveValue(answer);
+    await secondary.press("Tab");
+    await expect(secondary).toHaveValue(answer);
+    await full.getByRole("button", { name: "Guided interview", exact: true }).click();
+    await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
+    await expect(full.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).toHaveValue(answer);
+  });
+
   test("uses acknowledgement choices in Recovery history and removes the separate Triggers question", async ({ page }) => {
     await page.goto("/note-lab/practice");
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
