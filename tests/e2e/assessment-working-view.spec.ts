@@ -131,7 +131,7 @@ test("the main questionnaire uses the left pane and remaining navigation stays o
   const nav = assessment.getByRole("navigation", { name: "Assessment sections", exact: true });
   await nav.getByRole("button", { name: "Jump to Communication and participation", exact: true }).click();
   await expect(assessment.getByRole("region", { name: "Communication and participation", exact: true }).getByRole("button", { name: /^Communication and participation/ })).toHaveAttribute("aria-expanded", "true");
-  await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(247, 250, 244)");
+  await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(248, 251, 249)");
   await expect(nav.getByRole("button", { name: /^Client & referral/ })).not.toBeVisible();
   await nav.getByText("Referral details", { exact: true }).click();
   await nav.getByRole("button", { name: /^Client & referral/ }).click();
@@ -191,9 +191,9 @@ test("profile links and the practice return link leave through the save path", a
   await expect(assessment).not.toBeVisible();
 });
 
-test("Home keeps the original neutral surface without recoloring other screens", async ({ page }) => {
+test("Home uses a light emerald canvas without recoloring other screens", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(244, 246, 245)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(242, 247, 245)");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
   await page.screenshot({ path: "outputs/home-working-green.png" });
 });

@@ -8,6 +8,7 @@ for (const entry of ["click", "shortcut"]) {
   test(`preserves an active ${entry} search when the Home briefing finishes loading`, async ({ page }) => {
     const response = await page.request.get("/api/operations/home");
     const briefing = await response.json();
+    await mockLayout(page, [...defaults, "search"]);
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     await page.route("**/api/operations/home", async (route) => {
@@ -67,7 +68,7 @@ async function mockLayout(page: Page, moduleIds: string[] = defaults) {
   return writes;
 }
 
-test("separates Home modules with neutral borders and responsive spacing", async ({ page }, testInfo) => {
+test("separates Home modules with light emerald surfaces and responsive spacing", async ({ page }, testInfo) => {
   await mockLayout(page, completeModuleSet);
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
@@ -83,11 +84,11 @@ test("separates Home modules with neutral borders and responsive spacing", async
     };
   }));
   for (const style of styles) {
-    expect(style.backgroundColor).toBe("rgb(255, 255, 255)");
-    expect(style.borderTopColor).toBe("rgb(217, 217, 217)");
+    expect(style.backgroundColor).toMatch(/^rgba?\(255, 255, 255/);
+    expect(style.borderTopColor).toBe("rgb(220, 231, 226)");
     expect(style.borderTopWidth).toBe("1px");
   }
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(244, 246, 245)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(242, 247, 245)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -151,7 +152,7 @@ for (const width of [390, 1440]) {
     await previewButton.click();
     const preview = page.getByRole("dialog", { name: "Board module preview", exact: true });
     await expect(preview).toBeVisible();
-    await expect(preview.getByRole("button", { name: "Close my work module preview" })).toBeFocused();
+    await expect(preview.getByRole("button", { name: "Close board module preview" })).toBeFocused();
     await expect(preview.getByRole("img")).toBeVisible();
     expect(await preview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`module-enlarged-${width}.png`) });
