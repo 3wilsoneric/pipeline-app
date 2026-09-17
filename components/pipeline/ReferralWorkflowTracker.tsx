@@ -10,6 +10,7 @@ import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
+import folderStyles from "./ClientFolder.module.css";
 
 export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons" }: {
   briefing: HomeBriefingSnapshot;
@@ -94,11 +95,30 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
   const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const decision = stage === "decision" ? decisionPresentation(item) : null;
   const status = decision?.label ?? (stage === "in_progress" && item.assessment_state === "scheduled" ? "Assessment scheduled" : workflowStatusLabels[item.workflow_status]);
-  return <button type="button" data-board-card data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`group w-full border border-l-[3px] border-[#dce3df] bg-white px-3 py-3 text-left outline-none hover:border-[#0f8b73] hover:bg-[#f7faf8] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${decision?.accent ?? boardAccent(stage)}`}>
-    <span className="flex items-start justify-between gap-2"><span className="min-w-0 truncate text-[14px] font-bold text-[#202320]">{name}</span><ArrowRight size={15} className="mt-0.5 shrink-0 text-[#7b837e] group-hover:text-[#0f8b73]" aria-hidden="true" /></span>
-    <span className={`mt-2 block text-[11px] font-bold ${decision?.tone ?? "text-[#176f60]"}`}>{status}</span>
-    <span className="mt-1 block line-clamp-2 min-h-8 text-[11px] leading-4 text-[#5f6762]">{item.next_action}</span>
-    <span className="mt-2 block truncate text-[10px] font-semibold text-[#69716c]">{item.community}{showOwner ? ` · ${item.owner}` : ""}</span>
+  return <button type="button" data-board-card data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={folderStyles.folder}>
+    <strong className={folderStyles.tab}><span className={folderStyles.tabLabel}>{name}</span></strong>
+    <span className={folderStyles.body}>
+      <span className={folderStyles.paper}>
+        <span className="flex items-center justify-between gap-3 border-b border-[#d8e1da] bg-[#f1f7f3] px-3 py-3">
+          <span data-board-status className={`border-l-[3px] pl-2 text-[11px] font-bold leading-4 ${decision?.tone ?? "text-[#176f60]"} ${decision?.accent ?? boardAccent(stage)}`}>{status}</span>
+          <span aria-hidden="true" className={folderStyles.open}><ArrowRight size={16} /></span>
+        </span>
+        <span className="block min-h-[84px] px-3 py-3">
+          <span className="block text-[9px] font-bold uppercase tracking-[0.07em] text-[#59685f]">Next step</span>
+          <span className="mt-1.5 block text-[13px] leading-5 text-[#25382e] [overflow-wrap:anywhere]">{item.next_action}</span>
+        </span>
+        <span className={`grid gap-px border-t border-[#dde3de] bg-[#dde3de] ${showOwner ? "grid-cols-2" : "grid-cols-1"}`}>
+          <span className="min-w-0 bg-white px-3 py-3">
+            <span className="block text-[9px] font-bold uppercase tracking-[0.07em] text-[#59685f]">Community</span>
+            <span className="mt-1 block text-[12px] font-semibold leading-5 text-[#25382e] [overflow-wrap:anywhere]">{item.community}</span>
+          </span>
+          {showOwner ? <span className="min-w-0 bg-white px-3 py-3">
+            <span className="block text-[9px] font-bold uppercase tracking-[0.07em] text-[#59685f]">Assessor</span>
+            <span className="mt-1 block text-[12px] font-semibold leading-5 text-[#25382e] [overflow-wrap:anywhere]">{item.owner || "Unassigned"}</span>
+          </span> : null}
+        </span>
+      </span>
+    </span>
   </button>;
 }
 

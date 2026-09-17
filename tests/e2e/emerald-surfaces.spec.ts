@@ -1,11 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { AxeResults } from "axe-core";
+import { randomUUID } from "node:crypto";
 
 async function syntheticHome(page: Page) {
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
-    const names = ["Taylor Rivera", "Jordan Ellis", "Morgan Chen", "Casey Brooks", "Alex Reed", "Riley Hart"];
+    const names = ["Taylor Rivera", "Christopher Montgomery-Worthington", "Morgan Chen", "Casey Brooks", "Alex Reed", "Riley Hart"];
     const statuses = ["ready_to_schedule", "profile_incomplete", "assessment_scheduled", "assessment_in_progress", "decision_pending", "admitted"];
     const actions = ["Schedule the assessment", "Complete the referral details", "Assessment on Thursday at 10:00 AM", "Continue Clinical", "Review the recommendation", "Admission recorded"];
     const items = names.map((name, index) => ({
@@ -49,10 +50,19 @@ for (const width of [1440, 1024, 437, 390]) {
     const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, "::before").backgroundColor));
     expect(new Set(stageColors).size).toBe(4);
     const firstCard = page.locator('[data-board-card]').first();
-    await expect(firstCard).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    await expect(firstCard).toHaveCSS("border-top-left-radius", "10px");
-    await expect(firstCard.locator(':scope > span:last-child')).toHaveCSS("background-image", "none");
-    await expect(firstCard.locator(':scope > span:last-child')).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const folderTab = firstCard.locator(':scope > strong');
+    const folderBody = firstCard.locator(':scope > span');
+    await expect(folderTab).toHaveText("Taylor Rivera");
+    await expect(folderTab).toHaveCSS("font-size", "16px");
+    await expect(folderTab).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(folderBody).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(folderBody.locator(':scope > span')).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    const tabBox = (await folderTab.boundingBox())!;
+    const bodyBox = (await folderBody.boundingBox())!;
+    expect(tabBox.y + tabBox.height - bodyBox.y).toBe(1);
+    await expect(firstCard.locator('button, a, input, select')).toHaveCount(0);
+    const longName = page.getByRole('button', { name: 'Open Christopher Montgomery-Worthington', exact: true }).locator(':scope > strong');
+    expect(await longName.evaluate((element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true);
     const stageHeader = page.locator('[data-board-stage="received"] > div:first-child');
     await expect(stageHeader).toHaveCSS("background-image", "none");
     expect((await stageHeader.boundingBox())!.height).toBeLessThanOrEqual(48);
@@ -127,3 +137,48 @@ test("reduced motion removes card movement and the standalone lab stays unthemed
   await expect(page.getByTestId("standalone-review-shell")).toBeVisible();
   await expect(page.locator(".pipeline-surfaces")).toHaveCount(0);
 });
+
+for (const width of [1440, 390]) {
+  test(`Intake uses the client folder and keeps editing and questionnaire access at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const created = await page.request.post("/api/referrals", { data: {
+      client_mutation_id: randomUUID(),
+      assignee_id: "provisional:allo:annette",
+      referral: {
+        name: `Chart File ${randomUUID().slice(0, 8)}`, date: "2026-09-17", stage: "New",
+        community: "San Pablo", county: "Contra Costa County", source: "Synthetic visual test",
+        priority: "standard", tags: [], documentName: "", documentStatus: "Missing",
+        owner: "Annette Everhart", note: "", createdAt: new Date().toISOString(),
+        dob: "", phone: "", email: "", payer: "", requirements: [],
+      },
+    } });
+    expect(created.status()).toBe(201);
+    const { referral } = await created.json() as { referral: { id: number; name: string } };
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
+    const folder = page.getByTestId("intake-client-folder");
+    await expect(folder).toBeVisible();
+    await expect(folder.locator(":scope > strong")).toHaveText(referral.name);
+    await expect(folder.locator(":scope > strong")).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(folder.locator(":scope > div")).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(folder.getByRole("article", { name: "Referral intake chart", exact: true })).toBeVisible();
+    await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
+    await page.getByTestId("document-checklist-toggle").click();
+    await expect(page.getByTestId("document-checklist-panel")).toHaveAttribute("open", "");
+    await page.getByTestId("document-checklist-toggle").click();
+    const email = folder.getByRole("textbox", { name: "Client email:", exact: true });
+    await email.fill("chart-file@example.invalid");
+    await email.press("Tab");
+    await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.email).toBe("chart-file@example.invalid");
+    await page.reload();
+    await expect(email).toHaveValue("chart-file@example.invalid");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await folder.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await folder.locator(":scope > strong").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`intake-folder-${width}.png`) });
+    const questionnaire = page.getByRole("button", { name: "Open questionnaire", exact: true });
+    await questionnaire.scrollIntoViewIfNeeded();
+    await expect(questionnaire).toBeInViewport();
+    await questionnaire.click();
+    await expect(page.locator('[data-assessment-view="chart"]')).toBeVisible();
+  });
+}

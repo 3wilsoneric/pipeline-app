@@ -35,6 +35,7 @@ import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
+import folderStyles from "./ClientFolder.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
@@ -2267,6 +2268,10 @@ export default function ReferralPacketCanvas({
           ) : displayedPage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake">
             <IntakeEditScope readOnly={permissionReadOnly}>
+            <div data-testid="intake-client-folder" className={folderStyles.recordFolder}>
+              <strong className={folderStyles.tab}><span className={folderStyles.tabLabel}>{workspaceTitle}</span></strong>
+              <div className={folderStyles.body}>
+                <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
             <IntakeDocumentChecklist
               initialPacket={initialPacket}
               initialPacketCategory={initialPacketCategory}
@@ -2443,6 +2448,9 @@ export default function ReferralPacketCanvas({
                 />
               </aside>
             </ClientChartFrame>
+                </div>
+              </div>
+            </div>
             </IntakeEditScope>
           </PacketPage>
           ) : displayedPage === "files" ? (
