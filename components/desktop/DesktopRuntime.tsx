@@ -13,7 +13,8 @@ export default function DesktopRuntime() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
-    if (!isPipelineDesktopEnabled()) {
+    // Development chunks reuse URLs; offline caching would pin stale UI code.
+    if (process.env.NODE_ENV === "development" || !isPipelineDesktopEnabled()) {
       void removePipelineDesktopRuntime();
       return;
     }
