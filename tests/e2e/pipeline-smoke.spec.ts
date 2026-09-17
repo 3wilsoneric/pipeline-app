@@ -1815,7 +1815,7 @@ test.describe("Referral home and packet canvas", () => {
       expect.objectContaining({ type: "provider_form", evidenceDocumentName: "synthetic-provider-form.pdf" }),
     ]));
     expect(referralList.referrals[0]?.documentHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(referralList.referrals[0]?.packetId).toMatch(/^pkt_/);
+    expect(referralList.referrals[0]?.packetId).toMatch(/^[0-9a-f-]{36}$/);
     expect(referralList.referrals[0]?.packetFields?.find((field) => field.field_key === "demographics.date_of_birth")).toMatchObject({
       final_value: "1951-08-15",
       review_status: "edited",

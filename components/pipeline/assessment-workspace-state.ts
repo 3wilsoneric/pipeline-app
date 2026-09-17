@@ -140,8 +140,9 @@ export function canSaveAssessmentSection(
   assessment: PipelineAssessmentRecord | null,
   dirtySections: ReadonlySet<AssessmentToolSection>,
   section: AssessmentToolSection,
+  captured = false,
 ): assessment is PipelineAssessmentRecord {
-  return Boolean(assessment && dirtySections.has(section));
+  return Boolean(assessment && (captured || dirtySections.has(section)));
 }
 
 export function hasSectionConflict(
