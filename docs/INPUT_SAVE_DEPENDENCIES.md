@@ -20,6 +20,7 @@ The preparation, blur-save, and upload changes below are release candidates. Pro
 | Successful extraction before manually entering answers | Not required. Extraction review is a separate action; its own review endpoint requires an extracted packet. |
 | Complete contact/profile information before scheduling | Existing route treats these as alerts, not a hard requirement. An unexpected contact-read failure can still fail that scheduling request; see residuals. |
 | Retrying an upload after a lost response | The same referral/file content/name/type/category/intent produces the same reservation identity. Concurrent calls share an in-flight transfer; server reservation creation serializes that identity. Completion retries reuse it. |
+| Browser security policy allowing the upload destination | Live response headers omitted Blob Storage. The candidate adds only the validated `AZURE_STORAGE_ACCOUNT` origin at runtime; no all-storage wildcard and no new configuration setting. |
 
 ## Dependencies intentionally retained
 
@@ -56,5 +57,9 @@ The preparation, blur-save, and upload changes below are release candidates. Pro
 - `tests/e2e/operational/field-blur-upload.spec.ts`: isolated browser + real application routes/local stores. Checks no server writes during a typing pause, unchanged blur, captured-field requests while another field is active, compound-question reasons, explicit exit, file selection, lost completion acknowledgement, download bytes, retry deduplication, and a field save while upload completion is held.
 - `tests/e2e/operational/assessment-preparation.spec.ts`: preparation, scheduling, starting, resume, ownership, and last-answer retention.
 - Live deployment and live Azure/PostgreSQL proof belong to the deployment handoff. No production PHI was used or modified by these tests.
+
+The browser policy test starts the server with a synthetic storage account supplied only at runtime, checks the actual served CSP, and exercises a browser PUT with an intercepted storage response. Another account remains blocked. The runtime override applies only to app pages, preserving the separate restrictive policies on API-delivered clinical/packet evidence. This verifies browser policy, not Azure CORS or cloud availability.
+
+Recorded results: 11 focused save/upload/policy tests passed; 8 isolated operational browser journeys passed with server-draft support enabled at build time; 3 focused working-view browser regressions passed. Production build/TypeScript, scoped ESLint, diff checks, intake recovery contracts, shared-policy/training contracts, and the complexity ratchet passed. The fixture intentionally has no live census configured; its directory 503s did not block the tested answer/save paths. No full-app or live-cloud certification is claimed.
 
 Deduplication intentionally applies to the same referral and file role, not globally across clients. Renaming a file, changing its content/category/processing intent, or uploading it to another referral can create a distinct document. A later completed retry can retransmit bytes to the same reserved object; it must not create another document row. Server-side completed-upload short-circuiting is warranted only if measured retry bandwidth becomes a problem.
