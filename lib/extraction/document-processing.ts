@@ -111,6 +111,8 @@ export async function createDurableUploadTargets(
 
   try {
     await sql.begin(async (tx) => {
+      // Serialize only the same upload identity so simultaneous retries reuse one reservation.
+      await tx`select pg_advisory_xact_lock(hashtextextended(${`upload:${packetId}`}, 0))`;
       const referrals = await tx<{ referral_id: number | string; person_id: string }[]>`
         select referral_id, person_id from pipeline.referrals where referral_id = ${referralId} and deleted_at is null limit 1
       `;
