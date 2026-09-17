@@ -3,7 +3,7 @@ import type { AxeResults } from "axe-core";
 import { randomUUID } from "node:crypto";
 import { pipelineWorkspaceLocationFromSearchParams } from "../../lib/pipeline/work-continuity";
 
-async function syntheticHome(page: Page) {
+async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
@@ -17,9 +17,9 @@ async function syntheticHome(page: Page) {
       assignment_state: "assigned", document_state: "partial", profile_state: "partial", assessment_is_reassessment: false,
       owner: "Example Assessor", priority: "standard", categories: [], primary_category: "follow_up", next_action: actions[index],
       blockers: [], missing_data: [], urgency: "normal", due_at: null, last_activity_at: "2026-09-17T15:00:00Z",
-      age_hours: 1, completion_pct: 40, missing_document_count: 0, location: { view: index < 2 ? "intake" : "assessment" },
+      age_hours: 1, completion_pct: 40, missing_document_count: index === 0 ? 2 : 0, location: { view: index < 2 ? "intake" : "assessment" },
     }));
-    payload.scope = "team";
+    payload.scope = scope;
     payload.unavailable_sections = [];
     payload.continuity.unavailable = false;
     payload.continuity.resume_items = [];
@@ -55,7 +55,7 @@ for (const width of [1440, 1024, 437, 390]) {
     const folderTab = firstCard.locator('[data-folder-name]');
     const folderBody = firstCard.locator('[data-folder-body]');
     await expect(folderTab).toHaveText("Taylor Rivera");
-    await expect(folderTab).toHaveCSS("font-size", "14px");
+    await expect(folderTab).toHaveCSS("font-size", "15px");
     await expect(folderTab).toHaveCSS("background-image", /linear-gradient/);
     await expect(folderBody).toHaveCSS("background-image", /linear-gradient/);
     await expect(folderBody.locator(':scope > span')).toHaveCSS("background-color", "rgb(255, 255, 255)");
@@ -64,7 +64,7 @@ for (const width of [1440, 1024, 437, 390]) {
     expect(tabBox.y + tabBox.height - bodyBox.y).toBe(1);
     const statusTab = firstCard.locator('[data-board-status]');
     await expect(statusTab).toHaveText("Ready to schedule");
-    await expect(statusTab).toHaveCSS("font-size", "10px");
+    await expect(statusTab).toHaveCSS("font-size", "11px");
     const statusBox = (await statusTab.boundingBox())!;
     expect(statusBox.x).toBeGreaterThan(tabBox.x + tabBox.width);
     expect(statusBox.height).toBeLessThan(tabBox.height);
@@ -136,6 +136,42 @@ for (const width of [1440, 1024, 437, 390]) {
     await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
     expect(errors).toEqual([]);
   });
+}
+
+for (const width of [1440, 390]) {
+  for (const scope of ["team", "personal"] as const) {
+    test(`folder text and chart details remain readable at ${width}px for ${scope} work`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 1000 });
+      await syntheticHome(page, scope);
+      const stack = page.locator('[data-board-stage="received"]');
+      const first = stack.locator("[data-board-card]").first();
+      const last = stack.locator("[data-board-card]").last();
+      await expect(first).toContainText("Referral #910101");
+      await expect(first).toContainText("Updated Sep 17, 2026");
+      await expect(first.locator("[data-folder-details]")).toContainText("Documents needed2");
+      await expect(last.locator("[data-folder-name]")).toHaveCSS("font-weight", "800");
+      await expect(last.locator("[data-board-status]")).toHaveCSS("font-weight", "700");
+      await expect(last.locator("[data-folder-details]")).toContainText("CommunitySan Pablo");
+      await expect(last.locator("[data-folder-details]")).toContainText("File progress40% complete");
+      await expect(last.locator("[data-folder-details]")).toContainText("Documents needed0");
+      await expect(last.getByText("Assessor", { exact: true })).toHaveCount(scope === "team" ? 1 : 0);
+      if (scope === "team") await expect(last).toContainText("Example Assessor");
+      await last.scrollIntoViewIfNeeded();
+      expect(await last.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      const body = last.locator("[data-folder-body]");
+      const details = (await last.locator("[data-folder-details]").boundingBox())!;
+      const bodyBox = (await body.boundingBox())!;
+      expect(details.y + details.height).toBeLessThanOrEqual(bodyBox.y + bodyBox.height - 19);
+      await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+      const violations = await page.evaluate(async () => {
+        const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+        const result = await axe.run('[data-board-stage="received"]', { runOnly: ["color-contrast", "button-name"] });
+        return result.violations.map(({ id, nodes }) => ({ id, targets: nodes.map(({ target }) => target) }));
+      });
+      expect(violations).toEqual([]);
+      await stack.screenshot({ path: testInfo.outputPath(`folder-details-${scope}-${width}.png`) });
+    });
+  }
 }
 
 test("board folders fan halfway on hover and keyboard focus without fetching or changing the click path", async ({ page }, testInfo) => {
