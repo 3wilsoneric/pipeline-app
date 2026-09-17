@@ -45,6 +45,8 @@ test.describe("Assessment practice lab", () => {
   });
 
   test("captures and restores secondary diagnosis separately from primary diagnosis", async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/note-lab/practice");
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
     await sectionRail.getByRole("button", { name: /^Clinical\b/ }).click();
@@ -56,9 +58,16 @@ test.describe("Assessment practice lab", () => {
     await secondary.pressSequentially("Additional documented condition");
     const answer = "Synthetic secondary condition\nAdditional documented condition";
     await expect(secondary).toHaveValue(answer);
+    expect(pageErrors).toEqual([]);
+    await secondary.press("Enter");
+    const continuation = "A separate synthetic diagnosis with additional documentation retained for review";
+    await secondary.pressSequentially(continuation);
+    const completeAnswer = `${answer}\n${continuation}`;
+    await expect(secondary).toHaveValue(completeAnswer);
     await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByLabel("Secondary diagnosis", { exact: true })).toHaveValue(answer);
+    await expect(page.getByLabel("Secondary diagnosis", { exact: true })).toHaveValue(completeAnswer);
+    expect(pageErrors).toEqual([]);
   });
 
   test("keeps obvious fields plain and guides only authored narrative fields", async ({ page }) => {

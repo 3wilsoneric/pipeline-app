@@ -188,7 +188,6 @@ export default function AssessmentPracticeWorkspace({
 
   useEffect(() => {
     if (walkthroughOnly || !storageReady) return;
-    setAutosaveState("saving");
     const timeout = window.setTimeout(() => {
       setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection, data }) ? "saved" : "failed");
     }, 300);
@@ -196,6 +195,8 @@ export default function AssessmentPracticeWorkspace({
   }, [activeSection, data, storageKey, storageReady, walkthroughOnly]);
 
   const update = (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => {
+    // Batch save feedback with the edit, not a second update after every render.
+    if (!walkthroughOnly) setAutosaveState("saving");
     setData((current) => ({ ...current, [field]: value }) as AssessmentToolData);
   };
 
@@ -205,6 +206,7 @@ export default function AssessmentPracticeWorkspace({
     } catch {
       setAutosaveState("failed");
     }
+    if (!walkthroughOnly) setAutosaveState("saving");
     setData(walkthroughOnly ? createEmptyAssessmentToolData() : createAssessmentPracticeData());
     setActiveSection(assessmentInterviewSections[0].key);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
