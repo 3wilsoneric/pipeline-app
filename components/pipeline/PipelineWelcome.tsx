@@ -360,7 +360,7 @@ type BriefingPanelProps = {
 
 function SectionHeader({ title, detail, icon }: { title: string; detail: string; icon?: ReactNode }) {
   return (
-    <div className="flex min-h-12 items-center justify-between gap-3 border-b border-[#e1e6e3] px-1 pb-2">
+    <div className="home-panel-heading flex min-h-12 items-center justify-between gap-3 border-b border-[#e1e6e3] px-1 pb-2">
       <h2 className="flex items-center gap-2.5 text-[16px] font-extrabold text-[#202723]">{icon}{title}</h2>
       <span className="text-[11px] font-bold text-[#626a65]">{detail}</span>
     </div>

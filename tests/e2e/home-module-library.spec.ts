@@ -8,6 +8,7 @@ for (const entry of ["click", "shortcut"]) {
   test(`preserves an active ${entry} search when the Home briefing finishes loading`, async ({ page }) => {
     const response = await page.request.get("/api/operations/home");
     const briefing = await response.json();
+    await mockLayout(page, [...defaults, "search"]);
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     await page.route("**/api/operations/home", async (route) => {
@@ -67,13 +68,14 @@ async function mockLayout(page: Page, moduleIds: string[] = defaults) {
   return writes;
 }
 
-test("separates Home modules with neutral borders and responsive spacing", async ({ page }, testInfo) => {
+test("separates Home modules with light emerald surfaces and responsive spacing", async ({ page }, testInfo) => {
   await mockLayout(page, completeModuleSet);
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
 
-  const surfaces = page.locator('[data-home-surface="true"]');
-  await expect(surfaces).toHaveCount(6);
+  await expect(page.locator('[data-home-surface="true"]')).toHaveCount(6);
+  await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", "0px");
+  const surfaces = page.locator('[data-home-surface="true"]:not([data-home-module="current-work"])');
   const styles = await surfaces.evaluateAll((elements) => elements.map((element) => {
     const style = getComputedStyle(element);
     return {
@@ -83,11 +85,11 @@ test("separates Home modules with neutral borders and responsive spacing", async
     };
   }));
   for (const style of styles) {
-    expect(style.backgroundColor).toBe("rgb(255, 255, 255)");
-    expect(style.borderTopColor).toBe("rgb(217, 217, 217)");
+    expect(style.backgroundColor).toMatch(/^rgba?\(255, 255, 255/);
+    expect(style.borderTopColor).toBe("rgb(206, 219, 215)");
     expect(style.borderTopWidth).toBe("1px");
   }
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(244, 246, 245)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(237, 243, 242)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -151,7 +153,7 @@ for (const width of [390, 1440]) {
     await previewButton.click();
     const preview = page.getByRole("dialog", { name: "Board module preview", exact: true });
     await expect(preview).toBeVisible();
-    await expect(preview.getByRole("button", { name: "Close my work module preview" })).toBeFocused();
+    await expect(preview.getByRole("button", { name: "Close board module preview" })).toBeFocused();
     await expect(preview.getByRole("img")).toBeVisible();
     expect(await preview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`module-enlarged-${width}.png`) });
@@ -289,7 +291,7 @@ test("an empty Home can add modules again or restore defaults", async ({ page })
   await expect.poll(() => moduleOrder(page)).toEqual(["current-work", ...defaults.filter((id) => id !== "current-work")]);
 });
 
-test("layout loading cannot overwrite an edit made against an unfinished read", async ({ page }) => {
+test("waits for saved layout before allowing edits and keeps the Board", async ({ page }) => {
   test.skip(!serverStateEnabled, "Async server reads are covered by test:e2e:desktop; browser-only layouts load synchronously.");
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -302,7 +304,7 @@ test("layout loading cannot overwrite an edit made against an unfinished read", 
   await expect(page.getByRole("button", { name: /^Remove .* from Home$/ })).toHaveCount(0);
   release();
   await expect(page.getByRole("button", { name: "Add module", exact: true })).toBeEnabled();
-  await expect.poll(() => moduleOrder(page)).toEqual(["recent-work"]);
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work", "recent-work"]);
 });
 
 test("the layout API migrates legacy order, preserves removals, and scopes settings to the signed-in user", async ({ request, baseURL }) => {

@@ -115,17 +115,22 @@ test("fits desktop, tablet, and phone and resets section scroll", async ({ page 
   }
   await assessment.locator("main").evaluate((element) => { element.scrollTop = element.scrollHeight; });
   await assessment.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
-  await expect(assessment.getByRole("heading", { name: "History", exact: true })).toBeInViewport();
+  await expect(assessment.getByLabel("Assessment section", { exact: true })).toHaveValue("prior_history");
+  await expect(assessment.getByLabel("Assessment section", { exact: true })).toBeInViewport();
+  await expect(assessment.getByRole("button", { name: /^Placement trajectory/ })).toBeInViewport();
+  await expect.poll(() => assessment.locator("main").evaluate((element) => element.scrollTop)).toBe(0);
   await page.screenshot({ path: "outputs/assessment-working-mobile.png" });
 });
 
-test("the main questionnaire uses the left pane and remaining navigation stays on the right", async ({ page }) => {
+test("captured answers sit beside the questionnaire and remaining navigation stays on the right", async ({ page }) => {
   const assessment = await openWorkingAssessment(page);
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1920, height: 1080 }]) {
     await page.setViewportSize(viewport);
     const editor = (await assessment.locator("[data-assessment-question-editor]").boundingBox())!;
-    expect(editor.width).toBeGreaterThan(viewport.width === 1440 ? 1000 : 1450);
-    expect(editor.x).toBeLessThan(80);
+    expect(editor.width).toBeGreaterThan(viewport.width === 1440 ? 760 : 1100);
+    const captured = (await assessment.getByRole("complementary", { name: "Captured assessment answers" }).boundingBox())!;
+    expect(captured.x).toBeLessThan(80);
+    expect(captured.x + captured.width).toBeLessThan(editor.x);
     const panel = (await assessment.locator("[data-assessment-working-section]").boundingBox())!;
     const nav = (await assessment.getByRole("complementary", { name: "Assessment navigation", exact: true }).boundingBox())!;
     expect(nav.x).toBeGreaterThanOrEqual(panel.x + panel.width);
@@ -133,7 +138,7 @@ test("the main questionnaire uses the left pane and remaining navigation stays o
   const nav = assessment.getByRole("navigation", { name: "Assessment sections", exact: true });
   await nav.getByRole("button", { name: "Jump to Communication and participation", exact: true }).click();
   await expect(assessment.getByRole("region", { name: "Communication and participation", exact: true }).getByRole("button", { name: /^Communication and participation/ })).toHaveAttribute("aria-expanded", "true");
-  await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(247, 250, 244)");
+  await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCSS("background-color", "rgb(234, 241, 248)");
   await expect(nav.getByRole("button", { name: /^Client & referral/ })).not.toBeVisible();
   await nav.getByText("Referral details", { exact: true }).click();
   await nav.getByRole("button", { name: /^Client & referral/ }).click();
@@ -193,9 +198,9 @@ test("profile links and the practice return link leave through the save path", a
   await expect(assessment).not.toBeVisible();
 });
 
-test("Home keeps the original neutral surface without recoloring other screens", async ({ page }) => {
+test("Home uses a light emerald canvas without recoloring other screens", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(244, 246, 245)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(237, 243, 242)");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
   await page.screenshot({ path: "outputs/home-working-green.png" });
 });

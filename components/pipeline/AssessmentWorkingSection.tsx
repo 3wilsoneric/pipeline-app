@@ -27,6 +27,8 @@ import {
   groupWorkingQuestions,
   matchesAssessmentQuestion,
 } from "@/components/pipeline/assessment-working-view";
+import { assessmentPreparationGroups, preparationQuestions } from "@/lib/assessment/assessment-preparation";
+import preparationStyles from "@/components/pipeline/AssessmentPreparation.module.css";
 
 type WorkingData = { data: AssessmentToolData; pending: readonly AssessmentToolFieldKey[] };
 type QuestionTarget = { field: AssessmentToolFieldKey };
@@ -110,7 +112,7 @@ export function AssessmentRemainingQuestions({ section, data, pending, onJump, e
   </details>;
 }
 
-type WorkingSectionProps = WorkingData & {
+export type WorkingSectionProps = WorkingData & {
   section: AssessmentToolSection;
   assessment: PipelineAssessmentRecord;
   questions: readonly AssessmentInterviewQuestion[];
@@ -123,6 +125,9 @@ type WorkingSectionProps = WorkingData & {
   onFieldBlur: (field: AssessmentToolFieldKey) => void;
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
   onUnableReasonChange: (field: AssessmentToolFieldKey, reason: string) => void;
+  referenceGroup?: string;
+  onReferenceGroupChange?: (group: string) => void;
+  onReferenceEdit?: (field: AssessmentToolFieldKey) => void;
 };
 
 export default function AssessmentWorkingSection(props: WorkingSectionProps) {
@@ -132,9 +137,15 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   const [openGroup, setOpenGroup] = useState(() => targetGroup ?? groups.find((group) => group.questions.some((question) => assessmentQuestionStatus(question, data, pending) !== "captured"))?.label ?? null);
   const [localTarget, setLocalTarget] = useState<QuestionTarget | null>(target);
   const [receivedTarget, setReceivedTarget] = useState(target);
+  const [receivedSection, setReceivedSection] = useState(props.section);
   const editor = useRef<HTMLDivElement>(null);
 
-  if (target !== receivedTarget) {
+  if (props.section !== receivedSection) {
+    setReceivedSection(props.section);
+    setReceivedTarget(target);
+    setLocalTarget(target);
+    setOpenGroup(targetGroup ?? groups.find((group) => group.questions.some((question) => assessmentQuestionStatus(question, data, pending) !== "captured"))?.label ?? null);
+  } else if (target !== receivedTarget) {
     setReceivedTarget(target);
     setLocalTarget(target);
     if (targetGroup) setOpenGroup(targetGroup);
@@ -151,7 +162,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
 
   return (
     <div data-assessment-working-section className="space-y-5">
-      <CapturedAssessmentAnswers section={props.section} data={data} pending={pending} questions={questions} onEdit={(field) => { setOpenGroup(questions.find((question) => question.field === field)!.group); setLocalTarget({ field }); }} />
+      <CapturedAssessmentAnswers section={props.section} data={data} pending={pending} questions={questions} referenceGroup={props.referenceGroup} onReferenceGroupChange={props.onReferenceGroupChange} onEdit={props.onReferenceEdit ?? ((field) => { setOpenGroup(questions.find((question) => question.field === field)!.group); setLocalTarget({ field }); })} />
       <div ref={editor} data-assessment-question-editor className="min-w-0">
         <div className="divide-y divide-[#d8e2d7]">
           {groups.map((group, index) => <WorkingQuestionGroup key={group.label} {...props} group={group} index={index} open={openGroup === group.label} onToggle={() => { setLocalTarget(null); setOpenGroup(openGroup === group.label ? null : group.label); }} />)}
@@ -187,7 +198,7 @@ function WorkingQuestionGroup(props: WorkingSectionProps & { group: ReturnType<t
   );
 }
 
-function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur }: WorkingSectionProps & { question: AssessmentInterviewQuestion }) {
+export function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur }: WorkingSectionProps & { question: AssessmentInterviewQuestion }) {
   const definition = assessmentToolFieldDefinitions.find((definition) => definition.key === question.field)!;
   return <div data-working-field={question.field} onFocusCapture={() => onFieldFocus(question.field)} onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) onFieldBlur(question.field);
@@ -196,9 +207,11 @@ function WorkingAssessmentField({ question, data, assessment, required, pending,
   </div>;
 }
 
-function CapturedAssessmentAnswers({ section, data, pending, questions, onEdit }: WorkingData & { section: AssessmentToolSection; questions: readonly AssessmentInterviewQuestion[]; onEdit: (field: AssessmentToolFieldKey) => void }) {
+function CapturedAssessmentAnswers({ section, data, pending, questions, referenceGroup, onReferenceGroupChange, onEdit }: WorkingData & Pick<WorkingSectionProps, "referenceGroup" | "onReferenceGroupChange"> & { section: AssessmentToolSection; questions: readonly AssessmentInterviewQuestion[]; onEdit: (field: AssessmentToolFieldKey) => void }) {
   const [expanded, setExpanded] = useState(false);
-  const captured = questions.filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field));
+  const reference = assessmentPreparationGroups.find((group) => group.key === referenceGroup);
+  const referenceQuestions = reference ? preparationQuestions(reference, data) : questions;
+  const captured = referenceQuestions.filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field));
   const groups = groupWorkingQuestions(captured);
   const id = `captured-answers-${section}`;
   return (
@@ -206,6 +219,10 @@ function CapturedAssessmentAnswers({ section, data, pending, questions, onEdit }
       <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)} className="flex w-full items-center justify-between gap-3 text-left text-[13px] font-bold text-[#294735] focus-visible:outline-2 focus-visible:outline-[#0f8b73] min-[1200px]:hidden"><span>Captured answers · {captured.length}</span><ChevronDown size={16} aria-hidden="true" className={expanded ? "rotate-180" : ""} /></button>
       <h4 className="hidden text-[14px] font-bold text-[#294735] min-[1200px]:block">Captured answers</h4>
       <div id={id} className={expanded ? "max-h-[45dvh] overflow-y-auto min-[1200px]:max-h-none min-[1200px]:overflow-visible min-[1200px]:grid min-[1200px]:grid-cols-2 min-[1200px]:gap-x-6" : "hidden min-[1200px]:grid min-[1200px]:grid-cols-2 min-[1200px]:gap-x-6"}>
+      {onReferenceGroupChange ? <select aria-label="Reference information" value={referenceGroup ?? "section"} onChange={(event) => onReferenceGroupChange(event.target.value)} className={preparationStyles.referenceSelector}>
+        <option value="section">This assessment section</option>
+        {assessmentPreparationGroups.map((group) => <option key={group.key} value={group.key}>{group.label}</option>)}
+      </select> : null}
       {!captured.length ? <p className="mt-4 text-[12px] text-[#667364]">No answers captured in this section.</p> : null}
       {groups.map((group) => <section key={group.label} className="mt-5"><h5 className="mb-1 text-[11px] font-bold text-[#5e705c]">{group.label}</h5>
         <div className="divide-y divide-[#d8e1d2]">{group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} onEdit={onEdit} />)}</div>

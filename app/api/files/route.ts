@@ -7,7 +7,7 @@ import {
 } from "@/lib/pipeline/referral-store";
 import { isKeysetCursor } from "@/lib/pipeline/keyset-cursor";
 import { requireReferralAccess, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
-import { isOptionalReferralWorkspaceScope, readReferralWorkspaceScope } from "@/lib/pipeline/referral-query";
+import { invalidQuerySelections, isOptionalReferralWorkspaceScope, readQuerySelections, readReferralWorkspaceScope } from "@/lib/pipeline/referral-query";
 
 export const runtime = "nodejs";
 
@@ -37,10 +37,10 @@ export async function GET(request: Request) {
     if (sourceSystem && !["pipeline", "alamo_platform", "allo", "import"].includes(sourceSystem)) return jsonError("source_system is invalid.");
     const uploadedRange = validateUploadedRange(url.searchParams);
     if (!uploadedRange.ok) return jsonError(uploadedRange.message);
-    const community = bounded(url.searchParams.get("community"), 128);
-    if (community === false) return jsonError("community must be 128 characters or fewer.");
-    const owner = bounded(url.searchParams.get("owner"), 128);
-    if (owner === false) return jsonError("owner must be 128 characters or fewer.");
+    const communities = readQuerySelections(url.searchParams, "community");
+    if (invalidQuerySelections(communities, 128)) return jsonError("community allows up to 50 selections, 128 characters each.");
+    const owners = readQuerySelections(url.searchParams, "owner");
+    if (invalidQuerySelections(owners, 128)) return jsonError("owner allows up to 50 selections, 128 characters each.");
     const category = bounded(url.searchParams.get("category"), 80);
     if (category === false) return jsonError("category must be 80 characters or fewer.");
     const result = await listReferralFiles(scopeReferralListOptions(auth.user, {
@@ -48,8 +48,8 @@ export async function GET(request: Request) {
       query,
       limit,
       cursor,
-      community: community || undefined,
-      owner: owner || undefined,
+      communities,
+      owners,
       category: category || undefined,
       identityStatus: identityStatus as "linked" | "candidate" | "unmatched" | undefined,
       sourceSystem: sourceSystem as "pipeline" | "alamo_platform" | "allo" | "import" | undefined,

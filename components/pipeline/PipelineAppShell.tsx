@@ -23,7 +23,7 @@ export default function PipelineAppShell({
 
   return (
     <PipelineShellProvider value={{ searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode, setHomeMode, contentRef, beforeNavigationRef, assessmentFocused, setAssessmentFocused }}>
-      <div className="flex h-screen flex-col overflow-hidden bg-white text-[#111111]">
+      <div className="pipeline-surfaces flex h-screen flex-col overflow-hidden bg-white text-[#111111]">
         <Suspense fallback={null}>
           <DemoEnvironmentBanner />
         </Suspense>
