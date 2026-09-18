@@ -1,11 +1,56 @@
 import {
   assessmentInterviewFieldLabel,
   assessmentInterviewOptionLabel,
+  assessmentInterviewSections,
+  getAssessmentInterviewQuestions,
   getAssessmentUnableReason,
   hasAssessmentInterviewValue,
   type AssessmentInterviewQuestion,
 } from "@/lib/assessment/assessment-interview-schema";
-import type { AssessmentToolData, AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
+import type { AssessmentToolData, AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
+
+// Presentation order only: retain canonical fields, conditions, and source checks.
+// Add cross-topic regrouping only when assessor feedback identifies a concrete gap.
+export const assessmentConversationSections = ([
+  ["identity", "Confirm the basics"],
+  ["diagnosis_clinical", "How things are now"],
+  ["functional_adl", "A usual day"],
+  ["physical_health", "Health and comfort"],
+  ["medication", "Medication"],
+  ["prior_placement", "Living situation"],
+  ["prior_history", "Recent care and history"],
+  ["substance_use", "Substance use and recovery"],
+  ["behavioral_risk", "Safety and support"],
+  ["legal_conservatorship", "Decisions and legal support"],
+  ["social_support", "What matters next"],
+  ["provenance_qc", "Anything else"],
+] as const).map(([key, label]) => ({ key, label }));
+
+export function assessmentGapSections(data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[]) {
+  return assessmentConversationSections.map((section) => {
+    const questions = getAssessmentInterviewQuestions(section.key, data);
+    const remaining = questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured");
+    return { ...section, questions, remaining };
+  });
+}
+
+export function assessmentConversationContext(section: AssessmentToolSection, data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[]) {
+  const all = assessmentInterviewSections.flatMap((item) => getAssessmentInterviewQuestions(item.key, data));
+  // Surface recorded accommodations and current support, never infer clinical risk.
+  const support: AssessmentToolFieldKey[] = ["current_safety_measures"];
+  if (data.language_barrier === "yes") support.push("language_barrier", "language_barrier_details");
+  if (data.linear_conversation === "no") support.push("linear_conversation", "linear_conversation_details");
+  if (data.ambulatory === "no") support.push("ambulatory", "mobility");
+  if (data.current_self_harm_ideation === "yes") support.push("current_self_harm_ideation", "current_self_harm_details");
+  const captured = (question: AssessmentInterviewQuestion) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field);
+  const supportQuestions = support.flatMap((field) => all.filter((question) => question.field === field && captured(question)));
+  const relatedSections: AssessmentToolSection[] = section === "prior_history" ? [section, "prior_placement"] : [section];
+  const relevant = relatedSections.flatMap((key) => getAssessmentInterviewQuestions(key, data)).filter((question) => captured(question) && !supportQuestions.some((item) => item.field === question.field));
+  return [
+    ...(supportQuestions.length ? [{ label: "Interview support", questions: supportQuestions }] : []),
+    ...groupWorkingQuestions(relevant),
+  ];
+}
 
 export function assessmentQuestionStatus(question: AssessmentInterviewQuestion, data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[]) {
   if (pending.includes(question.field)) return "verify";

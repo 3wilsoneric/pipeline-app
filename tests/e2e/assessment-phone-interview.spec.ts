@@ -63,6 +63,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await expect(pocket).toBeVisible();
       await pocket.getByRole("button", { name: "Client info", exact: true }).tap();
       const reference = page.getByRole("dialog", { name: "Client information", exact: true });
+      await reference.getByLabel("Reference information").selectOption("all");
       await expect(reference.getByText("Synthetic phone note", { exact: true })).toBeVisible();
       await reference.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).tap();
       await expect(diagnosis).toHaveValue("Synthetic phone note");
@@ -89,7 +90,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       });
       expect(violations).toEqual([]);
       // Full-screen exit returns to this referral, without beginning or signing it.
-      await page.getByRole("button", { name: "Close assessment", exact: true }).tap();
+      await page.getByRole("button", { name: "Back to referral", exact: true }).tap();
       await expect(page.getByTestId("intake-client-folder")).toBeVisible();
       expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(false);
       const assessments = await read();
@@ -98,11 +99,12 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       expect(assessments[0].started_at).toBeNull();
 
       await page.getByRole("button", { name: "02 Questionnaire", exact: true }).tap();
-      await page.locator('footer[aria-label="Assessment actions"] summary').tap();
+      await page.locator('summary[aria-label="Assessment details"]').tap();
       await page.getByRole("button", { name: "Begin assessment", exact: true }).tap();
       const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
       await expect(begin).toBeInViewport();
-      await begin.getByRole("button", { name: "Begin assessment", exact: true }).tap();
+      await begin.getByRole("button", { name: "Record start", exact: true }).tap();
+      await page.getByRole("button", { name: "Return to assessment", exact: true }).tap();
       await expect(page.getByRole("region", { name: "Guided assessment", exact: true })).toBeVisible();
       await expect.poll(async () => Boolean((await read())[0]?.started_at)).toBe(true);
       await findQuestion(page, "Secondary diagnosis");

@@ -22,7 +22,7 @@ test.describe("independent assessor workflow steps", () => {
       await page.getByRole("region", { name: "Intake completion", exact: true }).getByRole("button", { name: "Open questionnaire", exact: true }).click();
       const editor = page.locator('[data-assessment-view="chart"]');
       await expect(editor).toBeVisible();
-      await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
       await expect(editor).toHaveCount(0);
       await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "01 Intake", exact: true }).click();
       await expect(page.getByRole("region", { name: "Intake completion", exact: true })).toBeVisible();

@@ -2,6 +2,7 @@ import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth
 import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { buildAssessmentSummaryReport, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import { jsonError } from "@/lib/extraction/contracts";
+import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { getGraphMailReadiness } from "@/lib/notifications/microsoft-graph-mail";
@@ -56,12 +57,14 @@ export async function GET(
       mail.configured,
       admissionPacket.blockers,
     );
-    const canSend = canSendAdmissionSummary(auth.user, access.referral);
+    const exampleOnly = getPipelineDemoEnvironment().writable;
+    const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
 
     return Response.json({
       referral: snapshot.referral,
       report,
       email: {
+        example_only: exampleOnly,
         configured: mail.configured,
         sender: mail.sender,
         preview: report ? renderMeetClientEmail(

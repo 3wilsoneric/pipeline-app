@@ -78,6 +78,7 @@ test("keeps scheduling methods, keyboard focus, and unsaved appointment edits us
   await expect(save).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+  await page.locator('summary[aria-label="Assessment details"]').click();
   await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(date).toHaveValue("2027-09-14T09:30");

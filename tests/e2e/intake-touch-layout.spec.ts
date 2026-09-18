@@ -70,6 +70,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await expect(name).toHaveValue(clientName);
       await header.getByRole("button", { name: "Create referral", exact: true }).tap();
       await expect(page).toHaveURL(/referralId=\d+/);
+      const savedReferralId = new URL(page.url()).searchParams.get("referralId");
       await expect(header.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
       await header.getByRole("button", { name: "02 Questionnaire", exact: true }).tap();
       await expect(page.locator("[data-phone-interview]")).toBeVisible();
@@ -79,7 +80,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         const preparedName = page.getByRole("region", { name: "Referral preparation", exact: true }).getByRole("textbox", { name: "Resident name", exact: true });
         await expect(preparedName).toHaveCSS("font-size", "16px");
         expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        expect((await page.getByRole("button", { name: "Begin assessment", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect((await page.getByRole("button", { name: "Open assessment", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("preparation-client-folder");
         await expect(preparation.locator(":scope > strong")).toHaveCount(0);
         const headerBox = (await header.boundingBox())!;
@@ -88,7 +89,10 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         await page.screenshot({ path: info.outputPath(`preparation-${engine}-${width}.png`), animations: "disabled" });
       }
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.getByRole("button", { name: "Close assessment", exact: true }).tap();
+      await page.getByRole("button", { name: "Back to referral", exact: true }).tap();
+      await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe(savedReferralId);
+      const savedReferral = await (await page.request.get(`/api/referrals/${savedReferralId}`)).json();
+      expect(savedReferral.referral.name).toBe(clientName);
       await expect(name).toHaveValue(clientName);
       await header.getByRole("button", { name: "Workspace files", exact: true }).tap();
       await expect(header.getByRole("button", { name: "Workspace files", exact: true })).toHaveAttribute("aria-current", "page");

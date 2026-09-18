@@ -18,6 +18,7 @@ type ChartPayload = {
   referral: Referral;
   report: AssessmentSummaryReport | null;
   email: {
+    example_only: boolean;
     configured: boolean;
     sender: string;
     preview: { subject: string; html: string } | null;
@@ -41,12 +42,13 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, headerActions, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, headerActions, onSendingChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
   emailDraft?: { recipients: string; onChange: (value: string) => void };
   headerActions?: React.ReactNode;
+  onSendingChange?: (sending: boolean) => void;
   onOpenFiles?: () => void;
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
@@ -84,7 +86,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   }, [load]);
 
   const emailMeetClient = async () => {
-    if (!payload?.email.ready || !confirmed || sendInFlight.current) return;
+    if (!payload?.email.ready || payload.email.example_only || !confirmed || sendInFlight.current) return;
     const recipientList = recipients.split(/[;,\n]/).map((value) => value.trim()).filter(Boolean);
     const requestKey = JSON.stringify([
       payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
@@ -94,6 +96,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     if (sendRequest.current?.key !== requestKey) sendRequest.current = { key: requestKey, mutationId: crypto.randomUUID() };
     sendInFlight.current = true;
     setSending(true);
+    onSendingChange?.(true);
     setError("");
     setMessage("");
     try {
@@ -117,6 +120,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     } finally {
       sendInFlight.current = false;
       setSending(false);
+      onSendingChange?.(false);
     }
   };
 
@@ -131,7 +135,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     <section className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
         <div><h2>Email &amp; packet</h2><p>Explore the packet workflow. Email delivery is not live yet.</p></div>
-        <div className={styles.headerActions}>{headerActions}{refresh}</div>
+        <div className={styles.headerActions}>{headerActions}{readyPayload.email.example_only ? null : refresh}</div>
       </header>
       <ChartStatusMessage error={error} message={message} />
       <MeetClientEmailPreview email={readyPayload.email} recipients={recipients} confirmed={confirmed} sending={sending}
@@ -220,8 +224,8 @@ function ChartSection({ title, items }: { title: string; items: AssessmentSummar
     <section className="grid border-b border-[#dfe4e1] px-5 py-5 sm:px-7 lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-8">
       <h3 className="mb-4 text-[11px] font-black uppercase tracking-[0.04em] text-[#234c42] lg:mb-0">{title}</h3>
       <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-        {items.map((item) => (
-          <div key={`${title}:${item.label}`} className="min-w-0">
+        {items.map((item, index) => (
+          <div key={`${title}:${index}:${item.label}`} className="min-w-0">
             <dt className="text-[8px] font-black uppercase tracking-[0.06em] text-[#737d78]">{item.label}</dt>
             <dd className="mt-1 whitespace-pre-line text-[11px] leading-5 text-[#222a26]"><ReadableChartText value={item.value} /></dd>
           </div>
@@ -252,14 +256,14 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, onRecip
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
 }) {
-  const status = !email.configured ? "Preview only · email delivery is not connected."
+  const status = email.example_only ? "Example only · no email will be sent." : !email.configured ? "Preview only · email delivery is not connected."
     : !email.eligible ? "Preview ready · record acceptance before sending."
     : !email.preview ? "Your summary will appear when an assessment is signed."
     : !email.ready ? "Preview ready · review the items below before sending."
     : "Review the recipients and packet, then send when ready.";
   return (
     <div className={styles.composer} data-guide-target="chart-email-handoff">
-      <div className={styles.toolbar}>
+      {email.example_only ? <div role="note" className={styles.notice}><strong>Example only. No email will be sent.</strong> This previews the client handoff. Live delivery will be enabled separately.</div> : <div className={styles.toolbar}>
         {email.can_send ? <label className={styles.confirmation}>
           <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={sending} aria-label="I verified that each recipient is authorized to receive this summary and the attached files." />
           <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></span>
@@ -268,13 +272,13 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, onRecip
           disabled={sending || !email.ready || !confirmed || !recipients.trim()}>
           <Send size={16} />{sending ? "Sending…" : "Send email & packet"}
         </button>
-      </div>
+      </div>}
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
-      <div className={styles.addressRow}>
+      {!email.example_only ? <div className={styles.addressRow}>
         <label htmlFor="meet-client-recipients">To</label>
         <textarea id="meet-client-recipients" aria-label="Authorized recipients" value={recipients} onChange={(event) => onRecipients(event.target.value)}
           disabled={!email.can_send || sending} rows={1} placeholder="Add authorized recipients" spellCheck={false} autoComplete="off" />
-      </div>
+      </div> : null}
       <div className={styles.addressRow}><span>Subject</span><span className={styles.subject}>{email.preview?.subject || "Meet the Client"}</span></div>
       <section className={styles.attachments} aria-label="Referral packet attachments">
         <div className={styles.attachmentHeading}>

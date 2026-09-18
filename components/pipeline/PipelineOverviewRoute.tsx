@@ -344,7 +344,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       },
       onReferralDeleted: () => navigate("referrals"),
       onOpenProfile: (clientId) => navigate("profile", undefined, clientId),
-      onOpenAssignedWork: isDemoWorkspace ? undefined : openCurrentWork,
+      onOpenAssignedWork: isDemoWorkspace ? undefined : () => { void navigate("referrals"); },
     };
     page = deferredWorkSurfaces ? <deferredWorkSurfaces.ReferralPacketCanvas key={workspaceKey} {...packetProps} /> : <DeferredScreenLoading />;
   } else if (screen === "profile" && selectedClientId) {

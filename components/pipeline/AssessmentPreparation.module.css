@@ -1,41 +1,42 @@
-.filePages {
-  display: flex;
-  flex-shrink: 0;
-  gap: 4px;
-  padding: 6px 20px 0;
-  border-inline: 1px solid #d1d9df;
-  border-bottom: 1px solid #cbbd9d;
-  background: #f6f4ee;
-}
-
-.filePages button {
-  min-height: 42px;
-  padding: 8px 18px;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: 6px 6px 0 0;
-  color: #56635d;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.filePages button[aria-current="page"] {
-  position: relative;
-  margin-bottom: -1px;
-  color: #205e4b;
-  border-color: #cbbd9d;
-  background: #fff;
-  box-shadow: inset 0 3px #138464;
-}
-
-.filePages button:hover:not([aria-current]) { color: #16654e; background: #eeede6; }
-.filePages button:focus-visible, .groupNavigation button:focus-visible { outline: 2px solid #087e64; outline-offset: -3px; }
-
-.interviewHeader { display: flex; flex-wrap: wrap; align-items: center; flex-shrink: 0; border: 1px solid #d1d9df; border-radius: 8px 8px 0 0; background: #fff; }
-.interviewHeader [data-assessment-client-header] { flex: 1; min-width: min(300px, 100%); height: 48px; border: 0; border-radius: 8px 0 0; box-shadow: none; }
-.interviewHeader .filePages { padding: 0 10px; border: 0; background: transparent; }
-.interviewHeader .filePages button { min-height: 36px; margin: 0; padding: 6px 12px; border: 0; border-radius: 4px; box-shadow: none; }
-.interviewHeader .filePages button[aria-current] { background: #e7f4ef; color: #16654e; }
+.surface.surface { min-height: 0; padding: 0 8px 8px; }
+.beginDialog { width: min(460px, calc(100% - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 24px; overflow-y: auto; border: 1px solid #d3d9d7; border-radius: 12px; background: #fff; color: #293630; box-shadow: 0 20px 70px #172a3029; }
+.beginDialog::backdrop { background: #25303845; }
+.beginDialog h2 { font-size: 22px; font-weight: 650; }
+.beginDialog > p { margin-top: 10px; font-size: 15px; line-height: 1.55; color: #56635d; }
+.beginDialog dl { margin-top: 22px; border-block: 1px solid #e0e5e2; }
+.beginDialog dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 12px 0; font-size: 14px; line-height: 1.5; }
+.beginDialog dt { flex-shrink: 0; color: #56635d; }
+.beginDialog dd { text-align: right; overflow-wrap: anywhere; font-weight: 600; }
+.beginDialog [role="alert"] { color: #9c342f; }
+.beginDialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.beginDialog button { min-height: 44px; padding: 10px 16px; border: 1px solid #c9d3ce; border-radius: 5px; font-size: 14px; font-weight: 600; }
+.beginDialog button:last-child { border-color: #007254; background: #007e60; color: #fff; }
+.beginDialog button:disabled { opacity: .5; }
+.beginDialog button:focus-visible { outline: 2px solid #087e64; outline-offset: 3px; }
+.folderHeader { position: relative; z-index: 10; display: flex; align-items: flex-end; flex-shrink: 0; gap: 10px; min-width: 0; padding-top: 4px; padding-left: 50px; }
+.folderHeader .folderIdentity { position: relative; z-index: 4; flex: 0 1 38%; max-width: 420px; min-height: 50px; margin-left: 0; }
+.folderIdentity > span { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
+.fileDetails { position: relative; }
+.fileDetails > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; list-style: none; cursor: pointer; color: #4c6157; font-size: 13px; font-weight: 600; }
+.fileDetails > summary::-webkit-details-marker { display: none; }
+.folderIdentity.fileDetails { display: block; padding-block: 3px; }
+.folderIdentity > summary > h2 { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
+.fileDetails > summary > svg { flex-shrink: 0; }
+.fileDetailsPanel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(320px, calc(100vw - 80px)); max-height: 60dvh; overflow-y: auto; overscroll-behavior: contain; padding: 8px; border: 1px solid #cbd6cf; border-radius: 6px; background: #fff; box-shadow: 0 8px 32px #18382a26; }
+.fileDetailsPanel button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; color: #354d40; font-size: 14px; font-weight: 500; text-align: left; }
+.fileDetailsPanel button:hover { background: #edf4ef; }
+.fileDetailsPanel :is(button, select):focus-visible, .fileDetails > summary:focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
+.embedded footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
+.folderHeader .filePages { flex-shrink: 0; overflow: visible; max-width: none; padding: 6px 4px 0; }
+.filePages button:focus-visible, .groupNavigation button:focus-visible, .returnButton:focus-visible { outline: 2px solid #087e64; outline-offset: -3px; }
+.returnButton { display: inline-flex; align-items: center; align-self: center; justify-content: center; gap: 7px; flex-shrink: 0; min-height: 44px; margin-left: auto; padding: 8px 12px; border: 1px solid #bfcfc7; border-radius: 5px; background: #ffffffa6; color: #2c5142; font-size: 14px; font-weight: 600; }
+.returnButton svg { flex-shrink: 0; }
+.returnCompact { display: none; }
+.returnButton:hover:not(:disabled) { background: #fff; border-color: #859d90; }
+.returnButton:disabled { opacity: .5; cursor: wait; }
+.folderBody { min-height: 0; padding: 7px; border-top-left-radius: 3px; border-top-right-radius: 3px; }
+.folderPaper { min-height: 0; overflow: hidden; }
+.folderPaper > footer[aria-label="Assessment actions"] { border: 0; border-top: 1px solid #d8d8cb; border-radius: 0; background: #fafaf6; box-shadow: none; }
 
 .groupNavigation { color: #283a33; }
 .groupNavigation button {
@@ -84,28 +85,24 @@
 }
 
 @media (max-width: 639px) {
-  .interviewHeader .filePages { flex-basis: 100%; padding-bottom: 6px; }
-  .filePages { padding-inline: 8px; }
-  .filePages button { flex: 1; padding-inline: 10px; }
   .fields { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 16px 12px; }
+  .returnText { display: none; }
+  .returnCompact { display: inline; }
 }
 
 @media (max-width: 959px) {
-  .surface[data-assessment-view="chart"] { padding: 0; background: #fff; }
   .surface main { scroll-padding-block: 72px 20px; overscroll-behavior-y: contain; }
-  .surface .interviewHeader { border-radius: 0; }
-  .surface .interviewHeader [data-assessment-client-header] { min-height: 56px; height: auto; border-radius: 0; padding-left: 62px; gap: 8px; }
-  .surface [data-assessment-client-header] h2 { white-space: normal; overflow-wrap: anywhere; font-size: 17px; line-height: 1.3; padding-block: 8px; }
-  .surface [data-assessment-client-header] > span { font-size: 11px; }
-  .surface [data-assessment-client-header] button { min-width: 44px; min-height: 44px; }
-  .surface .interviewHeader .filePages { width: 100%; padding: 0 10px 6px; }
-  .surface .interviewHeader .filePages button { flex: 1; min-height: 44px; font-size: 14px; }
 }
 
 @media (max-width: 959px), (hover: none) and (pointer: coarse) {
-  .surface .interviewHeader [data-assessment-client-header] { min-height: 56px; padding-left: 62px; }
-  .surface [data-assessment-client-header] button { min-width: 44px; min-height: 44px; }
-  .surface .interviewHeader .filePages button { min-height: 44px; }
+  .surface.surface { padding: 0 4px 4px; }
+  .folderHeader { gap: 8px; padding-left: 54px; padding-top: 5px; }
+  .folderHeader .folderIdentity { flex: 1; min-width: 100px; min-height: 52px; margin-left: 0; padding: 5px 8px; border: 1px solid var(--folder-edge); border-bottom: 0; background: linear-gradient(#f4eddc, #ede4d0); }
+  .folderIdentity > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; padding: 2px 4px; font-size: 16px; line-height: 21px; }
+  .folderIdentity > summary > h2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 16px; line-height: 21px; }
+  .folderHeader .filePages button { min-height: 44px; padding-inline: 16px; }
+  .returnButton { gap: 5px; max-width: 150px; padding-inline: 8px; font-size: 13px; }
+  .folderBody { padding: 3px; }
   .embedded select[id="preparation-group-mobile"] { min-height: 44px; font-size: 16px; }
   .surface footer[aria-label="Assessment actions"], .embedded footer[aria-label="Assessment actions"] {
     gap: 8px;
@@ -138,4 +135,9 @@
 
 @media (forced-colors: active) {
   .filePages button[aria-current], .groupNavigation button[aria-current] { border: 2px solid Highlight; }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .folderHeader .filePages button { padding-inline: 12px; font-size: 13px; }
+  .returnButton { max-width: 130px; }
 }

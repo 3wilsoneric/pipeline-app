@@ -72,10 +72,10 @@ test("finds an exact question across sections and preserves answers when exiting
   await field.blur();
   await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
   await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toContainText("Synthetic medication A");
-  await assessment.getByRole("button", { name: "Close assessment", exact: true }).click();
+  await assessment.getByRole("button", { name: "Back to referral", exact: true }).click();
   await expect(assessment).not.toBeVisible();
   await expect(page.locator('[data-assessment-app-navigation="standard"]')).toBeVisible();
-  await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Questionnaire|Assessment/ }).click();
   await expect(assessment).toHaveAttribute("data-assessment-view", "chart");
   await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("medication");
   await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toContainText("Synthetic medication A");
@@ -103,7 +103,7 @@ test("fits desktop, tablet, and phone and resets section scroll", async ({ page 
   const assessment = await openWorkingAssessment(page);
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    await expect(assessment.getByRole("button", { name: "Close assessment", exact: true })).toBeInViewport();
+    await expect(assessment.getByRole("button", { name: "Back to referral", exact: true })).toBeInViewport();
     await expect(page.locator("#pipeline-app-navigation")).toHaveCSS("opacity", "0");
     await expect(assessment.getByRole("heading", { name: "Taylor Rivera", exact: true })).toBeInViewport();
     await expect(assessment.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();

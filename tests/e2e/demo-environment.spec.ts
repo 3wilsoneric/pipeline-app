@@ -28,7 +28,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(banner).toContainText("Practice workspace");
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
     await interview.getByRole("button", { name: "Full assessment", exact: true }).click();
-    await interview.getByRole("button", { name: "Close assessment", exact: true }).click();
+    await interview.getByRole("button", { name: "Back to referral", exact: true }).click();
     await page.getByRole("button", { name: "Open referrals", exact: true }).click();
     await expect(page).toHaveURL(/view=referrals/);
     await expect(banner).toHaveCount(0);
@@ -179,10 +179,9 @@ test.describe("Pipeline Demo Environment", () => {
     await interview.getByRole("button", { name: "Full assessment" }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("Tester Guided Person");
-    const closeAssessment = interview.getByRole("button", { name: "Close assessment", exact: true });
-    await expect(closeAssessment).toHaveCSS("border-top-width", "0px");
-    await expect(closeAssessment.locator("svg")).toHaveAttribute("width", "20");
-    expect((await closeAssessment.boundingBox())?.x).toBeGreaterThan(page.viewportSize()!.width - 90);
+    const closeAssessment = interview.getByRole("button", { name: "Back to referral", exact: true });
+    await expect(closeAssessment).toBeInViewport();
+    expect((await closeAssessment.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await interview.getByRole("button", { name: "Guided interview", exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await interview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -196,7 +195,8 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
     await expect(closeAssessment).toBeInViewport();
-    expect((await closeAssessment.boundingBox())?.x).toBeGreaterThan(300);
+    const returnBounds = (await closeAssessment.boundingBox())!;
+    expect(returnBounds.x + returnBounds.width).toBeLessThanOrEqual(390);
 
     await page.goto("/training/demo?view=tester");
     await tester.getByRole("button", { name: "Open assessment" }).click();

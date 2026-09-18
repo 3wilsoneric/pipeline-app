@@ -107,7 +107,7 @@ test.describe("shared workspace editing", () => {
       const answer = editor.getByRole("textbox", { name: /Prior 5150/ });
       await expect(answer).toBeEnabled();
       await answer.fill("A teammate can document this answer.");
-      await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
       await expect(editor).toHaveCount(0);
     } finally { await context.close(); await owner.dispose(); await api.dispose(); }
   });

@@ -9,6 +9,8 @@ import {
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 
+type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate">;
+
 export type AssessmentSummaryItem = {
   label: string;
   value: string;
@@ -99,7 +101,7 @@ const excludedChartFields = new Set<AssessmentToolFieldKey>([
 
 export function buildAssessmentSummaryReport(
   assessment: PipelineAssessmentRecord,
-  referral: Referral,
+  referral: AssessmentReferralContext,
 ): AssessmentSummaryReport {
   const sections = assessmentInterviewSections
     .filter((section) => section.key !== "identity")
@@ -133,7 +135,7 @@ export function buildAssessmentSummaryReport(
 
 export function buildMeetClientSummary(
   assessment: PipelineAssessmentRecord,
-  referral: Referral,
+  referral: AssessmentReferralContext,
 ): MeetClientSummary {
   const medications = cleanList(assessment.medications_at_intake).length > 0
     ? cleanList(assessment.medications_at_intake)
@@ -174,7 +176,7 @@ export function buildMeetClientSummary(
   };
 }
 
-function buildIdentity(assessment: PipelineAssessmentRecord, referral: Referral) {
+function buildIdentity(assessment: PipelineAssessmentRecord, referral: AssessmentReferralContext) {
   return compactItems([
     item("Name", assessmentClientName(assessment, referral)),
     item("Date of birth", assessment.date_of_birth || referral.dob),
@@ -189,7 +191,7 @@ function buildIdentity(assessment: PipelineAssessmentRecord, referral: Referral)
   ]);
 }
 
-function assessmentClientName(assessment: PipelineAssessmentRecord, referral: Referral) {
+function assessmentClientName(assessment: PipelineAssessmentRecord, referral: AssessmentReferralContext) {
   return formatClientIdentityTitle({
     name: assessment.resident_name || referral.name,
     community: assessment.community || referral.community,

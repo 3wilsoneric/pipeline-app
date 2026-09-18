@@ -2209,7 +2209,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByLabel(/^Resident number/).fill(`EM-${randomUUID().slice(0, 8)}`);
     await page.getByLabel(/^Date of birth/).fill("1984-06-12");
     await expect(page.getByText("All changes saved", { exact: true })).toBeVisible({ timeout: 8_000 });
-    await page.getByRole("button", { name: "Close assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Back to referral", exact: true }).click();
     await expect(page.getByRole("button", { name: "Resume assessment", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
     await expect(assessmentInterview).toBeVisible();
