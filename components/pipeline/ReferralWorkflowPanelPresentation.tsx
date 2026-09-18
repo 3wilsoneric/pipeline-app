@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from "react";
-import { Check, CheckCircle2, ChevronDown, Circle, ClipboardCheck, LoaderCircle, Send, ShieldCheck } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Circle, LoaderCircle } from "lucide-react";
 
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import ReferralClientActivationPanel from "@/components/pipeline/ReferralClientActivationPanel";
 import {
-  admissionReadinessLabel,
   admissionRequirementSummary,
-  decisionHandoffNextAction,
   decisionSubmissionIsBlocked,
   deriveWorkflowPanelView,
   formatOutcome,
@@ -124,38 +122,13 @@ export function ReferralWorkflowPanelPresentation({
   onDone,
 }: ReferralWorkflowPanelPresentationProps) {
   const view = deriveWorkflowPanelView(workflow);
-  const {
-    currentReferral,
-    incompleteDecision,
-    incompleteMoveIn,
-    incompleteEhr,
-    handoffStatus,
-  } = view;
 
   return (
-    <section aria-label="Admission workflow" className="space-y-6 py-2 sm:px-2">
-      {!workflow.context.assessmentSigned ? <div>
-        <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Admission workflow</div>
-        <h2 className="mt-1 text-[22px] font-black text-[#111111]">From referral to handoff</h2>
-        <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#68716c]">Work with the information available. Intake, assessment, acceptance, signing, and packet sending can be handled separately.</p>
-      </div> : null}
-
+    <section aria-label="Admission decision" className="mx-auto max-w-3xl space-y-4 py-4 sm:px-3">
       {message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
       {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
 
-      {!workflow.context.assessmentSigned ? <>
-        <StageProgress currentStage={currentReferral.stage} />
-        <DecisionHandoffOverview workflow={workflow} incompleteDecision={incompleteDecision} incompleteMoveIn={incompleteMoveIn} incompleteEhr={incompleteEhr} handoffStatus={handoffStatus} />
-      </> : null}
-
-      <label className="flex flex-wrap items-center gap-3 text-[12px] font-semibold text-[#59645e]">Workflow stage
-        <select aria-label="Workflow stage" value={currentReferral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-10 border border-[#c9ceca] bg-white px-3 text-[#303b34]">
-          {referralStageDefinitions.filter((item) => !item.terminal || item.stage === currentReferral.stage || (item.stage === "Accepted / Admitted" ? workflow.decision?.outcome === "accepted" : workflow.decision?.outcome === "declined")).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}
-        </select>
-        <span>Revisit earlier work or move ahead as needed.</span>
-      </label>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+      <div className="space-y-5">
         <WorkflowPrimaryColumn
           workflow={workflow}
           view={view}
@@ -178,21 +151,30 @@ export function ReferralWorkflowPanelPresentation({
           onOpenAssessment={onOpenAssessment}
           onOpenFiles={onOpenFiles}
         />
-        <WorkflowSecondaryColumn
-          workflow={workflow}
-          view={view}
-          busy={busy}
-          onUpdateRequirement={onUpdateRequirement}
-          onUpdateHandoff={onUpdateHandoff}
-          onRecordHandoffSent={onRecordHandoffSent}
-          onOpenHandoffFailure={onOpenHandoffFailure}
-          onOpenProfile={onOpenProfile}
-        />
+        <details>
+          <summary className="cursor-pointer py-4 text-[13px] font-semibold text-[#53615a] focus-visible:outline-2">Admission details</summary>
+          <label className="mb-4 flex flex-wrap items-center gap-3 text-[13px] font-medium text-[#59645e]">Workflow stage
+            <select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-10 border border-[#c9ceca] bg-white px-3 text-[#303b34]">
+              {referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage || (item.stage === "Accepted / Admitted" ? workflow.decision?.outcome === "accepted" : workflow.decision?.outcome === "declined")).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}
+            </select>
+            <span>Revisit earlier work or move ahead as needed.</span>
+          </label>
+          <WorkflowSecondaryColumn
+            workflow={workflow}
+            view={view}
+            busy={busy}
+            onUpdateRequirement={onUpdateRequirement}
+            onUpdateHandoff={onUpdateHandoff}
+            onRecordHandoffSent={onRecordHandoffSent}
+            onOpenHandoffFailure={onOpenHandoffFailure}
+            onOpenProfile={onOpenProfile}
+          />
+        </details>
       </div>
 
       {(workflow.review?.status === "submitted" || workflow.decision) && onDone ? (
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#d9dfdb] pt-5">
-          <p className="text-[12px] text-[#68716c]">Saved. You can reopen this workspace. Signed assessment corrections are recorded as addenda.</p>
+          <p className="text-[12px] text-[#68716c]">Saved. You can return to this referral anytime.</p>
           <PrimaryButton busy={busy === "done"} disabled={Boolean(busy)} onClick={onDone}>Done</PrimaryButton>
         </div>
       ) : null}
@@ -258,13 +240,13 @@ function CurrentGateCard({
   if (workflow.context.assessmentSigned && !workflow.decision) return null;
   if (assessmentState) {
     return (
-      <WorkflowCard icon={<ClipboardCheck size={17} />} title="Assessment" detail={assessmentState}>
+      <WorkflowCard title="Assessment" detail={assessmentState}>
         <PrimaryButton busy={false} onClick={onOpenAssessment}>Open assessment</PrimaryButton>
       </WorkflowCard>
     );
   }
   return (
-    <WorkflowCard icon={<ClipboardCheck size={17} />} title={workflow.decision?.outcome === "accepted" ? "Admission" : "Next step"} detail={currentReferral.stage}>
+    <WorkflowCard title={workflow.decision?.outcome === "accepted" ? "Admission" : "Next step"} detail={currentReferral.stage}>
       {workflow.decision?.outcome === "accepted" ? (
         <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-[#e3e6e4] pb-4">
           <label className="block min-w-[180px] flex-1 text-[11px] font-bold text-[#303b34]" htmlFor="workflow-admit-date">
@@ -286,7 +268,7 @@ function CurrentGateCard({
       {showManualIntake ? (
         <div className="mt-4 border-t border-[#e3e6e4] pt-4">
           <label className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]" htmlFor="manual-intake-reason">Manual intake note (optional)</label>
-          <textarea id="manual-intake-reason" value={manualIntakeReason} onChange={(event) => onManualIntakeReasonChange(event.target.value)} rows={2} placeholder="Add any context, or continue without a note" className="mt-2 w-full border border-[#c9ceca] px-3 py-2 text-[11px] outline-none focus:border-[#0f8b73]" />
+          <textarea id="manual-intake-reason" value={manualIntakeReason} onChange={(event) => onManualIntakeReasonChange(event.target.value)} rows={2} placeholder="Add any context, or continue without a note" className="mt-2 w-full border border-[#c9ceca] px-3 py-2 text-[14px] outline-none focus:border-[#0f8b73]" />
           <SecondaryButton disabled={Boolean(busy)} onClick={onAuthorizeManualIntake}>Authorize manual intake</SecondaryButton>
         </div>
       ) : null}
@@ -298,7 +280,7 @@ function ClinicalRecommendationDisclosure({ workflow, busy, recommendation, onRe
   if (!workflow.context.assessmentId) return null;
   if (workflow.review?.assessmentId === workflow.context.assessmentId) return <FinishedAssessmentCard workflow={workflow} />;
   return (
-    <WorkflowCard icon={<ShieldCheck size={17} />} title="Assessment outcome" detail="Save your recommendation now. Signing and the admission decision are separate.">
+    <WorkflowCard title="Assessment outcome" detail="Save your recommendation now. Signing and the admission decision are separate.">
       {workflow.recommendation ? <RecordSummary title={`${formatOutcome(workflow.recommendation.outcome)} recommendation`} actor={workflow.recommendation.recommendedByName} date={workflow.recommendation.recommendedAt} note={workflow.recommendation.reasonNote} /> : null}
       <fieldset disabled={!workflow.capabilities.can_recommend || Boolean(busy)} className="my-4">
         <legend className="sr-only">Outcome recommendation</legend>
@@ -325,7 +307,7 @@ function recommendationSubmissionIsBlocked(workflow: WorkflowResponse, recommend
 
 function FinishedAssessmentCard({ workflow }: { workflow: WorkflowResponse }) {
   return (
-    <WorkflowCard icon={<CheckCircle2 size={17} />} title={workflow.decision ? "Decision recorded" : "Assessment finished"} detail={workflow.decision ? formatOutcome(workflow.decision.outcome) : "Under supervisor review"}>
+    <WorkflowCard title={workflow.decision ? "Decision recorded" : "Assessment finished"} detail={workflow.decision ? formatOutcome(workflow.decision.outcome) : "Under supervisor review"}>
       {workflow.recommendation ? <RecordSummary title={`${formatOutcome(workflow.recommendation.outcome)} recommendation`} actor={workflow.recommendation.recommendedByName} date={workflow.recommendation.recommendedAt} note={workflow.recommendation.reasonNote} /> : null}
       <p className="mt-3 text-[12px] text-[#68716c]">{workflow.decision ? "The decision is saved. Intake, files, and the assessment remain available. Signing and packet sending are separate actions." : "No further assessor action is needed unless the supervisor requests changes."}</p>
     </WorkflowCard>
@@ -334,13 +316,12 @@ function FinishedAssessmentCard({ workflow }: { workflow: WorkflowResponse }) {
 
 function SupervisorDecisionDisclosure({ workflow, view, busy, decision, onDecisionChange, onSubmitDecision, onRequestReviewChanges }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "decision" | "onDecisionChange" | "onSubmitDecision" | "onRequestReviewChanges"> & { view: WorkflowView }) {
   return (
-    <WorkflowDisclosure key={`decision-${view.decisionDisclosureKey}`} icon={<CheckCircle2 size={17} />} title="Admission decision" detail={workflow.capabilities.can_decide ? "Available to the team" : "Visible to the team"} defaultOpen={view.decisionDisclosureIsOpen}>
+    <WorkflowDisclosure key={`decision-${view.decisionDisclosureKey}`} title="Supervisor decision" detail="" defaultOpen={view.decisionDisclosureIsOpen}>
       {workflow.decision ? <RecordSummary title={`${formatOutcome(workflow.decision.outcome)} decision`} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} /> : null}
-      {workflow.review ? <ReviewSummary review={workflow.review} /> : null}
+      {workflow.review && !workflow.decision ? <ReviewSummary review={workflow.review} /> : null}
       {workflow.capabilities.can_decide && !workflow.decision ? (
         <>
-          <DecisionReadiness workflow={workflow} outcome={decision.outcome} note={decision.reasonNote} incompleteDecision={view.incompleteDecision} />
-          <div className="mt-3 grid gap-3 sm:grid-cols-2"><WorkflowSelect label="Decision" value={decision.outcome} onChange={(value) => onDecisionChange({ outcome: value as DecisionOutcomeDraft })} options={[{ value: "", label: "Under review" }, { value: "accepted", label: "Accepted" }, { value: "declined", label: "Denied" }]} /><WorkflowInput label="Reason code (optional)" value={decision.reasonCode} onChange={(reasonCode) => onDecisionChange({ reasonCode })} /></div>
+          <div className="mt-3"><WorkflowSelect label="Decision" value={decision.outcome} onChange={(value) => onDecisionChange({ outcome: value as DecisionOutcomeDraft })} options={[{ value: "", label: "Under review" }, { value: "accepted", label: "Admit" }, { value: "declined", label: "Denied" }]} /></div>
           <WorkflowTextArea label="Decision rationale" value={decision.reasonNote} onChange={(reasonNote) => onDecisionChange({ reasonNote })} />
           <p className="mt-3 text-[12px] text-[#68716c]">Record acceptance with the information available. This does not sign the assessment or send a packet.</p>
           <div className="flex flex-wrap gap-2">
@@ -356,7 +337,7 @@ function SupervisorDecisionDisclosure({ workflow, view, busy, decision, onDecisi
 function WorkflowSecondaryColumn({ workflow, view, busy, onUpdateRequirement, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure, onOpenProfile }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "onUpdateRequirement" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure" | "onOpenProfile"> & { view: WorkflowView }) {
   return (
     <div className="space-y-5">
-      <WorkflowCard icon={<ClipboardCheck size={17} />} title="Admission requirements" detail={admissionRequirementSummary(workflow.work_items)}><div className="space-y-5">{requirementGroups(workflow.work_items).map((group) => <RequirementGroup key={group.label} group={group} disabled={!workflow.capabilities.can_update || Boolean(busy)} onChange={onUpdateRequirement} />)}</div></WorkflowCard>
+      <WorkflowCard title="Admission requirements" detail={admissionRequirementSummary(workflow.work_items)}><div className="space-y-5">{requirementGroups(workflow.work_items).map((group) => <RequirementGroup key={group.label} group={group} disabled={!workflow.capabilities.can_update || Boolean(busy)} onChange={onUpdateRequirement} />)}</div></WorkflowCard>
       <EhrHandoffDisclosure workflow={workflow} view={view} busy={busy} onUpdateHandoff={onUpdateHandoff} onRecordHandoffSent={onRecordHandoffSent} onOpenHandoffFailure={onOpenHandoffFailure} />
       {view.currentReferral.stage === "Accepted / Admitted" ? <ReferralClientActivationPanel referralId={view.currentReferral.id} canReconcile={workflow.capabilities.can_reconcile_identity} canReview={workflow.capabilities.can_review_identity} onOpenProfile={onOpenProfile} /> : null}
     </div>
@@ -368,7 +349,7 @@ function EhrHandoffDisclosure({ workflow, view, busy, onUpdateHandoff, onRecordH
   const ready = workflow.decision?.outcome === "accepted" || handoffStatus !== "not_ready";
   const handoffContent = handoffContentByStatus[handoffStatus];
   return (
-    <WorkflowDisclosure key={`ehr-${ready ? "ready" : "pending"}`} icon={<Send size={17} />} title="EHR handoff" detail={handoffDescription(handoffStatus)} defaultOpen={ready}>
+    <WorkflowDisclosure key={`ehr-${ready ? "ready" : "pending"}`} title="EHR handoff" detail={handoffDescription(handoffStatus)} defaultOpen={ready}>
       <div className="flex flex-wrap gap-2">
         {handoffContent({ workflow, currentReferral, busy, ehrIsBlocked, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure })}
       </div>
@@ -381,7 +362,7 @@ function QueueHandoffButton({ workflow, busy, ehrIsBlocked, onUpdateHandoff }: H
 }
 
 export function ReferralWorkflowPanelLoading() {
-  return <div className="flex min-h-64 items-center justify-center gap-2 text-[12px] text-[#737373]"><LoaderCircle className="animate-spin" size={16} /> Loading admission workflow...</div>;
+  return <div className="flex min-h-64 items-center justify-center gap-2 text-[12px] text-[#737373]"><LoaderCircle className="animate-spin" size={16} /> Loading decision...</div>;
 }
 
 const noticePresentation = {
@@ -394,37 +375,19 @@ export function WorkflowNotice({ tone, children }: { tone: "success" | "error"; 
   return <div role={presentation.role} className={`border-l-2 px-4 py-3 text-[11px] font-semibold ${presentation.className}`}>{children}</div>;
 }
 
-function StageProgress({ currentStage }: { currentStage: ReferralStage }) {
-  const currentIndex = referralStageDefinitions.findIndex((item) => item.stage === currentStage);
-  return (
-    <div className="grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-4 xl:grid-cols-7">
-      {referralStageDefinitions.map((definition, index) => {
-        const active = definition.stage === currentStage;
-        const complete = currentIndex > index && !(currentStage === "Declined" && definition.stage === "Accepted / Admitted");
-        return (
-          <div key={definition.stage} className={`min-w-0 bg-white px-3 py-3 ${active ? "shadow-[inset_0_-3px_0_#0f8b73]" : ""}`}>
-            <div className="flex items-center gap-2 text-[10px] font-black text-[#202522]">{complete ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className={active ? "fill-[#0f8b73] text-[#0f8b73]" : "text-[#a0a0a0]"} />}<span className="truncate">{definition.label}</span></div>
-          </div>
-        );
-      })}
-    </div>
-  );
+function WorkflowCard({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
+  return <section className="border-b border-[#dce4df] bg-white pb-5"><header className="mb-3"><h3 className="text-[15px] font-semibold text-[#25372d]">{title}</h3>{detail ? <p className="mt-1 text-[13px] text-[#59665f]">{detail}</p> : null}</header>{children}</section>;
 }
 
-function WorkflowCard({ icon, title, detail, children }: { icon: ReactNode; title: string; detail: string; children: ReactNode }) {
-  return <section className="border border-[#d9d9d9] bg-white"><header className="flex items-center gap-3 border-b border-[#e4e7e5] bg-[#f8faf9] px-4 py-3"><span className="text-[#0f8b73]">{icon}</span><div><h3 className="text-[12px] font-black text-[#202522]">{title}</h3><p className="mt-0.5 text-[10px] text-[#737373]">{detail}</p></div></header><div className="p-4">{children}</div></section>;
-}
-
-function WorkflowDisclosure({ icon, title, detail, defaultOpen, children }: { icon: ReactNode; title: string; detail: string; defaultOpen: boolean; children: ReactNode }) {
+function WorkflowDisclosure({ title, detail, defaultOpen, children }: { title: string; detail: string; defaultOpen: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <details className="group border border-[#d9d9d9] bg-white" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="flex cursor-pointer list-none items-center gap-3 bg-[#f8faf9] px-4 py-3 outline-none hover:bg-[#f2f6f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] [&::-webkit-details-marker]:hidden">
-        <span className="text-[#0f8b73]">{icon}</span>
-        <span className="min-w-0 flex-1"><span className="block text-[12px] font-black text-[#202522]">{title}</span><span className="mt-0.5 block text-[10px] text-[#737373]">{detail}</span></span>
-        <ChevronDown size={15} className="text-[#737373] transition-transform group-open:rotate-180" />
+    <details className="group border-b border-[#dce4df] bg-white" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="flex cursor-pointer list-none items-center gap-3 py-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold text-[#25372d]">{title}</span>{detail ? <span className="mt-1 block text-[13px] text-[#59665f]">{detail}</span> : null}</span>
+        <ChevronDown size={15} className="text-[#59665f] transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>
-      <div className="border-t border-[#e4e7e5] p-4">{children}</div>
+      <div className="pb-5">{children}</div>
     </details>
   );
 }
@@ -461,59 +424,24 @@ function RequirementGroup({ group, disabled, onChange }: { group: RequirementGro
   );
 }
 
-function DecisionHandoffOverview({ workflow, incompleteDecision, incompleteMoveIn, incompleteEhr, handoffStatus }: { workflow: WorkflowResponse; incompleteDecision: AdmissionRequirement[]; incompleteMoveIn: AdmissionRequirement[]; incompleteEhr: AdmissionRequirement[]; handoffStatus: ReturnType<typeof deriveWorkflowPanelView>["handoffStatus"] }) {
-  const declined = workflow.decision?.outcome === "declined";
-  const admitted = workflow.referral.stage === "Accepted / Admitted";
-  const admissionBlockers = incompleteDecision.length + incompleteMoveIn.length;
-  const steps = [
-    { label: "Assessment", value: workflow.context.assessmentSigned ? "Signed" : "Not signed", complete: Boolean(workflow.context.assessmentSigned) },
-    { label: "Recommendation", value: workflow.recommendation ? formatOutcome(workflow.recommendation.outcome) : "Not recorded", complete: Boolean(workflow.recommendation) },
-    { label: "Supervisor decision", value: workflow.decision ? formatOutcome(workflow.decision.outcome) : "Not recorded", complete: Boolean(workflow.decision) },
-    { label: "Admission", value: admissionReadinessLabel(workflow, admissionBlockers), complete: declined || admitted },
-    { label: "EHR handoff", value: declined ? "Not required" : handoffDescription(handoffStatus), complete: declined || handoffStatus === "sent" },
-  ];
-  return (
-    <section aria-label="Decision and handoff readiness" className="border border-[#cfd8d3] bg-[#f8faf9]">
-      <div className="grid gap-px bg-[#dfe5e2] sm:grid-cols-2 xl:grid-cols-5">{steps.map((step) => <div key={step.label} className="bg-white px-4 py-3"><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#68716c]">{step.complete ? <CheckCircle2 size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}{step.label}</div><div className="mt-1 text-[11px] font-black text-[#202522]">{step.value}</div></div>)}</div>
-      <p className="border-t border-[#dfe5e2] px-4 py-3 text-[11px] font-semibold leading-5 text-[#4f5c57]">{decisionHandoffNextAction(workflow, incompleteDecision, incompleteMoveIn, incompleteEhr, handoffStatus)}</p>
-    </section>
-  );
-}
-
-function DecisionReadiness({ workflow, outcome, note, incompleteDecision }: { workflow: WorkflowResponse; outcome: DecisionOutcomeDraft; note: string; incompleteDecision: AdmissionRequirement[] }) {
-  const items = [
-    { label: "Assessment signed (separate step)", complete: Boolean(workflow.context.assessmentSigned) },
-    { label: workflow.review?.status === "submitted" ? "Supervisor review is open" : "Supervisor review not submitted", complete: workflow.review?.status === "submitted" },
-    { label: workflow.recommendation ? `${formatOutcome(workflow.recommendation.outcome)} recommendation recorded` : "Recommendation not recorded", complete: Boolean(workflow.recommendation) },
-    { label: incompleteDecision.length === 0 ? "Decision requirements resolved" : `${incompleteDecision.length} decision requirement${incompleteDecision.length === 1 ? "" : "s"} remaining`, complete: incompleteDecision.length === 0 },
-    { label: outcome ? `${formatOutcome(outcome)} selected` : "Decision selected", complete: Boolean(outcome) },
-    ...(outcome === "declined" ? [{ label: "Decline rationale documented", complete: Boolean(note.trim()) }] : []),
-  ];
-  return <section aria-label="Supervisor decision readiness" className="mt-3 border-l-2 border-[#0f8b73] bg-[#f3faf7] px-3 py-3"><div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#176f60]">Decision readiness</div><ul className="mt-2 grid gap-2 sm:grid-cols-2">{items.map((item) => <li key={item.label} className={`flex items-center gap-2 text-[10px] font-bold ${item.complete ? "text-[#285b50]" : "text-[#68716c]"}`}>{item.complete ? <CheckCircle2 size={13} /> : <Circle size={11} />}{item.label}</li>)}</ul></section>;
-}
-
 function PrimaryButton({ busy, disabled, onClick, children }: { busy?: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" disabled={disabled || busy} onClick={onClick} className="mt-3 inline-flex h-9 items-center gap-2 bg-[#111111] px-4 text-[10px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
+  return <button type="button" disabled={disabled || busy} onClick={onClick} className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-[#08775e] px-4 text-[13px] font-semibold text-white hover:bg-[#065f4b] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
 }
 
 function SecondaryButton({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" disabled={disabled} onClick={onClick} className="mt-3 h-9 border border-[#bfc8c4] bg-white px-3 text-[10px] font-black text-[#174f43] hover:border-[#0f8b73] disabled:opacity-40">{children}</button>;
-}
-
-function WorkflowInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">{label}</span><input value={value} maxLength={128} onChange={(event) => onChange(event.target.value)} className="mt-1 h-9 w-full border border-[#c9ceca] px-3 text-[11px] outline-none focus:border-[#0f8b73]" /></label>;
+  return <button type="button" disabled={disabled} onClick={onClick} className="mt-3 h-10 rounded-md border border-[#cbd5cf] bg-white px-4 text-[13px] font-semibold text-[#35473c] hover:border-[#08775e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40">{children}</button>;
 }
 
 function WorkflowTextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="mt-3 block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">{label}</span><textarea value={value} maxLength={20_000} rows={3} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full resize-y border border-[#c9ceca] px-3 py-2 text-[11px] leading-5 outline-none focus:border-[#0f8b73]" /></label>;
+  return <label className="mt-3 block"><span className="text-[13px] font-medium text-[#53615a]">{label}</span><textarea value={value} maxLength={20_000} rows={3} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full resize-y border border-[#c9ceca] px-3 py-2 text-[14px] leading-6 outline-none focus:border-[#0f8b73]" /></label>;
 }
 
 function WorkflowSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
-  return <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">{label}</span><select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-9 w-full border border-[#c9ceca] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <label className="block"><span className="text-[13px] font-medium text-[#53615a]">{label}</span><select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-9 w-full border border-[#c9ceca] bg-white px-2 text-[14px] font-medium outline-none focus:border-[#0f8b73]">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
 function RecordSummary({ title, actor, date, note }: { title: string; actor: string; date: string; note: string }) {
-  return <div className="border-l-2 border-[#0f8b73] bg-[#f3faf7] px-3 py-2"><div className="text-[11px] font-black text-[#174f43]">{title}</div><div className="mt-0.5 text-[9px] text-[#597068]">{actor} · {new Date(date).toLocaleString()}</div>{note ? <div className="mt-1 whitespace-pre-wrap text-[10px] leading-4 text-[#40534d]">{note}</div> : null}</div>;
+  return <div className="border-l-2 border-[#0f8b73] px-3 py-2"><div className="text-[14px] font-semibold text-[#25372d]">{title}</div><div className="mt-1 text-[13px] text-[#59665f]">{actor} · {new Date(date).toLocaleString()}</div>{note ? <div className="mt-2 whitespace-pre-wrap text-[14px] leading-6 text-[#35473c]">{note}</div> : null}</div>;
 }
 
 function ReviewSummary({ review }: { review: AssessmentReview }) {
@@ -524,13 +452,9 @@ function ReviewSummary({ review }: { review: AssessmentReview }) {
     not_accepted: "Not accepted",
   }[review.status];
   return (
-    <div className="mt-3 border border-[#dfe5e2] bg-white px-3 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-[10px] font-black text-[#202522]">Review {review.submissionNumber} · {label}</div>
-        <div className="text-[9px] font-bold text-[#68716c]">Signed assessment v{review.assessmentVersion}</div>
-      </div>
-      <div className="mt-1 text-[9px] text-[#68716c]">Submitted by {review.submittedByName} · {new Date(review.submittedAt).toLocaleString()}</div>
-      {review.reviewNote ? <div className="mt-2 whitespace-pre-wrap text-[10px] leading-4 text-[#40534d]">{review.reviewNote}</div> : null}
+    <div className="mb-3 text-[13px] leading-6 text-[#59665f]">
+      <p>{label} · {review.submittedByName}</p>
+      {review.reviewNote ? <p className="mt-2 whitespace-pre-wrap text-[14px] text-[#35473c]">{review.reviewNote}</p> : null}
     </div>
   );
 }

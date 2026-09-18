@@ -105,48 +105,88 @@
 .pipeline-surfaces [data-home-module="new-assignments"] h2 > svg { color: #b45835; border-color: #f0e5df; background: #fff7f2; }
 .pipeline-surfaces [data-home-module="upcoming-assessments"] h2 > svg { color: #4960bd; border-color: #e1e6f4; background: #f4f6fd; }
 
-/* Translucent lanes carry the board; only small status details carry color. */
+/* Stage dockets carry the color; client folders remain neutral paper. */
 .pipeline-surfaces [data-current-work-board]:has(> [data-board-stage]) { gap: 14px; }
 
 .pipeline-surfaces [data-board-stage] {
   --stage-accent: #087e64;
   --stage-tint: #eaf7f0;
-  padding: 8px;
-  border: 1px solid rgb(220 226 234 / 72%);
-  border-radius: 14px;
-  background: rgb(255 255 255 / 40%);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 85%) inset;
+  --docket-index: "01";
+  --docket-paper: #e1eee6;
+  --docket-edge: #b8ccbf;
+  position: relative;
+  margin-top: 11px;
+  padding: 8px 8px 23px;
+  border: 1px solid var(--docket-edge);
+  border-radius: 0 9px 7px 7px;
+  background: linear-gradient(115deg, rgb(255 255 255 / 68%), transparent 65%), var(--docket-paper);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%), 0 2px 2px rgb(32 48 42 / 4%), 0 7px 14px rgb(32 48 42 / 4%);
 }
 
-.pipeline-surfaces [data-board-stage="in_progress"] { --stage-accent: #465fc2; --stage-tint: #eef1fc; }
-.pipeline-surfaces [data-board-stage="decision"] { --stage-accent: #ac512d; --stage-tint: #fdf1e9; }
-.pipeline-surfaces [data-board-stage="admitted"] { --stage-accent: #10728a; --stage-tint: #e9f5f9; }
+.pipeline-surfaces [data-board-stage="in_progress"] { --stage-accent: #465fc2; --stage-tint: #eef1fc; --docket-index: "02"; --docket-paper: #e4eaf7; --docket-edge: #bec9e0; }
+.pipeline-surfaces [data-board-stage="decision"] { --stage-accent: #ac512d; --stage-tint: #fdf1e9; --docket-index: "03"; --docket-paper: #f3e8de; --docket-edge: #d9c3b0; }
+.pipeline-surfaces [data-board-stage="admitted"] { --stage-accent: #10728a; --stage-tint: #e9f5f9; --docket-index: "04"; --docket-paper: #dfeff0; --docket-edge: #b6cfd0; }
+
+.pipeline-surfaces [data-board-stage]::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -11px;
+  width: 48%;
+  height: 11px;
+  border: 1px solid var(--docket-edge);
+  border-bottom: 0;
+  border-radius: 5px 10px 0 0;
+  background: linear-gradient(rgb(255 255 255 / 60%), transparent), var(--docket-paper);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 85%);
+  pointer-events: none;
+}
+
+.pipeline-surfaces [data-board-stage]::after {
+  content: "";
+  position: absolute;
+  inset: auto 10px 6px;
+  height: 8px;
+  border-top: 1px solid var(--docket-edge);
+  border-bottom: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(rgb(255 255 255 / 12%), rgb(255 255 255 / 48%));
+  pointer-events: none;
+}
 
 .pipeline-surfaces [data-board-stage] > div:first-child {
   min-height: 44px;
   justify-content: flex-start;
   gap: 8px;
   margin-bottom: 6px;
-  padding: 4px 6px 10px;
+  padding: 4px 3px 9px;
   border: 0;
+  border-bottom: 1px solid var(--docket-edge);
   background: transparent;
   box-shadow: none;
 }
 
 .pipeline-surfaces [data-board-stage] > div:first-child::before {
-  content: "";
-  width: 8px;
-  height: 8px;
+  content: var(--docket-index);
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
   flex-shrink: 0;
+  border: 1px solid var(--docket-edge);
   border-radius: 3px;
-  background: var(--stage-accent);
-  box-shadow: 0 0 0 3px var(--stage-tint), 0 1px 2px rgb(24 36 55 / 12%);
+  background: var(--stage-tint);
+  color: var(--stage-accent);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgb(24 36 55 / 6%);
 }
 
 .pipeline-surfaces [data-board-stage] h2 {
   text-transform: none;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.015em;
   color: #343c4a;
 }
@@ -155,9 +195,9 @@
   min-width: 23px;
   margin-left: auto;
   padding: 4px 6px;
-  border: 1px solid rgb(211 219 230 / 70%);
-  border-radius: 6px;
-  background: rgb(255 255 255 / 70%);
+  border: 1px solid var(--docket-edge);
+  border-radius: 3px;
+  background: rgb(255 255 255 / 80%);
   font-size: 11px;
   font-weight: 600;
   line-height: 14px;
@@ -176,8 +216,9 @@
   align-content: center;
   margin: 0;
   padding: 20px;
-  border-top: 1px solid #e3e8ef;
-  background: transparent;
+  border: 1px solid var(--docket-edge);
+  border-radius: 2px;
+  background: linear-gradient(rgb(255 255 255 / 90%), rgb(255 255 255 / 62%));
   color: #626d7e;
   font-size: 12px;
   font-weight: 400;
@@ -381,6 +422,7 @@
 @media print {
   .pipeline-surfaces,
   .pipeline-surfaces [data-home-surface],
+  .pipeline-surfaces [data-board-stage],
   .pipeline-surfaces [data-assessment-view="chart"] main,
   .pipeline-surfaces [aria-label="Captured assessment answers"],
   .pipeline-surfaces [data-assessment-question-editor] section,
@@ -388,4 +430,8 @@
     background: #fff;
     box-shadow: none;
   }
+}
+
+@media (forced-colors: active) {
+  .pipeline-surfaces [data-board-stage] { --docket-edge: ButtonText; --docket-paper: Canvas; --stage-accent: ButtonText; --stage-tint: Canvas; }
 }
