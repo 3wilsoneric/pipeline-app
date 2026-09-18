@@ -179,3 +179,11 @@ PostgreSQL), `python3 scripts/test-pipeline-extraction-worker.py`, and Playwrigh
 `tests/e2e/extraction-beta.spec.ts`. A live synthetic upload must additionally prove
 Defender, Databricks, Document Intelligence, callback persistence, and source review.
 These tests establish workflow behavior, not accuracy across all clinical documents.
+
+The connector identity also needs the data action
+`Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/read`.
+The built-in Blob Data Contributor role omits it. Production grants the custom
+`Pipeline extraction scan results reader` role only on the Pipeline storage
+account to its existing Databricks connector identity; it grants no tag writes.
+Retain that role when rebuilding the extraction identity and prove the scan gate
+with a newly uploaded fixture. The application runtime does not need this role.
