@@ -8,14 +8,19 @@ async function openClients(page: Page) {
     ...clientDirectoryFixture.clients[0],
     canonical_client_id: `dropdown-${index}`,
     display_name: ["Riley Perez", "Taylor Chen", "Oscar Martin"][index],
+    resident_numbers: [`R-${100 + index}`],
     community_names: [community],
     current_community: community,
     current_resident: true,
     admit_date: "2026-07-08",
   }));
-  await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: {
-    ...clientDirectoryFixture, clients, total: clients.length, next_cursor: null, data_as_of: "2026-08-07",
-  } }));
+  await page.route("**/api/profiles/directory**", (route) => {
+    const query = (new URL(route.request().url()).searchParams.get("q") ?? "").trim().toLowerCase();
+    const matches = clients.filter((client) => [client.display_name, ...client.resident_numbers, client.current_community].some((value) => value.toLowerCase().includes(query)));
+    return route.fulfill({ json: {
+      ...clientDirectoryFixture, clients: matches, total: matches.length, next_cursor: null, data_as_of: "2026-08-07",
+    } });
+  });
   await page.goto("/");
   await page.getByRole("button", { name: "Open client profiles" }).click();
   await expect(page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true })).toBeVisible();
@@ -122,6 +127,29 @@ test("compact cabinets expand across the page body and return focus on close", a
   expect(await drawer.evaluate((node) => node.getAnimations().length)).toBe(0);
   await page.getByRole("button", { name: "Back to cabinets", exact: true }).click();
   await expect(cabinet).toBeFocused();
+
+  await cabinet.click();
+  const search = drawer.getByRole("textbox", { name: "Search this cabinet", exact: true });
+  const searchCabinet = (value: string) => Promise.all([
+    page.waitForResponse((response) => response.url().includes("/api/profiles/directory") && new URL(response.url()).searchParams.get("q") === value),
+    search.fill(value),
+  ]);
+  await searchCabinet("oscar");
+  await expect(drawer.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
+  await searchCabinet("r-102");
+  await expect(drawer.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
+  await searchCabinet("Riley");
+  await expect(drawer.getByText("No clients match the current search and filters in this cabinet.")).toBeVisible();
+  await expect(drawer.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
+  await drawer.getByRole("button", { name: "Clear cabinet search", exact: true }).click();
+  await expect(search).toHaveValue("");
+  await expect(drawer.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
+  await search.fill("Riley");
+  await expect(drawer.getByText("No clients match the current search and filters in this cabinet.")).toBeVisible();
+  await expect(drawer.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Back to cabinets", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toBeFocused();
+  await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toHaveValue("Riley");
 });
 
 async function checkSharedPicker(page: Page, select: Locator, height: number) {
