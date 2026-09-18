@@ -10,14 +10,21 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 const root = resolve(import.meta.dirname, "..");
 const clean = (value) => JSON.parse(JSON.stringify(value));
 const query = loadTypeScriptModule(root, "lib/pipeline/referral-query.ts");
+const ownerIdentity = loadTypeScriptModule(root, "lib/pipeline/referral-owner-identity.ts");
 const referrals = Array.from({ length: 12 }, (_, i) => ({
   id: i + 1, name: `Filter Fixture ${i + 1}`, stage: "New", date: "2026-09-17",
   community: ["San Pablo", "Santa Clarita", "Turlock"][i % 3], county: "Fixture County",
-  owner: ["Alex Assessor", "Blair Assessor", "pending"][Math.floor(i / 3) % 3],
+  owner: i === 9 ? "Alex  Assessor" : ["Alex Assessor", "Blair Assessor", "pending"][Math.floor(i / 3) % 3],
   ownerId: `owner-${Math.floor(i / 3) % 3}`, source: "Synthetic", priority: "standard",
   documentName: `filter-${i + 1}.pdf`, documentStatus: "Uploaded", requirements: [],
   note: "", workspaceStatus: "active", createdAt: "2026-09-17T12:00:00.000Z", updatedAt: "2026-09-17T12:00:00.000Z",
 }));
+
+test("owner menus omit retired and unassigned entries and combine whitespace duplicates", () => {
+  const names = ["Marta", "Lorena Renaud", "Lily Florian", "Unassigned", "pending", "", "Sandeep  Singh", "Sandeep Singh", "Annette Everhart", "Vince Ceja", "Andrew Dominici", "Jazmine Saldana", "Eric Wilson"];
+  assert.deepEqual(clean(ownerIdentity.ownerFilterOptions(names)), ["Andrew Dominici", "Annette Everhart", "Eric Wilson", "Jazmine Saldana", "Sandeep Singh", "Vince Ceja"]);
+  assert.equal(names[6], "Sandeep  Singh");
+});
 
 test("repeated query parameters validate every value and cannot supply assignment scope", () => {
   const parsed = query.parseReferralListQuery(new URLSearchParams("community=San+Pablo&community=Santa+Clarita&owner=Alex+Assessor&owner=Blair+Assessor&assignedOwnerId=other&scope=mine"));

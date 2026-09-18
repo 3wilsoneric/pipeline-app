@@ -26,6 +26,7 @@ import {
 import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
 import { pipelineCommunities } from "@/lib/pipeline/community-config";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
+import { ownerFilterOptions } from "@/lib/pipeline/referral-owner-identity";
 import type { ReferralFacets } from "@/lib/pipeline/referral-store";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
@@ -280,9 +281,9 @@ function ReferralHome({
   }, [fileCategory, fileCommunities, fileMonth, fileOwners, filter.kind, requestSearchTerm, reviewIdentity]);
 
   const monthOptions = useMemo(() => facets.months.map((entry) => entry.value), [facets.months]);
-  const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
+  const ownerOptions = useMemo(() => ownerFilterOptions(facets.owners.map((entry) => entry.value)), [facets.owners]);
   const recordedCommunityFacets = useMemo(() => facets.communities.filter((entry) => isRecordedWorkspaceCommunity(entry.value)), [facets.communities]);
-  const fileOwnerOptions = useMemo(() => [...new Set([...ownerOptions, ...(files ?? []).map((file) => file.owner ?? "Unassigned")])].filter(Boolean).sort((left, right) => left.localeCompare(right)), [files, ownerOptions]);
+  const fileOwnerOptions = useMemo(() => ownerFilterOptions([...ownerOptions, ...(files ?? []).map((file) => file.owner ?? "Unassigned")]), [files, ownerOptions]);
   const fileMonthOptions = useMemo(() => recentMonthKeys(48), []);
   const activeMonth = referralFilterMonth(filter);
 

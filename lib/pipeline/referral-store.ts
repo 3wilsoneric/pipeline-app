@@ -1356,7 +1356,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
         and (${owners.length === 0} or case
           when lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
             then 'Unassigned'
-          else trim(r.owner_name)
+          else regexp_replace(trim(r.owner_name), '[[:space:]]+', ' ', 'g')
         end = any(${owners}::text[]))
         and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
           or exists (
@@ -1764,7 +1764,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         and (${owners.length === 0} or case
           when lower(coalesce(nullif(trim(file_rows.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
             then 'Unassigned'
-          else trim(file_rows.owner_name)
+          else regexp_replace(trim(file_rows.owner_name), '[[:space:]]+', ' ', 'g')
         end = any(${owners}::text[]))
         and (${category}::text is null or file_rows.category = ${category})
         and (${identityStatus}::text is null or file_rows.identity_status = ${identityStatus})
