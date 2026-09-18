@@ -327,9 +327,9 @@ export default function ReferralWorkflowPanel({
       saveRecommendation(next);
     }}>
       <option value="" disabled>Placement recommendation</option>
-      <option value="accept">Recommend acceptance</option>
-      <option value="needs_more_information">Needs review</option>
-      <option value="decline">Not a fit</option>
+      <option value="accept">Accept</option>
+      <option value="decline">Deny</option>
+      <option value="needs_more_information">Under review</option>
     </select></label>
     {error ? <span role="alert">{error}</span> : <span className={assessmentStyles.recommendationStatus} role="status">{busy ? "Saving..." : message ? "Recommendation saved" : "Not a final admission decision"}</span>}
   </div>;

@@ -285,7 +285,7 @@ function ClinicalRecommendationDisclosure({ workflow, busy, recommendation, onRe
       <fieldset disabled={!workflow.capabilities.can_recommend || Boolean(busy)} className="my-4">
         <legend className="sr-only">Outcome recommendation</legend>
         <div className="grid gap-2 sm:grid-cols-3">
-          {([{ value: "accept", label: "Accept" }, { value: "decline", label: "Denied" }, { value: "needs_more_information", label: "Under review" }] as const).map((option) => (
+          {([{ value: "accept", label: "Accept" }, { value: "decline", label: "Deny" }, { value: "needs_more_information", label: "Under review" }] as const).map((option) => (
             <label key={option.value} className={`flex min-h-12 cursor-pointer items-center gap-3 border px-4 py-3 text-[14px] font-bold ${recommendation.outcome === option.value ? "border-[#0f8b73] bg-[#eff8f3]" : "border-[#c9ceca] bg-white"}`}>
               <input type="radio" name="assessment-outcome" value={option.value} checked={recommendation.outcome === option.value} onChange={() => onRecommendationChange({ outcome: option.value })} className="accent-[#0f8b73]" />{option.label}
             </label>

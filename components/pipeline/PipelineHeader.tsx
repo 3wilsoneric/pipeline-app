@@ -5,7 +5,7 @@ import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CircleHelp, GraduationCap, LogOut, Settings, TestTube2, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, CircleHelp, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -36,14 +36,6 @@ export default function PipelineHeader() {
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
   const canAccessReports = canAccessOperationsReports(user);
   useWorkspacePresenceHeartbeat(Boolean(user));
-
-  useEffect(() => {
-    router.prefetch(toPipelinePath("/training"));
-  }, [router]);
-
-  useEffect(() => {
-    if (user?.roles.includes("admin")) router.prefetch(toPipelinePath("/training/demo?view=tester"));
-  }, [router, user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,8 +223,7 @@ export default function PipelineHeader() {
               <div className="mt-0.5 truncate text-[11px] text-[#6b716d]">{profileAppearance.detail}</div>
             </div>
             <ProfileSettingsLink active={pathname === "/settings"} onSelect={() => setIsProfileMenuOpen(false)} />
-            <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
-            {user?.roles.includes("admin") ? <ProfileProcessTesterLink onSelect={() => setIsProfileMenuOpen(false)} /> : null}
+            <ProfileLearningAvailability />
             <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
             {canEditWorkspace(user) ? (
               <button
@@ -305,7 +296,7 @@ function DemoProfileMenu({ user, signedInName, onSelect, onTrash, children }: {
     <div className="p-1 text-[14px] text-[#28372f]">
       <DemoAssessmentLabButton className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73] sm:hidden" />
       <Link href="/settings" onClick={onSelect} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Profile</Link>
-      <Link href="/training" onClick={onSelect} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Learning Center</Link>
+      <button type="button" disabled className="block w-full px-3 py-3 text-left text-[#737373]">Learning Center · Temporarily unavailable</button>
       <button type="button" onClick={onTrash} className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Trash</button>
     </div>
   </>;
@@ -375,12 +366,8 @@ function ProfileSettingsLink({ active, onSelect }: { active: boolean; onSelect: 
   return <Link href="/settings" prefetch={true} aria-label="Profile settings Account and display preferences" aria-current={active ? "page" : undefined} onClick={onSelect} className={`group grid min-h-[60px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${active ? "border-l-[#0f8b73] bg-[#edf7f3]" : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"}`}><Settings size={17} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Profile settings</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Account and display preferences</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
 }
 
-function ProfileLearningLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {
-  return <Link href="/training" prefetch={true} aria-label="Learning Center Pipeline walkthrough and quick help" aria-current={active ? "page" : undefined} onClick={onSelect} className={`group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-t border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${active ? "border-l-[#0f8b73] bg-[#edf7f3]" : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"}`}><GraduationCap size={18} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Learning Center</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Walkthrough and quick help</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
-}
-
-function ProfileProcessTesterLink({ onSelect }: { onSelect: () => void }) {
-  return <Link href="/training/demo?view=tester" prefetch={true} aria-label="Process tester Open any workflow stage with synthetic data" onClick={onSelect} className="group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-t border-l-[3px] border-t-[#e5e5e5] border-l-transparent px-4 py-3 text-left outline-none transition-colors hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:bg-[#edf7f3]"><TestTube2 size={18} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Process tester</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Open any stage with synthetic data</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
+function ProfileLearningAvailability() {
+  return <button type="button" disabled className="grid min-h-[64px] w-full grid-cols-[28px_minmax(0,1fr)] items-center gap-3 border-t border-[#e5e5e5] px-4 py-3 text-left text-[#737373]"><GraduationCap size={18} strokeWidth={1.8} aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black">Learning Center</span><span className="mt-0.5 block text-[10px] leading-4">Temporarily unavailable</span></span></button>;
 }
 
 function navigatePipelineDestination(
