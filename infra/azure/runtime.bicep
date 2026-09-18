@@ -170,8 +170,7 @@ var graphMailSecrets = enableMeetClientMail ? [
 
 var baseEnvironment = [
   { name: 'PIPELINE_DEPLOYMENT_ENV', value: environment }
-  // Keep the temporary cover enabled until the owner requests reopening.
-  { name: 'PIPELINE_MAINTENANCE_MODE', value: 'true' }
+  { name: 'PIPELINE_MAINTENANCE_MODE', value: 'false' }
   { name: 'PIPELINE_DATABASE_MODE', value: 'postgres' }
   { name: 'PIPELINE_DATABASE_URL', secretRef: 'database-url' }
   { name: 'PIPELINE_DATABASE_SSL_MODE', value: 'require' }
