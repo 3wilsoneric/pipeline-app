@@ -201,6 +201,7 @@ function resumeDetail(location: PipelineWorkspaceLocation) {
   if (location.view === "assessment") return "Continue assessment";
   if (location.view === "files") return "Continue document review";
   if (location.view === "workflow") return "Continue workflow review";
+  if (location.view === "email") return "Continue email and packet review";
   if (location.view === "chart") return "Continue chart review";
   if (location.view === "activity") return "Continue activity review";
   return "Continue intake";

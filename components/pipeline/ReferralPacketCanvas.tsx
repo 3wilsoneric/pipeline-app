@@ -214,8 +214,8 @@ type ExtractionReviewConflict = {
 };
 
 type WorkspaceStage = 1 | 2 | 3;
-type WorkspaceView = WorkspaceStage | "workflow" | "files" | "activity";
-type WorkspaceStep = { page: WorkspaceStage | "workflow"; label: string };
+type WorkspaceView = WorkspaceStage | "workflow" | "email" | "files" | "activity";
+type WorkspaceStep = { page: WorkspaceStage | "workflow" | "email"; label: string };
 type WorkspaceStageName = "intake" | "assessment" | "chart";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -403,6 +403,7 @@ export default function ReferralPacketCanvas({
     status: "not_started",
   });
   const [hasSignedAssessment, setHasSignedAssessment] = useState(false);
+  const [emailRecipients, setEmailRecipients] = useState("");
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const extraction = usePacketExtraction(loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
@@ -542,6 +543,7 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     const referralId = loadedReferral?.id ?? referral?.id;
     setHasSignedAssessment(false);
+    setEmailRecipients("");
     if (!referralId) {
       setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
       return;
@@ -2064,10 +2066,14 @@ export default function ReferralPacketCanvas({
     permissionReadOnly,
   );
   const { readOnly, historicalReadOnly, steps } = workspacePresentation;
-  const workspaceSteps = steps.filter((step) => step.page !== 3 || hasSignedAssessment || Boolean(assessmentSummary.signedAt)).flatMap<WorkspaceStep>((step) => {
-    if (step.page === 3 && loadedReferral && !historicalReadOnly) return [{ page: "workflow", label: "Decision" }, step];
+  const workspaceSteps = steps.flatMap<WorkspaceStep>((step) => {
+    if (step.page === 3 && loadedReferral && !historicalReadOnly) return [{ page: "workflow", label: "Decision" }, { page: "email", label: "Email & packet" }, ...(hasSignedAssessment || assessmentSummary.signedAt ? [step] : [])];
+    if (step.page === 3 && !hasSignedAssessment && !assessmentSummary.signedAt) return [];
     return [step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt ? { ...step, label: "Questionnaire" } : step];
   });
+  if (loadedReferral && !historicalReadOnly && !workspaceSteps.some((step) => step.page === "email")) {
+    workspaceSteps.push({ page: "email", label: "Email & packet" });
+  }
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
@@ -2499,8 +2505,16 @@ export default function ReferralPacketCanvas({
                 onOpenIntake={() => openPage(1)}
                 onOpenAssessment={() => openPage(2)}
                 onOpenFiles={() => openPage("files")}
+                onOpenEmail={() => openPage("email")}
                 onOpenProfile={onOpenProfile}
               />
+            </PacketPage>
+          ) : displayedPage === "email" ? (
+            <PacketPage id="packet-email" title="Email & packet">
+              <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
+                emailDraft={{ recipients: emailRecipients, onChange: setEmailRecipients }}
+                onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2)}
+                onOpenDecision={() => openPage("workflow")} />
             </PacketPage>
           ) : displayedPage === 2 ? (
             <PacketPage id="packet-page-2" title="Assessment" flush>
@@ -2536,7 +2550,7 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart">
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded onOpenEmail={() => openPage("email")} /></TransferredWorkspaceChart>
             </PacketPage>
           ) : (
             <PacketPage id="packet-activity" title="Activity">
@@ -2589,7 +2603,7 @@ export default function ReferralPacketCanvas({
 function workspacePageForLocation(location: PipelineWorkspaceLocation): WorkspaceView {
   if (location.view === "assessment") return 2;
   if (location.view === "chart") return 3;
-  if (location.view === "workflow" || location.view === "files" || location.view === "activity") return location.view;
+  if (location.view === "workflow" || location.view === "email" || location.view === "files" || location.view === "activity") return location.view;
   return 1;
 }
 
@@ -2607,7 +2621,7 @@ function initialIntakeFocus(location: PipelineWorkspaceLocation) {
 function workspaceLocationForPage(page: WorkspaceView): PipelineWorkspaceLocation {
   if (page === 2) return { view: "assessment" };
   if (page === 3) return { view: "chart" };
-  if (page === "workflow" || page === "files" || page === "activity") return { view: page };
+  if (page === "workflow" || page === "email" || page === "files" || page === "activity") return { view: page };
   return { view: "intake" };
 }
 
@@ -4159,7 +4173,7 @@ function activeReferralId(loadedReferral: Referral | null, referral: { id: numbe
 
 function presenceSection(page: WorkspaceView): ReferralSection {
   if (page === "files") return "documents";
-  if (page === "activity") return "workflow";
+  if (page === "activity" || page === "email") return "workflow";
   if (page === 3) return "assessment";
   if (page === 2) return "assessment";
   return "intake";
