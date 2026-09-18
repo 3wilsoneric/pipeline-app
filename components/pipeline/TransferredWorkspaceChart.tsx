@@ -2,12 +2,14 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ClientChartRecord } from "@/components/pipeline/ClientProfileView";
+import { ClientChartHeader } from "@/components/pipeline/ClientMedicalChart";
 import { fetchPipelineJson, readPipelineJsonCache } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
 
-export default function WorkspaceClientChart({ referral, children }: {
+export default function WorkspaceClientChart({ referral, headerActions, children }: {
   referral: Referral | null;
+  headerActions?: ReactNode;
   children?: ReactNode;
 }) {
   const profilePath = referral?.clientId ? `/api/profiles/${encodeURIComponent(`pipeline:${referral.clientId}`)}` : "";
@@ -23,8 +25,11 @@ export default function WorkspaceClientChart({ referral, children }: {
     return () => controller.abort();
   }, [profilePath, retry]);
   if (!referral) return <>{children}</>;
-  if (!profilePath) return <p role="alert">This workspace needs its client identity connected before the chart can be loaded.</p>;
-  if (error) return <div role="alert" className="py-4 text-[13px] text-[#a4473c]">{error} <button type="button" className="ml-3 underline" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>;
-  if (!profile) return <p role="status" className="py-4 text-[12px] text-[#68716d]">Loading client chart...</p>;
-  return <ClientChartRecord profile={profile} sourceReferralId={referral.id}>{children}</ClientChartRecord>;
+  if (!profilePath || error || !profile) return <>
+    <ClientChartHeader title="Client chart" actions={headerActions}>{null}</ClientChartHeader>
+    {!profilePath ? <p role="alert">This workspace needs its client identity connected before the chart can be loaded.</p>
+      : error ? <div role="alert" className="py-4 text-[13px] text-[#59645e]">{error} <button type="button" className="ml-3 underline" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>
+      : <p role="status" className="py-4 text-[12px] text-[#68716d]">Loading client chart...</p>}
+  </>;
+  return <ClientChartRecord profile={profile} sourceReferralId={referral.id} headerActions={headerActions}>{children}</ClientChartRecord>;
 }

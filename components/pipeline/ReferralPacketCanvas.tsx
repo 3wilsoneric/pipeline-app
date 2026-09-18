@@ -2301,12 +2301,13 @@ export default function ReferralPacketCanvas({
 
         <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
-            <PacketPage id="transferred-chart" title="Chart">
+            <PacketPage id="transferred-chart" title="Chart" flush>
+              <WorkspaceChartFolder>
               <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} />
+              </WorkspaceChartFolder>
             </PacketPage>
           ) : displayedPage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake" flush>
-            {chartPage === 1 ? chartPagination : null}
             <IntakeEditScope readOnly={permissionReadOnly}>
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
@@ -2350,7 +2351,7 @@ export default function ReferralPacketCanvas({
               />
             ) : null}
             <ClientChartFrame label="Referral intake chart">
-              <ClientChartHeader title="Referral intake">
+              <ClientChartHeader title="Referral intake" actions={chartPage === 1 ? chartPagination : undefined}>
                 <ChartHeaderCell label="Details captured" value={`${fieldCount} / ${visibleChartFieldKeys.length}`} />
               </ClientChartHeader>
               <div className="min-w-0" onFocusCapture={focusIntakeCell} onBlur={blurIntakeCell}>
@@ -2515,12 +2516,14 @@ export default function ReferralPacketCanvas({
               />
             </PacketPage>
           ) : displayedPage === "email" ? (
-            <PacketPage id="packet-email" title="Email & packet">
-              {chartPagination}
+            <PacketPage id="packet-email" title="Email & packet" flush>
+              <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
+                headerActions={chartPagination}
                 emailDraft={{ recipients: emailRecipients, onChange: setEmailRecipients }}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2)}
                 onOpenDecision={() => openPage("workflow")} />
+              </WorkspaceChartFolder>
             </PacketPage>
           ) : displayedPage === 2 ? (
             <PacketPage id="packet-page-2" title="Assessment" flush>
@@ -2555,9 +2558,10 @@ export default function ReferralPacketCanvas({
                 />
             </PacketPage>
           ) : displayedPage === 3 ? (
-            <PacketPage id="packet-charts" title="Chart">
-              {chartPagination}
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
+            <PacketPage id="packet-charts" title="Chart" flush>
+              <WorkspaceChartFolder>
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} headerActions={chartPagination}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
+              </WorkspaceChartFolder>
             </PacketPage>
           ) : (
             <PacketPage id="packet-activity" title="Activity">
@@ -2687,15 +2691,22 @@ function getWorkspacePresentation(
   };
 }
 
+function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
+  return <div data-testid="workspace-chart-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
+    <div className={folderStyles.body}><div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>{children}</div></div>
+  </div>;
+}
+
 function ChartPageNavigation({ emailPage, onOpenChart, onOpenEmail }: {
   emailPage: boolean;
   onOpenChart: () => void;
   onOpenEmail: () => void;
 }) {
-  return <nav aria-label="Chart pages" className="mx-auto mb-4 flex w-full max-w-[1240px] items-center justify-between gap-3 border-b border-[#e8e8e8] py-2 text-[13px] text-[#616161]">
-    {emailPage ? <button type="button" onClick={onOpenChart} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[#0f6cbd] hover:bg-[#f0f5fa] focus-visible:outline-2 focus-visible:outline-offset-2"><ArrowLeft size={16} aria-hidden="true" />Client chart</button> : null}
+  return <nav aria-label="Chart pages" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[11px] text-[#616161]">
+    <span className="rounded border border-[#d6d6d6] bg-white px-2 py-1 font-semibold text-[#424242]" title="Packet workflow preview. Email delivery is not live yet.">Demo · Beta</span>
+    {emailPage ? <button type="button" aria-label="Client chart" title="Previous page: Client chart" onClick={onOpenChart} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-2 text-[12px] font-semibold text-[#0f6cbd] hover:bg-[#f0f5fa] focus-visible:outline-2 focus-visible:outline-offset-2"><ArrowLeft size={16} aria-hidden="true" /><span className="hidden sm:inline">Client chart</span></button> : null}
     <span aria-current="page">Page {emailPage ? "2" : "1"} of 2<span className="sr-only"> · {emailPage ? "Email & packet" : "Client chart"}</span></span>
-    {!emailPage ? <button type="button" data-guide-target="chart-meet-client-tab" onClick={onOpenEmail} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[#0f6cbd] hover:bg-[#f0f5fa] focus-visible:outline-2 focus-visible:outline-offset-2">Email &amp; packet<ArrowRight size={16} aria-hidden="true" /></button> : null}
+    {!emailPage ? <button type="button" aria-label="Email & packet" title="Next page: Email & packet" data-guide-target="chart-meet-client-tab" onClick={onOpenEmail} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-2 text-[12px] font-semibold text-[#0f6cbd] hover:bg-[#f0f5fa] focus-visible:outline-2 focus-visible:outline-offset-2"><span className="hidden sm:inline">Email &amp; packet</span><ArrowRight size={16} aria-hidden="true" /></button> : null}
   </nav>;
 }
 

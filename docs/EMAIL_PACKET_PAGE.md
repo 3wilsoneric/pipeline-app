@@ -2,6 +2,12 @@
 
 Each saved referral has an Email & packet page inside Chart at `workspaceView=email`.
 Chart contains two pages: Client chart and Email & packet, with previous/next navigation.
+Pagination sits inside each page's existing header so the folder connects directly
+to the workspace tabs. The embedded chart omits its New referral toolbar; client
+directory profiles keep their existing creation action. Both pages identify the
+packet workflow as Demo · Beta, with explicit preview-only email copy and no
+modal or additional navigation gate. Actual delivery remains controlled by the
+existing disabled mail configuration and server policy.
 The Chart workspace tab stays selected on either page; email has no separate top-level tab.
 The existing email URL remains directly reachable and reloadable, including from
 Decision's Prepare Meet the Client action. Acceptance, signing, and sending remain separate.

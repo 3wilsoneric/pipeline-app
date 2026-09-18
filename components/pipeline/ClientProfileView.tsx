@@ -157,13 +157,14 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
-export function ClientChartRecord({ profile, sourceReferralId, children }: {
+export function ClientChartRecord({ profile, sourceReferralId, headerActions, children }: {
   profile: UnifiedClientProfileResponse;
   sourceReferralId: number;
+  headerActions?: ReactNode;
   children?: ReactNode;
 }) {
   return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
-    embedded sourceReferralId={sourceReferralId} additionalContent={children} />;
+    embedded sourceReferralId={sourceReferralId} headerActions={headerActions} additionalContent={children} />;
 }
 
 function ResidentProfile({
@@ -174,6 +175,7 @@ function ResidentProfile({
   embedded = false,
   additionalContent,
   sourceReferralId,
+  headerActions,
 }: {
   profile: UnifiedClientProfileResponse;
   onBack: () => void;
@@ -182,6 +184,7 @@ function ResidentProfile({
   embedded?: boolean;
   additionalContent?: ReactNode;
   sourceReferralId?: number;
+  headerActions?: ReactNode;
 }) {
   const client = profile.client;
   const resident = profile.resident;
@@ -218,8 +221,8 @@ function ResidentProfile({
 
   return (
     <ClientChartContainer embedded={embedded} title={identity.title} onBack={onBack}>
-        <StartReferralFromChart sourceReferralId={sourceReferralId ?? profile.pipeline.referrals[0]?.id}
-          allowed={profile.pipeline.permissions.can_create_identity_candidate} />
+        {!embedded ? <StartReferralFromChart sourceReferralId={sourceReferralId ?? profile.pipeline.referrals[0]?.id}
+          allowed={profile.pipeline.permissions.can_create_identity_candidate} /> : null}
 
         {profile.freshness.status === "stale" || profile.freshness.warning ? (
           <div className="mt-4 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">
@@ -232,6 +235,7 @@ function ResidentProfile({
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
             sourceLabel={clientProfileSourceLabel(pipelineOnly)}
+            headerActions={headerActions}
           />
         </div>
 

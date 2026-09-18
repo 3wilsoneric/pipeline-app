@@ -4,14 +4,16 @@ import ReadableChartText from "@/components/pipeline/ReadableChartText";
 export default function ClientMedicalChart({
   chart,
   dataAsOf,
+  headerActions,
 }: {
   chart: ClientMedicalChartModel;
   dataAsOf: string;
   sourceLabel: string;
+  headerActions?: React.ReactNode;
 }) {
   return (
     <ClientChartFrame label="Client medical chart">
-      <ClientChartHeader title="Client chart">
+      <ClientChartHeader title="Client chart" actions={headerActions}>
         <ChartHeaderCell label="Data through" value={formatDate(dataAsOf)} />
       </ClientChartHeader>
 
@@ -43,11 +45,14 @@ export function ClientChartFrame({ label, children }: { label: string; children:
   return <article aria-label={label} className="overflow-hidden border border-[#aebbb5] bg-white">{children}</article>;
 }
 
-export function ClientChartHeader({ title, children }: { title: string; children: React.ReactNode }) {
+export function ClientChartHeader({ title, children, actions }: { title: string; children: React.ReactNode; actions?: React.ReactNode }) {
   return <header className="grid grid-cols-1 border-b-2 border-[#aebbb5] bg-[#f3f7f5] sm:grid-cols-[1fr_auto_auto]">
-    <div className="flex items-center gap-2.5 px-5 py-3.5 sm:px-6">
+    <div className={`flex min-w-0 flex-wrap items-center justify-between gap-x-4 px-5 sm:px-6 ${actions ? "py-1" : "py-3.5"}`}>
+      <div className="flex items-center gap-2.5">
       <span aria-hidden="true" className="h-6 w-1 bg-[#2f8475]" />
       <h1 className="text-[16px] font-black tracking-[-0.02em] text-[#1d2924] sm:text-[17px]">{title}</h1>
+      </div>
+      {actions}
     </div>
     {children}
   </header>;
