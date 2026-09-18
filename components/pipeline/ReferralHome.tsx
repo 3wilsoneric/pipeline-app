@@ -67,12 +67,11 @@ type ReferralHomeProps = {
 };
 
 export default function ScopedReferralHome(props: ReferralHomeProps) {
-  const [selectedScope, setSelectedScope] = useState<WorkspaceScope>("team");
   if (props.canViewTeam === undefined) {
     return <div role="status" aria-busy="true" className="px-6 py-5 text-sm text-[#626a66]">Loading workspaces…</div>;
   }
-  const scope = props.canViewTeam ? selectedScope : "mine";
-  return <ReferralHome key={scope} {...props} scope={scope} onScopeChange={setSelectedScope} />;
+  const scope = props.canViewTeam ? "team" : "mine";
+  return <ReferralHome key={scope} {...props} scope={scope} />;
 }
 
 function ReferralHome({
@@ -81,10 +80,8 @@ function ReferralHome({
   onOpenPacket,
   onOpenProfile,
   onResumeDraft,
-  canViewTeam = false,
   scope,
-  onScopeChange,
-}: ReferralHomeProps & { scope: WorkspaceScope; onScopeChange: (scope: WorkspaceScope) => void }) {
+}: ReferralHomeProps & { scope: WorkspaceScope }) {
   const [initialDirectory] = useState(() => readPipelineJsonCache<ReferralDirectoryPayload>(
     `/api/referrals/directory?${buildReferralParams({ kind: "all" }, searchTerm, undefined, scope)}`,
   ));
@@ -327,9 +324,7 @@ function ReferralHome({
       onOpenPacket={onOpenPacket}
       onOpenProfile={onOpenProfile}
       onResumeDraft={onResumeDraft}
-      canViewTeam={canViewTeam}
       scope={scope}
-      onScopeChange={onScopeChange}
       filter={filter}
       onFilterChange={selectFilter}
       onShowFiles={() => {

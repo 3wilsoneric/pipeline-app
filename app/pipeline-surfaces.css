@@ -231,7 +231,7 @@
   background: linear-gradient(125deg, #e4f0e9, #f2f5f9 48%, #e8eff7);
   color: var(--surface-ink);
 }
-.pipeline-surfaces [data-guide-target="workspace-directory"] > div:first-child { padding-top: 16px; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+.pipeline-surfaces [data-guide-target="workspace-directory"] > div:first-child { padding-top: 8px; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
 .pipeline-surfaces [aria-label="Workspace directory sections"] { gap: 4px; }
 .pipeline-surfaces [aria-label="Workspace directory sections"] button {
   min-height: 44px;

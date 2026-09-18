@@ -89,7 +89,7 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
 
   for (const { role, scope, label } of [
     { role: "assessment_coordinator", scope: "team", label: "Search all workspaces" },
-    { role: "reviewer", scope: "mine", label: "Search my workspaces" },
+    { role: "reviewer", scope: "team", label: "Search all workspaces" },
   ]) {
     test(`waits for the effective ${role} identity before loading ${scope} workspaces`, async ({ page }) => {
       const directoryScopes: Array<string | null> = [];

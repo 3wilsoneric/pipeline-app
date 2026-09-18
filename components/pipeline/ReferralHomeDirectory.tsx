@@ -69,9 +69,7 @@ type ReferralHomeDirectoryProps = {
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
-  canViewTeam: boolean;
   scope: WorkspaceScope;
-  onScopeChange: (scope: WorkspaceScope) => void;
   filter: ReferralFilter;
   onFilterChange: (filter: ReferralFilter) => void;
   onShowFiles: () => void;
@@ -133,7 +131,6 @@ export function ReferralHomeDirectory(props: ReferralHomeDirectoryProps) {
       <div className="w-full px-4 pb-8 pt-0 sm:px-5 md:px-6 lg:px-8 xl:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
         <ReferralDraftResumeList onResume={props.onResumeDraft} className="mb-3 mt-3" />
-        <DirectoryHeader {...props} />
         <WorkspaceDirectoryBody {...props} />
       </div>
       {props.previewDialog}
@@ -153,27 +150,6 @@ export function ReferralHomeDirectory(props: ReferralHomeDirectoryProps) {
         />
       ) : null}
     </main>
-  );
-}
-
-function DirectoryHeader(props: ReferralHomeDirectoryProps) {
-  return (
-    <div className="mb-3 flex min-h-12 flex-wrap items-end justify-between gap-3 border-b border-[#cfd7d3]">
-      <div className="py-3 text-[12px] font-bold text-[#303638]">Workspaces <span className="ml-1 text-[11px] tabular-nums text-[#68716c]">{formatDirectoryCount(props.allPacketTotal)}</span></div>
-      <WorkspaceScopeSelector {...props} />
-    </div>
-  );
-}
-
-function WorkspaceScopeSelector(props: ReferralHomeDirectoryProps) {
-  const scopes: WorkspaceScope[] = props.canViewTeam ? ["mine", "team"] : ["mine"];
-  return (
-    <div className="mb-2 flex items-center gap-3">
-      <div role="group" aria-label="Workspace scope" className="pipeline-segmented flex border border-[#cfd7d3] bg-white p-0.5">
-        {scopes.map((scope) => <button key={scope} type="button" aria-pressed={props.scope === scope} onClick={() => props.onScopeChange(scope)} className={`h-8 px-3 text-[11px] font-bold ${props.scope === scope ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}>{scope === "mine" ? "Mine" : "All"}</button>)}
-      </div>
-      <span className="text-[10px] text-[#68716c]">Recently updated first</span>
-    </div>
   );
 }
 
