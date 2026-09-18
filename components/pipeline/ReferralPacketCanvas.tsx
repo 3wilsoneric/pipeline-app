@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
-  ClipboardCheck,
   FileText,
   FolderOpen,
   History,
@@ -141,7 +140,7 @@ const ReferralWorkflowPanel = dynamic(
   {
     loading: () => (
       <p aria-live="polite" className="text-sm text-[#666]">
-        Loading workflow…
+        Loading decision...
       </p>
     ),
   },
@@ -212,6 +211,7 @@ type ExtractionReviewConflict = {
 
 type WorkspaceStage = 1 | 2 | 3;
 type WorkspaceView = WorkspaceStage | "workflow" | "files" | "activity";
+type WorkspaceStep = { page: WorkspaceStage | "workflow"; label: string };
 type WorkspaceStageName = "intake" | "assessment" | "chart";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -245,9 +245,9 @@ function IntakeEditScope({ readOnly, children }: { readOnly: boolean; children: 
 
 function visibleWorkspacePage(
   activePage: WorkspaceView,
-  steps: ReadonlyArray<{ page: WorkspaceStage; label: string }>,
+  steps: ReadonlyArray<WorkspaceStep>,
 ): WorkspaceView {
-  if (steps.length === 1 && activePage === "workflow") return 1;
+  if (activePage === "workflow" && !steps.some((step) => step.page === "workflow")) return steps.some((step) => step.page === 2) ? 2 : 1;
   if (typeof activePage !== "number" || steps.some((step) => step.page === activePage)) return activePage;
   return steps[0]?.page ?? 1;
 }
@@ -2020,9 +2020,10 @@ export default function ReferralPacketCanvas({
     permissionReadOnly,
   );
   const { readOnly, historicalReadOnly, steps } = workspacePresentation;
-  const workspaceSteps = steps.filter((step) => step.page !== 3 || hasSignedAssessment || Boolean(assessmentSummary.signedAt)).map((step) => step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt
-    ? { ...step, label: "Questionnaire" }
-    : step);
+  const workspaceSteps = steps.filter((step) => step.page !== 3 || hasSignedAssessment || Boolean(assessmentSummary.signedAt)).flatMap<WorkspaceStep>((step) => {
+    if (step.page === 3 && loadedReferral && !historicalReadOnly) return [{ page: "workflow", label: "Decision" }, step];
+    return [step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt ? { ...step, label: "Questionnaire" } : step];
+  });
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
@@ -2101,23 +2102,6 @@ export default function ReferralPacketCanvas({
                 onOpen={openAssignedWork}
                 disabled={draftRecoveryLoading}
               />
-              {loadedReferral && editingControlsVisible ? (
-                <button
-                  type="button"
-                  onClick={() => void navigatePage("workflow")}
-                  aria-current={displayedPage === "workflow" ? "page" : undefined}
-                  aria-label="Admission workflow"
-                  title="Workflow"
-                  className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
-                    displayedPage === "workflow"
-                      ? "bg-[#eaf6f2] text-[#0c705f]"
-                      : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#0c705f]"
-                  }`}
-                >
-                  <ClipboardCheck size={15} />
-                  <span className="hidden xl:inline">Workflow</span>
-                </button>
-              ) : null}
               <button
                 type="button"
                 onClick={() => void navigatePage("files")}
@@ -2483,7 +2467,7 @@ export default function ReferralPacketCanvas({
               onAddFiles={attachAdditionalFiles}
             />
           ) : displayedPage === "workflow" && loadedReferral ? (
-            <PacketPage id="admission-workflow" title="Workflow">
+            <PacketPage id="admission-workflow" title="Decision">
               <ReferralWorkflowPanel
                 referral={loadedReferral}
                 onDone={onOpenAssignedWork ? openAssignedWork : undefined}
@@ -2659,34 +2643,36 @@ function getWorkspacePresentation(
 }
 
 function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
-  steps: ReadonlyArray<{ page: WorkspaceStage; label: string }>;
+  steps: ReadonlyArray<WorkspaceStep>;
   activePage: WorkspaceView;
   onOpen: (page: WorkspaceView) => void;
 }) {
   const numbered = steps.length > 1;
+  const auxiliaryLabel = activePage === "activity" ? "Activity" : activePage === "files" ? "Files" : "";
   return <>
     {numbered ? <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
       <span className="sr-only">Workspace stage</span>
       <select data-guide-target="assessment-stage chart-stage" aria-label="Workspace stage"
-        value={typeof activePage === "number" ? activePage : 1}
-        onChange={(event) => onOpen(Number(event.target.value) as WorkspaceStage)}
+        value={auxiliaryLabel || steps.some((step) => step.page === activePage) ? activePage : 1}
+        onChange={(event) => onOpen(event.target.value === "workflow" ? "workflow" : Number(event.target.value) as WorkspaceStage)}
         className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] bg-white px-2 text-[12px] font-bold text-[#111111] outline-none">
-        {steps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
+        {steps.map(({ page, label }, index) => <option key={page} value={page}>{`0${index + 1} ${label}`}</option>)}
+        {auxiliaryLabel ? <option value={activePage} disabled>{auxiliaryLabel}</option> : null}
       </select>
     </label> : <button type="button" onClick={() => onOpen(1)} aria-current={activePage === 1 ? "page" : undefined} className="col-span-2 row-start-2 py-2 text-left text-[12px] font-bold text-[#0c705f] lg:hidden">Chart</button>}
     <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 gap-1 overflow-x-auto lg:flex">
-      {steps.map((step) => <WorkspaceStageButton key={step.page} {...step} numbered={numbered} selected={activePage === step.page} onOpen={onOpen} />)}
+      {steps.map((step, index) => <WorkspaceStageButton key={step.page} {...step} number={numbered ? index + 1 : undefined} selected={activePage === step.page} onOpen={onOpen} />)}
     </nav>
   </>;
 }
 
-function WorkspaceStageButton({ page, label, numbered, selected, onOpen }: {
-  page: WorkspaceStage; label: string; numbered: boolean; selected: boolean; onOpen: (page: WorkspaceView) => void;
+function WorkspaceStageButton({ page, label, number, selected, onOpen }: {
+  page: WorkspaceStep["page"]; label: string; number?: number; selected: boolean; onOpen: (page: WorkspaceView) => void;
 }) {
-  return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : page === 3 || !numbered ? "chart-stage" : undefined}
+  return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : page === 3 || !number ? "chart-stage" : undefined}
     onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
     className={`pipeline-tab-feedback flex h-11 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 text-[11px] font-black transition-colors ${selected ? "text-[#111111]" : "text-[#737373] hover:text-[#0f8b73]"}`}>
-    {numbered ? <span className={`text-[9px] ${selected ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span> : null}
+    {number ? <span className={`text-[9px] ${selected ? "text-[#0c705f]" : "text-[#595959]"}`}>0{number}</span> : null}
     <span className="whitespace-nowrap">{label}</span>
   </button>;
 }
@@ -4264,7 +4250,7 @@ function WorkspaceChangeHistory({
   activePage: WorkspaceView;
   referral: Referral | null;
 }) {
-  if (!referral || activePage === "activity") return null;
+  if (!referral || activePage === "activity" || activePage === "workflow") return null;
   return (
     <section aria-label="Workspace change history" className="mb-3">
       <details className="group bg-[#f8faf9]">
