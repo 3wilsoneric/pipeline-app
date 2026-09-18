@@ -36,6 +36,7 @@ import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorks
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import folderStyles from "./ClientFolder.module.css";
+import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
@@ -2117,48 +2118,46 @@ export default function ReferralPacketCanvas({
         aria-busy={draftRecoveryLoading}
         className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
       >
-        <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#d9d9d9] lg:flex lg:gap-3">
-            <div className="min-w-0 max-w-[10rem] shrink-0 py-2 sm:max-w-[18rem] lg:max-w-[26rem]">
-              <h1 data-testid="workspace-identity-title" className="truncate text-[14px] font-bold text-[#111111]" title={workspaceTitle}>
-                {workspaceTitle}
-              </h1>
-              {editingControlsVisible && displayedPage !== 2 ? (
-                <WorkspaceSaveStatus
-                  status={saveStatus}
-                  error={saveError ? `Pending · ${saveError}` : ""}
-                  createdWorkspaceId={createdWorkspaceId}
-                  referralId={editableReferralId}
-                  hasReferral={hasReferral}
-                  saving={isSaving}
-                  dirtyCount={dirtyKeys.size}
-                  queuedFileCount={queuedFileCount}
-                />
-              ) : null}
-            </div>
+        <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header}>
+          <div className={workspaceFolderStyles.tabRow}>
+            <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
+              <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
+            </h1>
             <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={(page) => void navigatePage(page)} />
 
-            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:ml-auto">
+            <div className={workspaceFolderStyles.actions}>
+              {remoteChange && remoteChange.conflicts.length === 0 ? (
+                <span role="status" data-testid="workspace-sync-status" className={workspaceFolderStyles.syncStatus} title={`Changes from ${remoteChange.updatedBy} were merged into your open draft.`}>
+                  <CheckCircle2 size={16} aria-hidden="true" />
+                  <span className="sr-only">Changes from {remoteChange.updatedBy} were merged into your open draft.</span>
+                </span>
+              ) : null}
               <WorkspaceAssignedWorkControl
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
                 onOpen={openAssignedWork}
                 disabled={draftRecoveryLoading}
               />
+              {editingControlsVisible ? (
+                <WorkspaceSaveControl
+                  saving={isSaving}
+                  hasReferral={hasReferral}
+                  hasChanges={hasPendingWorkspaceChanges}
+                  blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
+                  onSave={saveWorkspaceDraft}
+                  retry={Boolean(saveError)}
+                />
+              ) : null}
               <button
                 type="button"
                 onClick={() => void navigatePage("files")}
                 aria-current={displayedPage === "files" ? "page" : undefined}
                 aria-label="Workspace files"
                 title="Files"
-                className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
-                  displayedPage === "files"
-                    ? "bg-[#eaf6f2] text-[#0c705f]"
-                    : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#0c705f]"
-                }`}
+                className={workspaceFolderStyles.utilityTab}
               >
-                <FolderOpen size={15} />
-                <span className="hidden xl:inline">{workspacePresentation.filesLabel}</span>
+                <FolderOpen size={15} aria-hidden="true" />
+                <span>{workspacePresentation.filesLabel}</span>
               </button>
               <button
                 type="button"
@@ -2166,27 +2165,11 @@ export default function ReferralPacketCanvas({
                 aria-current={displayedPage === "activity" ? "page" : undefined}
                 aria-label="Workspace activity"
                 title="Activity"
-                className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
-                  displayedPage === "activity"
-                    ? "bg-[#eef2ff] text-[#3d5799]"
-                    : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#3d5799]"
-                }`}
+                className={workspaceFolderStyles.utilityTab}
               >
-                <History size={15} />
-                <span className="hidden xl:inline">Activity</span>
+                <History size={15} aria-hidden="true" />
+                <span>Activity</span>
               </button>
-              {editingControlsVisible ? (
-                <>
-                  <WorkspaceSaveControl
-                    saving={isSaving}
-                    hasReferral={hasReferral}
-                    hasChanges={hasPendingWorkspaceChanges}
-                    blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
-                    onSave={saveWorkspaceDraft}
-                    retry={Boolean(saveError)}
-                  />
-                </>
-              ) : null}
               {trashControlVisible ? (
                 <button
                   type="button"
@@ -2207,6 +2190,18 @@ export default function ReferralPacketCanvas({
               ) : null}
             </div>
           </div>
+          {editingControlsVisible && displayedPage !== 2 ? (
+            <WorkspaceSaveStatus
+              status={saveStatus}
+              error={saveError ? `Pending · ${saveError}` : ""}
+              createdWorkspaceId={createdWorkspaceId}
+              referralId={editableReferralId}
+              hasReferral={hasReferral}
+              saving={isSaving}
+              dirtyCount={dirtyKeys.size}
+              queuedFileCount={queuedFileCount}
+            />
+          ) : null}
         </div>
 
         {recoveredDraftAt ? (
@@ -2240,22 +2235,15 @@ export default function ReferralPacketCanvas({
           </div>
         ) : null}
 
-        {remoteChange ? (
+        {remoteChange && remoteChange.conflicts.length > 0 ? (
           <section aria-label="Remote changes" className="mb-3 border border-[#d5b75b] bg-[#fffbe8] px-4 py-3" aria-live="assertive">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-[12px] font-black text-[#4e451d]">{remoteChange.updatedBy} updated this referral.</div>
                 <div className="mt-1 text-[11px] leading-5 text-[#6a6031]">
-                  {remoteChange.conflicts.length > 0
-                    ? "Choose which value to keep for the fields changed in both sessions."
-                    : "The latest changes were merged into your open draft."}
+                  Choose which value to keep for the fields changed in both sessions.
                 </div>
               </div>
-              {remoteChange.conflicts.length === 0 ? (
-                <button type="button" onClick={() => setRemoteChange(null)} className="text-[11px] font-black text-[#4e451d] hover:text-black">
-                  Dismiss
-                </button>
-              ) : null}
             </div>
             {remoteChange.conflicts.length > 0 ? (
               <div className="mt-3 divide-y divide-[#dfd39c] border-y border-[#dfd39c]">
@@ -2301,21 +2289,15 @@ export default function ReferralPacketCanvas({
           </section>
         ) : null}
 
-        <WorkspaceChangeHistory
-          activePage={displayedPage}
-          referral={loadedReferral}
-        />
-
         <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart">
               <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} />
             </PacketPage>
           ) : displayedPage === 1 ? (
-          <PacketPage id="packet-page-1" title="Intake">
+          <PacketPage id="packet-page-1" title="Intake" flush>
             <IntakeEditScope readOnly={permissionReadOnly}>
-            <div data-testid="intake-client-folder" className={folderStyles.recordFolder}>
-              <strong className={folderStyles.tab}><span className={folderStyles.tabLabel}>{workspaceTitle}</span></strong>
+            <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
                 <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
             <IntakeDocumentChecklist
@@ -2359,7 +2341,6 @@ export default function ReferralPacketCanvas({
             <ClientChartFrame label="Referral intake chart">
               <ClientChartHeader title="Referral intake">
                 <ChartHeaderCell label="Details captured" value={`${fieldCount} / ${visibleChartFieldKeys.length}`} />
-                <ChartHeaderCell label="Save status" value={saveStatus} />
               </ClientChartHeader>
               <div className="min-w-0" onFocusCapture={focusIntakeCell} onBlur={blurIntakeCell}>
                 <ChartSection title="Identity" complete={countCompleteFields(fields, ["name", "dob", "gender", "ssn"])} total={4}>
@@ -2522,7 +2503,7 @@ export default function ReferralPacketCanvas({
               />
             </PacketPage>
           ) : displayedPage === 2 ? (
-            <PacketPage id="packet-page-2" title="Assessment">
+            <PacketPage id="packet-page-2" title="Assessment" flush>
                 <AssessmentWorkspace
                   readOnly={permissionReadOnly}
                   referralId={referralWorkspaceId}
@@ -2691,22 +2672,11 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
   onOpen: (page: WorkspaceView) => void;
 }) {
   const numbered = steps.length > 1;
-  const auxiliaryLabel = activePage === "activity" ? "Activity" : activePage === "files" ? "Files" : "";
-  return <>
-    {numbered ? <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
-      <span className="sr-only">Workspace stage</span>
-      <select data-guide-target="assessment-stage chart-stage" aria-label="Workspace stage"
-        value={auxiliaryLabel || steps.some((step) => step.page === activePage) ? activePage : 1}
-        onChange={(event) => onOpen(event.target.value === "workflow" ? "workflow" : Number(event.target.value) as WorkspaceStage)}
-        className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] bg-white px-2 text-[12px] font-bold text-[#111111] outline-none">
-        {steps.map(({ page, label }, index) => <option key={page} value={page}>{`0${index + 1} ${label}`}</option>)}
-        {auxiliaryLabel ? <option value={activePage} disabled>{auxiliaryLabel}</option> : null}
-      </select>
-    </label> : <button type="button" onClick={() => onOpen(1)} aria-current={activePage === 1 ? "page" : undefined} className="col-span-2 row-start-2 py-2 text-left text-[12px] font-bold text-[#0c705f] lg:hidden">Chart</button>}
-    <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 gap-1 overflow-x-auto lg:flex">
+  return (
+    <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className={workspaceFolderStyles.stages}>
       {steps.map((step, index) => <WorkspaceStageButton key={step.page} {...step} number={numbered ? index + 1 : undefined} selected={activePage === step.page} onOpen={onOpen} />)}
     </nav>
-  </>;
+  );
 }
 
 function WorkspaceStageButton({ page, label, number, selected, onOpen }: {
@@ -2714,8 +2684,9 @@ function WorkspaceStageButton({ page, label, number, selected, onOpen }: {
 }) {
   return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : page === 3 || !number ? "chart-stage" : undefined}
     onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
-    className={`pipeline-tab-feedback flex h-11 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 text-[11px] font-black transition-colors ${selected ? "text-[#111111]" : "text-[#737373] hover:text-[#0f8b73]"}`}>
-    {number ? <span className={`text-[9px] ${selected ? "text-[#0c705f]" : "text-[#595959]"}`}>0{number}</span> : null}
+    data-folder-stage={page}
+    className={workspaceFolderStyles.stageTab}>
+    {number ? <span className={workspaceFolderStyles.stageNumber}>0{number}</span> : null}
     <span className="whitespace-nowrap">{label}</span>
   </button>;
 }
@@ -2727,7 +2698,8 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
   const presentation = workspaceSavePresentation(status, error, hasReferral, saving, dirtyCount, queuedFileCount);
   const { Icon } = presentation;
-  return <div data-testid="workspace-save-status" className="relative mt-0.5 flex min-w-0 items-start gap-1.5 text-[11px] font-bold" aria-live="polite" title={error || status}>
+  const quiet = !error && !saving && (presentation.confirmed || /^Draft(?: saved.*)?$/.test(status));
+  return <div data-testid="workspace-save-status" className={quiet ? "sr-only" : workspaceFolderStyles.saveNotice} aria-live="polite" title={error || status}>
     <FeedbackCue value={status} enabled={presentation.confirmed} />
     <Icon size={13} aria-hidden="true" className={`mt-0.5 shrink-0 ${presentation.iconClassName}`} />
     <span className={`min-w-0 ${presentation.textClassName}`}>
@@ -2741,7 +2713,7 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
 
 function workspaceSavePresentation(status: string, error: string, hasReferral: boolean, saving: boolean, dirtyCount: number, queuedFileCount: number) {
   const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0
-    && status !== "Saved on this device; not synced" && /^(Saved |All changes saved|Packet uploaded)/.test(status);
+    && status !== "Saved on this device; not synced" && /^(Saved |All changes saved|Packet uploaded|Updated by )/.test(status);
   if (error) return { label: "Pending", Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (saving) return { label: status, Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (confirmed) return { label: "Saved to Pipeline", Icon: CheckCircle2, iconClassName: "text-[#0c705f]", textClassName: "text-[#0c705f]", confirmed: true };
@@ -2774,7 +2746,7 @@ function WorkspaceSaveControl({
       onClick={onSave}
       disabled={control.disabled}
       aria-busy={saving}
-      className="pipeline-command flex h-10 shrink-0 items-center gap-2 bg-[#0b6f5d] px-3 text-[12px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
+      className={workspaceFolderStyles.createTab}
     >
       <Icon size={15} aria-hidden="true" className={saving ? "motion-safe:animate-spin" : undefined} />
       <span className="hidden sm:inline">{control.expandedLabel}</span>
@@ -3080,16 +3052,18 @@ function ChartStatusRow({ label, value, attention = false }: { label: string; va
 function PacketPage({
   id,
   title,
+  flush = false,
   children,
 }: {
   id: string;
   title: string;
+  flush?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section id={id} aria-label={title} className="overflow-hidden bg-white">
       <h2 className="sr-only">{title}</h2>
-      <div className="px-0 py-1 sm:px-2 sm:py-2">{children}</div>
+      <div className={flush ? undefined : "px-0 py-1 sm:px-2 sm:py-2"}>{children}</div>
     </section>
   );
 }
@@ -4278,30 +4252,6 @@ function initialPacketDropzonePresentation({
     className: "border-[#aaa25f] bg-[#fffdf0] hover:border-[#817932] hover:bg-[#fffbe2]",
     iconClassName: "text-[#6f641b]",
   };
-}
-
-function WorkspaceChangeHistory({
-  activePage,
-  referral,
-}: {
-  activePage: WorkspaceView;
-  referral: Referral | null;
-}) {
-  if (!referral || activePage === "activity" || activePage === "workflow") return null;
-  return (
-    <section aria-label="Workspace change history" className="mb-3">
-      <details className="group bg-[#f8faf9]">
-        <summary className="flex cursor-pointer list-none items-center gap-2 bg-[#eef7f3] px-3 py-2 text-[12px] font-bold text-[#0c705f] hover:bg-[#e4f2eb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] [&::-webkit-details-marker]:hidden">
-          <History size={15} aria-hidden="true" />
-          <span>Change history</span>
-          <ChevronDown size={15} aria-hidden="true" className="ml-auto transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="px-3 pb-4">
-          <ReferralActivityPanel referralId={referral.id} version={referral.version} />
-        </div>
-      </details>
-    </section>
-  );
 }
 
 function formatFileSize(bytes: number) {

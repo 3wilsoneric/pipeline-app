@@ -48,8 +48,8 @@ function AppNavigation({ focused, searchOpen }: { focused: boolean; searchOpen: 
   }
   return (
     <div data-assessment-app-navigation={focused ? "collapsed" : "standard"} className={`relative shrink-0 ${focused ? "z-[100] h-3 bg-[#f7faf4]" : "z-10"}`}
-      onPointerEnter={(event) => { if (focused && event.pointerType === "mouse") setOpen(true); }}
-      onPointerLeave={(event) => { if (focused && event.pointerType === "mouse") setOpen(false); }}
+      onPointerEnter={(event) => { if (focused && event.pointerType === "mouse" && window.matchMedia("(min-width: 960px) and (hover: hover) and (pointer: fine)").matches) setOpen(true); }}
+      onPointerLeave={(event) => { if (focused && event.pointerType === "mouse" && window.matchMedia("(min-width: 960px) and (hover: hover) and (pointer: fine)").matches) setOpen(false); }}
       onFocusCapture={() => { if (focused) setOpen(true); }}
       onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}
       onKeyDown={(event) => { if (focused && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (event.target instanceof HTMLElement) event.target.blur(); setOpen(false); } }}>

@@ -47,11 +47,7 @@ test.describe("Responsive application navigation", () => {
         await expect(page.getByRole("button", { name: "Open guided tutorials" })).toBeVisible();
       }
 
-      if (viewport.width >= 1280) {
-        await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
-      } else {
-        await expect(page.getByText("Workspaces", { exact: true })).toBeHidden();
-      }
+      await expect(page.getByTestId("primary-navigation").getByText("Workspaces", { exact: true })).toBeVisible();
 
       if (viewport.width < 1280) {
         await page.getByRole("button", { name: "Browse workspaces by month and community" }).click();
@@ -72,10 +68,13 @@ test.describe("Responsive application navigation", () => {
         await expectCommunityRowsAreAdjacent(archive);
       }
 
-      const contentTopBeforeViewChange = await page.getByTestId("workspace-content-grid").evaluate((element) => element.getBoundingClientRect().top);
+      const search = page.locator('[data-guide-target="workspace-search"]');
+      const searchTopBeforeViewChange = await search.evaluate((element) => element.getBoundingClientRect().top);
       await page.getByRole("button", { name: /^All files/ }).click();
-      await expect.poll(async () => page.getByTestId("workspace-content-grid").evaluate((element) => element.getBoundingClientRect().top))
-        .toBeCloseTo(contentTopBeforeViewChange, 0);
+      await expect(page.getByRole("searchbox", { name: "Search all uploaded files", exact: true })).toBeVisible();
+      // Files has additional filter rows; preserve the search anchor, not empty space.
+      await expect.poll(async () => search.evaluate((element) => element.getBoundingClientRect().top))
+        .toBeCloseTo(searchTopBeforeViewChange, 0);
 
       await expectNoDocumentOverflow(page);
     });

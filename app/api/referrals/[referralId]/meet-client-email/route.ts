@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
-import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
+import { deliverAssessmentPacket, listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { buildMeetClientSummary, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
@@ -92,19 +92,33 @@ async function deliverMeetClientEmail(input: {
   deliveryId: string;
   attachments: Awaited<ReturnType<typeof prepareMeetClientMailAttachments>>;
 }) {
-  let result: Awaited<ReturnType<typeof sendMeetClientMail>>;
-  try {
-    result = await sendMeetClientMail(input);
-  } catch (error) {
-    try {
-      await completeMeetClientDelivery(input.audit, "failed", deliveryErrorCode(error));
-    } catch {
-      recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failure_audit_pending" });
-    }
-    recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failed" });
-    return jsonError(deliveryFailureMessage(error), 502);
-  }
+  let result: Awaited<ReturnType<typeof sendMeetClientMail>> | undefined;
   let auditPending = false;
+  try {
+    await deliverAssessmentPacket(input.audit.assessmentId, input.audit.assessmentVersion, async () => {
+      result = await sendMeetClientMail(input);
+      return result;
+    });
+  } catch (error) {
+    if (result) {
+      // The provider accepted it. Never report a failed send or retry the email
+      // if persisting finalization fails; the delivery audit retains its evidence.
+      auditPending = true;
+      recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "finalization_pending" });
+    } else {
+      try {
+        await completeMeetClientDelivery(input.audit, "failed", deliveryErrorCode(error));
+      } catch {
+        recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failure_audit_pending" });
+      }
+      recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failed" });
+      if (error instanceof Error && error.message.startsWith("The assessment changed.")) {
+        return jsonError(error.message, 409);
+      }
+      return jsonError(deliveryFailureMessage(error), 502);
+    }
+  }
+  if (!result) return jsonError("The packet send was not confirmed.", 502);
   try {
     await completeMeetClientDelivery(input.audit, "sent");
   } catch {

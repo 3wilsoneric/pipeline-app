@@ -56,6 +56,22 @@ test("confirmed acceptance reports the packet counts and blocks a replay", async
   assert.equal(fixture.providerCalls(), 1);
 });
 
+test("an edit while preparing the packet stops the stale send before the provider", async () => {
+  const fixture = deliveryFixture({ assessmentChanged: true });
+  assert.equal((await fixture.send()).status, 409);
+  assert.equal(fixture.providerCalls(), 0);
+});
+
+test("accepted mail is never reported as failed when finalization storage fails", async () => {
+  const fixture = deliveryFixture({ finalizationFailure: true });
+  const response = await fixture.send();
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).audit_pending, true);
+  assert.deepEqual(fixture.auditStates, ["sent"]);
+  assert.equal((await fixture.send()).status, 409);
+  assert.equal(fixture.providerCalls(), 1);
+});
+
 test("invalid route identities and denied roles cannot reserve or send an email", async () => {
   for (const id of ["6junk", "-6", "0", "1.5", "9007199254740992"]) {
     const fixture = deliveryFixture();
@@ -89,7 +105,7 @@ test("stale previews and unsigned or unrelated assessments cannot reserve or sen
   }
 });
 
-function deliveryFixture({ auditFailure = false, providerFailure = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
+function deliveryFixture({ auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
   let calls = 0;
   let reservations = 0;
   const mutationIds = new Set();
@@ -107,7 +123,17 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, denied
     } },
     "@/lib/auth/assessor-session-policy": { pipelineAccountableActor: () => ({ id: "synthetic-coordinator", name: "Synthetic Coordinator" }) },
     "@/lib/auth/request-security": { requireSameOriginMutation: () => null },
-    "@/lib/assessment/assessment-store": { requireAssessmentStore: () => ({ ok: true }), listAssessments: async () => ({ assessments: [assessment] }) },
+    "@/lib/assessment/assessment-store": {
+      requireAssessmentStore: () => ({ ok: true }), listAssessments: async () => ({ assessments: [assessment] }),
+      deliverAssessmentPacket: async (id, version, send) => {
+        assert.equal(id, assessment.assessment_id);
+        assert.equal(version, assessment.version);
+        if (assessmentChanged) throw new Error("The assessment changed. Refresh Meet the Client before sending.");
+        const result = await send();
+        if (finalizationFailure) throw new Error("Synthetic finalization failure");
+        return result;
+      },
+    },
     "@/lib/assessment/assessment-summary": { ...summaryOwner, buildMeetClientSummary: () => ({ preparedFromAssessmentId: assessment.assessment_id }) },
     "@/lib/extraction/contracts": { jsonError, readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
     "@/lib/notifications/meet-client-attachments": {
@@ -145,7 +171,7 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, denied
   };
   const exports = {};
   vm.runInNewContext(source, {
-    exports, Request, Response, DOMException,
+    exports, Request, Response, DOMException, Error,
     require: (name) => {
       if (name === "node:crypto") return require(name);
       if (dependencies[name]) return dependencies[name];

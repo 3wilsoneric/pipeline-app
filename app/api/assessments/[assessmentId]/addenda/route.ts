@@ -36,9 +36,9 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     );
     if (!result) return jsonError("Assessment not found.", 404);
     if (!result.ok && "conflict" in result) {
-      return Response.json({ error: "This assessment changed before the addendum could be recorded.", ...result }, { status: 409 });
+      return Response.json({ error: "This assessment changed before the note could be recorded.", ...result }, { status: 409 });
     }
-    if (!result.ok) return Response.json({ error: "The addendum cannot be recorded yet.", ...result }, { status: 422 });
+    if (!result.ok) return Response.json({ error: "Edit the assessment directly until it is signed and Meet the Client is sent.", ...result }, { status: 422 });
     return Response.json(result, { status: 201, headers: { "Cache-Control": "private, no-store, max-age=0" } });
   });
 }

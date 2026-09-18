@@ -35,22 +35,37 @@ test.describe("mobile assessment", () => {
     await page.goto(practice);
     const assessment = surface(page);
     await expect(assessment).toBeVisible();
-    for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }]) {
+    for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
       await expect(assessment.getByRole("button", { name: "Close assessment" })).toBeInViewport();
-      await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
+      const phone = size.width < 640 || size.height < 500 && size.width < 960;
+      if (phone) {
+        await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeHidden();
+        await expect(assessment.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
+      } else await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      for (const control of [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Close assessment" }), assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]'), assessment.getByRole("button", { name: /^Captured answers/ })]) {
+      const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Close assessment" }), ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')])];
+      if (!phone && size.width < 960) controls.push(assessment.getByRole("button", { name: /^Captured answers/ }));
+      for (const control of controls) {
         const box = (await control.boundingBox())!;
         expect(box.height).toBeGreaterThanOrEqual(44);
         expect(box.width).toBeGreaterThanOrEqual(44);
       }
       const field = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
       await expect(field).toHaveCSS("font-size", "16px");
+      if (size.width >= 960) {
+        const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
+        await expect(reference).toBeVisible();
+        expect((await reference.boundingBox())!.x).toBeLessThan((await field.boundingBox())!.x);
+      }
       await page.screenshot({ path: info.outputPath(`assessment-${size.width}x${size.height}.png`) });
     }
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 768, height: 844 });
+    await page.getByRole("button", { name: "Show app navigation" }).tap();
+    await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeInViewport();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Show app navigation" })).toHaveAttribute("aria-expanded", "false");
     const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
     await reference.getByRole("button", { name: /^Captured answers/ }).tap();
     await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
@@ -92,7 +107,7 @@ test.describe("mobile assessment", () => {
     await expect(shell).toHaveCSS("top", "12px");
     await expect(field).toBeFocused();
     const box = (await field.boundingBox())!;
-    const navigation = (await surface(page).getByRole("navigation", { name: "Assessment sections" }).boundingBox())!;
+    const navigation = (await surface(page).getByRole("navigation", { name: "Question navigation" }).boundingBox())!;
     const footer = (await surface(page).locator('footer[aria-label="Assessment actions"]').boundingBox())!;
     expect(box.y).toBeGreaterThanOrEqual(navigation.y + navigation.height);
     expect(box.y + box.height).toBeLessThanOrEqual(footer.y + 1);
@@ -114,6 +129,7 @@ test.describe("mobile assessment", () => {
     // A landscape tablet is wider than the compact layout breakpoint but still
     // needs visual-viewport sizing when using its on-screen keyboard.
     await page.setViewportSize({ width: 1024, height: 768 });
+    await surface(page).getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).tap();
     await page.evaluate(() => {
       Object.defineProperty(window.visualViewport!, "height", { configurable: true, value: 450 });
       window.visualViewport!.dispatchEvent(new Event("resize"));
@@ -131,21 +147,21 @@ test.describe("mobile assessment", () => {
     expect(started.status()).toBe(200);
     const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
+    await findPhoneQuestion(page, "Secondary diagnosis");
     const field = surface(page).getByRole("textbox", { name: "Secondary diagnosis", exact: true });
     const answer = "Synthetic mobile assessment note";
     await field.fill(answer);
     await page.waitForTimeout(1200);
     expect((await read()).secondary_diagnoses ?? []).toEqual([]);
-    await surface(page).getByRole("heading", { name: "To finish", exact: true }).tap();
+    await surface(page).getByRole("button", { name: "Next", exact: true }).tap();
     await expect.poll(async () => (await read()).secondary_diagnoses).toEqual([answer]);
-    await surface(page).getByLabel("Assessment section", { exact: true }).selectOption("medication");
+    await findPhoneQuestion(page, "IM injections");
     await expect.poll(async () => (await read()).secondary_diagnoses).toEqual([answer]);
     await page.reload();
-    const reference = surface(page).getByRole("complementary", { name: "Captured assessment answers" });
-    await reference.getByRole("button", { name: /^Captured answers/ }).tap();
-    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).tap();
+    await surface(page).getByRole("button", { name: "Client info", exact: true }).tap();
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Secondary diagnosis", exact: true }).tap();
     await expect(field).toHaveValue(answer);
-    await expect(field).toBeFocused();
+    await expect(field).toBeInViewport();
     const list = await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json();
     expect(list.assessments).toHaveLength(1);
     expect(list.assessments[0].assessment_id).toBe(assessment.assessment_id);
@@ -183,18 +199,15 @@ test("WebKit touch editing can find, edit and return to the same answer", async 
     await page.goto(practice);
     const assessment = surface(page);
     await expect(assessment).toBeVisible();
-    await assessment.locator('summary[aria-label="Find assessment question"]').tap();
-    await assessment.getByRole("searchbox", { name: "Find assessment question" }).fill("medication refused");
-    await assessment.locator('[aria-label="Matching assessment questions"]').getByRole("button", { name: /^Medication refused/ }).tap();
+    await findPhoneQuestion(page, "Medication refused");
     const field = assessment.getByRole("textbox", { name: /Medication refused/ });
-    await expect(field).toBeFocused();
+    await expect(field).toBeInViewport();
     await field.fill("Synthetic medication A");
     await field.blur();
     await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
-    await assessment.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
-    await assessment.getByLabel("Assessment section", { exact: true }).selectOption("medication");
-    await assessment.getByRole("button", { name: /^Captured answers/ }).tap();
-    await assessment.getByRole("button", { name: "Edit Medication refused", exact: true }).tap();
+    await findPhoneQuestion(page, "Secondary diagnosis");
+    await assessment.getByRole("button", { name: "Client info", exact: true }).tap();
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Medication refused", exact: true }).tap();
     await expect(field).toHaveValue("Synthetic medication A");
     await page.screenshot({ path: info.outputPath("assessment-webkit-phone.png") });
     await context.close();
@@ -202,3 +215,10 @@ test("WebKit touch editing can find, edit and return to the same answer", async 
     await browser.close();
   }
 });
+
+async function findPhoneQuestion(page: Page, label: string) {
+  await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).tap();
+  const sheet = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
+  await sheet.getByRole("searchbox", { name: "Find a question", exact: true }).fill(label);
+  await sheet.getByRole("button", { name: new RegExp(`^${label}`) }).tap();
+}

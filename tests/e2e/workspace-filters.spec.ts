@@ -40,6 +40,14 @@ for (const width of [1440, 390]) {
     });
     await page.goto("/?view=referrals");
     await expect(page.getByRole("region", { name: "Referral worklist" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Workspace scope" })).toHaveCount(0);
+    await expect(page.getByText("Recently updated first", { exact: true })).toHaveCount(0);
+    const directory = page.getByRole("main", { name: "Referral workspaces" });
+    await expect(directory.getByText("Workspaces", { exact: true })).toHaveCount(0);
+    const directoryBox = (await directory.boundingBox())!;
+    const searchBox = (await page.getByLabel("Search all workspaces", { exact: true }).boundingBox())!;
+    expect(searchBox.y - directoryBox.y).toBeLessThanOrEqual(32);
+    expect(directoryParams.get("scope")).toBe("team");
     await expect(page.getByRole("tab", { name: "Activity", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Show workspaces as/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Next", exact: true }).click();

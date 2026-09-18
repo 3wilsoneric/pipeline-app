@@ -1433,6 +1433,7 @@ test.describe("Referral home and packet canvas", () => {
       });
       await page.getByRole("textbox", { name: "NAME", exact: true }).fill(localName);
       await secondPage.getByRole("textbox", { name: "NAME", exact: true }).fill(remoteName);
+      await secondPage.getByRole("textbox", { name: "NAME", exact: true }).blur();
       await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(localName);
       await expect(secondPage.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(remoteName);
       try {
@@ -1446,6 +1447,8 @@ test.describe("Referral home and packet canvas", () => {
 
       const remoteChanges = page.getByRole("region", { name: "Remote changes" });
       await expect(remoteChanges).toBeVisible({ timeout: 8_000 });
+      await expect(remoteChanges).toHaveAttribute("aria-live", "assertive");
+      await expect(page.getByTestId("workspace-sync-status")).toHaveCount(0);
       await expect(remoteChanges.getByText(localName, { exact: true })).toBeVisible();
       await expect(remoteChanges.getByText(remoteName, { exact: true })).toBeVisible();
       await remoteChanges.getByRole("button", { name: "Use latest" }).click();

@@ -20,7 +20,7 @@ test.describe("workflow interaction and durable feedback", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Use the isolated operational configuration.");
   test.setTimeout(60_000);
 
-  test("keeps personal ownership counts and pages correct with supervisor team switching", async ({ browser, baseURL }) => {
+  test("keeps personal ownership counts and pages correct with supervisor owner filtering", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
     const assessor = await actorApiContext("assessorA", url);
@@ -45,20 +45,27 @@ test.describe("workflow interaction and durable feedback", () => {
         expect(second.referrals.map((item: Referral) => item.id)).toEqual([older.id]);
         expect(second.next_cursor).toBeUndefined();
       }
-      const deniedExpansion = await (await other.get(`/api/referrals/directory?scope=team&workspace=all&q=${tag}`)).json();
-      expect(deniedExpansion.referrals.map((item: Referral) => item.id)).toEqual([foreign.id]);
+      const teamDirectory = await (await other.get(`/api/referrals/directory?scope=team&workspace=all&q=${tag}`)).json();
+      expect(teamDirectory.referrals.map((item: Referral) => item.id)).toEqual([foreign.id, newer.id, older.id]);
       await page.goto("/?view=referrals");
-      await expect(page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true");
-      await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Mine", exact: true }).click();
-      await expect(page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
-      await page.getByRole("searchbox", { name: "Search my workspaces" }).fill(tag);
+      await expect(page.getByRole("group", { name: "Workspace scope" })).toHaveCount(0);
+      await page.getByRole("searchbox", { name: "Search all workspaces" }).fill(tag);
       const rows = page.getByRole("region", { name: "Referral worklist" }).getByRole("button");
+      await expect(rows).toHaveCount(3);
+      const ownerFilter = page.getByRole("button", { name: "Filter by owner", exact: true });
+      await ownerFilter.click();
+      await page.getByRole("checkbox", { name: pipelineActors.assessorA.name, exact: true }).check();
+      await page.keyboard.press("Escape");
       await expect(rows).toHaveCount(2);
       await expect(rows.first()).toHaveAttribute("aria-label", `Open ${newer.name} referral workspace`);
-      await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "All", exact: true }).click();
+      await ownerFilter.click();
+      await page.getByRole("group", { name: "Filter by owner", exact: true }).getByRole("button", { name: "All owners", exact: true }).click();
+      await page.keyboard.press("Escape");
       await expect(rows).toHaveCount(3);
       await expect(rows.first()).toHaveAttribute("aria-label", `Open ${foreign.name} referral workspace`);
-      await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Mine", exact: true }).click();
+      await ownerFilter.click();
+      await page.getByRole("checkbox", { name: pipelineActors.assessorA.name, exact: true }).check();
+      await page.keyboard.press("Escape");
       await expect(rows).toHaveCount(2);
       await expect(rows.first()).toHaveAttribute("aria-label", `Open ${newer.name} referral workspace`);
     } finally {

@@ -314,8 +314,8 @@ for (const width of [1440, 390]) {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
     const folder = page.getByTestId("intake-client-folder");
     await expect(folder).toBeVisible();
-    await expect(folder.locator(":scope > strong")).toHaveText(referral.name);
-    await expect(folder.locator(":scope > strong")).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(page.getByTestId("workspace-identity-title")).toHaveText(referral.name);
+    await expect(folder.locator(":scope > strong")).toHaveCount(0);
     await expect(folder.locator(":scope > div")).toHaveCSS("background-color", "rgb(237, 228, 208)");
     await expect(folder.getByRole("article", { name: "Referral intake chart", exact: true })).toBeVisible();
     await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
@@ -330,7 +330,7 @@ for (const width of [1440, 390]) {
     await expect(email).toHaveValue("chart-file@example.invalid");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await folder.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    await folder.locator(":scope > strong").scrollIntoViewIfNeeded();
+    await page.getByTestId("workspace-identity-title").scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`intake-folder-${width}.png`) });
     const questionnaire = page.getByRole("button", { name: "Open questionnaire", exact: true });
     await questionnaire.scrollIntoViewIfNeeded();

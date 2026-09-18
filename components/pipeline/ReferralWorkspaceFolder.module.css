@@ -1,0 +1,236 @@
+.header {
+  --folder-edge: #cbbd9d;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fff;
+}
+
+.tabRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 6px;
+  border-bottom: 1px solid var(--folder-edge);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  flex: 0 1 270px;
+  min-width: 110px;
+  min-height: 51px;
+  margin: 0 0 -1px;
+  padding: 7px 10px 8px;
+  border: 1px solid var(--folder-edge);
+  border-bottom-color: #ede4d0;
+  border-radius: 8px 12px 0 0;
+  background: linear-gradient(#f4eddc, #ede4d0);
+  box-shadow: inset 0 1px 0 #fff9;
+}
+
+.nameLabel {
+  overflow: hidden;
+  width: 100%;
+  padding: 4px 9px;
+  border: 1px solid #d8d2c4;
+  background: #fffefb;
+  color: #252a25;
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stages, .actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stages {
+  isolation: isolate;
+  flex-shrink: 0;
+  gap: 0;
+  padding: 5px 4px 0;
+}
+.actions { margin-left: auto; }
+
+.syncStatus { display: inline-flex; align-items: center; align-self: center; flex-shrink: 0; padding-inline: 4px; color: #176c51; }
+
+.stageTab, .utilityTab, .createTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #d6dad9;
+  border-bottom: 0;
+  border-radius: 8px 10px 0 0;
+  background: #f3f5f4;
+  color: #4b5652;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 #fff9;
+  transition: background-color 120ms ease;
+}
+
+.stageTab {
+  --tab-ink: #176c51;
+  --tab-fill: #e6f1e9;
+  --tab-edge: #b2cdbc;
+  --tab-active: #d1e9db;
+  position: relative;
+  z-index: 1;
+  min-height: 46px;
+  padding-inline: 22px;
+  font-size: 14px;
+  border-color: var(--tab-edge);
+  border-top: 2px solid var(--tab-ink);
+  border-radius: 10px 14px 0 0;
+  background: linear-gradient(#ffffff38, #ffffff00), var(--tab-fill);
+  color: var(--tab-ink);
+  transform-origin: center bottom;
+  transition: transform 140ms ease, background-color 120ms ease;
+}
+
+.stageTab + .stageTab { margin-left: -10px; }
+
+.stageTab[data-folder-stage="2"] {
+  --tab-ink: #a44249;
+  --tab-fill: #faebeb;
+  --tab-edge: #e2bcc0;
+  --tab-active: #f4dadd;
+}
+
+.stageTab[data-folder-stage="workflow"] {
+  --tab-ink: #875620;
+  --tab-fill: #faf0e1;
+  --tab-edge: #dfc9a7;
+  --tab-active: #f3e4c9;
+}
+
+.stageTab[data-folder-stage="3"] {
+  --tab-ink: #386483;
+  --tab-fill: #e9f1f7;
+  --tab-edge: #b7ccdc;
+  --tab-active: #d9e8f1;
+}
+
+.stageTab[aria-current="page"] {
+  z-index: 3;
+  background-color: var(--tab-active);
+  font-weight: 750;
+  transform: scale(1.035, 1.1);
+  box-shadow: inset 0 1px 0 #ffffffb3, 0 -2px 7px #263e3214;
+}
+
+.stageTab:hover { background-color: var(--tab-active); }
+.stageTab:focus-visible { z-index: 4; }
+.stageNumber { font-size: 11px; font-weight: 600; }
+.utilityTab:hover, .utilityTab[aria-current="page"] { background: #e5ebe8; color: #253d32; }
+
+.createTab {
+  border: 1px solid #16634f;
+  border-radius: 7px;
+  background: linear-gradient(#117c64, #0b6f5d);
+  color: #fff;
+  box-shadow: inset 0 1px 0 #ffffff26;
+}
+
+.createTab:hover { background: #075a4b; }
+.createTab:disabled { cursor: not-allowed; background: #e0e7e3; border-color: #c4cfc9; color: #56645b; }
+
+.tabRow button:focus-visible {
+  outline: 2px solid #193d32;
+  outline-offset: -4px;
+}
+
+.saveNotice {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 10px;
+  background: #faf9f5;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.connectedFolder.connectedFolder { margin-top: 0; }
+.connectedFolder > div { border-top: 0; border-radius: 0 0 6px 6px; }
+
+@media (max-width: 1100px) {
+  .tabRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; padding-top: 0; }
+  .identity { min-width: 0; max-width: 340px; }
+  .actions { grid-column: 2; grid-row: 1; }
+  .stages { grid-column: 1 / -1; overflow-x: auto; }
+  .stageTab { flex: 1 0 auto; }
+}
+
+@media (min-width: 768px) and (max-width: 1100px) {
+  .tabRow { display: flex; gap: 4px; }
+  .identity { flex: 1 1 160px; min-width: 110px; }
+  .stages { flex-shrink: 1; max-width: 50%; }
+  .stageTab { padding-inline: 18px; }
+  .actions { flex-shrink: 0; }
+  .utilityTab { width: 44px; padding-inline: 0; }
+  .utilityTab span, .actions > button[aria-label="Open assigned referrals"] span { display: none; }
+}
+
+@media (max-width: 639px) {
+  .header { background: #faf9f5; }
+  .tabRow { padding-top: 0; gap: 0 4px; }
+  .nameLabel { padding: 0; border: 0; background: transparent; }
+  .identity { padding: 5px 8px; min-height: 50px; border: 0; background: transparent; box-shadow: none; }
+  .stageTab, .utilityTab, .createTab { gap: 4px; padding-inline: 10px; font-size: 12px; }
+  .stageTab { padding-inline: 18px; font-size: 13px; }
+  .stageTab + .stageTab { margin-left: -8px; }
+  .utilityTab { width: 44px; padding-inline: 0; }
+  .utilityTab span { display: none; }
+  .utilityTab, .createTab { border: 1px solid #d6dad9; border-radius: 5px; }
+  .utilityTab { background: transparent; border-color: transparent; }
+  .createTab { padding-inline: 8px; border-color: #16634f; }
+  .actions { align-items: center; align-self: center; gap: 0; }
+  .actions > button { min-width: 44px; min-height: 44px; }
+}
+
+@media (max-width: 1100px) {
+  .connectedFolder > div { padding: 4px; }
+  .connectedFolder > div > div { padding: 0; border: 0; box-shadow: none; }
+  .connectedFolder [aria-label="Document checklist"] { margin-bottom: 4px; }
+  .connectedFolder [data-testid="document-checklist-toggle"] { min-height: 44px; padding: 6px 10px; gap: 8px; }
+  .connectedFolder [data-testid="document-checklist-toggle"] > div:last-child { gap: 8px; }
+  .connectedFolder [data-testid="document-checklist-toggle"] h2 { font-size: 13px; }
+  .connectedFolder article[aria-label="Referral intake chart"] > header { display: flex; align-items: center; justify-content: space-between; }
+  .connectedFolder article[aria-label="Referral intake chart"] > header > div { padding: 8px 10px; border: 0; }
+  .connectedFolder article[aria-label="Referral intake chart"] > header h1 { font-size: 15px; }
+  .connectedFolder [data-guide-target="intake-identity"] h2 { padding: 8px 10px; font-size: 11px; }
+  .connectedFolder [data-workspace-field] { padding: 8px 10px; min-height: 76px; }
+  .connectedFolder [data-workspace-field] label { font-size: 11px; }
+}
+
+@media (max-width: 1100px), (hover: none) and (pointer: coarse) {
+  .actions > button { min-width: 44px; min-height: 44px; }
+  .connectedFolder [data-workspace-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 44px; font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stageTab, .utilityTab, .createTab { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .identity, .stageTab, .utilityTab, .createTab, .nameLabel {
+    background: Canvas;
+    border-color: ButtonText;
+    color: ButtonText;
+    box-shadow: none;
+  }
+  .stageTab[aria-current="page"], .utilityTab[aria-current="page"] { border-bottom: 3px solid Highlight; }
+}

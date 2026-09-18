@@ -16,7 +16,8 @@ async function chooseSection(page: Page, key: string) {
   await expect(page).toHaveURL(new RegExp("assessmentSection=" + key));
 }
 
-for (const width of [1440, 1024, 390]) {
+// Phones have a separate focused interview suite; the narrow open book remains on tablets.
+for (const width of [1440, 1024, 768]) {
   test(`open book keeps existing answers readable and unfinished questions stable at ${width}px`, async ({ page }, testInfo) => {
     await openPractice(page, width);
     const book = page.locator("[data-assessment-working-section]");
@@ -45,6 +46,7 @@ for (const width of [1440, 1024, 390]) {
     await chooseSection(page, "diagnosis_clinical");
     await expect(secondary).toBeVisible();
     await chooseSection(page, "functional_adl");
+    if (width < 960) await reference.getByRole("button", { name: /^Captured answers/ }).click();
     await reference.getByRole("button", { name: "Edit Ambulatory", exact: true }).click();
     await editor.getByRole("group", { name: "Ambulatory", exact: true }).getByRole("button", { name: "No", exact: true }).click();
     const mobility = editor.locator("#assessment-mobility");
@@ -66,6 +68,7 @@ for (const width of [1440, 1024, 390]) {
     }
     expect(await book.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await chooseSection(page, "prior_history");
+    if (width < 960) await reference.getByRole("button", { name: /^Captured answers/ }).click();
     await reference.getByRole("combobox", { name: "Reference information" }).selectOption("prior_history");
     await page.screenshot({ path: testInfo.outputPath(`open-book-${width}.png`) });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
@@ -225,7 +228,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 950 });
     const { referral, assessment } = await createAssessment(page);
     const root = `/?view=referrals&screen=packet&referralId=${referral.id}`;
-    const chart = width < 1024 ? page.getByRole("combobox", { name: "Workspace stage", exact: true }).locator('option[value="3"]') : page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart/ });
+    const chart = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart/ });
     await page.goto(root + "&workspaceStage=intake");
     await expect(page.locator("#packet-page-1")).toBeVisible();
     await expect(chart).toHaveCount(0);
@@ -234,18 +237,26 @@ for (const width of [1440, 390]) {
     await expect(page.locator("#packet-charts")).toHaveCount(0);
     await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
     const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
-    if (width < 960) await reference.getByRole("button", { name: /^Captured answers/ }).click();
-    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    if (width < 640) {
+      await page.getByRole("button", { name: "Client info", exact: true }).click();
+      await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
+    } else await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     const secondary = page.locator("#assessment-secondary_diagnoses");
     await secondary.fill("Final answer before immediate exit");
     await page.getByRole("button", { name: "Close assessment", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Final answer before immediate exit"]);
     await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
-    if (width < 960) await reference.getByRole("button", { name: /^Captured answers/ }).click();
-    await expect(reference).toContainText("Final answer before immediate exit");
-    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    if (width < 640) {
+      await page.getByRole("button", { name: "Client info", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "Client information", exact: true })).toContainText("Final answer before immediate exit");
+      await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
+    } else {
+      await expect(reference).toContainText("Final answer before immediate exit");
+      await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    }
     await secondary.fill("Final answer before signing");
+    if (width < 640) await page.locator('footer[aria-label="Assessment actions"] summary').click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
