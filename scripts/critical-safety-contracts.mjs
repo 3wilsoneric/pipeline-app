@@ -17,8 +17,8 @@ const assessmentLifecycle = loadTypeScriptModule(root, "lib/assessment/assessmen
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
 
-check("workflow does not allow stage skipping", !workflow.getAllowedReferralTargets("New").includes("Assessment"));
-check("accepted referrals are terminal", workflow.getAllowedReferralTargets("Accepted / Admitted").length === 0);
+check("workflow permits moving ahead with incomplete work", workflow.getAllowedReferralTargets("New").includes("Assessment"));
+check("accepted referrals can revisit earlier work", workflow.getAllowedReferralTargets("Accepted / Admitted").includes("Packet Review"));
 check("an unassigned owner remains visible as an alert", hasBlocker(
   workflow.getReferralTransitionAlerts(referral("New"), "Packet Needed"),
   "owner_required",

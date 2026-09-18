@@ -42,14 +42,14 @@ const homeDashboardLayout = loadTypeScriptModule(root, "lib/pipeline/home-dashbo
 const workContinuity = loadTypeScriptModule(root, "lib/pipeline/work-continuity.ts");
 
 const results = [
-  run("personal workspace scope uses effective identity and preserves supervisor team access", () => {
+  run("personal filters use effective identity and team access is shared", () => {
     const user = { id: "assessor-stable-id", name: "Fixture Assessor", email: "fixture@pipeline.local", roles: ["admin"] };
     const mine = referralAccess.scopeReferralListOptions(user, { scope: "mine", assignedOwnerId: "forged-user" });
     assert(mine.assignedOwnerId === user.id, "Personal scope must use the effective authenticated principal");
     assert(mine.assignedOwnerNames.includes("fixture assessor"), "Imported name-only owners retain their canonical legacy alias");
     assert(referralAccess.scopeReferralListOptions(user, { scope: "team" }).assignedOwnerId === undefined, "Supervisors retain authorized team access");
     for (const roles of [["reviewer"], ["viewer"]]) {
-      assert(referralAccess.scopeReferralListOptions({ ...user, roles }, { scope: "team" }).assignedOwnerId === user.id, "A requested Team view must not widen a non-supervisor's list");
+      assert(referralAccess.scopeReferralListOptions({ ...user, roles }, { scope: "team" }).assignedOwnerId === undefined, "Team view is available to every approved user");
     }
     const coOwned = { ownerId: "assigned-assessor", owners: [{ id: user.id, name: user.name, responsibilities: ["creator", "assigning_supervisor"] }] };
     assert(referralOwnership.isReferralOwner(coOwned, user), "Creator and assigning-supervisor co-ownership remains part of Mine");
@@ -63,23 +63,18 @@ const results = [
     }
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ scope: "someone-else" })), "scope must be mine or team.");
   }),
-  run("referral boards and edits follow ownership rather than supervisor visibility", () => {
-    const vince = { id: "vince-id", name: "Vince Ceja", email: "vince@aaahealthservices.com", roles: ["reviewer", "viewer"] };
-    const sandeep = { id: "sandeep-id", name: "Sandeep", email: "sandeep@aaahealthservices.com", roles: ["assessment_coordinator", "reviewer", "viewer"] };
-    const andrew = { ...sandeep, id: "andrew-id", email: "andrew@aaahealthservices.com" };
-    const owned = { ownerId: vince.id, owner: vince.name, owners: [] };
-    const foreign = { ownerId: "other-assessor", owner: "Another Assessor", owners: [] };
-    assert(!referralAccess.canViewTeamReferralBoard(vince), "Assessors must receive their own board");
-    assert(referralAccess.canViewTeamReferralBoard(sandeep), "Sandeep can see the team board");
-    assert(!referralAccess.canViewTeamReferralBoard(andrew), "Coordinator roles alone must not grant the team board");
-    assert(referralAccess.canViewTeamReferralBoard({ ...vince, roles: ["admin"] }), "The actual administrator retains the full board");
-    assert(referralOwnership.canModifyReferral(owned, vince), "An assigned assessor can change their workspace");
-    assert(!referralOwnership.canModifyReferral(foreign, vince), "An assessor cannot change a foreign workspace");
-    assert(!referralAccess.canAccessReferral(vince, foreign), "An assessor cannot read a foreign referral by direct URL");
-    assert(!referralOwnership.canModifyReferral(owned, sandeep), "Team visibility must not grant foreign workspace edits");
-    assert(!referralOwnership.canModifyReferral(owned, andrew), "A non-owner coordinator cannot edit a workspace");
-    assert(!referralOwnership.canModifyReferral(owned, { ...vince, roles: ["viewer"] }), "Read-only roles cannot edit even when assigned");
-    assert(referralOwnership.canModifyReferral(foreign, { ...vince, roles: ["admin"] }), "Real administrator authority remains available outside assessor impersonation");
+  run("approved Pipeline roles share board access and editing while assignment stays a filter", () => {
+    const foreign = { ownerId: "another-user", owner: "Other Assessor", owners: [] };
+    for (const role of ["admin", "assessment_coordinator", "reviewer", "viewer"]) {
+      const user = { id: `shared-${role}`, name: "Synthetic User", email: "shared@pipeline.local", roles: [role], accessScope: "pipeline" };
+      assert(referralAccess.canViewTeamReferralBoard(user), "Every approved role can open the team board");
+      assert(referralAccess.canAccessReferral(user, foreign), "A direct workspace link is accessible");
+      assert(referralOwnership.canModifyReferral(foreign, user), "Assignment does not prevent editing");
+      assert(referralAccess.canRecordAdmissionDecision(user), "Admission decisions are available to the team");
+      assert(assessmentAccess.canWorkAssessment(user, foreign.ownerId), "A teammate can work on the assessment");
+      assert(!referralAccess.canAccessReferral({ ...user, accessScope: "note_lab" }, foreign), "Note Lab-only scope does not grant Pipeline access");
+    }
+    assert(!referralOwnership.canModifyReferral(foreign, { id: "outside", name: "Outside", roles: [] }), "Unknown roles do not receive workspace authority");
   }),
   run("work continuity validates, merges, and canonicalizes exact workspace destinations", () => {
     const location = workContinuity.parsePipelineWorkspaceLocation({ view: "assessment", assessmentSection: "medication" });
@@ -182,9 +177,9 @@ const results = [
     assert(effective?.name === member.display_name, "The assessor name must remain clean in the product UI");
     assert(effective?.roles.join(",") === member.roles.join(","), "God mode must use the selected account's real roles");
     assert(effective?.email === "", "The selected account email must remain its own identity alias");
-    assert(!referralAccess.canViewTeamReferralBoard(effective), "Impersonating an assessor must not reveal the team board");
-    assert(!referralOwnership.canModifyReferral({ ownerId: "foreign-owner" }, effective), "God mode must not bypass the target's ownership permissions");
-    assert(!referralAccess.canRecordAdmissionDecision(effective), "God mode must not elevate an assessor to admission decision authority");
+    assert(referralAccess.canViewTeamReferralBoard(effective), "The selected approved account retains shared team access");
+    assert(referralOwnership.canModifyReferral({ ownerId: "foreign-owner" }, effective), "The target can edit shared work without an elevated role");
+    assert(referralAccess.canRecordAdmissionDecision(effective), "The selected approved account retains shared admission decision access");
     const actor = assessorSessionPolicy.pipelineAuditActor(effective);
     assert(actor.id === member.principal_id, "Writes must retain the effective assessor principal");
     assert(actor.name.includes(member.display_name) && actor.name.includes(administrator.name), "Write attribution must retain both identities");
@@ -229,15 +224,13 @@ const results = [
     assert(isPersonOnlyClientName("Khadijah Avery"), "A complete first and last name must pass");
     assert(resolveClientGender("Not specified for synthetic exercise") === null, "Synthetic missing-value labels must not reach the client list");
   }),
-  run("assessment work is limited to the assigned assessor or a supervisor", () => {
+  run("assessment work is shared by approved accounts", () => {
     const assigned = { id: "assessor-1", email: "assessor@example.com", name: "Assigned Assessor", roles: ["reviewer"] };
     const otherAssessor = { id: "assessor-2", email: "other@example.com", name: "Other Assessor", roles: ["reviewer"] };
     const supervisor = { id: "supervisor-1", email: "supervisor@example.com", name: "Supervisor", roles: ["assessment_coordinator", "reviewer"] };
     assert(assessmentAccess.canWorkAssessment(assigned, "assessor-1"), "The assigned assessor should be able to work the assessment");
-    assert(!assessmentAccess.canWorkAssessment(otherAssessor, "assessor-1"), "Another assessor must remain blocked");
+    assert(assessmentAccess.canWorkAssessment(otherAssessor, "assessor-1"), "Another assessor can help without reassignment");
     assert(assessmentAccess.canWorkAssessment(supervisor, "assessor-1"), "A supervisor should be able to assist without reassignment");
-    assert(!assessmentAccess.isAssessmentSupervisor(assigned), "A reviewer must not receive supervisor conflict overrides");
-    assert(assessmentAccess.isAssessmentSupervisor(supervisor), "The assessment coordinator must receive supervisor controls");
   }),
   run("supervisor assessment access does not overwrite an existing referral assignment", () => {
     const supervisor = { id: "supervisor-1", email: "supervisor@example.com", name: "Supervisor", roles: ["assessment_coordinator", "reviewer"] };
@@ -1166,7 +1159,7 @@ function authBehaviorResults() {
       const other = { ...validReferral(), id: 2, owner: assessor.name, ownerId: "entra-assessor-2" };
       const legacy = { ...validReferral(), id: 3, owner: assessor.name };
       assert(referralAccess.canAccessReferral(assessor, owned), "Stable owner id should grant access");
-      assert(!referralAccess.canAccessReferral(assessor, other), "A different stable owner id must override a matching name");
+      assert(referralAccess.canAccessReferral(assessor, other), "Another assignment does not restrict shared workspace access");
       assert(referralAccess.canAccessReferral(assessor, legacy), "Legacy owner names should remain accessible during backfill");
     }),
     run("referral creation assigns assessors but never turns supervisors into assessors", () => {
@@ -1210,11 +1203,11 @@ function authBehaviorResults() {
       assert(reassigned.some((owner) => owner.id === "supervisor-2" && owner.responsibilities.includes("assigning_supervisor")), "The current assigning supervisor must be an owner");
       assert(reassigned.some((owner) => owner.id === "assessor-2" && owner.responsibilities.includes("assignee")), "The current assignee must be an owner");
     }),
-    run("only administrators can record the final admission decision", () => {
+    run("approved team members can record the final admission decision", () => {
       const headSupervisor = { id: "head-1", name: "Head Supervisor", roles: ["admin"] };
       const assessmentSupervisor = { id: "supervisor-1", name: "Assessment Supervisor", roles: ["assessment_coordinator", "reviewer"] };
       assert(referralAccess.canRecordAdmissionDecision(headSupervisor), "The head supervisor must retain final decision authority");
-      assert(!referralAccess.canRecordAdmissionDecision(assessmentSupervisor), "Assessment supervisors must not receive final decision authority");
+      assert(referralAccess.canRecordAdmissionDecision(assessmentSupervisor), "Assessment supervisors share final decision access without role promotion");
     }),
     run("activity shows ordinary values and masks sensitive values", () => {
       const changes = referralActivityPresentation.buildReferralActivityChanges(
@@ -1580,12 +1573,12 @@ function referralHardeningResults() {
 function assessmentSchemaResults() {
   return [
     run("assessment schema exposes the complete governed interview", () => {
-      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 159, "Expected 159 assessment fields, including preserved legacy data");
+      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 162, "Expected 162 assessment fields, including injection timing and preserved legacy data");
       assert(
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 127, "Expected 127 focused user-facing interview questions");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 128, "Expected 128 focused user-facing interview questions");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1596,7 +1589,7 @@ function assessmentSchemaResults() {
         .filter((field) => !interviewFields.has(field));
       assert(
         JSON.stringify(nonInterviewFields) === JSON.stringify([
-          "resident_number", "assessor", "admit_date", "secondary_diagnoses", "acuity_level",
+          "resident_number", "assessor", "admit_date", "primary_diagnosis", "acuity_level", "triggers", "aggression_risk",
           "responds_to_internal_stimuli", "auditory_hallucinations", "auditory_hallucination_nature",
           "auditory_hallucination_frequency", "auditory_hallucination_triggers", "visual_hallucinations",
           "visual_hallucination_details", "visual_hallucination_recent", "olfactory_hallucinations",
@@ -1615,8 +1608,8 @@ function assessmentSchemaResults() {
         "Every interview section must contain at least one question",
       );
       assert(
-        referralExtractionSchema.assessmentWorkbookExtractionTargets.length === assessmentSchema.assessmentToolFieldDefinitions.length - 5,
-        "Expected every user-facing field except server-owned assignment and job-supplied provenance",
+        referralExtractionSchema.assessmentWorkbookExtractionTargets.length === assessmentSchema.assessmentToolFieldDefinitions.length - 7,
+        "Expected fields except server-owned assignment, job-supplied provenance, and retired triggers and aggression risk",
       );
       assert(
         referralExtractionSchema.referralPacketExtractionTargets.some((field) => field.field_key === "assessment_tool.mobility")
@@ -1744,7 +1737,7 @@ function assessmentSchemaResults() {
       assert(!assessmentInterview.getAssessmentInterviewQuestions("medication", data).some((question) => question.field === "im_injections_details"), "Injection details must stay hidden until injections are reported");
       data.im_injections = "yes";
       assert(assessmentInterview.getAssessmentInterviewQuestions("medication", data).some((question) => question.field === "im_injections_details"), "Reported injections must reveal the detail question");
-      assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "im_injections_details"), "Reported injections must require their details");
+      assert(!assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "im_injections_details"), "Reported injections must allow unanswered details");
       data.language_barrier = "yes";
       assert(assessmentInterview.getAssessmentInterviewQuestions("functional_adl", data).some((question) => question.field === "language_barrier_details"), "A language barrier must reveal its detail question");
       assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "language_barrier_details"), "A revealed language support detail must be required");
@@ -1818,6 +1811,21 @@ function assessmentValidationResults() {
         if_match: 1,
         patch: { data: { unable_to_assess_reasons: { language_barrier: "The client could not participate." } } },
       }));
+    }),
+    run("acknowledgement dropdown preserves legacy insight answers and explanations", () => {
+      assertValid(assessmentValidation.validateAssessmentPatchRequest({
+        if_match: 1,
+        patch: { data: {
+          substance_use_insight: "unable_to_assess",
+          unable_to_assess_reasons: { substance_use_insight: "Previously recorded explanation." },
+        } },
+      }));
+      for (const substance_use_insight of ["yes", "no", null]) {
+        assertValid(assessmentValidation.validateAssessmentPatchRequest({
+          if_match: 1,
+          patch: { data: { substance_use_insight } },
+        }));
+      }
     }),
     run("assessment patch requires optimistic versions and known fields", () => {
       assertInvalid(

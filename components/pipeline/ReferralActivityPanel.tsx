@@ -23,6 +23,14 @@ export default function ReferralActivityPanel({
     metadata: ReferralWorkflowMetadata | null;
     error: boolean;
   } | null>(null);
+  const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    const reload = (event: Event) => {
+      if ((event as CustomEvent).detail?.referralId === referralId) setRefresh((value) => value + 1);
+    };
+    window.addEventListener("pipeline:documents-changed", reload);
+    return () => window.removeEventListener("pipeline:documents-changed", reload);
+  }, [referralId]);
 
   useEffect(() => {
     if (!referralId) return;
@@ -46,7 +54,7 @@ export default function ReferralActivityPanel({
     return () => {
       cancelled = true;
     };
-  }, [referralId, version]);
+  }, [referralId, version, refresh]);
 
   if (!referralId) {
     return <ActivityState title="No activity yet" detail="Create this workspace to begin its ownership and change history." />;
@@ -59,10 +67,10 @@ export default function ReferralActivityPanel({
   }
   const { events, metadata } = result;
 
-  return <FullActivity events={events} metadata={metadata} />;
+  return <FullActivity events={events} metadata={metadata} referralId={referralId} />;
 }
 
-function FullActivity({ events, metadata }: { events: ReferralActivityEvent[]; metadata: ReferralWorkflowMetadata }) {
+function FullActivity({ events, metadata, referralId }: { events: ReferralActivityEvent[]; metadata: ReferralWorkflowMetadata; referralId: number }) {
   return (
     <section aria-label="Referral ownership and activity" className="py-2 sm:px-2">
       <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Ownership and timing</div>
@@ -124,6 +132,7 @@ function FullActivity({ events, metadata }: { events: ReferralActivityEvent[]; m
                         <time className="text-[#737373] sm:text-right" dateTime={event.created_at}>{formatTimestamp(event.created_at)}</time>
                       </div>
                       {event.reason ? <div className="mt-1 text-[10px] text-[#595959]"><span className="font-black">Reason:</span> {event.reason}</div> : null}
+                      {event.undo ? <RestoreDocument event={event} referralId={referralId} /> : null}
                       {event.changes.length > 0 ? (
                         <div className="mt-2 space-y-1 border-l-2 border-[#dfe7e3] pl-2">
                           {event.changes.map((change) => (
@@ -150,6 +159,27 @@ function FullActivity({ events, metadata }: { events: ReferralActivityEvent[]; m
       ) : null}
     </section>
   );
+}
+
+function RestoreDocument({ event, referralId }: { event: ReferralActivityEvent; referralId: number }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const restore = async () => {
+    if (!event.undo || busy || !window.confirm("Restore this deleted file? Newer chart and checklist changes will be kept.")) return;
+    setBusy(true);
+    setError("");
+    try {
+      await fetchPipelineJson(`/api/files/${event.undo.document_id}`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmed: true, deletion_id: event.undo.deletion_id }) });
+      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId } }));
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "The file could not be restored."); }
+    finally { setBusy(false); }
+  };
+  return <div className="mt-2 text-[11px]">
+    <button type="button" disabled={busy} onClick={() => void restore()} className="font-bold text-[#0f7059] underline disabled:opacity-50">{busy ? "Restoring…" : "Restore file"}</button>
+    <span className="ml-2 text-[#737373]">Available until {formatTimestamp(event.undo!.until)}</span>
+    {error ? <p role="alert" className="mt-1 text-[#9aa7a0]">{error}</p> : null}
+  </div>;
 }
 
 function groupActivityByDay(events: ReferralActivityEvent[]) {
@@ -224,7 +254,7 @@ function WorkflowFact({
   return (
     <div className="min-w-0 bg-white px-4 py-3">
       <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</div>
-      <div className={`mt-1 truncate text-[14px] font-black ${attention ? "text-[#a63d2f]" : "text-[#111111]"}`}>{value}</div>
+      <div className={`mt-1 truncate text-[14px] font-black ${attention ? "text-[#9aa7a0]" : "text-[#111111]"}`}>{value}</div>
       <div className="mt-1 truncate text-[10px] text-[#737373]">{detail}</div>
     </div>
   );

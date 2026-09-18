@@ -12,6 +12,7 @@ import {
   resolveAssessmentClientIdentity,
 } from "@/lib/assessment/assessment-client-identity";
 import { canWorkAssessment } from "@/lib/assessment/assessment-access";
+import type { AssessmentPatchInput } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutableReferralAccess, requireReferralAccess } from "@/lib/pipeline/referral-access";
@@ -42,7 +43,7 @@ export async function PATCH(
   context: { params: Promise<{ assessmentId: string }> },
 ) {
   return withApiLogging(request, "/api/assessments/[assessmentId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -67,14 +68,10 @@ export async function PATCH(
       if (!canWorkAssessment(auth.user, current.assessor_id)) {
         return jsonError("Only the assigned assessor or a supervisor can edit this assessment.", 403);
       }
-      const identity = await resolveAssessmentClientIdentity(request, current.referral_id);
+      const patch = await resolveExplicitIdentityPatch(request, current.referral_id, validated.value.patch);
       const result = await patchAssessment(
         assessmentId,
-        {
-          ...validated.value.patch,
-          canonical_client_id: identity.canonicalClientId,
-          resident_key: identity.residentKey ?? validated.value.patch.resident_key,
-        },
+        patch,
         pipelineAuditActor(auth.user),
         {
           expectedVersion: validated.value.if_match,
@@ -103,6 +100,18 @@ export async function PATCH(
       return jsonError(error instanceof Error ? error.message : "Could not update assessment.", 400);
     }
   });
+}
+
+async function resolveExplicitIdentityPatch(request: Request, referralId: number, patch: AssessmentPatchInput) {
+  // Answer saves retain the stored identity without depending on census availability.
+  // Explicit identity updates still go through the governed resolver.
+  if (patch.resident_key === undefined) return patch;
+  const identity = await resolveAssessmentClientIdentity(request, referralId);
+  return {
+    ...patch,
+    canonical_client_id: identity.canonicalClientId,
+    resident_key: identity.residentKey ?? patch.resident_key,
+  };
 }
 
 function safeAssessmentId(value: string) {

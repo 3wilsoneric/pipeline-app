@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, type RefObject } from "react";
 
 type PipelineShellContextValue = {
   searchTerm: string;
@@ -9,6 +9,10 @@ type PipelineShellContextValue = {
   setSearchOpen: (value: boolean | ((current: boolean) => boolean)) => void;
   homeMode: "welcome" | "workspace";
   setHomeMode: (value: "welcome" | "workspace") => void;
+  contentRef: RefObject<HTMLElement | null>;
+  beforeNavigationRef: RefObject<(() => Promise<void>) | null>;
+  assessmentFocused: boolean;
+  setAssessmentFocused: (focused: boolean) => void;
 };
 
 const PipelineShellContext = createContext<PipelineShellContextValue | null>(

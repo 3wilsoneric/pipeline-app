@@ -11,10 +11,11 @@ import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { createPacketUpload, extractionErrorResponse } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
+import { availableUploadPacketId } from "@/lib/pipeline/document-lifecycle";
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/uploads/create-url", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -31,7 +32,8 @@ export async function POST(request: Request) {
     if (!access.ok) return access.response;
 
     try {
-      return Response.json(await createPacketUpload(validation.value, pipelineAuditActor(auth.user)), {
+      const packetId = await availableUploadPacketId(validation.value.packet_id);
+      return Response.json(await createPacketUpload({ ...validation.value, packet_id: packetId }, pipelineAuditActor(auth.user)), {
         headers: { "Cache-Control": "private, no-store, max-age=0" },
       });
     } catch (error) {

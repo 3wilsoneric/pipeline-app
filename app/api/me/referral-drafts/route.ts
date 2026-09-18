@@ -18,7 +18,7 @@ const noStoreHeaders = { "Cache-Control": "private, no-store, max-age=0" };
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/me/referral-drafts", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const readiness = getUserWorkspaceStateReadiness();
     if (!readiness.ready) {

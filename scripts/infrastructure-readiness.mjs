@@ -151,6 +151,11 @@ check("Blob adapter has no shared-key credential path", blobAdapter.includes("De
 check("runtime reads secrets from Key Vault", runtime.includes("keyVaultUrl") && runtime.includes("identity: keyVaultSecretIdentity"));
 check("database bootstrap is one-time and explicit", runtime.includes("param initialDatabaseBootstrap bool = false") && runtime.includes("if (initialDatabaseBootstrap)"));
 check("routine database migrations use the migrator-only job", runtime.includes("databaseMigrationJob") && runtime.includes("pipeline-database-migration-url"));
+check("routine release backs up and migrates the candidate before application rollout",
+  deployment.includes("for operation in backup migrate")
+    && deployment.includes('--image "$CANDIDATE_IMAGE"')
+    && deployment.includes('--job-execution-name "$execution"')
+    && deployment.indexOf("Back up and migrate before application rollout") < deployment.indexOf("Deploy runtime and scheduled jobs"));
 check(
   "production deploy verifies an Azure logical backup before migration",
   runtime.includes("resource databaseBackupJob")

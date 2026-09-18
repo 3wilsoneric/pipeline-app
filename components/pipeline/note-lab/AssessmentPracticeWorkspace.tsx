@@ -188,7 +188,6 @@ export default function AssessmentPracticeWorkspace({
 
   useEffect(() => {
     if (walkthroughOnly || !storageReady) return;
-    setAutosaveState("saving");
     const timeout = window.setTimeout(() => {
       setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection, data }) ? "saved" : "failed");
     }, 300);
@@ -196,6 +195,8 @@ export default function AssessmentPracticeWorkspace({
   }, [activeSection, data, storageKey, storageReady, walkthroughOnly]);
 
   const update = (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => {
+    // Batch save feedback with the edit, not a second update after every render.
+    if (!walkthroughOnly) setAutosaveState("saving");
     setData((current) => ({ ...current, [field]: value }) as AssessmentToolData);
   };
 
@@ -205,6 +206,7 @@ export default function AssessmentPracticeWorkspace({
     } catch {
       setAutosaveState("failed");
     }
+    if (!walkthroughOnly) setAutosaveState("saving");
     setData(walkthroughOnly ? createEmptyAssessmentToolData() : createAssessmentPracticeData());
     setActiveSection(assessmentInterviewSections[0].key);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
@@ -498,7 +500,8 @@ function PracticeMultiSelect({ question, value, onUpdate }: SimplePracticeContro
 function PracticeTextarea({ question, value, onUpdate }: SimplePracticeControlProps) {
   const listValue = Array.isArray(value);
   const stringValue = listValue ? value.join("\n") : value === null ? "" : String(value);
-  return <textarea id={`practice-${question.field}`} value={stringValue} rows={listValue ? 3 : 4} onChange={(event) => onUpdate(listValue ? event.target.value.split("\n").map((item) => item.trim()).filter(Boolean) : event.target.value || null)} placeholder={question.placeholder ?? (listValue ? "One item per line" : "Enter assessment detail")} className="w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73]" />;
+  // Normalize lists on blur so typing a space or new line does not erase it.
+  return <textarea id={`practice-${question.field}`} value={stringValue} rows={listValue ? 3 : 4} onChange={(event) => onUpdate(listValue ? event.target.value.split("\n") : event.target.value || null)} onBlur={() => { if (listValue) onUpdate(stringValue.split("\n").map((item) => item.trim()).filter(Boolean)); }} placeholder={question.placeholder ?? (listValue ? "One item per line" : "Enter assessment detail")} className="w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73]" />;
 }
 
 function PracticeInput({ question, value, onUpdate }: SimplePracticeControlProps) {

@@ -544,7 +544,8 @@ async function hasAcceptedLocalAssessmentDecision(assessment: PipelineAssessment
   const decision = referral?.admissionDecision;
   const decisionAssessment = decision?.assessmentId
     ? state.assessments.find((candidate) => candidate.assessment_id === decision.assessmentId)
-    : null;
+    : state.assessments.filter((candidate) => candidate.referral_id === assessment.referral_id)
+      .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.assessment_id.localeCompare(right.assessment_id))[0];
   return decision?.outcome === "accepted" && Boolean(decisionAssessment)
     && (decisionAssessment?.revision_root_id ?? decisionAssessment?.assessment_id) === (assessment.revision_root_id ?? assessment.assessment_id);
 }
@@ -1026,7 +1027,12 @@ async function getPostgresAssessmentCompletionReport(
       count(*)::integer as completed_assessments,
       count(*) filter (where exists (
         select 1 from pipeline.admission_decisions d
-        join pipeline.assessments decision_assessment on decision_assessment.assessment_id = d.assessment_id
+        join pipeline.assessments decision_assessment on decision_assessment.assessment_id = coalesce(d.assessment_id, (
+          select first_assessment.assessment_id from pipeline.assessments first_assessment
+          where first_assessment.referral_id = d.referral_id
+          order by first_assessment.created_at, first_assessment.assessment_id
+          limit 1
+        ))
         where d.referral_id = latest_signed.referral_id
           and d.outcome = 'accepted'
           and decision_assessment.revision_root_id = latest_signed.revision_root_id
@@ -1603,6 +1609,7 @@ async function syncLocalReferralWorkflow(
   if (action === "assessment_assigned") return;
   const referral = await loadLocalAssessmentReferral(assessment.referral_id);
   if (!referral) throw new Error("The assessment referral no longer exists.");
+  if (referral.admissionDecision || ["approved_for_placement", "accepted", "admitted", "declined", "closed"].includes(referral.workflowStatus ?? "")) return;
   const { patchReferral } = await import("@/lib/pipeline/referral-store");
   const workflowStatus = getReferralWorkflowStatusAfterAssessment(assessment, action);
   if (referral.workflowStatus === workflowStatus) return;
@@ -1639,7 +1646,8 @@ async function syncPostgresReferralWorkflow(
         updated_by_name = ${actor.name},
         updated_at = now()
     where referral_id = ${assessment.referral_id}
-      and workflow_status not in ('accepted', 'declined', 'closed')
+      and workflow_status not in ('approved_for_placement', 'accepted', 'admitted', 'declined', 'closed')
+      and not exists (select 1 from pipeline.admission_decisions where referral_id = ${assessment.referral_id})
       and workflow_status is distinct from ${workflowStatus}
     returning version, workflow_status
   `;

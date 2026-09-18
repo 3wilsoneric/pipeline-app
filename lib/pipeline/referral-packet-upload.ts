@@ -21,6 +21,14 @@ type PacketUploadResult = {
 };
 
 let mutationSequence = 0;
+const activeUploads = new Map<string, Promise<UploadedFile>>();
+
+type UploadedFile = {
+  packetId: string;
+  fileId: string;
+  completed: CompleteUploadResponse;
+  mock: boolean;
+};
 
 export function createMutationId() {
   if (typeof globalThis.crypto?.randomUUID === "function") return globalThis.crypto.randomUUID();
@@ -40,33 +48,21 @@ export async function uploadReferralPacket(
   sha256: string,
   category: InitialDocumentCategory,
 ): Promise<PacketUploadResult> {
-  const fileId = `file_${createMutationId()}`;
-  const reservation = await reserveUpload(referral, file, fileId, sha256, category);
-  const target = reservation.uploads.find((upload) => upload.file_id === fileId);
-  if (!target) throw new Error("Pipeline did not return an upload target for this packet.");
-  const mock = isMockUploadUrl(target.signed_url);
-
-  if (mock) {
-    await writeLocalReservedFile(reservation.packet_id, fileId, file);
-  } else {
-    await writeReservedBlob(target.signed_url, reservation.sentinel_url, file);
-  }
-
-  const completed = await completeUpload(reservation.packet_id, fileId);
-  const status = await fetchPipelineJson<PacketStatusResponse>(`/api/packets/${reservation.packet_id}/status`, {
+  const { packetId, fileId, completed, mock } = await uploadFileOnce(referral, file, sha256, category);
+  const status = await fetchPipelineJson<PacketStatusResponse>(`/api/packets/${packetId}/status`, {
     cache: "no-store",
   }).catch(() => ({
-    packet_id: reservation.packet_id,
+    packet_id: packetId,
     status: completed.status,
     page_count: 0,
     counts: { fields_total: 0, pending_review: 0, conflicts: 0 },
   }));
   const fields = ["ready_for_review", "reviewed"].includes(status.status)
-    ? await fetchPipelineJson<PacketFieldsResponse>(`/api/packets/${reservation.packet_id}/fields`, { cache: "no-store" }).catch(() => undefined)
+    ? await fetchPipelineJson<PacketFieldsResponse>(`/api/packets/${packetId}/fields`, { cache: "no-store" }).catch(() => undefined)
     : undefined;
 
   return {
-    packetId: reservation.packet_id,
+    packetId,
     status: status.status,
     pageCount: status.page_count,
     fields,
@@ -80,23 +76,44 @@ export async function uploadReferralSupportingDocument(
   file: File,
   category: DocumentCategory,
 ) {
-  const fileId = `file_${createMutationId()}`;
-  const reservation = await reserveUpload(
-    referral,
-    file,
-    fileId,
-    await hashPacket(file),
-    category,
-    "preview_only",
-  );
+  const uploaded = await uploadFileOnce(referral, file, await hashPacket(file), category, "preview_only");
+  return uploaded.completed;
+}
+
+async function uploadFileOnce(referral: Referral, file: File, sha256: string, category: DocumentCategory, processingIntent?: "preview_only") {
+  // Stable across retries/reloads, but never deduplicated across referrals or file roles.
+  const packetId = await uploadIdentity(referral.id, file, sha256, category, processingIntent);
+  const existing = activeUploads.get(packetId);
+  if (existing) return existing;
+  const operation = writeUpload(referral, file, sha256, category, packetId, processingIntent);
+  activeUploads.set(packetId, operation);
+  try {
+    return await operation;
+  } finally {
+    activeUploads.delete(packetId);
+  }
+}
+
+async function uploadIdentity(referralId: number, file: File, sha256: string, category: DocumentCategory, processingIntent?: "preview_only") {
+  const key = JSON.stringify(["pipeline-file-v1", referralId, sha256, file.name, file.size, getPacketContentType(file), category, processingIntent ?? "extract_referral"]);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+async function writeUpload(referral: Referral, file: File, sha256: string, category: DocumentCategory, packetId: string, processingIntent?: "preview_only"): Promise<UploadedFile> {
+  const fileId = `file_${packetId}`;
+  const reservation = await reserveUpload(referral, file, fileId, sha256, category, packetId, processingIntent);
   const target = reservation.uploads.find((upload) => upload.file_id === fileId);
   if (!target) throw new Error("Pipeline did not return an upload target for this document.");
-  if (isMockUploadUrl(target.signed_url)) {
+  const mock = isMockUploadUrl(target.signed_url);
+  if (mock) {
     await writeLocalReservedFile(reservation.packet_id, fileId, file);
   } else {
     await writeReservedBlob(target.signed_url, reservation.sentinel_url, file);
   }
-  return completeUpload(reservation.packet_id, fileId);
+  const completed = await completeUpload(reservation.packet_id, fileId);
+  return { packetId: reservation.packet_id, fileId, completed, mock };
 }
 
 async function writeLocalReservedFile(packetId: string, fileId: string, file: File) {
@@ -117,12 +134,14 @@ async function reserveUpload(
   fileId: string,
   sha256: string,
   category: DocumentCategory,
+  packetId: string,
   processingIntent?: "preview_only",
 ) {
-  return fetchPipelineJson<CreateUploadUrlResponse>("/api/uploads/create-url", {
+  return retryIdempotentOperation(() => fetchPipelineJson<CreateUploadUrlResponse>("/api/uploads/create-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      packet_id: packetId,
       referral_id: String(referral.id),
       submitting_facility: referral.community,
       source_type: "manual",
@@ -136,7 +155,7 @@ async function reserveUpload(
         category,
       }],
     }),
-  });
+  }), isRetryablePipelineError);
 }
 
 async function completeUpload(packetId: string, fileId: string) {

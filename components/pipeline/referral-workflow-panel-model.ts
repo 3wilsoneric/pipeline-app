@@ -1,4 +1,4 @@
-import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
+import { referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type {
   AdmissionDecision,
   AdmissionRequirement,
@@ -79,7 +79,7 @@ export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
   const assessmentState = currentAssessmentState(workflow);
   return {
     currentReferral: workflow.referral,
-    forwardTransition: workflow.transitions.find((transition) => transition.target !== "Declined"),
+    forwardTransition: workflow.transitions.find((transition) => transition.target === referralStageDefinitions[referralStageDefinitions.findIndex((stage) => stage.stage === workflow.referral.stage) + 1]?.stage && transition.target !== "Declined"),
     assessmentState,
     showManualIntake: !assessmentState
       && workflow.capabilities.can_authorize_manual_intake
@@ -88,7 +88,7 @@ export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
     incompleteDecision,
     incompleteMoveIn,
     incompleteEhr,
-    ehrIsBlocked: incompleteDecision.length + incompleteMoveIn.length + incompleteEhr.length > 0,
+    ehrIsBlocked: workflow.decision?.outcome !== "accepted",
     handoffStatus,
     decisionDisclosureIsOpen,
     decisionDisclosureKey: disclosureState(decisionDisclosureIsOpen),
@@ -148,7 +148,7 @@ export function requirementGroups(items: AdmissionRequirement[]): RequirementGro
   const definitions: Array<{ label: string; detail: string; gates: RequirementGate[] }> = [
     { label: "Decision readiness", detail: "Missing items stay visible while the decision proceeds.", gates: ["admission_decision"] },
     { label: "Move-in readiness", detail: "Missing move-in items can be completed after admission is recorded.", gates: ["move_in"] },
-    { label: "EHR readiness", detail: "These items must be resolved before the downstream handoff.", gates: ["ehr_export"] },
+    { label: "EHR readiness", detail: "Track remaining paperwork alongside the downstream handoff.", gates: ["ehr_export"] },
     { label: "Intake and assessment", detail: "Earlier profile and assessment requirements remain available for review.", gates: ["profile_completion", "pre_assessment"] },
   ];
   return definitions.flatMap((definition) => {
@@ -171,7 +171,7 @@ export function requirementStatusDetail(item: AdmissionRequirement) {
   if (item.status === "not_applicable") return `Not applicable · ${item.unavailableReason || "reason not provided"}`;
   if (item.status === "received") return item.evidenceDocumentName ? `Received · ${item.evidenceDocumentName}` : "Received; review the source evidence.";
   if (item.status === "reviewed") return item.evidenceDocumentName ? `Reviewed · ${item.evidenceDocumentName}` : "Reviewed and resolved.";
-  if (item.status === "expired") return "Expired; request current evidence before continuing.";
+  if (item.status === "expired") return "Expired; request current evidence when available.";
   return item.nextStep;
 }
 
@@ -187,20 +187,20 @@ export function formatRequirementStatus(status: RequirementStatus) {
 
 export function admissionRequirementSummary(items: AdmissionRequirement[]) {
   const openBlockers = getBlockingRequirementsForGates(items, ["admission_decision", "move_in", "ehr_export"]);
-  if (openBlockers.length === 0) return "Admission and handoff blockers are resolved";
-  return `${openBlockers.length} blocking requirement${openBlockers.length === 1 ? "" : "s"} remaining`;
+  if (openBlockers.length === 0) return "Admission and handoff items are complete";
+  return `${openBlockers.length} open item${openBlockers.length === 1 ? "" : "s"}`;
 }
 
 export function admissionReadinessLabel(workflow: WorkflowResponse, blockerCount: number) {
   if (workflow.decision?.outcome === "declined") return "Not required";
   if (workflow.decision?.outcome !== "accepted") return "After acceptance";
-  if (blockerCount > 0) return `${blockerCount} blocker${blockerCount === 1 ? "" : "s"} remaining`;
+  if (blockerCount > 0) return `${blockerCount} open item${blockerCount === 1 ? "" : "s"}`;
   return workflow.referral.stage === "Accepted / Admitted" ? "Recorded" : "Ready to record";
 }
 
 function requirementNextAction(requirements: AdmissionRequirement[], suffix: string) {
   const next = [...requirements].sort((left, right) => left.dueAt.localeCompare(right.dueAt))[0];
-  return `${next.label} is still required ${suffix}.`;
+  return `${next.label} can be completed ${suffix}.`;
 }
 
 export function transitionActionLabel(target: ReferralStage) {
@@ -214,7 +214,7 @@ export function terminalStageMessage(referral: Referral) {
 }
 
 function shouldOpenDecisionDisclosure(workflow: WorkflowResponse) {
-  return Boolean(workflow.review || workflow.recommendation || workflow.decision || (workflow.capabilities.can_decide && workflow.context.assessmentSigned));
+  return Boolean(workflow.review || workflow.recommendation || workflow.decision || workflow.capabilities.can_decide);
 }
 
 function disclosureState(open: boolean) {
@@ -228,14 +228,8 @@ export function decisionHandoffNextAction(
   incompleteEhr: AdmissionRequirement[],
   handoffStatus: EhrHandoffStatus,
 ) {
-  if (!workflow.context.assessmentSigned) return "Complete and sign the assessment before the decision can be recorded.";
-  if (workflow.review?.status === "changes_requested") {
-    return `Review ${workflow.review.submissionNumber} was returned for corrections. Update and sign the new assessment revision, then resubmit it.`;
-  }
-  if (!workflow.recommendation && !workflow.decision) return "Submit the signed assessment and clinical recommendation for supervisor review.";
-  if (!workflow.decision && incompleteDecision.length > 0) return requirementNextAction(incompleteDecision, "before the supervisor can accept the referral");
-  if (!workflow.decision && workflow.review?.status === "submitted") return "The signed assessment revision is frozen and awaiting the head supervisor's review.";
-  if (!workflow.decision) return "The signed assessment and clinical recommendation are ready for supervisor review.";
+  if (!workflow.decision) return "Acceptance can be recorded now. Assessment answers, signing, and packet sending are separate steps.";
+  if (!workflow.context.assessmentSigned && workflow.decision.outcome === "accepted") return "Accepted. Continue the questionnaire and sign when ready. No packet has been sent by this decision.";
   if (workflow.decision.outcome === "declined") return "The referral is closed by the supervisor's decline decision; no EHR handoff is required.";
   return acceptedHandoffNextAction(workflow, incompleteDecision, incompleteMoveIn, incompleteEhr, handoffStatus);
 }
@@ -248,9 +242,9 @@ function acceptedHandoffNextAction(
   handoffStatus: EhrHandoffStatus,
 ) {
   const admissionBlockers = [...incompleteDecision, ...incompleteMoveIn];
-  if (admissionBlockers.length > 0) return requirementNextAction(admissionBlockers, "before admission can be recorded");
+  if (admissionBlockers.length > 0) return "Admission can be recorded with open items. Complete the remaining paperwork when available.";
   if (workflow.referral.stage !== "Accepted / Admitted") return "Admission requirements are complete. Confirm the move-in and mark the person admitted.";
-  if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "before the EHR handoff can be queued");
+  if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "alongside the EHR handoff");
   if (handoffStatus === "queued") return "Confirm the downstream transfer, then record the handoff as sent or failed.";
   if (handoffStatus === "failed") return "Review the recorded failure, correct the downstream issue, and retry the handoff.";
   if (handoffStatus === "sent") return "Pipeline's admission and EHR handoff are complete; roster availability and identity linking remain governed separately.";
@@ -261,7 +255,7 @@ export function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"
   const action = updating ? "Replace" : "Record";
   const effect = outcome === "declined"
     ? "This closes the referral and writes the decision to its activity history."
-    : "This advances the referral into post-assessment admission work and writes the decision to its activity history.";
+    : "This records acceptance. Assessment answers stay editable until you sign. Signing and packet sending are separate actions.";
   return `${action} the ${outcome} admission decision? ${effect}`;
 }
 
@@ -269,11 +263,7 @@ export function decisionSubmissionIsBlocked(
   workflow: WorkflowResponse,
   outcome: DecisionOutcomeDraft,
 ) {
-  return !outcome
-    || !workflow.context.assessmentSigned
-    || Boolean(workflow.decision)
-    || workflow.review?.status !== "submitted"
-    || !workflow.recommendation;
+  return !outcome || !workflow.capabilities.can_decide || Boolean(workflow.decision);
 }
 
 export function reviewStatusLabel(review: AssessmentReview | null) {

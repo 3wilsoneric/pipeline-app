@@ -18,18 +18,13 @@ function build(id, referrals, items = new Map(), filters = {}, residents = []) {
   return reports.buildClientDataReport({ id, label: id, filters: [], cadence: "Current", audience: "Supervisors", description: "" }, { report_id: id, month: "", community: "", county: "", owner: "", client_scope: "all", care_topic: "primary_diagnosis", ...filters }, referrals, items, residents);
 }
 
-test("reports require an approved identity and supervisor/admin role", () => {
-  for (const email of ["andrew@aaahealthservices.com", "ericwilsonalamo@outlook.com", "sandeep@aaahealthservices.com"]) {
-    assert.equal(access.canAccessOperationsReports({ email, roles: ["assessment_coordinator"] }), true);
+test("every approved Pipeline role can use reports", () => {
+  for (const role of ["admin", "assessment_coordinator", "reviewer", "viewer"]) {
+    assert.equal(access.canAccessOperationsReports({ email: "approved@pipeline.local", roles: [role] }), true);
+    assert.equal(access.canAccessSupervisorOperations([role]), true);
   }
-  assert.equal(access.canAccessOperationsReports({ email: "  ANDREW@AAAHEALTHSERVICES.COM ", roles: ["admin"] }), true);
-  assert.equal(access.canAccessOperationsReports({ email: "someone-else@aaahealthservices.com", roles: ["assessment_coordinator"] }), false);
-  assert.equal(access.canAccessOperationsReports({ email: "andrew@aaahealthservices.com", roles: ["reviewer"] }), false);
-  assert.equal(access.canAccessOperationsReports({ id: "playwright@pipeline.local", email: "playwright@pipeline.local", roles: ["admin"] }), true);
-  assert.equal(access.canAccessOperationsReports({ id: "synthetic-operator", email: "playwright@pipeline.local", roles: ["admin"] }), true);
-  assert.equal(access.canAccessOperationsReports({ email: "playwright@pipeline.local", roles: ["admin"] }), false);
-  assert.equal(access.canAccessSupervisorOperations(["assessment_coordinator"]), true);
-  assert.equal(access.canAccessSupervisorOperations(["reviewer"]), false);
+  assert.equal(access.canAccessOperationsReports(null), false);
+  assert.equal(access.canAccessOperationsReports({ roles: [] }), false);
 });
 
 test("report text removes reconstituted markup but preserves clinical comparisons", () => {
@@ -41,12 +36,12 @@ test("report text removes reconstituted markup but preserves clinical comparison
   assert.equal(reports.reportValue("<b>No</b>"), "No");
 });
 
-test("both report routes require supervisor/admin before reading data or exporting", async () => {
+test("both report routes require Pipeline authentication before reading data or exporting", async () => {
   let authenticationCalls = 0;
   const route = loadEntry("app/api/operations/reports/route.ts", {
     "@/lib/auth/pipeline-auth": { requirePipelineUser: (_request, roles) => {
       authenticationCalls++;
-      assert.deepEqual(Array.from(roles), ["admin", "assessment_coordinator"]);
+      assert.deepEqual(Array.from(roles), ["admin", "assessment_coordinator", "reviewer", "viewer"]);
       return { ok: false, response: Response.json({ error: "Insufficient role" }, { status: 403 }) };
     } },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _path, work) => work() },
@@ -59,9 +54,9 @@ test("both report routes require supervisor/admin before reading data or exporti
   assert.equal(authenticationCalls, 2);
 });
 
-test("report routes reject an unapproved supervisor identity before touching report stores", async () => {
+test("report routes reject Note Lab-only scope before touching report stores", async () => {
   const route = loadEntry("app/api/operations/reports/route.ts", {
-    "@/lib/auth/pipeline-auth": { requirePipelineUser: () => ({ ok: true, user: { id: "other-supervisor", email: "other-supervisor@aaahealthservices.com", name: "Other Supervisor", roles: ["assessment_coordinator"] } }) },
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: () => ({ ok: true, user: { id: "note-lab-only", email: "note-lab@example.test", name: "Note Lab Only", roles: ["reviewer"], accessScope: "note_lab" } }) },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _path, work) => work() },
     "@/lib/auth/request-security": { requireSameOriginMutation: () => null },
     "@/lib/pipeline/referral-store": { requireReferralStore: () => assert.fail("Unapproved identity reached the report store") },

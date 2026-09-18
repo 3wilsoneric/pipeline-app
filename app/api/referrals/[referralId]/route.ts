@@ -65,7 +65,7 @@ export async function DELETE(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -112,11 +112,7 @@ export async function PATCH(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]", async () => {
-    const auth = await requirePipelineUser(request, [
-      "admin",
-      "assessment_coordinator",
-      "reviewer",
-    ]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -139,7 +135,7 @@ export async function PATCH(
     }
     const mutationId = validateClientMutationId(body.value.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);
-    const patchResult = validatePatchForReferral(body.value.patch, access.referral);
+    const patchResult = validateReferralPatch(body.value.patch);
     if (!patchResult.ok) return jsonError(patchResult.message, patchResult.status);
     const ownerResult = await resolveOwnerPatch({
       user: auth.user,
@@ -170,15 +166,6 @@ export async function PATCH(
   });
 }
 
-function validatePatchForReferral(value: unknown, current: Referral): ReturnType<typeof validateReferralPatch> {
-  const result = validateReferralPatch(value);
-  if (!result.ok) return result;
-  if (result.value.admissionDate?.trim() && current.admissionDecision?.outcome !== "accepted") {
-    return { ok: false, message: "Record an accepted supervisor decision before entering the date of admit.", status: 422 };
-  }
-  return result;
-}
-
 type OwnerPatchInput = {
   user: PipelineUser;
   current: Referral;
@@ -193,8 +180,7 @@ async function resolveOwnerPatch(input: OwnerPatchInput): Promise<
 > {
   await touchWorkspaceMember(input.user);
   const assignment = assignedOwnerForPatch(input.user, input.current, input.requestedPatch.owner);
-  if (!assignment.ok) return assignment;
-  const selectedOwnerResult = await resolveSelectedOwner(input.user, input.assigneeId);
+  const selectedOwnerResult = await resolveSelectedOwner(input.assigneeId);
   if (!selectedOwnerResult.ok) return selectedOwnerResult;
   const selectedOwner = selectedOwnerResult.member;
   const knownOwner = input.requestedPatch.owner !== undefined && !assignment.ownerId && !selectedOwner
@@ -216,7 +202,7 @@ async function resolveOwnerPatch(input: OwnerPatchInput): Promise<
     && (resolvedPatch.ownerId ?? "") !== (input.current.ownerId ?? "");
   const patch = withCurrentReferralOwners(input, resolvedPatch, ownerChanged);
   const handoffReason = typeof input.handoffReason === "string" ? input.handoffReason.trim() : "";
-  const handoffFailure = validateHandoff(input.current, ownerChanged, handoffReason);
+  const handoffFailure = validateHandoff(handoffReason);
   if (handoffFailure) return { ok: false, response: handoffFailure };
   return { ok: true, patch, ownerChanged, handoffReason };
 }
@@ -238,23 +224,16 @@ function withCurrentReferralOwners(
   };
 }
 
-function validateHandoff(current: Referral, ownerChanged: boolean, handoffReason: string): Response | null {
-  if (ownerChanged && !isUnassignedOwner(current.owner) && handoffReason.length < 3) {
-    return jsonError("Record a brief handoff reason when reassigning an active referral.", 422);
-  }
+function validateHandoff(handoffReason: string): Response | null {
   return handoffReason.length > 500 ? jsonError("handoff_reason is too long.") : null;
 }
 
 async function resolveSelectedOwner(
-  user: PipelineUser,
   assigneeId: string | undefined,
 ): Promise<{ ok: true; member: WorkspaceMember | null } | { ok: false; response: Response }> {
   const member = typeof assigneeId === "string" ? await getAssignableWorkspaceAssessor(assigneeId) : null;
   if (assigneeId !== undefined && !member) {
     return { ok: false, response: jsonError("Choose an active assessor as owner.", 422) };
-  }
-  if (member && isAssessorUser(user) && member.principal_id !== user.id) {
-    return { ok: false, response: jsonError("Assessors cannot reassign referrals.", 403) };
   }
   return { ok: true, member };
 }

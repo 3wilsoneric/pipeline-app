@@ -1,6 +1,76 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Assessment practice lab", () => {
+  test("the real assessment renderer preserves typed spaces and newlines in secondary diagnoses", async ({ page }) => {
+    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical");
+    const full = page.locator('[data-assessment-view="chart"]');
+    await expect(full).toBeVisible();
+    const secondary = full.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    await secondary.fill("");
+    await secondary.pressSequentially("Synthetic secondary ");
+    await expect(secondary).toHaveValue("Synthetic secondary ");
+    await secondary.pressSequentially("condition");
+    await secondary.press("Enter");
+    await expect(secondary).toHaveValue("Synthetic secondary condition\n");
+    await secondary.pressSequentially("Additional documented condition");
+    const answer = "Synthetic secondary condition\nAdditional documented condition";
+    await expect(secondary).toHaveValue(answer);
+    await secondary.press("Tab");
+    await expect(secondary).toHaveValue(answer);
+    const sections = full.getByRole("combobox", { name: "Assessment section", exact: true });
+    await sections.selectOption("functional_adl");
+    await sections.selectOption("diagnosis_clinical");
+    await full.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    await expect(full.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).toHaveValue(answer);
+  });
+
+  test("uses acknowledgement choices in Recovery history and removes the separate Triggers question", async ({ page }) => {
+    await page.goto("/note-lab/practice");
+    const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
+    await sectionRail.getByRole("button", { name: /^Substance use\b/ }).click();
+    const history = page.getByRole("group", { name: "History of substance abuse", exact: true });
+    await history.getByRole("button", { name: "Yes", exact: true }).click();
+    const insight = page.getByRole("combobox", { name: "Insight into substance use *", exact: true });
+    await expect(insight.getByRole("option")).toHaveText(["Select...", "Acknowledge", "Doesn't acknowledge"]);
+    await insight.selectOption({ label: "Acknowledge" });
+    await expect(insight).toHaveValue("yes");
+    await insight.selectOption({ label: "Doesn't acknowledge" });
+    await expect(insight).toHaveValue("no");
+    await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "Insight into substance use *", exact: true })).toHaveValue("no");
+    await sectionRail.getByRole("button", { name: /^Behavior & safety\b/ }).click();
+    await expect(page.locator('[data-practice-field="triggers"]')).toHaveCount(0);
+    await expect(page.locator('[data-practice-field="aggression_risk"]')).toHaveCount(0);
+    await expect(page.locator('[data-practice-field="behavioral_history"]')).toBeVisible();
+  });
+
+  test("captures and restores secondary diagnosis separately from primary diagnosis", async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.goto("/note-lab/practice");
+    const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
+    await sectionRail.getByRole("button", { name: /^Clinical\b/ }).click();
+    const secondary = page.getByLabel("Secondary diagnosis", { exact: true });
+    await expect(secondary).toBeVisible();
+    await expect(page.getByLabel("Primary diagnosis", { exact: true })).toHaveCount(0);
+    await secondary.pressSequentially("Synthetic secondary condition");
+    await secondary.press("Enter");
+    await secondary.pressSequentially("Additional documented condition");
+    const answer = "Synthetic secondary condition\nAdditional documented condition";
+    await expect(secondary).toHaveValue(answer);
+    expect(pageErrors).toEqual([]);
+    await secondary.press("Enter");
+    const continuation = "A separate synthetic diagnosis with additional documentation retained for review";
+    await secondary.pressSequentially(continuation);
+    const completeAnswer = `${answer}\n${continuation}`;
+    await expect(secondary).toHaveValue(completeAnswer);
+    await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Secondary diagnosis", { exact: true })).toHaveValue(completeAnswer);
+    expect(pageErrors).toEqual([]);
+  });
+
   test("keeps obvious fields plain and guides only authored narrative fields", async ({ page }) => {
     const clinicalRequests: string[] = [];
     page.on("request", (request) => {
@@ -53,6 +123,14 @@ test.describe("Assessment practice lab", () => {
     await sectionRail.getByRole("button", { name: /^Function\b/ }).click();
     await expect(sectionRail.getByRole("button", { name: /^Function\b/ })).toHaveAttribute("aria-current", "step");
     await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
+    const ambulatory = page.getByRole("group", { name: "Ambulatory", exact: true });
+    await ambulatory.getByRole("button", { name: "No", exact: true }).click();
+    const device = page.getByRole("textbox", { name: "Type of device *", exact: true });
+    await device.fill("Wheelchair");
+    await ambulatory.getByRole("button", { name: "Yes", exact: true }).click();
+    await expect(device).toHaveCount(0);
+    await ambulatory.getByRole("button", { name: "No", exact: true }).click();
+    await expect(device).toHaveValue("Wheelchair");
     const adlGuidance = page.locator("details").filter({ has: page.getByLabel("Answer help for ADL needs") });
     await page.getByLabel("Answer help for ADL needs").click();
     await expect(adlGuidance).toHaveAttribute("open", "");

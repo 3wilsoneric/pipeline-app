@@ -753,12 +753,13 @@ const assessmentContextFields = new Set<AssessmentToolFieldKey>([
 /**
  * Canonical assessment extraction contract. Assignment is server-owned and
  * process metadata is supplied by the extraction job, so neither is requested
- * from the extraction model.
+ * from the extraction model. Retired triggers and aggression-risk data is retained in stored
+ * assessments but is no longer requested as a new answer.
  */
 export const assessmentToolExtractionFields: ReadonlyArray<
   ExtractionFieldDefinition<AssessmentToolFieldKey>
 > = assessmentToolFieldDefinitions
-  .filter((definition) => !assessmentContextFields.has(definition.key))
+  .filter((definition) => !assessmentContextFields.has(definition.key) && definition.key !== "aggression_risk" && definition.key !== "triggers")
   .map((definition) => ({
     field: definition.key,
     field_key: `assessment_tool.${definition.key}`,

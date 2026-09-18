@@ -13,10 +13,11 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutablePacketAccess } from "@/lib/pipeline/referral-access";
 import { reconcileUploadedDocumentRequirements } from "@/lib/pipeline/document-requirement-reconciliation";
 import { recordLocalAdditionalReferralDocuments } from "@/lib/pipeline/referral-store";
+import { assertPacketNotDeleted, recordUploadedDocuments } from "@/lib/pipeline/document-lifecycle";
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/uploads/complete", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -34,7 +35,9 @@ export async function POST(request: Request) {
 
     let result;
     try {
+      await assertPacketNotDeleted(validation.value.packet_id);
       result = await completePacketUpload(validation.value);
+      if (result) await recordCompletedReferralDocuments(access.referral.id, result, auth.user);
     } catch (error) {
       return extractionErrorResponse(error);
     }
@@ -42,8 +45,6 @@ export async function POST(request: Request) {
     if (!result) {
       return jsonError("Packet not found.", 404);
     }
-
-    await recordCompletedReferralDocuments(access.referral.id, result, auth.user);
 
     return Response.json(result, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
@@ -57,6 +58,7 @@ async function recordCompletedReferralDocuments(
   user: Parameters<typeof pipelineAuditActor>[0],
 ) {
   const documents = result.documents ?? [];
+  await recordUploadedDocuments(referralId, result, pipelineAuditActor(user));
   await reconcileUploadedDocumentRequirements(referralId, documents, pipelineAuditActor(user));
   await recordLocalAdditionalReferralDocuments(referralId, documents);
 }

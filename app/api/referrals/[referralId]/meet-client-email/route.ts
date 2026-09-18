@@ -4,7 +4,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
-import { buildMeetClientSummary } from "@/lib/assessment/assessment-summary";
+import { buildMeetClientSummary, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import {
@@ -36,7 +36,7 @@ export async function POST(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]/meet-client-email", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -171,19 +171,15 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   if (snapshot.referral.version !== referralVersion) {
     return { ok: false as const, response: jsonError("The workspace changed. Refresh and check the admission date and summary before sending.", 409) };
   }
-  if (!snapshot.referral.admissionDate) {
-    return { ok: false as const, response: jsonError("Set the admission date before emailing Meet the Client.", 422) };
-  }
   if (snapshot.decision?.outcome !== "accepted") {
     return { ok: false as const, response: jsonError("Record an accepted admission decision before emailing Meet the Client.", 422) };
   }
   const assessment = selectSignedAssessment(
     assessmentList.assessments,
     snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,
-    snapshot.decision?.assessmentVersion,
   );
   if (!assessment) {
-    return { ok: false as const, response: jsonError("The exact signed assessment approved by the supervisor is required before emailing Meet the Client.", 422) };
+    return { ok: false as const, response: jsonError("Sign the assessment before emailing Meet the Client. Acceptance and signing are separate steps.", 422) };
   }
   return {
     ok: true as const,
@@ -193,20 +189,6 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
     reviewId: snapshot.decision.reviewId,
     reviewVersion: snapshot.decision.reviewVersion,
   };
-}
-
-function selectSignedAssessment(
-  assessments: Awaited<ReturnType<typeof listAssessments>>["assessments"],
-  recommendedAssessmentId?: string,
-  expectedVersion?: number,
-) {
-  const recommended = assessments.find((item) => item.assessment_id === recommendedAssessmentId);
-  if (recommendedAssessmentId) {
-    return recommended?.signed_at && (expectedVersion === undefined || recommended.version === expectedVersion)
-      ? recommended
-      : undefined;
-  }
-  return assessments.find((item) => item.signed_at);
 }
 
 async function loadAdmissionPacket(referral: Referral) {

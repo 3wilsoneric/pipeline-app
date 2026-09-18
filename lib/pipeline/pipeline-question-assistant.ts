@@ -133,7 +133,7 @@ const intents: SearchableIntent[] = [
     id: "assign-assessor",
     title: "Assign an assessor",
     prompt: "How do I assign an assessor?",
-    answer: "Open the referral workspace and use Routing and assignment in Intake. The selected assessor becomes the single owner used by the queue, calendar, permissions, and reporting.",
+    answer: "Open the referral workspace and use Routing and assignment in Intake. The selected assessor becomes the owner shown in the queue, calendar, and reporting. Every approved Pipeline user can edit the workspace.",
     steps: ["Open the referral workspace.", "Choose an assessor under Routing and assignment.", "Add a handoff note if you are changing an existing assignment."],
     action: { type: "navigate", label: "Open workspaces", screen: "referrals" },
     phrases: ["assign an assessor", "assign assessor", "change the assessor", "change owner", "reassign referral", "who owns"],

@@ -301,58 +301,6 @@ export function getEhrHandoffBlockers(
   return isEhrQueueAction(action) ? getEhrQueueReadinessBlockers(snapshot) : [];
 }
 
-export function getAdmissionDecisionBlockers(
-  snapshot: WorkflowRecordSnapshot,
-  input: AdmissionDecisionInput,
-) {
-  return getAdmissionDecisionAlerts(snapshot, input).filter((issue) =>
-    !issue.code.startsWith("requirement:") && issue.code !== "decline_reason_required",
-  );
-}
-
-export function getAdmissionDecisionAlerts(
-  snapshot: WorkflowRecordSnapshot,
-  input: AdmissionDecisionInput,
-) {
-  const reviewBlockers = getAdmissionReviewBlockers(snapshot);
-  if (reviewBlockers.length > 0) return reviewBlockers;
-  if (input.outcome === "accepted") {
-    const incomplete = getBlockingRequirementsForGates(snapshot.work_items, ["admission_decision"]);
-    if (incomplete.length > 0) {
-      return incomplete.map((requirement) => ({
-        code: `requirement:${requirement.type}`,
-        label: `${requirement.label} is still required before acceptance.`,
-      }));
-    }
-  }
-  if (input.outcome === "declined" && !input.reasonNote?.trim()) {
-    return [{ code: "decline_reason_required", label: "Record why there will be no admission." }];
-  }
-  return [];
-}
-
-function getAdmissionReviewBlockers(snapshot: WorkflowRecordSnapshot) {
-  if (!snapshot.context.assessmentSigned) {
-    return [{ code: "assessment_required", label: "Sign the assessment before recording the admission decision." }];
-  }
-  if (!snapshot.review) {
-    return [{ code: "review_required", label: "Submit a signed assessment and recommendation for supervisor review before recording a decision." }];
-  }
-  if (snapshot.review.status === "changes_requested") {
-    return [{ code: "review_changes_requested", label: "Complete and resubmit the requested assessment corrections before recording a decision." }];
-  }
-  if (snapshot.review.status !== "submitted") {
-    return [{ code: "review_not_open", label: "This supervisor review is no longer open for a decision." }];
-  }
-  if (snapshot.context.assessmentId !== snapshot.review.assessmentId) {
-    return [{ code: "stale_review_submission", label: "Submit the current signed assessment revision for supervisor review." }];
-  }
-  if (!snapshot.recommendation || snapshot.review.recommendationId !== snapshot.recommendation.recommendationId) {
-    return [{ code: "recommendation_required", label: "The open supervisor review must include the current assessor recommendation." }];
-  }
-  return [];
-}
-
 export function workflowStatusAfterWorkItem(
   snapshot: WorkflowRecordSnapshot,
   requirements: AdmissionRequirement[],
@@ -455,15 +403,8 @@ function isEhrQueueAction(action: "queue" | "mark_sent" | "mark_failed" | "retry
 }
 
 function getEhrQueueReadinessBlockers(snapshot: WorkflowRecordSnapshot): WorkItemValidationIssue[] {
-  if (snapshot.referral.stage !== "Accepted / Admitted" || snapshot.decision?.outcome !== "accepted") {
+  if (snapshot.decision?.outcome !== "accepted") {
     return [{ code: "accepted_referral_required", label: "Accept the referral before queueing the EHR handoff." }];
-  }
-  const incomplete = getBlockingRequirementsForGates(
-    snapshot.work_items,
-    ["admission_decision", "move_in", "ehr_export"],
-  );
-  if (incomplete.length > 0) {
-    return incomplete.map((item) => ({ code: `requirement:${item.type}`, label: `${item.label} is still required for EHR handoff.` }));
   }
   return snapshot.referral.ehrHandoff?.status === "sent"
     ? [{ code: "ehr_handoff_already_sent", label: "This EHR handoff has already been recorded as sent." }]

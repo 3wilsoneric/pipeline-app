@@ -32,7 +32,6 @@ import type {
 } from "@/lib/pipeline/referral-types";
 import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
 import {
-  getAdmissionDecisionBlockers,
   getEhrHandoffBlockers,
   getWorkItemAuditAction,
   normalizeWorkItem,
@@ -401,14 +400,6 @@ export async function recordAssessmentRecommendation(
   if (normalizeReferralSectionVersions(snapshot.referral.sectionVersions).decision !== expectedDecisionVersion) {
     return { ok: false, conflict: true, referral: snapshot.referral, record: snapshot.recommendation ?? undefined };
   }
-  if (snapshot.decision) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: snapshot.referral,
-      blockers: [{ code: "decision_already_recorded", label: "The supervisor decision has already been recorded." }],
-    };
-  }
   const existingSubmission = snapshot.reviews.find((review) => review.assessmentId === input.assessmentId);
   if (existingSubmission) {
     return {
@@ -419,12 +410,12 @@ export async function recordAssessmentRecommendation(
     };
   }
   const assessment = await getAssessment(input.assessmentId);
-  if (!assessment || assessment.referral_id !== referralId || !assessment.signed_at) {
+  if (!assessment || assessment.referral_id !== referralId) {
     return {
       ok: false,
       blocked: true,
       referral: snapshot.referral,
-      blockers: [{ code: "signed_assessment_required", label: "Sign the assessment before submitting a recommendation." }],
+      blockers: [{ code: "assessment_required", label: "Open the questionnaire before recording a recommendation." }],
     };
   }
   if (assessment.assessor_id !== actor.id && !options.allowSupervisorOverride) {
@@ -437,18 +428,8 @@ export async function recordAssessmentRecommendation(
   }
   if (getReferralStoreReadiness().mode !== "postgres") {
     const now = new Date().toISOString();
-    const recommendation: AssessmentRecommendation = {
-      recommendationId: randomUUID(),
-      assessmentId: input.assessmentId,
-      outcome: input.outcome,
-      reasonCode: input.reasonCode?.trim() ?? "",
-      reasonNote: input.reasonNote?.trim() ?? "",
-      recommendedBy: actor.id,
-      recommendedByName: actor.name,
-      recommendedAt: now,
-      version: 1,
-    };
-    const review: AssessmentReview = {
+    const recommendation = nextRecommendationRecord(snapshot.recommendation, input, actor, now);
+    const review: AssessmentReview | null = assessment.signed_at ? {
       reviewId: randomUUID(),
       referralId,
       assessmentId: assessment.assessment_id,
@@ -466,20 +447,19 @@ export async function recordAssessmentRecommendation(
       previousReviewId: snapshot.review?.reviewId,
       version: 1,
       updatedAt: now,
-    };
+    } : null;
     const mutation = await patchReferral(
       referralId,
       {
         assessmentRecommendation: recommendation,
-        assessmentReview: review,
-        assessmentReviewHistory: [...snapshot.reviews, review],
-        workflowStatus: "recommendation_submitted",
+        ...(review ? { assessmentReview: review, assessmentReviewHistory: [...snapshot.reviews, review] } : {}),
+        workflowStatus: snapshot.decision ? snapshot.referral.workflowStatus : review ? "recommendation_submitted" : "decision_pending",
       },
       expectedVersion,
       actor,
       { decision: expectedDecisionVersion, workflow: normalizeReferralSectionVersions(snapshot.referral.sectionVersions).workflow },
       {
-        auditAction: "assessment_recommendation_submitted",
+        auditAction: review ? "assessment_recommendation_submitted" : "assessment_recommendation_saved",
         mutationId: options.mutationId,
         mutationScope: "assessment_recommendation",
       },
@@ -515,6 +495,55 @@ export async function recordAssessmentRecommendation(
   return referral ? { ok: true, record: result.record, referral } : null;
 }
 
+function nextRecommendationRecord(previous: AssessmentRecommendation | null, input: AssessmentRecommendationInput, actor: ReferralActor, now: string): AssessmentRecommendation {
+  const sameAssessment = previous?.assessmentId === input.assessmentId ? previous : null;
+  return {
+    recommendationId: sameAssessment?.recommendationId ?? randomUUID(),
+    assessmentId: input.assessmentId,
+    outcome: input.outcome,
+    reasonCode: input.reasonCode?.trim() ?? "",
+    reasonNote: input.reasonNote?.trim() ?? "",
+    recommendedBy: actor.id,
+    recommendedByName: actor.name,
+    recommendedAt: now,
+    version: (sameAssessment?.version ?? 0) + 1,
+  };
+}
+
+function reviewForDecision(
+  review: AssessmentReview | null,
+  recommendation: AssessmentRecommendation | null,
+  assessment: { assessment_id: string; version: number } | null | undefined,
+) {
+  if (!review || !recommendation || !assessment) return null;
+  return review.status === "submitted"
+    && review.assessmentId === assessment.assessment_id
+    && review.assessmentVersion === Number(assessment.version)
+    && review.recommendationId === recommendation.recommendationId ? review : null;
+}
+
+function reviewedDecisionRecord(review: AssessmentReview | null, decision: AdmissionDecision, actor: ReferralActor): AssessmentReview | null {
+  if (!review) return null;
+  return {
+    ...review,
+    status: decision.outcome === "accepted" ? "approved_for_placement" : "not_accepted",
+    notificationStatus: "acknowledged",
+    reviewedBy: actor.id, reviewedByName: actor.name, reviewedAt: decision.decidedAt,
+    reviewNote: decision.reasonNote || undefined,
+    version: review.version + 1, updatedAt: decision.decidedAt,
+  };
+}
+
+function postgresDecisionEvidence(recommendation: AssessmentRecommendation | null, review: AssessmentReview | null, assessment: { assessment_id: string; version: number } | undefined) {
+  return {
+    recommendationId: recommendation ? recommendation.recommendationId : null,
+    reviewId: review ? review.reviewId : null,
+    reviewVersion: review ? review.version + 1 : null,
+    assessmentId: assessment ? assessment.assessment_id : null,
+    assessmentVersion: assessment ? Number(assessment.version) : null,
+  };
+}
+
 export async function recordAdmissionDecision(
   referralId: number,
   input: AdmissionDecisionInput,
@@ -538,18 +567,10 @@ export async function recordAdmissionDecision(
       blockers: [{ code: "decision_already_recorded", label: "The final supervisor decision is immutable. Reopen through a governed correction workflow instead." }],
     };
   }
-  const blockers = getAdmissionDecisionBlockers(snapshot, input);
-  if (blockers.length > 0) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: snapshot.referral,
-      blockers,
-    };
-  }
-
   if (getReferralStoreReadiness().mode !== "postgres") {
     const now = new Date().toISOString();
+    const assessment = snapshot.context.assessmentId ? await getAssessment(snapshot.context.assessmentId) : null;
+    const submittedReview = reviewForDecision(snapshot.review, snapshot.recommendation, assessment);
     const decision: AdmissionDecision = {
       decisionId: randomUUID(),
       outcome: input.outcome,
@@ -560,23 +581,13 @@ export async function recordAdmissionDecision(
       decidedAt: now,
       version: 1,
       recommendationId: snapshot.recommendation?.recommendationId,
-      reviewId: snapshot.review?.reviewId,
-      reviewVersion: snapshot.review ? snapshot.review.version + 1 : undefined,
-      assessmentId: snapshot.review?.assessmentId ?? snapshot.context.assessmentId ?? undefined,
-      assessmentVersion: snapshot.review?.assessmentVersion,
+      reviewId: submittedReview?.reviewId,
+      reviewVersion: submittedReview ? submittedReview.version + 1 : undefined,
+      assessmentId: assessment?.assessment_id,
+      assessmentVersion: assessment?.version,
       decidedByRole: input.decidedByRole,
     };
-    const review = snapshot.review ? {
-      ...snapshot.review,
-      status: input.outcome === "accepted" ? "approved_for_placement" as const : "not_accepted" as const,
-      notificationStatus: "acknowledged" as const,
-      reviewedBy: actor.id,
-      reviewedByName: actor.name,
-      reviewedAt: now,
-      reviewNote: decision.reasonNote || undefined,
-      version: snapshot.review.version + 1,
-      updatedAt: now,
-    } : null;
+    const review = reviewedDecisionRecord(submittedReview, decision, actor);
     const targetStage = input.outcome === "declined"
       ? "Declined"
       : "Community Review";
@@ -912,6 +923,56 @@ export async function updateEhrHandoff(
   };
 }
 
+async function savePostgresRecommendation(tx: TransactionSql, referralId: number, input: AssessmentRecommendationInput, actor: ReferralActor) {
+  const rows = await tx<RecommendationRow[]>`
+    insert into pipeline.assessment_recommendations (
+      referral_id, assessment_id, outcome, reason_code, reason_note,
+      recommended_by, recommended_by_name, recommended_at
+    ) values (
+      ${referralId}, ${input.assessmentId}, ${input.outcome},
+      ${input.reasonCode?.trim() || null}, ${input.reasonNote?.trim() || ""},
+      ${actor.id}, ${actor.name}, now()
+    )
+    on conflict (assessment_id) do update
+    set outcome = excluded.outcome, reason_code = excluded.reason_code,
+        reason_note = excluded.reason_note, recommended_by = excluded.recommended_by,
+        recommended_by_name = excluded.recommended_by_name, recommended_at = excluded.recommended_at,
+        version = pipeline.assessment_recommendations.version + 1
+    returning recommendation_id, referral_id, assessment_id, outcome, reason_code,
+              reason_note, recommended_by, recommended_by_name, recommended_at, version
+  `;
+  return mapRecommendation(rows[0]);
+}
+
+async function insertPostgresSignedReview(
+  tx: TransactionSql, referralId: number,
+  assessment: { assessment_id: string; version: number; signed_at: Date | string | null },
+  recommendation: AssessmentRecommendation, priorReview: ReviewRow | undefined, actor: ReferralActor,
+) {
+  if (!assessment.signed_at) return null;
+  const reviewRows = await tx<ReviewRow[]>`
+    insert into pipeline.assessment_reviews (
+      referral_id, assessment_id, assessment_version, recommendation_id,
+      recommendation_version, submission_number, status, submitted_by,
+      submitted_by_name, submitted_at, due_at, assigned_reviewer_name,
+      notification_status, previous_review_id
+    ) values (
+      ${referralId}, ${assessment.assessment_id}, ${Number(assessment.version)},
+      ${recommendation.recommendationId}::uuid, ${recommendation.version},
+      ${Number(priorReview?.submission_number ?? 0) + 1}, 'submitted',
+      ${actor.id}, ${actor.name}, now(), now() + interval '2 days',
+      'Head supervisor', 'pending', ${priorReview?.review_id ?? null}::uuid
+    )
+    returning review_id, referral_id, assessment_id, assessment_version,
+              recommendation_id, recommendation_version, submission_number, status,
+              submitted_by, submitted_by_name, submitted_at, due_at,
+              assigned_reviewer_id, assigned_reviewer_name, notification_status,
+              reviewed_by, reviewed_by_name, reviewed_at, review_note,
+              successor_assessment_id, previous_review_id, version, updated_at
+  `;
+  return mapReview(reviewRows[0]);
+}
+
 async function recordPostgresRecommendation(
   tx: TransactionSql,
   referralId: number,
@@ -934,8 +995,8 @@ async function recordPostgresRecommendation(
     `;
     if (existing[0]) return { ok: true, record: mapRecommendation(existing[0]), referral: fallback };
   }
-  const referralRows = await tx<{ version: number; data: unknown; section_versions: unknown }[]>`
-    select version, data, section_versions
+  const referralRows = await tx<{ version: number; workflow_status: NonNullable<Referral["workflowStatus"]>; data: unknown; section_versions: unknown }[]>`
+    select version, workflow_status, data, section_versions
     from pipeline.referrals
     where referral_id = ${referralId} and deleted_at is null
     for update
@@ -953,12 +1014,12 @@ async function recordPostgresRecommendation(
     for update
   `;
   const assessment = assessmentRows[0];
-  if (!assessment?.signed_at) {
+  if (!assessment) {
     return {
       ok: false,
       blocked: true,
       referral: fallback,
-      blockers: [{ code: "signed_assessment_required", label: "Sign the assessment before submitting a recommendation." }],
+      blockers: [{ code: "assessment_required", label: "Open the questionnaire before recording a recommendation." }],
     };
   }
   if (assessment.assessor_id !== actor.id && !options.allowSupervisorOverride) {
@@ -967,17 +1028,6 @@ async function recordPostgresRecommendation(
       blocked: true,
       referral: fallback,
       blockers: [{ code: "assigned_assessor_required", label: "Only the assigned assessor or a supervisor can submit this recommendation." }],
-    };
-  }
-  const decisionRows = await tx<{ exists: boolean }[]>`
-    select exists(select 1 from pipeline.admission_decisions where referral_id = ${referralId}) as exists
-  `;
-  if (decisionRows[0]?.exists) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: fallback,
-      blockers: [{ code: "decision_already_recorded", label: "The supervisor decision has already been recorded." }],
     };
   }
   const priorReviewRows = await tx<ReviewRow[]>`
@@ -1000,46 +1050,14 @@ async function recordPostgresRecommendation(
       blockers: [{ code: "assessment_already_submitted", label: "This signed assessment revision has already been submitted for supervisor review." }],
     };
   }
-  const rows = await tx<RecommendationRow[]>`
-    insert into pipeline.assessment_recommendations (
-      referral_id, assessment_id, outcome, reason_code, reason_note,
-      recommended_by, recommended_by_name, recommended_at
-    ) values (
-      ${referralId}, ${input.assessmentId}, ${input.outcome},
-      ${input.reasonCode?.trim() || null}, ${input.reasonNote?.trim() || ""},
-      ${actor.id}, ${actor.name}, now()
-    )
-    returning recommendation_id, referral_id, assessment_id, outcome, reason_code,
-              reason_note, recommended_by, recommended_by_name, recommended_at, version
-  `;
-  const recommendation = mapRecommendation(rows[0]);
-  const reviewRows = await tx<ReviewRow[]>`
-    insert into pipeline.assessment_reviews (
-      referral_id, assessment_id, assessment_version, recommendation_id,
-      recommendation_version, submission_number, status, submitted_by,
-      submitted_by_name, submitted_at, due_at, assigned_reviewer_name,
-      notification_status, previous_review_id
-    ) values (
-      ${referralId}, ${input.assessmentId}, ${Number(assessment.version)},
-      ${recommendation.recommendationId}::uuid, ${recommendation.version},
-      ${Number(priorReviewRows[0]?.submission_number ?? 0) + 1}, 'submitted',
-      ${actor.id}, ${actor.name}, now(), now() + interval '2 days',
-      'Head supervisor', 'pending', ${priorReviewRows[0]?.review_id ?? null}::uuid
-    )
-    returning review_id, referral_id, assessment_id, assessment_version,
-              recommendation_id, recommendation_version, submission_number, status,
-              submitted_by, submitted_by_name, submitted_at, due_at,
-              assigned_reviewer_id, assigned_reviewer_name, notification_status,
-              reviewed_by, reviewed_by_name, reviewed_at, review_note,
-              successor_assessment_id, previous_review_id, version, updated_at
-  `;
-  const review = mapReview(reviewRows[0]);
+  const recommendation = await savePostgresRecommendation(tx, referralId, input, actor);
+  const review = await insertPostgresSignedReview(tx, referralId, assessment, recommendation, priorReviewRows[0], actor);
   const sections = normalizeReferralSectionVersions(referralRow.section_versions);
   const data = isRecord(referralRow.data) ? referralRow.data : {};
   await tx`
     update pipeline.referrals
-    set workflow_status = 'recommendation_submitted',
-        data = ${tx.json({ ...data, assessmentRecommendation: recommendation, assessmentReview: review })},
+    set workflow_status = case when exists (select 1 from pipeline.admission_decisions where referral_id = ${referralId}) then ${referralRow.workflow_status} else ${review ? "recommendation_submitted" : "decision_pending"} end,
+        data = ${tx.json({ ...data, assessmentRecommendation: recommendation, ...(review ? { assessmentReview: review } : {}) })},
         version = version + 1,
         section_versions = ${tx.json({
           ...sections,
@@ -1053,12 +1071,12 @@ async function recordPostgresRecommendation(
     tx,
     "assessment_recommendation",
     recommendation.recommendationId,
-    "assessment_recommendation_submitted",
+    review ? "assessment_recommendation_submitted" : "assessment_recommendation_saved",
     actor,
     recommendation.version,
     ["outcome", "reasonCode", "reasonNote"],
   );
-  await writeWorkflowAudit(
+  if (review) await writeWorkflowAudit(
     tx,
     "assessment_review",
     review.reviewId,
@@ -1113,21 +1131,13 @@ async function recordPostgresDecision(
       blockers: [{ code: "decision_already_recorded", label: "The final supervisor decision is immutable. Reopen through a governed correction workflow instead." }],
     };
   }
-  const assessmentRows = await tx<{ signed: boolean }[]>`
-    select exists(
-      select 1 from pipeline.assessments
-      where referral_id = ${referralId} and signed_at is not null
-    ) as signed
+  const assessmentRows = await tx<{ assessment_id: string; version: number }[]>`
+    select assessment_id, version from pipeline.assessments
+    where referral_id = ${referralId}
+    order by updated_at desc, assessment_id desc limit 1 for update
   `;
+  const assessment = assessmentRows[0];
   const data = isRecord(row.data) ? row.data : {};
-  if (!assessmentRows[0]?.signed) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: fallback,
-      blockers: [{ code: "assessment_required", label: "Sign the assessment before recording the admission decision." }],
-    };
-  }
   const recommendationRows = await tx<RecommendationRow[]>`
     select recommendation_id, referral_id, assessment_id, outcome, reason_code,
            reason_note, recommended_by, recommended_by_name, recommended_at, version
@@ -1137,14 +1147,6 @@ async function recordPostgresDecision(
     limit 1
   `;
   const recommendation = recommendationRows[0] ? mapRecommendation(recommendationRows[0]) : null;
-  if (!recommendation) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: fallback,
-      blockers: [{ code: "recommendation_required", label: "An assessor recommendation is required before supervisor review." }],
-    };
-  }
   const reviewRows = await tx<ReviewRow[]>`
     select review_id, referral_id, assessment_id, assessment_version,
            recommendation_id, recommendation_version, submission_number, status,
@@ -1158,16 +1160,10 @@ async function recordPostgresDecision(
     limit 1
     for update
   `;
-  const review = reviewRows[0] ? mapReview(reviewRows[0]) : null;
-  if (!review || review.status !== "submitted" || review.recommendationId !== recommendation.recommendationId) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: fallback,
-      blockers: [{ code: "review_not_ready", label: "The latest submitted assessment review is not ready for a final decision." }],
-    };
-  }
+  const candidateReview = reviewRows[0] ? mapReview(reviewRows[0]) : null;
+  const review = reviewForDecision(candidateReview, recommendation, assessment);
 
+  const evidence = postgresDecisionEvidence(recommendation, review, assessment);
   const decisionRows = await tx<DecisionRow[]>`
     insert into pipeline.admission_decisions (
       referral_id, outcome, reason_code, reason_note, decided_by, decided_by_name,
@@ -1176,27 +1172,17 @@ async function recordPostgresDecision(
     ) values (
       ${referralId}, ${input.outcome}, ${input.reasonCode?.trim() || null},
       ${input.reasonNote?.trim() || null}, ${actor.id}, ${actor.name}, now(),
-      ${recommendation.recommendationId}::uuid, ${input.decidedByRole ?? null},
-      ${review.reviewId}::uuid, ${review.version + 1},
-      ${review.assessmentId}, ${review.assessmentVersion}
+      ${evidence.recommendationId}::uuid, ${input.decidedByRole ?? null},
+      ${evidence.reviewId}::uuid, ${evidence.reviewVersion},
+      ${evidence.assessmentId}, ${evidence.assessmentVersion}
     )
     returning decision_id, outcome, reason_code, reason_note, decided_by,
               decided_by_name, decided_at, version, recommendation_id, decided_by_role,
               review_id, review_version, assessment_id, assessment_version
   `;
   const decision = mapDecision(decisionRows[0]);
-  const resolvedReview = {
-    ...review,
-    status: input.outcome === "accepted" ? "approved_for_placement" as const : "not_accepted" as const,
-    notificationStatus: "acknowledged" as const,
-    reviewedBy: actor.id,
-    reviewedByName: actor.name,
-    reviewedAt: decision.decidedAt,
-    reviewNote: decision.reasonNote || undefined,
-    version: review.version + 1,
-    updatedAt: decision.decidedAt,
-  };
-  await tx`
+  const resolvedReview = reviewedDecisionRecord(review, decision, actor);
+  if (resolvedReview) await tx`
     update pipeline.assessment_reviews
     set status = ${resolvedReview.status}, notification_status = 'acknowledged',
         reviewed_by = ${actor.id}, reviewed_by_name = ${actor.name}, reviewed_at = now(),
@@ -1219,7 +1205,7 @@ async function recordPostgresDecision(
         data = ${tx.json({
           ...data,
           admissionDecision: decision,
-          assessmentReview: resolvedReview,
+          ...(resolvedReview ? { assessmentReview: resolvedReview } : {}),
         })},
         version = version + 1,
         section_versions = ${tx.json(nextSections)},
@@ -1240,7 +1226,7 @@ async function recordPostgresDecision(
     ["outcome", "reasonCode", "reasonNote", "recommendationId"],
     "",
   );
-  await writeWorkflowAudit(
+  if (resolvedReview) await writeWorkflowAudit(
     tx,
     "assessment_review",
     resolvedReview.reviewId,
@@ -1259,7 +1245,7 @@ async function recordPostgresDecision(
         from_version, to_version, changed_fields, metadata
       ) values (
         'referral', ${String(referralId)},
-        ${input.outcome === "declined" ? "admission_declined" : "assessment_completed"},
+        ${input.outcome === "declined" ? "admission_declined" : "admission_decision_recorded"},
         ${actor.id}, ${actor.name}, ${Number(row.version)}, ${Number(row.version) + 1},
         ${["stage"]},
         ${tx.json({ from_stage: row.stage, to_stage: nextStage })}

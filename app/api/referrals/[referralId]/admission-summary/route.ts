@@ -1,6 +1,6 @@
 import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth";
 import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
-import { buildAssessmentSummaryReport } from "@/lib/assessment/assessment-summary";
+import { buildAssessmentSummaryReport, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import { jsonError } from "@/lib/extraction/contracts";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
 import { getGraphMailReadiness } from "@/lib/notifications/microsoft-graph-mail";
@@ -14,8 +14,7 @@ import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 export const runtime = "nodejs";
 
 function canSendAdmissionSummary(user: PipelineUser, referral: Referral) {
-  return referral.workspaceStatus !== "historical" && canModifyReferral(referral, user)
-    && user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
+  return referral.workspaceStatus !== "historical" && canModifyReferral(referral, user);
 }
 
 export async function GET(
@@ -43,7 +42,6 @@ export async function GET(
     const assessment = selectSignedAssessment(
       assessmentList.assessments,
       snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,
-      snapshot.decision?.assessmentVersion,
     );
     const report = assessment ? buildAssessmentSummaryReport(assessment, snapshot.referral) : null;
     const mail = getGraphMailReadiness();
@@ -56,7 +54,6 @@ export async function GET(
       snapshot.decision?.outcome,
       mail.configured,
       admissionPacket.blockers,
-      snapshot.referral.admissionDate,
     );
     const canSend = canSendAdmissionSummary(auth.user, access.referral);
 
@@ -105,32 +102,16 @@ async function loadAdmissionPacketInventory(
   }
 }
 
-function selectSignedAssessment(
-  assessments: Awaited<ReturnType<typeof listAssessments>>["assessments"],
-  recommendedAssessmentId?: string,
-  expectedVersion?: number,
-) {
-  const recommended = assessments.find((item) => item.assessment_id === recommendedAssessmentId);
-  if (recommendedAssessmentId) {
-    return recommended?.signed_at && (expectedVersion === undefined || recommended.version === expectedVersion)
-      ? recommended
-      : null;
-  }
-  return assessments.find((item) => item.signed_at) ?? null;
-}
-
 function meetClientEmailBlockers(
   report: ReturnType<typeof buildAssessmentSummaryReport> | null,
   outcome: string | undefined,
   configured: boolean,
   attachmentBlockers: string[],
-  admissionDate: string | undefined,
 ) {
   const blockers: string[] = [];
   if (!report) blockers.push("Complete an assessment before preparing the summary.");
   else if (!report.signed) blockers.push("Sign the assessment before preparing the summary.");
   if (outcome !== "accepted") blockers.push("Record an accepted admission decision before emailing the summary.");
-  if (!admissionDate) blockers.push("Set the admission date in Workflow before emailing the summary.");
   if (!configured) blockers.push("Configure the approved Microsoft 365 sender and recipient domains.");
   blockers.push(...attachmentBlockers);
   return blockers;

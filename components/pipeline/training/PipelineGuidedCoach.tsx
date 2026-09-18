@@ -138,7 +138,7 @@ export default function PipelineGuidedCoach() {
       completedAt: now,
     };
     commit({ type: "finish" });
-    if (step.target === "assessment-guided-exit" && !nextTutorial) commit({ type: "close" });
+    if (tutorial.id === "complete-assessment" && step.id === "assessment-sign" && !nextTutorial) commit({ type: "close" });
     queueProgressSync(tutorial.id, completed);
     window.dispatchEvent(new CustomEvent("pipeline:guided-tutorial-completed", { detail: { tutorialId: tutorial.id } }));
     if (nextTutorial) {

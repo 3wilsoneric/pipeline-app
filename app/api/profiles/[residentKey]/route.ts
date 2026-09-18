@@ -1,3 +1,4 @@
+import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import {
   ClinicalDataError,
@@ -26,12 +27,8 @@ export async function GET(
       const loadProfile = canonicalClientId.startsWith("resident:") ? getCurrentCensusClientProfile : getUnifiedClientProfile;
       return Response.json(
         await loadProfile(request, canonicalClientId, {
-          can_create_identity_candidate: auth.user.roles.some((role) =>
-            ["admin", "assessment_coordinator", "reviewer"].includes(role),
-          ),
-          can_review_identity: auth.user.roles.some((role) =>
-            ["admin", "assessment_coordinator", "reviewer"].includes(role),
-          ),
+          can_create_identity_candidate: canEditWorkspace(auth.user),
+          can_review_identity: canEditWorkspace(auth.user),
         }, auth.user, { requestId }),
         { headers: privateHeaders() },
       );

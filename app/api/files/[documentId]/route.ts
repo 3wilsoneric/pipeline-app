@@ -5,6 +5,8 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { documentMutationResponse } from "@/lib/pipeline/document-mutation-route";
+import { localFileMetadataResponse } from "@/lib/pipeline/local-file-response";
 
 export const runtime = "nodejs";
 
@@ -29,7 +31,7 @@ export async function GET(request: Request, context: { params: Promise<{ documen
       return jsonError("limit must be a whole number between 1 and 100.");
     }
     if (!getPipelineDatabaseReadiness().ready) {
-      return jsonError("File storage is temporarily unavailable.", 503);
+      return localFileMetadataResponse(auth.user, documentId);
     }
     const referralId = await getDocumentReferralId(documentId);
     if (!referralId) return jsonError("File not found.", 404);
@@ -45,4 +47,12 @@ export async function GET(request: Request, context: { params: Promise<{ documen
       },
     });
   });
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ documentId: string }> }) {
+  return withApiLogging(request, "/api/files/[documentId]", async () => documentMutationResponse(request, (await context.params).documentId, "delete"));
+}
+
+export async function POST(request: Request, context: { params: Promise<{ documentId: string }> }) {
+  return withApiLogging(request, "/api/files/[documentId]", async () => documentMutationResponse(request, (await context.params).documentId, "restore"));
 }

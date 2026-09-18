@@ -43,7 +43,8 @@ export type AssessmentImportRequest = {
 
 const statuses: readonly AssessmentWorkflowStatus[] = ["draft", "needs_review", "complete"];
 const knownFieldKeys = new Set(assessmentToolFieldDefinitions.map((definition) => definition.key));
-const yesNoFieldKeys = new Set<AssessmentToolFieldKey>(assessmentYesNoQuestionFields);
+// Preserve explanations saved before insight became an acknowledgement dropdown.
+const yesNoFieldKeys = new Set<AssessmentToolFieldKey>([...assessmentYesNoQuestionFields, "substance_use_insight"]);
 const extractionOwnedFields = new Set<AssessmentToolFieldKey>(["assessor", "source_file", "match_confidence", "extraction_date"]);
 
 export function validateAssessmentCreateRequest(value: unknown): AssessmentValidationResult<AssessmentCreateRequest> {

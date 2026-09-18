@@ -5,6 +5,7 @@ import { maxUploadFileBytes } from "@/lib/extraction/contracts";
 import { extractionErrorResponse, ingestLocalMockPacketFile } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutablePacketAccess } from "@/lib/pipeline/referral-access";
+import { assertPacketNotDeleted } from "@/lib/pipeline/document-lifecycle";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,7 @@ const multipartOverheadBytes = 1024 * 1024;
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/uploads/local", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     }
 
     try {
+      await assertPacketNotDeleted(packetId);
       const result = await ingestLocalMockPacketFile({
         packetId,
         fileId,

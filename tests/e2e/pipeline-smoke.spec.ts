@@ -200,7 +200,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
   });
 
-  test("adds gallery and scoped activity views without replacing the workspace workflow", async ({ page }) => {
+  test("keeps a single workspace list even with a previously saved gallery preference", async ({ page }) => {
     let workspacePageSize = "";
     await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
       workspacePageSize = new URL(route.request().url()).searchParams.get("limit") ?? "";
@@ -210,7 +210,7 @@ test.describe("Referral home and packet canvas", () => {
         body: JSON.stringify({
           referrals: [{
             id: 424242,
-            name: "Activity Test Client",
+            name: "Directory Morgan",
             date: "2026-09-04",
             stage: "Assessment",
             workflowStatus: "assessment_in_progress",
@@ -236,77 +236,19 @@ test.describe("Referral home and packet canvas", () => {
         }),
       });
     });
+    await page.evaluate(() => localStorage.setItem("pipeline:workspace-layout", "gallery"));
     await page.reload();
-
-    const listToggle = page.getByRole("button", { name: "Show workspaces as a list" });
-    const galleryToggle = page.getByRole("button", { name: "Show workspaces as a gallery" });
-    await expect(listToggle).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("region", { name: "Referral worklist" })).toBeVisible();
     await expect(page.locator('[data-testid="workspace-chart-thumbnail"]:visible')).toBeVisible();
     expect(workspacePageSize).toBe("50");
-
-    await galleryToggle.click();
-    await expect(galleryToggle).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("region", { name: "Workspace gallery" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Referral worklist" })).toHaveCount(0);
-
-    await page.reload();
-    await expect(page.getByRole("region", { name: "Workspace gallery" })).toBeVisible();
-    await expect(galleryToggle).toHaveAttribute("aria-pressed", "true");
-
-    const activityPayload = {
-      generated_at: "2026-09-04T16:00:00.000Z",
-      scope: "attention",
-      can_view_team: true,
-      items: [{
-        event_id: "activity-regression-1",
-        action: "referral_updated",
-        actor_id: "coordinator-1",
-        actor_name: "Case Coordinator",
-        created_at: "2026-09-04T15:30:00.000Z",
-        workspace: {
-          referral_id: 424242,
-          client_name: "Activity Test Client",
-          community: "San Pablo",
-          owner_id: "assessor-1",
-          owner: "Alex Assessor",
-          workflow_status: "assessment_in_progress",
-          priority: "high",
-          workspace_status: "active",
-        },
-        attention: { level: "attention", label: "High priority" },
-      }],
-    };
-    await page.route("**/api/operations/activity?**", async (route) => {
-      const scope = new URL(route.request().url()).searchParams.get("scope") ?? "attention";
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ ...activityPayload, scope }),
-      });
-    });
-
-    await page.getByRole("tab", { name: "Activity", exact: true }).click();
-    const activity = page.getByRole("region", { name: "Workspace activity" });
-    await expect(activity).toBeVisible();
-    await expect(activity.getByText("Assignments, schedules, stages, and decisions—never clinical field content.")).toBeVisible();
-    await expect(activity.getByRole("tab", { name: /Needs attention/ })).toHaveAttribute("aria-selected", "true");
-    await expect(activity.getByRole("tab", { name: /Mine/ })).toBeVisible();
-    await expect(activity.getByRole("tab", { name: /Team/ })).toBeVisible();
-
-    const mineRequest = page.waitForRequest((request) => {
-      const url = new URL(request.url());
-      return url.pathname === "/api/operations/activity" && url.searchParams.get("scope") === "mine";
-    });
-    await activity.getByRole("tab", { name: /Mine/ }).click();
-    await mineRequest;
-    await expect(activity.getByRole("tab", { name: /Mine/ })).toHaveAttribute("aria-selected", "true");
-
-    await activity.getByRole("button", { name: /Case Coordinator updated Activity Test Client/ }).click();
+    await expect(page.getByRole("button", { name: /Show workspaces as/ })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Workspace gallery" })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Activity", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Open Directory Morgan referral workspace", exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424242");
   });
 
-  test("keeps team activity out of the assessor workspace view", async ({ page }) => {
+  test("keeps the assessor directory focused on the workspace list", async ({ page }) => {
     await page.route("**/api/auth/me", async (route) => {
       await route.fulfill({
         status: 200,
@@ -324,11 +266,9 @@ test.describe("Referral home and packet canvas", () => {
       });
     });
     await page.reload();
-    await page.getByRole("tab", { name: "Activity", exact: true }).click();
-    const activity = page.getByRole("region", { name: "Workspace activity" });
-    await expect(activity.getByRole("tab", { name: /Needs attention/ })).toBeVisible();
-    await expect(activity.getByRole("tab", { name: /Mine/ })).toBeVisible();
-    await expect(activity.getByRole("tab", { name: /Team/ })).toHaveCount(0);
+    await expect(page.getByRole("main", { name: "Referral workspaces" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Activity", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Workspace activity" })).toHaveCount(0);
   });
 
   test("keeps only useful filters in the complete workspace directory", async ({ page }) => {
@@ -356,8 +296,8 @@ test.describe("Referral home and packet canvas", () => {
             priorities: [],
             tags: [],
             months: [
-              { value: "2026-08", count: 4 },
-              { value: "2025-11", count: 7 },
+              { value: "2026-08", count: 4, communities: [] },
+              { value: "2025-11", count: 7, communities: [] },
             ],
           },
           file_total: 0,
@@ -373,7 +313,9 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.getByRole("button", { name: /November 2025/ }).click();
     await expect.poll(() => requestedMonth).toBe("2025-11");
-    await page.getByLabel("Filter workspaces by community").selectOption("San Pablo");
+    await page.getByRole("button", { name: "Filter workspaces by community" }).click();
+    await page.getByRole("checkbox", { name: "San Pablo", exact: true }).check();
+    await page.keyboard.press("Escape");
     await expect.poll(() => requestedCommunity).toBe("San Pablo");
   });
 
@@ -1815,7 +1757,7 @@ test.describe("Referral home and packet canvas", () => {
       expect.objectContaining({ type: "provider_form", evidenceDocumentName: "synthetic-provider-form.pdf" }),
     ]));
     expect(referralList.referrals[0]?.documentHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(referralList.referrals[0]?.packetId).toMatch(/^pkt_/);
+    expect(referralList.referrals[0]?.packetId).toMatch(/^[0-9a-f-]{36}$/);
     expect(referralList.referrals[0]?.packetFields?.find((field) => field.field_key === "demographics.date_of_birth")).toMatchObject({
       final_value: "1951-08-15",
       review_status: "edited",
@@ -1916,9 +1858,11 @@ test.describe("Referral home and packet canvas", () => {
     expect(taggedReferralsResponse.status()).toBe(200);
     const taggedReferrals = await taggedReferralsResponse.json() as { referrals: Array<{ tags?: string[] }> };
     expect(taggedReferrals.referrals.every((referral) => referral.tags?.includes("urgent-review"))).toBeTruthy();
-    const communityFilter = page.getByRole("combobox", { name: "Filter workspaces by community" });
+    const communityFilter = page.getByRole("button", { name: "Filter workspaces by community" });
     await expect(communityFilter).toBeVisible();
-    await communityFilter.selectOption("San Pablo");
+    await communityFilter.click();
+    await page.getByRole("checkbox", { name: "San Pablo", exact: true }).check();
+    await page.keyboard.press("Escape");
     const workspaceButton = page.getByRole("button", { name: `Open ${clientIdentityTitle} referral workspace` });
     await expect(workspaceButton).toBeVisible();
     await workspaceButton.click();

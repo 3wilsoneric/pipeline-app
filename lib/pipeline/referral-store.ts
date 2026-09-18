@@ -57,6 +57,7 @@ import {
 } from "@/lib/pipeline/workspace-presentation";
 import { resolveWorkspaceMonth, workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
 import { assertPersonaDemoIsolation } from "@/shared/persona-demo-config.mjs";
+import { documentMutationDisposition, detachDocument, documentUndoMilliseconds, restoreDocumentLinks, type LocalUploadedDocument } from "./document-lifecycle-policy";
 
 type ReferralStoreState = {
   initialized: boolean;
@@ -65,6 +66,7 @@ type ReferralStoreState = {
   nextId: number;
   referrals: Referral[];
   auditEvents: StoredReferralAuditEvent[];
+  uploadedDocuments: LocalUploadedDocument[];
   createMutations: Map<string, number>;
   patchMutations: Map<string, number>;
   persistQueue: Promise<void>;
@@ -76,6 +78,7 @@ type ReferralStoreFile = {
   next_id: number;
   referrals: Referral[];
   audit_events?: StoredReferralAuditEvent[];
+  uploaded_documents?: LocalUploadedDocument[];
   create_mutations?: Record<string, number>;
   patch_mutations?: Record<string, number>;
 };
@@ -111,8 +114,10 @@ export type ReferralListOptions = {
   sort?: ReferralSort;
   stage?: ReferralStage;
   community?: string;
+  communities?: string[];
   county?: string;
   owner?: string;
+  owners?: string[];
   priority?: Priority;
   tag?: string;
   month?: string;
@@ -163,7 +168,9 @@ export type ReferralFileListOptions = {
   clientId?: string;
   canonicalClientId?: string;
   community?: string;
+  communities?: string[];
   owner?: string;
+  owners?: string[];
   category?: string;
   identityStatus?: "linked" | "candidate" | "unmatched";
   sourceSystem?: "pipeline" | "alamo_platform" | "allo" | "import";
@@ -311,12 +318,14 @@ const state =
     nextId: 1,
     referrals: [],
     auditEvents: [],
+    uploadedDocuments: [],
     createMutations: new Map<string, number>(),
     patchMutations: new Map<string, number>(),
     persistQueue: Promise.resolve(),
   });
 
 state.auditEvents ??= [];
+state.uploadedDocuments ??= [];
 state.createMutations ??= new Map<string, number>();
 state.patchMutations ??= new Map<string, number>();
 
@@ -332,6 +341,7 @@ export async function resetPersonaDemoReferrals() {
   await state.persistQueue;
   state.referrals = [];
   state.auditEvents = [];
+  state.uploadedDocuments = [];
   state.createMutations.clear();
   state.patchMutations.clear();
   state.revision += 1;
@@ -463,6 +473,74 @@ export async function listLocalReferralAuditEvents(id: number) {
     .filter((event) => event.referral_id === id)
     .sort((left, right) => right.created_at.localeCompare(left.created_at))
     .slice(0, 100);
+}
+
+export async function getLocalUploadedDocument(id: string) {
+  await ensureLoaded();
+  return state.uploadedDocuments.find((document) => document.file.id === id) ?? null;
+}
+
+export async function getLocalDeletedPacket(packetId: string) {
+  await ensureLoaded();
+  return state.uploadedDocuments.find((document) => document.packetId === packetId && document.deletedAt) ?? null;
+}
+
+export async function recordLocalUploadedDocument(document: LocalUploadedDocument, actor: ReferralActor) {
+  await ensureLoaded();
+  if (state.uploadedDocuments.some((entry) => entry.file.id === document.file.id)) return;
+  state.uploadedDocuments.push(document);
+  appendDocumentAudit(document, "document_uploaded", actor);
+  state.revision += 1;
+  await persist();
+}
+
+export async function mutateLocalUploadedDocument(id: string, action: "delete" | "restore", actor: ReferralActor, authorize: (referral: Referral) => void, deletionId?: string) {
+  await ensureLoaded();
+  const document = state.uploadedDocuments.find((entry) => entry.file.id === id);
+  const index = state.referrals.findIndex((referral) => referral.id === document?.file.referralId && !isDeletedReferral(referral));
+  if (!document || index < 0) return null;
+  const current = state.referrals[index];
+  authorize(current);
+  assertMutableWorkspace(current);
+  const now = new Date().toISOString();
+  const disposition = documentMutationDisposition(document, action, deletionId);
+  if (disposition === "replay") return document;
+  if (disposition === "unavailable") return null;
+  const next = updateLocalDocumentState(document, current, action, now);
+  state.referrals[index] = { ...next, workflowStatus: resolveReferralWorkflowStatusAfterReferralChange(current, next), version: (current.version ?? 1) + 1, updatedAt: now, updatedBy: actor,
+    sectionVersions: incrementReferralSections(normalizeReferralSectionVersions(current.sectionVersions), ["documents", "workflow"]) };
+  appendDocumentAudit(document, action === "delete" ? "document_deleted" : "document_restored", actor);
+  state.revision += 1;
+  await persist();
+  return document;
+}
+
+function updateLocalDocumentState(document: LocalUploadedDocument, current: Referral, action: "delete" | "restore", now: string) {
+  if (action === "delete") {
+    const detached = detachDocument(current, document.file, now, current.packetId === document.packetId);
+    Object.assign(document, { deletedAt: now, undoUntil: new Date(Date.now() + documentUndoMilliseconds).toISOString(),
+      deletionId: randomUUID(), recovery: detached.recovery });
+    return detached.referral;
+  }
+  const next = restoreDocumentLinks(current, document.recovery ?? { requirements: [] }, now);
+  delete document.deletedAt;
+  delete document.undoUntil;
+  delete document.recovery;
+  return next;
+}
+
+function appendDocumentAudit(document: LocalUploadedDocument, action: string, actor: ReferralActor) {
+  state.auditEvents.unshift({ audit_event_id: randomUUID(), referral_id: document.file.referralId!, action,
+    actor_id: actor.id, actor_name: actor.name, changed_fields: ["document"], before_values: null,
+    after_values: { document: document.file.name },
+    metadata: { document_id: document.file.id, deletion_id: document.deletionId ?? null, undo_until: document.undoUntil ?? null },
+    from_version: null, to_version: 1, created_at: new Date().toISOString() });
+}
+
+export async function localDocumentUndoState(referralId: number) {
+  await ensureLoaded();
+  return state.uploadedDocuments.filter((entry) => entry.file.referralId === referralId && entry.deletedAt)
+    .map((entry) => ({ document_id: entry.file.id, deletion_id: entry.deletionId, undo_until: entry.undoUntil }));
 }
 
 export async function listReferralsByClient(clientId: string) {
@@ -622,6 +700,7 @@ async function ensureLoaded() {
         : [];
 
       state.referrals = referrals.map(normalizeReferral);
+      state.uploadedDocuments = parsed.uploaded_documents ?? [];
       state.auditEvents = Array.isArray(parsed.audit_events)
         ? parsed.audit_events.filter(isStoredReferralAuditEvent).slice(0, 100_000)
         : [];
@@ -661,6 +740,7 @@ async function persist() {
     next_id: state.nextId,
     referrals: state.referrals,
     audit_events: state.auditEvents,
+    uploaded_documents: state.uploadedDocuments,
     create_mutations: Object.fromEntries(state.createMutations),
     patch_mutations: Object.fromEntries(state.patchMutations),
   };
@@ -691,9 +771,11 @@ async function listLocalReferrals(
 
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const sort = options.sort ?? "updated_desc";
+  const communities = selectedListFilterValues(options.community, options.communities);
+  const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
   const matching = state.referrals
     .filter((referral) => !isDeletedReferral(referral))
-    .filter((referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens) && matchesReferralFilters(referral, options))
+    .filter((referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens) && matchesReferralFilters(referral, options, communities, owners))
     .sort((left, right) => compareReferrals(left, right, sort));
   const cursor = decodeReferralSortCursor(options.cursor, sort);
   const limit = clampPageSize(options.limit);
@@ -790,7 +872,8 @@ async function listLocalReferralFiles(
   await ensureLoaded();
 
   const queryTokens = normalizedSearchTokens(options.query ?? "");
-  const owner = options.owner ? normalizeOwnerName(options.owner) : "";
+  const communities = selectedListFilterValues(options.community, options.communities);
+  const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
   const matching = state.referrals
     .filter((referral) => !isDeletedReferral(referral))
     .filter((referral) => !options.referralId || referral.id === options.referralId)
@@ -799,8 +882,8 @@ async function listLocalReferralFiles(
     .flatMap(getReferralFiles)
     .filter((file) => matchesSearchTokens(searchableFileText(file), queryTokens))
     .filter((file) => !options.canonicalClientId || file.canonicalClientId === options.canonicalClientId)
-    .filter((file) => !options.community || file.community === options.community)
-    .filter((file) => !owner || normalizeOwnerName(file.owner ?? "Unassigned") === owner)
+    .filter((file) => !communities.length || communities.includes(file.community ?? ""))
+    .filter((file) => !owners.length || owners.includes(normalizeOwnerName(file.owner)))
     .filter((file) => !options.category || file.category === options.category)
     .filter((file) => !options.identityStatus || (file.identityStatus ?? "linked") === options.identityStatus)
     .filter((file) => !options.sourceSystem || (file.sourceSystem ?? "pipeline") === options.sourceSystem)
@@ -1223,9 +1306,9 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const stage = options.stage ?? null;
-  const community = options.community?.trim() || null;
+  const communities = selectedListFilterValues(options.community, options.communities);
   const county = options.county?.trim() || null;
-  const owner = options.owner ? normalizeOwnerName(options.owner) : null;
+  const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
   const assignedOwnerId = options.assignedOwnerId?.trim() || null;
   const assignedOwnerNames = options.assignedOwnerNames ?? [];
   const priority = options.priority ?? null;
@@ -1268,13 +1351,13 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           where r.search_text not ilike ('%' || search_term.value || '%')
         ))
         and (${stage}::text is null or r.stage = ${stage})
-        and (${community}::text is null or r.community = ${community})
+        and (${communities.length === 0} or r.community = any(${communities}::text[]))
         and (${county}::text is null or r.county = ${county})
-        and (${owner}::text is null or case
+        and (${owners.length === 0} or case
           when lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
             then 'Unassigned'
           else trim(r.owner_name)
-        end = ${owner})
+        end = any(${owners}::text[]))
         and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
           or exists (
             select 1
@@ -1532,8 +1615,8 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
   const referralId = normalizeReferralFileReferralId(options.referralId);
   const clientId = options.clientId?.trim() || null;
   const canonicalClientId = options.canonicalClientId?.trim() || null;
-  const community = options.community?.trim() || null;
-  const owner = options.owner ? normalizeOwnerName(options.owner) : null;
+  const communities = selectedListFilterValues(options.community, options.communities);
+  const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
   const category = options.category?.trim() || null;
   const identityStatus = options.identityStatus ?? null;
   const sourceSystem = options.sourceSystem ?? null;
@@ -1592,6 +1675,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         limit 1
       ) latest_referral on true
       where d.deleted_at is null
+        and d.processing_status <> 'reserved'
         and (r.referral_id is null or r.deleted_at is null)
       union all
       select
@@ -1676,8 +1760,12 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         and (${referralId}::bigint is null or file_rows.referral_id = ${referralId})
         and (${clientId}::text is null or external_client_id = ${clientId})
         and (${canonicalClientId}::text is null or canonical_client_id = ${canonicalClientId})
-        and (${community}::text is null or file_rows.community = ${community})
-        and (${owner}::text is null or lower(trim(coalesce(file_rows.owner_name, 'Unassigned'))) = ${owner})
+        and (${communities.length === 0} or file_rows.community = any(${communities}::text[]))
+        and (${owners.length === 0} or case
+          when lower(coalesce(nullif(trim(file_rows.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
+            then 'Unassigned'
+          else trim(file_rows.owner_name)
+        end = any(${owners}::text[]))
         and (${category}::text is null or file_rows.category = ${category})
         and (${identityStatus}::text is null or file_rows.identity_status = ${identityStatus})
         and (${sourceSystem}::text is null or file_rows.source_system = ${sourceSystem})
@@ -2966,12 +3054,12 @@ function isStoredReferralAuditEvent(value: unknown): value is StoredReferralAudi
     && candidate.changed_fields.every((field) => typeof field === "string");
 }
 
-function matchesReferralFilters(referral: Referral, options: ReferralListOptions) {
+function matchesReferralFilters(referral: Referral, options: ReferralListOptions, communities: string[], owners: string[]) {
   if (!matchesWorkspaceStatus(referral, options.workspaceStatus)) return false;
   if (options.stage && referral.stage !== options.stage) return false;
-  if (options.community && referral.community !== options.community) return false;
+  if (communities.length && !communities.includes(referral.community)) return false;
   if (options.county && resolveWorkspaceCounty(referral) !== options.county) return false;
-  if (options.owner && normalizeOwnerName(referral.owner) !== normalizeOwnerName(options.owner)) return false;
+  if (owners.length && !owners.includes(normalizeOwnerName(referral.owner))) return false;
   if (options.priority && referral.priority !== options.priority) return false;
   if (options.tag && !(referral.tags ?? []).includes(options.tag)) return false;
   if (options.month && workspaceMonthKey(referral) !== options.month) return false;
@@ -2981,6 +3069,10 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
   if (!matchesAssignmentScope(referral, options)) return false;
   return true;
+}
+
+function selectedListFilterValues(single: string | undefined, multiple: string[] | undefined) {
+  return multiple ?? (single ? [single] : []);
 }
 
 function hasPostOutcomeAssessment(referral: Referral) {
@@ -3158,7 +3250,16 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
     includedIds.add(requirement.evidenceDocumentId);
   }
 
-  return files;
+  const recorded = state.uploadedDocuments.filter((document) => document.file.referralId === referral.id);
+  const recordedIds = new Set(recorded.map((document) => document.file.id));
+  return [
+    ...files.filter((file) => !recordedIds.has(file.id) && !recorded.some((document) => (
+      file.id.startsWith(`referral-${referral.id}-packet`) && file.name === document.file.name
+    ))),
+    ...recorded.filter((document) => !document.deletedAt).map((document) => ({
+      ...document.file, referralName: referral.name, owner: referral.owner, community: referral.community,
+    })),
+  ];
 }
 
 function appendLocalAdditionalFiles(referral: Referral, files: ReferralFile[], includedIds: Set<string>) {

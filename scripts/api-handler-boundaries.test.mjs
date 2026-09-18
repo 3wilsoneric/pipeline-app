@@ -93,13 +93,12 @@ test("route authentication, resource denial and same-origin failures retain thei
   assert.equal(fixture.calls.access.length, 0);
 });
 
-test("date of admit requires acceptance but does not replace the canonical date validator", async () => {
+test("date of admit can be edited independently while retaining date validation", async () => {
   for (const outcome of [undefined, "declined"]) {
     const fixture = boundary({ outcome });
     const response = await fixture.patch({ if_match: 7, patch: { admissionDate: "2026-09-01" } });
-    assert.equal(response.status, 422);
-    assert.equal((await response.json()).error, "Record an accepted supervisor decision before entering the date of admit.");
-    assert.equal(fixture.calls.patches.length, 0);
+    assert.equal(response.status, 200);
+    assert.equal(fixture.calls.patches.length, 1);
   }
   for (const outcome of [undefined, "accepted"]) {
     const fixture = boundary({ outcome });

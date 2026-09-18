@@ -194,7 +194,8 @@ test.describe("desktop feature enabled", () => {
     expect(draftId).toMatch(/^[0-9a-f-]{36}$/i);
     const draftEndpoint = `/api/me/referral-drafts/new-${draftId}`;
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Casey Hartwell");
-    await expect(page.getByTestId("workspace-save-status")).toContainText("Draft saved", { timeout: 15_000 });
+    await page.getByRole("textbox", { name: "NAME", exact: true }).blur();
+    await expect.poll(async () => (await (await page.request.get(draftEndpoint)).json()).draft?.fields.name.value).toBe("Casey Hartwell");
     const autosaved = await page.request.get(draftEndpoint);
     expect(await autosaved.json()).toMatchObject({
       draft: { fields: { name: { value: "Casey Hartwell" } } },
@@ -256,17 +257,22 @@ test.describe("desktop feature enabled", () => {
     await recovery.getByText(clientName, { exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`draftId=${draftId}`));
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
-    await expect(page.getByRole("combobox", { name: "Community:", exact: true })).toHaveValue("San Pablo");
+    await expect(page.getByRole("combobox", { name: "Requested community", exact: true })).toHaveValue("San Pablo");
   });
 
   test("resumes unfinished work from Home at the exact intake field", async ({ page }) => {
+    // Recent work is an optional Home module; Board remains the default.
+    const layout = await page.request.put("/api/me/home-layout", { data: { layout: {
+      schema: 3, module_ids: ["current-work", "recent-work", "new-assignments", "upcoming-assessments"], locked: true,
+    } } });
+    expect(layout.status(), await layout.text()).toBe(200);
     const draftId = randomUUID();
     const draftKey = `new-${draftId}`;
     const clientName = `Continuity ${draftId.slice(0, 8)}`;
     const createDraft = await page.request.put(`/api/me/referral-drafts/${draftKey}`, {
       data: {
         if_match: 0,
-        draft: { ...referralDraft("Continue this summary", clientName, "San Pablo"), lastFocus: "summary" },
+        draft: { ...referralDraft("Continue this summary", clientName, "San Pablo"), lastFocus: "name" },
       },
     });
     expect(createDraft.status(), await createDraft.text()).toBe(200);
@@ -277,10 +283,10 @@ test.describe("desktop feature enabled", () => {
     await continuity.getByRole("button").first().click();
 
     await expect.poll(() => new URL(page.url()).searchParams.get("draftId")).toBe(draftId);
-    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceField")).toBe("summary");
-    const summary = page.getByRole("region", { name: "Summary chart field" });
-    await expect(summary).toContainText("Continue this summary");
-    await expect(summary).toBeInViewport();
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceField")).toBe("name");
+    const name = page.getByRole("textbox", { name: "NAME", exact: true });
+    await expect(name).toHaveValue(clientName);
+    await expect(name).toBeInViewport();
   });
 
   test("persists assignment acknowledgments and last-work locations across requests", async ({ page }) => {
@@ -336,8 +342,8 @@ test.describe("desktop feature enabled", () => {
     ]);
 
     await Promise.all([
-      page.getByRole("textbox", { name: "Referent:", exact: true }).fill("North County Behavioral Health"),
-      otherPage.getByRole("combobox", { name: "County:", exact: true }).selectOption("Marin County"),
+      page.getByRole("combobox", { name: "Referral facility / source", exact: true }).fill("North County Behavioral Health"),
+      otherPage.getByRole("combobox", { name: "Client county", exact: true }).selectOption("Marin County"),
     ]);
 
     await Promise.all([

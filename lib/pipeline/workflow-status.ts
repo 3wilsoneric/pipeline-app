@@ -98,6 +98,9 @@ export function resolveReferralWorkflowStatusAfterReferralChange(
   requestedStatus?: ReferralWorkflowStatus,
 ): ReferralWorkflowStatus {
   if (requestedStatus) return requestedStatus;
+  if (current.stage !== candidate.stage && ["Accepted / Admitted", "Declined"].includes(current.stage)) {
+    return resolveReferralWorkflowStatus(candidate);
+  }
 
   const currentStatus = current.workflowStatus;
   if (currentStatus && terminalWorkflowStatuses.has(currentStatus)) return currentStatus;

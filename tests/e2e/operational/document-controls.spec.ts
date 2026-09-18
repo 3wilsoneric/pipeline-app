@@ -1,0 +1,75 @@
+import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { createCanvas } from "@napi-rs/canvas";
+import { actorApiContext, actorPage, requireOperationalBaseURL, syntheticReferralInput } from "../support/pipeline-actors";
+
+test("upload preview, original, cancel/delete, audit and restore preserve chart data", async ({ browser, baseURL }) => {
+  const url = requireOperationalBaseURL(baseURL);
+  const api = await actorApiContext("assessorA", url);
+  const stranger = await actorApiContext("outsider", url);
+  const { page, context } = await actorPage(browser, "assessorA", url);
+  try {
+    await api.get("/api/auth/me");
+    const created = await api.post("/api/referrals", { data: { client_mutation_id: randomUUID(), referral:
+      syntheticReferralInput("assessorA", { name: `Files ${randomUUID().replace(/\d/g, "x")}`, documentName: "", documentStatus: "Missing", phone: "555-0101" }) } });
+    expect(created.status()).toBe(201);
+    const referral = (await created.json()).referral;
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
+    await expect(page.getByRole("combobox", { name: "Assessor", exact: true })).toHaveValue("assessor-a");
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+    await page.getByTestId("document-checklist-toggle").click();
+    const canvas = createCanvas(160, 60);
+    const drawing = canvas.getContext("2d");
+    drawing.fillStyle = "white"; drawing.fillRect(0, 0, 160, 60);
+    drawing.fillStyle = "black"; drawing.fillText("Synthetic file", 10, 30);
+    const packet = { name: "synthetic-check.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") };
+    await page.getByLabel("Choose additional referral documents").setInputFiles(packet);
+    const list = page.getByRole("region", { name: "Uploaded documents", exact: true });
+    await expect(list.getByText("Uploaded", { exact: true })).toBeVisible();
+    const files = async () => (await (await api.get(`/api/files?referral_id=${referral.id}`)).json()).files;
+    const file = (await files())[0];
+    expect(await files()).toHaveLength(1);
+    const history = page.getByRole("region", { name: "Workspace change history" });
+    await history.locator("summary").click();
+    await expect(history.getByText("Document uploaded", { exact: true })).toBeVisible();
+    await history.locator("summary").click();
+    expect((await stranger.get(`/api/files/${file.id}`)).status()).toBe(403);
+    expect((await stranger.delete(`/api/files/${file.id}`, { data: { confirmed: true } })).status()).toBe(403);
+    expect((await api.delete(`/api/files/${file.id}`, { data: { confirmed: false } })).status()).toBe(400);
+    await list.getByRole("button", { name: `Preview ${packet.name}`, exact: true }).click();
+    const preview = page.getByRole("dialog", { name: `Preview ${packet.name}`, exact: true });
+    await expect(preview.locator("iframe")).toBeVisible();
+    expect(await (await api.get(file.downloadUrl)).body()).toEqual(packet.buffer);
+    await preview.getByRole("button", { name: "Close preview", exact: true }).click();
+    await list.getByRole("button", { name: `Delete ${packet.name}` }).click();
+    await page.getByRole("dialog", { name: "Delete this file?" }).getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(await files()).toHaveLength(1);
+    await list.getByRole("button", { name: `Delete ${packet.name}` }).click();
+    await page.getByRole("dialog", { name: "Delete this file?" }).getByRole("button", { name: "Delete file", exact: true }).click();
+    await expect.poll(async () => (await files()).length).toBe(0);
+    expect((await api.get(file.downloadUrl)).status()).toBe(404);
+    await history.locator("summary").click();
+    await expect(history.getByText("Document uploaded", { exact: true })).toBeVisible();
+    await expect(history.getByText("Document deleted", { exact: true })).toBeVisible();
+    page.once("dialog", (dialog) => dialog.accept());
+    await history.getByRole("button", { name: "Restore file", exact: true }).click();
+    await expect.poll(async () => (await files()).length).toBe(1);
+    await expect(history.getByText("Document restored", { exact: true })).toBeVisible();
+    await expect(history.getByRole("button", { name: "Restore file", exact: true })).toHaveCount(0);
+    expect((await files())[0].id).toBe(file.id);
+    expect(await (await api.get(file.downloadUrl)).body()).toEqual(packet.buffer);
+    const changed = (await (await api.get(`/api/referrals/${referral.id}/canvas`)).json()).referral;
+    expect(changed.phone).toBe("555-0101");
+
+    // Deleting and explicitly selecting again creates one new, retry-stable file.
+    await api.delete(`/api/files/${file.id}`, { data: { confirmed: true } });
+    await page.getByLabel("Choose additional referral documents").setInputFiles(packet);
+    await expect.poll(async () => (await files()).length).toBe(1);
+    expect((await files())[0].id).not.toBe(file.id);
+    await page.getByLabel("Choose additional referral documents").setInputFiles(packet);
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Files uploaded");
+    expect(await files()).toHaveLength(1);
+    const activity = (await (await api.get(`/api/referrals/${referral.id}/activity`)).json()).events;
+    expect(activity.filter((event: { action: string }) => event.action === "document_uploaded")).toHaveLength(2);
+  } finally { await context.close(); await api.dispose(); await stranger.dispose(); }
+});

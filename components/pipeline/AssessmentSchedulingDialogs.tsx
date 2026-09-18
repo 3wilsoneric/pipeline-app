@@ -86,7 +86,7 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, canEditClinical, 
       error={error}
       onClose={onClose}
       footer={<>
-        <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to workspace</button>
+        <button type="button" onClick={onClose} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to questionnaire</button>
         {!assessment.started_at && !assessment.signed_at && canEditClinical ? <button type="button" onClick={onBegin} disabled={isBusy} className="min-h-12 border border-[#bac8c0] px-4 font-bold text-[#0f7664] hover:bg-[#f1f4f2] disabled:opacity-50">Continue without appointment</button> : null}
         <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#111111] px-6 font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : assessment.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
       </>}
@@ -137,7 +137,7 @@ export function AssessmentScheduleLayout({ label, title, context, closeLabel, is
       (dialog.querySelector<HTMLElement>("[data-schedule-autofocus]:not(:disabled)") ?? dialog).focus();
       return;
     }
-    if (!isBusy) onClose();
+    onClose();
   });
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -156,12 +156,12 @@ export function AssessmentScheduleLayout({ label, title, context, closeLabel, is
           <h2 className="text-[22px] font-black leading-7 sm:text-[24px]">{title}</h2>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[14px] font-semibold leading-6 [overflow-wrap:anywhere]">{context}</div>
         </div>
-        <button type="button" onClick={onClose} disabled={isBusy} aria-label={closeLabel} title={closeLabel} className="flex h-11 w-11 shrink-0 items-center justify-center text-[#4d534f] hover:bg-[#f1f4f2] hover:text-[#0f7664] focus-visible:outline-2 focus-visible:outline-[#0f8b73] disabled:opacity-50"><X size={22} /></button>
+        <button type="button" onClick={onClose} aria-label={closeLabel} title={closeLabel} className="flex h-11 w-11 shrink-0 items-center justify-center text-[#4d534f] hover:bg-[#f1f4f2] hover:text-[#0f7664] focus-visible:outline-2 focus-visible:outline-[#0f8b73] disabled:opacity-50"><X size={22} /></button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <fieldset disabled={isBusy} className="mx-auto w-full min-w-0 max-w-[840px] px-5 py-7 sm:px-10 sm:py-12 [&_input]:h-14 [&_input]:w-full [&_input]:min-w-0 [&_input]:rounded-[2px] [&_input]:border [&_input]:border-[#bac8c0] [&_input]:bg-white [&_input]:px-4 [&_input]:text-[16px] [&_input]:outline-none [&_input:focus]:border-[#0f8b73] [&_input:focus]:ring-1 [&_input:focus]:ring-[#0f8b73] [&_select]:h-14 [&_select]:w-full [&_select]:min-w-0 [&_select]:rounded-[2px] [&_select]:border [&_select]:border-[#bac8c0] [&_select]:bg-white [&_select]:px-4 [&_select]:text-[16px] [&_select]:outline-none [&_select:focus]:border-[#0f8b73] [&_select:focus]:ring-1 [&_select:focus]:ring-[#0f8b73] disabled:opacity-60">{children}</fieldset>
       </div>
-      {error ? <div role="alert" className="shrink-0 bg-[#fff3f1] px-5 py-3 text-[14px] font-semibold leading-6 text-[#9c3d32] sm:px-10">{error}</div> : null}
+      {error ? <div role="alert" className="shrink-0 bg-[#f7faf9] px-5 py-3 text-[14px] font-semibold leading-6 text-[#59645e] sm:px-10">{error}</div> : null}
       <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#d9dfdb] bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[14px] sm:px-10 sm:pt-5 sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] [&_button]:max-w-full [&_button]:flex-1 [&_button]:rounded-[2px] [&_button]:leading-5 sm:[&_button]:flex-none [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-[#0f8b73]">{footer}</footer>
     </section>
   );
@@ -195,7 +195,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
             <header className="border-b border-[#d9dfdb] px-6 py-5">
               <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{assessment.assessor || "Assigned assessor"}</div>
               <h3 className="mt-1 text-[23px] font-black">Begin assessment</h3>
-              <p className="mt-2 text-[11px] leading-5 text-[#737373]">Starting records the interview start time and unlocks the questionnaire. Every answer saves back to this assessment as you work.</p>
+              <p className="mt-2 text-[13px] leading-5 text-[#737373]">Your prepared answers stay here. Begin when the interview starts; complete or update them as you go.</p>
             </header>
             <div className="px-6 py-5">
               <dl className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
@@ -203,10 +203,10 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
                 <BeginAssessmentDetail label="Method" value={formatScheduleMethod(assessment.scheduled_method)} />
                 {assessment.scheduled_location && detailField ? <BeginAssessmentDetail label={detailField.label} value={assessment.scheduled_location} /> : null}
               </dl>
-              {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
+              {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#9aa7a0]">{error}</div> : null}
             </div>
             <footer className="flex items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-6 py-4">
-              <button type="button" onClick={onClose} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">Back to workspace</button>
+              <button type="button" onClick={onClose} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">Back to questionnaire</button>
               <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical} className="flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-45"><Play size={13} fill="currentColor" /> {isBusy ? "Starting..." : "Begin assessment"}</button>
             </footer>
           </section>

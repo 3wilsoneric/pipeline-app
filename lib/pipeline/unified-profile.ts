@@ -1,3 +1,4 @@
+import { canEditWorkspace } from "./referral-ownership";
 import "server-only";
 
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
@@ -41,7 +42,6 @@ import {
 } from "./resident-link-store";
 import {
   canAccessReferral,
-  isAssessorUser,
   scopeReferralListOptions,
 } from "./referral-access";
 import type {
@@ -328,7 +328,7 @@ async function getPipelineOnlyClientProfile(
   const referrals = clientReferrals
     .filter((referral) => !user || canAccessReferral(user, referral))
     .sort(compareReferrals);
-  if (user && isAssessorUser(user) && referrals.length === 0) {
+  if (user && !canEditWorkspace(user) && referrals.length === 0) {
     throw new UnifiedProfileError(404, "pipeline_client_not_found", "This client profile could not be loaded.");
   }
   if (referrals.length === 0 && documents.length === 0) {
@@ -748,7 +748,7 @@ async function loadLinkedAssessments(
   for (const result of results) {
     if (!result) continue;
     for (const assessment of result) {
-      if (user && isAssessorUser(user) && !visibleReferralIds.has(assessment.referral_id)) continue;
+      if (user && !canEditWorkspace(user) && !visibleReferralIds.has(assessment.referral_id)) continue;
       byId.set(assessment.assessment_id, assessment);
     }
   }
@@ -773,7 +773,7 @@ async function loadPipelineOnlyAssessments(referrals: Referral[], user?: Pipelin
   const byId = new Map<string, PipelineAssessmentRecord>();
   for (const result of results) {
     for (const assessment of result) {
-      if (user && isAssessorUser(user) && !visibleReferralIds.has(assessment.referral_id)) continue;
+      if (user && !canEditWorkspace(user) && !visibleReferralIds.has(assessment.referral_id)) continue;
       byId.set(assessment.assessment_id, assessment);
     }
   }
@@ -887,7 +887,7 @@ async function listProfileLinks(options: Parameters<typeof listResidentLinks>[0]
 }
 
 async function filterLinksForUser(links: PipelineResidentLink[], user?: PipelineUser) {
-  if (!user || !isAssessorUser(user)) return links;
+  if (!user || canEditWorkspace(user)) return links;
   const visible = await Promise.all(links.map(async (link) => {
     const referrals = await listReferralsByClient(link.pipeline_client_id);
     return referrals.some((referral) => canAccessReferral(user, referral)) ? link : null;
@@ -896,7 +896,7 @@ async function filterLinksForUser(links: PipelineResidentLink[], user?: Pipeline
 }
 
 async function filterDocumentsForUser(documents: UnifiedClientProfileResponse["pipeline"]["documents"], user?: PipelineUser) {
-  if (!user || !isAssessorUser(user)) return documents;
+  if (!user || canEditWorkspace(user)) return documents;
   const ids = [...new Set(documents.flatMap((document) => document.referralId === null ? [] : [document.referralId]))];
   const visible = new Set((await Promise.all(ids.map(async (id) => {
     const referral = await getReferral(id);

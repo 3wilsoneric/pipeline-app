@@ -269,7 +269,7 @@ export default function ReferralContactsCard({
         onUnlink={unlink}
       />
 
-      {error ? <p role="alert" className="border-t border-[#efc4c4] bg-[#fff7f7] px-4 py-2 text-xs font-semibold text-[#9b2c2c]">{error}</p> : null}
+      {error ? <p role="alert" className="border-t border-[#dce3e0] bg-[#f7faf9] px-4 py-2 text-xs font-semibold text-[#59645e]">{error}</p> : null}
 
       <ContactComposer
         referralId={referralId}

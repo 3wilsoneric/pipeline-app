@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FlaskConical } from "lucide-react";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
+import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 
 export default function DemoEnvironmentBanner() {
+  const router = useRouter();
+  const { beforeNavigationRef } = usePipelineShell();
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParams?.toString() ?? "");
   const params = new URLSearchParams(locationSearch);
@@ -26,7 +29,12 @@ export default function DemoEnvironmentBanner() {
     <div role="status" data-pipeline-demo-banner="true" className="flex h-8 shrink-0 items-center justify-center gap-3 border-b border-[#9fc6b9] bg-[#173f35] px-3 text-white">
       <FlaskConical size={13} aria-hidden="true" />
       <span className="text-[9px] font-black uppercase tracking-[0.11em]">Practice workspace · synthetic data only</span>
-      <Link href={toPipelinePath("/training")} className="text-[9px] font-black underline-offset-2 hover:underline">Learning Center</Link>
+      <Link href={toPipelinePath("/training")} onNavigate={(event) => {
+        const save = beforeNavigationRef.current;
+        if (!save) return;
+        event.preventDefault();
+        void save().then(() => router.push(toPipelinePath("/training"))).catch(() => undefined);
+      }} className="text-[9px] font-black underline-offset-2 hover:underline">Learning Center</Link>
     </div>
   );
 }

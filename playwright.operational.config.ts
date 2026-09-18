@@ -60,6 +60,7 @@ export default defineConfig({
       PIPELINE_ALLOWED_EMAILS: allowedEmails,
       PIPELINE_ALLOWED_MUTATION_ORIGINS: `${baseURL},http://localhost:${port}`,
       PIPELINE_EXTRACTION_BACKEND: "mock",
+      AZURE_STORAGE_ACCOUNT: "pipelinesynthetic",
       PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION: "true",
       PIPELINE_ALLOW_LOCAL_REFERRAL_STORE: "true",
       PIPELINE_ALLOW_LOCAL_ASSESSMENT_STORE: "true",

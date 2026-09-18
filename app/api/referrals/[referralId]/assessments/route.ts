@@ -11,7 +11,7 @@ import { pickAssessmentToolData } from "@/lib/assessment/assessment-tool-schema"
 import { validateAssessmentCreateRequest } from "@/lib/assessment/assessment-validation";
 import {
   assessmentClientIdentityErrorResponse,
-  resolveAssessmentClientIdentity,
+  resolveDraftAssessmentClientIdentity,
 } from "@/lib/assessment/assessment-client-identity";
 import { assessmentAssigneeForReferral, canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
@@ -45,7 +45,7 @@ export async function POST(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]/assessments", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -81,7 +81,7 @@ export async function POST(
     });
 
     try {
-      const identity = await resolveAssessmentClientIdentity(request, referralId);
+      const identity = await resolveDraftAssessmentClientIdentity(request, referralId);
       const result = await createAssessment(
         {
           referral_id: referralId,

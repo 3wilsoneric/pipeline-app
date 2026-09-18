@@ -20,7 +20,7 @@ const noStoreHeaders = { "Cache-Control": "private, no-store, max-age=0" };
 
 export async function GET(request: Request, context: { params: Promise<{ assessmentId: string }> }) {
   return withApiLogging(request, "/api/me/assessment-drafts/[assessmentId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const access = await authorize(auth.user, context);
     if (!access.ok) return access.response;
@@ -34,7 +34,7 @@ export async function GET(request: Request, context: { params: Promise<{ assessm
 
 export async function PUT(request: Request, context: { params: Promise<{ assessmentId: string }> }) {
   return withApiLogging(request, "/api/me/assessment-drafts/[assessmentId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -69,7 +69,7 @@ export async function PUT(request: Request, context: { params: Promise<{ assessm
 
 export async function DELETE(request: Request, context: { params: Promise<{ assessmentId: string }> }) {
   return withApiLogging(request, "/api/me/assessment-drafts/[assessmentId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

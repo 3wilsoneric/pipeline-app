@@ -307,6 +307,27 @@ const writingSpecs: Partial<Record<AssessmentToolFieldKey, WritingSpecInput>> = 
     requiredElements: ["Medication", "Dose if known", "Frequency", "Reason", "Source or uncertainty"],
     strongExample: "Haloperidol decanoate | 100 mg | every 4 weeks | maintenance treatment | current MAR.",
   },
+  injection_frequency: {
+    preferredFormat: "structured_lines",
+    lengthGuidance: "One medication per line",
+    formatTemplate: "Medication | Frequency, if known",
+    requiredElements: ["Medication name", "Known frequency, or unknown"],
+    strongExample: "Medication A | every 4 weeks\nMedication B | frequency unknown",
+  },
+  last_injection: {
+    preferredFormat: "structured_lines",
+    lengthGuidance: "One medication per line",
+    formatTemplate: "Medication | Last administered date, approximate date, or unknown",
+    requiredElements: ["Medication name", "Last known administration date or uncertainty"],
+    strongExample: "Medication A | September 3, 2026\nMedication B | approximately early September 2026",
+  },
+  next_injection_due: {
+    preferredFormat: "structured_lines",
+    lengthGuidance: "One medication per line",
+    formatTemplate: "Medication | Known next due date, or unknown",
+    requiredElements: ["Medication name", "Known due date or uncertainty"],
+    strongExample: "Medication A | October 1, 2026\nMedication B | next due date unknown",
+  },
   substance_effect_on_baseline: {
     preferredFormat: "observation_report",
     lengthGuidance: "2-4 sentences",

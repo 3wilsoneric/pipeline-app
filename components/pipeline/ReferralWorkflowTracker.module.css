@@ -1,0 +1,129 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 4px 1px 8px;
+  isolation: isolate;
+}
+
+.folder {
+  --folder-fill: #ede4d0;
+  --folder-edge: #c5b28f;
+  --status-fill: var(--stage-tint, #eaf7f0);
+  position: relative;
+  z-index: 0;
+  flex: none;
+  height: auto;
+  margin: 0 0 12px;
+  border-radius: 8px;
+}
+
+.tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  padding: 0 10px;
+  margin-bottom: -1px;
+}
+
+.nameTab {
+  flex: 0 1 auto;
+  align-self: auto;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding: 6px 7px 8px;
+  border-radius: 9px 11px 0 0;
+  color: #1c2923;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 20px;
+  background: linear-gradient(#f5eddd, var(--folder-fill));
+}
+
+.nameTab > span { padding: 3px 5px; border-color: #d6ccb7; }
+
+.statusTab {
+  flex: 0 0 auto;
+  max-width: 44%;
+  padding: 5px 7px 6px;
+  border: 1px solid;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: var(--status-fill);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 75%);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.folder[data-board-outcome="accepted"] { --status-fill: #e5f4eb; }
+.folder[data-board-outcome="declined"] { --status-fill: #fbece8; }
+
+.body {
+  position: relative;
+  flex: none;
+  min-height: 250px;
+  padding: 8px 8px 22px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(110deg, #f4ecd9, var(--folder-fill) 60%, #e4d5b7);
+  box-shadow: inset 0 1px 0 #fff8e9, 0 2px 3px rgb(62 48 25 / 10%), 0 7px 12px rgb(62 48 25 / 7%);
+}
+
+/* A paper edge and shallow front lip, rather than another rectangular card. */
+.body::before {
+  content: "";
+  position: absolute;
+  inset: 5px 13px auto;
+  height: 8px;
+  border: 1px solid #d7d0c2;
+  border-radius: 3px 3px 0 0;
+  background: #fcfaf5;
+}
+
+.body::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 19px;
+  border-top: 1px solid #c5b28f;
+  border-radius: 0 0 7px 7px;
+  background: linear-gradient(#efe2c7, #e4d3af);
+  box-shadow: inset 0 1px 0 #f8f0df;
+}
+
+.paper { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.fileIndex { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; padding: 9px 11px 0; color: #536157; font-size: 10px; font-weight: 650; line-height: 14px; font-variant-numeric: tabular-nums; }
+.nextStep { display: flex; align-items: flex-start; gap: 8px; min-height: 64px; padding: 9px 11px 12px; color: #26372e; }
+.nextStep svg { flex: none; margin-top: 2px; color: #768079; }
+.actionText { display: -webkit-box; flex: 1; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; font-weight: 650; line-height: 21px; }
+.details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; border-top: 1px solid #dde3de; background: #dde3de; }
+.detail { min-width: 0; padding: 8px 11px; background: #fff; }
+.detail:first-child:nth-last-child(3) { grid-column: 1 / -1; }
+.detailLabel { display: block; color: #536157; font-size: 10px; font-weight: 700; line-height: 14px; }
+.detailValue { display: -webkit-box; margin-top: 3px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: #25382e; font-size: 13px; font-weight: 650; line-height: 18px; font-variant-numeric: tabular-nums; }
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .body { height: 250px; }
+  .folder:not(:last-child) { margin-bottom: -218px; }
+  .folder:not(:last-child):is(:hover, :focus-within) { margin-bottom: -130px; }
+  .folder { transition: margin-bottom 160ms ease-out; }
+
+  /* Stacked files expose the name and status, then the next action on hover.
+     Keep the covered details from peeking through around the next file's tabs. */
+  .folder:not(:last-child) .paper > * { opacity: 0; }
+  .folder:not(:last-child):is(:hover, :focus-within) :is(.fileIndex, .nextStep) { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folder { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .body, .nameTab, .statusTab, .body::after { background: Canvas; border-color: ButtonText; }
+}

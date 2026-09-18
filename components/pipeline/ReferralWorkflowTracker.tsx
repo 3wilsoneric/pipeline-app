@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { activeReferralFlowStates, referralBoardStageForStatus, referralBoardStages, type ReferralBoardStage } from "@/lib/pipeline/referral-flow";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
+import folderStyles from "./ClientFolder.module.css";
+import boardStyles from "./ReferralWorkflowTracker.module.css";
 
 export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons" }: {
   briefing: HomeBriefingSnapshot;
@@ -66,15 +69,15 @@ function ReferralLifecycleBoard({ items, showOwner, onOpenPacket }: {
         </select>
         <ChevronDown size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#176f60]" aria-hidden="true" />
       </label>
-      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-4">
+      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {referralBoardStages.map((stage) => {
           const stageItems = items.filter((item) => referralBoardStageForStatus(item.workflow_status) === stage.key);
-          return <div key={stage.key} className={`${mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`}>
+          return <div key={stage.key} data-board-stage={stage.key} className={`${mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`}>
             <div className={`flex min-h-10 items-center justify-between gap-2 border-t-2 px-1 py-2 ${boardRule(stage.key)}`}>
               <h2 className="truncate text-[12px] font-extrabold uppercase text-[#303b34]">{stage.label}</h2>
               <strong className="text-[12px] font-bold tabular-nums text-[#5d6861]">{stageItems.length.toLocaleString()}</strong>
             </div>
-            <div className="space-y-2">
+            <div data-folder-stack className={boardStyles.stack}>
               {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} stage={stage.key} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
               {stageItems.length === 0 ? <p className="py-5 text-center text-[11px] font-medium text-[#77817a]">No referrals here</p> : null}
             </div>
@@ -91,14 +94,39 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
   showOwner: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
+  const descriptionId = useId();
   const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const decision = stage === "decision" ? decisionPresentation(item) : null;
   const status = decision?.label ?? (stage === "in_progress" && item.assessment_state === "scheduled" ? "Assessment scheduled" : workflowStatusLabels[item.workflow_status]);
-  return <button type="button" aria-label={`Open ${name}`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`group w-full border border-l-[3px] border-[#dce3df] bg-white px-3 py-3 text-left outline-none hover:border-[#0f8b73] hover:bg-[#f7faf8] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${decision?.accent ?? boardAccent(stage)}`}>
-    <span className="flex items-start justify-between gap-2"><span className="min-w-0 truncate text-[14px] font-bold text-[#202320]">{name}</span><ArrowRight size={15} className="mt-0.5 shrink-0 text-[#7b837e] group-hover:text-[#0f8b73]" aria-hidden="true" /></span>
-    <span className={`mt-2 block text-[11px] font-bold ${decision?.tone ?? "text-[#176f60]"}`}>{status}</span>
-    <span className="mt-1 block line-clamp-2 min-h-8 text-[11px] leading-4 text-[#5f6762]">{item.next_action}</span>
-    <span className="mt-2 block truncate text-[10px] font-semibold text-[#69716c]">{item.community}{showOwner ? ` · ${item.owner}` : ""}</span>
+  const details = [
+    { label: "Community", value: item.community },
+    ...(showOwner ? [{ label: "Assessor", value: item.owner || "Unassigned" }] : []),
+    { label: "File progress", value: `${Math.round(item.completion_pct)}% complete` },
+    { label: "Documents needed", value: String(item.missing_document_count) },
+  ];
+  return <button type="button" data-board-card data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
+    <span className={boardStyles.tabs}>
+      <strong data-folder-name className={`${folderStyles.tab} ${boardStyles.nameTab}`}><span className={folderStyles.tabLabel}>{name}</span></strong>
+      <span id={`${descriptionId}-status`} data-board-status className={boardStyles.statusTab}>{status}</span>
+    </span>
+    <span data-folder-body className={`${folderStyles.body} ${boardStyles.body}`}>
+      <span className={`${folderStyles.paper} ${boardStyles.paper}`}>
+        <span className={boardStyles.fileIndex}>
+          <span>Referral #{item.referral_id}</span>
+          {item.last_activity_at ? <span>Updated {formatProfileDate(item.last_activity_at)}</span> : null}
+        </span>
+        <span className={boardStyles.nextStep}>
+          <span id={`${descriptionId}-action`} className={boardStyles.actionText}>{item.next_action}</span>
+          <ArrowRight size={15} aria-hidden="true" />
+        </span>
+        <span data-folder-details className={boardStyles.details}>
+          {details.map(({ label, value }) => <span key={label} className={boardStyles.detail}>
+            <span className={boardStyles.detailLabel}>{label}</span>
+            <span className={boardStyles.detailValue} title={value}>{value}</span>
+          </span>)}
+        </span>
+      </span>
+    </span>
   </button>;
 }
 
@@ -113,12 +141,6 @@ function boardRule(stage: ReferralBoardStage) {
   if (stage === "in_progress") return "border-t-[#4866ad]";
   if (stage === "decision") return "border-t-[#b77b27]";
   return "border-t-[#78844d]";
-}
-
-function boardAccent(stage: ReferralBoardStage) {
-  if (stage === "received") return "border-l-[#0f8b73]";
-  if (stage === "in_progress") return "border-l-[#4866ad]";
-  return "border-l-[#78844d]";
 }
 
 export function WorkflowCardSkeleton() {

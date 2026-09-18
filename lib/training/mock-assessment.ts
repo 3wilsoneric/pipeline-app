@@ -2,7 +2,7 @@ import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-recor
 import { createEmptyAssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
 import { defaultAssessmentSectionVersions } from "@/lib/assessment/assessment-sections";
 
-export type TrainingAssessmentMode = "schedule" | "interview" | "guided";
+export type TrainingAssessmentMode = "prepare" | "schedule" | "interview" | "guided";
 
 const trainingActor = {
   id: "pipeline-training-assessor",
@@ -13,7 +13,7 @@ export function buildTrainingAssessment(mode: TrainingAssessmentMode): PipelineA
   const now = new Date();
   const scheduledStart = new Date(now.getTime() + 24 * 60 * 60 * 1_000);
   scheduledStart.setMinutes(0, 0, 0);
-  const startedAt = mode !== "schedule" ? now.toISOString() : null;
+  const startedAt = mode === "interview" || mode === "guided" ? now.toISOString() : null;
   const data = {
     ...createEmptyAssessmentToolData(),
     resident_number: "TRAINING-001",

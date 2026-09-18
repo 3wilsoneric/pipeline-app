@@ -17,15 +17,6 @@ let blockedTransitions = 0;
 let acceptedOutcomes = 0;
 let declinedOutcomes = 0;
 let exhaustiveCases = 0;
-const allowedTargets = {
-  New: ["Packet Needed", "Declined"],
-  "Packet Needed": ["Packet Review", "Declined"],
-  "Packet Review": ["Assessment", "Declined"],
-  Assessment: ["Community Review", "Declined"],
-  "Community Review": ["Accepted / Admitted", "Declined"],
-  "Accepted / Admitted": [],
-  Declined: [],
-};
 
 const exhaustiveBooleanFields = [
   "ownerAssigned",
@@ -151,10 +142,10 @@ for (let trace = 0; trace < traces; trace += 1) {
       "transition_audit_exactly_once",
     );
     invariant(
-      !isTerminal(beforeStage) || state.stage === beforeStage,
+      isTerminal(target) || state.stage === target,
       trace,
       step,
-      "terminal_state_is_immutable",
+      "active_stage_is_always_reachable",
     );
     invariant(
       !state.accepted || !state.declined,
@@ -286,15 +277,12 @@ function applyRandomPreparation(state) {
 
 function expectedBlockerCodes(state, target) {
   return expectedAlertCodes(state, target).filter((code) => [
-    "stage_sequence", "admission_decision_required", "decline_decision_required",
+    "admission_decision_required", "decline_decision_required",
   ].includes(code));
 }
 
 function expectedAlertCodes(state, target) {
   if (target === state.stage) return [];
-  const acceptedTarget = state.decision === "accepted" && !isTerminal(state.stage)
-    && ["Community Review", "Accepted / Admitted"].includes(target);
-  if (!allowedTargets[state.stage].includes(target) && !acceptedTarget) return ["stage_sequence"];
   return transitionGateAlerts[target]?.(state) ?? [];
 }
 

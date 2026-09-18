@@ -142,6 +142,16 @@ const checks = [
     args: ["scripts/api-behavior-fixtures.mjs"],
   },
   {
+    name: "Assessment draft saves independent of census availability",
+    command: "node",
+    args: ["--test", "scripts/assessment-draft-save-boundaries.test.mjs"],
+  },
+  {
+    name: "Single-upload retries and duplicate-selection protection",
+    command: "node",
+    args: ["--test", "scripts/referral-upload-idempotency.test.mjs"],
+  },
+  {
     name: "Clinical integration contracts",
     command: "node",
     args: ["scripts/clinical-data-contracts.mjs"],

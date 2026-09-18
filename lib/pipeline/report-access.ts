@@ -1,10 +1,6 @@
-export const operationsReportRoles = ["admin", "assessment_coordinator"] as const;
+import { canEditWorkspace } from "./referral-ownership";
 
-const operationsReportEmails = new Set([
-  "andrew@aaahealthservices.com",
-  "ericwilsonalamo@outlook.com",
-  "sandeep@aaahealthservices.com",
-]);
+export const operationsReportRoles = ["admin", "assessment_coordinator", "reviewer", "viewer"] as const;
 
 type OperationsReportPrincipal = {
   id?: string | null;
@@ -13,17 +9,9 @@ type OperationsReportPrincipal = {
 };
 
 export function canAccessSupervisorOperations(roles: readonly string[]) {
-  return operationsReportRoles.some((role) => roles.includes(role));
+  return canEditWorkspace({ roles });
 }
 
 export function canAccessOperationsReports(principal: OperationsReportPrincipal | null | undefined) {
-  if (!principal || !canAccessSupervisorOperations(principal.roles)) return false;
-  const email = principal.email?.trim().toLowerCase();
-  if (!email) return false;
-  return operationsReportEmails.has(email) || isSyntheticLocalPrincipal(principal, email);
-}
-
-function isSyntheticLocalPrincipal(principal: OperationsReportPrincipal, email: string) {
-  // Local and automated fixtures use a reserved, non-production identity domain.
-  return Boolean(principal.id && email.endsWith("@pipeline.local"));
+  return canEditWorkspace(principal);
 }

@@ -87,6 +87,10 @@ const requiredPacketFields = [
   "clinical.summary",
 ] as const;
 
+function assertNoDeletedFiles(files: Array<{ deleted_at: Date | null }>) {
+  if (files.some((file) => file.deleted_at)) throw new DocumentProcessingError("upload_deleted", 409, "This file was deleted. Select it again to start a new upload.");
+}
+
 export async function createDurableUploadTargets(
   input: CreateUploadUrlRequest,
   actor: Actor,
@@ -111,6 +115,8 @@ export async function createDurableUploadTargets(
 
   try {
     await sql.begin(async (tx) => {
+      // Serialize only the same upload identity so simultaneous retries reuse one reservation.
+      await tx`select pg_advisory_xact_lock(hashtextextended(${`upload:${packetId}`}, 0))`;
       const referrals = await tx<{ referral_id: number | string; person_id: string }[]>`
         select referral_id, person_id from pipeline.referrals where referral_id = ${referralId} and deleted_at is null limit 1
       `;
@@ -123,12 +129,13 @@ export async function createDurableUploadTargets(
         if (Number(existing[0].referral_id) !== referralId) {
           throw new DocumentProcessingError("packet_id_conflict", 409, "This packet id belongs to another referral.");
         }
-        const existingFiles = await tx<{ file_id: string; expected_sha256: string; category: string }[]>`
-          select pf.file_id, pf.expected_sha256, d.category
+        const existingFiles = await tx<{ file_id: string; expected_sha256: string; category: string; deleted_at: Date | null }[]>`
+          select pf.file_id, pf.expected_sha256, d.category, d.deleted_at
           from pipeline.packet_upload_files pf
           join pipeline.documents d on d.document_id = pf.document_id
           where pf.packet_id = ${packetId}::uuid order by pf.file_id
         `;
+        assertNoDeletedFiles(existingFiles);
         const requestFiles = [...input.files].sort((a, b) => a.file_id.localeCompare(b.file_id));
         if (
           existingFiles.length !== requestFiles.length ||
@@ -268,6 +275,9 @@ async function completeDurableUploadWithMode(
       from pipeline.packet_uploads where packet_id = ${input.packet_id}::uuid for update
     `;
     if (!locked[0]) throw new DocumentProcessingError("packet_not_found", 404);
+    const activeFiles = await tx<{ deleted_at: Date | null }[]>`select d.deleted_at from pipeline.documents d
+      join pipeline.packet_upload_files f on f.document_id = d.document_id where f.packet_id = ${input.packet_id}::uuid for update of d`;
+    assertNoDeletedFiles(activeFiles);
     await tx`
       update pipeline.packet_upload_files set uploaded_at = coalesce(uploaded_at, now())
       where packet_id = ${input.packet_id}::uuid

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "pipeline-static-";
-const CACHE_NAME = `${CACHE_PREFIX}v13`;
+const CACHE_NAME = `${CACHE_PREFIX}v14`;
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 const scopedPath = (path) => `${SCOPE_PATH}${path}`;
 const OFFLINE_URL = scopedPath("/offline.html");

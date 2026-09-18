@@ -54,7 +54,7 @@ export async function PATCH(
   context: { params: Promise<{ linkId: string }> },
 ) {
   return withApiLogging(request, "/api/resident-links/[linkId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

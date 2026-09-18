@@ -23,7 +23,7 @@ test.describe("assessment outcome and admission handoff", () => {
       page.once("dialog", (dialog) => dialog.accept());
       await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Assessment outcome", exact: true })).toBeVisible();
-      await expect(page.getByRole("radio", { name: "Admit", exact: true })).not.toBeChecked();
+      await expect(page.getByRole("radio", { name: "Accept", exact: true })).not.toBeChecked();
       await expect(page.getByRole("button", { name: "Finish assessment", exact: true })).toBeDisabled();
       await page.getByRole("radio", { name: "Under review", exact: true }).check();
       await page.getByRole("textbox", { name: "What needs review?", exact: true }).fill("Synthetic follow-up information is needed.");
@@ -72,7 +72,7 @@ test.describe("assessment outcome and admission handoff", () => {
         await resolveOperationalDecisionRequirements(admin, referral.id);
         await page.goto(`${workspace(referral.id)}&workspaceView=workflow`);
         await page.getByRole("combobox", { name: "Decision", exact: true }).selectOption(outcome);
-        if (outcome === "declined") await page.getByRole("textbox", { name: "Decision rationale (required for decline)", exact: true }).fill("Synthetic referral needs a different level of care.");
+        if (outcome === "declined") await page.getByRole("textbox", { name: "Decision rationale", exact: true }).fill("Synthetic referral needs a different level of care.");
         page.once("dialog", (dialog) => dialog.accept());
         await page.getByRole("button", { name: "Record final decision", exact: true }).click();
         await expect.poll(async () => (await workflow(admin, referral.id)).decision?.outcome).toBe(outcome);
@@ -92,7 +92,7 @@ test.describe("assessment outcome and admission handoff", () => {
         }
         const before = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
         expect(before.email.ready).toBe(false);
-        expect(before.email.blockers.join(" ")).toContain("admission date");
+        expect(before.email.blockers.join(" ")).not.toContain("admission date");
         await page.getByLabel("Admission date", { exact: true }).fill("2026-10-12");
         await page.getByRole("button", { name: "Prepare Meet the Client", exact: true }).click();
         await expect(page.getByRole("article", { name: "Meet the Client chart", exact: true })).toContainText("Oct 12, 2026");
@@ -106,8 +106,8 @@ test.describe("assessment outcome and admission handoff", () => {
         await expect(page.getByLabel("Admission date", { exact: true })).toHaveValue("2026-10-12");
         await page.setViewportSize({ width: 390, height: 844 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-        const deniedSend = await assessor.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { confirmed: true, if_match: after.referral.version, recipients: ["synthetic@example.invalid"], client_mutation_id: randomUUID() } });
-        expect(deniedSend.status()).toBe(403);
+        const unavailableSend = await assessor.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { confirmed: true, if_match: after.referral.version, recipients: ["synthetic@example.invalid"], client_mutation_id: randomUUID() } });
+        expect(unavailableSend.status()).toBe(503);
       } finally { await context.close(); await assessor.dispose(); await admin.dispose(); }
     });
   }

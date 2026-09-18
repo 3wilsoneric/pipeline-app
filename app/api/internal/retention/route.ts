@@ -5,6 +5,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import { pruneExpiredUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-store";
 import { purgeExpiredReferrals } from "@/lib/pipeline/referral-retention";
+import { purgeExpiredDocumentUndo } from "@/lib/pipeline/document-undo-retention";
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/internal/retention", async () => {
@@ -18,11 +19,12 @@ export async function GET(request: Request) {
       });
       throw error;
     });
-    const [documents, workspaceState, referrals, storageInventory] = await Promise.all([
+    const [documents, workspaceState, referrals, storageInventory, documentUndo] = await Promise.all([
       runDocumentRetention(100, dryRun),
       workspaceStateRetention,
       purgeExpiredReferrals(100, dryRun),
       getStorageInventory(),
+      purgeExpiredDocumentUndo(100, dryRun),
     ]);
     recordPipelineMetric("pipeline.retention.workspace_state", workspaceState.eligible, "count", {
       operation: dryRun ? "retention_preview" : "retention_execute",
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
       backend: workspaceState.mode,
     });
     return Response.json(
-      { documents, workspace_state: workspaceState, referrals, storage_inventory: storageInventory },
+      { documents, document_undo: documentUndo, workspace_state: workspaceState, referrals, storage_inventory: storageInventory },
       { headers: { "Cache-Control": "no-store" } },
     );
   });

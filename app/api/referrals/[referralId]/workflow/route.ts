@@ -11,9 +11,6 @@ import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 
 export const runtime = "nodejs";
 
-const workflowRoles = new Set(["admin", "assessment_coordinator", "reviewer"]);
-const workflowSupervisorRoles = new Set(["admin", "assessment_coordinator"]);
-
 export async function GET(
   request: Request,
   context: { params: Promise<{ referralId: string }> },
@@ -52,15 +49,15 @@ function workflowCapabilities(
   assessment: { signed_at?: string | null; assessor_id?: string | null } | null,
   mutable: boolean,
 ) {
-  const canUpdate = mutable && user.roles.some((role) => workflowRoles.has(role));
+  const canUpdate = mutable;
   return {
     can_update: canUpdate,
-    can_recommend: canUpdate && Boolean(assessment?.signed_at) && canWorkAssessment(user, assessment?.assessor_id ?? null),
+    can_recommend: canUpdate && Boolean(assessment) && canWorkAssessment(user, assessment?.assessor_id ?? null),
     can_decide: mutable && canRecordAdmissionDecision(user),
-    can_email: mutable && user.roles.some((role) => workflowSupervisorRoles.has(role)),
+    can_email: canUpdate,
     can_request_changes: mutable && canRecordAdmissionDecision(user),
-    can_authorize_manual_intake: mutable && user.roles.some((role) => workflowSupervisorRoles.has(role)),
+    can_authorize_manual_intake: canUpdate,
     can_reconcile_identity: canUpdate,
-    can_review_identity: mutable && user.roles.some((role) => workflowRoles.has(role)),
+    can_review_identity: canUpdate,
   };
 }

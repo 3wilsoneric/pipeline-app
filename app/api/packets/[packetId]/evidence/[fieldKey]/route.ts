@@ -7,6 +7,7 @@ import { getMockFieldEvidenceDescriptor } from "@/lib/extraction/mock-store";
 import { decodeRouteParam } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requirePacketAccess } from "@/lib/pipeline/referral-access";
+import { getLocalDeletedPacket } from "@/lib/pipeline/referral-store";
 
 export async function GET(
   request: Request,
@@ -22,7 +23,7 @@ export async function GET(
     if (!decoded) return Response.json({ error: "fieldKey is invalid." }, { status: 400 });
     try {
       if (getExtractionBackendMode() === "mock") {
-        const descriptor = getMockFieldEvidenceDescriptor(packetId, decoded);
+        const descriptor = await activeLocalEvidence(packetId, decoded);
         const evidence = descriptor ? await renderLocalPacketEvidence(descriptor) : null;
         if (!evidence) return Response.json({ error: "Evidence not found." }, { status: 404 });
         return new Response(Uint8Array.from(evidence).buffer, {
@@ -45,4 +46,9 @@ export async function GET(
       throw error;
     }
   });
+}
+
+async function activeLocalEvidence(packetId: string, fieldKey: string) {
+  if (await getLocalDeletedPacket(packetId)) return null;
+  return getMockFieldEvidenceDescriptor(packetId, fieldKey);
 }

@@ -1,3 +1,4 @@
+import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { getOperationsDashboardSnapshot } from "@/lib/pipeline/operations-snapshot";
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
     const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
 
-    const canViewSupervisorQueue = auth.user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
+    const canViewSupervisorQueue = canEditWorkspace(auth.user);
     const month = new URL(request.url).searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
     if (!/^(?:20|21|22)\d{2}-(?:0[1-9]|1[0-2])$/.test(month)) return jsonError("month must use YYYY-MM.");
     const { snapshot, supervisorQueue } = await getOperationsDashboardSnapshot(auth.user, canViewSupervisorQueue, month);

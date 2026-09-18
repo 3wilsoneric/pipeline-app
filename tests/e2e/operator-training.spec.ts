@@ -134,9 +134,8 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page).toHaveURL(/trainingAssessment=guided/);
     const assessment = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(assessment).toBeVisible();
-    await expect(assessment).toHaveAttribute("data-guided-assessment", "true");
-    await expect(assessment).toHaveAttribute("data-screen-index", "0");
-    await expect(assessment.getByText("Taylor Rivera", { exact: true })).toBeVisible();
+    await expect(assessment).toHaveAttribute("data-assessment-view", "chart");
+    await expect(assessment.getByRole("heading", { name: "Taylor Rivera", exact: true })).toBeVisible();
     await expect(coach.getByRole("heading", { name: "Client & referral" })).toBeVisible();
     await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
   });
@@ -158,9 +157,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(begin.getByText("Zoom", { exact: true })).toBeVisible();
     await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
     await expect(begin).toBeHidden();
-    const guided = page.locator('[data-guided-assessment="true"]');
-    await expect(guided).toBeVisible();
-    await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
+    await expect(page.locator('[data-assessment-view="chart"]')).toBeVisible();
     await expect(page.getByRole("dialog", { name: "Assessment interview" }).getByLabel("Resident name")).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });

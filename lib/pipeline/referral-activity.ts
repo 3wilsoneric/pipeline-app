@@ -13,6 +13,7 @@ import {
   getReferral,
   getReferralStoreReadiness,
   listLocalReferralAuditEvents,
+  localDocumentUndoState,
 } from "@/lib/pipeline/referral-store";
 import type { Referral, ReferralOwner } from "@/lib/pipeline/referral-types";
 import { listLocalContactAuditEvents } from "@/lib/pipeline/contact-store";
@@ -33,6 +34,7 @@ export type ReferralActivityEvent = {
   from_version: number | null;
   to_version: number | null;
   created_at: string;
+  undo?: { document_id: string; deletion_id: string; until: string };
 };
 
 export type ReferralWorkflowMetadata = {
@@ -91,6 +93,7 @@ export async function getReferralActivitySnapshot(referralId: number): Promise<R
   if (!referral) return null;
   const assessments = (await listAssessments({ referralId, limit: 100 })).assessments;
   const events = await loadActivityEvents(referral, assessments);
+  await attachDocumentUndo(referralId, events);
   return {
     events,
     metadata: buildWorkflowMetadata(referral, assessments, events),
@@ -119,6 +122,9 @@ async function loadActivityEvents(
             ))
          or (entity_type = 'assessment_review' and entity_id in (
               select review_id::text from pipeline.assessment_reviews where referral_id = ${referral.id}
+            ))
+         or (entity_type = 'document' and entity_id in (
+              select document_id::text from pipeline.documents where referral_id = ${referral.id}
             ))
       order by created_at desc, audit_event_id desc
       limit 100
@@ -192,6 +198,7 @@ async function loadActivityEvents(
 }
 
 function mapActivityRow(row: ActivityRow): ReferralActivityEvent {
+  const metadata = row.metadata as { document_id?: string; deletion_id?: string; undo_until?: string } | null;
   return {
     event_id: row.audit_event_id,
     action: row.action,
@@ -203,7 +210,23 @@ function mapActivityRow(row: ActivityRow): ReferralActivityEvent {
     from_version: row.from_version === null ? null : Number(row.from_version),
     to_version: row.to_version === null ? null : Number(row.to_version),
     created_at: toIso(row.created_at),
+    ...(row.action === "document_deleted" && metadata?.document_id && metadata.deletion_id && metadata.undo_until ? {
+      undo: { document_id: metadata.document_id, deletion_id: metadata.deletion_id, until: metadata.undo_until },
+    } : {}),
   };
+}
+
+async function attachDocumentUndo(referralId: number, events: ReferralActivityEvent[]) {
+  if (!events.some((event) => event.undo)) return;
+  const sql = getReferralStoreReadiness().mode === "postgres" ? getPipelineSql() : null;
+  const deleted = sql ? await sql<{ document_id: string; deletion_id: string; undo_until: Date }[]>`
+    select document_id::text, deletion_id::text, undo_until from pipeline.documents
+    where referral_id = ${referralId} and deleted_at is not null and purged_at is null and undo_until > now()
+  ` : await localDocumentUndoState(referralId);
+  for (const event of events) {
+    if (event.undo && (!deleted.some((document) => document.document_id === event.undo!.document_id && document.deletion_id === event.undo!.deletion_id)
+      || Date.parse(event.undo.until) <= Date.now())) delete event.undo;
+  }
 }
 
 function buildWorkflowMetadata(

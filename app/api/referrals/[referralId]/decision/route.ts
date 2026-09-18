@@ -42,7 +42,7 @@ export async function PUT(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]/decision", async () => {
-    const auth = await requirePipelineUser(request, ["admin"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -79,7 +79,7 @@ export async function PUT(
         outcome: body.value.outcome,
         reasonCode: typeof body.value.reason_code === "string" ? body.value.reason_code : "",
         reasonNote: typeof body.value.reason_note === "string" ? body.value.reason_note : "",
-        decidedByRole: "admin",
+        decidedByRole: auth.user.roles[0],
       },
       Number(body.value.if_match),
       Number(body.value.if_match_section),

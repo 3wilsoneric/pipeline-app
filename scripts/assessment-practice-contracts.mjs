@@ -37,6 +37,56 @@ check("practice renders canonical sections and conditional questions",
   && workspace.includes("getRequiredAssessmentInterviewQuestions")
   && interview.assessmentInterviewSections.length === schema.assessmentToolSections.length
   && interview.assessmentInterviewSections.every((section) => interview.getAssessmentInterviewQuestions(section.key, data).length > 0));
+const deviceQuestion = interview.assessmentInterviewQuestions.find((question) => question.field === "mobility");
+const nonAmbulatoryData = { ...schema.createEmptyAssessmentToolData(), ambulatory: "no", mobility: "Wheelchair" };
+const functionQuestions = interview.getAssessmentInterviewQuestions("functional_adl", nonAmbulatoryData);
+check("Ambulatory No immediately shows the Type of device text box",
+  deviceQuestion?.control === "text"
+  && deviceQuestion.placeholder === "Type of device"
+  && interview.assessmentInterviewFieldLabel("mobility") === "Type of device"
+  && functionQuestions[functionQuestions.findIndex((question) => question.field === "ambulatory") + 1]?.field === "mobility");
+check("device follow-up is hidden for Yes, unanswered, and Unable to assess",
+  ["yes", null, "unable_to_assess"].every((ambulatory) => !interview.getAssessmentInterviewQuestions(
+    "functional_adl", { ...nonAmbulatoryData, ambulatory },
+  ).some((question) => question.field === "mobility")));
+check("device answers retain the existing persisted mobility field",
+  schema.pickAssessmentToolData(nonAmbulatoryData).mobility === "Wheelchair"
+  && schema.assessmentToolFieldForExtractionKey("assessment.mobility") === "mobility"
+  && nonAmbulatoryData.mobility === "Wheelchair");
+const clinicalQuestions = interview.getAssessmentInterviewQuestions("diagnosis_clinical", data);
+check("the field below diagnosis choices is Secondary diagnosis, not Primary diagnosis",
+  clinicalQuestions[clinicalQuestions.findIndex((question) => question.field === "diagnosis_categories") + 1]?.field === "secondary_diagnoses"
+  && clinicalQuestions.find((question) => question.field === "secondary_diagnoses")?.control === "textarea"
+  && interview.assessmentInterviewFieldLabel("secondary_diagnoses") === "Secondary diagnosis"
+  && !clinicalQuestions.some((question) => question.field === "primary_diagnosis"));
+const diagnosisData = schema.pickAssessmentToolData({ primary_diagnosis: "Recorded primary condition", secondary_diagnoses: ["Recorded secondary condition"] });
+check("primary and secondary diagnoses remain separate stored answers",
+  diagnosisData.primary_diagnosis === "Recorded primary condition"
+  && diagnosisData.secondary_diagnoses[0] === "Recorded secondary condition"
+  && !interview.getRequiredAssessmentInterviewQuestions(diagnosisData).some((question) => question.field === "secondary_diagnoses"));
+const insightQuestion = interview.getAssessmentInterviewQuestions("substance_use", { ...data, substance_abuse_history: "yes" })
+  .find((question) => question.field === "substance_use_insight");
+check("acknowledgement names the impact and preserves saved yes/no values",
+  insightQuestion?.group === "Recovery history" && insightQuestion.control === "select"
+  && JSON.stringify(insightQuestion.options) === JSON.stringify([
+    { value: "yes", label: "Acknowledges impact" },
+    { value: "partially", label: "Partially acknowledges impact" },
+    { value: "no", label: "Does not acknowledge impact" },
+    { value: "not_discussed", label: "Not discussed" },
+  ])
+  && interview.assessmentInterviewOptionLabel("substance_use_insight", "yes") === "Acknowledges impact"
+  && interview.assessmentInterviewOptionLabel("substance_use_insight", "no") === "Does not acknowledge impact");
+check("Recovery history stays conditional on a reported substance-use history",
+  [null, "no", "unable_to_assess"].every((substance_abuse_history) => !interview.getAssessmentInterviewQuestions(
+    "substance_use", { ...data, substance_abuse_history },
+  ).some((question) => question.field === "substance_use_insight")));
+check("Triggers is removed without deleting historical answers",
+  !interview.assessmentInterviewQuestions.some((question) => question.field === "triggers")
+  && schema.pickAssessmentToolData({ triggers: "Previously recorded context" }).triggers === "Previously recorded context");
+check("Aggression risk is removed without deleting historical answers or the other safety questions",
+  !interview.assessmentInterviewQuestions.some((question) => question.field === "aggression_risk")
+  && schema.pickAssessmentToolData({ aggression_risk: "Previously recorded assessment" }).aggression_risk === "Previously recorded assessment"
+  && ["assault_history", "physical_altercations", "si_hi_history"].every((field) => interview.assessmentInterviewQuestions.some((question) => question.field === field)));
 check("language guidance comes from the canonical writing specification",
   workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Example")
   && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")

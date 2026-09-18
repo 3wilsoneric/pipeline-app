@@ -62,7 +62,7 @@ test.describe("workflow store characterization", () => {
     }
   });
 
-  test("requires a signed assigned assessment and replays one recommendation", async ({ baseURL }) => {
+  test("allows an unsigned assigned recommendation and replays one signed submission", async ({ baseURL }) => {
     const actors = await workflowActors(baseURL);
     try {
       let referral = await createWorkflowReferral(actors.coordinator);
@@ -74,12 +74,11 @@ test.describe("workflow store characterization", () => {
         "workflow-characterization-unsigned-recommendation",
       );
       const unsigned = await actors.assessor.put(`/api/referrals/${referral.id}/recommendation`, { data: unsignedRequest });
-      await responseRecord(unsigned, 422);
+      await responseRecord(unsigned, 200);
+      expect((await reviewSnapshot(actors.supervisor, referral.id)).review).toBeNull();
 
-      const viewer = await actors.viewer.put(`/api/referrals/${referral.id}/recommendation`, { data: unsignedRequest });
-      expect(viewer.status()).toBe(403);
-      const wrongAssessor = await actors.otherAssessor.put(`/api/referrals/${referral.id}/recommendation`, { data: unsignedRequest });
-      expect(wrongAssessor.status()).toBe(404);
+      const denied = await actors.outsider.put(`/api/referrals/${referral.id}/recommendation`, { data: unsignedRequest });
+      expect(denied.status()).toBe(403);
 
       assessment = await finishAssessment(actors.assessor, assessment);
       referral = await readOperationalReferral(actors.assessor, referral.id);
@@ -115,7 +114,7 @@ test.describe("workflow store characterization", () => {
     const actors = await workflowActors(baseURL);
     try {
       const ready = await decisionReadyReferral(actors);
-      const unauthorized = await actors.assessor.put(`/api/referrals/${ready.referral.id}/decision`, {
+      const unauthorized = await actors.outsider.put(`/api/referrals/${ready.referral.id}/decision`, {
         data: decisionRequest(ready.referral, "accepted", "workflow-characterization-assessor-decision"),
       });
       expect(unauthorized.status()).toBe(403);
@@ -169,10 +168,8 @@ test.describe("workflow store characterization", () => {
         `workflow-characterization-review-cycle-${ready.referral.id}`,
       );
 
-      const viewer = await actors.viewer.post(`/api/referrals/${ready.referral.id}/assessment-review`, { data: request });
-      expect(viewer.status()).toBe(403);
-      const assessor = await actors.assessor.post(`/api/referrals/${ready.referral.id}/assessment-review`, { data: request });
-      expect(assessor.status()).toBe(403);
+      const denied = await actors.outsider.post(`/api/referrals/${ready.referral.id}/assessment-review`, { data: request });
+      expect(denied.status()).toBe(403);
 
       const first = await actors.supervisor.post(`/api/referrals/${ready.referral.id}/assessment-review`, { data: request });
       const firstBody = await responseRecord(first, 200);
@@ -454,25 +451,25 @@ test.describe("workflow store characterization", () => {
     }
   });
 
-  test("denied role and resource mutations leave workflow and audit unchanged", async ({ baseURL }) => {
+  test("unapproved identities and missing resource mutations leave workflow and audit unchanged", async ({ baseURL }) => {
     const actors = await workflowActors(baseURL);
     try {
       const referral = await createWorkflowReferral(actors.coordinator);
       const before = await readReferralRecord(actors.coordinator, referral.id);
       const activityBefore = await activityActions(actors.supervisor, referral.id);
 
-      const viewerRead = await actors.viewer.get(`/api/referrals/${referral.id}`);
-      expect(viewerRead.status()).toBe(200);
-      const viewerWrite = await actors.viewer.post(`/api/referrals/${referral.id}/transition`, {
-        data: transitionRequest(referral, "Packet Needed", "workflow-characterization-viewer-denied"),
+      const deniedRead = await actors.outsider.get(`/api/referrals/${referral.id}`);
+      expect(deniedRead.status()).toBe(403);
+      const deniedWrite = await actors.outsider.post(`/api/referrals/${referral.id}/transition`, {
+        data: transitionRequest(referral, "Packet Needed", "workflow-characterization-unapproved-denied"),
       });
-      expect(viewerWrite.status()).toBe(403);
-      const wrongResourceRead = await actors.otherAssessor.get(`/api/referrals/${referral.id}`);
-      expect(wrongResourceRead.status()).toBe(404);
-      const wrongResourceWrite = await actors.otherAssessor.post(`/api/referrals/${referral.id}/transition`, {
-        data: transitionRequest(referral, "Packet Needed", "workflow-characterization-other-assessor-denied"),
+      expect(deniedWrite.status()).toBe(403);
+      const missingId = 2_147_483_647;
+      expect((await actors.viewer.get(`/api/referrals/${missingId}`)).status()).toBe(404);
+      const missingWrite = await actors.viewer.post(`/api/referrals/${missingId}/transition`, {
+        data: transitionRequest(referral, "Packet Needed", "workflow-characterization-missing-denied"),
       });
-      expect(wrongResourceWrite.status()).toBe(404);
+      expect(missingWrite.status()).toBe(404);
 
       expect(await readReferralRecord(actors.coordinator, referral.id)).toMatchObject({
         version: before.version,
@@ -505,13 +502,14 @@ let referralSequence = 0;
 
 async function workflowActors(baseURL: string | undefined) {
   const url = requireOperationalBaseURL(baseURL);
-  const [coordinator, assessor, otherAssessor, supervisor, supervisorPeer, viewer] = await Promise.all([
+  const [coordinator, assessor, otherAssessor, supervisor, supervisorPeer, viewer, outsider] = await Promise.all([
     actorApiContext("assessmentCoordinator", url),
     actorApiContext("assessorA", url),
     actorApiContext("assessorB", url),
     actorApiContext("admin", url),
     actorApiContext("admin", url),
     actorApiContext("viewer", url),
+    actorApiContext("outsider", url),
   ]);
   await Promise.all([
     coordinator.get("/api/members"),
@@ -527,6 +525,7 @@ async function workflowActors(baseURL: string | undefined) {
     supervisor,
     supervisorPeer,
     viewer,
+    outsider,
     async dispose() {
       await Promise.all([
         coordinator.dispose(),
@@ -535,6 +534,7 @@ async function workflowActors(baseURL: string | undefined) {
         supervisor.dispose(),
         supervisorPeer.dispose(),
         viewer.dispose(),
+        outsider.dispose(),
       ]);
     },
   };

@@ -195,7 +195,7 @@ export default function ReferralWorkflowPanel({
         reason_code: recommendationDraft.reasonCode,
         reason_note: recommendationDraft.reasonNote,
       },
-      "Assessment finished. Sent to the supervisor for review.",
+      workflow.context.assessmentSigned ? "Assessment finished. Sent to the supervisor for review." : "Recommendation saved. You can keep editing and sign separately.",
     );
   };
 

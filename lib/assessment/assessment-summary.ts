@@ -50,14 +50,28 @@ export type AssessmentSummaryReport = {
 };
 
 const chartSectionLabels = new Map(assessmentInterviewSections.map((section) => [section.key, section.label]));
+
+export function selectSignedAssessment(
+  assessments: PipelineAssessmentRecord[],
+  assessmentId?: string,
+) {
+  // Acceptance records the information available then; signing can happen later.
+  // Sending records the actual signed version in its own delivery audit.
+  const assessment = assessmentId
+    ? assessments.find((item) => item.assessment_id === assessmentId)
+    : assessments.find((item) => item.signed_at);
+  return assessment?.signed_at ? assessment : null;
+}
+
 const excludedChartFields = new Set<AssessmentToolFieldKey>([
+  "triggers",
+  "aggression_risk",
   "unable_to_assess_reasons",
   "source_file",
   "match_confidence",
   "assessment_notes",
   "extraction_date",
   "admit_date",
-  "secondary_diagnoses",
   "acuity_level",
   "lai_vs_oral",
   "resident_number",
@@ -143,6 +157,9 @@ export function buildMeetClientSummary(
       ["prn_patterns", "PRN pattern and effect"],
       ["im_injections", "IM injections"],
       ["im_injections_details", "Injection details"],
+      ["injection_frequency", "Injection frequency"],
+      ["last_injection", "Last injection"],
+      ["next_injection_due", "Next injection due"],
     ]),
     supportSnapshot: buildItems(assessment, [
       ["mobility", "Mobility"],
@@ -151,7 +168,6 @@ export function buildMeetClientSummary(
       ["linear_conversation_details", "Communication support"],
       ["special_diet_details", "Diet"],
       ["current_safety_measures", "Current safety support"],
-      ["triggers", "Known triggers"],
     ]),
     preparedFromAssessmentId: assessment.assessment_id,
     preparedFromAssessmentVersion: assessment.version,
