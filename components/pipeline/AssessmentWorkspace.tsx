@@ -22,9 +22,8 @@ import {
   type PipelineCurrentUser,
 } from "@/lib/auth/authenticated-fetch";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
-import { buildAssessmentSummaryReport } from "@/lib/assessment/assessment-summary";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { CompleteAssessmentChart } from "@/components/pipeline/AssessmentChartWorkspace";
+import WorkspaceClientChart from "@/components/pipeline/TransferredWorkspaceChart";
 import type {
   AssessmentListResponse,
   PipelineAssessmentRecord,
@@ -1589,10 +1588,10 @@ export default function AssessmentWorkspace({
           {reviewingChart ? <section aria-label="Assessment chart review" className={workingStyles.chartReview}>
             <div className={workingStyles.chartReviewToolbar}>
               {phoneInterview ? <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button> : null}
-              <span>{selected.signed_at ? "Signed chart" : "Review before signing"}</span>
+              <span>{selected.signed_at && dirtySections.size === 0 ? "Signed chart" : "Review before signing"}</span>
             </div>
             {conversationSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>{conversationSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items remain in the chart. Return to questions to revisit them.</p> : null}
-            <CompleteAssessmentChart report={buildAssessmentSummaryReport({ ...selected, ...draft }, referral ?? { name: draft.resident_name ?? "", dob: draft.date_of_birth ?? "", community: "Unassigned", source: draft.referrer_name ?? "", currentMedications: "", admissionDate: "" })} />
+            <WorkspaceClientChart referral={referral ?? null} assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)} />
           </section> : <div data-assessment-question-content className={!preparing && !phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
             <div className={preparing && !phoneInterview ? "mb-3" : "sr-only"}>
               <h3 className="text-[21px] font-bold text-[#213629]">{preparing ? preparationGroup.label : sectionDefinition.label}</h3>

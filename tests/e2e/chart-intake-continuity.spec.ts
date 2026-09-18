@@ -64,7 +64,8 @@ test("a chart creates a fresh intake for the same client and retry does not dupl
   const source = await createSource(page.request);
   expect(source.admissionDate).toBe("2026-08-15");
   const before = await (await page.request.get(`/api/referrals/${source.id}/canvas`)).json();
-  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  // Start a fresh episode from Clients, not a duplicate action inside an intake.
+  await page.goto(`/?screen=profile&clientId=pipeline:${source.clientId}`);
   await expect(page.getByRole("button", { name: "New referral", exact: true })).toBeVisible();
   const createdRequest = page.waitForRequest((request) => request.url().endsWith(`/referrals/${source.id}/new-intake`) && request.method() === "POST");
   const createdResponse = page.waitForResponse((response) => response.url().endsWith(`/referrals/${source.id}/new-intake`) && response.request().method() === "POST");

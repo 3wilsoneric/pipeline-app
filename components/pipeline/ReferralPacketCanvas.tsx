@@ -2590,7 +2590,7 @@ export default function ReferralPacketCanvas({
           ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart" flush>
               <WorkspaceChartFolder>
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} headerActions={chartPagination}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} headerActions={chartPagination} />
               </WorkspaceChartFolder>
             </PacketPage>
           ) : (
