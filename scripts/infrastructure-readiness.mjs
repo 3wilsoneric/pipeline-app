@@ -153,7 +153,9 @@ check("database bootstrap is one-time and explicit", runtime.includes("param ini
 check("routine database migrations use the migrator-only job", runtime.includes("databaseMigrationJob") && runtime.includes("pipeline-database-migration-url"));
 check("routine release backs up and migrates the candidate before application rollout",
   deployment.includes("for operation in backup migrate")
-    && deployment.includes('--image "$CANDIDATE_IMAGE"')
+    && deployment.includes('--query properties.template --output json')
+    && deployment.includes('--arg image "$CANDIDATE_IMAGE"')
+    && deployment.includes('--yaml "$job_template"')
     && deployment.includes('--job-execution-name "$execution"')
     && deployment.indexOf("Back up and migrate before application rollout") < deployment.indexOf("Deploy runtime and scheduled jobs"));
 check(
