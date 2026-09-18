@@ -33,7 +33,7 @@ test.describe("Responsive application navigation", () => {
         await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", color);
       }
       await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toHaveCSS("background-color", "rgb(231, 243, 238)");
-      await expect(page.getByRole("complementary", { name: "Workspace navigation", exact: true })).toHaveCSS("border-top-left-radius", "7px");
+      await expect(page.getByRole("complementary", { name: "Workspace navigation", exact: true })).toHaveCSS("border-top-left-radius", "12px");
       await expect(page.locator('[data-guide-target="workspace-search"]')).toHaveCSS("border-top-left-radius", "5px");
       await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
       await expect(page.getByRole("button", { name: /Open profile menu/ })).toBeVisible();

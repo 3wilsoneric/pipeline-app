@@ -32,6 +32,14 @@ for (const width of [1440, 390]) {
     });
     await page.route(/\/api\/files\?/, (route) => route.fulfill({ json: { files: [], total: 0 } }));
     await page.goto("/?view=referrals");
+    const navigation = page.getByRole("complementary", { name: "Workspace navigation" });
+    await expect(navigation).toHaveCSS("background-image", "none");
+    await expect(navigation).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(navigation).toHaveCSS("border-radius", "12px");
+    const allWorkspaces = page.getByRole("button", { name: "All workspaces", exact: true });
+    await expect(allWorkspaces).toHaveCSS("background-image", "none");
+    await expect(allWorkspaces).toHaveCSS("background-color", "rgb(238, 246, 242)");
+    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("color", "rgb(89, 100, 94)");
     const worklist = page.getByRole("region", { name: "Referral worklist" });
     const august = worklist.getByRole("button", { name: "Open August Example referral workspace", exact: true });
     const september = worklist.getByRole("button", { name: "Open September Example referral workspace", exact: true });
@@ -58,14 +66,19 @@ for (const width of [1440, 390]) {
     if (width < 1280) await page.getByRole("button", { name: "Close referral browser" }).click();
     await page.getByRole("button", { name: "All files", exact: true }).click();
     await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.mouse.move(0, 0);
+    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-image", "none");
+    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-color", "rgb(238, 246, 242)");
     await page.getByRole("button", { name: "All workspaces", exact: true }).click();
     await expect(august).toBeVisible();
     await page.mouse.move(0, 0);
+    await expect(allWorkspaces).toHaveCSS("background-color", "rgb(238, 246, 242)");
+    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await page.screenshot({ path: testInfo.outputPath(`workspace-emphasis-${width}.png`) });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-      return (await axe.run('[aria-label="Referral worklist"]', { runOnly: ["color-contrast", "button-name"] })).violations;
+      return (await axe.run('[data-guide-target="workspace-directory"]', { runOnly: ["color-contrast", "button-name"] })).violations;
     });
     expect(violations).toEqual([]);
     await august.focus();
@@ -73,3 +86,17 @@ for (const width of [1440, 390]) {
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("910001");
   });
 }
+
+test("empty workspace navigation stays neutral without count badges", async ({ page }, testInfo) => {
+  await page.route(/\/api\/referrals(?:\/directory)?\?/, (route) => route.fulfill({ json: {
+    referrals: [], total: 0, revision: 1, progress: {},
+    facets: { ...facets, months: [] }, file_total: 0,
+  } }));
+  await page.goto("/?view=referrals");
+  const navigation = page.getByRole("complementary", { name: "Workspace navigation" });
+  await expect(navigation.getByText("Dated workspaces will appear here.", { exact: true })).toBeVisible();
+  await expect(navigation).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(navigation.getByRole("button", { name: "All workspaces", exact: true })).not.toContainText(/\d/);
+  await expect(navigation.getByRole("button", { name: "All files", exact: true })).not.toContainText(/\d/);
+  await navigation.screenshot({ path: testInfo.outputPath("workspace-navigation-empty.png") });
+});
