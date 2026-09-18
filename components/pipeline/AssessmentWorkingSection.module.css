@@ -71,13 +71,16 @@
   .referenceContent[data-expanded="true"] { display: block; }
   .referenceToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
   .sectionPicker { flex: 1; }
+  .referenceContent { max-height: none; overflow: visible; }
+}
+
+@media (max-width: 959px), (hover: none) and (pointer: coarse) {
   .sectionPicker select, .referenceSelector { min-height: 44px; font-size: 16px; }
   .search summary { min-width: 44px; min-height: 44px; justify-content: center; }
   .searchResults { max-height: calc(var(--mobile-viewport-height, 100dvh) - 200px); overflow-y: auto; overscroll-behavior: contain; }
   .searchResults > div { max-height: none; }
   .searchResults button { min-height: 48px; font-size: 14px; }
   .referenceToggle { min-height: 48px; font-size: 14px; }
-  .referenceContent { max-height: none; overflow: visible; }
   .answer { min-height: 48px; padding-block: 12px; border-bottom: 1px solid #e3e7e3; }
   .answerLabel { font-size: 13px; }
   .answerLabel svg { visibility: visible; }

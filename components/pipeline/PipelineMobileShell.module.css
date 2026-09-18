@@ -17,22 +17,54 @@
   }
 }
 
-@media (max-width: 959px) {
+@media (max-width: 959px), (hover: none) and (pointer: coarse) {
   /* The assessment header reserves this slot; the handle never covers its name. */
   .shell [data-assessment-app-navigation="collapsed"] { height: 0; }
   .shell [aria-label="Show app navigation"] { top: 6px; left: 8px; right: auto; height: 44px; min-width: 44px; border-radius: 5px; }
   .shell [aria-label="Show app navigation"][aria-expanded="true"] { z-index: -1; }
+  .shell [data-guide-target="packet-workspace"] { scroll-padding-block: 104px 20px; }
+  .shell [id="packet-page-2"] > div:has([data-testid="preparation-client-folder"]) { padding: 0; }
 }
 
 @media (max-width: 639px) {
-  .shell [data-pipeline-header] { display: grid; grid-template-columns: auto minmax(0, 1fr); height: auto; gap: 4px 12px; padding: 6px 12px 8px; }
-  .shell [data-pipeline-header] > div:last-of-type { grid-column: 2; grid-row: 1; min-width: 0; }
+  .shell { --mobile-dock-height: calc(62px + env(safe-area-inset-bottom)); }
+  .shell:has([data-assessment-app-navigation="standard"]) { padding-bottom: var(--mobile-dock-height); }
+  .shell [data-pipeline-header] { height: 56px; gap: 8px; padding: 4px 12px; }
+  .shell [data-pipeline-header] > div:last-of-type { min-width: 0; }
   .shell [data-pipeline-home], .shell [data-profile-scope="signed-in-user"], .shell [data-guide-target="guided-help"] { min-width: 44px; min-height: 44px; }
-  .shell [data-testid="primary-navigation-dock"] { grid-column: 1 / -1; grid-row: 2; width: 100%; margin: 0; padding: 0; overflow: visible; }
+  /* One existing navigation tree, moved into thumb reach without covering content. */
+  .shell [data-assessment-app-navigation="standard"] [data-testid="primary-navigation-dock"] {
+    position: fixed;
+    inset-inline: 0;
+    top: calc(var(--mobile-viewport-top, 0px) + var(--mobile-viewport-height, 100dvh) - var(--mobile-dock-height));
+    height: var(--mobile-dock-height);
+    margin: 0;
+    padding: 5px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
+    border-top: 1px solid #d6e2dc;
+    background: #f8fcfa;
+    box-shadow: 0 -3px 12px rgb(24 55 49 / 4%);
+    overflow: visible;
+    animation: none;
+  }
   .shell [data-testid="primary-navigation-dock"] > div { width: 100%; }
   .shell [data-testid="primary-navigation"] { gap: 4px; }
   .shell [aria-label="Primary navigation"] { flex: 1; min-width: 0; gap: 4px; }
   .shell [aria-label="Primary navigation"] button { flex: 1; min-width: 0; }
   .shell [data-testid="primary-navigation"] :global(.pipeline-command) { flex-direction: column; gap: 3px; height: 52px; min-width: 44px; }
   .shell [data-testid="primary-navigation"] :global(.pipeline-command) span { display: inline; font-size: 10px; line-height: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .shell [data-assessment-app-navigation="collapsed"] [data-pipeline-header] { flex-wrap: wrap; height: auto; }
+  .shell [data-assessment-app-navigation="collapsed"] [data-testid="primary-navigation-dock"] { order: 3; flex-basis: 100%; margin: 0; padding: 0; }
+  .shell[data-mobile-keyboard="true"]:has([data-assessment-app-navigation="standard"]) { padding-bottom: 0; }
+  .shell[data-mobile-keyboard="true"] [data-assessment-app-navigation="standard"] { display: none; }
+}
+
+@media (min-width: 640px) and (max-width: 1279px) {
+  .shell [data-pipeline-header] { height: 68px; padding-inline: 12px; }
+  .shell [data-platform-brand], .shell [data-platform-brand] + span { display: none; }
+  .shell [data-pipeline-home] { width: 44px; }
+  .shell [data-testid="primary-navigation-dock"] { margin-left: 8px; padding-block: 4px; }
+  .shell [data-testid="primary-navigation"] { gap: 2px; }
+  .shell [aria-label="Primary navigation"] { gap: 2px; }
+  .shell [data-testid="primary-navigation"] :global(.pipeline-command) { flex-direction: column; width: auto; min-width: 56px; height: 52px; gap: 3px; padding-inline: 6px; }
+  .shell [data-testid="primary-navigation"] :global(.pipeline-command) span { display: inline; font-size: 11px; line-height: 14px; font-weight: 600; text-transform: none; letter-spacing: 0; }
 }

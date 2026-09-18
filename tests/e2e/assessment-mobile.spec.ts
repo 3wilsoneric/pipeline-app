@@ -35,22 +35,33 @@ test.describe("mobile assessment", () => {
     await page.goto(practice);
     const assessment = surface(page);
     await expect(assessment).toBeVisible();
-    for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }]) {
+    for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
       await expect(assessment.getByRole("button", { name: "Close assessment" })).toBeInViewport();
       await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      for (const control of [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Close assessment" }), assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]'), assessment.getByRole("button", { name: /^Captured answers/ })]) {
+      const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Close assessment" }), assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')];
+      if (size.width < 960) controls.push(assessment.getByRole("button", { name: /^Captured answers/ }));
+      for (const control of controls) {
         const box = (await control.boundingBox())!;
         expect(box.height).toBeGreaterThanOrEqual(44);
         expect(box.width).toBeGreaterThanOrEqual(44);
       }
       const field = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
       await expect(field).toHaveCSS("font-size", "16px");
+      if (size.width >= 960) {
+        const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
+        await expect(reference).toBeVisible();
+        expect((await reference.boundingBox())!.x).toBeLessThan((await field.boundingBox())!.x);
+      }
       await page.screenshot({ path: info.outputPath(`assessment-${size.width}x${size.height}.png`) });
     }
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("button", { name: "Show app navigation" }).tap();
+    await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeInViewport();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Show app navigation" })).toHaveAttribute("aria-expanded", "false");
     const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
     await reference.getByRole("button", { name: /^Captured answers/ }).tap();
     await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();

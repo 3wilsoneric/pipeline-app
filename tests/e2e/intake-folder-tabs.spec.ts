@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
 
-for (const width of [1440, 1024, 390, 320]) {
+for (const width of [1440, 1194, 1024, 834, 768, 390, 320]) {
   test(`folder tabs connect directly to intake and retain the create flow at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}&workspaceStage=intake`);
@@ -30,6 +30,15 @@ for (const width of [1440, 1024, 390, 320]) {
     const createBox = (await create.boundingBox())!;
     expect(filesBox.x).toBeGreaterThanOrEqual(createBox.x + createBox.width);
     expect((await questionnaire.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    if (width <= 1100) {
+      for (const button of await header.getByRole("button").all()) {
+        const box = (await button.boundingBox())!;
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.width).toBeGreaterThanOrEqual(44);
+      }
+      await expect(folder.locator('[data-workspace-field="name"] input')).toHaveCSS("font-size", "16px");
+      expect((await folder.locator('[data-workspace-field="name"] input').boundingBox())!.y).toBeLessThan(340);
+    }
     await page.screenshot({ path: testInfo.outputPath(`folder-tabs-${width}.png`), animations: "disabled" });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {

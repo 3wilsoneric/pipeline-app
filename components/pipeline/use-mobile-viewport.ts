@@ -18,12 +18,17 @@ export function useMobileViewport() {
       if (!compact.matches) {
         shell.style.removeProperty("--mobile-viewport-height");
         shell.style.removeProperty("--mobile-viewport-top");
+        delete shell.dataset.mobileKeyboard;
       } else if (Math.abs(viewport.scale - 1) < 0.01) {
         shell.style.setProperty("--mobile-viewport-height", `${viewport.height}px`);
         shell.style.setProperty("--mobile-viewport-top", `${viewport.offsetTop}px`);
         const active = document.activeElement;
+        const editing = active instanceof HTMLElement && shell.contains(active)
+          && active.matches("input, textarea, select, [contenteditable='true']");
+        shell.dataset.mobileKeyboard = String(editing && !active.closest("[data-pipeline-header]")
+          && window.innerHeight - viewport.height > 120);
         if (revealFocus && active instanceof HTMLElement && shell.contains(active)
-          && active.closest("[data-assessment-view], [data-assessment-scheduling]") && active.matches("input, textarea, select")) {
+          && active.closest("[data-assessment-view], [data-assessment-scheduling], [data-guide-target='packet-workspace']") && editing) {
           active.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
         }
       }
@@ -35,6 +40,7 @@ export function useMobileViewport() {
     viewport.addEventListener("scroll", schedule);
     compact.addEventListener("change", resize);
     shell.addEventListener("focusin", resize);
+    shell.addEventListener("focusout", schedule);
     update();
     return () => {
       cancelAnimationFrame(frame);
@@ -42,8 +48,10 @@ export function useMobileViewport() {
       viewport.removeEventListener("scroll", schedule);
       compact.removeEventListener("change", resize);
       shell.removeEventListener("focusin", resize);
+      shell.removeEventListener("focusout", schedule);
       shell.style.removeProperty("--mobile-viewport-height");
       shell.style.removeProperty("--mobile-viewport-top");
+      delete shell.dataset.mobileKeyboard;
     };
   }, []);
   return ref;
