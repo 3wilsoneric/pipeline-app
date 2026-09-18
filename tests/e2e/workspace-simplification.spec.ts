@@ -53,7 +53,7 @@ for (const width of [1440, 390]) {
     await expect(activity.getByText("Assessment signed", { exact: true }).first()).toHaveCSS("font-size", "15px");
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    if (width < 1024) await expect(page.getByRole("combobox", { name: "Workspace stage", exact: true })).toHaveValue("activity");
+    await expect(page.getByRole("button", { name: "Workspace activity", exact: true })).toHaveAttribute("aria-current", "page");
     await page.screenshot({ path: testInfo.outputPath(`activity-${width}.png`), animations: "disabled" });
     const disclosure = activity.locator("summary").filter({ hasText: "Detailed history" });
     await disclosure.focus();
@@ -84,8 +84,7 @@ for (const width of [1440, 390]) {
     const signed = await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
     expect(signed.status()).toBe(200);
     await page.goto(workspaceUrl(referral.id, "intake"));
-    if (width < 1024) await page.getByRole("combobox", { name: "Workspace stage", exact: true }).selectOption("workflow");
-    else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "03 Decision", exact: true }).click();
+    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "03 Decision", exact: true }).click();
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(decision).toBeVisible();
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);
@@ -122,7 +121,7 @@ for (const width of [1440, 390]) {
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("New");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("New");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    if (width < 1024) await expect(page.getByRole("combobox", { name: "Workspace stage", exact: true })).toHaveValue("workflow");
+    await expect(page.getByRole("button", { name: "03 Decision", exact: true })).toHaveAttribute("aria-current", "page");
   });
 }
 
