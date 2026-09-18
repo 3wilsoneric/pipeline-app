@@ -1,7 +1,7 @@
 import type { ClinicalClientRecord } from "@/lib/clinical/clinical-contracts";
 import { hasReadableClinicalValue } from "@/lib/clinical/clinical-value-presentation";
 import type { UnifiedClientProfileResponse } from "./unified-profile-contracts";
-import type { ClientProfileSection } from "./client-profile-presentation";
+import { formatProfileDate, type ClientProfileSection } from "./client-profile-presentation";
 import type { HistoricalProfileResponse, HistoricalProfileSource } from "./historical-profile-contracts";
 import { persistedCanvasFieldKeys, referralCanvasValue } from "./referral-canvas-persistence";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
@@ -61,6 +61,15 @@ export function clientReferralSections(profile: UnifiedClientProfileResponse): C
     key: `referral:${referral.id}`,
     label: `Workspace #${referral.id} · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
     facts: [
+      ...(referral.admissionDecision ? [
+        { label: "Decision", value: referral.admissionDecision.outcome === "accepted" ? "Accept" : "Deny" },
+        { label: "Decision reason", value: referral.admissionDecision.reasonNote },
+        { label: "Decision recorded by", value: referral.admissionDecision.decidedByName },
+        { label: "Decision date", value: formatProfileDate(referral.admissionDecision.decidedAt) ?? "" },
+      ] : referral.assessmentRecommendation ? [
+        { label: "Placement recommendation", value: referral.assessmentRecommendation.outcome === "accept" ? "Accept" : referral.assessmentRecommendation.outcome === "decline" ? "Deny" : "Under review" },
+        { label: "Recommendation reason", value: referral.assessmentRecommendation.reasonNote },
+      ] : []),
       ...persistedCanvasFieldKeys.map((key) => ({ label: fieldLabels[key], value: referralCanvasValue(referral, key) })),
       { label: "Conserved", value: referral.conserved === "yes" ? "Yes" : referral.conserved === "no" ? "No" : "" },
       { label: "Payor", value: referral.payer },

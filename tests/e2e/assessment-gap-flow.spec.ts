@@ -35,7 +35,7 @@ for (const width of [1440, 768, 390, 320]) {
       const field = editor.locator("[data-working-field]").first();
       expect((await field.boundingBox())!.y - (await editor.boundingBox())!.y).toBeLessThan(40);
       await expect(editor.getByRole("heading")).toHaveCount(0);
-      const reference = folder.getByRole("complementary", { name: "Captured assessment answers" });
+      const reference = folder.getByRole("complementary", { name: "Current information" });
       const recorded = reference.getByRole("button", { name: "Edit Prior placements", exact: true });
       await expect(recorded).toBeInViewport();
       const reading = reference.locator("[data-assessment-reference-page]");
@@ -43,7 +43,7 @@ for (const width of [1440, 768, 390, 320]) {
       await recorded.click();
       await expect(folder.getByRole("textbox", { name: "Prior placements", exact: true })).toBeFocused();
     } else {
-      await expect(folder.getByText("1 of 3", { exact: true })).toBeVisible();
+      await expect(folder.getByText("Question 1 of 3", { exact: true })).toBeVisible();
       await expect(folder.getByText(/gaps this visit|3 in the chart|to finish here/)).toHaveCount(0);
       await expect(folder.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
     }
@@ -59,7 +59,7 @@ for (const width of [1440, 768, 390, 320]) {
     const footer = folder.locator('footer[aria-label="Assessment actions"]');
     await expect(folder.locator('summary[aria-label="More assessment actions"]')).toHaveCount(0);
     await expect(footer.getByRole("button", { name: "Review chart", exact: true })).toHaveCount(0);
-    await expect(folder).toContainText("This section is recorded");
+    await expect(folder).toContainText(width < 640 ? "Section complete" : "This section is complete");
     const next = width < 640 ? folder.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: "Next section", exact: true }) : footer.getByRole("button", { name: "Next section", exact: true });
     await next.click();
     await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
@@ -77,10 +77,10 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(page).toHaveURL(/assessmentSection=functional_adl/);
     await expect(questions.locator('[data-working-field="ambulatory"]')).toHaveCount(0);
     if (width < 640) {
-      await folder.getByRole("button", { name: "Client info", exact: true }).click();
-      const reference = page.getByRole("dialog", { name: "Client information", exact: true });
-      await reference.getByLabel("Reference information").selectOption("all");
-      await expect(reference).toContainText("Synthetic interview gap completed");
+      await folder.getByRole("button", { name: "Current info", exact: true }).click();
+      const reference = page.getByRole("dialog", { name: "Current information", exact: true });
+      await expect(reference.getByRole("combobox")).toHaveCount(0);
+      await expect(reference).not.toContainText("Synthetic interview gap completed");
       await reference.getByRole("button", { name: "Review Ambulatory", exact: true }).click();
       await questions.getByRole("group", { name: "Ambulatory", exact: true }).getByRole("button", { name: "No", exact: true }).click();
       await questions.getByRole("button", { name: "Next", exact: true }).click();
@@ -88,7 +88,9 @@ for (const width of [1440, 768, 390, 320]) {
     } else {
       await page.getByLabel("Assessment section", { exact: true }).selectOption("medication");
       await next.click();
-      // Placement is already documented, so the conversation moves to gaps in history.
+      // Completed sections keep their place in the itinerary.
+      await expect(page).toHaveURL(/assessmentSection=prior_placement/);
+      await next.click();
       await expect(page).toHaveURL(/assessmentSection=prior_history/);
       await page.getByLabel("Assessment section", { exact: true }).selectOption("provenance_qc");
       await footer.getByRole("button", { name: "Review chart", exact: true }).click();

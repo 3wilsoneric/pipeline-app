@@ -3,11 +3,35 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral, createOperationalAssessment, completeOperationalAssessment, signOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
 import { openAssessmentChart } from "./support/assessment-navigation";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
-import { clientChartAssessments } from "../../lib/pipeline/client-chart-context";
+import { clientChartAssessments, clientReferralSections } from "../../lib/pipeline/client-chart-context";
 import type { UnifiedClientProfileResponse } from "../../lib/pipeline/unified-profile-contracts";
 import type { PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
 
 const narrative = "Synthetic chart reading example. The client describes the sequence of prior placements and the support that made daily routines easier. Staff should have the full narrative available without clipped text or tiny columns.\nA second paragraph preserves the original account and its detail.";
+
+test("the living chart distinguishes a recommendation from a recorded decision without mutating the profile", () => {
+  const referral = { id: 71, name: "Synthetic chart", community: "San Pablo", createdAt: "2026-09-18T12:00:00Z",
+    assessmentRecommendation: { outcome: "needs_more_information", reasonNote: "Waiting for documents" },
+  };
+  const profile = { ...structuredClone(unifiedProfileFixture), pipeline: { ...structuredClone(unifiedProfileFixture.pipeline), referrals: [referral] } } as unknown as UnifiedClientProfileResponse;
+  const before = JSON.stringify(profile);
+  expect(clientReferralSections(profile)[0].facts).toEqual(expect.arrayContaining([
+    { label: "Placement recommendation", value: "Under review" },
+    { label: "Recommendation reason", value: "Waiting for documents" },
+  ]));
+  for (const [outcome, label] of [["accepted", "Accept"], ["declined", "Deny"]]) {
+    const decided = { ...profile, pipeline: { ...profile.pipeline, referrals: [{ ...referral,
+      admissionDecision: { outcome, reasonNote: "Recorded reason", decidedByName: "Assessor A", decidedAt: "2026-09-18T13:00:00Z" },
+    }] } } as unknown as UnifiedClientProfileResponse;
+    const facts = clientReferralSections(decided)[0].facts;
+    expect(facts).toEqual(expect.arrayContaining([
+      { label: "Decision", value: label }, { label: "Decision reason", value: "Recorded reason" },
+      { label: "Decision recorded by", value: "Assessor A" },
+    ]));
+    expect(facts.some((fact) => fact.label === "Placement recommendation")).toBe(false);
+  }
+  expect(JSON.stringify(profile)).toBe(before);
+});
 
 async function readingStyle(fact: Locator) {
   return fact.evaluate((el) => {

@@ -82,7 +82,7 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("conversation reference prioritizes documented support, follows the section, and keeps unverified sources marked", async ({ page }, info) => {
+test("current information follows only the active section and keeps unverified sources marked", async ({ page }, info) => {
   const { referral, url } = await createInterview(page);
   await page.route(`**/api/referrals/${referral.id}/assessments`, async (route) => {
     const response = await route.fetch();
@@ -92,21 +92,21 @@ test("conversation reference prioritizes documented support, follows the section
   });
   await page.goto(url);
   await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-  const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
-  await expect(reference.getByLabel("Reference information")).toHaveValue("briefing");
-  await expect(reference.getByRole("region", { name: "Interview support", exact: true })).toBeVisible();
-  await expect(reference).toContainText("Synthetic interpreter arranged");
-  await expect(reference).toContainText("Synthetic walker");
+  const reference = page.getByRole("complementary", { name: "Current information" });
+  await expect(reference.getByRole("combobox")).toHaveCount(0);
+  await expect(reference).not.toContainText("Synthetic interpreter arranged");
+  await expect(reference).not.toContainText("Synthetic walker");
   await expect(reference).not.toContainText("Hidden stale answer");
   await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
   await expect(reference).not.toContainText("Synthetic earlier placement");
   await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
   await expect(reference).toContainText("Synthetic earlier placement");
   await expect(reference).not.toContainText("Synthetic documented diagnosis");
-  await expect(reference).toContainText("Synthetic interpreter arranged");
-  await reference.getByLabel("Reference information").selectOption("all");
-  await expect(reference).toContainText("Synthetic documented diagnosis");
+  await expect(reference).not.toContainText("Synthetic interpreter arranged");
+  await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_placement");
+  await expect(reference).not.toContainText("Synthetic earlier placement");
+  await page.getByLabel("Assessment section", { exact: true }).selectOption("medication");
+  await expect(reference).not.toContainText("Synthetic documented diagnosis");
   await expect(reference).toContainText("Synthetic medication");
-  await reference.getByLabel("Reference information").selectOption("briefing");
   await page.screenshot({ path: info.outputPath("conversation-context.png") });
 });

@@ -24,10 +24,10 @@ async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared d
 
 async function editDiagnosis(page: Page, width: number) {
   if (width < 640) {
-    await page.getByRole("button", { name: "Client info", exact: true }).click();
+    await page.getByRole("button", { name: "Current info", exact: true }).click();
     await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
   } else {
-    if (width < 760) await page.getByRole("button", { name: /^Captured answers/ }).click();
+    if (width < 760) await page.getByRole("button", { name: /^Current information/ }).click();
     await page.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
   }
   return page.locator("#assessment-secondary_diagnoses");
@@ -50,7 +50,7 @@ for (const width of [1440, 834, 390]) {
     const answer = "Synthetic answer saved before opening Decision";
     await (await editDiagnosis(page, width)).fill(answer);
     const pages = header.getByRole("navigation", { name: "Workspace stages" });
-    for (const label of ["Decision", "Chart", "Assessment", "Intake", "Decision", "Chart", "Assessment"]) {
+    for (const label of ["Decision", "Chart", "Assessment", "Chart", "Decision", "Chart", "Assessment"]) {
       await pages.getByRole("button", { name: new RegExp(`${label}$`) }).click();
       await expect(pages.getByRole("button", { name: new RegExp(`${label}$`) })).toHaveAttribute("aria-current", "page");
       if (label === "Decision") {
@@ -88,8 +88,8 @@ for (const width of [1440, 1024, 768, 640]) {
     const header = page.getByTestId("workspace-folder-header");
     const footer = folder.locator('footer[aria-label="Assessment actions"]');
     const questionPage = folder.locator("[data-assessment-question-page]");
-    const reference = folder.getByRole("complementary", { name: "Captured assessment answers" });
-    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    const reference = folder.getByRole("complementary", { name: "Current information" });
+    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
     const recorded = reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true });
     await expect(recorded).toContainText(longNote);
     expect(await recorded.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
@@ -101,7 +101,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await page.mouse.move(left.x + left.width / 2, left.y + 90);
     await page.mouse.wheel(0, 200);
     await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(100);
-    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
     const afterLeft = await canvas.evaluate((el) => el.scrollTop);
     const right = (await questionPage.boundingBox())!;
     await page.mouse.move(right.x + right.width / 2, Math.max(220, right.y + 40));
@@ -142,7 +142,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     await expect(page.getByRole("navigation", { name: "Client file pages" })).toHaveCount(0);
     await expect(page.getByTestId("workspace-identity-title")).toHaveCount(1);
     const pages = header.getByRole("navigation", { name: "Workspace stages" });
-    await expect(pages.getByRole("button")).toHaveText(["01Intake", "02Assessment", "03Decision", "04Chart"]);
+    await expect(pages.getByRole("button")).toHaveText(["01Chart", "02Assessment", "03Decision"]);
     await expect(pages.getByRole("button", { name: /Assessment$/ })).toHaveAttribute("aria-current", "page");
     if (width < 640) {
       await folder.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: "Next", exact: true }).click();

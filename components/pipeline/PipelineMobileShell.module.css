@@ -19,7 +19,6 @@
 
 @media (max-width: 959px), (hover: none) and (pointer: coarse) {
   /* The assessment header reserves this slot; the handle never covers its name. */
-  .shell [data-assessment-app-navigation="collapsed"] { height: 0; }
   .shell [aria-label="Show app navigation"] { top: 6px; left: 8px; right: auto; height: 44px; min-width: 44px; border-radius: 5px; }
   .shell [aria-label="Show app navigation"][aria-expanded="true"] { z-index: -1; }
   .shell [data-guide-target="packet-workspace"] { scroll-padding-block: 104px 20px; }

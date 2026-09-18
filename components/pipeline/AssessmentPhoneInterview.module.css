@@ -1,9 +1,10 @@
 .interview { display: flex; flex: 1; flex-direction: column; min-height: 0; color: #20352d; background: #fff; }
-.toolbar { display: flex; flex-shrink: 0; gap: 8px; padding: 4px 16px; border-bottom: 1px solid #075d49; background: #075d49; color: #fff; }
+.toolbar { display: flex; flex-shrink: 0; gap: 8px; padding: 7px 12px 7px 16px; border-bottom: 1px solid #075d49; background: #075d49; color: #fff; }
 .toolbar button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; min-width: 44px; font-size: 13px; font-weight: 650; text-align: left; }
 .toolbar button:first-child { flex: 1; min-width: 0; }
-.toolbar button:first-child span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.toolbar button:last-child { flex-shrink: 0; padding-inline: 8px; color: #fff; }
+.toolbar button:first-child span { min-width: 0; white-space: normal; font-size: 14px; line-height: 1.35; }
+.toolbar small { display: block; margin-bottom: 3px; color: #d0e6dd; font-size: 11px; font-weight: 500; letter-spacing: .025em; }
+.toolbar button:last-child { flex-shrink: 0; flex-direction: column; justify-content: center; gap: 4px; padding-inline: 10px 4px; border-left: 1px solid #ffffff30; color: #fff; font-size: 11px; line-height: 1.2; }
 .progress { height: 3px; flex-shrink: 0; background: #e4ede8; }
 .progress span { display: block; height: 100%; background: #188260; }
 .scroller { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y pinch-zoom; scroll-padding-block: 16px; }
@@ -37,14 +38,11 @@
 .sheet header button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #f1f6f3; }
 .sheetBody { overflow-y: auto; overscroll-behavior: contain; padding: 8px 20px max(20px, env(safe-area-inset-bottom)); }
 .sheetBody > p { padding-block: 8px 16px; color: #566b5e; font-size: 13px; line-height: 1.5; }
-.sheetBody > input { width: 100%; min-height: 48px; padding: 12px; border: 1px solid #b9ccc1; border-radius: 10px; font-size: 16px; }
 .sheetBody > button { position: relative; display: block; width: 100%; min-height: 64px; padding: 14px 24px 14px 0; border-bottom: 1px solid #e1e9e4; text-align: left; }
 .sheetBody > button[aria-current] { color: #137553; }
 .sheetBody strong { display: block; font-size: 15px; font-weight: 650; }
 .sheetBody span { display: block; margin-top: 5px; color: #52675b; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 .sheetBody small { display: block; color: #875010; margin-top: 5px; }
-.sheetBody label { display: block; margin-bottom: 12px; font-size: 13px; color: #53665c; }
-.sheetBody select { display: block; width: 100%; min-height: 44px; margin-top: 6px; padding: 8px 10px; border: 1px solid #cbd6cf; border-radius: 5px; background: white; color: #263d32; font-size: 16px; }
 .sheetBody svg { position: absolute; right: 0; top: 24px; }
 .sheetBody > button:disabled { opacity: 1; cursor: default; }
 .mobileMain { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }

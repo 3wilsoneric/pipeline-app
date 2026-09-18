@@ -8,6 +8,7 @@ for (const width of [1440, 834, 390]) {
     await page.setViewportSize({ width, height: 950 });
     const name = `Example Jamie ${randomUUID().replace(/[^a-z]/g, "")}`;
     await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
+    await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button")).toHaveText(["Intake"]);
     const intake = page.getByTestId("intake-client-folder");
     await intake.locator('[data-workspace-field="name"] input').fill(name);
     await intake.locator('[data-workspace-field="email"] input').fill("example@example.invalid");
@@ -19,6 +20,26 @@ for (const width of [1440, 834, 390]) {
     expect(referral.name).toContain("Example");
     expect(referral.community).toBe("San Pablo");
     expect(referral.email).toBe("example@example.invalid");
+    const stages = page.getByRole("navigation", { name: "Workspace stages" });
+    await expect(stages.getByRole("button")).toHaveText(["01Chart", "02Assessment", "03Decision"]);
+    await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).toContainText("San Pablo");
+    await expect(page.getByRole("article", { name: "Client medical chart", exact: true }).getByTestId("client-identity-title")).not.toHaveText(/Not documented/);
+    expect((await (await page.request.get(`/api/referrals/${referralId}/assessments`)).json()).assessments).toHaveLength(0);
+
+    // Referral details are an editor in this same file, not an Intake stage left behind.
+    await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
+    await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+    await intake.locator('[data-workspace-field="email"] input').fill("updated@example.invalid");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
+    await page.reload();
+    await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}`);
+    await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
+    await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+    await page.screenshot({ path: info.outputPath(`living-chart-${width}.png`) });
+    const chartBounds = (await page.getByRole("article", { name: "Client medical chart", exact: true }).boundingBox())!;
 
     await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
     await expect(page.locator("[data-assessment-view]")).toBeVisible();
@@ -44,12 +65,25 @@ for (const width of [1440, 834, 390]) {
     await expect(review.getByRole("button", { name: "Return to questions" })).toHaveCount(0);
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await expect(page.locator('footer[aria-label="Assessment actions"]')).toContainText("Assessment signed");
+    await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: /^(Admission decision|View admission)$/ })).toHaveCount(0);
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
+    await expect(decision).toHaveCount(0);
+    const signedBounds = (await review.getByRole("article", { name: "Client medical chart", exact: true }).boundingBox())!;
+    expect(Math.abs(signedBounds.x - chartBounds.x)).toBeLessThan(1);
+    expect(Math.abs(signedBounds.width - chartBounds.width)).toBeLessThan(1);
+    await page.screenshot({ path: info.outputPath(`signed-in-place-${width}.png`) });
+    await stages.getByRole("button", { name: /Decision$/ }).click();
     await expect(decision).toBeVisible();
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
     await decision.getByLabel("Reason (optional)", { exact: true }).fill("Synthetic end-to-end example, not a clinical decision.");
     page.once("dialog", (dialog) => dialog.accept());
     await decision.getByRole("button", { name: "Record decision", exact: true }).click();
+    await expect(decision.getByLabel("Admission date", { exact: true })).toBeVisible();
+    await stages.getByRole("button", { name: /Chart$/ }).click();
+    await expect(page.getByTestId("profile-workspace")).toContainText("Synthetic end-to-end example, not a clinical decision.");
+    await stages.getByRole("button", { name: /Decision$/ }).click();
     await decision.getByLabel("Admission date", { exact: true }).fill("2026-10-01");
     let mailRequests = 0;
     page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) mailRequests++; });

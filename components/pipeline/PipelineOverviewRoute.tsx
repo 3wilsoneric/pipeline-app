@@ -335,7 +335,9 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         params.set("screen", "packet");
         params.set("referralId", String(savedReferral.id));
         params.delete("draftId");
-        const location = pipelineWorkspaceLocationFromSearchParams(new URLSearchParams(window.location.search));
+        const location: PipelineWorkspaceLocation = selectedReferral
+          ? pipelineWorkspaceLocationFromSearchParams(new URLSearchParams(window.location.search))
+          : { view: "chart" };
         applyPipelineWorkspaceLocation(params, location);
         replacePipelineHistory(`/?${params.toString()}`);
         if (!isDemoWorkspace) {
