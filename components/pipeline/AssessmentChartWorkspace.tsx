@@ -41,12 +41,11 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, onOpenEmail, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, onOpenFiles, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
   emailDraft?: { recipients: string; onChange: (value: string) => void };
-  onOpenEmail?: () => void;
   onOpenFiles?: () => void;
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
@@ -143,7 +142,6 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   return (
     <div className="mx-auto w-full max-w-[1240px]">
       <div className={styles.chartActions}>
-        {onOpenEmail ? <button type="button" data-guide-target="chart-meet-client-tab" className={styles.textButton} onClick={onOpenEmail}><Mail size={16} />Open email &amp; packet</button> : null}
         {refresh}
       </div>
       <ChartStatusMessage error={error} message={message} />
@@ -261,11 +259,14 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, onRecip
   return (
     <div className={styles.composer} data-guide-target="chart-email-handoff">
       <div className={styles.toolbar}>
+        {email.can_send ? <label className={styles.confirmation}>
+          <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={sending} aria-label="I verified that each recipient is authorized to receive this summary and the attached files." />
+          <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></span>
+        </label> : null}
         <button type="button" className={styles.sendButton} onClick={onSend}
           disabled={sending || !email.ready || !confirmed || !recipients.trim()}>
           <Send size={16} />{sending ? "Sending…" : "Send email & packet"}
         </button>
-        <span className={styles.previewLabel}>Email preview</span>
       </div>
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
       <div className={styles.addressRow}>
@@ -302,7 +303,6 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, onRecip
             {onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Review assessment</button> : null}
           </div>
         </details>
-        {email.can_send ? <label className={styles.confirmation}><input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={sending} /><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></label> : null}
       </footer>
     </div>
   );
