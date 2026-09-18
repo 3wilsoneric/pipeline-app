@@ -48,7 +48,7 @@ async function checkStyledMenus(page: Page, testInfo: TestInfo) {
     await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
     const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
     await cabinet.click();
-    const drawer = page.getByRole("dialog", { name: "JC Wallace House file cabinet", exact: true });
+    const drawer = page.getByRole("region", { name: "JC Wallace House file cabinet", exact: true });
     await expect(drawer.getByRole("list", { name: "JC Wallace House clients", exact: true })).toContainText("Oscar Martin");
     await page.keyboard.press("Escape");
     await expect(drawer).toHaveCount(0);
@@ -91,7 +91,7 @@ for (const browserName of ["webkit", "firefox"] as const) {
   });
 }
 
-test("compact cabinets expand into one file window and return focus on close", async ({ page }, testInfo) => {
+test("compact cabinets expand across the page body and return focus on close", async ({ page }, testInfo) => {
   await openClients(page);
   await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
@@ -103,11 +103,13 @@ test("compact cabinets expand into one file window and return focus on close", a
   const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
   await cabinet.focus();
   await page.keyboard.press("Enter");
-  const drawer = page.getByRole("dialog", { name: "JC Wallace House file cabinet", exact: true });
+  const drawer = page.getByRole("region", { name: "JC Wallace House file cabinet", exact: true });
   await expect(drawer.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
   await expect(drawer.getByRole("button", { name: "Open profile for Riley Perez", exact: true })).toHaveCount(0);
   await expect.poll(() => drawer.evaluate((node) => node.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
-  expect((await drawer.boundingBox())!.width).toBeGreaterThan(1000);
+  expect(await drawer.boundingBox()).toEqual(await page.getByRole("main", { name: "Client profiles" }).boundingBox());
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByLabel("Pipeline home", { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("cabinet-open.png") });
   await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
   await expect(drawer.getByTestId("client-chart-thumbnail")).toHaveCount(1);
@@ -118,7 +120,7 @@ test("compact cabinets expand into one file window and return focus on close", a
   await page.emulateMedia({ reducedMotion: "reduce" });
   await cabinet.click();
   expect(await drawer.evaluate((node) => node.getAnimations().length)).toBe(0);
-  await page.getByRole("button", { name: "Close jc wallace house file cabinet", exact: true }).click();
+  await page.getByRole("button", { name: "Back to cabinets", exact: true }).click();
   await expect(cabinet).toBeFocused();
 });
 

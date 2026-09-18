@@ -424,7 +424,7 @@ test.describe("Pipeline home", () => {
     await expect(activeProfiles).toHaveCSS("background-color", "rgb(238, 241, 255)");
     await expect(activeProfiles).toHaveCSS("border-color", "rgb(75, 104, 173)");
     await page.getByRole("button", { name: /file cabinet$/ }).first().click();
-    await expect(page.getByRole("dialog").getByText("1 client", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: /file cabinet$/ }).getByText("1 client", { exact: true })).toBeVisible();
     await expect(page.getByText("Avery Example", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: /Avery Example/ }).click();
