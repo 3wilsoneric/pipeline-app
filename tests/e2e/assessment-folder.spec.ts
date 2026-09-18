@@ -58,7 +58,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     if (width >= 640) {
       const pages = header.getByRole("navigation", { name: "Client file pages" });
       await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
-      await expect(folder.getByRole("navigation", { name: "Assessment section navigation" }).getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
+      await expect(folder.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
       await pages.getByRole("button", { name: "Prepare", exact: true }).click();
       await expect(page.getByTestId("preparation-client-folder")).toBeVisible();
       await page.getByRole("button", { name: "Return to assessment", exact: true }).click();

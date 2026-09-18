@@ -11,6 +11,7 @@
 .position { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; margin: 0 0 22px; color: #64766c; font-size: 12px; font-weight: 550; }
 .position:focus { outline: none; }
 .position span { color: #39725a; }
+.question .gapHint { margin: -10px 0 18px; font-size: 13px; line-height: 1.5; color: #52675b; }
 .question [data-working-field] > div > div:first-child { align-items: flex-start; margin-bottom: 18px; }
 .question [data-working-field] > div > div:first-child > label { color: #20352d; font-size: 25px; font-weight: 650; line-height: 1.25; letter-spacing: -0.025em; }
 .question [data-working-field] > div > div:first-child > span { display: none; }
@@ -47,11 +48,6 @@
 .sheetBody select { display: block; width: 100%; min-height: 44px; margin-top: 6px; padding: 8px 10px; border: 1px solid #cbd6cf; border-radius: 5px; background: white; color: #263d32; font-size: 16px; }
 .sheetBody svg { position: absolute; right: 0; top: 24px; }
 .sheetBody > button:disabled { opacity: 1; cursor: default; }
-.mobileActions > summary { list-style: none; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; color: #166348; font-size: 12px; font-weight: 650; cursor: pointer; }
-.mobileActions > summary::-webkit-details-marker { display: none; }
-.mobileActions[open] > summary { border-bottom: 1px solid #e3ebe7; margin-bottom: 8px; }
-.mobileActions[open] { flex-basis: 100%; }
-.mobileActions > div { max-height: 35dvh; overflow-y: auto; padding-bottom: 8px; }
 .mobileMain { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .mobileMain > div:not([data-assessment-question-content]) { flex-shrink: 0; max-height: 35%; overflow-y: auto; }
 .mobileMain > [data-assessment-question-content] { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0; }

@@ -1,3 +1,4 @@
+import { openAssessmentChart } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
@@ -27,11 +28,10 @@ for (const width of [1440, 390]) {
     const read = async () => (await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json());
     await page.goto(url);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
-    if (width < 640) await footer.locator('summary[aria-label="Assessment progress actions"]').click();
     await footer.getByRole("button", { name: "Open assessment", exact: true }).click();
-    const more = footer.locator('summary[aria-label="More assessment actions"]');
+    const more = page.locator('summary[aria-label="Assessment details"]');
     if (width < 640) await more.click();
-    const recommendation = footer.getByRole("combobox", { name: "Placement recommendation" });
+    const recommendation = page.getByRole("combobox", { name: "Placement recommendation" });
     await expect(recommendation).toBeEnabled();
     for (const outcome of ["accept", "needs_more_information", "decline"]) {
       await recommendation.selectOption(outcome);
@@ -46,7 +46,7 @@ for (const width of [1440, 390]) {
       return route.fulfill({ status: 503, json: { error: "Synthetic save unavailable" } });
     });
     await recommendation.selectOption("accept");
-    await expect(footer.locator("[data-quick-recommendation]").getByRole("alert")).toContainText("Synthetic save unavailable");
+    await expect(page.locator("[data-quick-recommendation]").getByRole("alert")).toContainText("Synthetic save unavailable");
     await expect(recommendation).toHaveValue("decline");
     await page.unroute(`**/api/referrals/${referral.id}/recommendation`);
     const retried = page.waitForRequest((request) => request.url().endsWith(`/api/referrals/${referral.id}/recommendation`) && request.method() === "PUT");
@@ -63,7 +63,6 @@ for (const width of [1440, 390]) {
     expect(saved.started_at).toBeNull();
     expect(saved.meet_client_sent_at).toBeFalsy();
     await page.reload();
-    if (width < 640) await footer.locator('summary[aria-label="Assessment progress actions"]').click();
     await footer.getByRole("button", { name: "Open assessment", exact: true }).click();
     if (width < 640) await more.click();
     await expect(recommendation).toHaveValue("needs_more_information");
@@ -73,7 +72,7 @@ for (const width of [1440, 390]) {
     try {
       await recommendation.selectOption("accept");
       if (width < 640) await more.click();
-      await footer.getByRole("button", { name: "Review chart", exact: true }).click();
+      await openAssessmentChart(page);
       await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeDisabled();
     } finally { release(); }
     await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();

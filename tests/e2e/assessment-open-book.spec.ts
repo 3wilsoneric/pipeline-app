@@ -1,3 +1,4 @@
+import { openAssessmentChart } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
@@ -296,15 +297,13 @@ for (const width of [1440, 390]) {
       await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     }
     await secondary.fill("Final answer before signing");
-    if (width < 640) await page.locator('summary[aria-label="Assessment progress actions"]').click();
     await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
-    await page.locator("[data-assessment-primary-action]").getByRole("button", { name: "Review chart", exact: true }).click();
+    await openAssessmentChart(page);
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
     await page.getByRole("button", { name: "Return to questions", exact: true }).click();
     await expect(secondary).toHaveValue("Final answer before signing");
     if (width < 640) await expect(secondary).toBeInViewport();
-    if (width < 640) await page.locator('summary[aria-label="Assessment progress actions"]').click();
-    await page.locator("[data-assessment-primary-action]").getByRole("button", { name: "Review chart", exact: true }).click();
+    await openAssessmentChart(page);
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();

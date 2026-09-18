@@ -13,9 +13,20 @@
 .beginDialog button:last-child { border-color: #007254; background: #007e60; color: #fff; }
 .beginDialog button:disabled { opacity: .5; }
 .beginDialog button:focus-visible { outline: 2px solid #087e64; outline-offset: 3px; }
-.folderHeader { display: flex; align-items: flex-end; flex-shrink: 0; gap: 10px; min-width: 0; padding-top: 4px; padding-left: 50px; }
+.folderHeader { position: relative; z-index: 10; display: flex; align-items: flex-end; flex-shrink: 0; gap: 10px; min-width: 0; padding-top: 4px; padding-left: 50px; }
 .folderHeader .folderIdentity { position: relative; z-index: 4; flex: 0 1 38%; max-width: 420px; min-height: 50px; margin-left: 0; }
 .folderIdentity > span { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
+.fileDetails { position: relative; }
+.fileDetails > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; list-style: none; cursor: pointer; color: #4c6157; font-size: 13px; font-weight: 600; }
+.fileDetails > summary::-webkit-details-marker { display: none; }
+.folderIdentity.fileDetails { display: block; padding-block: 3px; }
+.folderIdentity > summary > h2 { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
+.fileDetails > summary > svg { flex-shrink: 0; }
+.fileDetailsPanel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(320px, calc(100vw - 80px)); max-height: 60dvh; overflow-y: auto; overscroll-behavior: contain; padding: 8px; border: 1px solid #cbd6cf; border-radius: 6px; background: #fff; box-shadow: 0 8px 32px #18382a26; }
+.fileDetailsPanel button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; color: #354d40; font-size: 14px; font-weight: 500; text-align: left; }
+.fileDetailsPanel button:hover { background: #edf4ef; }
+.fileDetailsPanel :is(button, select):focus-visible, .fileDetails > summary:focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
+.embedded footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
 .folderHeader .filePages { flex-shrink: 0; overflow: visible; max-width: none; padding: 6px 4px 0; }
 .filePages button:focus-visible, .groupNavigation button:focus-visible, .returnButton:focus-visible { outline: 2px solid #087e64; outline-offset: -3px; }
 .returnButton { display: inline-flex; align-items: center; align-self: center; justify-content: center; gap: 7px; flex-shrink: 0; min-height: 44px; margin-left: auto; padding: 8px 12px; border: 1px solid #bfcfc7; border-radius: 5px; background: #ffffffa6; color: #2c5142; font-size: 14px; font-weight: 600; }

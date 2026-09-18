@@ -61,12 +61,12 @@
 .editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #fff; }
 .questionPage { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding: 24px 32px 32px; scroll-padding-block: 24px; }
 .questionPage > * { max-width: 780px; margin-inline: auto; }
-.sectionNavigation { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 20px; border-top: 1px solid #e0e4dc; background: #fdfdfb; }
-.sectionNavigation button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 10px; border-radius: 4px; color: #345a49; font-size: 14px; font-weight: 600; }
-.sectionNavigation button:hover:not(:disabled) { background: #edf3ed; }
-.sectionNavigation button:disabled { opacity: .4; }
 .paneHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 24px; color: #273c34; }
 .paneHeading h4 { font-size: 24px; font-weight: 650; letter-spacing: -0.03em; }
+.paneHeading p { margin-top: 5px; color: #64706c; font-size: 14px; line-height: 1.5; }
+.conversationPrompt { margin-bottom: 20px; color: #3d554b; font-size: 16px; line-height: 1.5; }
+.footer[aria-label="Assessment actions"] .previousSection { display: flex; align-items: center; gap: 5px; min-height: 44px; padding: 8px 10px; border-color: transparent; background: transparent; box-shadow: none; color: #4c6157; font-size: 14px; font-weight: 600; }
+.previousSection:disabled { opacity: .4; }
 .paneHeading span { color: #64706c; font-size: 14px; white-space: nowrap; }
 .questionGroup + .questionGroup { margin-top: 28px; padding-top: 26px; border-top: 1px solid #e0e6e2; }
 .questionGroup h5 { margin-bottom: 18px; color: #52695e; font-size: 14px; font-weight: 600; }
@@ -92,7 +92,6 @@
 .quickRecommendation select { width: 100%; min-height: 44px; border: 1px solid #c9d3ce; border-radius: 5px; padding: 6px 10px; background: #fff; color: #314b3e; font-size: 16px; font-weight: 600; }
 .quickRecommendation [role="alert"] { display: block; max-width: 30ch; padding-top: 4px; color: #9c342f; font-size: 12px; }
 .recommendationStatus { display: block; padding-top: 3px; color: #68746e; font-size: 11px; }
-.secondaryPanel .quickRecommendation { padding: 8px; }
 .chartReview { padding: 0 24px 32px; background: #fff; }
 .chartReviewToolbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-bottom: 1px solid #dde3df; background: #fff; font-size: 14px; color: #54645c; }
 .chartReviewToolbar button { display: flex; align-items: center; gap: 5px; min-height: 44px; color: #286350; font-weight: 600; }
@@ -105,17 +104,8 @@
 .chartReview article dd { font-size: 16px; line-height: 1.6; }
 .chartReview article h3 { font-size: 14px; }
 .chartReview article > footer { font-size: 12px; }
-.secondaryActions { flex-shrink: 0; }
-.secondaryActions > summary { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 68px; min-height: 44px; padding: 8px 10px; list-style: none; color: #4c6157; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 5px; }
-.secondaryActions > summary::-webkit-details-marker { display: none; }
-.secondaryActions > summary:hover { background: #eaf0ec; }
-.secondaryActions > summary svg { transform: rotate(180deg); }
-.secondaryPanel { position: absolute; z-index: 20; right: 12px; bottom: calc(100% + 6px); width: min(260px, calc(100% - 24px)); max-height: min(400px, 55dvh); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border: 1px solid #cbd6cf; border-radius: 8px; background: #fff; box-shadow: 0 8px 32px #18382a26; }
-.footer .secondaryPanel button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; min-height: 44px; height: auto; padding: 10px 12px; border: 0; border-radius: 4px; background: transparent; color: #354d40; box-shadow: none; text-align: left; font-size: 14px; font-weight: 500; }
-.footer .secondaryPanel button:hover:not(:disabled) { background: #edf4ef; box-shadow: none; }
 .footer [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; height: auto; padding: 10px 16px; border: 1px solid #007254; border-radius: 5px; background: #007e60; color: #fff; font-size: 14px; font-weight: 600; }
 .footer [data-assessment-primary-action] > button:disabled { opacity: .5; cursor: not-allowed; }
-.secondaryActions > summary:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
 .footer [data-guide-target="assessment-save-status"] { justify-content: flex-start; }
 
 @media (max-width: 1199px) {

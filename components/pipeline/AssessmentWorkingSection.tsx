@@ -21,6 +21,8 @@ import { AssessmentField } from "@/components/pipeline/AssessmentInterviewFields
 import { latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import {
   assessmentQuestionStatus,
+  assessmentConversationSections,
+  assessmentGapSections,
   assessmentConversationContext,
   assessmentWorkingCounts,
   capturedAssessmentAnswer,
@@ -33,9 +35,8 @@ import styles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 type WorkingData = { data: AssessmentToolData; pending: readonly AssessmentToolFieldKey[] };
 type QuestionTarget = { field: AssessmentToolFieldKey };
 
-export function AssessmentWorkingNavigation({ data, pending, activeSection, groups, guideTargets, onSectionChange, onJump }: WorkingData & {
+export function AssessmentWorkingNavigation({ data, pending, activeSection, guideTargets, onSectionChange, onJump }: WorkingData & {
   activeSection: AssessmentToolSection;
-  groups: ReadonlyArray<{ label: string; sections: readonly AssessmentToolSection[] }>;
   guideTargets: Readonly<Record<AssessmentToolSection, string>>;
   onSectionChange: (section: AssessmentToolSection) => void;
   onJump: (section: AssessmentToolSection, field: AssessmentToolFieldKey) => void;
@@ -50,18 +51,14 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, grou
     document.addEventListener("pointerdown", closeOutside);
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, []);
-  const sections = assessmentInterviewSections.map((section) => ({ ...section, questions: getAssessmentInterviewQuestions(section.key, data) }));
+  const sections = assessmentGapSections(data, pending);
   const matches = sections.flatMap((section) => section.questions.filter((question) => matchesAssessmentQuestion(question, query)).map((question) => ({ section, question })));
   return <nav aria-label="Assessment sections" className={styles.navigation}>
     <label className={styles.sectionPicker}>
       <span className="sr-only">Assessment section</span>
       <select aria-label="Assessment section" data-guide-target={"assessment-section-nav " + Object.values(guideTargets).join(" ")} value={activeSection} onChange={(event) => onSectionChange(event.target.value as AssessmentToolSection)}>
-        {groups.map((group) => <optgroup key={group.label} label={group.label}>
-          {group.sections.map((key) => {
-            const section = sections.find((section) => section.key === key)!;
-            const counts = assessmentWorkingCounts(section.questions, data, pending);
-            return <option key={key} value={key}>{section.label} · {counts.unanswered + counts.verify + counts.reasons} remaining</option>;
-          })}
+        {[true, false].map((unfinished) => <optgroup key={String(unfinished)} label={unfinished ? "Gaps to fill" : "Already recorded"}>
+          {sections.filter((section) => Boolean(section.remaining.length) === unfinished).map((section) => <option key={section.key} value={section.key}>{section.label} · {section.remaining.length ? `${section.remaining.length} to finish` : "Recorded"}</option>)}
         </optgroup>)}
       </select>
     </label>
@@ -94,7 +91,6 @@ export type WorkingSectionProps = WorkingData & {
   disabled: boolean;
   reviewDisabled: boolean;
   target: QuestionTarget | null;
-  sectionNavigation?: React.ReactNode;
   questionNavigation?: React.ReactNode;
   onChange: (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => void;
   onFieldFocus: (field: AssessmentToolFieldKey) => void;
@@ -146,7 +142,8 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
     <div data-assessment-question-editor className={styles.editor}>
       {props.questionNavigation}
       <div ref={editor} className={styles.questionPage} data-assessment-question-page>
-      <header className={styles.paneHeading}><h4>{isAssessmentFinalized(props.assessment) ? "Sent assessment" : "To finish"}</h4><span>{counts.unanswered + counts.verify + counts.reasons} remaining</span></header>
+      <header className={styles.paneHeading}><div><h4>{isAssessmentFinalized(props.assessment) ? "Sent assessment" : "Fill the gaps"}</h4><p>{counts.captured} already in the chart. {counts.unanswered + counts.verify + counts.reasons} to finish here{counts.verify ? `, including ${counts.verify} to verify` : ""}.</p></div></header>
+      {groups.length > 0 ? <p className={styles.conversationPrompt}>{assessmentConversationSections.find((section) => section.key === props.section)?.prompt}</p> : null}
       {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Read the sent answers in Client information." : "This section is recorded. Continue to the next section, or select an answer in Client information to edit it."}</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.questionGroup}>
         <h5>{group.label}</h5>
@@ -158,7 +155,6 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
         </div>
       </section>)}
       </div>
-      {props.sectionNavigation}
     </div>
   </div>;
 }
@@ -190,7 +186,7 @@ function CapturedAssessmentAnswers({ section, data, pending, questions, referenc
       <header className={styles.referenceHeader}>
       <h4 className="sr-only">Client information</h4>
       {onReferenceGroupChange ? <select aria-label="Reference information" value={referenceGroup ?? "briefing"} onChange={(event) => onReferenceGroupChange(event.target.value)} className={styles.referenceSelector}>
-        <option value="briefing">For this conversation</option>
+        <option value="briefing">Already in the chart</option>
         <option value="all">All recorded information</option>
         <option value="section">This assessment section</option>
         {assessmentPreparationGroups.map((group) => <option key={group.key} value={group.key}>{group.label}</option>)}

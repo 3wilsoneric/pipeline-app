@@ -41,8 +41,8 @@ test.describe("mobile assessment", () => {
       const phone = size.width < 640 || size.height < 500 && size.width < 960;
       if (phone) {
         await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeHidden();
-        await expect(assessment.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
-      } else await expect(assessment.getByRole("button", { name: "Review chart", exact: true })).toBeInViewport();
+        await expect(assessment.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /^Next/ })).toBeInViewport();
+      } else await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Back to referral" }), ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')])];
