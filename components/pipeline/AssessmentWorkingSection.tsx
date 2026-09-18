@@ -50,16 +50,20 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, []);
   const sections = assessmentGapSections(data, pending);
+  const remaining = sections.find((section) => section.key === activeSection)!.remaining.length;
   const matches = sections.flatMap((section) => section.questions.filter((question) => matchesAssessmentQuestion(question, query)).map((question) => ({ section, question })));
   return <nav aria-label="Assessment sections" className={styles.navigation}>
     <label className={styles.sectionPicker}>
       <span className="sr-only">Assessment section</span>
       <select aria-label="Assessment section" data-guide-target={"assessment-section-nav " + Object.values(guideTargets).join(" ")} value={activeSection} onChange={(event) => onSectionChange(event.target.value as AssessmentToolSection)}>
         {[true, false].map((unfinished) => <optgroup key={String(unfinished)} label={unfinished ? "Gaps to fill" : "Already recorded"}>
-          {sections.filter((section) => Boolean(section.remaining.length) === unfinished).map((section) => <option key={section.key} value={section.key}>{section.label} · {section.remaining.length ? `${section.remaining.length} to finish` : "Recorded"}</option>)}
+          {sections.filter((section) => Boolean(section.remaining.length) === unfinished).map((section) => <option key={section.key} value={section.key}>{section.label}</option>)}
         </optgroup>)}
       </select>
     </label>
+    <span role="status" aria-live="polite" aria-atomic="true" className={styles.sectionProgress}>
+      {remaining ? <><strong>{remaining}</strong> to finish</> : "Recorded"}
+    </span>
     <details ref={search} className={styles.search} onToggle={(event) => { if (event.currentTarget.open) searchInput.current?.focus(); }} onBlur={(event) => {
       // Safari touch buttons can blur the input without receiving focus. Let the
       // result's click run; outside pointer presses are handled independently.
@@ -67,7 +71,7 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
     }} onKeyDown={(event) => {
       if (event.key === "Escape") { event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); }
     }}>
-      <summary aria-label="Find assessment question"><Search size={17} aria-hidden="true" /><span>Find a question</span></summary>
+      <summary aria-label="Find assessment question" title="Find a question"><Search size={18} aria-hidden="true" /></summary>
       <div className={styles.searchResults}>
         <input ref={searchInput} type="search" aria-label="Find assessment question" placeholder="Find a question" value={query} onChange={(event) => setQuery(event.target.value)} />
         {query.trim() ? <div aria-label="Matching assessment questions">
