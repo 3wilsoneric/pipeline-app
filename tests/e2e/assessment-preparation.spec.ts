@@ -121,12 +121,12 @@ for (const width of [1440, 768]) {
     await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(notebook.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
     const reference = notebook.getByRole("complementary", { name: "Captured assessment answers" });
-    if (width < 960) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
     await reference.getByRole("combobox", { name: "Reference information" }).selectOption("prior_history");
     await expect(reference).toContainText("Documented secondary diagnosis from the synthetic referral.");
     await reference.evaluate((element) => element.setAttribute("data-reference-retained", "true"));
     await notebook.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("functional_adl");
-    if (width < 960) await expect(reference.getByRole("button", { name: /^Captured answers/ })).toHaveAttribute("aria-expanded", "true");
+    if (width < 760) await expect(reference.getByRole("button", { name: /^Captured answers/ })).toHaveAttribute("aria-expanded", "true");
     await expect(reference.getByRole("combobox", { name: "Reference information" })).toHaveValue("prior_history");
     await expect(reference).toHaveAttribute("data-reference-retained", "true");
     await expect(reference).toContainText("Documented secondary diagnosis from the synthetic referral.");

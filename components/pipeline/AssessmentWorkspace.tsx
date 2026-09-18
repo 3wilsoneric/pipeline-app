@@ -104,6 +104,7 @@ import { isoToOperationalInput, operationalInputToIso } from "@/components/pipel
 import AssessmentPreparation, { PreparationNavigation, AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
 import AssessmentPhoneInterview, { usePhoneAssessment } from "@/components/pipeline/AssessmentPhoneInterview";
 import phoneStyles from "@/components/pipeline/AssessmentPhoneInterview.module.css";
+import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
 type AssessmentWorkspaceProps = {
@@ -377,11 +378,12 @@ export default function AssessmentWorkspace({
     if (routedSection) setActiveSection(routedSection);
   }, [initialSection, trainingAssessmentSection]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     onActiveSectionChangeRef.current = onActiveSectionChange;
   }, [onActiveSectionChange]);
 
-  useEffect(() => {
+  // Publish the committed section before a reflected route effect can restore an older choice.
+  useLayoutEffect(() => {
     onActiveSectionChangeRef.current?.(activeSection);
   }, [activeSection]);
 
@@ -1513,13 +1515,13 @@ export default function AssessmentWorkspace({
           <PreparationNavigation active={preparationGroup.key} data={draft} pending={pendingFields} onChange={setActiveSection} />
         </aside> : null}
 
-        <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${phoneInterview ? phoneStyles.mobileMain : "overflow-y-auto"}`}>
+        <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${phoneInterview ? phoneStyles.mobileMain : preparing ? "overflow-y-auto" : workingStyles.readingMain}`}>
           {phoneInterview ? null : preparing ? <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
             <label htmlFor="preparation-group-mobile" className="mb-1 block text-[11px] font-semibold text-[#56665d]">Preparation group</label>
             <select id="preparation-group-mobile" value={preparationGroup.key} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="min-h-11 w-full rounded border border-[#cddace] bg-white px-3 text-[14px] text-[#234c36]">
               {assessmentPreparationGroups.map((group) => <option key={group.key} value={group.key}>{group.label}</option>)}
             </select>
-          </div> : <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} groups={assessmentNavigationGroups} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} />}
+          </div> : null}
 
           {error ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[11px] font-semibold text-[#59645e]">{error}</div> : null}
           {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
@@ -1564,7 +1566,7 @@ export default function AssessmentWorkspace({
             </div>
           ) : null}
 
-          <div data-assessment-question-content className="w-full px-3 py-3 sm:px-4">
+          <div data-assessment-question-content className={!preparing && !phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
             <div className={preparing && !phoneInterview ? "mb-3" : "sr-only"}>
               <h3 className="text-[21px] font-bold text-[#213629]">{preparing ? preparationGroup.label : sectionDefinition.label}</h3>
                 {preparing ? <p className="mt-2 text-[12px] leading-5 text-[#657167]">Use documented information; leave unknowns unanswered. These are the same answers used in the assessment.</p> : null}
@@ -1587,6 +1589,7 @@ export default function AssessmentWorkspace({
               questions={preparing ? preparationQuestions(preparationGroup, draft) : sectionQuestions}
               required={requiredInterviewFields}
               target={workingTarget}
+              questionNavigation={!preparing && !phoneInterview ? <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} groups={assessmentNavigationGroups} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} /> : null}
               sectionNavigation={!preparing ? <div className="mt-7 flex items-center justify-between gap-3">
                 <button type="button" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key); }} disabled={activeSectionIndex <= 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} /> Previous</button>
                 <button type="button" data-guide-target="assessment-next-section" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key); }} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section <ChevronRight size={14} /></button>
