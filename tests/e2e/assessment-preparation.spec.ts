@@ -41,9 +41,8 @@ async function choosePreparationGroup(page: Page, label: string, key: string) {
   await expect(page.getByRole("article", { name: "Referral preparation worksheet" })).toBeVisible();
 }
 
-async function openWorkspacePage(page: Page, label: string, value: string) {
-  if ((page.viewportSize()?.width ?? 0) < 1024) await page.getByRole("combobox", { name: "Workspace stage", exact: true }).selectOption(value);
-  else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: new RegExp(label) }).click();
+async function openWorkspacePage(page: Page, label: string) {
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: new RegExp(label) }).click();
 }
 
 async function reviewFullAssessment(page: Page) {
@@ -52,7 +51,7 @@ async function reviewFullAssessment(page: Page) {
   await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toBeVisible();
 }
 
-for (const width of [1440, 390]) {
+for (const width of [1440, 768]) {
   test(`referral preparation survives switching, quick exit, reload, and beginning the same assessment at ${width}px`, async ({ page }, testInfo) => {
     test.setTimeout(90_000);
     await page.setViewportSize({ width, height: 950 });
@@ -60,7 +59,7 @@ for (const width of [1440, 390]) {
     page.on("pageerror", (error) => errors.push(error.message));
     const referral = await createReferral(page);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
-    await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
+    await openWorkspacePage(page, "Questionnaire");
     const notebook = page.locator("[data-assessment-view]");
     const pages = page.getByRole("navigation", { name: "Client file pages" });
     await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
@@ -99,9 +98,9 @@ for (const width of [1440, 390]) {
     await expect(device).toBeVisible();
     await device.fill("Uses a walker according to the referral.");
     // Exit directly from the last edited field, without waiting for an autosave timer.
-    await openWorkspacePage(page, "Intake", "1");
+    await openWorkspacePage(page, "Intake");
     await expect(notebook).toHaveCount(0);
-    await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
+    await openWorkspacePage(page, "Questionnaire");
     await choosePreparationGroup(page, "Daily support", "functional_adl");
     await expect(device).toHaveValue("Uses a walker according to the referral.");
     await page.reload();
@@ -150,13 +149,13 @@ for (const width of [1440, 390]) {
   });
 }
 
-for (const width of [1440, 390]) {
+for (const width of [1440, 768]) {
   test(`integrated preparation preserves the last answer through workspace controls at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const referral = await createReferral(page);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
     // Enter through the real workspace tab, not the separate notes-lab route.
-    await openWorkspacePage(page, "Questionnaire", "2");
+    await openWorkspacePage(page, "Questionnaire");
     await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
     const { assessments } = await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json();
     expect(assessments).toHaveLength(1);
@@ -167,11 +166,11 @@ for (const width of [1440, 390]) {
       if (destination === "Files" || destination === "Activity") {
         await page.getByRole("button", { name: `Workspace ${destination.toLowerCase()}`, exact: true }).click();
       } else {
-        await openWorkspacePage(page, destination, "1");
+        await openWorkspacePage(page, destination);
       }
       await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toHaveCount(0);
       await expect.poll(async () => (await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).toBe(value);
-      await openWorkspacePage(page, "Questionnaire", "2");
+      await openWorkspacePage(page, "Questionnaire");
       await expect(page.locator("#assessment-current_location")).toHaveValue(value);
     }
     await reviewFullAssessment(page);
@@ -195,7 +194,9 @@ test("preparation remains keyboard navigable and motion-free with reduced motion
   await expect(worksheet).toHaveCSS("animation-name", "none");
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    expect(await worksheet.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const view = width < 640 ? page.locator("[data-phone-interview]") : worksheet;
+    await expect(view).toBeVisible();
+    expect(await view.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
@@ -299,4 +300,5 @@ test("extracted preparation answers retain their source and verification state",
   await expect(field.getByRole("button", { name: "Use", exact: true })).toBeVisible();
   await expect(field.getByRole("button", { name: "Reject", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Preparation groups" })).toContainText("1 to verify");
+  await page.unrouteAll({ behavior: "wait" });
 });

@@ -60,9 +60,10 @@ for (const width of [1440, 1194, 1024, 834, 768, 390, 320]) {
 
     await questionnaire.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("preparation-client-folder")).toBeVisible();
-    await expect(questionnaire).toHaveAttribute("aria-current", "page");
-    await intake.click();
+    await expect(width < 640 ? page.locator("[data-phone-interview]") : page.getByTestId("preparation-client-folder")).toBeVisible();
+    if (width >= 640) await expect(questionnaire).toHaveAttribute("aria-current", "page");
+    if (width < 640) await page.getByRole("button", { name: "Close assessment", exact: true }).click();
+    else await intake.click();
     await expect(folder.locator('[data-workspace-field="email"] input')).toHaveValue("folder-tabs@example.invalid");
     await header.getByRole("button", { name: "Workspace files" }).click();
     await expect(header.getByRole("button", { name: "Workspace files" })).toHaveAttribute("aria-current", "page");
