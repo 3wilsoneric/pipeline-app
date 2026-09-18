@@ -42,7 +42,7 @@ export const workflowStatusLabels: Record<ReferralWorkflowStatus, string> = {
   assessment_signed: "Assessment signed",
   recommendation_submitted: "Recommendation submitted",
   changes_requested: "Changes requested",
-  decision_pending: "Supervisor decision needed",
+  decision_pending: "Decision pending",
   approved_for_placement: "Approved for placement",
   accepted: "Accepted",
   admitted: "Admitted",

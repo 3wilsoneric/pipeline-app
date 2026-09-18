@@ -47,11 +47,9 @@ for (const width of [1440, 834, 390]) {
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(decision).toBeVisible();
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
-    await decision.getByLabel("Reason", { exact: true }).fill("Synthetic end-to-end example, not a clinical decision.");
-    await decision.getByRole("button", { name: "Finish assessment", exact: true }).click();
-    await decision.getByRole("combobox", { name: "Decision", exact: true }).selectOption("accepted");
+    await decision.getByLabel("Reason (optional)", { exact: true }).fill("Synthetic end-to-end example, not a clinical decision.");
     page.once("dialog", (dialog) => dialog.accept());
-    await decision.getByRole("button", { name: "Record final decision", exact: true }).click();
+    await decision.getByRole("button", { name: "Record decision", exact: true }).click();
     await decision.getByLabel("Admission date", { exact: true }).fill("2026-10-01");
     let mailRequests = 0;
     page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) mailRequests++; });
@@ -85,6 +83,7 @@ for (const width of [1440, 834, 390]) {
     expect(saved.meet_client_sent_at).toBeFalsy();
     const workflow = await (await page.request.get(`/api/referrals/${referralId}/workflow`)).json();
     expect(workflow.decision.outcome).toBe("accepted");
+    expect(workflow.review).toBeNull();
     expect(workflow.referral.admissionDate).toBe("2026-10-01");
   });
 }

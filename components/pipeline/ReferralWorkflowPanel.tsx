@@ -12,7 +12,6 @@ import {
   deriveWorkflowPanelView,
   referralFromConflictPayload,
   requirementNeedsDetail,
-  type DecisionOutcomeDraft,
   type PendingWorkflowDetail,
   type WorkflowResponse,
 } from "@/components/pipeline/referral-workflow-panel-model";
@@ -43,12 +42,6 @@ type RecommendationDraft = {
   reasonNote: string;
 };
 
-type DecisionDraft = {
-  outcome: DecisionOutcomeDraft;
-  reasonCode: string;
-  reasonNote: string;
-};
-
 export default function ReferralWorkflowPanel({
   referral,
   onReferralChange,
@@ -68,13 +61,11 @@ export default function ReferralWorkflowPanel({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [recommendationDraft, setRecommendationDraft] = useState<RecommendationDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
-  const [decisionDraft, setDecisionDraft] = useState<DecisionDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
   const [admissionDateDraft, setAdmissionDateDraft] = useState(referral.admissionDate ?? "");
   const [manualIntakeReason, setManualIntakeReason] = useState("");
   const [pendingDetail, setPendingDetail] = useState<PendingWorkflowDetail | null>(null);
   const mutationIds = useRef(new Map<string, string>());
   const recommendationDirty = useRef(false);
-  const decisionDirty = useRef(false);
   const admissionDateDirty = useRef(false);
 
   const loadWorkflow = useCallback(async (signal?: AbortSignal) => {
@@ -86,18 +77,10 @@ export default function ReferralWorkflowPanel({
     setError("");
     if (!recommendationDirty.current) {
       setRecommendationDraft({
-        outcome: payload.recommendation?.outcome ?? "",
+        outcome: payload.decision ? (payload.decision.outcome === "accepted" ? "accept" : "decline") : payload.recommendation?.outcome ?? "",
         reasonCode: payload.recommendation?.reasonCode ?? "",
         reasonNote: payload.recommendation?.reasonNote ?? "",
       });
-    }
-    if (!decisionDirty.current) {
-      setDecisionDraft((current) => ({
-        ...current,
-        outcome: payload.decision?.outcome ?? "",
-        reasonCode: payload.decision?.reasonCode ?? "",
-        reasonNote: payload.decision?.reasonNote ?? "",
-      }));
     }
     if (!admissionDateDirty.current) setAdmissionDateDraft(payload.referral.admissionDate ?? "");
     setLoading(false);
@@ -117,7 +100,7 @@ export default function ReferralWorkflowPanel({
 
   const clearSavedDraftState = (key: string) => {
     if (key.startsWith("recommendation:")) recommendationDirty.current = false;
-    if (key.startsWith("decision:")) decisionDirty.current = false;
+    if (key.startsWith("decision:")) recommendationDirty.current = false;
     if (key.startsWith("admit-date:")) admissionDateDirty.current = false;
   };
 
@@ -204,45 +187,29 @@ export default function ReferralWorkflowPanel({
         reason_code: draft.reasonCode,
         reason_note: draft.reasonNote,
       },
-      workflow.context.assessmentSigned ? "Assessment finished. Sent to the supervisor for review." : "Recommendation saved. You can keep editing and sign separately.",
+      draft.outcome === "needs_more_information" ? "Under review saved. The referral remains open." : "Recommendation saved. You can keep editing and sign separately.",
     );
   };
-  const submitRecommendation = () => saveRecommendation(recommendationDraft);
-
   const submitDecision = () => {
-    if (!decisionDraft.outcome) return;
-    if (!window.confirm(decisionConfirmationMessage(decisionDraft.outcome, false))) return;
+    if (!recommendationDraft.outcome) return;
+    if (recommendationDraft.outcome === "needs_more_information") {
+      saveRecommendation(recommendationDraft);
+      return;
+    }
+    const outcome = recommendationDraft.outcome === "accept" ? "accepted" : "declined";
+    if (!window.confirm(decisionConfirmationMessage(outcome, false))) return;
     void runMutation(
-      `decision:${currentReferral.version}:${sections.decision}`,
+      `decision:${currentReferral.version}:${sections.decision}:${JSON.stringify(recommendationDraft)}`,
       `/api/referrals/${currentReferral.id}/decision`,
       "PUT",
       {
         if_match: currentReferral.version,
         if_match_section: sections.decision,
-        outcome: decisionDraft.outcome,
-        reason_code: decisionDraft.reasonCode,
-        reason_note: decisionDraft.reasonNote,
+        outcome,
+        reason_code: recommendationDraft.reasonCode,
+        reason_note: recommendationDraft.reasonNote,
       },
-      "Supervisor decision recorded",
-    );
-  };
-
-  const requestReviewChanges = (reason: string) => {
-    const review = workflow.review;
-    if (!review) return;
-    void runMutation(
-      `review-changes:${review.reviewId}:${review.version}`,
-      `/api/referrals/${currentReferral.id}/assessment-review`,
-      "POST",
-      {
-        action: "request_changes",
-        if_match: currentReferral.version,
-        if_match_section: sections.decision,
-        if_match_review: review.version,
-        review_id: review.reviewId,
-        reason_note: reason,
-      },
-      "Changes requested and a new assessment revision created",
+      "Decision recorded",
     );
   };
 
@@ -320,7 +287,7 @@ export default function ReferralWorkflowPanel({
 
   if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return <span className={assessmentStyles.recommendationStatus}>Open the current assessment to recommend placement.</span>;
   if (compactRecommendation) return <div data-quick-recommendation className={assessmentStyles.quickRecommendation}>
-    <label><span className="sr-only">Placement recommendation</span><select aria-label="Placement recommendation" value={workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned)} onChange={(event) => {
+    <label><span className="sr-only">Placement recommendation</span><select aria-label="Placement recommendation" value={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
       const next = { ...recommendationDraft, outcome: event.target.value as AssessmentRecommendation["outcome"] };
       recommendationDirty.current = true;
       setRecommendationDraft(next);
@@ -331,7 +298,7 @@ export default function ReferralWorkflowPanel({
       <option value="decline">Deny</option>
       <option value="needs_more_information">Under review</option>
     </select></label>
-    {error ? <span role="alert">{error}</span> : <span className={assessmentStyles.recommendationStatus} role="status">{busy ? "Saving..." : message ? "Recommendation saved" : "Not a final admission decision"}</span>}
+    {error ? <span role="alert">{error}</span> : <span className={assessmentStyles.recommendationStatus} role="status">{busy ? "Saving..." : workflow.decision ? "Decision recorded" : message ? "Recommendation saved" : "Not a final admission decision"}</span>}
   </div>;
 
   return (
@@ -340,19 +307,14 @@ export default function ReferralWorkflowPanel({
       busy={busy}
       message={message}
       error={error}
-      onDone={onDone ? () => void finishWorkspace() : undefined}
+      onDone={onDone && !recommendationDirty.current ? () => void finishWorkspace() : undefined}
       recommendation={recommendationDraft}
-      decision={decisionDraft}
       admissionDate={admissionDateDraft}
       manualIntakeReason={manualIntakeReason}
       pendingDetail={pendingDetail}
       onRecommendationChange={(patch) => {
         recommendationDirty.current = true;
         setRecommendationDraft((current) => ({ ...current, ...patch }));
-      }}
-      onDecisionChange={(patch) => {
-        decisionDirty.current = true;
-        setDecisionDraft((current) => ({ ...current, ...patch }));
       }}
       onAdmissionDateChange={(value) => {
         admissionDateDirty.current = true;
@@ -361,9 +323,7 @@ export default function ReferralWorkflowPanel({
       onSaveAdmissionDate={() => void saveAdmissionDate()}
       onManualIntakeReasonChange={setManualIntakeReason}
       onUpdateRequirement={updateRequirement}
-      onSubmitRecommendation={submitRecommendation}
       onSubmitDecision={submitDecision}
-      onRequestReviewChanges={() => workflow.review && setPendingDetail({ kind: "review_changes", review: workflow.review })}
       onSubmitTransition={submitTransition}
       onAuthorizeManualIntake={authorizeManualIntake}
       onUpdateHandoff={updateHandoff}
@@ -374,7 +334,6 @@ export default function ReferralWorkflowPanel({
         setPendingDetail(null);
         if (!current) return;
         if (current.kind === "ehr_failure") updateHandoff("mark_failed", detail);
-        else if (current.kind === "review_changes") requestReviewChanges(detail);
         else void saveRequirement(current.item, current.status, detail);
       }}
       onCloseDetail={() => setPendingDetail(null)}

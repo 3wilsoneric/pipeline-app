@@ -28,7 +28,7 @@ for (const width of [1440, 390]) {
     const read = async () => (await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json());
     await page.goto(url);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
-    await footer.getByRole("button", { name: "Open assessment", exact: true }).click();
+    await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     const more = page.locator('summary[aria-label="Assessment details"]');
     if (width < 640) await more.click();
     const recommendation = page.getByRole("combobox", { name: "Placement recommendation" });
@@ -64,7 +64,7 @@ for (const width of [1440, 390]) {
     expect(saved.started_at).toBeNull();
     expect(saved.meet_client_sent_at).toBeFalsy();
     await page.reload();
-    await footer.getByRole("button", { name: "Open assessment", exact: true }).click();
+    await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     if (width < 640) await more.click();
     await expect(recommendation).toHaveValue("needs_more_information");
     let release = () => {};
@@ -91,7 +91,7 @@ test("conversation reference prioritizes documented support, follows the section
     await route.fulfill({ response, json: payload });
   });
   await page.goto(url);
-  await page.getByRole("button", { name: "Open assessment", exact: true }).click();
+  await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
   const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
   await expect(reference.getByLabel("Reference information")).toHaveValue("briefing");
   await expect(reference.getByRole("region", { name: "Interview support", exact: true })).toBeVisible();

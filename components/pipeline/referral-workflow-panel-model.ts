@@ -40,8 +40,7 @@ export type WorkflowResponse = {
 
 export type PendingWorkflowDetail =
   | { kind: "requirement"; item: AdmissionRequirement; status: RequirementStatus }
-  | { kind: "ehr_failure" }
-  | { kind: "review_changes"; review: AssessmentReview };
+  | { kind: "ehr_failure" };
 
 export type DecisionOutcomeDraft = AdmissionDecision["outcome"] | "";
 

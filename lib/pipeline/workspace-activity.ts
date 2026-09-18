@@ -330,7 +330,7 @@ export function activityAttention(
     return { level: "urgent", label: "Needs assignment" };
   }
   if (["assessment_signed", "recommendation_submitted", "decision_pending"].includes(workspace.workflow_status)) {
-    return { level: "attention", label: "Supervisor decision needed" };
+    return { level: "attention", label: "Decision pending" };
   }
   if (workspace.workflow_status === "changes_requested") return { level: "attention", label: "Assessment changes requested" };
   if (workspace.workflow_status === "assessment_ready_to_sign") return { level: "attention", label: "Assessment ready to sign" };
