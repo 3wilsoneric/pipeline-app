@@ -89,12 +89,16 @@ export default function ClientProfileDirectory({
   const [openCabinet, setOpenCabinet] = useState<{ community: string; origin: DOMRect } | null>(null);
   const cabinetRef = useRef<HTMLElement>(null);
   const cabinetOpener = useRef<HTMLButtonElement | null>(null);
+  const directorySearchRef = useRef<HTMLInputElement>(null);
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
 
   useLayoutEffect(() => {
     if (!openCabinet) {
-      cabinetOpener.current?.focus({ preventScroll: true });
+      if (cabinetOpener.current) {
+        const target = cabinetOpener.current.isConnected ? cabinetOpener.current : directorySearchRef.current;
+        target?.focus({ preventScroll: true });
+      }
       return;
     }
     const cabinet = cabinetRef.current;
@@ -264,6 +268,7 @@ export default function ClientProfileDirectory({
               <span className="sr-only">Search clients</span>
               <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#68716d]" />
               <input
+                ref={directorySearchRef}
                 aria-label="Search clients"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -374,11 +379,20 @@ export default function ClientProfileDirectory({
         <div className={styles.cabinetToolbar}>
           <div className={styles.cabinetHeading}>
             <button type="button" onClick={() => setOpenCabinet(null)} className={styles.cabinetBack}><ArrowLeft size={17} aria-hidden="true" /> Back to cabinets</button>
-            <div className={styles.cabinetTitle}><h2>{openCabinet.community}</h2><span>{countNoun(cabinetClients.length, "client")}</span></div>
+            <div className={styles.cabinetTitle}><h2>{openCabinet.community}</h2><span aria-live="polite">{isLoading ? "Loading clients…" : countNoun(cabinetClients.length, "client")}</span></div>
+          </div>
+          <div className={styles.cabinetSearch}>
+            <Search size={18} aria-hidden="true" />
+            <input aria-label="Search this cabinet" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name or resident number" />
+            {query ? <button type="button" aria-label="Clear cabinet search" onClick={() => setQuery("")}><X size={16} aria-hidden="true" /></button> : null}
           </div>
           <DirectoryLayoutToggle layout={layout} onChange={selectLayout} />
         </div>
         <div className={styles.cabinetContents}>
+          {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
+          {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
+          {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
+          {isCompletingRoster ? <p role="status" className="mb-4 text-[12px] text-[#65716b]">Completing the directory. Results update as records arrive.</p> : null}
           {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
           <div role="list" aria-label={`${openCabinet.community} clients`} className={layout === "cards" ? styles.directoryStack : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
             {visibleClients.map((client) => (
@@ -387,7 +401,7 @@ export default function ClientProfileDirectory({
               </div>
             ))}
           </div>
-          {!cabinetClients.length ? <p className={styles.cabinetEmpty}>No clients match the current search and filters in this cabinet.</p> : null}
+          {!isLoading && !isCompletingRoster && !error && !cabinetClients.length ? <p className={styles.cabinetEmpty}>No clients match the current search and filters in this cabinet.</p> : null}
           {visibleClients.length < cabinetClients.length ? <div className={styles.cabinetPagination}>
             <span>Showing {visibleClients.length} of {cabinetClients.length}</span>
             <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)}><ChevronDown size={14} aria-hidden="true" /> Show more</button>
