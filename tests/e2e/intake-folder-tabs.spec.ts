@@ -110,7 +110,7 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
       await expectConnectedFolder(page.getByTestId("preparation-client-folder"));
       await page.screenshot({ path: testInfo.outputPath(`folder-tabs-questionnaire-${width}.png`), animations: "disabled" });
     }
-    if (width < 640) await page.getByRole("button", { name: "Close assessment", exact: true }).click();
+    if (width < 640) await page.getByRole("button", { name: "Back to referral", exact: true }).click();
     else await intake.click();
     await expectRaisedTab(intake, questionnaire);
     await expect(folder.locator('[data-workspace-field="email"] input')).toHaveValue("folder-tabs@example.invalid");

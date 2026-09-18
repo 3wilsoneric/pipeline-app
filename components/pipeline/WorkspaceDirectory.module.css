@@ -1,0 +1,26 @@
+.row[data-earlier-workspace="true"] span[data-workspace-name][title] {
+  color: #59645e;
+  font-weight: 500;
+}
+
+.row[data-earlier-workspace="true"] [data-testid="workspace-chart-thumbnail"] {
+  filter: grayscale(1);
+  background: #f6f7f6;
+  border-color: #dce0dd;
+  box-shadow: none;
+}
+
+.row[data-earlier-workspace="true"] [data-workspace-open] { color: #737b76; }
+.row[data-earlier-workspace="true"] [data-workspace-progress] { background: #89958e; }
+
+.row[data-earlier-workspace="true"]:is(:hover, :focus-visible) span[data-workspace-name][title] {
+  color: #25382e;
+}
+
+.month[data-earlier-workspace="true"]:not([aria-current="page"]) {
+  color: #68716b;
+}
+
+.month[data-earlier-workspace="true"]:not([aria-current="page"]) > span:first-of-type {
+  font-weight: 500;
+}

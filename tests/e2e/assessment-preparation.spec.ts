@@ -68,8 +68,9 @@ for (const width of [1440, 768]) {
     await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
     await expect(pages).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Workspace files", exact: true })).toBeVisible();
-    await expect(notebook.getByRole("button", { name: "Begin assessment", exact: true })).toBeInViewport();
+    await expect(notebook.getByRole("button", { name: "Open assessment", exact: true })).toBeInViewport();
     await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
+    await notebook.locator('summary[aria-label="Assessment details"]').click();
     await notebook.getByRole("button", { name: "Schedule assessment", exact: true }).click();
     const schedule = page.locator('[data-assessment-scheduling="fullscreen"]');
     await expect(schedule).toBeVisible();
@@ -114,19 +115,23 @@ for (const width of [1440, 768]) {
     await secondary.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`preparation-${width}.png`) });
     expect(await notebook.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await notebook.locator('summary[aria-label="Assessment details"]').click();
     await notebook.getByRole("button", { name: "Begin assessment", exact: true }).click();
     const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await begin.getByRole("button", { name: "Record start", exact: true }).click();
     await expect(begin).toHaveCount(0);
+    await expect(page.getByTestId("preparation-client-folder")).toBeVisible();
+    await expect(secondary).toHaveValue("Documented secondary diagnosis from the synthetic referral.");
+    await notebook.getByRole("button", { name: "Return to assessment", exact: true }).click();
     await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(notebook.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
+    await expect(notebook.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
     const reference = notebook.getByRole("complementary", { name: "Captured assessment answers" });
-    if (width < 960) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
     await reference.getByRole("combobox", { name: "Reference information" }).selectOption("prior_history");
     await expect(reference).toContainText("Documented secondary diagnosis from the synthetic referral.");
     await reference.evaluate((element) => element.setAttribute("data-reference-retained", "true"));
     await notebook.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("functional_adl");
-    if (width < 960) await expect(reference.getByRole("button", { name: /^Captured answers/ })).toHaveAttribute("aria-expanded", "true");
+    if (width < 760) await expect(reference.getByRole("button", { name: /^Captured answers/ })).toHaveAttribute("aria-expanded", "true");
     await expect(reference.getByRole("combobox", { name: "Reference information" })).toHaveValue("prior_history");
     await expect(reference).toHaveAttribute("data-reference-retained", "true");
     await expect(reference).toContainText("Documented secondary diagnosis from the synthetic referral.");
@@ -177,6 +182,8 @@ for (const width of [1440, 768]) {
     await reviewFullAssessment(page);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
+    await expect(page).not.toHaveURL(/screen=packet/);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
     await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open questionnaire", exact: true })).toHaveCount(0);
     // Escape on an inline file page must not close or collapse it.

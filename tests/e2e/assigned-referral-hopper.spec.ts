@@ -91,7 +91,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
   const chart = page.locator('[data-assessment-view="chart"]');
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const name of ["Workspace", "Close assessment"]) {
+    for (const name of ["Back to referral"]) {
       const control = chart.getByRole("button", { name, exact: true });
       await expect(control).toBeVisible();
       const bounds = await control.boundingBox();
@@ -103,7 +103,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
   }
   const answer = chart.getByRole("textbox", { name: /Prior 5150/ });
   await answer.fill("Synthetic answer kept while updating intake and adding a document.");
-  await chart.getByRole("button", { name: "Workspace", exact: true }).click();
+  await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
   await expect(chart).toHaveCount(0);
   const intake = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Intake/ });
   await expect(intake).toHaveAttribute("aria-current", "page");

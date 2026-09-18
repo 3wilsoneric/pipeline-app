@@ -87,7 +87,7 @@ test.describe("uninterrupted workflow", () => {
       await expect.poll(async () => (await (await api.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_5150_5250_holds).toBe("Newer answer typed while the earlier save returns.");
       await expect(editor.getByRole("button", { name: "Keep mine", exact: true })).toHaveCount(0);
       await expect(answer).toHaveValue("Newer answer typed while the earlier save returns.");
-      await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
       await expect(editor).toHaveCount(0);
     } finally { releaseSync(); await context.close(); await api.dispose(); }
   });
@@ -116,7 +116,7 @@ test.describe("uninterrupted workflow", () => {
       await expect(editor.getByRole("button", { name: "Next section", exact: true })).toBeEnabled();
       await editor.getByRole("button", { name: "Next section", exact: true }).click();
       await expect(editor.getByText("Required", { exact: true })).toHaveCount(0);
-      await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
       await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Intake$/ }).click();
       await expect(page.getByRole("region", { name: "Intake completion", exact: true })).toBeVisible();
       await expect(page.getByRole("region", { name: "Intake completion", exact: true }).getByRole("button")).toBeEnabled();

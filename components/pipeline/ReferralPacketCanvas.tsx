@@ -34,6 +34,7 @@ import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview
 import { usePacketExtraction } from "@/components/pipeline/use-packet-extraction";
 import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
+import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import folderStyles from "./ClientFolder.module.css";
@@ -405,6 +406,22 @@ export default function ReferralPacketCanvas({
   });
   const [hasSignedAssessment, setHasSignedAssessment] = useState(false);
   const [emailRecipients, setEmailRecipients] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailFinishing, setEmailFinishing] = useState(false);
+  const emailSendingRef = useRef(false);
+  const { beforeNavigationRef } = usePipelineShell();
+  useEffect(() => {
+    if (!emailSending) return;
+    const previous = beforeNavigationRef.current;
+    const waitForDelivery = async () => {
+      if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
+      await previous?.();
+    };
+    beforeNavigationRef.current = waitForDelivery;
+    return () => {
+      if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = previous;
+    };
+  }, [beforeNavigationRef, emailSending]);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const extraction = usePacketExtraction(loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
@@ -1337,6 +1354,7 @@ export default function ReferralPacketCanvas({
   };
 
   const openPage = (page: WorkspaceView) => {
+    if (emailSendingRef.current) return;
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
@@ -1347,7 +1365,7 @@ export default function ReferralPacketCanvas({
   };
 
   const navigatePage = async (page: WorkspaceView) => {
-    if (page === activePage) return;
+    if (page === activePage || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.();
       if (activePage === 1 && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
@@ -1756,12 +1774,13 @@ export default function ReferralPacketCanvas({
   });
 
   const openAssignedWork = async () => {
-    if (!onOpenAssignedWork) return;
+    if (!onOpenAssignedWork || emailSendingRef.current) return;
     await preservePendingIntake();
     onOpenAssignedWork();
   };
 
   usePersonaSwitchSave(async () => {
+    if (emailSendingRef.current) throw new Error("Wait for the email delivery result before switching.");
     if (isSavingRef.current || uploadingDocumentIds.size > 0) throw new Error("Wait for the workspace and files to finish saving before switching.");
     const pending = workspaceHasPendingChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current);
     if (pending && !await saveWorkspaceDraft()) throw new Error("Finish saving this intake before switching accounts.");
@@ -2146,7 +2165,7 @@ export default function ReferralPacketCanvas({
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
                 onOpen={openAssignedWork}
-                disabled={draftRecoveryLoading}
+                disabled={draftRecoveryLoading || emailSending}
               />
               {editingControlsVisible ? (
                 <WorkspaceSaveControl
@@ -2521,16 +2540,26 @@ export default function ReferralPacketCanvas({
               <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
                 headerActions={chartPagination}
+                onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={{ recipients: emailRecipients, onChange: setEmailRecipients }}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2)}
                 onOpenDecision={() => openPage("workflow")} />
               </WorkspaceChartFolder>
+              <footer aria-label="Handoff actions" className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-[#dce4df] bg-white/95 px-3 py-3 backdrop-blur-sm">
+                <button type="button" onClick={() => openPage("workflow")} disabled={emailSending || emailFinishing} className="min-h-11 px-3 text-[14px] font-semibold text-[#53615a] focus-visible:outline-2 disabled:opacity-50">Edit decision</button>
+                {onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
+                  setEmailFinishing(true);
+                  void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));
+                }} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">{emailFinishing ? "Saving..." : "Done"}</button> : null}
+              </footer>
             </PacketPage>
           ) : displayedPage === 2 ? (
             <PacketPage id="packet-page-2" title="Assessment" flush>
                 <AssessmentWorkspace
                   readOnly={permissionReadOnly}
                   referralId={referralWorkspaceId}
+                  referral={loadedReferral ?? undefined}
+                  recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenEmail={() => openPage("email")} onOpenProfile={onOpenProfile} /> : undefined}
                   trainingAssessmentMode={trainingAssessmentMode}
                   trainingAssessmentSection={trainingAssessmentSection}
                   initialSection={routedWorkspaceLocation.view === "assessment" ? routedWorkspaceLocation.assessmentSection : undefined}
@@ -3110,7 +3139,7 @@ function PacketPage({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} aria-label={title} className="overflow-hidden bg-white">
+    <section id={id} aria-label={title} className={id === "admission-workflow" || id === "packet-email" ? "overflow-clip bg-white" : "overflow-hidden bg-white"}>
       <h2 className="sr-only">{title}</h2>
       <div className={flush ? undefined : "px-0 py-1 sm:px-2 sm:py-2"}>{children}</div>
     </section>

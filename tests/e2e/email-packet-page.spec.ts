@@ -19,6 +19,12 @@ async function referralWithAssessment(page: Page, signed = true) {
 for (const width of [1440, 390]) test(`Chart pagination preserves the email URL and canonical Outlook-style preview at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 950 });
   const { referral } = await referralWithAssessment(page);
+  // Exercise live-mode editing independently of the isolated demo send guard.
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async (route) => {
+    const response = await route.fetch(); const payload = await response.json();
+    payload.email = { ...payload.email, example_only: false, can_send: true };
+    await route.fulfill({ response, json: payload });
+  });
   let sends = 0;
   page.on("request", (request) => { if (request.method() === "POST" && request.url().includes("/meet-client-email")) sends += 1; });
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
@@ -110,7 +116,7 @@ test("packet controls show attachments and retain explicit send confirmation and
   const { referral } = await referralWithAssessment(page);
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async (route) => {
     const response = await route.fetch(); const payload = await response.json();
-    payload.email = { ...payload.email, configured: true, sender: "pipeline@example.invalid", eligible: true, ready: true, blockers: [], allowed_recipient_domains: ["example.invalid"],
+    payload.email = { ...payload.email, example_only: false, can_send: true, configured: true, sender: "pipeline@example.invalid", eligible: true, ready: true, blockers: [], allowed_recipient_domains: ["example.invalid"],
       admission_packet: { files: [{ document_id: "synthetic-packet", name: "Synthetic referral packet.pdf", category: "admission", byte_size: 2048, ready: true }], total_bytes: 2048, ready: true, delivery_mode: "direct" } };
     await route.fulfill({ response, json: payload });
   });

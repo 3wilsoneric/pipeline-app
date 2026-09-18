@@ -37,24 +37,24 @@ test.describe("mobile assessment", () => {
     await expect(assessment).toBeVisible();
     for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
-      await expect(assessment.getByRole("button", { name: "Close assessment" })).toBeInViewport();
+      await expect(assessment.getByRole("button", { name: "Back to referral" })).toBeInViewport();
       const phone = size.width < 640 || size.height < 500 && size.width < 960;
       if (phone) {
         await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeHidden();
-        await expect(assessment.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
-      } else await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
+        await expect(assessment.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /^Next/ })).toBeInViewport();
+      } else await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Close assessment" }), ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')])];
-      if (!phone && size.width < 960) controls.push(assessment.getByRole("button", { name: /^Captured answers/ }));
+      const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Back to referral" }), ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')])];
+      if (!phone && size.width < 760) controls.push(assessment.getByRole("button", { name: /^Captured answers/ }));
       for (const control of controls) {
         const box = (await control.boundingBox())!;
         expect(box.height).toBeGreaterThanOrEqual(44);
         expect(box.width).toBeGreaterThanOrEqual(44);
       }
       const field = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
-      await expect(field).toHaveCSS("font-size", "16px");
-      if (size.width >= 960) {
+      await expect(field).toHaveCSS("font-size", phone ? "16px" : "17px");
+      if (size.width >= 760 && !phone) {
         const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
         await expect(reference).toBeVisible();
         expect((await reference.boundingBox())!.x).toBeLessThan((await field.boundingBox())!.x);
@@ -67,14 +67,12 @@ test.describe("mobile assessment", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Show app navigation" })).toHaveAttribute("aria-expanded", "false");
     const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
-    await reference.getByRole("button", { name: /^Captured answers/ }).tap();
     await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
-    await expect(reference.getByRole("button", { name: /^Captured answers/ })).toHaveAttribute("aria-expanded", "false");
+    await expect(reference.getByRole("combobox", { name: "Reference information" })).toBeVisible();
     const answer = assessment.getByRole("textbox", { name: "Current symptoms", exact: false });
     await expect(answer).toBeFocused();
     await expect(answer).toBeInViewport();
     await assessment.getByLabel("Assessment section", { exact: true }).selectOption("medication");
-    await reference.getByRole("button", { name: /^Captured answers/ }).tap();
     await reference.getByRole("button", { name: "Edit IM injections", exact: true }).tap();
     const choice = assessment.getByRole("group", { name: "IM injections", exact: true });
     for (const button of await choice.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(48);
@@ -159,6 +157,7 @@ test.describe("mobile assessment", () => {
     await expect.poll(async () => (await read()).secondary_diagnoses).toEqual([answer]);
     await page.reload();
     await surface(page).getByRole("button", { name: "Client info", exact: true }).tap();
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByLabel("Reference information").selectOption("all");
     await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Secondary diagnosis", exact: true }).tap();
     await expect(field).toHaveValue(answer);
     await expect(field).toBeInViewport();
@@ -191,6 +190,37 @@ test.describe("mobile assessment", () => {
   });
 });
 
+test("WebKit iPad keeps the reading pane open while editing and rotating", async ({ baseURL }, info) => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ baseURL, viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true });
+    await page.goto(practice);
+    const assessment = surface(page);
+    const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
+    const editor = assessment.locator("[data-assessment-question-editor]");
+    await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
+    const field = editor.getByRole("textbox", { name: "Current symptoms", exact: true });
+    await expect(field).toBeFocused();
+    await field.fill("Synthetic tablet note, retained when rotating.");
+    await field.blur();
+    await expect(reference).toContainText("Synthetic tablet note, retained when rotating.");
+    for (const size of [{ width: 768, height: 1024 }, { width: 1194, height: 834 }]) {
+      await page.setViewportSize(size);
+      await expect(reference.getByRole("combobox", { name: "Reference information" })).toBeInViewport();
+      const left = (await reference.boundingBox())!;
+      const right = (await editor.boundingBox())!;
+      expect(left.x + left.width).toBeLessThan(right.x);
+      expect(Math.abs(left.height - right.height)).toBeLessThan(2);
+      await expect(field).toHaveValue("Synthetic tablet note, retained when rotating.");
+      await expect(field).toHaveCSS("font-size", "17px");
+      expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      await page.screenshot({ path: info.outputPath(`reading-webkit-${size.width}.png`) });
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 test("WebKit touch editing can find, edit and return to the same answer", async ({ baseURL }, info) => {
   const browser = await webkit.launch();
   try {
@@ -207,6 +237,7 @@ test("WebKit touch editing can find, edit and return to the same answer", async 
     await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
     await findPhoneQuestion(page, "Secondary diagnosis");
     await assessment.getByRole("button", { name: "Client info", exact: true }).tap();
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByLabel("Reference information").selectOption("all");
     await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Medication refused", exact: true }).tap();
     await expect(field).toHaveValue("Synthetic medication A");
     await page.screenshot({ path: info.outputPath("assessment-webkit-phone.png") });

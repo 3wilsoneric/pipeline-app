@@ -36,11 +36,11 @@
 }
 
 .pipeline-surfaces [data-assessment-app-navigation="collapsed"] {
-  background: linear-gradient(100deg, #c3e9d8, #dceeed 65%, #edf4f3);
+  background: var(--surface-canvas);
 }
 
 .pipeline-surfaces [aria-label="Show app navigation"] {
-  background: #d7eadf;
+  background: #fff;
   color: #356250;
 }
 
@@ -264,12 +264,11 @@
 .pipeline-surfaces [data-guide-target="workspace-directory"] select { border: 1px solid #cdd8df; border-radius: 5px; background-color: #fff; color: #3d4b59; font-size: 13px; font-weight: 500; }
 .pipeline-surfaces [data-guide-target="workspace-directory"] select:focus-visible { outline: 2px solid #007e60; outline-offset: 1px; }
 
-.pipeline-surfaces [aria-label="Workspace navigation"] { padding: 8px; border: 1px solid #cbdbe6; border-radius: 7px; background: linear-gradient(135deg, #f6faff, #e4eef7); box-shadow: 0 1px 0 #fff inset; }
-.pipeline-surfaces [aria-label="Workspace navigation"] button { border-radius: 5px; font-size: 13px; font-weight: 500; }
-.pipeline-surfaces [aria-label="Workspace views"] button { font-weight: 600; }
-.pipeline-surfaces [aria-label="Workspace views"] button[aria-current="page"] { background: linear-gradient(110deg, #eef7da, #d6f0e8); border-color: #b4d5c4; }
-.pipeline-surfaces [aria-label="Workspace views"] button[aria-label="All files"] { color: #356e9b; }
-.pipeline-surfaces [aria-label="Workspace views"] button[aria-label="All files"][aria-current="page"] { background: #dcecf9; border-color: #afcee4; }
+.pipeline-surfaces [aria-label="Workspace navigation"] { padding: 8px; border: 1px solid #e0e6e3; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgb(27 39 35 / 2%), 0 12px 24px -20px rgb(27 39 35 / 18%); }
+.pipeline-surfaces [aria-label="Workspace navigation"] button { border-radius: 7px; font-size: 13px; font-weight: 500; }
+.pipeline-surfaces [aria-label="Workspace views"] button { font-weight: 600; color: #59645e; }
+.pipeline-surfaces [aria-label="Workspace views"] button:hover { border-color: transparent; background: #f5f7f6; color: #25382e; }
+.pipeline-surfaces [aria-label="Workspace views"] button[aria-current="page"] { background: #eef6f2; border-color: transparent; color: #0c705f; box-shadow: inset 3px 0 #0f8b73; }
 .pipeline-surfaces [aria-label="Workspace navigation"] [aria-expanded] > span:first-of-type { font-size: 12px; font-weight: 600; }
 .pipeline-surfaces [aria-label="Workspace navigation"] button > span:last-child { font-weight: 500; }
 
@@ -293,8 +292,7 @@
 
 .pipeline-surfaces [data-assessment-view="chart"] {
   padding: 12px;
-  background: radial-gradient(ellipse at 0 0, #159c7b, transparent 65%),
-    linear-gradient(130deg, #9ad9c1, #e5efeb 48%, #bdcddd);
+  background: var(--surface-canvas);
   color: var(--surface-ink);
 }
 
@@ -374,8 +372,7 @@
 .pipeline-surfaces [aria-label="Assessment actions"] button:focus-visible { outline: 2px solid var(--surface-accent); outline-offset: 2px; }
 
 .pipeline-surfaces [data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button[data-guide-target="assessment-next-section"],
-.pipeline-surfaces [aria-label="Assessment actions"] [data-guide-target="assessment-begin"],
-.pipeline-surfaces [aria-label="Assessment actions"]:not(:has([data-guide-target="assessment-begin"])) [data-guide-target="assessment-sign"] {
+.pipeline-surfaces [aria-label="Assessment actions"] [data-guide-target="assessment-sign"] {
   border-color: #007254;
   background: #007e60;
   color: #fff;

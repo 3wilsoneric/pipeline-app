@@ -134,7 +134,7 @@ test.describe("field exit saves and single uploads", () => {
       await cell.getByRole("textbox").fill("Synthetic source unavailable");
       await page.waitForTimeout(900);
       expect(writes).toHaveLength(2);
-      await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
       await expect(editor).toHaveCount(0);
       await expect.poll(async () => (await read()).im_injections).toBe("unable_to_assess");
       await expect.poll(async () => (await read()).unable_to_assess_reasons.im_injections).toBe("Synthetic source unavailable");

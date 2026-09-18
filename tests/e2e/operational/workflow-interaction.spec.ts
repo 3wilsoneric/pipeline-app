@@ -296,10 +296,10 @@ test.describe("workflow interaction and durable feedback", () => {
         await route.continue();
       });
       await chart.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
-      await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
       await expect.poll(() => saving).toBe(true);
       await expect(chart).toBeVisible();
-      await expect(chart.getByRole("button", { name: "Close assessment", exact: true })).toBeDisabled();
+      await expect(chart.getByRole("button", { name: "Back to referral", exact: true })).toBeDisabled();
       await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).not.toBeEditable();
       release();
       await expect(chart).toHaveCount(0);
@@ -312,7 +312,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(guided).toBeVisible();
       await guided.getByRole("button", { name: "Full assessment" }).click();
       await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
-      await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await page.getByRole("searchbox", { name: "Search my workspaces" }).fill(referral.name);
       await page.getByRole("button", { name: new RegExp(referral.name) }).first().click();
@@ -339,12 +339,12 @@ test.describe("workflow interaction and durable feedback", () => {
         ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic save unavailable" }) })
         : route.continue());
       await chart.getByRole("textbox", { name: /Prior 5150/ }).fill("Synthetic unsaved answer must remain visible.");
-      await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
       await expect(chart).toBeVisible();
       await expect(chart.getByRole("alert")).toContainText("Synthetic save unavailable");
       await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Synthetic unsaved answer must remain visible.");
       await page.unroute(`**/api/assessments/${assessmentId}`);
-      await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
       await expect(chart).toHaveCount(0);
     } finally {
       await context.close();
@@ -432,7 +432,7 @@ test.describe("workflow interaction and durable feedback", () => {
         await page.setViewportSize({ width, height: 900 });
         await expect(page.locator('[data-guide-target="assessment-save-status"]')).toHaveCount(1);
         await expect(status).toBeVisible();
-        const close = page.getByRole("button", { name: "Close assessment", exact: true });
+        const close = page.getByRole("button", { name: "Back to referral", exact: true });
         await expect(close).toBeVisible();
         const bounds = await close.boundingBox();
         expect(bounds!.x).toBeGreaterThanOrEqual(0);

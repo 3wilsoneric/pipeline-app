@@ -58,7 +58,7 @@ test.describe("assessor meeting fields", () => {
         await search.fill(retired);
         await expect(editor.locator('[aria-label="Matching assessment questions"]').getByRole("button")).toHaveCount(0);
       }
-      await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
       await page.goto(assessmentUrl);
       await expect(editor).toBeVisible();
       await find("Injection frequency");
