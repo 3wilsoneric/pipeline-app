@@ -41,11 +41,12 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, headerActions, onOpenFiles, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
   emailDraft?: { recipients: string; onChange: (value: string) => void };
+  headerActions?: React.ReactNode;
   onOpenFiles?: () => void;
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
@@ -129,8 +130,8 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   if (emailPage) return (
     <section className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
-        <div><h2>Email &amp; packet</h2><p>Review Meet the Client and the files that travel with it.</p></div>
-        {refresh}
+        <div><h2>Email &amp; packet</h2><p>Explore the packet workflow. Email delivery is not live yet.</p></div>
+        <div className={styles.headerActions}>{headerActions}{refresh}</div>
       </header>
       <ChartStatusMessage error={error} message={message} />
       <MeetClientEmailPreview email={readyPayload.email} recipients={recipients} confirmed={confirmed} sending={sending}

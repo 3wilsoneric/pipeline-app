@@ -30,6 +30,11 @@ for (const width of [1440, 390]) test(`Chart pagination preserves the email URL 
   await expect(stages.getByRole("button", { name: /Email & packet/ })).toHaveCount(0);
   await expect(stages.getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
   await expect(chartPages).toContainText("Page 2 of 2");
+  await expect(chartPages).toContainText("Demo · Beta");
+  await expect(email).toContainText("Email delivery is not live yet.");
+  const folder = page.getByTestId("workspace-chart-folder");
+  const header = page.getByTestId("workspace-folder-header");
+  expect(Math.abs((await folder.boundingBox())!.y - (await header.boundingBox())!.y - (await header.boundingBox())!.height)).toBeLessThanOrEqual(1);
   const verification = email.getByRole("checkbox", { name: /I verified/ });
   await expect(verification).toBeInViewport();
   expect((await verification.boundingBox())!.y).toBeLessThan((await email.getByRole("textbox", { name: "Authorized recipients" }).boundingBox())!.y);
@@ -51,6 +56,14 @@ for (const width of [1440, 390]) test(`Chart pagination preserves the email URL 
   await expect(page).toHaveURL(/workspaceView=files/);
   await stages.getByRole("button", { name: /Chart/ }).click();
   await expect(chartPages).toContainText("Page 1 of 2");
+  const chart = page.getByRole("article", { name: "Client medical chart", exact: true });
+  await expect(chart).toBeVisible();
+  await expect(folder.getByRole("button", { name: "New referral", exact: true })).toHaveCount(0);
+  await expect(chart.locator("header").getByRole("navigation", { name: "Chart pages" })).toBeVisible();
+  expect(Math.abs((await folder.boundingBox())!.y - (await header.boundingBox())!.y - (await header.boundingBox())!.height)).toBeLessThanOrEqual(1);
+  // Existing desktop folder padding is 10px + 16px, plus the paper border.
+  expect((await chart.boundingBox())!.y - (await folder.boundingBox())!.y).toBeLessThanOrEqual(28);
+  await page.screenshot({ path: info.outputPath(`flush-chart-${width}.png`), animations: "disabled" });
   await chartPages.getByRole("button", { name: "Email & packet", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(email.getByRole("textbox", { name: "Authorized recipients" })).toHaveValue("care@example.invalid");
@@ -67,6 +80,16 @@ for (const width of [1440, 390]) test(`Chart pagination preserves the email URL 
   await page.getByTestId("packet-workspace").evaluate((element) => element.scrollTo({ top: 0 }));
   await page.screenshot({ path: info.outputPath(`email-packet-${width}.png`), fullPage: false, animations: "disabled" });
   expect(sends).toBe(0);
+});
+
+test("chart load failure leaves the beta email preview reachable", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page, false);
+  await page.route("**/api/profiles/**", (route) => route.fulfill({ status: 503, json: { error: "Synthetic unavailable chart" } }));
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+  await expect(page.getByTestId("workspace-chart-folder").getByRole("alert")).toContainText("could not be loaded");
+  await page.getByRole("navigation", { name: "Chart pages" }).getByRole("button", { name: "Email & packet", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your email preview will appear here" })).toBeVisible();
 });
 
 test("unsigned packet preview and acceptance stay accessible without signing or sending", async ({ page }) => {

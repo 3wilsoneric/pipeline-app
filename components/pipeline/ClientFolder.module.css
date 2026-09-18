@@ -157,7 +157,7 @@
 }
 
 .embeddedRecord > .chartSummary {
-  margin-top: calc(var(--spacing) * 3);
+  margin-top: 0;
 }
 
 .listRow {
