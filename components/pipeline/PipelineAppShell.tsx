@@ -8,6 +8,8 @@ import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmen
 import PipelineGuidedCoach from "@/components/pipeline/training/PipelineGuidedCoach";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
 import PipelinePerformanceObserver from "@/components/pipeline/PipelinePerformanceObserver";
+import { useMobileViewport } from "@/components/pipeline/use-mobile-viewport";
+import mobileStyles from "@/components/pipeline/PipelineMobileShell.module.css";
 
 export default function PipelineAppShell({
   children,
@@ -20,10 +22,11 @@ export default function PipelineAppShell({
   const contentRef = useRef<HTMLElement>(null);
   const beforeNavigationRef = useRef<(() => Promise<void>) | null>(null);
   const [assessmentFocused, setAssessmentFocused] = useState(false);
+  const mobileViewportRef = useMobileViewport();
 
   return (
     <PipelineShellProvider value={{ searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode, setHomeMode, contentRef, beforeNavigationRef, assessmentFocused, setAssessmentFocused }}>
-      <div className="pipeline-surfaces flex h-screen flex-col overflow-hidden bg-white text-[#111111]">
+      <div ref={mobileViewportRef} className={`${mobileStyles.shell} pipeline-surfaces flex h-dvh flex-col overflow-hidden bg-white text-[#111111]`}>
         <Suspense fallback={null}>
           <DemoEnvironmentBanner />
         </Suspense>

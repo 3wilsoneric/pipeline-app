@@ -51,6 +51,20 @@ for (const width of [1440, 1024, 437, 390]) {
     await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", "0px");
     const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, "::before").backgroundColor));
     expect(new Set(stageColors).size).toBe(4);
+    const dockets = await page.locator('[data-board-stage]').evaluateAll((elements) => elements.map((element) => ({
+      paper: getComputedStyle(element).backgroundColor,
+      index: getComputedStyle(element.firstElementChild!, "::before").content,
+      tabPointerEvents: getComputedStyle(element, "::before").pointerEvents,
+      edgePointerEvents: getComputedStyle(element, "::after").pointerEvents,
+      backdropFilter: getComputedStyle(element).backdropFilter,
+    })));
+    expect(new Set(dockets.map((docket) => docket.paper)).size).toBe(4);
+    expect(dockets.map((docket) => docket.index)).toEqual(['"01"', '"02"', '"03"', '"04"']);
+    for (const docket of dockets) {
+      expect(docket.tabPointerEvents).toBe("none");
+      expect(docket.edgePointerEvents).toBe("none");
+      expect(docket.backdropFilter).toBe("none");
+    }
     const firstCard = page.locator('[data-board-card]').first();
     const folderTab = firstCard.locator('[data-folder-name]');
     const folderBody = firstCard.locator('[data-folder-body]');
@@ -92,10 +106,16 @@ for (const width of [1440, 1024, 437, 390]) {
     expect(contrast).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`home-${width}.png`) });
-    await page.getByRole("button", { name: "Collapse Board", exact: true }).click();
-    await expect(page.locator("[data-current-work-board]")).toHaveCount(0);
-    await page.getByRole("button", { name: "Expand Board", exact: true }).click();
+    await expect(page.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
     await expect(page.locator("[data-board-card]")).toHaveCount(6);
+    if (width < 1024) {
+      for (const stage of ["in_progress", "decision", "admitted", "received"]) {
+        await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(stage);
+        await expect(page.locator('[data-board-stage]:visible')).toHaveCount(1);
+        await expect(page.locator(`[data-board-stage="${stage}"]`)).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      }
+    }
 
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1");
     const assessment = page.locator('[data-assessment-view="chart"]');
