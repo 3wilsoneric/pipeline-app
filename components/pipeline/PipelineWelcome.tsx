@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { ArrowRight, CalendarClock, CalendarPlus, ChevronDown, Maximize2 } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarPlus, Maximize2 } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import ReferralWorkflowTracker, { WorkflowCardSkeleton } from "@/components/pipeline/ReferralWorkflowTracker";
@@ -240,32 +240,16 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
   onOpen: () => void;
   onOpenPacket: BriefingPanelProps["onOpenPacket"];
 }) {
-  const [expanded, setExpanded] = useState(true);
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
-      <div className="mb-3 flex items-center gap-2 px-1">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          aria-controls="home-referral-board"
-          aria-label={expanded ? "Collapse Board" : "Expand Board"}
-          onClick={() => setExpanded((current) => !current)}
-          className="flex min-h-10 min-w-0 flex-1 items-center gap-3 text-left outline-none hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
-        >
-          <h2 className="text-[18px] font-extrabold text-[#202320]">Board</h2>
-          <span className="text-[12px] font-bold tabular-nums text-[#68706b]">{briefing.workflow.active_total.toLocaleString()}</span>
-          <span className="text-[11px] font-semibold text-[#68706b]">{briefing.scope === "team" ? "Team referrals" : "Assigned to you"}</span>
-          <ChevronDown size={17} aria-hidden="true" className={`ml-auto shrink-0 text-[#176f60] transition-transform ${expanded ? "rotate-180" : ""}`} />
-        </button>
-        <button type="button" aria-label="Open current work" title="Open Board full screen" onClick={onOpen} className="flex h-10 w-10 shrink-0 items-center justify-center text-[#176f60] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+      <div id="home-referral-board">
+        <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} layout="board" />
+      </div>
+      <div className="mt-1 flex justify-end">
+        <button type="button" aria-label="Open current work" title="Open Board full screen" onClick={onOpen} className="flex h-8 w-8 items-center justify-center text-[#176f60] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
           <Maximize2 size={17} aria-hidden="true" />
         </button>
       </div>
-      {expanded ? (
-        <div id="home-referral-board">
-          <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} layout="board" />
-        </div>
-      ) : null}
     </section>
   );
 }

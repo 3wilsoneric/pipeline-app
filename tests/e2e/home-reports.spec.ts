@@ -430,15 +430,14 @@ test.describe("role-scoped home and reports", () => {
 
     await page.goto("/");
     const homeModule = page.getByRole("region", { name: "Current work", exact: true });
-    await expect(homeModule.getByRole("heading", { name: "Board", exact: true })).toBeVisible();
+    await expect(homeModule.getByRole("heading", { name: "Board", exact: true })).toHaveCount(0);
+    await expect(homeModule.getByText("Team referrals", { exact: true })).toHaveCount(0);
     const homeBoard = homeModule.getByRole("region", { name: "Current work board" });
     await expect(homeBoard.getByRole("button", { name: /^Open / })).toHaveCount(13);
     for (const stage of ["Referral received", "In progress", "Decision", "Admitted"]) await expect(homeBoard.getByRole("heading", { name: stage })).toBeVisible();
     await expect(page.locator("[data-home-module]").first()).toHaveAttribute("data-home-module", "current-work");
     await expect(page.locator('[data-home-module="upcoming-assessments"]')).toBeVisible();
-    await homeModule.getByRole("button", { name: "Collapse Board" }).click();
-    await expect(homeBoard).toHaveCount(0);
-    await homeModule.getByRole("button", { name: "Expand Board" }).click();
+    await expect(homeModule.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
     await expect(homeBoard).toBeVisible();
     await page.getByRole("button", { name: "Open current work" }).click();
     const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
