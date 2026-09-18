@@ -3,11 +3,10 @@
 .pageHeader h2 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.025em; }
 .pageHeader p { margin: 4px 0 0; color: #616161; font-size: 13px; }
 .composer { overflow: hidden; border: 1px solid #d6d6d6; border-radius: 8px; background: #fff; box-shadow: 0 3px 14px #00000008; font-family: "Segoe UI", Arial, sans-serif; }
-.toolbar { display: flex; align-items: center; gap: 18px; padding: 12px 20px; border-bottom: 1px solid #e8e8e8; background: #fafafa; }
-.sendButton { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 40px; padding: 8px 17px; border-radius: 4px; background: #0f6cbd; color: #fff; font-size: 14px; font-weight: 600; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 20px; border-bottom: 1px solid #e8e8e8; background: #fafafa; }
+.sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 8px 17px; border-radius: 4px; background: #0f6cbd; color: #fff; font-size: 14px; font-weight: 600; }
 .sendButton:hover:enabled { background: #115ea3; }
 .sendButton:disabled { background: #e9e9e9; color: #616161; cursor: not-allowed; }
-.previewLabel { font-size: 12px; color: #616161; }
 .addressRow { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: start; gap: 12px; margin: 0 24px; padding: 15px 0; border-bottom: 1px solid #ededed; font-size: 14px; line-height: 22px; }
 .addressRow > :first-child { color: #616161; white-space: nowrap; }
 .addressRow textarea { min-height: 24px; width: 100%; resize: vertical; background: transparent; outline-offset: 4px; }
@@ -40,8 +39,10 @@
 .deliveryDetails ul { margin: 8px 0; padding-left: 18px; }
 .deliveryDetails p { margin: 6px 0; }
 .detailActions { display: flex; gap: 12px; }
-.confirmation { display: flex; align-items: start; gap: 9px; max-width: 680px; cursor: pointer; }
-.confirmation input { flex-shrink: 0; margin-top: 3px; width: 16px; height: 16px; accent-color: #0f6cbd; }
+.confirmation { display: flex; align-items: start; gap: 12px; max-width: 680px; min-height: 44px; cursor: pointer; }
+.confirmation input { flex-shrink: 0; margin-top: 2px; width: 20px; height: 20px; accent-color: #0f6cbd; }
+.confirmation strong { display: block; margin-bottom: 3px; color: #242424; font-size: 15px; font-weight: 650; }
+.confirmation span span { display: block; color: #616161; font-size: 13px; line-height: 1.5; }
 .notice { margin: 0 0 14px; padding: 12px 16px; border: 1px solid #dedede; border-radius: 4px; background: #fafafa; color: #424242; font-size: 13px; line-height: 1.6; }
 .page :is(button, a, input, textarea, summary):focus-visible { outline: 2px solid #0f6cbd; outline-offset: 3px; }
 @media (max-width: 640px) {
@@ -56,5 +57,4 @@
   .attachmentList > li, .attachment { width: 100%; max-width: none; }
   .footer { padding: 14px; }
   .emailFrame { min-height: 440px; }
-  .previewLabel { font-size: 11px; }
 }

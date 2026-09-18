@@ -16,7 +16,7 @@ async function referralWithAssessment(page: Page, signed = true) {
   return { referral, assessment };
 }
 
-for (const width of [1440, 390]) test(`email packet has its own URL and canonical Outlook-style preview at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 390]) test(`Chart pagination preserves the email URL and canonical Outlook-style preview at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 950 });
   const { referral } = await referralWithAssessment(page);
   let sends = 0;
@@ -24,7 +24,15 @@ for (const width of [1440, 390]) test(`email packet has its own URL and canonica
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
   await page.goto(url);
   const email = page.getByRole("region", { name: "Email and referral packet", exact: true });
+  const stages = page.getByRole("navigation", { name: "Workspace stages" });
+  const chartPages = page.getByRole("navigation", { name: "Chart pages" });
   await expect(email).toBeVisible();
+  await expect(stages.getByRole("button", { name: /Email & packet/ })).toHaveCount(0);
+  await expect(stages.getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
+  await expect(chartPages).toContainText("Page 2 of 2");
+  const verification = email.getByRole("checkbox", { name: /I verified/ });
+  await expect(verification).toBeInViewport();
+  expect((await verification.boundingBox())!.y).toBeLessThan((await email.getByRole("textbox", { name: "Authorized recipients" }).boundingBox())!.y);
   await expect(page.getByRole("region", { name: "Client medical chart", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toHaveCount(0);
   await expect(email.getByRole("button", { name: "Send email & packet", exact: true })).toBeDisabled();
@@ -41,8 +49,17 @@ for (const width of [1440, 390]) test(`email packet has its own URL and canonica
   await email.getByRole("textbox", { name: "Authorized recipients" }).fill("care@example.invalid");
   await email.getByRole("button", { name: "Manage files", exact: true }).click();
   await expect(page).toHaveURL(/workspaceView=files/);
-  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Email & packet/ }).click();
+  await stages.getByRole("button", { name: /Chart/ }).click();
+  await expect(chartPages).toContainText("Page 1 of 2");
+  await chartPages.getByRole("button", { name: "Email & packet", exact: true }).focus();
+  await page.keyboard.press("Enter");
   await expect(email.getByRole("textbox", { name: "Authorized recipients" })).toHaveValue("care@example.invalid");
+  await chartPages.getByRole("button", { name: "Client chart", exact: true }).click();
+  await expect(page).toHaveURL(/workspaceStage=chart/);
+  await expect(stages.getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
+  await chartPages.getByRole("button", { name: "Email & packet", exact: true }).click();
+  await expect(page).toHaveURL(/workspaceView=email/);
+  await expect(email).toBeVisible();
   await page.reload();
   await expect(email).toBeVisible();
   await expect(preview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
@@ -54,7 +71,9 @@ for (const width of [1440, 390]) test(`email packet has its own URL and canonica
 
 test("unsigned packet preview and acceptance stay accessible without signing or sending", async ({ page }) => {
   const { referral, assessment } = await referralWithAssessment(page, false);
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+  await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
+  await page.getByRole("navigation", { name: "Chart pages" }).getByRole("button", { name: "Email & packet", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your email preview will appear here" })).toBeVisible();
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision/ }).click();
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
@@ -85,6 +104,12 @@ test("packet controls show attachments and retain explicit send confirmation and
   await expect(send).toBeDisabled(); expect(sends).toBe(0);
   await page.getByRole("checkbox", { name: /I verified/ }).check();
   await expect(send).toBeEnabled();
+  await expect(page.getByText("Recipients verified", { exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: "Authorized recipients" }).fill("other@example.invalid");
+  await expect(page.getByRole("checkbox", { name: /I verified/ })).not.toBeChecked();
+  await expect(send).toBeDisabled();
+  await page.getByRole("textbox", { name: "Authorized recipients" }).fill("care@example.invalid");
+  await page.getByRole("checkbox", { name: /I verified/ }).check();
   await page.getByTestId("packet-workspace").evaluate((element) => element.scrollTo({ top: 0 }));
   await page.screenshot({ path: info.outputPath("email-packet-with-attachments.png"), animations: "disabled" });
   await send.click();

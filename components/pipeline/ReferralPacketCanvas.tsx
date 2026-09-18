@@ -6,6 +6,7 @@ import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { useEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
 import dynamic from "next/dynamic";
 import {
+  ArrowLeft,
   ArrowRight,
   Check,
   CheckCircle2,
@@ -215,7 +216,7 @@ type ExtractionReviewConflict = {
 
 type WorkspaceStage = 1 | 2 | 3;
 type WorkspaceView = WorkspaceStage | "workflow" | "email" | "files" | "activity";
-type WorkspaceStep = { page: WorkspaceStage | "workflow" | "email"; label: string };
+type WorkspaceStep = { page: WorkspaceStage | "workflow"; label: string };
 type WorkspaceStageName = "intake" | "assessment" | "chart";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -2067,14 +2068,17 @@ export default function ReferralPacketCanvas({
   );
   const { readOnly, historicalReadOnly, steps } = workspacePresentation;
   const workspaceSteps = steps.flatMap<WorkspaceStep>((step) => {
-    if (step.page === 3 && loadedReferral && !historicalReadOnly) return [{ page: "workflow", label: "Decision" }, { page: "email", label: "Email & packet" }, ...(hasSignedAssessment || assessmentSummary.signedAt ? [step] : [])];
+    if (step.page === 3 && loadedReferral && !historicalReadOnly) return [{ page: "workflow", label: "Decision" }, step];
     if (step.page === 3 && !hasSignedAssessment && !assessmentSummary.signedAt) return [];
     return [step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt ? { ...step, label: "Questionnaire" } : step];
   });
-  if (loadedReferral && !historicalReadOnly && !workspaceSteps.some((step) => step.page === "email")) {
-    workspaceSteps.push({ page: "email", label: "Email & packet" });
-  }
+  const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
+  const chartPagination = loadedReferral && !historicalReadOnly ? <ChartPageNavigation
+    emailPage={displayedPage === "email"}
+    onOpenChart={() => void navigatePage(chartPage)}
+    onOpenEmail={() => void navigatePage("email")}
+  /> : null;
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
@@ -2129,7 +2133,7 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
             </h1>
-            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={(page) => void navigatePage(page)} />
+            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === "email" ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
 
             <div className={workspaceFolderStyles.actions}>
               {remoteChange && remoteChange.conflicts.length === 0 ? (
@@ -2302,6 +2306,7 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake" flush>
+            {chartPage === 1 ? chartPagination : null}
             <IntakeEditScope readOnly={permissionReadOnly}>
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
@@ -2511,6 +2516,7 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === "email" ? (
             <PacketPage id="packet-email" title="Email & packet">
+              {chartPagination}
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
                 emailDraft={{ recipients: emailRecipients, onChange: setEmailRecipients }}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2)}
@@ -2550,7 +2556,8 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart">
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded onOpenEmail={() => openPage("email")} /></TransferredWorkspaceChart>
+              {chartPagination}
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
             </PacketPage>
           ) : (
             <PacketPage id="packet-activity" title="Activity">
@@ -2678,6 +2685,18 @@ function getWorkspacePresentation(
       ? `${attachmentCount} linked`
       : `${attachmentCount} of ${attachments.length} attached`,
   };
+}
+
+function ChartPageNavigation({ emailPage, onOpenChart, onOpenEmail }: {
+  emailPage: boolean;
+  onOpenChart: () => void;
+  onOpenEmail: () => void;
+}) {
+  return <nav aria-label="Chart pages" className="mx-auto mb-4 flex w-full max-w-[1240px] items-center justify-between gap-3 border-b border-[#e8e8e8] py-2 text-[13px] text-[#616161]">
+    {emailPage ? <button type="button" onClick={onOpenChart} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[#0f6cbd] hover:bg-[#f0f5fa] focus-visible:outline-2 focus-visible:outline-offset-2"><ArrowLeft size={16} aria-hidden="true" />Client chart</button> : null}
+    <span aria-current="page">Page {emailPage ? "2" : "1"} of 2<span className="sr-only"> · {emailPage ? "Email & packet" : "Client chart"}</span></span>
+    {!emailPage ? <button type="button" data-guide-target="chart-meet-client-tab" onClick={onOpenEmail} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[#0f6cbd] hover:bg-[#f0f5fa] focus-visible:outline-2 focus-visible:outline-offset-2">Email &amp; packet<ArrowRight size={16} aria-hidden="true" /></button> : null}
+  </nav>;
 }
 
 function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
