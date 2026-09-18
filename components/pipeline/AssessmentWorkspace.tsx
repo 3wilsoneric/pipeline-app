@@ -118,6 +118,8 @@ type AssessmentWorkspaceProps = {
   assignedAssessorId?: string;
   startQuestionnaire?: boolean;
   workspaceTitle?: string;
+  chartReview?: boolean;
+  onOpenChart?: () => void;
   beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
@@ -257,6 +259,8 @@ export default function AssessmentWorkspace({
   assignedAssessorId,
   startQuestionnaire = false,
   workspaceTitle,
+  chartReview,
+  onOpenChart,
   beforeWorkspaceNavigationRef,
   packetEvidenceVersion,
   onSummaryChange,
@@ -324,9 +328,9 @@ export default function AssessmentWorkspace({
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : null;
   const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
-  const reviewingChart = notebookView === "chart";
-  const preparing = !trainingAssessmentMode && (notebookView === "prepare" || (notebookView === null && assessmentReadyToBegin(selected)));
-  const embeddedPreparation = preparing && Boolean(workspaceTitle) && !phoneInterview;
+  const reviewingChart = chartReview ?? notebookView === "chart";
+  const embeddedFolder = Boolean(workspaceTitle);
+  const preparing = !embeddedFolder && !trainingAssessmentMode && (notebookView === "prepare" || (notebookView === null && assessmentReadyToBegin(selected)));
   const preparationGroup = preparationGroupForSection(activeSection);
   const preparationIndex = assessmentPreparationGroups.indexOf(preparationGroup);
   const visibleSectionKey = preparing ? preparationGroup.key : activeSection;
@@ -361,11 +365,11 @@ export default function AssessmentWorkspace({
 
   useEffect(() => {
     if (chartScrollRef.current) chartScrollRef.current.scrollTop = 0;
-    if (embeddedPreparation && previousVisibleSectionRef.current !== visibleSectionKey) {
+    if (preparing && previousVisibleSectionRef.current !== visibleSectionKey) {
       chartScrollRef.current?.scrollIntoView({ block: "start" });
     }
     previousVisibleSectionRef.current = visibleSectionKey;
-  }, [visibleSectionKey, preparing, isFocused, embeddedPreparation]);
+  }, [visibleSectionKey, preparing, isFocused]);
 
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
@@ -708,7 +712,7 @@ export default function AssessmentWorkspace({
   const closeFromEscape = useEffectEvent(() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace));
 
   useEffect(() => {
-    if (!isFocused || (embeddedPreparation && !showBeginDialog && !showScheduleDialog)) return;
+    if (!isFocused || (embeddedFolder && !showBeginDialog && !showScheduleDialog)) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => handleAssessmentEscape(event, {
       showBeginDialog,
@@ -723,7 +727,7 @@ export default function AssessmentWorkspace({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isFocused, embeddedPreparation, showBeginDialog, showScheduleDialog]);
+  }, [isFocused, embeddedFolder, showBeginDialog, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -1061,16 +1065,25 @@ export default function AssessmentWorkspace({
   };
 
   const closeAssessment = (onClosed?: () => void | Promise<void>) => saveAndCloseAssessment(onClosed).catch(() => undefined);
-  const saveForHeaderNavigation = useEffectEvent(() => saveAndCloseAssessment());
+  const saveForHeaderNavigation = useEffectEvent(async () => {
+    if (!embeddedFolder) return saveAndCloseAssessment();
+    try {
+      await saveBeforeExit();
+      if (phoneInterview && phoneQuestionRef.current) setWorkingTarget({ field: phoneQuestionRef.current });
+    } catch (saveError) {
+      setError(messageFor(saveError, "Your last changes could not be saved. Keep this assessment open and try again."));
+      throw saveError;
+    }
+  });
 
   useEffect(() => {
     if (!isFocused) return;
-    setAssessmentFocused(!embeddedPreparation);
+    setAssessmentFocused(true);
     const content = contentRef.current;
     const previousIsolation = content?.style.isolation ?? "";
-    if (content && !embeddedPreparation) content.style.isolation = "isolate";
+    if (content && !embeddedFolder) content.style.isolation = "isolate";
     // The open folder covers the workspace; do not tab into controls behind it.
-    const backgrounds = !embeddedPreparation && content ? Array.from(content.children)
+    const backgrounds = !embeddedFolder && content ? Array.from(content.children)
       .filter((element): element is HTMLElement => element instanceof HTMLElement && !element.matches("[data-assessment-view]"))
       .map((element) => ({ element, inert: element.inert })) : [];
     for (const { element } of backgrounds) element.inert = true;
@@ -1084,7 +1097,7 @@ export default function AssessmentWorkspace({
       if (beforeNavigationRef.current === save) beforeNavigationRef.current = null;
       if (beforeWorkspaceNavigationRef?.current === save) beforeWorkspaceNavigationRef.current = null;
     };
-  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedPreparation, isFocused, phoneInterview, setAssessmentFocused]);
+  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused]);
 
   const saveOnUnmount = useEffectEvent(() => {
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
@@ -1181,7 +1194,8 @@ export default function AssessmentWorkspace({
     try {
       await saveBeforeExit();
       if (phoneInterview && phoneQuestionRef.current) setWorkingTarget({ field: phoneQuestionRef.current });
-      setNotebookView("chart");
+      if (onOpenChart) onOpenChart();
+      else setNotebookView("chart");
     } catch (saveError) {
       setError(messageFor(saveError, "Your answers could not be saved. Please try again."));
     }
@@ -1431,6 +1445,9 @@ export default function AssessmentWorkspace({
   }
 
   if (!selected) {
+    if (reviewingChart) return <AssessmentFileSurface title={workspaceTitle} container={contentRef.current} header={null} dialogs={null}>
+      <div className="min-h-0 flex-1 overflow-y-auto"><WorkspaceClientChart referral={referral ?? null} /></div>
+    </AssessmentFileSurface>;
     return (
       <AssessmentEmpty
         title="Questionnaire"
@@ -1473,7 +1490,7 @@ export default function AssessmentWorkspace({
 
   return (
     <AssessmentFileSurface
-      title={embeddedPreparation ? workspaceTitle : undefined}
+      title={workspaceTitle}
       container={contentRef.current}
       header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} disabled={isClosing}
         details={assessmentDetails} detailsRef={secondaryActionsRef}
@@ -1587,7 +1604,7 @@ export default function AssessmentWorkspace({
 
           {reviewingChart ? <section aria-label="Assessment chart review" className={workingStyles.chartReview}>
             <div className={workingStyles.chartReviewToolbar}>
-              {phoneInterview ? <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button> : null}
+              {!embeddedFolder && phoneInterview ? <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button> : null}
               <span>{selected.signed_at && dirtySections.size === 0 ? "Signed chart" : "Review before signing"}</span>
             </div>
             {conversationSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>{conversationSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items remain in the chart. Return to questions to revisit them.</p> : null}
@@ -1666,7 +1683,7 @@ export default function AssessmentWorkspace({
           <span className="truncate">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
         </span>
         {!phoneInterview && !preparing && !selected.signed_at ? recommendationControl?.(selected.assessment_id, setIsRecommendationSaving) : null}
-        {embeddedPreparation && assessmentDetails ? <AssessmentFileDetails label="Assessment details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
+        {embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Assessment details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
         {!preparing && !reviewingChart && !phoneInterview ? <button type="button" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection}><ChevronLeft size={14} />Previous section</button> : null}
         {(!phoneInterview || preparing || reviewingChart || selected.signed_at) ? <div>
         <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">

@@ -58,6 +58,7 @@
   padding: 5px 4px 0;
 }
 .actions { margin-left: auto; }
+.actions > button { min-height: 44px; }
 
 .syncStatus { display: inline-flex; align-items: center; align-self: center; flex-shrink: 0; padding-inline: 4px; color: #176c51; }
 
@@ -166,6 +167,17 @@
 .connectedFolder.connectedFolder { margin-top: 0; }
 .connectedFolder > div { border-top: 0; border-radius: 0 0 6px 6px; }
 
+.readingWorkspace { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: 4px; }
+.readingWorkspace > .header { flex-shrink: 0; }
+.header[data-focused] .tabRow { padding-left: 48px; }
+.readingPages, .readingPages > section, .readingPages > section > div { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.readingPages { overflow: hidden; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .readingPages [data-assessment-question-content], .readingPages [aria-label="Assessment chart review"] { animation: paper-in 150ms ease-out; }
+  @keyframes paper-in { from { opacity: .75; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}
+
 @media (max-width: 1100px) {
   .tabRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; padding-top: 0; }
   .identity { min-width: 0; max-width: 340px; }
@@ -174,7 +186,7 @@
   .stageTab { flex: 1 0 auto; }
 }
 
-@media (min-width: 768px) and (max-width: 1100px) {
+@media (min-width: 960px) and (max-width: 1100px) {
   .tabRow { display: flex; gap: 4px; }
   .identity { flex: 1 1 160px; min-width: 110px; }
   .stages { flex-shrink: 1; max-width: 50%; }
@@ -199,6 +211,11 @@
   .createTab { padding-inline: 8px; border-color: #16634f; }
   .actions { align-items: center; align-self: center; gap: 0; }
   .actions > button { min-width: 44px; min-height: 44px; }
+  .header[data-focused] .tabRow { padding-left: 0; }
+  .header[data-focused] .identity { margin-left: 48px; }
+  .stages { overflow: visible; }
+  .stageTab { flex: 1 1 0; min-width: 0; padding-inline: 12px; }
+  .stageNumber { display: none; }
 }
 
 @media (max-width: 1100px) {

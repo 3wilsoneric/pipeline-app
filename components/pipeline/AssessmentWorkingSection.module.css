@@ -79,6 +79,7 @@
 .book :is(button, select):focus-visible, .navigation :is(button, select, input, summary):focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
 
 .footer { position: relative; }
+.footer > div:last-child { margin-left: auto; }
 .quickRecommendation { min-width: 0; max-width: 250px; }
 .quickRecommendation select { width: 100%; min-height: 44px; border: 1px solid #c9d3ce; border-radius: 5px; padding: 6px 10px; background: #fff; color: #314b3e; font-size: 16px; font-weight: 600; }
 .quickRecommendation [role="alert"] { display: block; max-width: 30ch; padding-top: 4px; color: #9c342f; font-size: 12px; }

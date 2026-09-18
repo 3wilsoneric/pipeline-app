@@ -409,7 +409,7 @@ export default function ReferralPacketCanvas({
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
-  const { beforeNavigationRef } = usePipelineShell();
+  const { beforeNavigationRef, assessmentFocused } = usePipelineShell();
   useEffect(() => {
     if (!emailSending) return;
     const previous = beforeNavigationRef.current;
@@ -1775,6 +1775,7 @@ export default function ReferralPacketCanvas({
 
   const openAssignedWork = async () => {
     if (!onOpenAssignedWork || emailSendingRef.current) return;
+    await assessmentNavigationRef.current?.();
     await preservePendingIntake();
     onOpenAssignedWork();
   };
@@ -2087,12 +2088,14 @@ export default function ReferralPacketCanvas({
   );
   const { readOnly, historicalReadOnly, steps } = workspacePresentation;
   const workspaceSteps = steps.flatMap<WorkspaceStep>((step) => {
+    if (step.page === 3 && trainingAssessmentMode) return [step];
     if (step.page === 3 && loadedReferral && !historicalReadOnly) return [{ page: "workflow", label: "Decision" }, step];
     if (step.page === 3 && !hasSignedAssessment && !assessmentSummary.signedAt) return [];
-    return [step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt ? { ...step, label: "Questionnaire" } : step];
+    return [step];
   });
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
+  const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const chartPagination = loadedReferral && !historicalReadOnly ? <ChartPageNavigation
     emailPage={displayedPage === "email"}
     onOpenChart={() => void navigatePage(chartPage)}
@@ -2145,9 +2148,9 @@ export default function ReferralPacketCanvas({
         data-testid="packet-workspace"
         inert={draftRecoveryLoading}
         aria-busy={draftRecoveryLoading}
-        className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
+        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""}`}
       >
-        <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header}>
+        <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined}>
           <div className={workspaceFolderStyles.tabRow}>
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
@@ -2318,7 +2321,7 @@ export default function ReferralPacketCanvas({
           </section>
         ) : null}
 
-        <div key={displayedPage} className="pipeline-step-enter">
+        <div key={readingAssessment ? "assessment-chart" : displayedPage} className={readingAssessment ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}>
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart" flush>
               <WorkspaceChartFolder>
@@ -2553,8 +2556,8 @@ export default function ReferralPacketCanvas({
                 }} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">{emailFinishing ? "Saving..." : "Done"}</button> : null}
               </footer>
             </PacketPage>
-          ) : displayedPage === 2 ? (
-            <PacketPage id="packet-page-2" title="Assessment" flush>
+          ) : readingAssessment ? (
+            <PacketPage id="packet-page-2" title={displayedPage === 3 ? "Chart" : "Assessment"} flush>
                 <AssessmentWorkspace
                   readOnly={permissionReadOnly}
                   referralId={referralWorkspaceId}
@@ -2566,6 +2569,8 @@ export default function ReferralPacketCanvas({
                   assignedAssessorId={loadedReferral?.ownerId}
                   startQuestionnaire={preparingReferralId === referralWorkspaceId}
                   workspaceTitle={workspaceTitle}
+                  chartReview={displayedPage === 3}
+                  onOpenChart={() => openPage(3)}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}

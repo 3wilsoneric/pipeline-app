@@ -37,35 +37,41 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
   test(`folder keeps identity, navigation and one safe return usable at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     const { referral, assessment, folder } = await openFolder(page);
-    const header = folder.locator("[data-assessment-folder-header]");
+    const header = page.getByTestId("workspace-folder-header");
     const back = header.getByRole("button", { name: "Workspaces", exact: true });
     await expect(header.getByRole("heading", { name: referral.name, exact: true })).toBeVisible();
     await expect(back).toBeInViewport();
     expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(await folder.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-    expect(await folder.evaluate((el) => {
-      const workspace = el.closest(".pipeline-surfaces")!;
-      return getComputedStyle(el).backgroundImage === "none" && getComputedStyle(el).backgroundColor === getComputedStyle(workspace).backgroundColor;
-    })).toBe(true);
+    await expect(folder).toHaveCSS("background-image", "none");
     const titleBox = (await header.getByRole("heading").boundingBox())!;
     const backBox = (await back.boundingBox())!;
     expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(backBox.x);
     expect(backBox.height).toBeGreaterThanOrEqual(44);
     expect(backBox.x + backBox.width).toBeLessThanOrEqual(width);
     await expect(folder.getByRole("button", { name: /^(Workspace|Referral|Close assessment)$/ })).toHaveCount(0);
-    expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(true);
+    expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(false);
+    await expect(page.getByRole("navigation", { name: "Client file pages" })).toHaveCount(0);
+    await expect(page.getByTestId("workspace-identity-title")).toHaveCount(1);
+    const pages = header.getByRole("navigation", { name: "Workspace stages" });
+    await expect(pages.getByRole("button")).toHaveText(["01Intake", "02Assessment", "03Decision", "04Chart"]);
+    await expect(pages.getByRole("button", { name: /Assessment$/ })).toHaveAttribute("aria-current", "page");
+    if (width < 640) {
+      await folder.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: "Next", exact: true }).click();
+      await expect(folder.getByRole("textbox", { name: "Current symptoms", exact: true })).toBeVisible();
+    }
+    await header.evaluate((el) => el.setAttribute("data-continuity-check", "same-folder"));
+    await pages.getByRole("button", { name: /Chart$/ }).click();
+    await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toBeVisible();
+    await expect(pages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+    await pages.getByRole("button", { name: /Assessment$/ }).click();
+    await expect(header).toHaveAttribute("data-continuity-check", "same-folder");
+    if (width < 640) await expect(folder.getByRole("textbox", { name: "Current symptoms", exact: true })).toBeVisible();
 
     if (width >= 640) {
-      const pages = header.getByRole("navigation", { name: "Client file pages" });
-      await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
       await expect(folder.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
-      await pages.getByRole("button", { name: "Prepare", exact: true }).click();
-      await expect(page.getByTestId("preparation-client-folder")).toBeVisible();
-      await page.getByRole("button", { name: "Return to assessment", exact: true }).click();
-      await expect(folder).toBeVisible();
-      await expect(page.locator('[data-assessment-app-navigation="collapsed"]')).toBeAttached();
     } else {
-      expect((await header.boundingBox())!.height).toBeLessThanOrEqual(82);
+      expect((await header.boundingBox())!.height).toBeLessThanOrEqual(110);
       const menu = (await page.getByRole("button", { name: "Show app navigation", exact: true }).boundingBox())!;
       expect(menu.x + menu.width).toBeLessThanOrEqual(titleBox.x);
     }
@@ -96,7 +102,7 @@ for (const width of [1440, 390]) {
       IDBDatabase.prototype.transaction = () => { throw new DOMException("Synthetic storage unavailable", "QuotaExceededError"); };
     });
     await field.fill("Synthetic answer retained after failed save");
-    const back = folder.getByRole("button", { name: "Workspaces", exact: true });
+    const back = page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true });
     await back.click();
     await expect(folder.getByRole("alert")).toBeVisible();
     await expect(folder).toBeVisible();

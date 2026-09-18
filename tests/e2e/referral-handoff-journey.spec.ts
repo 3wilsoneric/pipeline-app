@@ -20,7 +20,7 @@ for (const width of [1440, 834, 390]) {
     expect(referral.community).toBe("San Pablo");
     expect(referral.email).toBe("example@example.invalid");
 
-    await page.getByRole("button", { name: "02 Questionnaire", exact: true }).click();
+    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
     await expect(page.locator("[data-assessment-view]")).toBeVisible();
     const list = await (await page.request.get(`/api/referrals/${referralId}/assessments`)).json();
     expect(list.assessments).toHaveLength(1);
@@ -36,12 +36,12 @@ for (const width of [1440, 834, 390]) {
     } });
     expect(restoredIdentity.status()).toBe(200);
     await page.reload();
-    await expect(page.getByRole("button", { name: "Open assessment", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Open assessment", exact: true }).click();
+    await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open assessment", exact: true })).toHaveCount(0);
     await openAssessmentChart(page);
     const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
     await expect(review).toContainText("Synthetic conversation completed");
-    await expect(review.getByRole("button", { name: "Return to questions" })).toHaveCount(width < 640 ? 1 : 0);
+    await expect(review.getByRole("button", { name: "Return to questions" })).toHaveCount(0);
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
