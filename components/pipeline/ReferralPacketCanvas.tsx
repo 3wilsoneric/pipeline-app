@@ -3,7 +3,7 @@
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
-import { useEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowLeft,
@@ -409,7 +409,12 @@ export default function ReferralPacketCanvas({
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
-  const { beforeNavigationRef, assessmentFocused } = usePipelineShell();
+  const { beforeNavigationRef, assessmentFocused, setAssessmentFocused } = usePipelineShell();
+  // Keep the shell stable for the whole folder, not just while its assessment is mounted.
+  useLayoutEffect(() => {
+    setAssessmentFocused(true);
+    return () => setAssessmentFocused(false);
+  }, [setAssessmentFocused]);
   useEffect(() => {
     if (!emailSending) return;
     const previous = beforeNavigationRef.current;
@@ -2526,7 +2531,8 @@ export default function ReferralPacketCanvas({
               onAddFiles={attachAdditionalFiles}
             />
           ) : displayedPage === "workflow" && loadedReferral ? (
-            <PacketPage id="admission-workflow" title="Decision">
+            <PacketPage id="admission-workflow" title="Decision" flush>
+              <WorkspaceChartFolder>
               <ReferralWorkflowPanel
                 referral={loadedReferral}
                 onDone={onOpenAssignedWork ? openAssignedWork : undefined}
@@ -2537,6 +2543,7 @@ export default function ReferralPacketCanvas({
                 onOpenEmail={() => openPage("email")}
                 onOpenProfile={onOpenProfile}
               />
+              </WorkspaceChartFolder>
             </PacketPage>
           ) : displayedPage === "email" ? (
             <PacketPage id="packet-email" title="Email & packet" flush>

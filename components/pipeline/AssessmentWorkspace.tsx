@@ -1078,7 +1078,7 @@ export default function AssessmentWorkspace({
 
   useEffect(() => {
     if (!isFocused) return;
-    setAssessmentFocused(true);
+    if (!embeddedFolder) setAssessmentFocused(true);
     const content = contentRef.current;
     const previousIsolation = content?.style.isolation ?? "";
     if (content && !embeddedFolder) content.style.isolation = "isolate";
@@ -1091,7 +1091,7 @@ export default function AssessmentWorkspace({
     beforeNavigationRef.current = save;
     if (beforeWorkspaceNavigationRef) beforeWorkspaceNavigationRef.current = save;
     return () => {
-      setAssessmentFocused(false);
+      if (!embeddedFolder) setAssessmentFocused(false);
       if (content) content.style.isolation = previousIsolation;
       for (const { element, inert } of backgrounds) element.inert = inert;
       if (beforeNavigationRef.current === save) beforeNavigationRef.current = null;

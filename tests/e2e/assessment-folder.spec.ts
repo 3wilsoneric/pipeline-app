@@ -33,6 +33,51 @@ async function editDiagnosis(page: Page, width: number) {
   return page.locator("#assessment-secondary_diagnoses");
 }
 
+for (const width of [1440, 834, 390]) {
+  test(`folder does not resize or toggle full screen between stages at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { assessment } = await openFolder(page);
+    const header = page.getByTestId("workspace-folder-header");
+    const bounds = (await header.boundingBox())!;
+    const navigation = page.locator("[data-assessment-app-navigation]");
+    // Catch even a transient expand/collapse, not just the final settled layout.
+    await navigation.evaluate((el) => {
+      el.setAttribute("data-layout-transitions", "");
+      new MutationObserver((records) => {
+        el.setAttribute("data-layout-transitions", el.getAttribute("data-layout-transitions") + records.map((record) => record.oldValue).join(","));
+      }).observe(el, { attributes: true, attributeFilter: ["data-assessment-app-navigation"], attributeOldValue: true });
+    });
+    const answer = "Synthetic answer saved before opening Decision";
+    await (await editDiagnosis(page, width)).fill(answer);
+    const pages = header.getByRole("navigation", { name: "Workspace stages" });
+    for (const label of ["Decision", "Chart", "Assessment", "Intake", "Decision", "Chart", "Assessment"]) {
+      await pages.getByRole("button", { name: new RegExp(`${label}$`) }).click();
+      await expect(pages.getByRole("button", { name: new RegExp(`${label}$`) })).toHaveAttribute("aria-current", "page");
+      if (label === "Decision") {
+        await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+        await expect(page.getByTestId("workspace-chart-folder")).toBeVisible();
+      }
+      if (label === "Chart") await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toBeVisible();
+      if (label === "Assessment") await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
+      await expect(navigation).toHaveAttribute("data-assessment-app-navigation", "collapsed");
+      await expect(navigation).toHaveAttribute("data-layout-transitions", "");
+      const current = (await header.boundingBox())!;
+      for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(current[key] - bounds[key])).toBeLessThan(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (label === "Decision") await page.screenshot({ path: info.outputPath(`stable-decision-${width}.png`) });
+    }
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual([answer]);
+    const showNavigation = page.getByRole("button", { name: "Show app navigation", exact: true });
+    await showNavigation.click();
+    await expect(showNavigation).toHaveAttribute("aria-expanded", "true");
+    await showNavigation.press("Escape");
+    await expect(showNavigation).toHaveAttribute("aria-expanded", "false");
+    await header.getByRole("button", { name: "Workspaces", exact: true }).click();
+    await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
+    await expect(navigation).toHaveAttribute("data-assessment-app-navigation", "standard");
+  });
+}
+
 for (const width of [1440, 1024, 768, 640]) {
   test(`assessment uses one page scroll and keeps navigation reachable at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 800 });
