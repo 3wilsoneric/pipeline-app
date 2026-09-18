@@ -1,6 +1,7 @@
 import type { Referral } from "./referral-types";
 import { extractImportedClientMetadata } from "./client-identity-presentation.mjs";
 import { resolveReferralWorkflowStatus, workflowStatusLabels } from "./workflow-status";
+import { normalizeWorkspaceMonth } from "./workspace-month.mjs";
 
 export type WorkspaceAdmissionOutcome = {
   status: "admitted" | "accepted" | "denied" | "pending" | "unknown";
@@ -162,6 +163,12 @@ export function isImportedWorkspace(referral: Pick<Referral, "workspaceOrigin">)
 
 export function isClientChartWorkspace(referral: Pick<Referral, "workspaceOrigin" | "workspaceStatus">) {
   return isImportedWorkspace(referral) || referral.workspaceStatus === "historical";
+}
+
+// Fixed launch-era visual cutoff, not a rolling age rule or a workflow status.
+export function isEarlierWorkspaceMonth(value: string) {
+  const month = normalizeWorkspaceMonth(value);
+  return month !== null && month < "2026-09";
 }
 
 export function workspaceFileCount(referral: Referral) {

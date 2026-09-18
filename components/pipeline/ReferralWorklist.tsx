@@ -12,7 +12,9 @@ import {
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { prefetchPipelineWorkspace } from "@/lib/pipeline/client-navigation";
-import { getWorkspaceCounty, isClientChartWorkspace, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
+import { getWorkspaceCounty, isClientChartWorkspace, isEarlierWorkspaceMonth, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
+import { workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
+import styles from "./WorkspaceDirectory.module.css";
 
 export default function ReferralWorklist({
   referrals,
@@ -69,16 +71,17 @@ export default function ReferralWorklist({
               key={referral.id}
               type="button"
               data-guide-target="workspace-results"
+              data-earlier-workspace={isEarlierWorkspaceMonth(workspaceMonthKey(referral))}
               onClick={() => onOpenPacket(referral)}
               onPointerEnter={() => prefetchPipelineWorkspace(referral)}
               onFocus={() => prefetchPipelineWorkspace(referral)}
               aria-label={`Open ${identityTitle} referral workspace`}
-              className="grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
+              className={`${styles.row} grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]`}
             >
               <span className="flex min-w-0 items-start gap-3 pr-4">
                 <WorkspaceChartThumbnail referral={referral} progress={progress} />
                 <span className="min-w-0 pt-0.5">
-                  <span className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
+                  <span data-workspace-name className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
                   {workspaceIdentityDetail(referral, county) ? (
                     <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
                   ) : null}
@@ -95,7 +98,7 @@ export default function ReferralWorklist({
                   <span className="text-[#737373]">{progress.overall.complete}/{progress.overall.total}</span>
                 </span>
                 <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
-                  <span className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
+                  <span data-workspace-progress className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
                 </span>
                 {extractedTotal > 0 ? (
                   <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
@@ -105,7 +108,7 @@ export default function ReferralWorklist({
 
               <span className="truncate text-[11px] font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
               <span className="text-[11px] text-[#737373]">{workspaceDateLabel(referral)}</span>
-              <span className="flex h-8 w-8 items-center justify-center text-[#0f8b73]"><ArrowRight size={15} /></span>
+              <span data-workspace-open className="flex h-8 w-8 items-center justify-center text-[#0f8b73]"><ArrowRight size={15} /></span>
             </button>
           ))}
         </div>
@@ -136,24 +139,25 @@ function CompactReferralRow({
     <button
       type="button"
       data-guide-target="workspace-results"
+      data-earlier-workspace={isEarlierWorkspaceMonth(workspaceMonthKey(referral))}
       onClick={onOpen}
       onPointerEnter={() => prefetchPipelineWorkspace(referral)}
       onFocus={() => prefetchPipelineWorkspace(referral)}
       aria-label={`Open ${identityTitle} referral workspace`}
-      className="block w-full px-3 py-4 text-left transition-colors hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:px-4"
+      className={`${styles.row} block w-full px-3 py-4 text-left transition-colors hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:px-4`}
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="flex min-w-0 items-start gap-3">
           <WorkspaceChartThumbnail referral={referral} progress={progress} />
           <span className="min-w-0 pt-0.5">
-            <span className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
+            <span data-workspace-name className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
             {workspaceIdentityDetail(referral, county) ? (
               <span className="mt-1 block truncate text-[10px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
             ) : null}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
-          <ArrowRight size={15} className="text-[#0f8b73]" />
+          <ArrowRight data-workspace-open size={15} className="text-[#0f8b73]" />
         </span>
       </span>
 
@@ -164,7 +168,7 @@ function CompactReferralRow({
             <span className="text-[#737373]">{progress.overall.percent}% · {progress.overall.complete}/{progress.overall.total}</span>
           </span>
           <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
-            <span className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
+            <span data-workspace-progress className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
           </span>
           {extractedTotal > 0 ? (
             <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
