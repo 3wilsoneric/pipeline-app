@@ -1,8 +1,9 @@
-import { ChevronDown, Play, X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
 
 import type { AssessmentScheduleMethod, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import styles from "./AssessmentPreparation.module.css";
 
 const scheduleDetailFields = {
   in_person: { label: "Assessment address", placeholder: "Street address, facility, and room", type: "text" },
@@ -52,17 +53,16 @@ export function AssessmentSchedulingDialogs({
 }) {
   return (
     <>
-      {showScheduleDialog ? <ScheduleAssessmentDialog assessment={assessment} isBusy={isBusy} error={error} canEditClinical={canEditClinical} scheduleStart={scheduleStart} scheduleDuration={scheduleDuration} scheduleMethod={scheduleMethod} scheduleLocation={scheduleLocation} onScheduleStartChange={onScheduleStartChange} onScheduleDurationChange={onScheduleDurationChange} onScheduleMethodChange={onScheduleMethodChange} onScheduleLocationChange={onScheduleLocationChange} onClose={onCloseSchedule} onSave={onSaveSchedule} onBegin={onBeginAssessment} /> : null}
+      {showScheduleDialog ? <ScheduleAssessmentDialog assessment={assessment} isBusy={isBusy} error={error} scheduleStart={scheduleStart} scheduleDuration={scheduleDuration} scheduleMethod={scheduleMethod} scheduleLocation={scheduleLocation} onScheduleStartChange={onScheduleStartChange} onScheduleDurationChange={onScheduleDurationChange} onScheduleMethodChange={onScheduleMethodChange} onScheduleLocationChange={onScheduleLocationChange} onClose={onCloseSchedule} onSave={onSaveSchedule} /> : null}
       {showBeginDialog ? <BeginAssessmentDialog assessment={assessment} isBusy={isBusy} error={error} canEditClinical={canEditClinical} onClose={onCloseBegin} onBegin={onBeginAssessment} /> : null}
     </>
   );
 }
 
-function ScheduleAssessmentDialog({ assessment, isBusy, error, canEditClinical, scheduleStart, scheduleDuration, scheduleMethod, scheduleLocation, onScheduleStartChange, onScheduleDurationChange, onScheduleMethodChange, onScheduleLocationChange, onClose, onSave, onBegin }: {
+function ScheduleAssessmentDialog({ assessment, isBusy, error, scheduleStart, scheduleDuration, scheduleMethod, scheduleLocation, onScheduleStartChange, onScheduleDurationChange, onScheduleMethodChange, onScheduleLocationChange, onClose, onSave }: {
   assessment: PipelineAssessmentRecord;
   isBusy: boolean;
   error: string;
-  canEditClinical: boolean;
   scheduleStart: string;
   scheduleDuration: string;
   scheduleMethod: AssessmentScheduleMethod;
@@ -73,7 +73,6 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, canEditClinical, 
   onScheduleLocationChange: (value: string) => void;
   onClose: () => void;
   onSave: () => void;
-  onBegin: () => void;
 }) {
   const detailField = scheduleDetailFields[scheduleMethod];
   return (
@@ -87,7 +86,6 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, canEditClinical, 
       onClose={onClose}
       footer={<>
         <button type="button" onClick={onClose} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to questionnaire</button>
-        {!assessment.started_at && !assessment.signed_at && canEditClinical ? <button type="button" onClick={onBegin} disabled={isBusy} className="min-h-12 border border-[#bac8c0] px-4 font-bold text-[#0f7664] hover:bg-[#f1f4f2] disabled:opacity-50">Continue without appointment</button> : null}
         <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#111111] px-6 font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : assessment.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
       </>}
     >
@@ -188,45 +186,41 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
   onClose: () => void;
   onBegin: () => void;
 }) {
-  const detailField = assessment.scheduled_method ? scheduleDetailFields[assessment.scheduled_method] : null;
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-4">
-          <section role="dialog" aria-modal="true" aria-label="Begin assessment" className="w-full max-w-[500px] bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)]">
-            <header className="border-b border-[#d9dfdb] px-6 py-5">
-              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{assessment.assessor || "Assigned assessor"}</div>
-              <h3 className="mt-1 text-[23px] font-black">Begin assessment</h3>
-              <p className="mt-2 text-[13px] leading-5 text-[#737373]">Your prepared answers stay here. Begin when the interview starts; complete or update them as you go.</p>
-            </header>
-            <div className="px-6 py-5">
-              <dl className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
-                <BeginAssessmentDetail label="Scheduled" value={assessment.scheduled_start_at ? new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" }) : "Not scheduled"} />
-                <BeginAssessmentDetail label="Method" value={formatScheduleMethod(assessment.scheduled_method)} />
-                {assessment.scheduled_location && detailField ? <BeginAssessmentDetail label={detailField.label} value={assessment.scheduled_location} /> : null}
-              </dl>
-              {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#9aa7a0]">{error}</div> : null}
-            </div>
-            <footer className="flex items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-6 py-4">
-              <button type="button" onClick={onClose} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">Back to questionnaire</button>
-              <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical} className="flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-45"><Play size={13} fill="currentColor" /> {isBusy ? "Starting..." : "Begin assessment"}</button>
-            </footer>
-          </section>
-    </div>
+    <dialog ref={dialogRef} aria-label="Begin assessment" aria-describedby="assessment-start-description" aria-busy={isBusy} className={styles.beginDialog}
+      onCancel={(event) => { event.preventDefault(); if (!isBusy) onClose(); }}
+      onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (!isBusy) onClose(); } }}>
+      <h2>Begin assessment</h2>
+      <p id="assessment-start-description">Record when the interview starts. This is optional; you can answer questions and sign without it.</p>
+      <dl>
+        <BeginAssessmentDetail label="Start time" value="Recorded when you confirm" />
+        <BeginAssessmentDetail label="Assessor" value={assessment.assessor || "Not assigned"} />
+        {assessment.scheduled_start_at ? <BeginAssessmentDetail label="Appointment" value={new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })} /> : null}
+      </dl>
+      {error ? <p role="alert">{error}</p> : null}
+      <footer>
+        <button type="button" onClick={onClose} disabled={isBusy}>Not now</button>
+        <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical}>{isBusy ? "Recording..." : "Record start"}</button>
+      </footer>
+    </dialog>
   );
 }
 
 function BeginAssessmentDetail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <dt className="text-[10px] font-black uppercase tracking-[0.08em] text-[#737373]">{label}</dt>
-      <dd className="max-w-[68%] text-right text-[11px] font-semibold text-[#303638]">{value}</dd>
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
-}
-
-function formatScheduleMethod(method: PipelineAssessmentRecord["scheduled_method"]) {
-  if (!method) return "Not recorded";
-  if (method === "in_person") return "In person";
-  if (method === "zoom") return "Zoom";
-  if (method === "record_review") return "Record review";
-  return method[0].toUpperCase() + method.slice(1);
 }

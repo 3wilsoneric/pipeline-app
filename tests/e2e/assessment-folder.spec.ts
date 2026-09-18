@@ -43,6 +43,10 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     await expect(back).toBeInViewport();
     expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(await folder.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await folder.evaluate((el) => {
+      const workspace = el.closest(".pipeline-surfaces")!;
+      return getComputedStyle(el).backgroundImage === "none" && getComputedStyle(el).backgroundColor === getComputedStyle(workspace).backgroundColor;
+    })).toBe(true);
     const titleBox = (await header.getByRole("heading").boundingBox())!;
     const backBox = (await back.boundingBox())!;
     expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(backBox.x);

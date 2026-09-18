@@ -36,11 +36,11 @@
 }
 
 .pipeline-surfaces [data-assessment-app-navigation="collapsed"] {
-  background: linear-gradient(100deg, #c3e9d8, #dceeed 65%, #edf4f3);
+  background: var(--surface-canvas);
 }
 
 .pipeline-surfaces [aria-label="Show app navigation"] {
-  background: #d7eadf;
+  background: #fff;
   color: #356250;
 }
 
@@ -293,8 +293,7 @@
 
 .pipeline-surfaces [data-assessment-view="chart"] {
   padding: 12px;
-  background: radial-gradient(ellipse at 0 0, #159c7b, transparent 65%),
-    linear-gradient(130deg, #9ad9c1, #e5efeb 48%, #bdcddd);
+  background: var(--surface-canvas);
   color: var(--surface-ink);
 }
 
@@ -374,8 +373,7 @@
 .pipeline-surfaces [aria-label="Assessment actions"] button:focus-visible { outline: 2px solid var(--surface-accent); outline-offset: 2px; }
 
 .pipeline-surfaces [data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button[data-guide-target="assessment-next-section"],
-.pipeline-surfaces [aria-label="Assessment actions"] [data-guide-target="assessment-begin"],
-.pipeline-surfaces [aria-label="Assessment actions"]:not(:has([data-guide-target="assessment-begin"])) [data-guide-target="assessment-sign"] {
+.pipeline-surfaces [aria-label="Assessment actions"] [data-guide-target="assessment-sign"] {
   border-color: #007254;
   background: #007e60;
   color: #fff;

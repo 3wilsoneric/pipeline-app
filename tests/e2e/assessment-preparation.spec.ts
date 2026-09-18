@@ -68,7 +68,7 @@ for (const width of [1440, 768]) {
     await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
     await expect(pages).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Workspace files", exact: true })).toBeVisible();
-    await expect(notebook.getByRole("button", { name: "Begin assessment", exact: true })).toBeInViewport();
+    await expect(notebook.getByRole("button", { name: "Open assessment", exact: true })).toBeInViewport();
     await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
     await notebook.locator('summary[aria-label="More assessment actions"]').click();
     await notebook.getByRole("button", { name: "Schedule assessment", exact: true }).click();
@@ -115,10 +115,14 @@ for (const width of [1440, 768]) {
     await secondary.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`preparation-${width}.png`) });
     expect(await notebook.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await notebook.locator('summary[aria-label="More assessment actions"]').click();
     await notebook.getByRole("button", { name: "Begin assessment", exact: true }).click();
     const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await begin.getByRole("button", { name: "Record start", exact: true }).click();
     await expect(begin).toHaveCount(0);
+    await expect(page.getByTestId("preparation-client-folder")).toBeVisible();
+    await expect(secondary).toHaveValue("Documented secondary diagnosis from the synthetic referral.");
+    await notebook.getByRole("button", { name: "Return to assessment", exact: true }).click();
     await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(notebook.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
     const reference = notebook.getByRole("complementary", { name: "Captured assessment answers" });

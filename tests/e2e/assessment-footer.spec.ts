@@ -2,9 +2,9 @@ import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 
-for (const width of [1440, 768, 390]) {
+for (const width of [1440, 768, 390, 320]) {
   test(`assessment footer follows preparation, interview and decision at ${width}px`, async ({ page }, info) => {
-    await page.setViewportSize({ width, height: 950 });
+    await page.setViewportSize({ width, height: width === 320 ? 568 : 950 });
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
       name: `Footer ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing",
     }, { assigneeId: "provisional:allo:annette" });
@@ -24,7 +24,9 @@ for (const width of [1440, 768, 390]) {
     await expect(footer.getByRole("button", { name: "Schedule assessment", exact: true })).toBeHidden();
     if (width < 640) await footer.locator('summary[aria-label="Assessment progress actions"]').click();
     await expect(primary.getByRole("button")).toHaveCount(1);
-    await expect(primary.getByRole("button", { name: "Begin assessment", exact: true })).toBeVisible();
+    await primary.getByRole("button", { name: "Open assessment", exact: true }).click();
+    await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
+    expect((await read()).started_at).toBeNull();
 
     await more.click();
     const menu = footer.getByRole("group", { name: "More assessment actions", exact: true });
@@ -38,12 +40,30 @@ for (const width of [1440, 768, 390]) {
     await expect(schedule).toHaveCount(0);
     await expect.poll(async () => Boolean((await read()).scheduled_start_at)).toBe(true);
     expect((await read()).started_at).toBeNull();
-    await expect(primary.getByRole("button", { name: "Begin assessment", exact: true })).toBeVisible();
-    await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+    await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
 
-    await primary.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await more.click();
+    await menu.getByRole("button", { name: "Begin assessment", exact: true }).click();
     const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await expect(begin).toBeInViewport();
+    const modalBounds = (await begin.boundingBox())!;
+    expect(modalBounds.x).toBeGreaterThanOrEqual(0);
+    expect(modalBounds.x + modalBounds.width).toBeLessThanOrEqual(width);
+    expect(modalBounds.y + modalBounds.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    await expect(begin).toContainText("you can answer questions and sign without it");
+    await expect(begin.getByRole("button", { name: "Not now", exact: true })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(begin.getByRole("button", { name: "Record start", exact: true })).toBeFocused();
+    await primary.locator('[data-guide-target="assessment-sign"]').evaluate((button) => (button as HTMLButtonElement).focus());
+    await expect(begin.getByRole("button", { name: "Record start", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(begin).toHaveCount(0);
+    await expect(more).toBeFocused();
+    expect((await read()).started_at).toBeNull();
+    await more.click();
+    await menu.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await page.screenshot({ path: info.outputPath(`start-modal-${width}.png`) });
+    await begin.getByRole("button", { name: "Record start", exact: true }).click();
     await expect(begin).toHaveCount(0);
     await expect.poll(async () => Boolean((await read()).started_at)).toBe(true);
     await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
@@ -101,3 +121,34 @@ test("secondary actions close on Escape and outside press without exiting the as
     await browser.close();
   }
 });
+
+for (const width of [1440, 390]) {
+  test(`start collection can fail or be skipped without blocking signing at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+      name: `Optional start ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing",
+    }, { assigneeId: "provisional:allo:annette" });
+    const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { secondary_diagnoses: ["Synthetic retained answer"] } } });
+    expect(created.status()).toBe(201);
+    const { assessment } = await created.json();
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    const footer = page.locator('footer[aria-label="Assessment actions"]');
+    if (width < 640) await footer.locator('summary[aria-label="Assessment progress actions"]').click();
+    await footer.getByRole("button", { name: "Open assessment", exact: true }).click();
+    await footer.locator('summary[aria-label="More assessment actions"]').click();
+    await footer.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await page.route(`**/api/assessments/${assessment.assessment_id}/start`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic start unavailable" } }));
+    const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+    await begin.getByRole("button", { name: "Record start", exact: true }).click();
+    await expect(begin.getByRole("alert")).toContainText("Synthetic start unavailable");
+    await begin.getByRole("button", { name: "Not now", exact: true }).click();
+    page.once("dialog", (dialog) => dialog.accept());
+    await footer.getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await expect(page.locator("#admission-workflow")).toBeVisible();
+    const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+    expect(saved.signed_at).toBeTruthy();
+    expect(saved.started_at).toBeNull();
+    expect(saved.secondary_diagnoses).toEqual(["Synthetic retained answer"]);
+    expect(saved.meet_client_sent_at).toBeFalsy();
+  });
+}

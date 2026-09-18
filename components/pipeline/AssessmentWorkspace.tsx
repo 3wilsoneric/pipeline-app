@@ -779,7 +779,7 @@ export default function AssessmentWorkspace({
     if (!assessmentReadyToBegin(selectedRef.current) || isBusy) return;
     setIsBusy(true);
     setError("");
-    setMessage("Beginning assessment...");
+    setMessage("Recording interview start...");
     try {
       await saveBeforeExit();
       await saveQueueRef.current;
@@ -790,7 +790,8 @@ export default function AssessmentWorkspace({
           started_at: new Date().toISOString(),
         });
         upsertAssessment(updated, true);
-        setMessage("Training assessment in progress");
+        setNotebookView(preparing ? "prepare" : "assessment");
+        setMessage("Interview start recorded locally");
         setShowBeginDialog(false);
         setShowScheduleDialog(false);
         return;
@@ -807,13 +808,13 @@ export default function AssessmentWorkspace({
       );
       // Merge the lifecycle response without replacing locally queued answers.
       receiveRemoteAssessment(payload.assessment, false);
-      setNotebookView("assessment");
+      setNotebookView(preparing ? "prepare" : "assessment");
       await onAssessmentSaved?.(payload.assessment);
-      setMessage("Assessment in progress");
+      setMessage("Interview start recorded");
       setShowBeginDialog(false);
       setShowScheduleDialog(false);
     } catch (startError) {
-      setError(messageFor(startError, "The assessment could not be begun."));
+      setError(messageFor(startError, "The interview start could not be recorded. You can keep working and try again."));
       setMessage("");
     } finally {
       setIsBusy(false);
@@ -1219,7 +1220,6 @@ export default function AssessmentWorkspace({
         setMessage("Practice appointment saved locally");
         dispatchGuideCompletion("assessment-schedule-save");
         setShowScheduleDialog(false);
-        setShowBeginDialog(trainingAssessmentMode === "schedule");
         return;
       }
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; warnings?: string[] }>(
@@ -1673,6 +1673,7 @@ export default function AssessmentWorkspace({
           <summary aria-label="More assessment actions">More<ChevronDown size={14} aria-hidden="true" /></summary>
           <div role="group" aria-label="More assessment actions" className={workingStyles.secondaryPanel}>
             {!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button> : null}
+            {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} disabled={isBusy || isClosing}><Play size={15} />Begin assessment</button> : null}
             {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
             {!embeddedPreparation && !phoneInterview ? <>
               {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isClosing} /> : null}
@@ -1681,14 +1682,12 @@ export default function AssessmentWorkspace({
           </div>
         </details> : null}
         <details ref={mobileActionsRef} open={phoneInterview ? undefined : true} className={phoneInterview ? phoneStyles.mobileActions : undefined}>
-        {phoneInterview ? <summary aria-label="Assessment progress actions">{selected.started_at || selected.signed_at ? "Review & finish" : "Assessment"}<ChevronDown size={14} className="ml-1" aria-hidden="true" /></summary> : <summary className="hidden">Assessment actions</summary>}
+        {phoneInterview ? <summary aria-label="Assessment progress actions">{preparing ? "Assessment" : "Review & finish"}<ChevronDown size={14} className="ml-1" aria-hidden="true" /></summary> : <summary className="hidden">Assessment actions</summary>}
         <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">
           {selected.signed_at ? (
             onContinueToWorkflow ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Admission decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>
-          ) : embeddedPreparation && selected.started_at ? (
-            <button type="button" onClick={() => setNotebookView("assessment")}>Return to assessment<ChevronRight size={14} /></button>
-          ) : assessmentReadyToBegin(selected) && canEditClinical ? (
-            <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} disabled={isBusy || isClosing}><Play size={13} fill="currentColor" />Begin assessment</button>
+          ) : preparing ? (
+            <button type="button" onClick={() => setNotebookView("assessment")}>{selected.started_at ? "Return to assessment" : "Open assessment"}<ChevronRight size={14} /></button>
           ) : canEditClinical && !preparing ? (
             <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing}>Sign assessment</button>
           ) : !selected.started_at && canSupervise ? (

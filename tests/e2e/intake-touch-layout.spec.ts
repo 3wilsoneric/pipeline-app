@@ -78,7 +78,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         const preparedName = page.getByRole("region", { name: "Referral preparation", exact: true }).getByRole("textbox", { name: "Resident name", exact: true });
         await expect(preparedName).toHaveCSS("font-size", "16px");
         expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        expect((await page.getByRole("button", { name: "Begin assessment", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect((await page.getByRole("button", { name: "Open assessment", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("preparation-client-folder");
         await expect(preparation.locator(":scope > strong")).toHaveCount(0);
         const headerBox = (await header.boundingBox())!;
