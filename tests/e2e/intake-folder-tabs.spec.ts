@@ -18,6 +18,15 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
     await expect(questionnaire).toHaveCSS("color", "rgb(164, 66, 73)");
     await expect(intake).toHaveCSS("font-size", width < 640 ? "13px" : "14px");
     await expect(header.getByTestId("workspace-identity-title").locator("span")).toHaveCSS("font-size", "16px");
+    const documentsToggle = page.getByTestId("document-checklist-toggle");
+    await expect(documentsToggle.getByText("Beta", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Document suggestions", exact: true })).toHaveCount(0);
+    expect((await documentsToggle.boundingBox())!.height).toBeLessThanOrEqual(width > 1100 ? 56 : 46);
+    await documentsToggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("region", { name: "Extraction review", exact: true })).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
     await expectRaisedTab(intake, questionnaire);
     await expect(folder.locator(":scope > strong")).toHaveCount(0);
     await expect(header.getByTestId("workspace-identity-title")).not.toContainText("Draft");
@@ -48,10 +57,12 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
         expect(box.width).toBeGreaterThanOrEqual(44);
       }
       await expect(folder.locator('[data-workspace-field="name"] input')).toHaveCSS("font-size", "16px");
-      // The live Beta review panel adds content above intake; keep the folder chrome compact.
+      // Optional extraction stays inside the collapsed Documents row.
       const review = page.getByRole("region", { name: "Extraction review", exact: true });
-      await expect(review).toContainText("Beta");
-      await expect.poll(async () => (await folder.locator('[data-workspace-field="name"] input').boundingBox())!.y - await review.evaluate((element) => element.getBoundingClientRect().height + parseFloat(getComputedStyle(element).marginBottom))).toBeLessThan(340);
+      await expect(review).toBeHidden();
+      await expect(page.getByTestId("document-checklist-toggle")).toContainText("Beta");
+      expect((await page.getByTestId("document-checklist-toggle").boundingBox())!.height).toBeLessThanOrEqual(46);
+      await expect.poll(async () => (await folder.locator('[data-workspace-field="name"] input').boundingBox())!.y).toBeLessThan(340);
       await expect(folder.locator('[data-workspace-field="name"] input')).toBeInViewport();
     }
     await page.screenshot({ path: testInfo.outputPath(`folder-tabs-${width}.png`), animations: "disabled" });
