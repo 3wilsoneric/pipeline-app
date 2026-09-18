@@ -470,6 +470,7 @@ const workItemRoute = read("app/api/referrals/[referralId]/work-items/[workItemI
 const assessmentWorkspace = [
   read("components/pipeline/AssessmentWorkspace.tsx"),
   read("components/pipeline/AssessmentInterviewFields.tsx"),
+  read("components/pipeline/AssessmentPreparation.tsx"),
   read("components/pipeline/AssessmentSchedulingDialogs.tsx"),
 ].join("\n");
 const assessmentInterviewSchema = read("lib/assessment/assessment-interview-schema.ts");

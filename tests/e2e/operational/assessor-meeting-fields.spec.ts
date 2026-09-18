@@ -12,15 +12,18 @@ test.describe("assessor meeting fields", () => {
     await page.setExtraHTTPHeaders(operationalActorHeaders("assessorA", url));
     try {
       const referral = await createOperationalReferral(api, "assessorA", { documentName: "" });
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
-      await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
+      const assessment = await createOperationalAssessment(api, referral.id);
+      const started = await api.post(`/api/assessments/${assessment.assessment_id}/start`, { data: { if_match: assessment.version } });
+      expect(started.status()).toBe(200);
+      const assessmentUrl = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`;
+      await page.goto(assessmentUrl);
       const editor = page.locator('[data-assessment-view="chart"]');
       const search = editor.getByRole("searchbox", { name: "Find assessment question" });
       const find = async (name: string) => {
+        await editor.locator('summary[aria-label="Find assessment question"]').click();
         await search.fill(name);
-        await editor.getByRole("navigation", { name: "Matching assessment questions" }).getByRole("button", { name: new RegExp(`^${name}`) }).click();
+        await editor.locator('[aria-label="Matching assessment questions"]').getByRole("button", { name: new RegExp(`^${name}`) }).click();
       };
-      const assessment = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments[0];
       const read = async () => (await (await api.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
       await find("IM injections");
       await editor.getByRole("group", { name: "IM injections", exact: true }).getByRole("button", { name: "Yes", exact: true }).click();
@@ -50,12 +53,13 @@ test.describe("assessor meeting fields", () => {
       const details = editor.getByRole("textbox", { name: "Physical altercation details", exact: true });
       await expect(details).toHaveAttribute("placeholder", "What happened, when, the context, and the outcome");
       await expect(details).not.toHaveAttribute("required");
+      await editor.locator('summary[aria-label="Find assessment question"]').click();
       for (const retired of ["Aggression risk", "Triggers"]) {
         await search.fill(retired);
-        await expect(editor.getByRole("navigation", { name: "Matching assessment questions" }).getByRole("button")).toHaveCount(0);
+        await expect(editor.locator('[aria-label="Matching assessment questions"]').getByRole("button")).toHaveCount(0);
       }
       await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
-      await page.reload();
+      await page.goto(assessmentUrl);
       await expect(editor).toBeVisible();
       await find("Injection frequency");
       await expect(editor.getByRole("textbox", { name: "Injection frequency", exact: true })).toHaveValue(entries[0][2]);

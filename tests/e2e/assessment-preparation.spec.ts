@@ -241,35 +241,41 @@ test("preparation preserves the signed assessment's read-only boundary", async (
   expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Signed synthetic diagnosis"]);
 });
 
-test("a queued preparation save stays visible and keeps answers across views", async ({ page }) => {
-  const referral = await createReferral(page);
-  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
-  expect(created.status()).toBe(201);
-  const { assessment } = await created.json();
-  await page.route(`**/api/assessments/${assessment.assessment_id}`, async (route) => {
-    if (route.request().method() === "PATCH") await route.fulfill({ status: 503, json: { error: "Synthetic save temporarily unavailable" } });
-    else await route.continue();
+test.describe("queued preparation recovery", () => {
+  // Playwright must own the intercepted writes even in a desktop-enabled build.
+  test.use({ serviceWorkers: "block" });
+  test("a queued preparation save stays visible and keeps answers across views", async ({ page }) => {
+    const referral = await createReferral(page);
+    const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
+    expect(created.status()).toBe(201);
+    const { assessment } = await created.json();
+    let rejectedWrites = 0;
+    await page.route(`**/api/assessments/${assessment.assessment_id}`, async (route) => {
+      if (route.request().method() === "PATCH") { rejectedWrites += 1; await route.fulfill({ status: 503, json: { error: "Synthetic save temporarily unavailable" } }); }
+      else await route.continue();
+    });
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    const notebook = page.locator("[data-assessment-view]");
+    const location = notebook.locator("#assessment-current_location");
+    await location.fill("Unsaved but retained referral notes");
+    await notebook.getByRole("heading", { name: "Referral & placement", exact: true }).click();
+    await expect.poll(() => rejectedWrites).toBeGreaterThan(0);
+    await expect(notebook.locator('[data-guide-target="assessment-save-status"]')).toHaveText("1 change waiting to sync");
+    expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.current_location).not.toBe("Unsaved but retained referral notes");
+    const pages = notebook.getByRole("navigation", { name: "Client file pages" });
+    await reviewFullAssessment(page);
+    await pages.getByRole("button", { name: "Prepare", exact: true }).click();
+    await choosePreparationGroup(page, "Referral & placement", "identity");
+    await expect(location).toHaveValue("Unsaved but retained referral notes");
+    await expect(notebook.locator('[data-guide-target="assessment-save-status"]')).not.toHaveText("All changes saved");
+    await page.unroute(`**/api/assessments/${assessment.assessment_id}`);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.current_location).toBe("Unsaved but retained referral notes");
+    await expect(notebook.locator('[data-guide-target="assessment-save-status"]')).toHaveText("Offline changes synced");
+    await location.fill("Recovered referral notes");
+    await notebook.getByRole("heading", { name: "Referral & placement", exact: true }).click();
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.current_location).toBe("Recovered referral notes");
   });
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-  const notebook = page.locator("[data-assessment-view]");
-  const location = notebook.locator("#assessment-current_location");
-  await location.fill("Unsaved but retained referral notes");
-  await notebook.getByRole("heading", { name: "Referral & placement", exact: true }).click();
-  await expect(notebook.locator('[data-guide-target="assessment-save-status"]')).toHaveText("1 change waiting to sync");
-  expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.current_location).not.toBe("Unsaved but retained referral notes");
-  const pages = notebook.getByRole("navigation", { name: "Client file pages" });
-  await reviewFullAssessment(page);
-  await pages.getByRole("button", { name: "Prepare", exact: true }).click();
-  await choosePreparationGroup(page, "Referral & placement", "identity");
-  await expect(location).toHaveValue("Unsaved but retained referral notes");
-  await expect(notebook.locator('[data-guide-target="assessment-save-status"]')).not.toHaveText("All changes saved");
-  await page.unroute(`**/api/assessments/${assessment.assessment_id}`);
-  await page.evaluate(() => window.dispatchEvent(new Event("online")));
-  await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.current_location).toBe("Unsaved but retained referral notes");
-  await expect(notebook.locator('[data-guide-target="assessment-save-status"]')).toHaveText("Offline changes synced");
-  await location.fill("Recovered referral notes");
-  await notebook.getByRole("heading", { name: "Referral & placement", exact: true }).click();
-  await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.current_location).toBe("Recovered referral notes");
 });
 
 test("extracted preparation answers retain their source and verification state", async ({ page }) => {
