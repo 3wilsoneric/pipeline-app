@@ -37,7 +37,7 @@ test.describe("mobile assessment", () => {
     await expect(assessment).toBeVisible();
     for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
-      await expect(assessment.getByRole("button", { name: "Close assessment" })).toBeInViewport();
+      await expect(assessment.getByRole("button", { name: "Back to referral" })).toBeInViewport();
       const phone = size.width < 640 || size.height < 500 && size.width < 960;
       if (phone) {
         await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeHidden();
@@ -45,7 +45,7 @@ test.describe("mobile assessment", () => {
       } else await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Close assessment" }), ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')])];
+      const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Back to referral" }), ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')])];
       if (!phone && size.width < 760) controls.push(assessment.getByRole("button", { name: /^Captured answers/ }));
       for (const control of controls) {
         const box = (await control.boundingBox())!;

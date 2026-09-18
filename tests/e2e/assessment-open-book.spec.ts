@@ -281,7 +281,7 @@ for (const width of [1440, 390]) {
     } else await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     const secondary = page.locator("#assessment-secondary_diagnoses");
     await secondary.fill("Final answer before immediate exit");
-    await page.getByRole("button", { name: "Close assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Back to referral", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Final answer before immediate exit"]);
     await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");

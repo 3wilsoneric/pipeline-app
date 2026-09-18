@@ -351,7 +351,7 @@ export default function AssessmentWorkspace({
   const showSecondaryActions = Boolean(
     selected && !selected.signed_at && !selected.started_at && canEditClinical
     || selected?.signed_at && canAddAddendum
-    || !embeddedPreparation && !phoneInterview && (trainingAssessmentMode || onOpenAssignedWork || viewer?.demoPersona)
+    || !embeddedPreparation && !phoneInterview && (onOpenAssignedWork || viewer?.demoPersona)
   );
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
   const practiceReview = useMemo(
@@ -705,7 +705,7 @@ export default function AssessmentWorkspace({
     });
   }, [initialSection, nextRequiredTarget, selected, trainingAssessmentMode, trainingAssessmentSection]);
 
-  const closeFromEscape = useEffectEvent(() => void (phoneInterview && onOpenWorkspace ? closeAssessment(onOpenWorkspace) : exitFocusedAssessment()));
+  const closeFromEscape = useEffectEvent(() => void closeAssessment(onOpenWorkspace));
 
   useEffect(() => {
     if (!isFocused || (embeddedPreparation && !showBeginDialog && !showScheduleDialog)) return;
@@ -1060,10 +1060,6 @@ export default function AssessmentWorkspace({
   };
 
   const closeAssessment = (onClosed?: () => void) => saveAndCloseAssessment(onClosed).catch(() => undefined);
-  const exitFocusedAssessment = () => closeAssessment(workspaceTitle && !trainingAssessmentMode ? () => {
-    setNotebookView("prepare");
-    setIsFocused(true);
-  } : undefined);
   const saveForHeaderNavigation = useEffectEvent(() => saveAndCloseAssessment());
 
   useEffect(() => {
@@ -1072,8 +1068,8 @@ export default function AssessmentWorkspace({
     const content = contentRef.current;
     const previousIsolation = content?.style.isolation ?? "";
     if (content && !embeddedPreparation) content.style.isolation = "isolate";
-    // The phone interview covers the workspace; do not tab into the file behind it.
-    const backgrounds = phoneInterview && content ? Array.from(content.children)
+    // The open folder covers the workspace; do not tab into controls behind it.
+    const backgrounds = !embeddedPreparation && content ? Array.from(content.children)
       .filter((element): element is HTMLElement => element instanceof HTMLElement && !element.matches("[data-assessment-view]"))
       .map((element) => ({ element, inert: element.inert })) : [];
     for (const { element } of backgrounds) element.inert = true;
@@ -1088,8 +1084,6 @@ export default function AssessmentWorkspace({
       if (beforeWorkspaceNavigationRef?.current === save) beforeWorkspaceNavigationRef.current = null;
     };
   }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedPreparation, isFocused, phoneInterview, setAssessmentFocused]);
-
-  const workspaceControl = <WorkspaceReturnButton onOpen={onOpenWorkspace} onExit={closeAssessment} disabled={isClosing} />;
 
   const openAssignedWork = async () => {
     if (closingRef.current || !onOpenAssignedWork) return;
@@ -1475,11 +1469,13 @@ export default function AssessmentWorkspace({
     <AssessmentFileSurface
       title={embeddedPreparation ? workspaceTitle : undefined}
       container={contentRef.current}
-      header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} phase={phoneInterview ? undefined : selected.signed_at ? "Signed" : selected.started_at ? "Assessment" : "Questionnaire"} view="chart" disabled={isClosing} onClose={() => void (phoneInterview && onOpenWorkspace ? closeAssessment(onOpenWorkspace) : exitFocusedAssessment())} />}
-      pages={<AssessmentFileNavigation hidden={phoneInterview || Boolean(trainingAssessmentMode)} disabled={isClosing} preparing={preparing}
-        onReferral={onOpenWorkspace ? () => void closeAssessment(onOpenWorkspace) : undefined}
-        onPrepare={() => { setWorkingTarget(null); setNotebookView("prepare"); }}
-        onAssessment={() => { setWorkingTarget(null); setNotebookView("assessment"); }}
+      header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} disabled={isClosing}
+        returnLabel={onOpenWorkspace ? "Back to referral" : "Back to workspace"}
+        onClose={() => void closeAssessment(onOpenWorkspace)}
+        pages={<AssessmentFileNavigation hidden={phoneInterview} disabled={isClosing} preparing={preparing} preparationAvailable={!trainingAssessmentMode}
+          onPrepare={() => { setWorkingTarget(null); setNotebookView("prepare"); }}
+          onAssessment={() => { setWorkingTarget(null); setNotebookView("assessment"); }}
+        />}
       />}
       dialogs={<AssessmentSchedulingDialogs
         assessment={selected}
@@ -1605,10 +1601,10 @@ export default function AssessmentWorkspace({
               required={requiredInterviewFields}
               target={workingTarget}
               questionNavigation={!preparing && !phoneInterview ? <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} groups={assessmentNavigationGroups} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} /> : null}
-              sectionNavigation={!preparing ? <div className="mt-7 flex items-center justify-between gap-3">
-                <button type="button" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key); }} disabled={activeSectionIndex <= 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} /> Previous</button>
-                <button type="button" data-guide-target="assessment-next-section" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key); }} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section <ChevronRight size={14} /></button>
-            </div> : null}
+              sectionNavigation={!preparing ? <nav aria-label="Assessment section navigation" className={workingStyles.sectionNavigation}>
+                <button type="button" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key); }} disabled={activeSectionIndex <= 0}><ChevronLeft size={14} /> Previous</button>
+                <button type="button" data-guide-target="assessment-next-section" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key); }} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1}>Next section <ChevronRight size={14} /></button>
+              </nav> : null}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               onChange={updateField}
@@ -1679,7 +1675,6 @@ export default function AssessmentWorkspace({
             {!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button> : null}
             {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
             {!embeddedPreparation && !phoneInterview ? <>
-              {trainingAssessmentMode ? workspaceControl : null}
               {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isClosing} /> : null}
               <DemoAssessmentControls persona={viewer?.demoPersona} />
             </> : null}
@@ -1734,15 +1729,6 @@ function assessmentCompletionTarget(
   const field = (rule.key.startsWith("unable:") ? rule.key.slice("unable:".length) : rule.fields[0]) as AssessmentToolFieldKey;
   const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === field);
   return definition ? { field, label: rule.label, section: definition.section } : null;
-}
-
-function WorkspaceReturnButton({ onOpen, onExit, disabled }: {
-  onOpen?: () => void;
-  onExit: (onClosed?: () => void) => Promise<void>;
-  disabled: boolean;
-}) {
-  if (!onOpen) return null;
-  return <button type="button" onClick={() => void onExit(onOpen)} disabled={disabled} className="flex h-9 shrink-0 items-center gap-1 border border-[#c9ceca] px-2 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50"><ChevronLeft size={14} aria-hidden="true" />Workspace</button>;
 }
 
 export function assessmentOpenLabel(assessment: Pick<PipelineAssessmentRecord, "signed_at" | "started_at" | "scheduled_start_at" | "schedule_status">) {

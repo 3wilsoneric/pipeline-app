@@ -40,7 +40,7 @@ test.describe("assessment preparation", () => {
         const field = editor.getByRole("textbox", { name: /Prior 5150/ });
         const answer = "Synthetic discharge summary describes one prior hold, with the date still to confirm.";
         await field.fill(answer);
-        await editor.getByRole("button", { name: "Close assessment", exact: true }).click();
+        await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
         await expect(editor).toHaveCount(0);
         await expect.poll(async () => (await readAssessment(api, id)).prior_5150_5250_holds).toBe(answer);
         expect((await readAssessment(api, id)).started_at).toBeNull();

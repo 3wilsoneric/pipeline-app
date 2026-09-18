@@ -37,7 +37,7 @@ test.describe("assessment editing entry and return paths", () => {
         await expect(full.getByRole("button", { name: "Full assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
         const answer = "Synthetic history entered immediately before closing the assessment.";
         await full.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
-        await full.getByRole("button", { name: "Close assessment", exact: true }).click();
+        await full.getByRole("button", { name: "Back to referral", exact: true }).click();
         await expect(full).toHaveCount(0);
         expect((await readAssessment(api, assessment.assessment_id)).prior_5150_5250_holds).toBe(answer);
         // Reopen without leaving the workspace, not just via a saved Home link.
@@ -47,7 +47,7 @@ test.describe("assessment editing entry and return paths", () => {
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
         await full.getByRole("button", { name: "Guided interview", exact: true }).click();
         await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
-        await guided.getByRole("button", { name: "Close assessment", exact: true }).click();
+        await guided.getByRole("button", { name: "Back to referral", exact: true }).click();
         await expect(guided).toHaveCount(0);
         await expect(page.getByRole("button", { name: "Resume assessment", exact: true })).toBeVisible();
         await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
@@ -59,7 +59,7 @@ test.describe("assessment editing entry and return paths", () => {
         await stages.getByRole("button", { name: /Assessment/ }).click();
         await expect(guided).toBeVisible();
         await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
-        await full.getByRole("button", { name: "Close assessment", exact: true }).click();
+        await full.getByRole("button", { name: "Back to referral", exact: true }).click();
         await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
         await page.getByRole("button", { name: "Open current work", exact: true }).click();
         const board = page.getByRole("dialog", { name: "Current work", exact: true });

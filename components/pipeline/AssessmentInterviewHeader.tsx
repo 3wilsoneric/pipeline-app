@@ -1,24 +1,28 @@
 "use client";
 
-import { X } from "lucide-react";
-import AssessmentViewToggle from "@/components/pipeline/AssessmentViewToggle";
+import { ArrowLeft } from "lucide-react";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import folderStyles from "@/components/pipeline/ReferralWorkspaceFolder.module.css";
+import styles from "@/components/pipeline/AssessmentPreparation.module.css";
 
-export default function AssessmentInterviewHeader({ name, community, phase, view, disabled, onViewChange, onClose }: {
+export default function AssessmentInterviewHeader({ name, community, disabled, returnLabel, pages, onClose }: {
   name: string | null;
   community: string | null;
-  phase?: string;
-  view: "guided" | "chart";
   disabled: boolean;
-  onViewChange?: (view: "guided" | "chart") => void;
+  returnLabel: string;
+  pages: React.ReactNode;
   onClose: () => void;
 }) {
+  const title = formatClientIdentityTitle({ name: name || "Client", community });
   return (
-    <div data-assessment-client-header="true" className="flex h-12 shrink-0 items-center gap-3 bg-[#f7faf4] px-3 sm:gap-4 sm:px-5">
-      {onViewChange ? <AssessmentViewToggle value={view} disabled={disabled} fullGuideTarget={view === "guided" ? "assessment-guided-exit" : undefined} onChange={onViewChange} /> : null}
-      <h2 className="min-w-0 flex-1 truncate text-[17px] font-bold text-[#213629]">{formatClientIdentityTitle({ name: name || "Client", community })}</h2>
-      {phase ? <span className="text-[12px] font-semibold text-[#526459]">{phase}</span> : null}
-      <button type="button" onClick={onClose} disabled={disabled} aria-label="Close assessment" title="Return to assessment workspace" className="flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50"><X size={20} /></button>
-    </div>
+    <header data-assessment-folder-header className={styles.folderHeader}>
+      <h2 className={`${folderStyles.identity} ${styles.folderIdentity}`} title={title}>
+        <span className={folderStyles.nameLabel}>{title}</span>
+      </h2>
+      {pages}
+      <button type="button" data-assessment-return onClick={onClose} disabled={disabled} aria-label={returnLabel} className={styles.returnButton}>
+        <ArrowLeft size={17} aria-hidden="true" /><span className={styles.returnText}>{returnLabel}</span><span className={styles.returnCompact} aria-hidden="true">{returnLabel === "Back to referral" ? "Referral" : "Workspace"}</span>
+      </button>
+    </header>
   );
 }

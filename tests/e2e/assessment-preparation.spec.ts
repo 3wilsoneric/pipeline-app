@@ -178,6 +178,8 @@ for (const width of [1440, 768]) {
     await reviewFullAssessment(page);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
+    await expect(page.locator("#packet-page-1")).toBeVisible();
+    await openWorkspacePage(page, "Questionnaire");
     await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open questionnaire", exact: true })).toHaveCount(0);
     // Escape on an inline file page must not close or collapse it.

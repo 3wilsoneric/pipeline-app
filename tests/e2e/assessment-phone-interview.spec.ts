@@ -89,7 +89,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       });
       expect(violations).toEqual([]);
       // Full-screen exit returns to this referral, without beginning or signing it.
-      await page.getByRole("button", { name: "Close assessment", exact: true }).tap();
+      await page.getByRole("button", { name: "Back to referral", exact: true }).tap();
       await expect(page.getByTestId("intake-client-folder")).toBeVisible();
       expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(false);
       const assessments = await read();

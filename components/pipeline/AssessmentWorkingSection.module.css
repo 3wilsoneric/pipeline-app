@@ -62,6 +62,10 @@
 .editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #fff; }
 .questionPage { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding: 24px 32px 32px; scroll-padding-block: 24px; }
 .questionPage > * { max-width: 780px; margin-inline: auto; }
+.sectionNavigation { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 20px; border-top: 1px solid #e0e4dc; background: #fdfdfb; }
+.sectionNavigation button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 10px; border-radius: 4px; color: #345a49; font-size: 14px; font-weight: 600; }
+.sectionNavigation button:hover:not(:disabled) { background: #edf3ed; }
+.sectionNavigation button:disabled { opacity: .4; }
 .paneHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 24px; color: #273c34; }
 .paneHeading h4 { font-size: 24px; font-weight: 650; letter-spacing: -0.03em; }
 .paneHeading span { color: #64706c; font-size: 14px; white-space: nowrap; }

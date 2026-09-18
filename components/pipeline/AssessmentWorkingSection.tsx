@@ -156,8 +156,8 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
           </div>)}
         </div>
       </section>)}
-      {props.sectionNavigation}
       </div>
+      {props.sectionNavigation}
     </div>
   </div>;
 }

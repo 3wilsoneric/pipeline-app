@@ -87,7 +87,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         await page.screenshot({ path: info.outputPath(`preparation-${engine}-${width}.png`), animations: "disabled" });
       }
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.getByRole("button", { name: "Close assessment", exact: true }).tap();
+      await page.getByRole("button", { name: "Back to referral", exact: true }).tap();
       await expect(name).toHaveValue(clientName);
       await header.getByRole("button", { name: "Workspace files", exact: true }).tap();
       await expect(header.getByRole("button", { name: "Workspace files", exact: true })).toHaveAttribute("aria-current", "page");
