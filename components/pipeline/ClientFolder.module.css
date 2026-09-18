@@ -9,8 +9,8 @@
 
 .cabinet {
   position: relative;
-  flex: 0 0 210px;
-  height: 218px;
+  flex: 0 0 244px;
+  height: 254px;
   padding: 0;
   border: 1px solid #8c9692;
   border-radius: 3px;
@@ -19,6 +19,9 @@
   color: #303e37;
   scroll-snap-align: start;
 }
+
+.cabinet:first-child { margin-inline-start: auto; }
+.cabinet:last-child { margin-inline-end: auto; }
 
 .cabinetIndex {
   position: absolute;
@@ -29,7 +32,7 @@
   color: #54625a;
 }
 
-.cabinetFiles { position: absolute; inset: 34px 12px auto; height: 45px; }
+.cabinetFiles { position: absolute; inset: 40px 12px auto; height: 45px; }
 .cabinetFiles i { position: absolute; inset: 13px 0 0; border: 1px solid #b8a884; border-radius: 2px 2px 0 0; background: #e9dfc7; }
 .cabinetFiles i::before { content: ""; position: absolute; top: -8px; left: 8px; width: 55px; height: 8px; border: 1px solid #b8a884; border-bottom: 0; border-radius: 3px 3px 0 0; background: inherit; }
 .cabinetFiles i:nth-child(2) { transform: translateY(8px); background: #efe5cd; }
@@ -39,7 +42,7 @@
 
 .cabinetFace {
   position: absolute;
-  inset: 77px 7px 8px;
+  inset: 86px 7px 8px;
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -50,20 +53,16 @@
   box-shadow: inset 2px 2px 0 #f6f8f6, inset -2px -2px 0 #a7b1aa;
   transition: transform 140ms ease-out;
 }
-.cabinetName { display: flex; align-items: center; justify-content: center; flex: 1; width: 100%; padding: 4px 6px; border: 1px solid #9fa9a2; background: #fffef8; font-size: 13px; font-weight: 700; line-height: 1.25; text-align: center; box-shadow: inset 1px 1px 1px #dbded5; overflow-wrap: anywhere; }
-.cabinetHandle { width: 54px; height: 10px; border: 2px solid #8c9890; border-top-color: #f5f7f4; border-radius: 2px; background: #737f78; box-shadow: 0 2px 0 #f2f4ee; }
+.cabinetName { display: flex; align-items: center; justify-content: center; flex: 1; width: 100%; padding: 4px 6px; border: 1px solid #9fa9a2; background: #fffef8; font-size: 14px; font-weight: 700; line-height: 1.25; text-align: center; box-shadow: inset 1px 1px 1px #dbded5; overflow-wrap: anywhere; }
+.cabinetHandle { width: 62px; height: 10px; border: 2px solid #8c9890; border-top-color: #f5f7f4; border-radius: 2px; background: #737f78; box-shadow: 0 2px 0 #f2f4ee; }
 .cabinetCount { font: 10px ui-monospace, monospace; color: #526056; }
 .cabinet:focus-visible { outline: 2px solid #0f8b73; outline-offset: 5px; }
 .cabinet:not(:disabled):active { background-image: none; }
 .cabinet:active .cabinetFace { transform: translateY(2px); }
 @media (hover: hover) and (pointer: fine) { .cabinet:hover .cabinetFace { transform: translateY(5px); } }
 
-.cabinetWindow { border: 3px solid #a1ada5; border-top-color: #edf0eb; border-left-color: #edf0eb; border-radius: 2px; background: #eeeee6; }
-.cabinetWindow::backdrop { background: rgb(28 44 36 / 28%); }
-.cabinetWindow > div:first-child { min-height: 46px; padding: 4px 7px 4px 16px; border: 0; background: #264f45; color: #fff; }
-.cabinetWindow > div:first-child h2 { font-size: 16px; }
-.cabinetWindow > div:first-child button { width: 36px; height: 36px; border: 2px outset #eef1ea; background: #d9dfd7; color: #26392d; }
-.cabinetToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #ccd1c7; background: #e3e7de; font: 12px ui-monospace, monospace; }
+.cabinetWindow { border-radius: 8px; }
+.cabinetToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #dfe5e2; background: #fff; color: #65716b; font-size: 12px; font-weight: 600; }
 .cabinetContents { padding: 22px 20px; }
 .cabinetEmpty { padding: 24px; text-align: center; color: #5e6a62; }
 .cabinetPagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 20px; font-size: 12px; }
@@ -72,9 +71,9 @@
 
 @media (max-width: 639px) {
   .cabinetRow { gap: 14px; }
-  .cabinet { flex-basis: 176px; height: 204px; }
+  .cabinet { flex-basis: 200px; height: 232px; }
   .cabinetFiles i:nth-child(3)::before { left: 80px; width: 48px; }
-  .cabinetFace { inset-block-start: 68px; }
+  .cabinetFace { inset-block-start: 76px; }
   .cabinetWindow { width: calc(100% - 12px); max-height: calc(100dvh - 24px); height: calc(100dvh - 24px); }
   .cabinetToolbar { padding: 8px 10px; }
   .cabinetContents { padding: 16px 8px; }

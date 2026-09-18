@@ -96,8 +96,9 @@ test("compact cabinets expand into one file window and return focus on close", a
   await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
   const cabinets = page.getByRole("group", { name: "Community file cabinets" }).getByRole("button");
-  const bounds = await cabinets.evaluateAll((nodes) => nodes.map((node) => { const r = node.getBoundingClientRect(); return { y: r.y, width: r.width, height: r.height }; }));
-  expect(bounds.every((r) => r.y === bounds[0].y && r.width <= 220 && r.height <= 220)).toBe(true);
+  const bounds = await cabinets.evaluateAll((nodes) => nodes.map((node) => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }));
+  expect(bounds.every((r) => r.y === bounds[0].y && r.width > 220 && r.width <= 260 && r.height <= 260)).toBe(true);
+  expect((bounds[0].x + bounds.at(-1)!.x + bounds.at(-1)!.width) / 2).toBeCloseTo(page.viewportSize()!.width / 2, 0);
   await page.screenshot({ path: testInfo.outputPath("cabinet-row.png") });
   const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
   await cabinet.focus();
