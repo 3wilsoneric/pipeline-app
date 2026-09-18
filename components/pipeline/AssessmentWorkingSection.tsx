@@ -124,6 +124,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   const groups = groupWorkingQuestions(remaining);
   useLayoutEffect(() => {
     if (editor.current) editor.current.scrollTop = 0;
+    editor.current?.closest('[data-guide-target="packet-workspace"]')?.scrollTo({ top: 0, behavior: "instant" });
   }, [props.section]);
   useLayoutEffect(() => {
     if (!localTarget) return;

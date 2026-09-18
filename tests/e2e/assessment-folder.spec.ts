@@ -2,12 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 
-async function openFolder(page: Page) {
+async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared diagnosis") {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
     name: `Alexandra Montgomery Richardson ${randomUUID().slice(0, 8)}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing",
   }, { assigneeId: "provisional:allo:annette" });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
-    client_mutation_id: randomUUID(), data: { secondary_diagnoses: ["Synthetic prepared diagnosis"] },
+    client_mutation_id: randomUUID(), data: { secondary_diagnoses: [secondaryDiagnosis] },
   } });
   expect(created.status()).toBe(201);
   const { assessment } = await created.json();
@@ -31,6 +31,49 @@ async function editDiagnosis(page: Page, width: number) {
     await page.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
   }
   return page.locator("#assessment-secondary_diagnoses");
+}
+
+for (const width of [1440, 1024, 768, 640]) {
+  test(`assessment uses one page scroll and keeps navigation reachable at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const longNote = Array.from({ length: 6 }, (_, index) => `Synthetic source note ${index + 1}: the client describes their recent care, current support, and questions to discuss during the interview. Keep the full source wording available while completing the chart.`).join("\n\n");
+    const { folder } = await openFolder(page, longNote);
+    const canvas = page.locator('[data-guide-target="packet-workspace"]');
+    const header = page.getByTestId("workspace-folder-header");
+    const footer = folder.locator('footer[aria-label="Assessment actions"]');
+    const questionPage = folder.locator("[data-assessment-question-page]");
+    const reference = folder.getByRole("complementary", { name: "Captured assessment answers" });
+    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    const recorded = reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true });
+    await expect(recorded).toContainText(longNote);
+    expect(await recorded.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+    await expect.poll(() => canvas.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeGreaterThan(300);
+    await expect(footer).toBeInViewport();
+    await page.screenshot({ path: info.outputPath(`page-top-${width}.png`) });
+
+    const left = (await reference.boundingBox())!;
+    await page.mouse.move(left.x + left.width / 2, left.y + 90);
+    await page.mouse.wheel(0, 200);
+    await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(100);
+    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    const afterLeft = await canvas.evaluate((el) => el.scrollTop);
+    const right = (await questionPage.boundingBox())!;
+    await page.mouse.move(right.x + right.width / 2, Math.max(220, right.y + 40));
+    await page.mouse.wheel(0, 350);
+    await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(afterLeft + 100);
+    expect(await questionPage.evaluate((el) => el.scrollTop)).toBe(0);
+    expect(await folder.locator("[data-assessment-reference-page]").evaluate((el) => el.scrollTop)).toBe(0);
+    await expect(header).toBeInViewport();
+    await expect(footer).toBeInViewport();
+    await page.screenshot({ path: info.outputPath(`page-scrolled-${width}.png`) });
+
+    await footer.getByRole("button", { name: "Next section", exact: true }).click();
+    await expect(page).not.toHaveURL(/assessmentSection=diagnosis_clinical/);
+    await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBe(0);
+    await expect(questionPage.locator("[data-working-field]").first()).toBeInViewport();
+    expect(await folder.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  });
 }
 
 for (const width of [1440, 1024, 768, 640, 390, 320]) {
