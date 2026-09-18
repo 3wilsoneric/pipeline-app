@@ -5,6 +5,7 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { DocumentProcessingError } from "@/lib/extraction/document-processing";
+import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
 import { isValidHttpByteRange } from "@/lib/extraction/http-byte-range";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
@@ -156,7 +157,7 @@ export async function getDocumentPreviewAsset(documentId: string, pageNumber?: n
         and d.deleted_at is null limit 1
     `;
     if (!pages[0]) return null;
-    requireClean(pages[0].malware_scan_status);
+    requireAvailableContent(pages[0].malware_scan_status);
     return {
       container: pages[0].blob_container,
       blobKey: pages[0].blob_key,
@@ -177,7 +178,7 @@ export async function getDocumentPreviewAsset(documentId: string, pageNumber?: n
   `;
   const row = rows[0];
   if (!row) return null;
-  requireClean(row.malware_scan_status);
+  requireAvailableContent(row.malware_scan_status);
   if (row.preview_status === "ready" && row.preview_blob_key) {
     return {
       container: process.env.AZURE_STORAGE_CONTAINER_ARTIFACTS?.trim() || "artifacts",
@@ -207,7 +208,7 @@ export async function getDocumentOriginalAsset(documentId: string): Promise<Asse
     limit 1
   `;
   if (!rows[0]) return null;
-  requireClean(rows[0].malware_scan_status);
+  requireAvailableContent(rows[0].malware_scan_status);
   return {
     container: rows[0].blob_container,
     blobKey: rows[0].blob_key,
@@ -230,7 +231,7 @@ export async function getFieldEvidenceAsset(packetId: string, fieldKey: string):
     limit 1
   `;
   if (!rows[0]) return null;
-  requireClean(rows[0].malware_scan_status);
+  requireAvailableContent(rows[0].malware_scan_status);
   return {
     container: process.env.AZURE_STORAGE_CONTAINER_EVIDENCE?.trim() || "evidence",
     blobKey: rows[0].evidence_blob_key,
@@ -355,9 +356,9 @@ async function readBoundedBytes(body: ReadableStream<Uint8Array> | null, maximum
   return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
 }
 
-function requireClean(value: string) {
+function requireAvailableContent(value: string) {
   if (value === "infected") throw new DocumentProcessingError("malware_detected", 410, "This file is unavailable.");
-  if (value !== "clean") throw new DocumentProcessingError("malware_scan_pending", 409, "The file safety scan is not complete.");
+  if (!isDocumentContentAvailable(value)) throw new DocumentProcessingError("document_content_unavailable", 409, "This file is not available yet.");
 }
 
 function isBrowserPreviewable(contentType: string) {

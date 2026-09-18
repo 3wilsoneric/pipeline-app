@@ -18,7 +18,7 @@ export async function localFileMetadataResponse(user: PipelineUser, id: string) 
   const file = document.file;
   return Response.json({ file: {
     document_id: id, file_name: file.name, category: file.category, byte_size: file.sizeBytes,
-    content_type: file.contentType, malware_scan_status: "clean", preview_status: "ready", page_count: null, pages: [],
+    content_type: file.contentType, malware_scan_status: "not_scanned", preview_status: "ready", page_count: null, pages: [],
   } }, { headers: { "Cache-Control": "private, no-store" } });
 }
 

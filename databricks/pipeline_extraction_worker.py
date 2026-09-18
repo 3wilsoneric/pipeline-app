@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scan-gated, deterministic referral packet extraction for Pipeline.
+"""Deterministic referral packet extraction for authenticated Pipeline uploads.
 
 This file is deployed as a Databricks Python script task. It deliberately uses
 only Pipeline-owned storage, a Unity Catalog service credential, Azure Document
@@ -22,7 +22,6 @@ from urllib.parse import quote, urlparse
 
 
 DOCUMENT_INTELLIGENCE_API_VERSION = "2024-11-30"
-MALWARE_RESULT_TAG = "Malware scanning scan result"
 MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024
 MAX_CALLBACK_BYTES = 2 * 1024 * 1024
 MAX_OCR_RESULT_BYTES = 50 * 1024 * 1024
@@ -85,7 +84,6 @@ class WorkerConfig:
     artifacts_container: str
     ocr_container: str
     evidence_container: str
-    scan_wait_seconds: int
 
 
 def parse_args(argv: list[str] | None = None) -> WorkerConfig:
@@ -105,7 +103,6 @@ def parse_args(argv: list[str] | None = None) -> WorkerConfig:
     parser.add_argument("--artifacts-container", default="artifacts")
     parser.add_argument("--ocr-container", default="ocr")
     parser.add_argument("--evidence-container", default="evidence")
-    parser.add_argument("--scan-wait-seconds", type=int, default=300)
     args = parser.parse_args(argv)
 
     raw_container, raw_blob_key = split_blob_prefix(args.raw_blob_prefix)
@@ -135,7 +132,6 @@ def parse_args(argv: list[str] | None = None) -> WorkerConfig:
         artifacts_container=safe_container(args.artifacts_container),
         ocr_container=safe_container(args.ocr_container),
         evidence_container=safe_container(args.evidence_container),
-        scan_wait_seconds=max(30, min(1800, args.scan_wait_seconds)),
     )
 
 
@@ -179,26 +175,6 @@ def run_worker(config: WorkerConfig) -> None:
     blob_service = get_blob_service(config.storage_account, credential)
     source_blob = blob_service.get_blob_client(config.raw_container, config.raw_blob_key)
 
-    scan_status = wait_for_malware_scan(source_blob, config.scan_wait_seconds)
-    if scan_status == "infected":
-        digest = hash_blob(source_blob)
-        post_report(config, {
-            "status": "succeeded",
-            "verified_sha256": digest,
-            "malware_scan_status": "infected",
-        })
-        return
-    if scan_status == "failed":
-        digest = hash_blob(source_blob)
-        post_report(config, {
-            "status": "succeeded",
-            "verified_sha256": digest,
-            "malware_scan_status": "failed",
-        })
-        return
-    if scan_status != "clean":
-        raise WorkerError("malware_scan_pending", retryable=True)
-
     content_type, document_bytes = download_blob(source_blob)
     digest = hashlib.sha256(document_bytes).hexdigest()
     validate_signature(content_type, document_bytes)
@@ -209,7 +185,7 @@ def run_worker(config: WorkerConfig) -> None:
         post_report(config, {
             "status": "succeeded",
             "verified_sha256": digest,
-            "malware_scan_status": "clean",
+            "malware_scan_status": "not_scanned",
             "preview": {
                 "blob_container": config.artifacts_container,
                 "blob_key": preview_key,
@@ -277,31 +253,11 @@ def run_worker(config: WorkerConfig) -> None:
     post_report(config, {
         "status": "succeeded",
         "verified_sha256": digest,
-        "malware_scan_status": "clean",
+        "malware_scan_status": "not_scanned",
         "page_count": page_count,
         "artifacts": artifacts,
         "fields": fields,
     })
-
-
-def wait_for_malware_scan(blob_client: Any, maximum_wait_seconds: int) -> str:
-    deadline = time.monotonic() + maximum_wait_seconds
-    while time.monotonic() < deadline:
-        try:
-            raw_value = blob_client.get_blob_tags().get(MALWARE_RESULT_TAG, "")
-        except Exception as error:
-            if status_code(error) in {401, 403}:
-                raise WorkerError("malware_scan_tag_forbidden", retryable=False) from error
-            raw_value = ""
-        normalized = str(raw_value).strip().lower()
-        if normalized == "no threats found":
-            return "clean"
-        if normalized == "malicious":
-            return "infected"
-        if normalized in {"error", "not scanned"}:
-            return "failed"
-        time.sleep(5)
-    return "pending"
 
 
 def download_blob(blob_client: Any) -> tuple[str, bytes]:
@@ -316,18 +272,6 @@ def download_blob(blob_client: Any) -> tuple[str, bytes]:
     if len(data) != declared_size or len(data) > MAX_DOWNLOAD_BYTES:
         raise WorkerError("source_blob_size_mismatch", retryable=False)
     return content_type, data
-
-
-def hash_blob(blob_client: Any) -> str:
-    digest = hashlib.sha256()
-    downloader = blob_client.download_blob(max_concurrency=2)
-    total = 0
-    for chunk in downloader.chunks():
-        total += len(chunk)
-        if total > MAX_DOWNLOAD_BYTES:
-            raise WorkerError("source_blob_size_invalid", retryable=False)
-        digest.update(chunk)
-    return digest.hexdigest()
 
 
 def analyze_document(endpoint: str, credential: Any, source_url: str) -> dict[str, Any]:

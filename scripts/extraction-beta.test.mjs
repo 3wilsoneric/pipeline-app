@@ -11,6 +11,12 @@ import { loadTypeScriptModule } from './ts-module-loader.mjs';
 const root = resolve(import.meta.dirname, '..');
 const require = createRequire(import.meta.url);
 
+test('unscanned approved uploads are available without erasing historical unsafe verdicts', () => {
+  const { isDocumentContentAvailable } = loadTypeScriptModule(root, 'lib/extraction/document-access-policy.ts');
+  for (const status of ['clean','not_scanned']) assert.equal(isDocumentContentAvailable(status), true);
+  for (const status of ['pending','infected','failed',undefined,'unknown']) assert.equal(isDocumentContentAvailable(status), false);
+});
+
 test('only reviewed suggestions populate intake; typed values remain protected', () => {
   const { populateFormFromExtraction } = loadTypeScriptModule(root, 'lib/pipeline/referral-canvas-extraction.ts');
   const form = { dob: { value: '', label: 'DOB' } };
@@ -32,7 +38,7 @@ test('PostgreSQL callback preserves reviewed values and provenance; dispatch exc
     const port = await new Promise(resolvePort => { const server = net.createServer(); server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolvePort(port)); }); });
     execFileSync(binary('pg_ctl'), ['-D', data, '-l', join(dir, 'pg.log'), '-w', 'start', '-o', `-p ${port} -h 127.0.0.1 -k ${socket} -F`], { stdio: 'pipe' }); started = true;
     sql = postgres({ host:'127.0.0.1', port, database:'postgres', username:process.env.USER, ssl:false, max:1, prepare:false, onnotice:()=>{} });
-    for (const file of readdirSync(join(root, 'database/migrations')).filter(f => f.endsWith('.sql')).sort()) await sql.unsafe(readFileSync(join(root, 'database/migrations', file), 'utf8'));
+    for (const file of readdirSync(join(root, 'database/migrations')).filter(f => f.endsWith('.sql') && !f.startsWith('0039_')).sort()) await sql.unsafe(readFileSync(join(root, 'database/migrations', file), 'utf8'));
     const [person] = await sql`insert into pipeline.people(display_name) values ('Synthetic Beta Test') returning person_id`;
     await sql`insert into pipeline.referrals(referral_id,person_id,stage,community,owner_id,owner_name,data,created_by,created_by_name,updated_by,updated_by_name) values (1,${person.person_id},'New','San Pablo','test','Test','{}','test','Test','test','Test')`;
     const [packet] = await sql`insert into pipeline.packet_uploads(referral_id,source_type,submitting_facility,status,uploaded_by,processing_intent) values (1,'manual','Synthetic','extracting','test','extract_referral') returning packet_id`;
@@ -43,6 +49,12 @@ test('PostgreSQL callback preserves reviewed values and provenance; dispatch exc
       docs.push(doc.document_id);
     }
     await sql`insert into pipeline.packet_upload_files(packet_id,file_id,document_id,expected_byte_size,expected_sha256,blob_path,reservation_expires_at,uploaded_at) values (${packet.packet_id},'fixture',${docs[0]},100,${'1'.repeat(64)},'fixture',now()+interval '1 hour',now())`;
+    await sql`update pipeline.documents set malware_scan_status='infected' where document_id=${docs[2]}`;
+    await sql.unsafe(readFileSync(join(root,'database/migrations/0039_document_scan_not_required.sql'),'utf8'));
+    const migrated=await sql`select document_id,malware_scan_status from pipeline.documents`;
+    assert.equal(migrated.find(d=>d.document_id===docs[0]).malware_scan_status,'not_scanned');
+    assert.equal(migrated.find(d=>d.document_id===docs[1]).malware_scan_status,'pending');
+    assert.equal(migrated.find(d=>d.document_id===docs[2]).malware_scan_status,'infected');
     const globals = {
       __pipelineSql:sql,
       process:{...process,env:{...process.env,PIPELINE_DATABASE_MODE:'postgres',PIPELINE_DATABASE_URL:'disposable-test-only',AZURE_STORAGE_ACCOUNT:'fixture',DATABRICKS_HOST:'https://fixture.azuredatabricks.net',DATABRICKS_JOB_ID:'1',DATABRICKS_AUTH_MODE:'oauth_m2m',DATABRICKS_CLIENT_ID:'test',DATABRICKS_CLIENT_SECRET:'test'}},
@@ -61,8 +73,26 @@ test('PostgreSQL callback preserves reviewed values and provenance; dispatch exc
     }
     const token=randomUUID();
     const [job] = await sql`insert into pipeline.extraction_jobs(document_id,packet_id,job_type,status,attempt_count,attempt_token) values (${docs[0]},${packet.packet_id},'referral_packet','running',1,${token}) returning extraction_job_id`;
-    const fields=Array.from({length:5},(_,i)=>({field_key:`fixture.value${i}`,proposed_value:'new',confidence:.99,source_page:1,candidates:[{source:'document_intelligence',value:'new',confidence:.99,source_page:1}]}));
-    await worker.reportExtractionJob({extraction_job_id:job.extraction_job_id,attempt_count:1,attempt_token:token,status:'succeeded',malware_scan_status:'clean',verified_sha256:'1'.repeat(64),fields});
+    const fields=Array.from({length:5},(_,i)=>({field_key:`fixture.value${i}`,proposed_value:'new',confidence:.99,source_page:1,evidence_blob_key:'synthetic/page-1.png',candidates:[{source:'document_intelligence',value:'new',confidence:.99,source_page:1}]}));
+    const report={extraction_job_id:job.extraction_job_id,attempt_count:1,attempt_token:token,status:'succeeded',malware_scan_status:'not_scanned',verified_sha256:'1'.repeat(64),fields};
+    await assert.rejects(worker.reportExtractionJob({...report,verified_sha256:undefined}),{code:'verified_sha256_required'});
+    await assert.rejects(worker.reportExtractionJob({...report,attempt_token:randomUUID()}),{code:'stale_job_attempt'});
+    await worker.reportExtractionJob(report);
+    const [processed]=await sql`select malware_scan_status,processing_status from pipeline.documents where document_id=${docs[0]}`;
+    assert.equal(processed.malware_scan_status,'not_scanned');
+    assert.equal(processed.processing_status,'ready_for_review');
+    const assets=loadTypeScriptModule(root,'lib/extraction/document-assets.ts',globals);
+    assert.equal((await assets.getDocumentOriginalAsset(docs[0])).contentType,'application/pdf');
+    assert.equal((await assets.getDocumentPreviewAsset(docs[0])).contentType,'application/pdf');
+    assert.equal((await assets.getFieldEvidenceAsset(packet.packet_id,'fixture.value4')).blobKey,'synthetic/page-1.png');
+    await assert.rejects(assets.getDocumentOriginalAsset(docs[1]),{code:'document_content_unavailable'});
+    await assert.rejects(assets.getDocumentOriginalAsset(docs[2]),{code:'malware_detected'});
+    const unsafeToken=randomUUID();
+    const [unsafeJob]=await sql`insert into pipeline.extraction_jobs(document_id,packet_id,job_type,status,attempt_count,attempt_token) values (${docs[2]},${packet.packet_id},'assessment_workbook','running',1,${unsafeToken}) returning extraction_job_id`;
+    await worker.reportExtractionJob({...report,extraction_job_id:unsafeJob.extraction_job_id,attempt_token:unsafeToken,verified_sha256:'3'.repeat(64),fields:[]});
+    const [stillUnsafe]=await sql`select malware_scan_status,processing_status from pipeline.documents where document_id=${docs[2]}`;
+    assert.equal(stillUnsafe.malware_scan_status,'infected');
+    assert.equal(stillUnsafe.processing_status,'failed');
     const rows=await sql`select field_key,proposed_value,final_value,review_status,source_page,version,reviewer_id from pipeline.referral_fields order by field_key`;
     for (const row of rows.slice(0,3)) { assert.equal(row.proposed_value,'original'); assert.equal(row.final_value,'human'); assert.equal(row.source_page,2); assert.equal(row.version,1); assert.equal(row.reviewer_id,'reviewer'); }
     for (const row of rows.slice(3)) { assert.equal(row.proposed_value,'new'); assert.equal(row.source_page,1); }
