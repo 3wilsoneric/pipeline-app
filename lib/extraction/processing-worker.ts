@@ -67,6 +67,9 @@ export async function dispatchExtractionJobs(limit = 10, workerId = "pipeline-di
       select j.extraction_job_id
       from pipeline.extraction_jobs j
       where j.status = 'queued' and j.next_attempt_at <= now()
+        -- Beta handles uploaded referral packets, not the historical import backlog.
+        and exists (select 1 from pipeline.packet_uploads p
+          where p.packet_id = j.packet_id and p.processing_intent = 'extract_referral')
       order by j.next_attempt_at, j.queued_at, j.extraction_job_id
       for update skip locked
       limit ${boundedLimit}
@@ -543,13 +546,17 @@ async function upsertExtractedFields(
       source_document_id = excluded.source_document_id, source_page = excluded.source_page,
       evidence_blob_key = excluded.evidence_blob_key, evidence_bbox = excluded.evidence_bbox, updated_at = now(),
       version = pipeline.referral_fields.version + 1
+    where pipeline.referral_fields.review_status = 'pending'
+      and (pipeline.referral_fields.source_document_id = excluded.source_document_id
+        or pipeline.referral_fields.proposed_value is null)
     returning referral_field_id, field_key
   `;
   const fieldIdByKey = new Map(savedFields.map((field) => [field.field_key, field.referral_field_id]));
   const fieldIds = savedFields.map((field) => field.referral_field_id);
+  if (!fieldIds.length) return;
   await tx`delete from pipeline.extraction_candidates where referral_field_id in ${tx(fieldIds)}`;
 
-  const candidateRows = toCandidateRows(fields, fieldIdByKey);
+  const candidateRows = toCandidateRows(fields.filter((field) => fieldIdByKey.has(field.field_key)), fieldIdByKey);
   if (!candidateRows.length) return;
   await tx`
     insert into pipeline.extraction_candidates (

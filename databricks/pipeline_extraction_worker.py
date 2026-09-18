@@ -236,7 +236,7 @@ def run_worker(config: WorkerConfig) -> None:
         config,
         document_bytes,
         content_type,
-        {page.page_number for page in pages},
+        {field["source_page"] for field in build_intake_fields(pages, page_count, {}) if field.get("source_page")},
     )
     fields = build_intake_fields(pages, page_count, evidence_keys)
     output = {
@@ -607,6 +607,7 @@ def post_report(config: WorkerConfig, report: dict[str, Any]) -> None:
 
 def get_service_credential(name: str) -> Any:
     try:
+        from databricks.sdk.runtime import dbutils
         return dbutils.credentials.getServiceCredentialsProvider(name)  # type: ignore[name-defined]  # noqa: F821
     except Exception as error:
         raise WorkerError("service_credential_unavailable", retryable=False) from error
@@ -614,6 +615,7 @@ def get_service_credential(name: str) -> Any:
 
 def get_secret(scope: str, key: str) -> str:
     try:
+        from databricks.sdk.runtime import dbutils
         value = dbutils.secrets.get(scope=scope, key=key)  # type: ignore[name-defined]  # noqa: F821
     except Exception as error:
         raise WorkerError("callback_secret_unavailable", retryable=False) from error

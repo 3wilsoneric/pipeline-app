@@ -154,3 +154,28 @@ metadata to the authenticated callback. Relevant PostgreSQL tables include:
 - Do not trust browser-submitted reviewer IDs.
 - Do not write AI output into referral records without human approval.
 - Do not send every page to Claude by default; route by confidence and page type.
+
+## Referral extraction Beta (September 2026)
+
+The intake **Document suggestions — Beta** area reads the main face sheet/referral
+packet in the background. Creation, manual saves, and navigation never wait for
+scanning, OCR, or review. Suggestions require explicit confirmation; typed values
+and previously reviewed field values/provenance are retained. Status failures show
+neutral optional guidance. Supporting files still upload, but this Beta dispatcher
+only claims jobs belonging to `extract_referral` packets; historical imports and
+`preview_only` jobs are held. Revisit that boundary when multi-document evidence
+review and representative extraction measurements are ready.
+
+The user authorized production setup and focused testing. Resource-scoped Defender
+scanning uses a 50 GB/month cap; exceeding it pauses extraction, not manual work.
+For the HNS storage account register `Microsoft.Storage/BlobIndexForHns`, then
+re-register `Microsoft.Storage`; `Microsoft.EventGrid` must also be registered.
+`infra/azure/main.bicep` retains the account-level scan configuration. Prove a new
+synthetic upload receives `No threats found` before enabling production extraction.
+The worker's managed identity and callback secret remain separate from user login.
+
+Focused checks: `node --test scripts/extraction-beta.test.mjs` (disposable local
+PostgreSQL), `python3 scripts/test-pipeline-extraction-worker.py`, and Playwright
+`tests/e2e/extraction-beta.spec.ts`. A live synthetic upload must additionally prove
+Defender, Databricks, Document Intelligence, callback persistence, and source review.
+These tests establish workflow behavior, not accuracy across all clinical documents.
