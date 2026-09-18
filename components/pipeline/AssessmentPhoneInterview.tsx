@@ -122,8 +122,7 @@ export default function AssessmentPhoneInterview(props: Props) {
       if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 2) move(dx < 0 ? 1 : -1);
     }}>
       <div className={styles.question} key={question?.field ?? section.key}>
-        <p ref={heading} tabIndex={-1} className={styles.position} aria-live="polite">{question ? `${index + 1} of ${steps.length} ${props.preparing ? "in this section" : "gaps this visit"}` : "Already in the chart"}<span>{counts.captured} in the chart</span></p>
-        {!props.preparing ? <p className={styles.gapHint}>Fill what is missing. Recorded answers are in Client info.</p> : null}
+        <p ref={heading} tabIndex={-1} className={styles.position} aria-live="polite">{question ? `${index + 1} of ${steps.length}` : null}</p>
         {question ? <WorkingAssessmentField {...props} question={question} /> : <p>This section is recorded. Continue, or open Client info to review an answer.</p>}
       </div>
     </div>

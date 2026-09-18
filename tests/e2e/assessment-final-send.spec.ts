@@ -24,7 +24,7 @@ test("signed answers remain editable and saved; Add note appears only after the 
   await expect(field).toBeEditable();
   await field.fill("Synthetic correction after signing, before sending");
   await expect.poll(async () => (await read()).current_symptoms).toBeNull();
-  await surface.getByRole("heading", { name: "Fill the gaps", exact: true }).click();
+  await field.blur();
   await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic correction after signing, before sending");
   await page.reload();
   await surface.getByRole("button", { name: "Edit Current symptoms", exact: true }).click();

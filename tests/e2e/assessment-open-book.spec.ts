@@ -90,6 +90,8 @@ for (const width of [1440, 1024, 768, 640]) {
 
 test("reading pane keeps its place while questions scroll and sections change", async ({ page }, testInfo) => {
   await openPractice(page, 1024);
+  // History now fits at full height; use a short screen to exercise independent scrolling.
+  await page.setViewportSize({ width: 1024, height: 640 });
   const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
   await reference.getByRole("combobox", { name: "Reference information" }).selectOption("all");
   const readingPage = page.locator("[data-assessment-reference-page]");
@@ -231,6 +233,7 @@ test("unfinished view preserves pending source verification and missing reasons"
   const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
   await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
   await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toContainText("Reason missing");
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("existing imported chart remains available without a new signed assessment", async ({ page }) => {

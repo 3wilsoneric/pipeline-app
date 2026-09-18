@@ -12,19 +12,19 @@ import type { AssessmentToolData, AssessmentToolFieldKey, AssessmentToolSection 
 // Presentation order only: retain canonical fields, conditions, and source checks.
 // Add cross-topic regrouping only when assessor feedback identifies a concrete gap.
 export const assessmentConversationSections = ([
-  ["identity", "Confirm the basics", "Confirm the details the referral did not provide."],
-  ["diagnosis_clinical", "How things are now", "How have things been for you recently?"],
-  ["functional_adl", "A usual day", "Talk through a usual day and the help they need."],
-  ["physical_health", "Health and comfort", "Check current health, comfort, and care needs."],
-  ["medication", "Medication", "How are medications going day to day?"],
-  ["prior_placement", "Living situation", "Where are they living now, and what is that like?"],
-  ["prior_history", "Recent care and history", "Fill in recent stays and what led to this referral."],
-  ["substance_use", "Substance use and recovery", "Clarify substance use and recovery history."],
-  ["behavioral_risk", "Safety and support", "Discuss current safety concerns and what helps."],
-  ["legal_conservatorship", "Decisions and legal support", "Confirm decision-making support and legal requirements."],
-  ["social_support", "What matters next", "What matters to them about their next home?"],
-  ["provenance_qc", "Anything else", "Anything else needed to understand this person?"],
-] as const).map(([key, label, prompt]) => ({ key, label, prompt }));
+  ["identity", "Confirm the basics"],
+  ["diagnosis_clinical", "How things are now"],
+  ["functional_adl", "A usual day"],
+  ["physical_health", "Health and comfort"],
+  ["medication", "Medication"],
+  ["prior_placement", "Living situation"],
+  ["prior_history", "Recent care and history"],
+  ["substance_use", "Substance use and recovery"],
+  ["behavioral_risk", "Safety and support"],
+  ["legal_conservatorship", "Decisions and legal support"],
+  ["social_support", "What matters next"],
+  ["provenance_qc", "Anything else"],
+] as const).map(([key, label]) => ({ key, label }));
 
 export function assessmentGapSections(data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[]) {
   return assessmentConversationSections.map((section) => {

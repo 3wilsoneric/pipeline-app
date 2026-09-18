@@ -19,6 +19,38 @@ test("gap itinerary retains every canonical section, zeros, and source checks", 
 });
 
 for (const width of [1440, 768, 390, 320]) {
+  test(`assessment starts with the actual information, not repeated headings, at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/?view=referrals&screen=packet&trainingAssessment=prepare&workspaceStage=assessment&assessmentSection=prior_history");
+    const folder = page.getByTestId("assessment-client-folder");
+    for (const text of ["Fill the gaps", "Placement trajectory", "Hospital and crisis history", "Fill in recent stays and what led to this referral.", "Fill what is missing. Recorded answers are in Client info."]) {
+      await expect(folder.getByText(text, { exact: true })).toHaveCount(0);
+    }
+    const question = folder.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true });
+    await expect(question).toBeInViewport();
+    if (width >= 640) {
+      const editor = folder.locator("[data-assessment-question-page]");
+      const field = editor.locator("[data-working-field]").first();
+      expect((await field.boundingBox())!.y - (await editor.boundingBox())!.y).toBeLessThan(40);
+      await expect(editor.getByRole("heading")).toHaveCount(0);
+      const reference = folder.getByRole("complementary", { name: "Captured assessment answers" });
+      const recorded = reference.getByRole("button", { name: "Edit Prior placements", exact: true });
+      await expect(recorded).toBeInViewport();
+      const reading = reference.locator("[data-assessment-reference-page]");
+      expect((await recorded.boundingBox())!.y - (await reading.boundingBox())!.y).toBeLessThan(40);
+      await recorded.click();
+      await expect(folder.getByRole("textbox", { name: "Prior placements", exact: true })).toBeFocused();
+    } else {
+      await expect(folder.getByText("1 of 3", { exact: true })).toBeVisible();
+      await expect(folder.getByText(/gaps this visit|3 in the chart|to finish here/)).toHaveCount(0);
+      await expect(folder.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
+    }
+    await page.screenshot({ path: info.outputPath(`direct-assessment-${width}.png`) });
+  });
+}
+
+for (const width of [1440, 768, 390, 320]) {
   test(`assessment fills chart gaps without re-asking recorded answers at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 320 ? 650 : 950 });
     await page.goto("/?view=referrals&screen=packet&trainingAssessment=prepare&workspaceStage=assessment&assessmentSection=identity");

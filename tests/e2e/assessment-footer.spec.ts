@@ -119,7 +119,7 @@ test("secondary actions close on Escape and outside press without exiting the as
     await expect(surface).toBeVisible();
     await expect(more).toBeFocused();
     await more.tap();
-    await surface.getByRole("heading", { name: "Fill the gaps", exact: true }).tap();
+    await surface.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true }).tap();
     await expect(menu).toBeHidden();
     await more.tap();
     await menu.getByRole("button", { name: "Schedule assessment", exact: true }).tap();

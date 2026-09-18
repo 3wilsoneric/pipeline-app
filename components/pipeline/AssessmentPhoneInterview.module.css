@@ -10,8 +10,6 @@
 .question { max-width: 580px; margin-inline: auto; padding: 20px 20px 28px; }
 .position { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; margin: 0 0 22px; color: #64766c; font-size: 12px; font-weight: 550; }
 .position:focus { outline: none; }
-.position span { color: #39725a; }
-.question .gapHint { margin: -10px 0 18px; font-size: 13px; line-height: 1.5; color: #52675b; }
 .question [data-working-field] > div > div:first-child { align-items: flex-start; margin-bottom: 18px; }
 .question [data-working-field] > div > div:first-child > label { color: #20352d; font-size: 25px; font-weight: 650; line-height: 1.25; letter-spacing: -0.025em; }
 .question [data-working-field] > div > div:first-child > span { display: none; }

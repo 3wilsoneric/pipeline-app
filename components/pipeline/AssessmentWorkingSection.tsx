@@ -21,10 +21,8 @@ import { AssessmentField } from "@/components/pipeline/AssessmentInterviewFields
 import { latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import {
   assessmentQuestionStatus,
-  assessmentConversationSections,
   assessmentGapSections,
   assessmentConversationContext,
-  assessmentWorkingCounts,
   capturedAssessmentAnswer,
   groupWorkingQuestions,
   matchesAssessmentQuestion,
@@ -124,7 +122,6 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   // Keep edited fields in place for this section visit; never move a pointer's next target.
   const remaining = questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured" || visited.includes(question.field) || localTarget?.field === question.field || !entryFields.includes(question.field));
   const groups = groupWorkingQuestions(remaining);
-  const counts = assessmentWorkingCounts(questions, data, pending);
   useLayoutEffect(() => {
     if (editor.current) editor.current.scrollTop = 0;
   }, [props.section]);
@@ -142,11 +139,8 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
     <div data-assessment-question-editor className={styles.editor}>
       {props.questionNavigation}
       <div ref={editor} className={styles.questionPage} data-assessment-question-page>
-      <header className={styles.paneHeading}><div><h4>{isAssessmentFinalized(props.assessment) ? "Sent assessment" : "Fill the gaps"}</h4><p>{counts.captured} already in the chart. {counts.unanswered + counts.verify + counts.reasons} to finish here{counts.verify ? `, including ${counts.verify} to verify` : ""}.</p></div></header>
-      {groups.length > 0 ? <p className={styles.conversationPrompt}>{assessmentConversationSections.find((section) => section.key === props.section)?.prompt}</p> : null}
       {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Read the sent answers in Client information." : "This section is recorded. Continue to the next section, or select an answer in Client information to edit it."}</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.questionGroup}>
-        <h5>{group.label}</h5>
         <div className={styles.fields}>
           {group.questions.map((question) => <div key={question.field} className={question.span === "full" ? styles.fullField : undefined}>
             <WorkingAssessmentField {...props} question={question} onFieldFocus={(field) => { setVisited((current) => current.includes(field) ? current : [...current, field]); props.onFieldFocus(field); }} />
@@ -194,7 +188,7 @@ function CapturedAssessmentAnswers({ section, data, pending, questions, referenc
       </header>
       <div ref={readingPage} className={styles.readingPage} data-assessment-reference-page>
       {!groups.length ? <p className={styles.empty}>No recorded context for this section yet. All recorded information is available above.</p> : null}
-      {groups.map((group) => <section key={group.label} className={styles.referenceGroup}><header><h5>{group.label}</h5></header>
+      {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.referenceGroup}>
         {group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} signed={isAssessmentFinalized(assessment)} onEdit={(field) => { setExpanded(false); onEdit(field); }} />)}
       </section>)}
       </div>

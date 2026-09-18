@@ -93,7 +93,7 @@ test("conversation reference prioritizes documented support, follows the section
   await page.getByRole("button", { name: "Open assessment", exact: true }).click();
   const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
   await expect(reference.getByLabel("Reference information")).toHaveValue("briefing");
-  await expect(reference.getByRole("heading", { name: "Interview support", exact: true })).toBeVisible();
+  await expect(reference.getByRole("region", { name: "Interview support", exact: true })).toBeVisible();
   await expect(reference).toContainText("Synthetic interpreter arranged");
   await expect(reference).toContainText("Synthetic walker");
   await expect(reference).not.toContainText("Hidden stale answer");
