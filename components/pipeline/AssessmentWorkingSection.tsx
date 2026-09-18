@@ -16,7 +16,7 @@ import {
   type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
-import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { isAssessmentFinalized, type PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { AssessmentField } from "@/components/pipeline/AssessmentInterviewFields";
 import { latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import {
@@ -139,8 +139,8 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   return <div data-assessment-working-section className={styles.book}>
     <CapturedAssessmentAnswers {...props} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} />
     <div ref={editor} data-assessment-question-editor className={styles.editor}>
-      <header className={styles.paneHeading}><h4>{props.assessment.signed_at ? "Signed assessment" : "To finish"}</h4><span>{counts.unanswered + counts.verify + counts.reasons} remaining</span></header>
-      {!groups.length ? <p className={styles.empty}>{props.assessment.signed_at ? "Read the signed answers in Captured answers." : "This section is recorded. Continue to the next section, or open Captured answers to edit it."}</p> : null}
+      <header className={styles.paneHeading}><h4>{isAssessmentFinalized(props.assessment) ? "Sent assessment" : "To finish"}</h4><span>{counts.unanswered + counts.verify + counts.reasons} remaining</span></header>
+      {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Read the sent answers in Captured answers." : "This section is recorded. Continue to the next section, or open Captured answers to edit it."}</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.questionGroup}>
         <h5>{group.label}</h5>
         <div className={styles.fields}>
@@ -182,7 +182,7 @@ function CapturedAssessmentAnswers({ section, data, pending, questions, referenc
       </select> : null}
       {!captured.length ? <p className={styles.empty}>No information recorded here yet.</p> : null}
       {groups.map((group) => <section key={group.label} className={styles.referenceGroup}><h5>{group.label}</h5>
-        {group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} signed={Boolean(assessment.signed_at)} onEdit={(field) => { setExpanded(false); onEdit(field); }} />)}
+        {group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} signed={isAssessmentFinalized(assessment)} onEdit={(field) => { setExpanded(false); onEdit(field); }} />)}
       </section>)}
     </div>
   </aside>;

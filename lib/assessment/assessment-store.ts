@@ -38,6 +38,7 @@ import {
 } from "./assessment-lifecycle-validation";
 import {
   preserveCanonicalClientId,
+  isAssessmentFinalized,
   type AssessmentCompletionReport,
   type AssessmentActor,
   type AssessmentAuditAction,
@@ -282,6 +283,54 @@ function getAssessmentStore() {
 
 export async function listAssessments(options: AssessmentListOptions = {}) {
   return getAssessmentStore().list(options);
+}
+
+/** Serialize only the final send against saves, so the emailed version is exact.
+ * A failed send changes nothing. No editor is locked merely by signing.
+ */
+export async function deliverAssessmentPacket<T extends { acceptedAt: string }>(
+  assessmentId: string,
+  expectedVersion: number,
+  send: () => Promise<T>,
+): Promise<T> {
+  function assertCurrent(current: PipelineAssessmentRecord | null): asserts current is PipelineAssessmentRecord {
+    if (!current?.signed_at || current.version !== expectedVersion) {
+      throw new Error("The assessment changed. Refresh Meet the Client before sending.");
+    }
+  }
+  if (getAssessmentStoreReadiness().mode === "postgres") {
+    const sql = getPipelineSql();
+    return sql.begin(async (tx) => {
+      const current = await getAssessmentInTransaction(tx, assessmentId, true);
+      assertCurrent(current);
+      const result = await send();
+      await tx`
+        update pipeline.assessments
+        set meet_client_sent_at = coalesce(meet_client_sent_at, ${result.acceptedAt}::timestamptz),
+            meet_client_sent_version = coalesce(meet_client_sent_version, ${expectedVersion}),
+            version = version + 1, updated_at = now()
+        where assessment_id = ${assessmentId}
+      `;
+      await bumpAssessmentRevision(tx);
+      return result;
+    }) as Promise<T>;
+  }
+  await ensureLoaded();
+  return withMutation(async () => {
+    const current = state.assessments.find((item) => item.assessment_id === assessmentId) ?? null;
+    assertCurrent(current);
+    const result = await send();
+    state.assessments = state.assessments.map((item) => item.assessment_id !== assessmentId ? item : {
+      ...current,
+      meet_client_sent_at: current.meet_client_sent_at ?? result.acceptedAt,
+      meet_client_sent_version: current.meet_client_sent_version ?? expectedVersion,
+      version: current.version + 1,
+      updated_at: result.acceptedAt,
+    });
+    state.revision += 1;
+    await persist();
+    return result;
+  });
 }
 
 export async function getAssessment(assessmentId: string) {
@@ -667,6 +716,8 @@ async function createLocalAssessmentRevision(
       revision_root_id: root,
       revision_number: nextRevisionNumber,
       supersedes_assessment_id: source.assessment_id,
+      meet_client_sent_at: null,
+      meet_client_sent_version: null,
       status: "draft",
       completed_at: null,
       signed_at: null,
@@ -795,7 +846,7 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
     if (current && input.expectedVersion !== undefined && input.expectedVersion !== current.version) {
       return { ok: false, conflict: true, assessment: current };
     }
-    if (current?.signed_at) throw new Error("This assessment is signed. Import into a new assessment instead.");
+    if (isAssessmentFinalized(current)) throw new Error("This assessment was sent. Use Add note for later information.");
 
     const prepared = prepareAssessmentImport(input, current);
     const assessment = prepared.assessment;
@@ -823,12 +874,12 @@ async function addLocalAssessmentAddendum(
     if (index < 0) return null;
     const current = state.assessments[index];
     if (current.version !== expectedVersion) return { ok: false, conflict: true, assessment: current };
-    if (!current.signed_at) {
+    if (!isAssessmentFinalized(current)) {
       return {
         ok: false,
         blocked: true,
         assessment: current,
-        blockers: [{ code: "assessment_signature_required", label: "Sign the assessment before adding an addendum." }],
+        blockers: [{ code: "assessment_packet_required", label: "Edit the assessment directly until it is signed and Meet the Client is sent." }],
       };
     }
     const now = new Date().toISOString();
@@ -884,6 +935,8 @@ type AssessmentRow = {
   schedule_status: PipelineAssessmentRecord["schedule_status"];
   started_at: Date | string | null;
   signed_at: Date | string | null;
+  meet_client_sent_at: Date | string | null;
+  meet_client_sent_version: number | null;
   signed_by: string | null;
   signed_by_name: string | null;
   signature_version: number | string;
@@ -1201,6 +1254,8 @@ export async function createAssessmentRevisionInTransaction(
     revision_root_id: root,
     revision_number: Number(revisionRows[0]?.revision_number ?? 2),
     supersedes_assessment_id: source.assessment_id,
+    meet_client_sent_at: null,
+    meet_client_sent_version: null,
     status: "draft",
     completed_at: null,
     signed_at: null,
@@ -1342,7 +1397,7 @@ function prepareAssessmentPatch(
   patch: AssessmentPatchInput,
   actor: AssessmentActor,
 ) {
-  if (current.signed_at && (
+  if (isAssessmentFinalized(current) && (
     patch.data !== undefined
     || patch.review_extraction !== undefined
     || patch.status !== undefined
@@ -1350,11 +1405,9 @@ function prepareAssessmentPatch(
     || patch.schedule !== undefined
     || patch.mark_started
     || patch.signer
+    || patch.accept_pending
   )) {
-    throw new Error("This assessment is signed. Record later clinical information as an addendum.");
-  }
-  if (patch.assigned_assessor !== undefined && current.status === "complete") {
-    throw new Error("Reopen the completed assessment before changing its assigned assessor.");
+    throw new Error("This assessment was sent. Use Add note for later information.");
   }
   if (patch.mark_started && current.status === "complete") {
     throw new Error("A completed assessment cannot be started again.");
@@ -1493,8 +1546,8 @@ function prepareAssessmentImport(
       input.canonicalClientId,
     ),
     resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
-    status: "needs_review",
-    completed_at: null,
+    status: current?.signed_at ? "complete" : "needs_review",
+    completed_at: current?.completed_at ?? null,
     schedule_status: current?.schedule_status ?? "unscheduled",
     started_at: current?.started_at ?? null,
     signed_at: current?.signed_at ?? null,
@@ -1686,7 +1739,7 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
     if (current && input.expectedVersion !== undefined && input.expectedVersion !== current.version) {
       return { ok: false, conflict: true, assessment: current };
     }
-    if (current?.signed_at) throw new Error("This assessment is signed. Import into a new assessment instead.");
+    if (isAssessmentFinalized(current)) throw new Error("This assessment was sent. Use Add note for later information.");
 
     const prepared = prepareAssessmentImport(input, current);
     const assessment = prepared.assessment;
@@ -1724,12 +1777,12 @@ async function addPostgresAssessmentAddendum(
     const current = await getAssessmentInTransaction(tx, assessmentId, true);
     if (!current) return null;
     if (current.version !== expectedVersion) return { ok: false, conflict: true, assessment: current };
-    if (!current.signed_at) {
+    if (!isAssessmentFinalized(current)) {
       return {
         ok: false,
         blocked: true,
         assessment: current,
-        blockers: [{ code: "assessment_signature_required", label: "Sign the assessment before adding an addendum." }],
+        blockers: [{ code: "assessment_packet_required", label: "Edit the assessment directly until it is signed and Meet the Client is sent." }],
       };
     }
     const rows = await tx<AssessmentAddendumRow[]>`
@@ -1881,6 +1934,8 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       schedule_status: row.schedule_status ?? "unscheduled",
       started_at: row.started_at ? isoTimestamp(row.started_at) : null,
       signed_at: row.signed_at ? isoTimestamp(row.signed_at) : null,
+      meet_client_sent_at: row.meet_client_sent_at ? isoTimestamp(row.meet_client_sent_at) : null,
+      meet_client_sent_version: row.meet_client_sent_version ?? null,
       signed_by: row.signed_by && row.signed_by_name
         ? { id: row.signed_by, name: row.signed_by_name }
         : null,

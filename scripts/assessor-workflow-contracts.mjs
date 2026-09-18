@@ -499,7 +499,7 @@ check(
     && referralHome.includes("/api/referrals/changes?after=")
     && referralHome.includes("window.setInterval(checkForChanges, 10_000)"),
 );
-check("signed assessments are immutable and use append-only addenda", assessmentStore.includes("This assessment is signed") && assessmentStore.includes("addAssessmentAddendum") && migration.includes("assessment_addenda"));
+check("sent assessments are immutable and use append-only notes", assessmentStore.includes("isAssessmentFinalized(current)") && assessmentStore.includes("deliverAssessmentPacket") && assessmentStore.includes("addAssessmentAddendum") && migration.includes("assessment_addenda"));
 check("creating or importing an assessment does not start its performance clock", assessmentStore.match(/started_at: null,/g)?.length >= 2 && assessmentStore.includes("started_at: current?.started_at ?? null"));
 check("assessment assignment is preserved while approved teammates can cover unassigned work", assessmentAccess.includes("assessmentAssigneeForReferral") && assessmentAccess.includes("referral.ownerId") && assessmentAccess.includes("canEditWorkspace(user)"));
 check("assessment creation and import use the shared workspace rule", assessmentCreateRoute.includes("canWorkAssessment") && assessmentImportRoute.includes("canWorkAssessment") && assessmentAccess.includes("canEditWorkspace(user)"));

@@ -1,6 +1,6 @@
 import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { PipelineApiError, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
-import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { isAssessmentFinalized, type PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import {
   assessmentToolFieldDefinitions,
   type AssessmentToolData,
@@ -108,6 +108,7 @@ export function canEditAssessment(
   selected: PipelineAssessmentRecord | null,
   canSupervise: boolean,
 ) {
+  if (isAssessmentFinalized(selected)) return false;
   if (trainingAssessmentMode) return true;
   if (!viewer || !selected) return false;
   void canSupervise;
@@ -120,6 +121,7 @@ export function canAddAssessmentAddendum(
   selected: PipelineAssessmentRecord | null,
   canSupervise: boolean,
 ) {
+  if (!isAssessmentFinalized(selected)) return false;
   if (trainingAssessmentMode) return true;
   if (!viewer) return false;
   void canSupervise;

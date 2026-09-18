@@ -58,7 +58,11 @@ test.describe("shared workspace editing", () => {
         const addendum = await owner.post(`/api/assessments/${signed.assessment_id}/addenda`, { data: {
           if_match: signed.version, note: "Synthetic later information from another team member.", reason_code: "later_information",
         } });
-        expect(addendum.status(), await addendum.text()).toBe(201);
+        expect(addendum.status(), await addendum.text()).toBe(422);
+        const preSendEdit = await owner.patch(`/api/assessments/${signed.assessment_id}`, { data: {
+          if_match: signed.version, patch: { data: { assessment_notes: "Synthetic pre-send correction by another team member." } },
+        } });
+        expect(preSendEdit.status(), await preSendEdit.text()).toBe(200);
         const workflow = await (await api.get(`/api/referrals/${referral.id}/workflow`)).json();
         expect(workflow.decision.decidedBy).toBe(pipelineActors[actor].id);
         expect(workflow.decision.decidedByRole).toBe(pipelineActors[actor].expectedRoles[0]);

@@ -26,6 +26,7 @@ import type {
   AssessmentListResponse,
   PipelineAssessmentRecord,
 } from "@/lib/assessment/assessment-records";
+import { isAssessmentFinalized } from "@/lib/assessment/assessment-records";
 import {
   assessmentToolFieldDefinitions,
   createEmptyAssessmentToolData,
@@ -453,7 +454,7 @@ export default function AssessmentWorkspace({
 
   const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (!offlinePrincipal) return;
-    if (assessment.signed_at || !canEditClinical) {
+    if (isAssessmentFinalized(assessment) || !canEditClinical) {
       await removeOfflineAssessmentWorkingSet(offlinePrincipal, assessment.assessment_id);
       return;
     }
@@ -635,7 +636,7 @@ export default function AssessmentWorkspace({
   }, [loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
 
   useEffect(() => {
-    if (!referralId || !selected || selected.signed_at || !packetEvidenceVersion || dirty) return;
+    if (!referralId || !selected || isAssessmentFinalized(selected) || !packetEvidenceVersion || dirty) return;
     const syncKey = `${selected.assessment_id}:${packetEvidenceVersion}`;
     if (packetSyncKeysRef.current.has(syncKey)) return;
     packetSyncKeysRef.current.add(syncKey);
@@ -1159,7 +1160,7 @@ export default function AssessmentWorkspace({
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
       void clearRecoveryDraft(payload.assessment.assessment_id);
-      if (offlinePrincipal) void removeOfflineAssessmentWorkingSet(offlinePrincipal, payload.assessment.assessment_id);
+      void persistOfflineWorkingSet(payload.assessment);
       setMessage("Assessment signed");
     } catch (signError) {
       setError(messageFor(signError, "The assessment could not be signed."));
@@ -1232,10 +1233,10 @@ export default function AssessmentWorkspace({
 
   const addAddendum = async () => {
     const current = selectedRef.current;
-    if (!current || !addendumReason.trim() || !addendumNote.trim()) return;
+    if (!isAssessmentFinalized(current) || !current || !addendumReason.trim() || !addendumNote.trim()) return;
     setIsBusy(true);
     setError("");
-    setMessage("Saving addendum...");
+    setMessage("Saving note...");
     try {
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
         `/api/assessments/${encodeURIComponent(current.assessment_id)}/addenda`,
@@ -1253,9 +1254,9 @@ export default function AssessmentWorkspace({
       setAddendumReason("");
       setAddendumNote("");
       setShowAddendum(false);
-      setMessage("Addendum added");
+      setMessage("Note added");
     } catch (addendumError) {
-      setError(messageFor(addendumError, "The addendum could not be saved."));
+      setError(messageFor(addendumError, "The note could not be saved."));
       setMessage("");
     } finally {
       setIsBusy(false);
@@ -1322,7 +1323,7 @@ export default function AssessmentWorkspace({
       void persistOfflineWorkingSet(current).catch(() => undefined);
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [dirtySections, draft, offlinePrincipal, persistOfflineWorkingSet, selected?.assessment_id, selected?.signed_at, trainingAssessmentMode]);
+  }, [dirtySections, draft, offlinePrincipal, persistOfflineWorkingSet, selected?.assessment_id, selected?.meet_client_sent_at, trainingAssessmentMode]);
 
   useEffect(() => {
     if (trainingAssessmentMode) return;
@@ -1469,11 +1470,11 @@ export default function AssessmentWorkspace({
       />}
     >
 
-      {showAddendum ? (
+      {showAddendum && canAddAddendum ? (
         <div className="shrink-0 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
           <div className="grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)_auto] sm:items-end">
             <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Reason</span><input value={addendumReason} maxLength={128} onChange={(event) => setAddendumReason(event.target.value)} placeholder="Correction or later information" className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
-            <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Addendum</span><textarea value={addendumNote} maxLength={20_000} rows={2} onChange={(event) => setAddendumNote(event.target.value)} className="mt-1 w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none focus:border-[#0f8b73]" /></label>
+            <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Note</span><textarea value={addendumNote} maxLength={20_000} rows={2} onChange={(event) => setAddendumNote(event.target.value)} className="mt-1 w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none focus:border-[#0f8b73]" /></label>
             <button type="button" onClick={() => void addAddendum()} disabled={isBusy || !addendumReason.trim() || !addendumNote.trim()} className="h-10 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:bg-[#c9ceca]">Add</button>
           </div>
         </div>
@@ -1482,6 +1483,7 @@ export default function AssessmentWorkspace({
       {selected.signed_at ? (
         <div className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
           Signed by <strong>{selected.signed_by?.name ?? selected.assessor ?? "Assigned assessor"}</strong> on {new Date(selected.signed_at).toLocaleString()}.
+          {!isAssessmentFinalized(selected) ? " You can still edit until Meet the Client is sent." : " Meet the Client sent. Use Add note for later information."}
           {(selected.addenda ?? []).length > 0 ? (
             <div className="mt-3 divide-y divide-[#e5e5e5] border-y border-[#e5e5e5]">
               {(selected.addenda ?? []).map((addendum) => <div key={addendum.addendum_id} className="py-3"><div className="font-black text-[#111111]">{addendum.reason_code}</div><div className="mt-1 whitespace-pre-wrap leading-5">{addendum.note}</div><div className="mt-1 text-[9px] text-[#737373]">{addendum.authored_by_name} · {new Date(addendum.created_at).toLocaleString()}</div></div>)}
@@ -1565,8 +1567,8 @@ export default function AssessmentWorkspace({
                 <button type="button" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key); }} disabled={activeSectionIndex <= 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} /> Previous</button>
                 <button type="button" data-guide-target="assessment-next-section" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key); }} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section <ChevronRight size={14} /></button>
             </div> : null}
-              disabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
-              reviewDisabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
+              disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
+              reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               onChange={updateField}
               onFieldFocus={(field) => {
                 focusAnswer(field);
@@ -1626,10 +1628,10 @@ export default function AssessmentWorkspace({
           {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]"><Play size={13} fill="currentColor" />Begin assessment</button> : null}
           {selected.signed_at ? (
             <>
-              {canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold hover:text-[#0f8b73]"><Plus size={14} />Addendum</button> : <span className="text-[11px] font-bold text-[#0f6f5e]">Signed</span>}
+              {canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold hover:text-[#0f8b73]"><Plus size={14} />Add note</button> : <span className="text-[11px] font-bold text-[#0f6f5e]">Signed</span>}
               {onContinueToWorkflow ? <button type="button" onClick={continueToWorkflow} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white hover:bg-[#0b6d5b]">Continue to recommendation<ChevronRight size={14} /></button> : null}
             </>
-          ) : canEditClinical && !preparing ? <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? Unanswered items can remain blank. Later additions use an addendum or correction.") && void signAssessment()} disabled={isBusy} className="h-10 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button> : null}
+          ) : canEditClinical && !preparing ? <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy} className="h-10 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button> : null}
         </div>
       </footer>
 

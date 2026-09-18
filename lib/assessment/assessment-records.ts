@@ -87,6 +87,9 @@ export type PipelineAssessmentRecord = AssessmentToolRecord & {
   schedule_status?: AssessmentScheduleStatus;
   started_at?: string | null;
   signed_at?: string | null;
+  /** Successful Meet the Client delivery, not signing alone, finalizes answers. */
+  meet_client_sent_at?: string | null;
+  meet_client_sent_version?: number | null;
   signed_by?: AssessmentActor | null;
   signature_version?: number;
   addenda?: AssessmentAddendum[];
@@ -167,4 +170,8 @@ export function preserveCanonicalClientId(
     throw new Error("An assessment's canonical client identity cannot be changed.");
   }
   return currentValue ?? incomingValue;
+}
+
+export function isAssessmentFinalized(assessment: Pick<PipelineAssessmentRecord, "signed_at" | "meet_client_sent_at"> | null | undefined) {
+  return Boolean(assessment?.signed_at && assessment.meet_client_sent_at);
 }

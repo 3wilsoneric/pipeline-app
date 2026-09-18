@@ -9,6 +9,7 @@ import {
   resolveAssessmentClientIdentity,
 } from "@/lib/assessment/assessment-client-identity";
 import { isPacketAssessmentEvidenceField } from "@/lib/assessment/assessment-field-ownership";
+import { isAssessmentFinalized } from "@/lib/assessment/assessment-records";
 import { buildAssessmentSeedFromReferral } from "@/lib/assessment/assessment-seed";
 import {
   getAssessment,
@@ -61,7 +62,7 @@ export async function POST(
     }
     const assessment = await getAssessment(body.value.assessment_id);
     if (!assessment || assessment.referral_id !== referralId) return jsonError("Assessment not found.", 404);
-    if (assessment.signed_at) {
+    if (isAssessmentFinalized(assessment)) {
       return Response.json({ assessment, synced: false }, { headers: privateHeaders() });
     }
 

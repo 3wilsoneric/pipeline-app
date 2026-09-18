@@ -57,30 +57,48 @@ export async function completeMeetClientDelivery(
   const completed = { ...input, status, errorCode: errorCode || undefined, updatedAt: new Date().toISOString() };
   if (getPipelineDatabaseReadiness().ready) {
     const sql = getPipelineSql();
-    await sql`
-      insert into pipeline.audit_events (
-        entity_type, entity_id, action, actor_id, actor_name, changed_fields, metadata
-      ) values (
-        'referral', ${String(input.referralId)},
-        ${status === "sent" ? "meet_client_summary_sent" : "meet_client_summary_failed"},
-        ${input.actorId}, ${input.actorName}, ${[] as string[]},
-        ${sql.json({
-          mutation_id: input.mutationId,
-          delivery_id: input.deliveryId,
-          assessment_id: input.assessmentId,
-          assessment_version: input.assessmentVersion,
-          decision_id: input.decisionId,
-          review_id: input.reviewId,
-          review_version: input.reviewVersion,
-          recipient_count: input.recipientCount,
-          recipient_domains: input.recipientDomains,
-          attachment_count: input.attachmentCount,
-          attachment_bytes: input.attachmentBytes,
-          provider: input.provider,
-          ...(errorCode ? { error_code: errorCode } : {}),
-        })}
-      )
-    `;
+    await sql.begin(async (tx) => {
+      // Also repairs an accepted send whose finalization commit failed. This is
+      // independent of the provider call and never sends the packet a second time.
+      if (status === "sent") {
+        const finalized = await tx`
+          update pipeline.assessments
+          set meet_client_sent_at = ${completed.updatedAt}::timestamptz,
+              meet_client_sent_version = ${input.assessmentVersion},
+              version = version + 1, updated_at = now()
+          where assessment_id = ${input.assessmentId} and meet_client_sent_at is null
+          returning assessment_id
+        `;
+        if (finalized.length) await tx`
+          update pipeline.store_revisions set revision = revision + 1, updated_at = now()
+          where store_name = 'assessments'
+        `;
+      }
+      await tx`
+        insert into pipeline.audit_events (
+          entity_type, entity_id, action, actor_id, actor_name, changed_fields, metadata
+        ) values (
+          'referral', ${String(input.referralId)},
+          ${status === "sent" ? "meet_client_summary_sent" : "meet_client_summary_failed"},
+          ${input.actorId}, ${input.actorName}, ${[] as string[]},
+          ${tx.json({
+            mutation_id: input.mutationId,
+            delivery_id: input.deliveryId,
+            assessment_id: input.assessmentId,
+            assessment_version: input.assessmentVersion,
+            decision_id: input.decisionId,
+            review_id: input.reviewId,
+            review_version: input.reviewVersion,
+            recipient_count: input.recipientCount,
+            recipient_domains: input.recipientDomains,
+            attachment_count: input.attachmentCount,
+            attachment_bytes: input.attachmentBytes,
+            provider: input.provider,
+            ...(errorCode ? { error_code: errorCode } : {}),
+          })}
+        )
+      `;
+    });
     return;
   }
   await queueLocal(async () => {

@@ -54,6 +54,7 @@ const REQUIRED_PIPELINE_MIGRATIONS = [
   "0034_contact_directory",
   "0036_allow_repeated_file_content",
   "0037_document_undo",
+  "0038_assessment_packet_finalization",
 ] as const;
 
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {

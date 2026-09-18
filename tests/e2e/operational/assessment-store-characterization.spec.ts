@@ -238,7 +238,7 @@ test.describe("assessment store characterization", () => {
     }
   });
 
-  test("locks signed content, appends later clarification, and synchronizes workflow stages", async ({ baseURL }) => {
+  test("keeps signed content editable until sending and synchronizes workflow stages", async ({ baseURL }) => {
     const actors = await assessmentActors(baseURL);
     try {
       const referral = await createAssessmentReferral(actors.coordinator);
@@ -285,10 +285,11 @@ test.describe("assessment store characterization", () => {
         data: {
           if_match: assessment.version,
           client_mutation_id: operationalMutationId("signed-edit"),
-          patch: { data: { current_symptoms: "This edit must not persist" } },
+          patch: { data: { current_symptoms: "This pre-send edit must persist" } },
         },
       });
-      expect(signedEdit.status()).toBe(400);
+      expect(signedEdit.status()).toBe(200);
+      assessment = asRecord((await signedEdit.json()).assessment);
 
       const addendum = await actors.assessor.post(`/api/assessments/${assessment.assessment_id}/addenda`, {
         data: {
@@ -297,10 +298,10 @@ test.describe("assessment store characterization", () => {
           reason_code: "clinical_clarification",
         },
       });
-      const withAddendum = asRecord((await responseRecord(addendum, 201)).assessment);
+      await responseRecord(addendum, 422);
       const staleAddendum = await actors.assessor.post(`/api/assessments/${assessment.assessment_id}/addenda`, {
         data: {
-          if_match: assessment.version,
+          if_match: signedSnapshot.version,
           note: "This stale addendum must not persist.",
           reason_code: "stale",
         },
@@ -311,12 +312,11 @@ test.describe("assessment store characterization", () => {
       expect(latest.version).toBe(signedSnapshot.version + 1);
       expect(latest.signed_at).toBe(signedSnapshot.signed_at);
       expect(latest.signed_by).toEqual(signedSnapshot.signed_by);
-      expect(latest.current_symptoms).toBe(signedSnapshot.current_symptoms);
-      expect(latest.field_provenance).toEqual(signedSnapshot.field_provenance);
-      expect(Array.isArray(latest.addenda) ? latest.addenda : []).toHaveLength(1);
-      expect(withAddendum.addenda).toEqual(latest.addenda);
+      expect(latest.current_symptoms).toBe("This pre-send edit must persist");
+      expect(latestProvenance(latest, "current_symptoms")).toMatchObject({ review_status: "edited" });
+      expect(Array.isArray(latest.addenda) ? latest.addenda : []).toHaveLength(0);
       expect(auditActions(latest).filter((action) => action === "assessment_signed")).toHaveLength(1);
-      expect(auditActions(latest).filter((action) => action === "assessment_addendum_added")).toHaveLength(1);
+      expect(auditActions(latest).filter((action) => action === "assessment_addendum_added")).toHaveLength(0);
     } finally {
       await actors.dispose();
     }
