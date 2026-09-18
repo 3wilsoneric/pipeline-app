@@ -91,7 +91,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);
     await expect(decision.getByText("From referral to handoff", { exact: true })).toHaveCount(0);
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).not.toBeVisible();
-    await decision.getByRole("radio", { name: "Admit", exact: true }).check();
+    await decision.getByRole("radio", { name: "Accept", exact: true }).check();
     await decision.getByLabel("Reason", { exact: true }).fill("Synthetic assessment supports this recommendation.");
     await page.screenshot({ path: testInfo.outputPath(`decision-${width}.png`), animations: "disabled" });
     await decision.getByRole("button", { name: "Finish assessment", exact: true }).click();
