@@ -18,6 +18,37 @@
   height: 100%;
 }
 
+.directoryStack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  isolation: isolate;
+}
+
+/* Match Home's desktop file stack without resizing the client folders.
+   Only their list-item footprint collapses; each folder stays full size. */
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .directoryStack { gap: 0; }
+  .directoryStack > [role="listitem"] { position: relative; z-index: 0; }
+  .directoryStack .folder { height: auto; }
+  .directoryStack > [role="listitem"]:not(:last-child) {
+    max-height: 86px;
+    transition: max-height 160ms ease-out;
+  }
+  .directoryStack > [role="listitem"]:not(:last-child):is(:hover, :focus-within) {
+    max-height: 188px;
+  }
+  .directoryStack > [role="listitem"]:not(:last-child) .paper > * { opacity: 0; }
+  .directoryStack > [role="listitem"]:not(:last-child):is(:hover, :focus-within) .paper > * { opacity: 1; }
+  /* Expose the first summary row, not cut-off text around the next name tab. */
+  .directoryStack > [role="listitem"]:not(:last-child) .previewSummary { background: #fff; }
+  .directoryStack > [role="listitem"]:not(:last-child) .previewSummary > :nth-child(n + 5) { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .directoryStack > [role="listitem"]:not(:last-child) { transition: none; }
+}
+
 .recordFolder {
   margin-top: 16px;
 }

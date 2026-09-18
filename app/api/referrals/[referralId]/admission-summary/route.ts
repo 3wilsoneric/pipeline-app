@@ -3,6 +3,7 @@ import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assess
 import { buildAssessmentSummaryReport, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import { jsonError } from "@/lib/extraction/contracts";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
+import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { getGraphMailReadiness } from "@/lib/notifications/microsoft-graph-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
@@ -62,6 +63,11 @@ export async function GET(
       report,
       email: {
         configured: mail.configured,
+        sender: mail.sender,
+        preview: report ? renderMeetClientEmail(
+          report.meetClient, auth.user.name, "Preview — assigned when sent",
+          admissionPacket.files.map((file) => file.name),
+        ) : null,
         allowed_recipient_domains: mail.allowedRecipientDomains,
         eligible: snapshot.decision?.outcome === "accepted",
         can_send: canSend,

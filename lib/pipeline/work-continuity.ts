@@ -2,7 +2,7 @@ import { isAssessmentToolSection } from "@/lib/assessment/assessment-sections";
 import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import { referralCanvasFieldKeys, type ReferralCanvasFieldKey } from "@/lib/pipeline/referral-types";
 
-export const pipelineWorkspaceViews = ["intake", "assessment", "chart", "workflow", "files", "activity"] as const;
+export const pipelineWorkspaceViews = ["intake", "assessment", "chart", "workflow", "email", "files", "activity"] as const;
 
 export type PipelineWorkspaceView = (typeof pipelineWorkspaceViews)[number];
 

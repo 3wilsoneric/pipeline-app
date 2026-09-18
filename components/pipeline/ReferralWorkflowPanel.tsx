@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 
 import {
   ReferralWorkflowPanelLoading,
@@ -29,6 +28,7 @@ type ReferralWorkflowPanelProps = {
   onOpenIntake: () => void;
   onOpenAssessment: () => void;
   onOpenFiles: () => void;
+  onOpenEmail: () => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onDone?: () => Promise<void>;
 };
@@ -51,6 +51,7 @@ export default function ReferralWorkflowPanel({
   onOpenIntake,
   onOpenAssessment,
   onOpenFiles,
+  onOpenEmail,
   onOpenProfile,
   onDone,
 }: ReferralWorkflowPanelProps) {
@@ -60,7 +61,6 @@ export default function ReferralWorkflowPanel({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [recommendationDraft, setRecommendationDraft] = useState<RecommendationDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
-  const [showMeetClient, setShowMeetClient] = useState(false);
   const [decisionDraft, setDecisionDraft] = useState<DecisionDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
   const [admissionDateDraft, setAdmissionDateDraft] = useState(referral.admissionDate ?? "");
   const [manualIntakeReason, setManualIntakeReason] = useState("");
@@ -256,7 +256,7 @@ export default function ReferralWorkflowPanel({
     }
     if (admissionDateDraft === (currentReferral.admissionDate ?? "")) {
       if (!admissionDateDraft) setMessage("Admission date is not provided. You can still preview Meet the Client.");
-      if (openPreview) setShowMeetClient(true);
+      if (openPreview) onOpenEmail();
       return true;
     }
     const saved = await runMutation(
@@ -266,7 +266,7 @@ export default function ReferralWorkflowPanel({
       { if_match: currentReferral.version, if_match_sections: { intake: sections.intake }, patch: { admissionDate: admissionDateDraft } },
       "Date of admit recorded",
     );
-    if (saved && openPreview) setShowMeetClient(true);
+    if (saved && openPreview) onOpenEmail();
     return Boolean(saved);
   };
 
@@ -307,13 +307,6 @@ export default function ReferralWorkflowPanel({
     if (!window.confirm("Record this EHR handoff as sent? Confirm the downstream transfer succeeded before continuing.")) return;
     updateHandoff("mark_sent");
   };
-
-  if (showMeetClient) return (
-    <div className="space-y-4">
-      <button type="button" onClick={() => setShowMeetClient(false)} className="min-h-10 px-3 text-[12px] font-bold text-[#0f8b73] focus-visible:outline-2">Back to outcome</button>
-      <AssessmentChartWorkspace referralId={currentReferral.id} initialView="meet-client" />
-    </div>
-  );
 
   return (
     <ReferralWorkflowPanelPresentation
