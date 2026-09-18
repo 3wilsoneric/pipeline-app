@@ -33,8 +33,9 @@ for (const width of [1440, 390]) {
     if (width < 640) await more.click();
     const recommendation = page.getByRole("combobox", { name: "Placement recommendation" });
     await expect(recommendation).toBeEnabled();
-    for (const outcome of ["accept", "needs_more_information", "decline"]) {
-      await recommendation.selectOption(outcome);
+    await expect(recommendation.locator("option")).toHaveText(["Placement recommendation", "Accept", "Deny", "Under review"]);
+    for (const [label, outcome] of [["Accept", "accept"], ["Under review", "needs_more_information"], ["Deny", "decline"]]) {
+      await recommendation.selectOption({ label });
       await expect.poll(async () => (await read()).recommendation?.outcome).toBe(outcome);
       await expect(recommendation).toHaveValue(outcome);
       await expect(recommendation).toBeEnabled();
