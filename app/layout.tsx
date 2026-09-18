@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import PipelineAuthProvider from "@/components/auth/PipelineAuthProvider";
 import DesktopRuntime from "@/components/desktop/DesktopRuntime";
@@ -17,6 +17,8 @@ const pipelineSans = localFont({
   adjustFontFallback: "Arial",
   weight: "100 900",
 });
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export const metadata: Metadata = {
   title: "AHS - Pipeline",

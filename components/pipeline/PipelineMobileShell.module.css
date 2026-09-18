@@ -1,0 +1,38 @@
+@media (max-width: 959px), (hover: none) and (pointer: coarse) {
+  .shell {
+    position: fixed;
+    inset-inline: 0;
+    top: var(--mobile-viewport-top, 0px);
+    height: var(--mobile-viewport-height, 100dvh);
+    padding-top: env(safe-area-inset-top);
+    padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+  }
+
+  .shell [data-assessment-scheduling="fullscreen"] {
+    top: var(--mobile-viewport-top, 0px);
+    bottom: auto;
+    height: var(--mobile-viewport-height, 100dvh);
+    padding-top: env(safe-area-inset-top);
+    padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+  }
+}
+
+@media (max-width: 959px) {
+  /* The assessment header reserves this slot; the handle never covers its name. */
+  .shell [data-assessment-app-navigation="collapsed"] { height: 0; }
+  .shell [aria-label="Show app navigation"] { top: 6px; left: 8px; right: auto; height: 44px; min-width: 44px; border-radius: 5px; }
+  .shell [aria-label="Show app navigation"][aria-expanded="true"] { z-index: -1; }
+}
+
+@media (max-width: 639px) {
+  .shell [data-pipeline-header] { display: grid; grid-template-columns: auto minmax(0, 1fr); height: auto; gap: 4px 12px; padding: 6px 12px 8px; }
+  .shell [data-pipeline-header] > div:last-of-type { grid-column: 2; grid-row: 1; min-width: 0; }
+  .shell [data-pipeline-home], .shell [data-profile-scope="signed-in-user"], .shell [data-guide-target="guided-help"] { min-width: 44px; min-height: 44px; }
+  .shell [data-testid="primary-navigation-dock"] { grid-column: 1 / -1; grid-row: 2; width: 100%; margin: 0; padding: 0; overflow: visible; }
+  .shell [data-testid="primary-navigation-dock"] > div { width: 100%; }
+  .shell [data-testid="primary-navigation"] { gap: 4px; }
+  .shell [aria-label="Primary navigation"] { flex: 1; min-width: 0; gap: 4px; }
+  .shell [aria-label="Primary navigation"] button { flex: 1; min-width: 0; }
+  .shell [data-testid="primary-navigation"] :global(.pipeline-command) { flex-direction: column; gap: 3px; height: 52px; min-width: 44px; }
+  .shell [data-testid="primary-navigation"] :global(.pipeline-command) span { display: inline; font-size: 10px; line-height: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+}

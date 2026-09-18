@@ -156,6 +156,7 @@ export default function PipelineActionNav({
         }`}
       >
         <Plus size={21} className="shrink-0" />
+        <span className="hidden max-sm:inline">New</span>
       </button>
     </div>
   );

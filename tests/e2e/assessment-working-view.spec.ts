@@ -5,7 +5,7 @@ async function openWorkingAssessment(page: Page, section = "functional_adl") {
   const assessment = page.getByRole("dialog", { name: "Assessment interview", exact: true });
   await expect(assessment).toBeVisible();
   await expect(assessment).toHaveAttribute("data-assessment-view", "chart");
-  await expect(page.locator('[data-assessment-app-navigation="collapsed"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show app navigation", exact: true })).toBeVisible();
   return assessment;
 }
 
