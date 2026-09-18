@@ -51,7 +51,12 @@
   min-width: 0;
 }
 
-.stages { flex-shrink: 0; }
+.stages {
+  isolation: isolate;
+  flex-shrink: 0;
+  gap: 0;
+  padding: 5px 4px 0;
+}
 .actions { margin-left: auto; }
 
 .stageTab, .utilityTab, .createTab {
@@ -79,11 +84,19 @@
   --tab-fill: #e6f1e9;
   --tab-edge: #b2cdbc;
   --tab-active: #d1e9db;
+  position: relative;
+  z-index: 1;
+  padding-inline: 22px;
   border-color: var(--tab-edge);
-  border-top: 3px solid var(--tab-ink);
-  background: var(--tab-fill);
+  border-top: 2px solid var(--tab-ink);
+  border-radius: 10px 14px 0 0;
+  background: linear-gradient(#ffffff38, #ffffff00), var(--tab-fill);
   color: var(--tab-ink);
+  transform-origin: center bottom;
+  transition: transform 140ms ease, background-color 120ms ease;
 }
+
+.stageTab + .stageTab { margin-left: -10px; }
 
 .stageTab[data-folder-stage="2"] {
   --tab-ink: #a44249;
@@ -107,20 +120,24 @@
 }
 
 .stageTab[aria-current="page"] {
-  min-height: 49px;
-  background: var(--tab-active);
+  z-index: 3;
+  background-color: var(--tab-active);
   font-weight: 750;
+  transform: scale(1.035, 1.1);
+  box-shadow: inset 0 1px 0 #ffffffb3, 0 -2px 7px #263e3214;
 }
 
-.stageTab:hover { background: var(--tab-active); }
+.stageTab:hover { background-color: var(--tab-active); }
+.stageTab:focus-visible { z-index: 4; }
 .stageNumber { font-size: 10px; font-weight: 600; }
 .utilityTab:hover, .utilityTab[aria-current="page"] { background: #e5ebe8; color: #253d32; }
 
 .createTab {
-  border-color: #16634f;
-  background: #0b6f5d;
+  border: 1px solid #16634f;
+  border-radius: 7px;
+  background: linear-gradient(#117c64, #0b6f5d);
   color: #fff;
-  box-shadow: inset 0 1px 0 #ffffff29;
+  box-shadow: inset 0 1px 0 #ffffff26;
 }
 
 .createTab:hover { background: #075a4b; }
@@ -146,19 +163,18 @@
 .connectedFolder > div { border-top: 0; border-radius: 0 0 6px 6px; }
 
 @media (max-width: 1100px) {
-  .tabRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; padding-top: 3px; }
+  .tabRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; padding-top: 0; }
   .identity { min-width: 0; max-width: 340px; }
   .actions { grid-column: 2; grid-row: 1; }
-  .stages { grid-column: 1 / -1; padding-top: 4px; overflow-x: auto; }
+  .stages { grid-column: 1 / -1; overflow-x: auto; }
   .stageTab { flex: 1 0 auto; }
-  .stageTab[aria-current="page"] { min-height: 44px; }
 }
 
 @media (min-width: 768px) and (max-width: 1100px) {
   .tabRow { display: flex; gap: 4px; }
   .identity { flex: 1 1 160px; min-width: 110px; }
-  .stages { flex-shrink: 1; max-width: 50%; padding-top: 0; }
-  .stageTab { padding-inline: 10px; }
+  .stages { flex-shrink: 1; max-width: 50%; }
+  .stageTab { padding-inline: 18px; }
   .actions { flex-shrink: 0; }
   .utilityTab { width: 44px; padding-inline: 0; }
   .utilityTab span, .actions > button[aria-label="Open assigned referrals"] span { display: none; }
@@ -169,8 +185,9 @@
   .tabRow { padding-top: 0; gap: 0 4px; }
   .nameLabel { padding: 0; border: 0; background: transparent; font-size: 15px; }
   .identity { padding: 5px 8px; min-height: 48px; border: 0; background: transparent; box-shadow: none; }
-  .stages { padding-top: 0; }
   .stageTab, .utilityTab, .createTab { gap: 4px; padding-inline: 10px; font-size: 12px; }
+  .stageTab { padding-inline: 18px; }
+  .stageTab + .stageTab { margin-left: -8px; }
   .utilityTab { width: 44px; padding-inline: 0; }
   .utilityTab span { display: none; }
   .utilityTab, .createTab { border: 1px solid #d6dad9; border-radius: 5px; }

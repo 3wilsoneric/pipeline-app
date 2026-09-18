@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
 
-for (const width of [1440, 1194, 1024, 834, 768, 390, 320]) {
+for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
   test(`folder tabs connect directly to intake and retain the create flow at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}&workspaceStage=intake`);
@@ -16,6 +16,7 @@ for (const width of [1440, 1194, 1024, 834, 768, 390, 320]) {
     await expect(questionnaire).toBeVisible();
     await expect(intake).toHaveCSS("color", "rgb(23, 108, 81)");
     await expect(questionnaire).toHaveCSS("color", "rgb(164, 66, 73)");
+    await expectRaisedTab(intake, questionnaire);
     await expect(folder.locator(":scope > strong")).toHaveCount(0);
     await expect(header.getByTestId("workspace-identity-title")).not.toContainText("Draft");
     await expect(page.getByTestId("workspace-save-status")).toHaveClass("sr-only");
@@ -29,6 +30,14 @@ for (const width of [1440, 1194, 1024, 834, 768, 390, 320]) {
     const filesBox = (await header.getByRole("button", { name: "Workspace files" }).boundingBox())!;
     const createBox = (await create.boundingBox())!;
     expect(filesBox.x).toBeGreaterThanOrEqual(createBox.x + createBox.width);
+    await expect(create).toHaveCSS("border-bottom-width", "1px");
+    expect(await create.evaluate((button) => parseFloat(getComputedStyle(button).borderBottomRightRadius))).toBeGreaterThanOrEqual(5);
+    if (width >= 768) expect(Math.abs(folderBox.y - createBox.y - createBox.height)).toBeLessThanOrEqual(1);
+    const intakeBox = (await intake.boundingBox())!;
+    const questionnaireBox = (await questionnaire.boundingBox())!;
+    const overlap = intakeBox.x + intakeBox.width - questionnaireBox.x;
+    expect(overlap).toBeGreaterThan(5);
+    expect(overlap).toBeLessThan(20);
     expect((await questionnaire.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     if (width <= 1100) {
       for (const button of await header.getByRole("button").all()) {
@@ -61,9 +70,14 @@ for (const width of [1440, 1194, 1024, 834, 768, 390, 320]) {
     await questionnaire.focus();
     await page.keyboard.press("Enter");
     await expect(width < 640 ? page.locator("[data-phone-interview]") : page.getByTestId("preparation-client-folder")).toBeVisible();
-    if (width >= 640) await expect(questionnaire).toHaveAttribute("aria-current", "page");
+    if (width >= 640) {
+      await expect(questionnaire).toHaveAttribute("aria-current", "page");
+      await expectRaisedTab(questionnaire, intake);
+      await page.screenshot({ path: testInfo.outputPath(`folder-tabs-questionnaire-${width}.png`), animations: "disabled" });
+    }
     if (width < 640) await page.getByRole("button", { name: "Close assessment", exact: true }).click();
     else await intake.click();
+    await expectRaisedTab(intake, questionnaire);
     await expect(folder.locator('[data-workspace-field="email"] input')).toHaveValue("folder-tabs@example.invalid");
     await header.getByRole("button", { name: "Workspace files" }).click();
     await expect(header.getByRole("button", { name: "Workspace files" })).toHaveAttribute("aria-current", "page");
@@ -73,6 +87,15 @@ for (const width of [1440, 1194, 1024, 834, 768, 390, 320]) {
     await page.reload();
     await expect(folder.locator('[data-workspace-field="email"] input')).toHaveValue("folder-tabs@example.invalid");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 1440) {
+      await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+      await expect(intake).toHaveCSS("transition-duration", "0s");
+      await questionnaire.focus();
+      await page.keyboard.press("Enter");
+      await expect(questionnaire).toHaveAttribute("aria-current", "page");
+      await expectRaisedTab(questionnaire, intake);
+      await expect(questionnaire).toHaveCSS("border-bottom-width", "3px");
+    }
   });
 }
 
@@ -92,3 +115,23 @@ test("save failures remain visible and retryable outside the quiet name tab", as
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
   await expect(page).toHaveURL(/referralId=\d+/);
 });
+
+async function expectRaisedTab(active: Locator, behind: Locator) {
+  await expect.poll(async () => active.evaluate((button) => {
+    const transform = new DOMMatrixReadOnly(getComputedStyle(button).transform);
+    return Math.round(transform.d * 100);
+  })).toBe(110);
+  const frontBox = (await active.boundingBox())!;
+  const backBox = (await behind.boundingBox())!;
+  expect(frontBox.height).toBeGreaterThan(backBox.height + 3);
+  expect(Math.abs(frontBox.y + frontBox.height - backBox.y - backBox.height)).toBeLessThanOrEqual(1);
+  expect(Number(await active.evaluate((button) => getComputedStyle(button).zIndex)))
+    .toBeGreaterThan(Number(await behind.evaluate((button) => getComputedStyle(button).zIndex)));
+  for (const tab of [active, behind]) {
+    // Test painted hit targets, not just boxes: overlapping tabs must not cover labels.
+    expect(await tab.evaluate((button) => [...button.querySelectorAll("span")].every((label) => {
+      const box = label.getBoundingClientRect();
+      return [box.left + 1, box.right - 1].every((x) => button.contains(document.elementFromPoint(x, box.top + box.height / 2)));
+    }))).toBe(true);
+  }
+}
