@@ -2126,6 +2126,12 @@ export default function ReferralPacketCanvas({
             <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={(page) => void navigatePage(page)} />
 
             <div className={workspaceFolderStyles.actions}>
+              {remoteChange && remoteChange.conflicts.length === 0 ? (
+                <span role="status" data-testid="workspace-sync-status" className={workspaceFolderStyles.syncStatus} title={`Changes from ${remoteChange.updatedBy} were merged into your open draft.`}>
+                  <CheckCircle2 size={16} aria-hidden="true" />
+                  <span className="sr-only">Changes from {remoteChange.updatedBy} were merged into your open draft.</span>
+                </span>
+              ) : null}
               <WorkspaceAssignedWorkControl
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
@@ -2229,22 +2235,15 @@ export default function ReferralPacketCanvas({
           </div>
         ) : null}
 
-        {remoteChange ? (
+        {remoteChange && remoteChange.conflicts.length > 0 ? (
           <section aria-label="Remote changes" className="mb-3 border border-[#d5b75b] bg-[#fffbe8] px-4 py-3" aria-live="assertive">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-[12px] font-black text-[#4e451d]">{remoteChange.updatedBy} updated this referral.</div>
                 <div className="mt-1 text-[11px] leading-5 text-[#6a6031]">
-                  {remoteChange.conflicts.length > 0
-                    ? "Choose which value to keep for the fields changed in both sessions."
-                    : "The latest changes were merged into your open draft."}
+                  Choose which value to keep for the fields changed in both sessions.
                 </div>
               </div>
-              {remoteChange.conflicts.length === 0 ? (
-                <button type="button" onClick={() => setRemoteChange(null)} className="text-[11px] font-black text-[#4e451d] hover:text-black">
-                  Dismiss
-                </button>
-              ) : null}
             </div>
             {remoteChange.conflicts.length > 0 ? (
               <div className="mt-3 divide-y divide-[#dfd39c] border-y border-[#dfd39c]">
@@ -2504,7 +2503,7 @@ export default function ReferralPacketCanvas({
               />
             </PacketPage>
           ) : displayedPage === 2 ? (
-            <PacketPage id="packet-page-2" title="Assessment">
+            <PacketPage id="packet-page-2" title="Assessment" flush>
                 <AssessmentWorkspace
                   readOnly={permissionReadOnly}
                   referralId={referralWorkspaceId}
@@ -2714,7 +2713,7 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
 
 function workspaceSavePresentation(status: string, error: string, hasReferral: boolean, saving: boolean, dirtyCount: number, queuedFileCount: number) {
   const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0
-    && status !== "Saved on this device; not synced" && /^(Saved |All changes saved|Packet uploaded)/.test(status);
+    && status !== "Saved on this device; not synced" && /^(Saved |All changes saved|Packet uploaded|Updated by )/.test(status);
   if (error) return { label: "Pending", Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (saving) return { label: status, Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (confirmed) return { label: "Saved to Pipeline", Icon: CheckCircle2, iconClassName: "text-[#0c705f]", textClassName: "text-[#0c705f]", confirmed: true };

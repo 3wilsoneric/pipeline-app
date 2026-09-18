@@ -15,6 +15,8 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       const pocket = page.locator("[data-phone-interview]");
       await expect(pocket).toBeVisible();
       await expect(pocket.locator("[data-working-field]")).toHaveCount(1);
+      // Wait for React to remove the temporary streamed header before checking the live dock.
+      await expect(page.getByTestId("primary-navigation-dock")).toHaveCount(1);
       await expect(page.getByTestId("primary-navigation-dock")).not.toBeInViewport();
       await expect(page.getByTestId("preparation-client-folder")).toHaveCount(0);
       expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(true);

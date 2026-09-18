@@ -63,7 +63,8 @@ for (const width of [1440, 768]) {
     const notebook = page.locator("[data-assessment-view]");
     const pages = page.getByRole("navigation", { name: "Client file pages" });
     await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
-    await expect(page.getByTestId("preparation-client-folder")).toContainText(referral.name);
+    await expect(page.getByTestId("workspace-identity-title")).toHaveText(referral.name);
+    await expect(page.getByTestId("preparation-client-folder").locator(":scope > strong")).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
     await expect(pages).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Workspace files", exact: true })).toBeVisible();

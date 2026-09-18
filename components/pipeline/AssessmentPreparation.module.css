@@ -77,8 +77,6 @@
 }
 
 @media (max-width: 1100px), (hover: none) and (pointer: coarse) {
-  .file { margin-top: 0; }
-  .file > strong { display: none; }
   .file > div { padding: 4px; border-top: 0; border-radius: 0 0 6px 6px; }
   .file > div > div { padding: 0; border: 0; }
   .file article[aria-label="Referral preparation chart"] > header > div { padding: 10px 12px; }

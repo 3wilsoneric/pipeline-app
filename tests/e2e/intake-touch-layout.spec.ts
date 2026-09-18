@@ -77,7 +77,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         expect((await page.getByRole("button", { name: "Begin assessment", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("preparation-client-folder");
-        await expect(preparation.locator(":scope > strong")).toBeHidden();
+        await expect(preparation.locator(":scope > strong")).toHaveCount(0);
         const headerBox = (await header.boundingBox())!;
         expect(Math.abs((await preparation.boundingBox())!.y - headerBox.y - headerBox.height)).toBeLessThanOrEqual(1);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

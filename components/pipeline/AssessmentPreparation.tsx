@@ -6,6 +6,7 @@ import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-sch
 import { WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
 import { assessmentWorkingCounts, groupWorkingQuestions } from "@/components/pipeline/assessment-working-view";
 import folderStyles from "@/components/pipeline/ClientFolder.module.css";
+import workspaceFolderStyles from "@/components/pipeline/ReferralWorkspaceFolder.module.css";
 import styles from "@/components/pipeline/AssessmentPreparation.module.css";
 import { ClientChartFrame, ClientChartHeader } from "@/components/pipeline/ClientMedicalChart";
 
@@ -34,7 +35,7 @@ export function AssessmentFileSurface({ title, container, header, pages, dialogs
   children: React.ReactNode;
 }) {
   if (title) return <>
-    <PreparationFile title={title}>
+    <PreparationFile>
       <section role="region" aria-label="Referral preparation" data-assessment-view="preparation" className={styles.embedded}>{children}</section>
     </PreparationFile>
     {createPortal(dialogs, container?.parentElement ?? document.body)}
@@ -48,9 +49,8 @@ export function AssessmentFileSurface({ title, container, header, pages, dialogs
   );
 }
 
-function PreparationFile({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div data-testid="preparation-client-folder" className={`${folderStyles.recordFolder} ${styles.file}`}>
-    <strong className={folderStyles.tab}><span className={folderStyles.tabLabel}>{title}</span></strong>
+function PreparationFile({ children }: { children: React.ReactNode }) {
+  return <div data-testid="preparation-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder} ${styles.file}`}>
     <div className={folderStyles.body}>
       <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
         <ClientChartFrame label="Referral preparation chart">

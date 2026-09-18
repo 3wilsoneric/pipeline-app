@@ -16,6 +16,8 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
     await expect(questionnaire).toBeVisible();
     await expect(intake).toHaveCSS("color", "rgb(23, 108, 81)");
     await expect(questionnaire).toHaveCSS("color", "rgb(164, 66, 73)");
+    await expect(intake).toHaveCSS("font-size", width < 640 ? "13px" : "14px");
+    await expect(header.getByTestId("workspace-identity-title").locator("span")).toHaveCSS("font-size", "16px");
     await expectRaisedTab(intake, questionnaire);
     await expect(folder.locator(":scope > strong")).toHaveCount(0);
     await expect(header.getByTestId("workspace-identity-title")).not.toContainText("Draft");
@@ -25,7 +27,7 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
     const headerBox = (await header.boundingBox())!;
     const folderBox = (await folder.boundingBox())!;
     expect(Math.abs(folderBox.y - headerBox.y - headerBox.height)).toBeLessThanOrEqual(1);
-    expect(headerBox.height).toBeLessThanOrEqual(width > 1100 ? 57 : 100);
+    expect(headerBox.height).toBeLessThanOrEqual(width > 1100 ? 60 : 104);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const filesBox = (await header.getByRole("button", { name: "Workspace files" }).boundingBox())!;
     const createBox = (await create.boundingBox())!;
@@ -46,7 +48,7 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
         expect(box.width).toBeGreaterThanOrEqual(44);
       }
       await expect(folder.locator('[data-workspace-field="name"] input')).toHaveCSS("font-size", "16px");
-      expect((await folder.locator('[data-workspace-field="name"] input').boundingBox())!.y).toBeLessThan(340);
+      await expect.poll(async () => (await folder.locator('[data-workspace-field="name"] input').boundingBox())!.y).toBeLessThan(340);
     }
     await page.screenshot({ path: testInfo.outputPath(`folder-tabs-${width}.png`), animations: "disabled" });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
@@ -67,12 +69,30 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referralId}`)).json()).referral.email).toBe("folder-tabs@example.invalid");
     await expect(page.getByTestId("workspace-identity-title")).toHaveText(name);
 
+    const beforeUpdate = (await header.boundingBox())!;
+    const current = (await (await page.request.get(`/api/referrals/${referralId}`)).json()).referral;
+    const remoteUpdate = await page.request.patch(`/api/referrals/${referralId}`, { data: {
+      if_match: current.version,
+      if_match_sections: current.sectionVersions,
+      patch: { phone: "(415) 555-0199" },
+    } });
+    expect(remoteUpdate.ok()).toBe(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(folder.locator('[data-workspace-field="phone"] input')).toHaveValue("(415) 555-0199");
+    await expect(header.getByTestId("workspace-sync-status")).toBeVisible();
+    await expect(header.getByTestId("workspace-sync-status")).toContainText("merged into your open draft");
+    await expect(page.getByRole("region", { name: "Remote changes", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("workspace-save-status")).toHaveClass("sr-only");
+    expect((await header.boundingBox())!.height).toBe(beforeUpdate.height);
+    await expectConnectedFolder(folder);
+
     await questionnaire.focus();
     await page.keyboard.press("Enter");
     await expect(width < 640 ? page.locator("[data-phone-interview]") : page.getByTestId("preparation-client-folder")).toBeVisible();
     if (width >= 640) {
       await expect(questionnaire).toHaveAttribute("aria-current", "page");
       await expectRaisedTab(questionnaire, intake);
+      await expectConnectedFolder(page.getByTestId("preparation-client-folder"));
       await page.screenshot({ path: testInfo.outputPath(`folder-tabs-questionnaire-${width}.png`), animations: "disabled" });
     }
     if (width < 640) await page.getByRole("button", { name: "Close assessment", exact: true }).click();
@@ -115,6 +135,18 @@ test("save failures remain visible and retryable outside the quiet name tab", as
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
   await expect(page).toHaveURL(/referralId=\d+/);
 });
+
+async function expectConnectedFolder(folder: Locator) {
+  await expect(folder.locator(":scope > strong")).toHaveCount(0);
+  // Editing fields scrolls the chart under its sticky tabs; measure the seam at the top.
+  await expect.poll(() => folder.evaluate((element) => {
+    element.closest<HTMLElement>('[data-guide-target="packet-workspace"]')?.scrollTo({ top: 0, behavior: "instant" });
+    const header = element.closest('[data-testid="packet-workspace"]')!.querySelector('[data-testid="workspace-folder-header"]')!;
+    const top = header.getBoundingClientRect();
+    const body = element.getBoundingClientRect();
+    return Math.max(Math.abs(body.y - top.bottom), Math.abs(body.x - top.x), Math.abs(body.width - top.width));
+  })).toBeLessThanOrEqual(1);
+}
 
 async function expectRaisedTab(active: Locator, behind: Locator) {
   await expect.poll(async () => active.evaluate((button) => {

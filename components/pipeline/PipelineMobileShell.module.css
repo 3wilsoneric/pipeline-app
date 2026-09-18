@@ -23,7 +23,6 @@
   .shell [aria-label="Show app navigation"] { top: 6px; left: 8px; right: auto; height: 44px; min-width: 44px; border-radius: 5px; }
   .shell [aria-label="Show app navigation"][aria-expanded="true"] { z-index: -1; }
   .shell [data-guide-target="packet-workspace"] { scroll-padding-block: 104px 20px; }
-  .shell [id="packet-page-2"] > div:has([data-testid="preparation-client-folder"]) { padding: 0; }
 }
 
 @media (max-width: 639px) {
