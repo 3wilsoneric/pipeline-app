@@ -217,7 +217,7 @@ await measureJourney("home_current_work_to_all_workspaces", "queue", async () =>
 await measureJourney("referrals_to_clients", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open client profiles", exact: true }));
   await page.getByLabel("Search clients", { exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("button", { name: /Open profile for / }).first().waitFor({ state: "visible" });
+  await page.getByRole("button", { name: /file cabinet$/ }).first().waitFor({ state: "visible" });
 });
 await measureJourney("client_filter", "filter", async () => {
   const admissionFilter = page.getByLabel("Filter profiles by admission date", { exact: true });
@@ -225,6 +225,7 @@ await measureJourney("client_filter", "filter", async () => {
   await admissionFilter.selectOption("last_12_months");
 });
 await measureJourney("open_client_profile", "navigation", async () => {
+  await activate(page.getByRole("button", { name: /file cabinet$/ }).first());
   await activate(page.getByRole("button", { name: /Open profile for / }).first());
   // The workspace wrapper exists during loading: count actual chart content,
   // not a skeleton, and wait through the frame that paints that content.
@@ -266,7 +267,7 @@ await measureJourney("source_pdf_complete_body", "asset", async () => {
 });
 await measureJourney("profile_to_clients", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open client profiles", exact: true }));
-  await page.getByRole("button", { name: /Open profile for / }).first().waitFor({ state: "visible" });
+  await page.getByRole("button", { name: /file cabinet$/ }).first().waitFor({ state: "visible" });
 });
 await measureJourney("clients_to_new_referral", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Create new referral", exact: true }));

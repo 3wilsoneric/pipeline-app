@@ -18,7 +18,7 @@ async function openClients(page: Page) {
   } }));
   await page.goto("/");
   await page.getByRole("button", { name: "Open client profiles" }).click();
-  await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true })).toBeVisible();
 }
 
 async function checkStyledMenus(page: Page, testInfo: TestInfo) {
@@ -46,12 +46,13 @@ async function checkStyledMenus(page: Page, testInfo: TestInfo) {
       await expect(select).toBeFocused();
     }
     await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
-    const box = page.locator("details").filter({ has: page.locator("summary").filter({ hasText: "JC Wallace House" }) });
-    await expect(box.getByRole("list", { name: "JC Wallace House clients", exact: true })).toContainText("Oscar Martin");
-    await box.locator("summary").click();
-    await expect(box.getByText("Oscar Martin", { exact: true })).toBeHidden();
-    await box.locator("summary").click();
-    await expect(box.getByText("Oscar Martin", { exact: true })).toBeVisible();
+    const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
+    await cabinet.click();
+    const drawer = page.getByRole("dialog", { name: "JC Wallace House file cabinet", exact: true });
+    await expect(drawer.getByRole("list", { name: "JC Wallace House clients", exact: true })).toContainText("Oscar Martin");
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await expect(cabinet).toBeFocused();
   }
 }
 
@@ -66,10 +67,10 @@ async function checkNativeFallback(page: Page) {
   await admitted.selectOption("last_3_months");
   await expect(admitted).toHaveValue("last_3_months");
   await expect(page.getByText("3 matching", { exact: true })).toBeVisible();
-  await expect(page.getByText("Oscar Martin", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true })).toContainText("1 client");
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(admitted).toHaveValue("any");
-  await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true })).toBeVisible();
   await admitted.focus();
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Sort clients")).toBeFocused();
@@ -90,22 +91,34 @@ for (const browserName of ["webkit", "firefox"] as const) {
   });
 }
 
-test("community file boxes support keyboard opening without a community dropdown", async ({ page }, testInfo) => {
+test("compact cabinets expand into one file window and return focus on close", async ({ page }, testInfo) => {
   await openClients(page);
   await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
-  const box = page.locator("details").filter({ has: page.locator("summary").filter({ hasText: "JC Wallace House" }) });
-  const heading = box.locator("summary");
-  await expect(heading).toContainText("1 client");
-  await expect(box.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
-  await expect(box.getByRole("button", { name: "Open profile for Riley Perez", exact: true })).toHaveCount(0);
-  await heading.focus();
+  await expect(page.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
+  const cabinets = page.getByRole("group", { name: "Community file cabinets" }).getByRole("button");
+  const bounds = await cabinets.evaluateAll((nodes) => nodes.map((node) => { const r = node.getBoundingClientRect(); return { y: r.y, width: r.width, height: r.height }; }));
+  expect(bounds.every((r) => r.y === bounds[0].y && r.width <= 220 && r.height <= 220)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("cabinet-row.png") });
+  const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
+  await cabinet.focus();
   await page.keyboard.press("Enter");
-  await expect(box).not.toHaveAttribute("open", "");
-  await page.keyboard.press("Space");
-  await expect(box).toHaveAttribute("open", "");
+  const drawer = page.getByRole("dialog", { name: "JC Wallace House file cabinet", exact: true });
+  await expect(drawer.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Open profile for Riley Perez", exact: true })).toHaveCount(0);
+  await expect.poll(() => drawer.evaluate((node) => node.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  expect((await drawer.boundingBox())!.width).toBeGreaterThan(1000);
+  await page.screenshot({ path: testInfo.outputPath("cabinet-open.png") });
   await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
-  await expect(box.getByRole("list", { name: "JC Wallace House clients", exact: true })).toContainText("Oscar Martin");
-  await page.screenshot({ path: testInfo.outputPath("community-file-boxes.png"), fullPage: true });
+  await expect(drawer.getByTestId("client-chart-thumbnail")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(cabinet).toBeFocused();
+  await expect(page.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await cabinet.click();
+  expect(await drawer.evaluate((node) => node.getAnimations().length)).toBe(0);
+  await page.getByRole("button", { name: "Close jc wallace house file cabinet", exact: true }).click();
+  await expect(cabinet).toBeFocused();
 });
 
 async function checkSharedPicker(page: Page, select: Locator, height: number) {

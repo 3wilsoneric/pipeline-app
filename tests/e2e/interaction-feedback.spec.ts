@@ -43,7 +43,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     });
     await page.goto("/");
     await page.getByRole("button", { name: "Open client profiles" }).click();
-    await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true })).toContainText("2 clients");
     await page.waitForLoadState("networkidle");
     const requestsBeforeFiltering = directoryRequests;
     expect(await page.evaluate(() => (window as unknown as MeasuredWindow).feedbackMeasurements)).toHaveLength(0);
@@ -54,7 +54,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const count = page.locator('[aria-live="polite"]').filter({ hasText: /matching/ });
     await admitted.selectOption("last_12_months");
     await expect(count).toHaveText("2 matching");
-    await expect(page.getByText("Taylor Chen", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open AHS Turlock OP LLC file cabinet", exact: true })).toHaveCount(0);
     await expect(page.locator("label").filter({ has: admitted })).toHaveAttribute("data-filter-active", "true");
 
     // An unchanged count must still acknowledge a different filter, without a request.
@@ -92,7 +92,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     }
     await page.getByRole("button", { name: "Reset", exact: true }).click();
     await expect(admitted).toHaveValue("any");
-    await expect(page.getByText("Taylor Chen", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open AHS Turlock OP LLC file cabinet", exact: true })).toBeVisible();
     await expect(page.locator('[data-filter-active="true"]')).toHaveCount(0);
     expect(directoryRequests).toBe(requestsBeforeFiltering);
   });

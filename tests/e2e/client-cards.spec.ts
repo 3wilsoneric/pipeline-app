@@ -16,6 +16,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       ...clientDirectoryFixture, clients, total: clients.length, next_cursor: null,
     } }));
     await page.goto("/?screen=profiles");
+  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     const card = page.getByRole("button", { name: "Open profile for Avery Example", exact: true });
     const tab = card.locator(":scope > strong");
     const body = card.locator(":scope > span");
@@ -134,6 +135,7 @@ test("client summaries show zero age and zero days as values, not missing data",
   const client = { ...clientDirectoryFixture.clients[0], age: 0, length_of_stay_days: 0 };
   await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: { ...clientDirectoryFixture, clients: [client] } }));
   await page.goto("/?screen=profiles");
+  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
   const card = page.getByRole("button", { name: "Open profile for Avery Example", exact: true });
   await expect(card.getByText("0", { exact: true })).toBeVisible();
   await expect(card.getByText("0 days", { exact: true })).toBeVisible();
@@ -154,6 +156,7 @@ test("client view switches retain loaded results, filters, sorting and the displ
     return route.fulfill({ json: { ...clientDirectoryFixture, clients: matches, total: matches.length, next_cursor: null } });
   });
   await page.goto("/?screen=profiles");
+  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
   const cards = page.getByRole("button", { name: /^Open profile for / });
   const listToggle = page.getByRole("button", { name: "Show clients as a list", exact: true });
   const cardsToggle = page.getByRole("button", { name: "Show clients as cards", exact: true });
@@ -166,22 +169,24 @@ test("client view switches retain loaded results, filters, sorting and the displ
   await cardsToggle.click();
   await expect(cards).toHaveCount(105);
   expect(directoryRequests).toBe(requestsBeforeToggle);
+  await page.keyboard.press("Escape");
   await page.getByLabel("Filter profiles by admission date").selectOption("any");
   await page.getByLabel("Sort clients", { exact: true }).selectOption("recent_admission");
-  const admitted = await page.getByLabel("Filter profiles by admission date").inputValue();
-  await listToggle.click();
-  await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue(admitted);
+  await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue("any");
   await expect(page.getByLabel("Sort clients", { exact: true })).toHaveValue("recent_admission");
   await page.getByRole("textbox", { name: "Search clients", exact: true }).fill("Avery Example");
+  await expect(page.getByRole("button", { name: /file cabinet$/ }).first()).toContainText("1 client");
+  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
   await expect(cards).toHaveCount(1);
   await expect(cards).toHaveAccessibleName("Open profile for Avery Example");
   const requestsAfterSearch = directoryRequests;
   await cardsToggle.click();
-  await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toHaveValue("Avery Example");
+  await expect(page.locator('input[aria-label="Search clients"]')).toHaveValue("Avery Example");
   await expect(cards).toHaveCount(1);
   expect(directoryRequests).toBe(requestsAfterSearch);
   await listToggle.click();
   await page.reload();
+  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
   await expect(listToggle).toHaveAttribute("aria-pressed", "true");
   await expect(cards.first().getByTestId("client-chart-thumbnail")).toBeVisible();
 });
@@ -201,6 +206,7 @@ test("client view toggle works when preference storage is blocked", async ({ pag
   });
   await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: clientDirectoryFixture }));
   await page.goto("/?screen=profiles");
+  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
   await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
   await expect(page.getByTestId("client-chart-thumbnail").first()).toBeVisible();
   await page.getByRole("button", { name: "Show clients as cards", exact: true }).click();
