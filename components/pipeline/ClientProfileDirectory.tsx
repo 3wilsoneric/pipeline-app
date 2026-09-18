@@ -3,7 +3,6 @@ import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-co
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive,
   ArrowRight,
   ArrowUpDown,
   CalendarDays,
@@ -30,6 +29,7 @@ import {
 import { fetchCurrentPipelineUser, fetchPipelineJson, readPipelineJsonCache, getPipelineClientCacheGeneration, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
+import HomeDialog from "@/components/pipeline/HomeDialog";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { cancelPipelineWarmup, prefetchPipelineProfile } from "@/lib/pipeline/client-navigation";
 import { openClientChart } from "./client-chart-transition";
@@ -86,6 +86,7 @@ export default function ClientProfileDirectory({
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
   const [sort, setSort] = useState<SortOption>("name");
   const [layout, setLayout] = useState<DirectoryLayout>("cards");
+  const [openCabinet, setOpenCabinet] = useState<{ community: string; origin: DOMRect } | null>(null);
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
 
@@ -209,9 +210,8 @@ export default function ClientProfileDirectory({
     }
     return [...boxes].sort(([left], [right]) => left.localeCompare(right, "en"));
   }, [filteredClients]);
-  // Share the existing rendering budget across boxes so each community is reachable.
-  const limitPerBox = Math.max(1, Math.floor(displayLimit / Math.max(1, communityBoxes.length)));
-  const visibleCount = communityBoxes.reduce((count, [, records]) => count + Math.min(records.length, limitPerBox), 0);
+  const cabinetClients = communityBoxes.find(([community]) => community === openCabinet?.community)?.[1] ?? [];
+  const visibleClients = cabinetClients.slice(0, displayLimit);
   const hasDirectoryFilters = admissionFilter !== "any";
   const hasAppliedFilters = hasDirectoryFilters || Boolean(query.trim());
   const countLabel = isLoading && clients.length === 0
@@ -264,7 +264,6 @@ export default function ClientProfileDirectory({
             <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
               <div aria-live="polite" className="relative text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}<FeedbackCue value={`${admissionFilter}:${sort}:${displayLimit}`} /></div>
               {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#69716c] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
-              <DirectoryLayoutToggle layout={layout} onChange={selectLayout} />
               <button
                 type="button"
                 aria-label="Refresh client directory"
@@ -319,27 +318,21 @@ export default function ClientProfileDirectory({
 
         <section aria-label="Client list" className="pt-6 sm:pt-8">
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
-          <div className={styles.communityBoxes}>
-            {communityBoxes.map(([community, records]) => (
-              <details key={community} open className={styles.communityBox}>
-                <summary className={styles.communityBoxLabel}>
-                  <Archive size={20} aria-hidden="true" />
-                  <span className={styles.communityBoxName}>{community}</span>
-                  <span className={styles.communityBoxCount}>{countNoun(records.length, "client")}</span>
-                  <ChevronDown size={18} aria-hidden="true" className={styles.communityBoxChevron} />
-                </summary>
-                <div className={styles.communityBoxContents}>
-                  {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
-                  <div role="list" aria-label={`${community} clients`} className={layout === "cards" ? styles.directoryStack : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
-                    {records.slice(0, limitPerBox).map((client) => (
-                      <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                        <ClientDirectoryCard client={client} layout={layout} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
-                      </div>
-                    ))}
-                  </div>
-                  {records.length > limitPerBox ? <p className={styles.communityBoxMore}>Showing {limitPerBox} of {records.length} clients</p> : null}
-                </div>
-              </details>
+          <div role="group" aria-label="Community file cabinets" className={styles.cabinetRow}>
+            {communityBoxes.map(([community, records], index) => (
+              <button key={community} type="button" aria-haspopup="dialog" aria-label={`Open ${community} file cabinet`} className={styles.cabinet} onClick={(event) => {
+                event.currentTarget.focus({ preventScroll: true });
+                setDisplayLimit(DISPLAY_INCREMENT);
+                setOpenCabinet({ community, origin: event.currentTarget.getBoundingClientRect() });
+              }}>
+                <span className={styles.cabinetIndex} aria-hidden="true">FILE / {String(index + 1).padStart(2, "0")}</span>
+                <span className={styles.cabinetFiles} aria-hidden="true"><i /><i /><i /></span>
+                <span className={styles.cabinetFace}>
+                  <span className={styles.cabinetName}>{community}</span>
+                  <span className={styles.cabinetHandle} aria-hidden="true" />
+                  <span className={styles.cabinetCount}>{countNoun(records.length, "client")}</span>
+                </span>
+              </button>
             ))}
           </div>
 
@@ -352,12 +345,27 @@ export default function ClientProfileDirectory({
           ) : null}
         </section>
 
-        {visibleCount < filteredClients.length ? (
-          <div className="flex items-center justify-between py-5">
-            <span className="relative text-[11px] text-[#717a76]">Showing {visibleCount} of {filteredClients.length}<FeedbackCue value={displayLimit} /></span>
-            <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)} className="flex h-10 items-center gap-2 border border-[#afb9b5] px-4 text-[11px] font-black text-[#37403c] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronDown size={14} /> Show more</button>
+        {openCabinet ? <HomeDialog label={`${openCabinet.community} file cabinet`} title={openCabinet.community} size="gallery" className={styles.cabinetWindow} openFrom={openCabinet.origin} onClose={() => setOpenCabinet(null)}>
+          <div className={styles.cabinetToolbar}>
+            <span>{countNoun(cabinetClients.length, "client")}</span>
+            <DirectoryLayoutToggle layout={layout} onChange={selectLayout} />
           </div>
-        ) : null}
+          <div className={styles.cabinetContents}>
+            {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
+            <div role="list" aria-label={`${openCabinet.community} clients`} className={layout === "cards" ? styles.directoryStack : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
+              {visibleClients.map((client) => (
+                <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
+                  <ClientDirectoryCard client={client} layout={layout} onOpen={() => { setOpenCabinet(null); onOpenProfile(client.profile_key ?? client.canonical_client_id); }} />
+                </div>
+              ))}
+            </div>
+            {!cabinetClients.length ? <p className={styles.cabinetEmpty}>No clients match the current search and filters in this cabinet.</p> : null}
+            {visibleClients.length < cabinetClients.length ? <div className={styles.cabinetPagination}>
+              <span>Showing {visibleClients.length} of {cabinetClients.length}</span>
+              <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)}><ChevronDown size={14} aria-hidden="true" /> Show more</button>
+            </div> : null}
+          </div>
+        </HomeDialog> : null}
       </div>
     </main>
   );

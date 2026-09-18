@@ -47,7 +47,7 @@ test.describe("Stable visual surfaces", () => {
     await openStable(page, "/");
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Client list" })).toContainText("Avery Example");
+    await expect(page.getByRole("group", { name: "Community file cabinets" }).getByRole("button").first()).toBeVisible();
     await expect(page.getByTestId("profiles-workspace").getByRole("alert")).toHaveCount(0);
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());

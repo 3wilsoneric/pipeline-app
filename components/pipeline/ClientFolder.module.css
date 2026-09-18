@@ -1,54 +1,88 @@
-.communityBoxes {
-  display: grid;
-  gap: 28px;
-}
-
-.communityBox {
-  min-width: 0;
-  border: 1px solid #b9b5a9;
-  border-radius: 7px;
-  background: #f2efe7;
-  box-shadow: 0 3px 0 #d5d0c4, 0 4px 0 #b9b5a9;
-}
-
-.communityBoxLabel {
+.cabinetRow {
   display: flex;
-  min-height: 64px;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 16px 4px 28px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
+
+.cabinet {
+  position: relative;
+  flex: 0 0 210px;
+  height: 218px;
+  padding: 0;
+  border: 1px solid #8c9692;
+  border-radius: 3px;
+  background: #c5cdc9;
+  box-shadow: inset 2px 2px 0 #f3f5f3, inset -2px -2px 0 #9aa59f, 4px 5px 0 #dce1dd;
+  color: #303e37;
+  scroll-snap-align: start;
+}
+
+.cabinetIndex {
+  position: absolute;
+  top: 10px;
+  left: 13px;
+  font: 10px ui-monospace, monospace;
+  letter-spacing: .1em;
+  color: #54625a;
+}
+
+.cabinetFiles { position: absolute; inset: 34px 12px auto; height: 45px; }
+.cabinetFiles i { position: absolute; inset: 13px 0 0; border: 1px solid #b8a884; border-radius: 2px 2px 0 0; background: #e9dfc7; }
+.cabinetFiles i::before { content: ""; position: absolute; top: -8px; left: 8px; width: 55px; height: 8px; border: 1px solid #b8a884; border-bottom: 0; border-radius: 3px 3px 0 0; background: inherit; }
+.cabinetFiles i:nth-child(2) { transform: translateY(8px); background: #efe5cd; }
+.cabinetFiles i:nth-child(2)::before { left: 65px; }
+.cabinetFiles i:nth-child(3) { transform: translateY(16px); background: #f4ead4; }
+.cabinetFiles i:nth-child(3)::before { left: 105px; }
+
+.cabinetFace {
+  position: absolute;
+  inset: 77px 7px 8px;
+  display: flex;
   align-items: center;
+  flex-direction: column;
   gap: 12px;
-  padding: 12px 18px;
-  border-radius: 6px;
-  background: #e5e1d7;
-  color: #343c37;
-  cursor: pointer;
-  list-style: none;
+  padding: 13px 11px 10px;
+  border: 1px solid #85918a;
+  background: #d7dcd8;
+  box-shadow: inset 2px 2px 0 #f6f8f6, inset -2px -2px 0 #a7b1aa;
+  transition: transform 140ms ease-out;
 }
+.cabinetName { display: flex; align-items: center; justify-content: center; flex: 1; width: 100%; padding: 4px 6px; border: 1px solid #9fa9a2; background: #fffef8; font-size: 13px; font-weight: 700; line-height: 1.25; text-align: center; box-shadow: inset 1px 1px 1px #dbded5; overflow-wrap: anywhere; }
+.cabinetHandle { width: 54px; height: 10px; border: 2px solid #8c9890; border-top-color: #f5f7f4; border-radius: 2px; background: #737f78; box-shadow: 0 2px 0 #f2f4ee; }
+.cabinetCount { font: 10px ui-monospace, monospace; color: #526056; }
+.cabinet:focus-visible { outline: 2px solid #0f8b73; outline-offset: 5px; }
+.cabinet:not(:disabled):active { background-image: none; }
+.cabinet:active .cabinetFace { transform: translateY(2px); }
+@media (hover: hover) and (pointer: fine) { .cabinet:hover .cabinetFace { transform: translateY(5px); } }
 
-.communityBoxLabel::-webkit-details-marker { display: none; }
-.communityBoxLabel > svg { flex-shrink: 0; }
-.communityBoxLabel:focus-visible { outline: 2px solid #0f8b73; outline-offset: 3px; }
-
-.communityBoxName {
-  min-width: 0;
-  padding: 5px 12px;
-  border: 1px solid #c5c1b6;
-  border-radius: 2px;
-  background: #fff;
-  font-size: 16px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.communityBoxCount { margin-left: auto; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.communityBox[open] > .communityBoxLabel { border-bottom: 1px solid #c5c1b6; border-radius: 6px 6px 0 0; }
-.communityBox:not([open]) .communityBoxChevron { transform: rotate(-90deg); }
-.communityBoxContents { padding: 20px 16px 16px; }
-.communityBoxMore { margin-top: 16px; font-size: 12px; color: #626b65; }
+.cabinetWindow { border: 3px solid #a1ada5; border-top-color: #edf0eb; border-left-color: #edf0eb; border-radius: 2px; background: #eeeee6; }
+.cabinetWindow::backdrop { background: rgb(28 44 36 / 28%); }
+.cabinetWindow > div:first-child { min-height: 46px; padding: 4px 7px 4px 16px; border: 0; background: #264f45; color: #fff; }
+.cabinetWindow > div:first-child h2 { font-size: 16px; }
+.cabinetWindow > div:first-child button { width: 36px; height: 36px; border: 2px outset #eef1ea; background: #d9dfd7; color: #26392d; }
+.cabinetToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #ccd1c7; background: #e3e7de; font: 12px ui-monospace, monospace; }
+.cabinetContents { padding: 22px 20px; }
+.cabinetEmpty { padding: 24px; text-align: center; color: #5e6a62; }
+.cabinetPagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 20px; font-size: 12px; }
+.cabinetPagination button { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid #929f96; background: #fff; }
+.cabinetPagination button:focus-visible { outline: 2px solid #0f8b73; outline-offset: 2px; }
 
 @media (max-width: 639px) {
-  .communityBoxLabel { gap: 8px; padding: 10px; }
-  .communityBoxName { padding: 4px 8px; font-size: 14px; }
-  .communityBoxContents { padding: 16px 8px 8px; }
+  .cabinetRow { gap: 14px; }
+  .cabinet { flex-basis: 176px; height: 204px; }
+  .cabinetFiles i:nth-child(3)::before { left: 80px; width: 48px; }
+  .cabinetFace { inset-block-start: 68px; }
+  .cabinetWindow { width: calc(100% - 12px); max-height: calc(100dvh - 24px); height: calc(100dvh - 24px); }
+  .cabinetToolbar { padding: 8px 10px; }
+  .cabinetContents { padding: 16px 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) { .cabinetFace { transition: none; } }
+@media (forced-colors: active) {
+  .cabinet, .cabinetFace, .cabinetName, .cabinetFiles i, .cabinetFiles i::before, .cabinetWindow { border-color: ButtonText; }
 }
 
 .folder, .recordFolder {
