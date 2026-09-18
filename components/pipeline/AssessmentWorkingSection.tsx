@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Pencil, Search } from "lucide-react";
 import {
   assessmentInterviewFieldLabel,
@@ -42,6 +42,13 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, grou
   const [query, setQuery] = useState("");
   const search = useRef<HTMLDetailsElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (search.current?.open && event.target instanceof Node && !search.current.contains(event.target)) search.current.open = false;
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
   const sections = assessmentInterviewSections.map((section) => ({ ...section, questions: getAssessmentInterviewQuestions(section.key, data) }));
   const matches = sections.flatMap((section) => section.questions.filter((question) => matchesAssessmentQuestion(question, query)).map((question) => ({ section, question })));
   return <nav aria-label="Assessment sections" className={styles.navigation}>
@@ -57,7 +64,11 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, grou
         </optgroup>)}
       </select>
     </label>
-    <details ref={search} className={styles.search} onToggle={(event) => { if (event.currentTarget.open) searchInput.current?.focus(); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }} onKeyDown={(event) => {
+    <details ref={search} className={styles.search} onToggle={(event) => { if (event.currentTarget.open) searchInput.current?.focus(); }} onBlur={(event) => {
+      // Safari touch buttons can blur the input without receiving focus. Let the
+      // result's click run; outside pointer presses are handled independently.
+      if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+    }} onKeyDown={(event) => {
       if (event.key === "Escape") { event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); }
     }}>
       <summary aria-label="Find assessment question"><Search size={17} aria-hidden="true" /><span>Find a question</span></summary>
@@ -129,7 +140,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
     <CapturedAssessmentAnswers {...props} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} />
     <div ref={editor} data-assessment-question-editor className={styles.editor}>
       <header className={styles.paneHeading}><h4>{props.assessment.signed_at ? "Signed assessment" : "To finish"}</h4><span>{counts.unanswered + counts.verify + counts.reasons} remaining</span></header>
-      {!groups.length ? <p className={styles.empty}>{props.assessment.signed_at ? "Read the signed answers on the left." : "This section is recorded. Continue to the next section, or select an answer on the left to edit it."}</p> : null}
+      {!groups.length ? <p className={styles.empty}>{props.assessment.signed_at ? "Read the signed answers in Captured answers." : "This section is recorded. Continue to the next section, or open Captured answers to edit it."}</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.questionGroup}>
         <h5>{group.label}</h5>
         <div className={styles.fields}>
@@ -171,7 +182,7 @@ function CapturedAssessmentAnswers({ section, data, pending, questions, referenc
       </select> : null}
       {!captured.length ? <p className={styles.empty}>No information recorded here yet.</p> : null}
       {groups.map((group) => <section key={group.label} className={styles.referenceGroup}><h5>{group.label}</h5>
-        {group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} signed={Boolean(assessment.signed_at)} onEdit={onEdit} />)}
+        {group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} signed={Boolean(assessment.signed_at)} onEdit={(field) => { setExpanded(false); onEdit(field); }} />)}
       </section>)}
     </div>
   </aside>;

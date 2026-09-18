@@ -71,11 +71,25 @@
   .referenceContent[data-expanded="true"] { display: block; }
   .referenceToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
   .sectionPicker { flex: 1; }
+  .sectionPicker select, .referenceSelector { min-height: 44px; font-size: 16px; }
+  .search summary { min-width: 44px; min-height: 44px; justify-content: center; }
+  .searchResults { max-height: calc(var(--mobile-viewport-height, 100dvh) - 200px); overflow-y: auto; overscroll-behavior: contain; }
+  .searchResults > div { max-height: none; }
+  .searchResults button { min-height: 48px; font-size: 14px; }
+  .referenceToggle { min-height: 48px; font-size: 14px; }
+  .referenceContent { max-height: none; overflow: visible; }
+  .answer { min-height: 48px; padding-block: 12px; border-bottom: 1px solid #e3e7e3; }
+  .answerLabel { font-size: 13px; }
+  .answerLabel svg { visibility: visible; }
+  .answerValue { font-size: 16px; }
+  .questionGroup h5, .referenceGroup h5 { font-size: 14px; }
+  .recorded { font-size: 12px; }
 }
 @media (max-width: 639px) {
   .navigation { gap: 6px; padding: 7px 12px; }
   .sectionPicker select { font-size: 16px; }
-  .search summary { min-width: 38px; padding: 7px; }
+  .search summary { min-width: 44px; padding: 7px; }
   .search summary span { display: none; }
   .fields { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .referenceGroup { grid-template-columns: minmax(0, 1fr); }
 }

@@ -83,6 +83,45 @@
   .fields { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 16px 12px; }
 }
 
+@media (max-width: 959px) {
+  .surface[data-assessment-view="chart"] { padding: 0; background: #fff; }
+  .surface main { scroll-padding-block: 72px 20px; overscroll-behavior-y: contain; }
+  .surface .interviewHeader { border-radius: 0; }
+  .surface .interviewHeader [data-assessment-client-header] { min-height: 56px; height: auto; border-radius: 0; padding-left: 62px; gap: 8px; }
+  .surface [data-assessment-client-header] h2 { white-space: normal; overflow-wrap: anywhere; font-size: 17px; line-height: 1.3; padding-block: 8px; }
+  .surface [data-assessment-client-header] > span { font-size: 11px; }
+  .surface [data-assessment-client-header] button { min-width: 44px; min-height: 44px; }
+  .surface .interviewHeader .filePages { width: 100%; padding: 0 10px 6px; }
+  .surface .interviewHeader .filePages button { flex: 1; min-height: 44px; font-size: 14px; }
+  .surface footer[aria-label="Assessment actions"], .embedded footer[aria-label="Assessment actions"] {
+    gap: 8px;
+    padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+    border-radius: 0;
+  }
+  .surface footer[aria-label="Assessment actions"] button, .embedded footer[aria-label="Assessment actions"] button,
+  .surface[data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button,
+  .embedded main div:has(> [data-guide-target="assessment-next-section"]) > button {
+    min-height: 44px;
+    height: auto;
+    white-space: normal;
+    font-size: 14px;
+  }
+  .surface [data-guide-target="assessment-save-status"], .embedded [data-guide-target="assessment-save-status"] { font-size: 12px; }
+  .surface [data-working-field], .embedded [data-working-field] { scroll-margin-block: 8px; }
+  .surface [data-working-field] label[for], .embedded [data-working-field] label[for] { font-size: 15px; line-height: 1.45; }
+  .surface [data-working-field] label[for] + span, .embedded [data-working-field] label[for] + span { font-size: 10px; color: #59665e; }
+  .surface [data-working-field] :is(input:not([type="checkbox"]), select, textarea),
+  .embedded [data-working-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 48px; font-size: 16px; scroll-margin-block: 8px; }
+  .surface [data-working-field] [role="group"], .embedded [data-working-field] [role="group"] { height: auto; min-height: 48px; }
+  .surface [data-working-field] [role="group"] :is(button, label), .embedded [data-working-field] [role="group"] :is(button, label) { min-height: 48px; font-size: 14px; }
+  .surface [data-working-field] button, .embedded [data-working-field] button { min-height: 44px; min-width: 44px; }
+  .surface [data-working-field] p, .embedded [data-working-field] p { font-size: 13px; line-height: 1.5; }
+  .surface [data-working-field] summary[data-guide-target="assessment-answer-help"],
+  .embedded [data-working-field] summary[data-guide-target="assessment-answer-help"] { min-height: 44px; flex-wrap: wrap; gap: 4px 10px; padding-block: 8px; }
+  .surface [data-guide-target="assessment-answer-help"] > span, .embedded [data-guide-target="assessment-answer-help"] > span { font-size: 12px; }
+  .embedded .referenceSelector { min-height: 44px; font-size: 16px; }
+}
+
 @media (forced-colors: active) {
   .filePages button[aria-current], .groupNavigation button[aria-current] { border: 2px solid Highlight; }
 }
