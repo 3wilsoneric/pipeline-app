@@ -15,10 +15,13 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
 
       for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 844, height: 390 }]) {
         await page.setViewportSize(size);
+        // Beta document review precedes intake; short landscape screens can scroll to the field.
+        const review = page.getByRole("region", { name: "Extraction review", exact: true });
+        expect((await name.boundingBox())!.y - await review.evaluate((element) => element.getBoundingClientRect().height + parseFloat(getComputedStyle(element).marginBottom))).toBeLessThan(340);
+        await name.scrollIntoViewIfNeeded();
         await expect(name).toBeInViewport();
         await expect(name).toHaveCSS("font-size", "16px");
         await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
-        expect((await name.boundingBox())!.y).toBeLessThan(340);
         const controls = [...await header.getByRole("button").all(), ...await dock.getByRole("button").all()];
         for (const control of controls) {
           const box = (await control.boundingBox())!;

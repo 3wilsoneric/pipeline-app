@@ -48,7 +48,11 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
         expect(box.width).toBeGreaterThanOrEqual(44);
       }
       await expect(folder.locator('[data-workspace-field="name"] input')).toHaveCSS("font-size", "16px");
-      await expect.poll(async () => (await folder.locator('[data-workspace-field="name"] input').boundingBox())!.y).toBeLessThan(340);
+      // The live Beta review panel adds content above intake; keep the folder chrome compact.
+      const review = page.getByRole("region", { name: "Extraction review", exact: true });
+      await expect(review).toContainText("Beta");
+      await expect.poll(async () => (await folder.locator('[data-workspace-field="name"] input').boundingBox())!.y - await review.evaluate((element) => element.getBoundingClientRect().height + parseFloat(getComputedStyle(element).marginBottom))).toBeLessThan(340);
+      await expect(folder.locator('[data-workspace-field="name"] input')).toBeInViewport();
     }
     await page.screenshot({ path: testInfo.outputPath(`folder-tabs-${width}.png`), animations: "disabled" });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
