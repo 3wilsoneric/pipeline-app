@@ -18,6 +18,7 @@ type ChartPayload = {
   referral: Referral;
   report: AssessmentSummaryReport | null;
   email: {
+    example_only: boolean;
     configured: boolean;
     allowed_recipient_domains: string[];
     eligible: boolean;
@@ -39,7 +40,7 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, initialView = "complete" }: { referralId?: number; embedded?: boolean; initialView?: ChartView }) {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, initialView = "complete", handoff = false, onSendingChange }: { referralId?: number; embedded?: boolean; initialView?: ChartView; handoff?: boolean; onSendingChange?: (sending: boolean) => void }) {
   const [payload, setPayload] = useState<ChartPayload | null>(null);
   const [view, setView] = useState<ChartView>(initialView);
   const [loading, setLoading] = useState(Boolean(referralId));
@@ -74,7 +75,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   }, [load]);
 
   const emailMeetClient = async () => {
-    if (!payload?.email.ready || !confirmed || sendInFlight.current) return;
+    if (!payload?.email.ready || payload.email.example_only || !confirmed || sendInFlight.current) return;
     const recipientList = recipients.split(/[;,\n]/).map((value) => value.trim()).filter(Boolean);
     const requestKey = JSON.stringify([
       payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
@@ -84,6 +85,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     if (sendRequest.current?.key !== requestKey) sendRequest.current = { key: requestKey, mutationId: crypto.randomUUID() };
     sendInFlight.current = true;
     setSending(true);
+    onSendingChange?.(true);
     setError("");
     setMessage("");
     try {
@@ -107,6 +109,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     } finally {
       sendInFlight.current = false;
       setSending(false);
+      onSendingChange?.(false);
     }
   };
 
@@ -117,7 +120,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
 
   return (
     <div className="mx-auto w-full max-w-[1240px]">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d9dfdb]">
+      {!handoff ? <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d9dfdb]">
         <nav aria-label="Assessment chart views" className="flex gap-7">
           <ChartTab active={view === "complete"} icon={<FileText size={14} />} label="Complete chart" onClick={() => setView("complete")} />
           <ChartTab guideTarget="chart-meet-client-tab" active={view === "meet-client"} icon={<UserRound size={14} />} label="Meet the Client" onClick={() => setView("meet-client")} />
@@ -125,11 +128,11 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
         <button type="button" onClick={() => void load()} disabled={loading || sending} className="mb-2 flex h-8 items-center gap-2 px-2 text-[10px] font-black text-[#59635e] hover:text-[#0f8b73] disabled:opacity-50">
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
         </button>
-      </div>
+      </div> : null}
 
       <ChartStatusMessage error={error} message={message} />
 
-      <div className="mt-5">
+      <div className={handoff ? "" : "mt-5"}>
         {view === "complete" ? (
           <AssessmentRecord report={report} embedded={embedded} />
         ) : (
@@ -225,8 +228,8 @@ function ChartSection({ title, items }: { title: string; items: AssessmentSummar
     <section className="grid border-b border-[#dfe4e1] px-5 py-5 sm:px-7 lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-8">
       <h3 className="mb-4 text-[11px] font-black uppercase tracking-[0.04em] text-[#234c42] lg:mb-0">{title}</h3>
       <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-        {items.map((item) => (
-          <div key={`${title}:${item.label}`} className="min-w-0">
+        {items.map((item, index) => (
+          <div key={`${title}:${index}:${item.label}`} className="min-w-0">
             <dt className="text-[8px] font-black uppercase tracking-[0.06em] text-[#737d78]">{item.label}</dt>
             <dd className="mt-1 whitespace-pre-line text-[11px] leading-5 text-[#222a26]"><ReadableChartText value={item.value} /></dd>
           </div>
@@ -265,13 +268,16 @@ function MeetClientChart({
   onSend: () => void;
 }) {
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <article aria-label="Meet the Client chart" className="border border-[#cfd7d2] bg-white">
+    <div className={`grid items-start gap-5 ${email.example_only ? "" : "xl:grid-cols-[minmax(0,1fr)_340px]"}`}>
+      {email.example_only ? <div role="note" className="border-l-2 border-[#b58439] bg-[#fffaf0] px-4 py-3 text-[14px] leading-6 text-[#53482f]">
+        <strong>Example only. No email will be sent.</strong> This previews the client handoff. Live delivery will be enabled separately.
+      </div> : null}
+      <article aria-label="Meet the Client chart" className="border border-[#cfd7d2] bg-white [&_dt]:text-[11px] [&_dd]:text-[14px] [&_dd]:leading-6 [&_h3]:text-[13px]">
         <div className="bg-[#eaf3ef] px-5 py-5 sm:px-7">
           <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#4e7167]">Admission face sheet</div>
           <h2 className="mt-1 text-[22px] font-black tracking-[-0.03em] text-[#183f37]">Meet the Client</h2>
         </div>
-        <div className="grid gap-px border-y border-[#cfd7d2] bg-[#cfd7d2] sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-px border-y border-[#cfd7d2] bg-[#cfd7d2] lg:grid-cols-4 [&>div>div:first-child]:text-[10px] [&>div>div:last-child]:text-[14px] [&>div]:min-w-0 [&>div]:break-words">
           <HeaderFact label="Name" value={summary.name} />
           <HeaderFact label="Date of birth" value={formatDate(summary.dateOfBirth)} />
           <HeaderFact label="Community" value={summary.community} />
@@ -284,7 +290,7 @@ function MeetClientChart({
         <div className="bg-[#f7faf8] px-5 py-4 text-[9px] text-[#69736e] sm:px-7">Prepared from assessment {summary.preparedFromAssessmentId}, version {summary.preparedFromAssessmentVersion}.</div>
       </article>
 
-      <aside data-guide-target="chart-email-handoff" className="border border-[#cfd7d2] bg-[#f8faf9] p-5" aria-label="Email Meet the Client">
+      {!email.example_only ? <aside data-guide-target="chart-email-handoff" className="border border-[#cfd7d2] bg-[#f8faf9] p-5" aria-label="Email Meet the Client">
         <div className="flex items-center gap-2"><Mail size={15} className="text-[#0f8b73]" /><h3 className="text-[12px] font-black">Email this face sheet</h3></div>
         {!email.can_send ? <p className="mt-3 text-[12px] text-[#67716c]">A supervisor sends Meet the Client and the admission packet.</p> : !email.eligible ? (
           <p className="mt-3 text-[11px] leading-5 text-[#67716c]">Email becomes available after the referral has an accepted admission decision.</p>
@@ -299,7 +305,7 @@ function MeetClientChart({
             <button type="button" onClick={onSend} disabled={sending || !email.ready || !confirmed || !recipients.trim()} className="mt-4 flex h-9 w-full items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[10px] font-black text-white hover:bg-[#0b725f] disabled:cursor-not-allowed disabled:bg-[#adb5b1]"><Send size={13} /> {sending ? "Sending summary + packet..." : "Email summary + packet"}</button>
           </>
         )}
-      </aside>
+      </aside> : null}
     </div>
   );
 }
@@ -329,7 +335,7 @@ function MeetSection({ title, values, empty = "Not recorded." }: { title: string
   return (
     <section className="border-b border-[#dfe4e1] px-5 py-5 sm:px-7">
       <h3 className="text-[11px] font-black uppercase tracking-[0.04em] text-[#234c42]">{title}</h3>
-      {values.length > 0 ? <ul className="mt-3 space-y-2 text-[11px] leading-5 text-[#222a26]">{values.map((value, index) => <li key={`${title}:${index}`} className="flex gap-2"><span className="text-[#0f8b73]">-</span><span>{value}</span></li>)}</ul> : <p className="mt-2 text-[11px] text-[#727b76]">{empty}</p>}
+      {values.length > 0 ? <ul className="mt-3 space-y-2 text-[14px] leading-6 text-[#222a26]">{values.map((value, index) => <li key={`${title}:${index}`} className="flex gap-2"><span className="text-[#0f8b73]">-</span><span>{value}</span></li>)}</ul> : <p className="mt-2 text-[14px] text-[#59645e]">{empty}</p>}
     </section>
   );
 }

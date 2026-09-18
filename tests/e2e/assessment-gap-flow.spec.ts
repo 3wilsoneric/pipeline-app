@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { returnToAssessmentQuestions } from "./support/assessment-navigation";
 import { assessmentConversationSections, assessmentGapSections } from "../../components/pipeline/assessment-working-view";
 import { assessmentInterviewSections } from "../../lib/assessment/assessment-interview-schema";
 import { buildTrainingAssessment } from "../../lib/training/mock-assessment";
@@ -93,7 +94,7 @@ for (const width of [1440, 768, 390, 320]) {
       await footer.getByRole("button", { name: "Review chart", exact: true }).click();
       await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic interview gap completed");
       await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
-      await page.getByRole("button", { name: "Return to questions", exact: true }).click();
+      await returnToAssessmentQuestions(page);
     }
     await page.screenshot({ path: info.outputPath(`gap-flow-${width}.png`) });
   });

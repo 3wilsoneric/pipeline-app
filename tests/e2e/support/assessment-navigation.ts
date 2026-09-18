@@ -9,3 +9,9 @@ export async function openAssessmentChart(page: Page) {
     await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review chart/ }).click();
   }
 }
+
+export async function returnToAssessmentQuestions(page: Page) {
+  const pages = page.getByRole("navigation", { name: "Client file pages", exact: true });
+  if (await pages.count()) await pages.getByRole("button", { name: "Assessment", exact: true }).click();
+  else await page.getByRole("button", { name: "Return to questions", exact: true }).click();
+}

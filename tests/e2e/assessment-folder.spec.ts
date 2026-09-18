@@ -38,7 +38,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     const { referral, assessment, folder } = await openFolder(page);
     const header = folder.locator("[data-assessment-folder-header]");
-    const back = header.getByRole("button", { name: "Back to referral", exact: true });
+    const back = header.getByRole("button", { name: "Workspaces", exact: true });
     await expect(header.getByRole("heading", { name: referral.name, exact: true })).toBeVisible();
     await expect(back).toBeInViewport();
     expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -74,8 +74,8 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     await field.fill("Synthetic final answer before returning to referral");
     await back.click();
     await expect(folder).toHaveCount(0);
-    await expect(page.locator("#packet-page-1")).toBeVisible();
-    expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(false);
+    await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
+    await expect(page).not.toHaveURL(/screen=packet/);
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Synthetic final answer before returning to referral"]);
   });
 }
@@ -96,7 +96,7 @@ for (const width of [1440, 390]) {
       IDBDatabase.prototype.transaction = () => { throw new DOMException("Synthetic storage unavailable", "QuotaExceededError"); };
     });
     await field.fill("Synthetic answer retained after failed save");
-    const back = folder.getByRole("button", { name: "Back to referral", exact: true });
+    const back = folder.getByRole("button", { name: "Workspaces", exact: true });
     await back.click();
     await expect(folder.getByRole("alert")).toBeVisible();
     await expect(folder).toBeVisible();
@@ -105,7 +105,7 @@ for (const width of [1440, 390]) {
     await page.unroute(endpoint);
     await back.click();
     await expect(folder).toHaveCount(0);
-    await expect(page.locator("#packet-page-1")).toBeVisible();
+    await expect(page).not.toHaveURL(/screen=packet/);
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(saved.secondary_diagnoses).toEqual(["Synthetic answer retained after failed save"]);
   });

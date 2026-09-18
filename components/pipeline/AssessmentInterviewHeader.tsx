@@ -48,7 +48,7 @@ export default function AssessmentInterviewHeader({ name, community, disabled, r
       </h2>}
       {pages}
       <button type="button" data-assessment-return onClick={onClose} disabled={disabled} aria-label={returnLabel} className={styles.returnButton}>
-        <ArrowLeft size={17} aria-hidden="true" /><span className={styles.returnText}>{returnLabel}</span><span className={styles.returnCompact} aria-hidden="true">{returnLabel === "Back to referral" ? "Referral" : "Workspace"}</span>
+        <ArrowLeft size={17} aria-hidden="true" /><span className={styles.returnText}>{returnLabel}</span><span className={styles.returnCompact} aria-hidden="true">{returnLabel === "Back to referral" ? "Referral" : "Workspaces"}</span>
       </button>
     </header>
   );

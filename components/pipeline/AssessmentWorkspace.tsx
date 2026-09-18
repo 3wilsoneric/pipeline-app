@@ -264,6 +264,7 @@ export default function AssessmentWorkspace({
   onAssessmentSaved,
   onContinueToWorkflow,
   onOpenWorkspace,
+  onOpenAssignedWork,
   onActiveSectionChange,
 }: AssessmentWorkspaceProps) {
   const { contentRef, beforeNavigationRef, setAssessmentFocused } = usePipelineShell();
@@ -705,7 +706,7 @@ export default function AssessmentWorkspace({
     });
   }, [initialSection, nextRequiredTarget, selected, trainingAssessmentMode, trainingAssessmentSection]);
 
-  const closeFromEscape = useEffectEvent(() => void closeAssessment(onOpenWorkspace));
+  const closeFromEscape = useEffectEvent(() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace));
 
   useEffect(() => {
     if (!isFocused || (embeddedPreparation && !showBeginDialog && !showScheduleDialog)) return;
@@ -1039,7 +1040,7 @@ export default function AssessmentWorkspace({
     if (current) await clearRecoveryDraft(current.assessment_id);
   });
 
-  const saveAndCloseAssessment = async (onClosed?: () => void) => {
+  const saveAndCloseAssessment = async (onClosed?: () => void | Promise<void>) => {
     if (closingRef.current) throw new Error("Assessment navigation is already in progress.");
     closingRef.current = true;
     setIsClosing(true);
@@ -1049,8 +1050,8 @@ export default function AssessmentWorkspace({
       setMessage("");
       setShowScheduleDialog(false);
       setShowBeginDialog(false);
+      await onClosed?.();
       setIsFocused(false);
-      onClosed?.();
     } catch (saveError) {
       setError(messageFor(saveError, "Your last changes could not be saved. Keep this assessment open and try again."));
       throw saveError;
@@ -1060,7 +1061,7 @@ export default function AssessmentWorkspace({
     }
   };
 
-  const closeAssessment = (onClosed?: () => void) => saveAndCloseAssessment(onClosed).catch(() => undefined);
+  const closeAssessment = (onClosed?: () => void | Promise<void>) => saveAndCloseAssessment(onClosed).catch(() => undefined);
   const saveForHeaderNavigation = useEffectEvent(() => saveAndCloseAssessment());
 
   useEffect(() => {
@@ -1477,11 +1478,11 @@ export default function AssessmentWorkspace({
       container={contentRef.current}
       header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} disabled={isClosing}
         details={assessmentDetails} detailsRef={secondaryActionsRef}
-        returnLabel={onOpenWorkspace ? "Back to referral" : "Back to workspace"}
-        onClose={() => void closeAssessment(onOpenWorkspace)}
+        returnLabel={!preparing && !trainingAssessmentMode && onOpenAssignedWork ? "Workspaces" : onOpenWorkspace ? "Back to referral" : "Back to workspace"}
+        onClose={() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace)}
         pages={<AssessmentFileNavigation hidden={phoneInterview} disabled={isClosing} preparing={preparing} reviewingChart={reviewingChart} preparationAvailable={!trainingAssessmentMode}
           onPrepare={() => { setWorkingTarget(null); setNotebookView("prepare"); }}
-          onAssessment={() => { setWorkingTarget(null); setNotebookView("assessment"); }}
+          onAssessment={() => { if (!reviewingChart) setWorkingTarget(null); setNotebookView("assessment"); }}
           onChart={() => void reviewChart()}
         />}
       />}
@@ -1587,7 +1588,7 @@ export default function AssessmentWorkspace({
 
           {reviewingChart ? <section aria-label="Assessment chart review" className={workingStyles.chartReview}>
             <div className={workingStyles.chartReviewToolbar}>
-              <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button>
+              {phoneInterview ? <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button> : null}
               <span>{selected.signed_at ? "Signed chart" : "Review before signing"}</span>
             </div>
             {conversationSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>{conversationSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items remain in the chart. Return to questions to revisit them.</p> : null}

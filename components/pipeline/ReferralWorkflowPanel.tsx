@@ -335,9 +335,13 @@ export default function ReferralWorkflowPanel({
   </div>;
 
   if (showMeetClient) return (
-    <div className="space-y-4">
-      <button type="button" onClick={() => setShowMeetClient(false)} className="min-h-10 px-3 text-[12px] font-bold text-[#0f8b73] focus-visible:outline-2">Back to outcome</button>
-      <AssessmentChartWorkspace referralId={currentReferral.id} initialView="meet-client" />
+    <div className="mx-auto max-w-[1240px] space-y-4">
+      <AssessmentChartWorkspace referralId={currentReferral.id} initialView="meet-client" handoff onSendingChange={(sending) => setBusy(sending ? "email" : "")} />
+      {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
+      <footer aria-label="Handoff actions" className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-[#dce4df] bg-white/95 py-3 backdrop-blur-sm">
+        <button type="button" onClick={() => setShowMeetClient(false)} disabled={Boolean(busy)} className="min-h-11 px-3 text-[14px] font-semibold text-[#53615a] focus-visible:outline-2">Edit decision</button>
+        {onDone ? <button type="button" onClick={() => void finishWorkspace()} disabled={Boolean(busy)} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">{busy === "done" ? "Saving..." : "Done"}</button> : null}
+      </footer>
     </div>
   );
 

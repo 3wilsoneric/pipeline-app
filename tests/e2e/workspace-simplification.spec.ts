@@ -108,7 +108,10 @@ for (const width of [1440, 390]) {
     const saved = await (await page.request.get(`/api/referrals/${referral.id}`)).json();
     expect(saved.referral.admissionDate).toBe("2026-10-01");
     expect(saved.referral.admissionDecision.outcome).toBe("accepted");
-    await page.getByRole("button", { name: "Back to outcome", exact: true }).click();
+    await expect(page.getByRole("note")).toContainText("Example only. No email will be sent.");
+    await expect(page.getByRole("navigation", { name: "Assessment chart views" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Email summary + packet" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Edit decision", exact: true }).click();
     await expect(decision.getByLabel("Admission date", { exact: true })).toHaveValue("2026-10-01");
     await decision.locator("summary").filter({ hasText: /^Admission details$/ }).click();
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).toBeVisible();
@@ -195,7 +198,8 @@ for (const outcome of ["Denied", "Under review"] as const) {
     }
     await expect(panel.getByLabel("Admission date", { exact: true })).toHaveCount(0);
     await panel.getByRole("button", { name: "Done", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Current work", exact: true })).toBeVisible();
+    await expect(page).not.toHaveURL(/screen=packet/);
+    await expect(page.getByRole("dialog", { name: "Current work", exact: true })).toHaveCount(0);
     const saved = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
     if (outcome === "Denied") expect(saved.decision.outcome).toBe("declined");
     else {

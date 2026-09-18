@@ -7,6 +7,7 @@ import { deliverAssessmentPacket, listAssessments, requireAssessmentStore } from
 import { buildMeetClientSummary, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
+import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import {
   getMeetClientAttachmentInventory,
   prepareMeetClientMailAttachments,
@@ -47,6 +48,9 @@ export async function POST(
     if (!referralId) return jsonError("referralId is invalid.");
     const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
+    if (getPipelineDemoEnvironment().writable) {
+      return jsonError("Meet the Client is example only in this demo. No email will be sent.", 403);
+    }
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;
     const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion);

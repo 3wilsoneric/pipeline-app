@@ -1,4 +1,4 @@
-import { openAssessmentChart } from "./support/assessment-navigation";
+import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
@@ -79,7 +79,7 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
     expect(await page.getByTestId("assessment-client-folder").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`chart-review-${width}.png`) });
-    await chartReview.getByRole("button", { name: "Return to questions", exact: true }).click();
+    await returnToAssessmentQuestions(page);
     await expect(chartReview).toHaveCount(0);
     await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await openAssessmentChart(page);

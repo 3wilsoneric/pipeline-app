@@ -1,4 +1,4 @@
-import { openAssessmentChart } from "./support/assessment-navigation";
+import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
@@ -287,7 +287,7 @@ for (const width of [1440, 390]) {
     } else await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     const secondary = page.locator("#assessment-secondary_diagnoses");
     await secondary.fill("Final answer before immediate exit");
-    await page.getByRole("button", { name: "Back to referral", exact: true }).click();
+    await page.getByTestId("assessment-client-folder").getByRole("button", { name: "Workspaces", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Final answer before immediate exit"]);
     await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
@@ -303,7 +303,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await openAssessmentChart(page);
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
-    await page.getByRole("button", { name: "Return to questions", exact: true }).click();
+    await returnToAssessmentQuestions(page);
     await expect(secondary).toHaveValue("Final answer before signing");
     if (width < 640) await expect(secondary).toBeInViewport();
     await openAssessmentChart(page);

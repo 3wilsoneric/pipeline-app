@@ -3063,7 +3063,7 @@ function PacketPage({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} aria-label={title} className="overflow-hidden bg-white">
+    <section id={id} aria-label={title} className={id === "admission-workflow" ? "overflow-clip bg-white" : "overflow-hidden bg-white"}>
       <h2 className="sr-only">{title}</h2>
       <div className={flush ? undefined : "px-0 py-1 sm:px-2 sm:py-2"}>{children}</div>
     </section>

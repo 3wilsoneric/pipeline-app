@@ -105,7 +105,17 @@ test("stale previews and unsigned or unrelated assessments cannot reserve or sen
   }
 });
 
-function deliveryFixture({ auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
+test("an isolated demo cannot reserve or send even with a configured mail provider", async () => {
+  const fixture = deliveryFixture({ exampleOnly: true });
+  const response = await fixture.send();
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).error, /example only/);
+  assert.equal(fixture.providerCalls(), 0);
+  assert.equal(fixture.reservationCalls(), 0);
+  assert.deepEqual(fixture.auditStates, []);
+});
+
+function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
   let calls = 0;
   let reservations = 0;
   const mutationIds = new Set();
@@ -117,6 +127,7 @@ function deliveryFixture({ auditFailure = false, providerFailure = false, finali
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error {}
   const dependencies = {
+    "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ writable: exampleOnly }) },
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
       assert.equal(roles, undefined);
       return denied ? { ok: false, response: jsonError("Forbidden", 403) } : { ok: true, user: { id: "synthetic-coordinator" } };
