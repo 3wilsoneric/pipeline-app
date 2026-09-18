@@ -218,13 +218,23 @@ jobs:
           set -euo pipefail
           # Use the existing jobs' identity/secrets with the candidate image.
           # The running application stays on the old image until both succeed.
+          job_template="$(mktemp)"
+          trap 'rm -f "$job_template"' EXIT
           for operation in backup migrate; do
             job="$(printf '%s-database-%s' "$JOB_PREFIX" "$operation" | cut -c1-32)"
+            # An image-only start override replaces the entire container. Preserve
+            # the command, arguments, secret references, resources and volumes.
+            az containerapp job show \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$job" \
+              --query properties.template --output json | \
+              jq --arg image "$CANDIDATE_IMAGE" --arg container "database-$operation" \
+                'if any(.containers[]; .name == $container) then .containers |= map(if .name == $container then .image = $image else . end) else error("Database job container is missing") end' \
+                > "$job_template"
             execution="$(az containerapp job start \
               --resource-group "$RESOURCE_GROUP" \
               --name "$job" \
-              --container-name "database-$operation" \
-              --image "$CANDIDATE_IMAGE" \
+              --yaml "$job_template" \
               --query name --output tsv)"
             test -n "$execution"
             for attempt in {1..90}; do

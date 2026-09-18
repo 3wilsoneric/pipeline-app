@@ -18,7 +18,9 @@ Use `docs/PRODUCTION_ACCEPTANCE_CHECKLIST.md` for release evidence and
 
 Routine Azure releases run the existing backup and migrator jobs with the candidate
 image before updating the application. Each step checks the execution it started;
-either failure stops application rollout. The initial-bootstrap path retains its
+either failure stops application rollout. Launch from the complete existing job
+template with only its image changed: an image-only Azure start override discards
+the container command, arguments and environment. The initial-bootstrap path retains its
 separate first-deployment sequence. Migration 0037 is additive: its rollback drill
 verifies that recovery columns, indexes, and migration history remain present.
 Roll back the application only, retaining document recovery and audit data. Keep
