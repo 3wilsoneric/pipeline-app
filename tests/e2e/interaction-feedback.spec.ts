@@ -32,7 +32,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       community_names: [index < 2 ? "A & A Health Services San Pablo" : "AHS Turlock OP LLC"],
       current_community: index < 2 ? "A & A Health Services San Pablo" : "AHS Turlock OP LLC",
       current_resident: true,
-      admit_date: "2026-07-08",
+      admit_date: index < 2 ? "2026-07-08" : "2025-01-08",
     }));
     let directoryRequests = 0;
     await page.route("**/api/profiles/directory**", async (route) => {
@@ -50,13 +50,12 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const browserSession = await page.context().newCDPSession(page);
     await browserSession.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
-    const community = page.getByLabel("Filter profiles by community");
     const admitted = page.getByLabel("Filter profiles by admission date");
     const count = page.locator('[aria-live="polite"]').filter({ hasText: /matching/ });
-    await community.selectOption("A & A Health Services San Pablo");
+    await admitted.selectOption("last_12_months");
     await expect(count).toHaveText("2 matching");
     await expect(page.getByText("Taylor Chen", { exact: true })).toHaveCount(0);
-    await expect(page.locator("label").filter({ has: community })).toHaveAttribute("data-filter-active", "true");
+    await expect(page.locator("label").filter({ has: admitted })).toHaveAttribute("data-filter-active", "true");
 
     // An unchanged count must still acknowledge a different filter, without a request.
     await admitted.focus();
@@ -84,7 +83,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 
     for (const width of [1440, 834, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await expect(community).toBeVisible();
+      await expect(admitted).toBeVisible();
       await expect(count).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
       if (reducedMotion === "no-preference") {
@@ -92,7 +91,6 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       }
     }
     await page.getByRole("button", { name: "Reset", exact: true }).click();
-    await expect(community).toHaveValue("");
     await expect(admitted).toHaveValue("any");
     await expect(page.getByText("Taylor Chen", { exact: true })).toBeVisible();
     await expect(page.locator('[data-filter-active="true"]')).toHaveCount(0);

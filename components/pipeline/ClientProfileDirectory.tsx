@@ -3,6 +3,7 @@ import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-co
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Archive,
   ArrowRight,
   ArrowUpDown,
   CalendarDays,
@@ -12,7 +13,6 @@ import {
   FolderOpen,
   LayoutGrid,
   List,
-  MapPin,
   RefreshCw,
   Search,
   X,
@@ -24,7 +24,6 @@ import type {
 import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
 import {
   formatClientIdentityTitle,
-  presentClientCommunity,
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
@@ -47,9 +46,8 @@ type ClientDirectoryPayload = {
 };
 
 type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
-type SortOption = "name" | "community" | "recent_admission" | "pipeline_activity";
+type SortOption = "name" | "recent_admission" | "pipeline_activity";
 type DirectoryLayout = "cards" | "list";
-type CommunityOption = { id: string; name: string };
 
 const directoryLayoutStorageKey = "pipeline:client-directory-layout";
 const PAGE_SIZE = 200;
@@ -85,8 +83,6 @@ export default function ClientProfileDirectory({
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(DISPLAY_INCREMENT);
-  const [knownCommunities, setKnownCommunities] = useState<CommunityOption[]>(() => collectCommunities(initialDirectory?.clients ?? []));
-  const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
   const [sort, setSort] = useState<SortOption>("name");
   const [layout, setLayout] = useState<DirectoryLayout>("cards");
@@ -148,7 +144,6 @@ export default function ClientProfileDirectory({
             setTotal(partial.total);
             setDataAsOf(partial.data_as_of);
             setFreshness(partial.freshness);
-            if (!normalizedQuery) setKnownCommunities(collectCommunities(partial.clients));
             setIsLoading(false);
             setIsCompletingRoster(Boolean(partial.next_cursor));
             loadedQuery.current = normalizedQuery;
@@ -191,24 +186,33 @@ export default function ClientProfileDirectory({
     setTotal(payload.total);
     setDataAsOf(payload.data_as_of);
     setFreshness(payload.freshness);
-    setKnownCommunities(collectCommunities(payload.clients));
   };
 
   const filteredClients = useMemo(() => clients
     .filter((client) => {
-      if (communityFilter && !client.community_names.includes(communityFilter)) return false;
       if (admissionFilter !== "any" && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
       return true;
     })
     .sort((left, right) => compareDirectoryClients(left, right, sort)), [
       admissionFilter,
       clients,
-      communityFilter,
       dataAsOf,
       sort,
     ]);
-  const visibleClients = filteredClients.slice(0, displayLimit);
-  const hasDirectoryFilters = Boolean(communityFilter) || admissionFilter !== "any";
+  const communityBoxes = useMemo(() => {
+    const boxes = new Map<string, DirectoryClient[]>();
+    for (const client of filteredClients) {
+      const community = resolveClientCommunity(client.current_community, ...client.community_names) ?? "Community not listed";
+      const box = boxes.get(community) ?? [];
+      box.push(client);
+      boxes.set(community, box);
+    }
+    return [...boxes].sort(([left], [right]) => left.localeCompare(right, "en"));
+  }, [filteredClients]);
+  // Share the existing rendering budget across boxes so each community is reachable.
+  const limitPerBox = Math.max(1, Math.floor(displayLimit / Math.max(1, communityBoxes.length)));
+  const visibleCount = communityBoxes.reduce((count, [, records]) => count + Math.min(records.length, limitPerBox), 0);
+  const hasDirectoryFilters = admissionFilter !== "any";
   const hasAppliedFilters = hasDirectoryFilters || Boolean(query.trim());
   const countLabel = isLoading && clients.length === 0
     ? "Loading clients..."
@@ -224,7 +228,6 @@ export default function ClientProfileDirectory({
       : "";
 
   const clearFilters = () => {
-    setCommunityFilter("");
     setAdmissionFilter("any");
     setSort("name");
     setDisplayLimit(DISPLAY_INCREMENT);
@@ -259,7 +262,7 @@ export default function ClientProfileDirectory({
             </label>
 
             <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
-              <div aria-live="polite" className="relative text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}<FeedbackCue value={`${communityFilter}:${admissionFilter}:${sort}:${displayLimit}`} /></div>
+              <div aria-live="polite" className="relative text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}<FeedbackCue value={`${admissionFilter}:${sort}:${displayLimit}`} /></div>
               {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#69716c] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
               <DirectoryLayoutToggle layout={layout} onChange={selectLayout} />
               <button
@@ -280,20 +283,7 @@ export default function ClientProfileDirectory({
 
         </section>
 
-        <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1.15fr_1fr_0.9fr_auto]">
-          <DirectorySelect label="Community" active={Boolean(communityFilter)} icon={<MapPin size={14} />}>
-            <select
-              aria-label="Filter profiles by community"
-              value={communityFilter}
-              onChange={(event) => {
-                setCommunityFilter(event.target.value);
-                setDisplayLimit(DISPLAY_INCREMENT);
-              }}
-            >
-              <option value="">All communities</option>
-              {knownCommunities.map((community) => <option key={community.id} value={community.id}>{presentClientCommunity(community.name)}</option>)}
-            </select>
-          </DirectorySelect>
+        <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1fr_1fr_auto]">
           <DirectorySelect label="Admitted" active={admissionFilter !== "any"} icon={<CalendarDays size={14} />}>
             <select aria-label="Filter profiles by admission date" value={admissionFilter} onChange={(event) => { setAdmissionFilter(event.target.value as AdmissionFilter); setDisplayLimit(DISPLAY_INCREMENT); }}>
               <option value="any">Any date</option>
@@ -308,7 +298,6 @@ export default function ClientProfileDirectory({
           <DirectorySelect label="Sort" active={sort !== "name"} icon={<ArrowUpDown size={14} />}>
             <select aria-label="Sort clients" value={sort} onChange={(event) => { setSort(event.target.value as SortOption); setDisplayLimit(DISPLAY_INCREMENT); }}>
               <option value="name">Name A-Z</option>
-              <option value="community">Community</option>
               <option value="recent_admission">Recently admitted</option>
               <option value="pipeline_activity">Most Pipeline activity</option>
             </select>
@@ -330,18 +319,29 @@ export default function ClientProfileDirectory({
 
         <section aria-label="Client list" className="pt-6 sm:pt-8">
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
-          {visibleClients.length > 0 ? (
-            <>
-            {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
-            <div role="list" className={layout === "cards" ? styles.directoryStack : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
-              {visibleClients.map((client) => (
-                <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                  <ClientDirectoryCard client={client} layout={layout} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
+          <div className={styles.communityBoxes}>
+            {communityBoxes.map(([community, records]) => (
+              <details key={community} open className={styles.communityBox}>
+                <summary className={styles.communityBoxLabel}>
+                  <Archive size={20} aria-hidden="true" />
+                  <span className={styles.communityBoxName}>{community}</span>
+                  <span className={styles.communityBoxCount}>{countNoun(records.length, "client")}</span>
+                  <ChevronDown size={18} aria-hidden="true" className={styles.communityBoxChevron} />
+                </summary>
+                <div className={styles.communityBoxContents}>
+                  {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
+                  <div role="list" aria-label={`${community} clients`} className={layout === "cards" ? styles.directoryStack : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
+                    {records.slice(0, limitPerBox).map((client) => (
+                      <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
+                        <ClientDirectoryCard client={client} layout={layout} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
+                      </div>
+                    ))}
+                  </div>
+                  {records.length > limitPerBox ? <p className={styles.communityBoxMore}>Showing {limitPerBox} of {records.length} clients</p> : null}
                 </div>
-              ))}
-            </div>
-            </>
-          ) : null}
+              </details>
+            ))}
+          </div>
 
           {!isLoading && !error && filteredClients.length === 0 ? (
             <div className="px-5 py-16 text-center">
@@ -352,9 +352,9 @@ export default function ClientProfileDirectory({
           ) : null}
         </section>
 
-        {visibleClients.length < filteredClients.length ? (
+        {visibleCount < filteredClients.length ? (
           <div className="flex items-center justify-between py-5">
-            <span className="relative text-[11px] text-[#717a76]">Showing {visibleClients.length} of {filteredClients.length}<FeedbackCue value={displayLimit} /></span>
+            <span className="relative text-[11px] text-[#717a76]">Showing {visibleCount} of {filteredClients.length}<FeedbackCue value={displayLimit} /></span>
             <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)} className="flex h-10 items-center gap-2 border border-[#afb9b5] px-4 text-[11px] font-black text-[#37403c] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronDown size={14} /> Show more</button>
           </div>
         ) : null}
@@ -630,19 +630,6 @@ async function fetchClientPage(query: string, cursor: string | null, signal: Abo
   }, { cacheTtlMs: 60_000, bypassCache: refresh });
 }
 
-function collectCommunities(clients: DirectoryClient[]) {
-  const communities = new Set<string>();
-  for (const client of clients) {
-    for (const community of client.community_names) {
-      const resolved = resolveClientCommunity(community);
-      if (resolved) communities.add(resolved);
-    }
-  }
-  return [...communities]
-    .map((name) => ({ id: name, name }))
-    .sort((left, right) => left.name.localeCompare(right.name, "en"));
-}
-
 function mergeClients(current: DirectoryClient[], incoming: DirectoryClient[]) {
   const merged = new Map(current.map((client) => [client.profile_key ?? client.canonical_client_id, client]));
   for (const client of incoming) merged.set(client.profile_key ?? client.canonical_client_id, client);
@@ -661,13 +648,6 @@ function matchesAdmissionFilter(admitDate: string | null, filter: AdmissionFilte
 
 function compareDirectoryClients(left: DirectoryClient, right: DirectoryClient, sort: SortOption) {
   const byName = left.display_name.localeCompare(right.display_name, "en", { sensitivity: "base" });
-  if (sort === "community") {
-    const leftCommunity = resolveClientCommunity(left.current_community, left.community_names[0]);
-    const rightCommunity = resolveClientCommunity(right.current_community, right.community_names[0]);
-    if (!leftCommunity && rightCommunity) return 1;
-    if (leftCommunity && !rightCommunity) return -1;
-    return (leftCommunity ?? "").localeCompare(rightCommunity ?? "", "en", { sensitivity: "base" }) || byName;
-  }
   if (sort === "recent_admission") {
     return (right.admit_date ?? "").localeCompare(left.admit_date ?? "") || byName;
   }
