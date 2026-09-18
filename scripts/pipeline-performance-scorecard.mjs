@@ -220,11 +220,9 @@ await measureJourney("referrals_to_clients", "navigation", async () => {
   await page.getByRole("button", { name: /Open profile for / }).first().waitFor({ state: "visible" });
 });
 await measureJourney("client_filter", "filter", async () => {
-  const communityFilter = page.getByLabel("Filter profiles by community", { exact: true });
-  await communityFilter.waitFor({ state: "visible" });
-  const firstCommunity = await communityFilter.locator("option:not([value=''])").first().getAttribute("value");
-  if (!firstCommunity) throw new Error("The sanitized client directory did not expose a community filter option.");
-  await communityFilter.selectOption(firstCommunity);
+  const admissionFilter = page.getByLabel("Filter profiles by admission date", { exact: true });
+  await admissionFilter.waitFor({ state: "visible" });
+  await admissionFilter.selectOption("last_12_months");
 });
 await measureJourney("open_client_profile", "navigation", async () => {
   await activate(page.getByRole("button", { name: /Open profile for / }).first());

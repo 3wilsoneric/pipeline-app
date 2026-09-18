@@ -22,7 +22,7 @@ async function openClients(page: Page) {
 }
 
 async function checkStyledMenus(page: Page, testInfo: TestInfo) {
-  const menus = ["Filter profiles by community", "Filter profiles by admission date", "Sort clients"];
+  const menus = ["Filter profiles by admission date", "Sort clients"];
   for (const width of [1440, 834, 390]) {
     await page.setViewportSize({ width, height: 900 });
     for (const name of menus) {
@@ -40,18 +40,18 @@ async function checkStyledMenus(page: Page, testInfo: TestInfo) {
         expect(option.right).toBeLessThanOrEqual(width);
         expect(option.height).toBeGreaterThanOrEqual(42);
       }
-      if (name === menus[0]) await page.screenshot({ path: testInfo.outputPath(`community-menu-${width}.png`) });
+      if (name === menus[0]) await page.screenshot({ path: testInfo.outputPath(`admission-menu-${width}.png`) });
       await page.keyboard.press("Escape");
       await expect.poll(() => select.evaluate((element) => element.matches(":open"))).toBe(false);
       await expect(select).toBeFocused();
     }
-    const community = page.getByLabel(menus[0]);
-    await community.click();
-    await community.getByRole("option", { name: "JC Wallace House", exact: true }).click();
-    await expect(community).toHaveValue("JC Wallace House");
-    await expect(page.getByText("1 matching", { exact: true })).toBeVisible();
-    await expect(page.getByText("Oscar Martin", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Reset", exact: true }).click();
+    await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
+    const box = page.locator("details").filter({ has: page.locator("summary").filter({ hasText: "JC Wallace House" }) });
+    await expect(box.getByRole("list", { name: "JC Wallace House clients", exact: true })).toContainText("Oscar Martin");
+    await box.locator("summary").click();
+    await expect(box.getByText("Oscar Martin", { exact: true })).toBeHidden();
+    await box.locator("summary").click();
+    await expect(box.getByText("Oscar Martin", { exact: true })).toBeVisible();
   }
 }
 
@@ -61,18 +61,18 @@ test("styles each native Clients menu and keeps open options inside the viewport
 });
 
 async function checkNativeFallback(page: Page) {
-  const community = page.getByLabel("Filter profiles by community");
-  await expect(community).toHaveCSS("appearance", "none");
-  await community.selectOption("JC Wallace House");
-  await expect(community).toHaveValue("JC Wallace House");
-  await expect(page.getByText("1 matching", { exact: true })).toBeVisible();
+  const admitted = page.getByLabel("Filter profiles by admission date");
+  await expect(admitted).toHaveCSS("appearance", "none");
+  await admitted.selectOption("last_3_months");
+  await expect(admitted).toHaveValue("last_3_months");
+  await expect(page.getByText("3 matching", { exact: true })).toBeVisible();
   await expect(page.getByText("Oscar Martin", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Reset", exact: true }).click();
-  await expect(community).toHaveValue("");
+  await expect(admitted).toHaveValue("any");
   await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
-  await community.focus();
+  await admitted.focus();
   await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Filter profiles by admission date")).toBeFocused();
+  await expect(page.getByLabel("Sort clients")).toBeFocused();
 }
 
 for (const browserName of ["webkit", "firefox"] as const) {
@@ -90,27 +90,22 @@ for (const browserName of ["webkit", "firefox"] as const) {
   });
 }
 
-test("preserves native keyboard selection, cancellation and outside dismissal", async ({ page }) => {
+test("community file boxes support keyboard opening without a community dropdown", async ({ page }, testInfo) => {
   await openClients(page);
-  const community = page.getByLabel("Filter profiles by community");
-  await community.focus();
-  await page.keyboard.press("Space");
-  await page.keyboard.press("Home");
-  await page.keyboard.press("ArrowDown");
+  await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
+  const box = page.locator("details").filter({ has: page.locator("summary").filter({ hasText: "JC Wallace House" }) });
+  const heading = box.locator("summary");
+  await expect(heading).toContainText("1 client");
+  await expect(box.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
+  await expect(box.getByRole("button", { name: "Open profile for Riley Perez", exact: true })).toHaveCount(0);
+  await heading.focus();
   await page.keyboard.press("Enter");
-  await expect(community).toHaveValue("A & A Health Services San Pablo");
-  await expect(page.getByText("1 matching", { exact: true })).toBeVisible();
-  await community.press("Space");
-  await page.keyboard.press("End");
-  await page.keyboard.press("Escape");
-  await expect(community).toHaveValue("A & A Health Services San Pablo");
-  await expect(community).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Filter profiles by admission date")).toBeFocused();
-  await community.click();
-  await page.mouse.click(1, 1);
-  await expect.poll(() => community.evaluate((element) => element.matches(":open"))).toBe(false);
-  await expect(community).toHaveValue("A & A Health Services San Pablo");
+  await expect(box).not.toHaveAttribute("open", "");
+  await page.keyboard.press("Space");
+  await expect(box).toHaveAttribute("open", "");
+  await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
+  await expect(box.getByRole("list", { name: "JC Wallace House clients", exact: true })).toContainText("Oscar Martin");
+  await page.screenshot({ path: testInfo.outputPath("community-file-boxes.png"), fullPage: true });
 });
 
 async function checkSharedPicker(page: Page, select: Locator, height: number) {

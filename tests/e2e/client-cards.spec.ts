@@ -124,7 +124,7 @@ async function checkCompactClientRows(page: Page, card: Locator, cards: Locator,
       expect(bounds.right).toBeLessThanOrEqual(width);
       expect(bounds.contentWidth).toBeLessThanOrEqual(bounds.width);
     }
-    const longName = cards.nth(1).getByText("Christopher Montgomery-Worthington", { exact: true });
+    const longName = cards.getByText("Christopher Montgomery-Worthington", { exact: true });
     expect(await longName.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     if (captureScreenshots) await page.screenshot({ path: testInfo.outputPath(`client-list-${width}.png`), fullPage: true });
   }
@@ -166,11 +166,11 @@ test("client view switches retain loaded results, filters, sorting and the displ
   await cardsToggle.click();
   await expect(cards).toHaveCount(105);
   expect(directoryRequests).toBe(requestsBeforeToggle);
-  await page.getByLabel("Filter profiles by community").selectOption({ index: 1 });
+  await page.getByLabel("Filter profiles by admission date").selectOption("any");
   await page.getByLabel("Sort clients", { exact: true }).selectOption("recent_admission");
-  const community = await page.getByLabel("Filter profiles by community").inputValue();
+  const admitted = await page.getByLabel("Filter profiles by admission date").inputValue();
   await listToggle.click();
-  await expect(page.getByLabel("Filter profiles by community")).toHaveValue(community);
+  await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue(admitted);
   await expect(page.getByLabel("Sort clients", { exact: true })).toHaveValue("recent_admission");
   await page.getByRole("textbox", { name: "Search clients", exact: true }).fill("Avery Example");
   await expect(cards).toHaveCount(1);

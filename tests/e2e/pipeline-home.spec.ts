@@ -576,7 +576,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("button", { name: "Connect a referral" })).toHaveCount(0);
   });
 
-  test("stacks client community and admission-date filters", async ({ page }) => {
+  test("keeps community file boxes grouped while filtering admission dates", async ({ page }) => {
     const directory = clientDirectoryFixture as {
       clients: Array<Record<string, unknown>>;
       [key: string]: unknown;
@@ -642,17 +642,18 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Taylor Chen", { exact: true })).toBeVisible();
     await expect(page.getByText("Oscar Martin", { exact: true })).toHaveCount(0);
 
-    await page.getByLabel("Filter profiles by community").selectOption("A & A Health Services San Pablo");
-    await expect(page.getByText("1 matching", { exact: true })).toBeVisible();
-    await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
-    await expect(page.getByText("Taylor Chen", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
+    await expect(page.getByText("2 matching", { exact: true })).toBeVisible();
+    const sanPablo = page.getByRole("list", { name: "A & A Health Services San Pablo clients", exact: true });
+    await expect(sanPablo).toContainText("Riley Perez");
+    await expect(sanPablo).not.toContainText("Taylor Chen");
+    await expect(page.getByRole("list", { name: "AHS Turlock OP LLC clients", exact: true })).toContainText("Taylor Chen");
 
     await expect(page.getByLabel("Filter profiles by profile data")).toHaveCount(0);
     await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
 
     await page.getByLabel("Filter profiles by admission date").selectOption("any");
     await expect(page.getByText("Oscar Martin", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Reset" }).click();
     await expect(page.getByText("Taylor Chen", { exact: true })).toBeVisible();
   });
 
