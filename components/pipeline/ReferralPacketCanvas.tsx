@@ -2335,7 +2335,7 @@ export default function ReferralPacketCanvas({
               additionalFiles={additionalFiles}
               workspaceFiles={workspaceFiles}
               onAddFiles={attachAdditionalFiles}
-            />
+            >
             {loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length ? (
               <PacketExtractionReview
                 fields={referralContextPacketFields}
@@ -2350,6 +2350,7 @@ export default function ReferralPacketCanvas({
                 onEdit={(field, value) => reviewExtractedField(field, "edit", value)}
               />
             ) : null}
+            </IntakeDocumentChecklist>
             <ClientChartFrame label="Referral intake chart">
               <ClientChartHeader title="Referral intake" actions={chartPage === 1 ? chartPagination : undefined}>
                 <ChartHeaderCell label="Details captured" value={`${fieldCount} / ${visibleChartFieldKeys.length}`} />
@@ -2900,6 +2901,7 @@ function IntakeDocumentChecklist({
   additionalFiles,
   workspaceFiles,
   onAddFiles,
+  children,
 }: {
   initialPacket: File | null;
   initialPacketCategory: InitialDocumentCategory;
@@ -2917,6 +2919,7 @@ function IntakeDocumentChecklist({
   additionalFiles: File[];
   workspaceFiles: ReferralFile[];
   onAddFiles: (files: File[]) => void;
+  children?: React.ReactNode;
 }) {
   const documentItems = [...requirements, ...attachments];
   const capturedDocuments = documentItems.filter((item) => (
@@ -2932,19 +2935,20 @@ function IntakeDocumentChecklist({
       >
         <summary
           data-testid="document-checklist-toggle"
-          className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 border-b border-[#d7ddd9] px-1 py-3 outline-none transition-colors hover:bg-[#f7faf9] focus-visible:bg-[#f1f7f4] [&::-webkit-details-marker]:hidden"
+          className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded border border-[#c4cec8] bg-[#f4f7f5] px-2 py-3 outline-none transition-colors hover:bg-[#eaf0ec] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#386453] [&::-webkit-details-marker]:hidden"
         >
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
             <h2 className="text-[14px] font-black text-[#111111]">Documents</h2>
+            <span className="rounded border border-[#cfd8d3] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#595959]">Beta</span>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className={`text-[10px] font-black ${hasInitialPacket && !initialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
               {initialPacket ? "Packet selected" : hasInitialPacket ? "Packet added" : "Packet needed"}
             </span>
-            <span className={`text-[10px] font-black ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
+            <span className={`hidden text-[10px] font-black sm:inline ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
               {capturedDocuments} / {documentItems.length} files
             </span>
-            <ChevronDown size={16} aria-hidden="true" className="text-[#595959] transition-transform group-open:rotate-180" />
+            <span className="flex h-6 w-6 items-center justify-center rounded border border-[#c4cec8] bg-white text-[#386453]"><ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180" /></span>
           </div>
         </summary>
 
@@ -2960,6 +2964,7 @@ function IntakeDocumentChecklist({
             onClear={onInitialPacketClear}
           />
           <AdditionalDocumentDropzone queued={additionalFiles} files={workspaceFiles} onAdd={onAddFiles} />
+          {children}
 
           <div className="mb-2 flex items-center justify-between gap-3">
             <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Document checklist</h3>

@@ -35,7 +35,11 @@ for (const outcome of ['ready', 'unavailable'] as const) {
     });
     await page.goto('/?view=referrals&screen=packet');
     const beta = page.getByRole('region', { name:'Extraction review' });
-    await expect(beta.getByText('Beta', { exact:true })).toBeVisible();
+    const documents = page.getByTestId('document-checklist-toggle');
+    await expect(documents.getByText('Beta', { exact:true })).toBeVisible();
+    await expect(beta).toBeHidden();
+    await documents.click();
+    await expect(beta).toBeVisible();
     await page.getByRole('textbox', { name:'NAME', exact:true }).fill(`Synthetic Beta ${outcome} ${randomUUID().replace(/[^a-f]/g, '')}`);
     await page.getByTestId('initial-packet-input').setInputFiles({ name:'synthetic-beta.pdf', mimeType:'application/pdf', buffer:Buffer.from(`synthetic-beta-${randomUUID()}`) });
     await page.getByRole('button', { name:'Create referral', exact:true }).click();

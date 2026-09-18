@@ -96,9 +96,8 @@ export default function PacketExtractionReview({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-[12px] font-black uppercase tracking-[0.1em] text-[#111111]">
-                Document suggestions
+                Extracted values
               </h3>
-              <span className="rounded border border-[#cfd8d3] px-2 py-0.5 text-[10px] font-semibold text-[#595959]">Beta</span>
               {developmentOnly ? (
                 <span className="border border-[#c9973b] bg-[#fff5df] px-2 py-0.5 text-[9px] font-black uppercase text-[#8a5b0d]">
                   Development data
