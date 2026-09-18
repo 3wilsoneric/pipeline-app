@@ -333,7 +333,7 @@ export default function ClientProfileDirectory({
           {visibleClients.length > 0 ? (
             <>
             {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
-            <div role="list" className={layout === "cards" ? "grid grid-cols-1 gap-6" : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
+            <div role="list" className={layout === "cards" ? styles.directoryStack : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
               {visibleClients.map((client) => (
                 <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
                   <ClientDirectoryCard client={client} layout={layout} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
@@ -566,7 +566,7 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
 
 function ClientCardSummary({ client, community, admitted }: { client: DirectoryClient; community: string | null; admitted: string | null }) {
   return (
-    <span className="grid grid-cols-2 gap-px bg-[#dde3de] md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+    <span className={`${styles.previewSummary} grid grid-cols-2 gap-px bg-[#dde3de] md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]`}>
       <ChartPreviewCell label="Community" value={community} />
       <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
       <ChartPreviewCell label="Admitted" value={admitted} />
