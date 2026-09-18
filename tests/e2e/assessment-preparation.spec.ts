@@ -70,6 +70,7 @@ for (const width of [1440, 768]) {
     await expect(page.getByRole("button", { name: "Workspace files", exact: true })).toBeVisible();
     await expect(notebook.getByRole("button", { name: "Begin assessment", exact: true })).toBeInViewport();
     await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
+    await notebook.locator('summary[aria-label="More assessment actions"]').click();
     await notebook.getByRole("button", { name: "Schedule assessment", exact: true }).click();
     const schedule = page.locator('[data-assessment-scheduling="fullscreen"]');
     await expect(schedule).toBeVisible();

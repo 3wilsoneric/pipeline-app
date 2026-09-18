@@ -275,6 +275,7 @@ export default function AssessmentWorkspace({
   const { contentRef, beforeNavigationRef, setAssessmentFocused } = usePipelineShell();
   const phoneInterview = usePhoneAssessment();
   const mobileActionsRef = useRef<HTMLDetailsElement>(null);
+  const secondaryActionsRef = useRef<HTMLDetailsElement>(null);
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
@@ -347,6 +348,11 @@ export default function AssessmentWorkspace({
     [draft],
   );
   const activeSectionIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
+  const showSecondaryActions = Boolean(
+    selected && !selected.signed_at && !selected.started_at && canEditClinical
+    || selected?.signed_at && canAddAddendum
+    || !embeddedPreparation && !phoneInterview && (trainingAssessmentMode || onOpenAssignedWork || viewer?.demoPersona)
+  );
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
   const practiceReview = useMemo(
     () => trainingAssessmentMode ? getAssessmentPracticeReview(draft) : null,
@@ -360,6 +366,15 @@ export default function AssessmentWorkspace({
     }
     previousVisibleSectionRef.current = visibleSectionKey;
   }, [visibleSectionKey, preparing, isFocused, embeddedPreparation]);
+
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      const menu = secondaryActionsRef.current;
+      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
 
   const openFocusedAssessment = () => {
     applyAssessmentFocus(
@@ -1639,28 +1654,51 @@ export default function AssessmentWorkspace({
 
       </div>
 
-      <footer aria-label="Assessment actions" className={`flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneInterview ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
-        {!embeddedPreparation && !phoneInterview ? <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {trainingAssessmentMode ? workspaceControl : null}
-          {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isClosing} /> : null}
-          <DemoAssessmentControls persona={viewer?.demoPersona} />
-        </div> : null}
-        <span data-guide-target="assessment-save-status" aria-live="polite" className={`order-last flex min-w-0 basis-full items-center gap-1.5 text-[11px] sm:order-none sm:flex-1 sm:basis-auto sm:justify-end ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]"}`}>
+      <footer aria-label="Assessment actions" className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneInterview ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`flex min-w-0 flex-1 items-center gap-1.5 text-[11px] ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]"}`}>
           {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
           <span className="truncate">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
         </span>
+        {showSecondaryActions ? <details ref={secondaryActionsRef} className={workingStyles.secondaryActions} onBlur={(event) => {
+          if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+        }} onKeyDown={(event) => {
+          if (event.key === "Escape" && event.currentTarget.open) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector("summary")?.focus();
+          }
+        }} onClick={(event) => {
+          if (event.target instanceof Element && event.target.closest("button")) {
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector("summary")?.focus();
+          }
+        }}>
+          <summary aria-label="More assessment actions">More<ChevronDown size={14} aria-hidden="true" /></summary>
+          <div role="group" aria-label="More assessment actions" className={workingStyles.secondaryPanel}>
+            {!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button> : null}
+            {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
+            {!embeddedPreparation && !phoneInterview ? <>
+              {trainingAssessmentMode ? workspaceControl : null}
+              {onOpenAssignedWork ? <AssignedWorkButton onOpen={() => void openAssignedWork()} disabled={isClosing} /> : null}
+              <DemoAssessmentControls persona={viewer?.demoPersona} />
+            </> : null}
+          </div>
+        </details> : null}
         <details ref={mobileActionsRef} open={phoneInterview ? undefined : true} className={phoneInterview ? phoneStyles.mobileActions : undefined}>
-        {phoneInterview ? <summary>Review &amp; finish<ChevronDown size={14} className="ml-1" aria-hidden="true" /></summary> : <summary className="hidden">Assessment actions</summary>}
-        <div className="flex flex-wrap items-center gap-2">
-          {embeddedPreparation && selected.started_at ? <button type="button" onClick={() => setNotebookView("assessment")} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold text-[#0c705f]">Return to assessment<ChevronRight size={14} /></button> : null}
-          {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold text-[#444444] hover:text-[#0f8b73]"><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</button> : null}
-          {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]"><Play size={13} fill="currentColor" />Begin assessment</button> : null}
+        {phoneInterview ? <summary aria-label="Assessment progress actions">{selected.started_at || selected.signed_at ? "Review & finish" : "Assessment"}<ChevronDown size={14} className="ml-1" aria-hidden="true" /></summary> : <summary className="hidden">Assessment actions</summary>}
+        <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">
           {selected.signed_at ? (
-            <>
-              {canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 px-3 text-[11px] font-bold hover:text-[#0f8b73]"><Plus size={14} />Add note</button> : <span className="text-[11px] font-bold text-[#0f6f5e]">Signed</span>}
-              {onContinueToWorkflow ? <button type="button" onClick={continueToWorkflow} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white hover:bg-[#0b6d5b]">Continue to recommendation<ChevronRight size={14} /></button> : null}
-            </>
-          ) : canEditClinical && !preparing ? <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy} className="h-10 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button> : null}
+            onContinueToWorkflow ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Admission decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>
+          ) : embeddedPreparation && selected.started_at ? (
+            <button type="button" onClick={() => setNotebookView("assessment")}>Return to assessment<ChevronRight size={14} /></button>
+          ) : assessmentReadyToBegin(selected) && canEditClinical ? (
+            <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} disabled={isBusy || isClosing}><Play size={13} fill="currentColor" />Begin assessment</button>
+          ) : canEditClinical && !preparing ? (
+            <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing}>Sign assessment</button>
+          ) : !selected.started_at && canSupervise ? (
+            <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
+          ) : null}
         </div>
         </details>
       </footer>

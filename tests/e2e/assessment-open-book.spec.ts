@@ -294,7 +294,7 @@ for (const width of [1440, 390]) {
       await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     }
     await secondary.fill("Final answer before signing");
-    if (width < 640) await page.locator('footer[aria-label="Assessment actions"] summary').click();
+    if (width < 640) await page.locator('summary[aria-label="Assessment progress actions"]').click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();

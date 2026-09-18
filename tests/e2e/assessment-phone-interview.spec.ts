@@ -98,7 +98,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       expect(assessments[0].started_at).toBeNull();
 
       await page.getByRole("button", { name: "02 Questionnaire", exact: true }).tap();
-      await page.locator('footer[aria-label="Assessment actions"] summary').tap();
+      await page.locator('summary[aria-label="Assessment progress actions"]').tap();
       await page.getByRole("button", { name: "Begin assessment", exact: true }).tap();
       const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
       await expect(begin).toBeInViewport();

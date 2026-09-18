@@ -84,6 +84,20 @@
 .empty { max-width: 48ch; padding: 20px 0; color: #5c6a63; font-size: 17px; line-height: 1.65; }
 .book :is(button, select):focus-visible, .navigation :is(button, select, input, summary):focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
 
+.footer { position: relative; }
+.secondaryActions { flex-shrink: 0; }
+.secondaryActions > summary { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 68px; min-height: 44px; padding: 8px 10px; list-style: none; color: #4c6157; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 5px; }
+.secondaryActions > summary::-webkit-details-marker { display: none; }
+.secondaryActions > summary:hover { background: #eaf0ec; }
+.secondaryActions > summary svg { transform: rotate(180deg); }
+.secondaryPanel { position: absolute; z-index: 20; right: 12px; bottom: calc(100% + 6px); width: min(260px, calc(100% - 24px)); max-height: min(400px, 55dvh); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border: 1px solid #cbd6cf; border-radius: 8px; background: #fff; box-shadow: 0 8px 32px #18382a26; }
+.footer .secondaryPanel button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; min-height: 44px; height: auto; padding: 10px 12px; border: 0; border-radius: 4px; background: transparent; color: #354d40; box-shadow: none; text-align: left; font-size: 14px; font-weight: 500; }
+.footer .secondaryPanel button:hover:not(:disabled) { background: #edf4ef; box-shadow: none; }
+.footer [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; height: auto; padding: 10px 16px; border: 1px solid #007254; border-radius: 5px; background: #007e60; color: #fff; font-size: 14px; font-weight: 600; }
+.footer [data-assessment-primary-action] > button:disabled { opacity: .5; cursor: not-allowed; }
+.secondaryActions > summary:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
+.footer [data-guide-target="assessment-save-status"] { justify-content: flex-start; }
+
 @media (max-width: 1199px) {
   .referenceHeader { padding: 18px 20px 16px; }
   .readingPage { padding-inline: 20px; }
