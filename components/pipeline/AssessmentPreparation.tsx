@@ -10,18 +10,22 @@ import workspaceFolderStyles from "@/components/pipeline/ReferralWorkspaceFolder
 import styles from "@/components/pipeline/AssessmentPreparation.module.css";
 import { ClientChartFrame, ClientChartHeader } from "@/components/pipeline/ClientMedicalChart";
 
-export function AssessmentFileNavigation({ hidden, disabled, preparing, preparationAvailable = true, onPrepare, onAssessment }: {
+export function AssessmentFileNavigation({ hidden, disabled, preparing, reviewingChart, chartAvailable, preparationAvailable = true, onPrepare, onAssessment, onChart }: {
   hidden: boolean;
   disabled: boolean;
   preparing: boolean;
+  reviewingChart: boolean;
+  chartAvailable: boolean;
   preparationAvailable?: boolean;
   onPrepare: () => void;
   onAssessment: () => void;
+  onChart: () => void;
 }) {
   if (hidden) return null;
   return <nav aria-label="Client file pages" className={`${workspaceFolderStyles.stages} ${styles.filePages}`}>
     {preparationAvailable ? <button type="button" className={workspaceFolderStyles.stageTab} data-folder-stage="1" disabled={disabled} aria-current={preparing ? "page" : undefined} onClick={onPrepare}>Prepare</button> : null}
-    <button type="button" className={workspaceFolderStyles.stageTab} data-folder-stage="2" disabled={disabled} aria-current={!preparing ? "page" : undefined} onClick={onAssessment}>Assessment</button>
+    <button type="button" className={workspaceFolderStyles.stageTab} data-folder-stage="2" disabled={disabled} aria-current={!preparing && !reviewingChart ? "page" : undefined} onClick={onAssessment}>Assessment</button>
+    {chartAvailable ? <button type="button" className={workspaceFolderStyles.stageTab} data-folder-stage="3" disabled={disabled} aria-current={reviewingChart ? "page" : undefined} onClick={onChart}>Chart</button> : null}
   </nav>;
 }
 

@@ -42,7 +42,7 @@ test.describe("mobile assessment", () => {
       if (phone) {
         await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeHidden();
         await expect(assessment.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
-      } else await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
+      } else await expect(assessment.getByRole("button", { name: "Review chart", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Back to referral" }), ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')])];
@@ -157,6 +157,7 @@ test.describe("mobile assessment", () => {
     await expect.poll(async () => (await read()).secondary_diagnoses).toEqual([answer]);
     await page.reload();
     await surface(page).getByRole("button", { name: "Client info", exact: true }).tap();
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByLabel("Reference information").selectOption("all");
     await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Secondary diagnosis", exact: true }).tap();
     await expect(field).toHaveValue(answer);
     await expect(field).toBeInViewport();
@@ -236,6 +237,7 @@ test("WebKit touch editing can find, edit and return to the same answer", async 
     await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
     await findPhoneQuestion(page, "Secondary diagnosis");
     await assessment.getByRole("button", { name: "Client info", exact: true }).tap();
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByLabel("Reference information").selectOption("all");
     await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Medication refused", exact: true }).tap();
     await expect(field).toHaveValue("Synthetic medication A");
     await page.screenshot({ path: info.outputPath("assessment-webkit-phone.png") });

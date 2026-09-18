@@ -22,6 +22,7 @@ import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
 import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
 import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { AdmissionRequirement, AssessmentRecommendation, Referral, RequirementStatus } from "@/lib/pipeline/referral-types";
+import assessmentStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 
 type ReferralWorkflowPanelProps = {
   referral: Referral;
@@ -31,6 +32,9 @@ type ReferralWorkflowPanelProps = {
   onOpenFiles: () => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onDone?: () => Promise<void>;
+  compactRecommendation?: boolean;
+  recommendationAssessmentId?: string;
+  onSavingChange?: (saving: boolean) => void;
 };
 
 type RecommendationDraft = {
@@ -53,6 +57,9 @@ export default function ReferralWorkflowPanel({
   onOpenFiles,
   onOpenProfile,
   onDone,
+  compactRecommendation = false,
+  recommendationAssessmentId,
+  onSavingChange,
 }: ReferralWorkflowPanelProps) {
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +131,7 @@ export default function ReferralWorkflowPanel({
     const clientMutationId = mutationIds.current.get(key) ?? createMutationId();
     mutationIds.current.set(key, clientMutationId);
     setBusy(key);
+    onSavingChange?.(true);
     setError("");
     setMessage("");
     try {
@@ -147,11 +155,12 @@ export default function ReferralWorkflowPanel({
       return null;
     } finally {
       setBusy("");
+      onSavingChange?.(false);
     }
   };
 
-  if (loading && !workflow) return <ReferralWorkflowPanelLoading />;
-  if (!workflow) return <WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>;
+  if (loading && !workflow) return compactRecommendation ? <span className={assessmentStyles.recommendationStatus}>Loading recommendation...</span> : <ReferralWorkflowPanelLoading />;
+  if (!workflow) return compactRecommendation ? <button type="button" onClick={() => void loadWorkflow().catch(() => setError("Recommendation unavailable. Try again."))}>Retry recommendation</button> : <WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>;
 
   const { currentReferral } = deriveWorkflowPanelView(workflow);
   const sections = normalizeReferralSectionVersions(currentReferral.sectionVersions);
@@ -181,23 +190,24 @@ export default function ReferralWorkflowPanel({
     void saveRequirement(item, status);
   };
 
-  const submitRecommendation = () => {
-    if (!recommendationDraft.outcome) return;
+  const saveRecommendation = (draft: RecommendationDraft) => {
+    if (!draft.outcome || compactRecommendation && (recommendationAssessmentId !== workflow.context.assessmentId || workflow.context.assessmentSigned)) return;
     void runMutation(
-      `recommendation:${currentReferral.version}:${sections.decision}`,
+      `recommendation:${currentReferral.version}:${sections.decision}:${JSON.stringify(draft)}`,
       `/api/referrals/${currentReferral.id}/recommendation`,
       "PUT",
       {
         if_match: currentReferral.version,
         if_match_section: sections.decision,
         assessment_id: workflow.context.assessmentId,
-        outcome: recommendationDraft.outcome,
-        reason_code: recommendationDraft.reasonCode,
-        reason_note: recommendationDraft.reasonNote,
+        outcome: draft.outcome,
+        reason_code: draft.reasonCode,
+        reason_note: draft.reasonNote,
       },
       workflow.context.assessmentSigned ? "Assessment finished. Sent to the supervisor for review." : "Recommendation saved. You can keep editing and sign separately.",
     );
   };
+  const submitRecommendation = () => saveRecommendation(recommendationDraft);
 
   const submitDecision = () => {
     if (!decisionDraft.outcome) return;
@@ -307,6 +317,22 @@ export default function ReferralWorkflowPanel({
     if (!window.confirm("Record this EHR handoff as sent? Confirm the downstream transfer succeeded before continuing.")) return;
     updateHandoff("mark_sent");
   };
+
+  if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return <span className={assessmentStyles.recommendationStatus}>Open the current assessment to recommend placement.</span>;
+  if (compactRecommendation) return <div data-quick-recommendation className={assessmentStyles.quickRecommendation}>
+    <label><span className="sr-only">Placement recommendation</span><select aria-label="Placement recommendation" value={workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned)} onChange={(event) => {
+      const next = { ...recommendationDraft, outcome: event.target.value as AssessmentRecommendation["outcome"] };
+      recommendationDirty.current = true;
+      setRecommendationDraft(next);
+      saveRecommendation(next);
+    }}>
+      <option value="" disabled>Placement recommendation</option>
+      <option value="accept">Recommend acceptance</option>
+      <option value="needs_more_information">Needs review</option>
+      <option value="decline">Not a fit</option>
+    </select></label>
+    {error ? <span role="alert">{error}</span> : <span className={assessmentStyles.recommendationStatus} role="status">{busy ? "Saving..." : message ? "Recommendation saved" : "Not a final admission decision"}</span>}
+  </div>;
 
   if (showMeetClient) return (
     <div className="space-y-4">

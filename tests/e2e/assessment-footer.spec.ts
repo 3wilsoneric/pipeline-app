@@ -25,7 +25,8 @@ for (const width of [1440, 768, 390, 320]) {
     if (width < 640) await footer.locator('summary[aria-label="Assessment progress actions"]').click();
     await expect(primary.getByRole("button")).toHaveCount(1);
     await primary.getByRole("button", { name: "Open assessment", exact: true }).click();
-    await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
+    await expect(primary.getByRole("button", { name: "Review chart", exact: true })).toBeVisible();
+    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     expect((await read()).started_at).toBeNull();
 
     await more.click();
@@ -40,7 +41,7 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(schedule).toHaveCount(0);
     await expect.poll(async () => Boolean((await read()).scheduled_start_at)).toBe(true);
     expect((await read()).started_at).toBeNull();
-    await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
+    await expect(primary.getByRole("button", { name: "Review chart", exact: true })).toBeVisible();
 
     await more.click();
     await menu.getByRole("button", { name: "Begin assessment", exact: true }).click();
@@ -54,7 +55,7 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(begin.getByRole("button", { name: "Not now", exact: true })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(begin.getByRole("button", { name: "Record start", exact: true })).toBeFocused();
-    await primary.locator('[data-guide-target="assessment-sign"]').evaluate((button) => (button as HTMLButtonElement).focus());
+    await primary.locator("button").evaluate((button) => (button as HTMLButtonElement).focus());
     await expect(begin.getByRole("button", { name: "Record start", exact: true })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(begin).toHaveCount(0);
@@ -66,12 +67,23 @@ for (const width of [1440, 768, 390, 320]) {
     await begin.getByRole("button", { name: "Record start", exact: true }).click();
     await expect(begin).toHaveCount(0);
     await expect.poll(async () => Boolean((await read()).started_at)).toBe(true);
-    await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
+    await expect(primary.getByRole("button", { name: "Review chart", exact: true })).toBeVisible();
     await expect(primary.getByRole("button")).toHaveCount(1);
     await expect(footer.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
     await expect(footer.getByRole("button", { name: /Schedule assessment|Reschedule assessment/ })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`assessment-footer-started-${width}.png`) });
 
+    await primary.getByRole("button", { name: "Review chart", exact: true }).click();
+    const chartReview = page.getByRole("region", { name: "Assessment chart review", exact: true });
+    await expect(chartReview).toContainText("Synthetic prepared information");
+    await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
+    expect(await page.getByTestId("assessment-client-folder").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`chart-review-${width}.png`) });
+    await chartReview.getByRole("button", { name: "Return to questions", exact: true }).click();
+    await expect(chartReview).toHaveCount(0);
+    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+    if (width < 640) await footer.locator('summary[aria-label="Assessment progress actions"]').click();
+    await primary.getByRole("button", { name: "Review chart", exact: true }).click();
     // Unanswered questions remain permissible; the signature still uses the existing save path.
     page.once("dialog", (dialog) => dialog.accept());
     await primary.getByRole("button", { name: "Sign assessment", exact: true }).click();
@@ -109,7 +121,7 @@ test("secondary actions close on Escape and outside press without exiting the as
     await expect(surface).toBeVisible();
     await expect(more).toBeFocused();
     await more.tap();
-    await surface.getByRole("heading", { name: "Client information", exact: true }).tap();
+    await surface.getByRole("combobox", { name: "Reference information", exact: true }).tap();
     await expect(menu).toBeHidden();
     await more.tap();
     await menu.getByRole("button", { name: "Schedule assessment", exact: true }).tap();
@@ -142,6 +154,7 @@ for (const width of [1440, 390]) {
     await begin.getByRole("button", { name: "Record start", exact: true }).click();
     await expect(begin.getByRole("alert")).toContainText("Synthetic start unavailable");
     await begin.getByRole("button", { name: "Not now", exact: true }).click();
+    await footer.getByRole("button", { name: "Review chart", exact: true }).click();
     page.once("dialog", (dialog) => dialog.accept());
     await footer.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();

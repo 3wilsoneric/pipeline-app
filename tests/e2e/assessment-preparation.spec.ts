@@ -124,7 +124,7 @@ for (const width of [1440, 768]) {
     await expect(secondary).toHaveValue("Documented secondary diagnosis from the synthetic referral.");
     await notebook.getByRole("button", { name: "Return to assessment", exact: true }).click();
     await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(notebook.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
+    await expect(notebook.getByRole("button", { name: "Review chart", exact: true })).toBeVisible();
     const reference = notebook.getByRole("complementary", { name: "Captured assessment answers" });
     if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
     await reference.getByRole("combobox", { name: "Reference information" }).selectOption("prior_history");

@@ -1,4 +1,4 @@
-.surface.surface { min-height: 0; padding: 8px 12px 12px; }
+.surface.surface { min-height: 0; padding: 0 8px 8px; }
 .beginDialog { width: min(460px, calc(100% - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 24px; overflow-y: auto; border: 1px solid #d3d9d7; border-radius: 12px; background: #fff; color: #293630; box-shadow: 0 20px 70px #172a3029; }
 .beginDialog::backdrop { background: #25303845; }
 .beginDialog h2 { font-size: 22px; font-weight: 650; }
@@ -13,8 +13,8 @@
 .beginDialog button:last-child { border-color: #007254; background: #007e60; color: #fff; }
 .beginDialog button:disabled { opacity: .5; }
 .beginDialog button:focus-visible { outline: 2px solid #087e64; outline-offset: 3px; }
-.folderHeader { display: flex; align-items: flex-end; flex-shrink: 0; gap: 14px; min-width: 0; padding-top: 6px; }
-.folderHeader .folderIdentity { position: relative; z-index: 4; flex: 0 1 40%; max-width: 420px; min-height: 56px; margin-left: 12px; }
+.folderHeader { display: flex; align-items: flex-end; flex-shrink: 0; gap: 10px; min-width: 0; padding-top: 4px; padding-left: 50px; }
+.folderHeader .folderIdentity { position: relative; z-index: 4; flex: 0 1 38%; max-width: 420px; min-height: 50px; margin-left: 0; }
 .folderIdentity > span { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
 .folderHeader .filePages { flex-shrink: 0; overflow: visible; max-width: none; padding: 6px 4px 0; }
 .filePages button:focus-visible, .groupNavigation button:focus-visible, .returnButton:focus-visible { outline: 2px solid #087e64; outline-offset: -3px; }

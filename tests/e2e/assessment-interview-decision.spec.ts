@@ -1,0 +1,112 @@
+import { expect, test, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { createOperationalReferral } from "./support/operational-api";
+
+async function createInterview(page: Page) {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Conversation ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing",
+  }, { assigneeId: "provisional:allo:annette" });
+  const response = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
+    client_mutation_id: randomUUID(), data: {
+      language_barrier: "yes", language_barrier_details: "Synthetic interpreter arranged; allow pauses.",
+      ambulatory: "no", mobility: "Synthetic walker; offer a seated conversation.",
+      current_self_harm_ideation: "no", current_safety_measures: "Hidden stale answer must not be surfaced.",
+      secondary_diagnoses: ["Synthetic documented diagnosis"], current_symptoms: "Synthetic current concern",
+      prior_placements: "Synthetic earlier placement", medications_at_intake: ["Synthetic medication"],
+    },
+  } });
+  expect(response.status()).toBe(201);
+  const { assessment } = await response.json();
+  return { referral, assessment, url: `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical` };
+}
+
+for (const width of [1440, 390]) {
+  test(`quick recommendation is reversible, persists and does not admit or send at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { referral, assessment, url } = await createInterview(page);
+    const read = async () => (await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json());
+    await page.goto(url);
+    const footer = page.locator('footer[aria-label="Assessment actions"]');
+    if (width < 640) await footer.locator('summary[aria-label="Assessment progress actions"]').click();
+    await footer.getByRole("button", { name: "Open assessment", exact: true }).click();
+    const more = footer.locator('summary[aria-label="More assessment actions"]');
+    if (width < 640) await more.click();
+    const recommendation = footer.getByRole("combobox", { name: "Placement recommendation" });
+    await expect(recommendation).toBeEnabled();
+    for (const outcome of ["accept", "needs_more_information", "decline"]) {
+      await recommendation.selectOption(outcome);
+      await expect.poll(async () => (await read()).recommendation?.outcome).toBe(outcome);
+      await expect(recommendation).toHaveValue(outcome);
+      await expect(recommendation).toBeEnabled();
+      await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
+    }
+    let failedMutationId = "";
+    await page.route(`**/api/referrals/${referral.id}/recommendation`, (route) => {
+      failedMutationId = route.request().postDataJSON().client_mutation_id;
+      return route.fulfill({ status: 503, json: { error: "Synthetic save unavailable" } });
+    });
+    await recommendation.selectOption("accept");
+    await expect(footer.locator("[data-quick-recommendation]").getByRole("alert")).toContainText("Synthetic save unavailable");
+    await expect(recommendation).toHaveValue("decline");
+    await page.unroute(`**/api/referrals/${referral.id}/recommendation`);
+    const retried = page.waitForRequest((request) => request.url().endsWith(`/api/referrals/${referral.id}/recommendation`) && request.method() === "PUT");
+    await recommendation.selectOption("needs_more_information");
+    expect((await retried).postDataJSON().client_mutation_id).not.toBe(failedMutationId);
+    await expect.poll(async () => (await read()).recommendation?.outcome).toBe("needs_more_information");
+    await page.screenshot({ path: info.outputPath(`recommendation-${width}.png`) });
+    const workflow = await read();
+    expect(workflow.decision).toBeNull();
+    expect(workflow.review).toBeNull();
+    expect(workflow.referral.admissionDate).toBeFalsy();
+    const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+    expect(saved.signed_at).toBeNull();
+    expect(saved.started_at).toBeNull();
+    expect(saved.meet_client_sent_at).toBeFalsy();
+    await page.reload();
+    if (width < 640) await footer.locator('summary[aria-label="Assessment progress actions"]').click();
+    await footer.getByRole("button", { name: "Open assessment", exact: true }).click();
+    if (width < 640) await more.click();
+    await expect(recommendation).toHaveValue("needs_more_information");
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    await page.route(`**/api/referrals/${referral.id}/recommendation`, async (route) => { await gate; await route.continue(); });
+    try {
+      await recommendation.selectOption("accept");
+      if (width < 640) await more.click();
+      await footer.getByRole("button", { name: "Review chart", exact: true }).click();
+      await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeDisabled();
+    } finally { release(); }
+    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
+    await expect.poll(async () => (await read()).recommendation?.outcome).toBe("accept");
+    expect((await read()).review).toBeNull();
+  });
+}
+
+test("conversation reference prioritizes documented support, follows the section, and keeps unverified sources marked", async ({ page }, info) => {
+  const { referral, url } = await createInterview(page);
+  await page.route(`**/api/referrals/${referral.id}/assessments`, async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.assessments[0].field_provenance.secondary_diagnoses = [{ source_field_key: "secondary_diagnoses", source_file: "Synthetic referral.pdf", confidence: 0.8, review_status: "pending", source_page_no: 2, evidence_url: null }];
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto(url);
+  await page.getByRole("button", { name: "Open assessment", exact: true }).click();
+  const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
+  await expect(reference.getByLabel("Reference information")).toHaveValue("briefing");
+  await expect(reference.getByRole("heading", { name: "Interview support", exact: true })).toBeVisible();
+  await expect(reference).toContainText("Synthetic interpreter arranged");
+  await expect(reference).toContainText("Synthetic walker");
+  await expect(reference).not.toContainText("Hidden stale answer");
+  await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
+  await expect(reference).not.toContainText("Synthetic earlier placement");
+  await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
+  await expect(reference).toContainText("Synthetic earlier placement");
+  await expect(reference).not.toContainText("Synthetic documented diagnosis");
+  await expect(reference).toContainText("Synthetic interpreter arranged");
+  await reference.getByLabel("Reference information").selectOption("all");
+  await expect(reference).toContainText("Synthetic documented diagnosis");
+  await expect(reference).toContainText("Synthetic medication");
+  await reference.getByLabel("Reference information").selectOption("briefing");
+  await page.screenshot({ path: info.outputPath("conversation-context.png") });
+});

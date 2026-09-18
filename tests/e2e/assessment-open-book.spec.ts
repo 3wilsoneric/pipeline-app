@@ -26,6 +26,7 @@ for (const width of [1440, 1024, 768, 640]) {
     const editor = page.locator("[data-assessment-question-editor]");
     const secondary = editor.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
     if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    await reference.getByRole("combobox", { name: "Reference information" }).selectOption("all");
     await expect(reference).toContainText("Taylor Rivera");
     await expect(reference).toContainText("During the practice interview");
     await expect(editor.locator('[data-working-field="current_symptoms"]')).toHaveCount(0);
@@ -89,6 +90,7 @@ for (const width of [1440, 1024, 768, 640]) {
 test("reading pane keeps its place while questions scroll and sections change", async ({ page }, testInfo) => {
   await openPractice(page, 1024);
   const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
+  await reference.getByRole("combobox", { name: "Reference information" }).selectOption("all");
   const readingPage = page.locator("[data-assessment-reference-page]");
   const questions = page.locator("[data-assessment-question-page]");
   const symptoms = reference.getByRole("button", { name: "Edit Current symptoms", exact: true });
@@ -126,7 +128,7 @@ test("top menu reveals on hover and keyboard focus; question search jumps to cap
   const reveal = page.getByRole("button", { name: "Show app navigation" });
   await page.mouse.move(700, 500);
   await expect(appMenu).toHaveCSS("opacity", "0");
-  await page.locator("[data-assessment-app-navigation]").hover({ position: { x: 500, y: 3 } });
+  await page.locator("[data-assessment-nav-edge]").hover({ position: { x: 500, y: 2 } });
   await expect(appMenu).toHaveCSS("opacity", "1");
   await page.mouse.move(700, 500);
   await expect(appMenu).toHaveCSS("opacity", "0");
@@ -295,6 +297,14 @@ for (const width of [1440, 390]) {
     }
     await secondary.fill("Final answer before signing");
     if (width < 640) await page.locator('summary[aria-label="Assessment progress actions"]').click();
+    await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+    await page.locator("[data-assessment-primary-action]").getByRole("button", { name: "Review chart", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
+    await page.getByRole("button", { name: "Return to questions", exact: true }).click();
+    await expect(secondary).toHaveValue("Final answer before signing");
+    if (width < 640) await expect(secondary).toBeInViewport();
+    if (width < 640) await page.locator('summary[aria-label="Assessment progress actions"]').click();
+    await page.locator("[data-assessment-primary-action]").getByRole("button", { name: "Review chart", exact: true }).click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();

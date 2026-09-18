@@ -2,7 +2,7 @@
 
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   AlertTriangle,
   CalendarClock,
@@ -23,6 +23,9 @@ import {
   type PipelineCurrentUser,
 } from "@/lib/auth/authenticated-fetch";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
+import { buildAssessmentSummaryReport } from "@/lib/assessment/assessment-summary";
+import type { Referral } from "@/lib/pipeline/referral-types";
+import { CompleteAssessmentChart } from "@/components/pipeline/AssessmentChartWorkspace";
 import type {
   AssessmentListResponse,
   PipelineAssessmentRecord,
@@ -110,6 +113,8 @@ import { assessmentPreparationGroups, preparationGroupForSection, preparationQue
 type AssessmentWorkspaceProps = {
   readOnly?: boolean;
   referralId?: number;
+  referral?: Referral;
+  recommendationControl?: (assessmentId: string, onSavingChange: (saving: boolean) => void) => ReactNode;
   trainingAssessmentMode?: TrainingAssessmentMode;
   trainingAssessmentSection?: AssessmentToolSection;
   initialSection?: AssessmentToolSection;
@@ -257,6 +262,8 @@ function assessmentWorkspacePermissions(
 export default function AssessmentWorkspace({
   readOnly = false,
   referralId,
+  referral,
+  recommendationControl,
   trainingAssessmentMode,
   trainingAssessmentSection,
   initialSection,
@@ -292,8 +299,12 @@ export default function AssessmentWorkspace({
   const [showBeginDialog, setShowBeginDialog] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [workingTarget, setWorkingTarget] = useState<{ field: AssessmentToolFieldKey } | null>(null);
-  const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "prepare" | "assessment" } | null>(null);
-  const [referenceGroup, setReferenceGroup] = useState("all");
+  const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "prepare" | "assessment" | "chart" } | null>(null);
+  const [reviewedAssessmentId, setReviewedAssessmentId] = useState("");
+  const [isRecommendationSaving, setIsRecommendationSaving] = useState(false);
+  const phoneQuestionRef = useRef<AssessmentToolFieldKey | null>(null);
+  const rememberPhoneQuestion = useCallback((field: AssessmentToolFieldKey) => { phoneQuestionRef.current = field; }, []);
+  const [referenceGroup, setReferenceGroup] = useState("briefing");
   const chartScrollRef = useRef<HTMLElement>(null);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
@@ -327,7 +338,8 @@ export default function AssessmentWorkspace({
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : null;
-  const setNotebookView = (view: "prepare" | "assessment") => setNotebookPage({ assessmentId: selectedId, view });
+  const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
+  const reviewingChart = notebookView === "chart";
   const preparing = !trainingAssessmentMode && (notebookView === "prepare" || (notebookView === null && assessmentReadyToBegin(selected)));
   const embeddedPreparation = preparing && Boolean(workspaceTitle) && !phoneInterview;
   const preparationGroup = preparationGroupForSection(activeSection);
@@ -350,6 +362,7 @@ export default function AssessmentWorkspace({
   const activeSectionIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
   const showSecondaryActions = Boolean(
     selected && !selected.signed_at && !selected.started_at && canEditClinical
+    || recommendationControl && phoneInterview && !preparing && !selected?.signed_at
     || selected?.signed_at && canAddAddendum
     || !embeddedPreparation && !phoneInterview && (onOpenAssignedWork || viewer?.demoPersona)
   );
@@ -1150,6 +1163,7 @@ export default function AssessmentWorkspace({
   };
 
   const signAssessment = async () => {
+    if (!reviewingChart || isRecommendationSaving) return;
     setIsBusy(true);
     setError("");
     setMessage("Signing assessment...");
@@ -1190,6 +1204,17 @@ export default function AssessmentWorkspace({
       setMessage("");
     } finally {
       setIsBusy(false);
+    }
+  };
+
+  const reviewChart = async () => {
+    try {
+      await saveBeforeExit();
+      setReviewedAssessmentId(selectedId);
+      if (phoneInterview && phoneQuestionRef.current) setWorkingTarget({ field: phoneQuestionRef.current });
+      setNotebookView("chart");
+    } catch (saveError) {
+      setError(messageFor(saveError, "Your answers could not be saved. Please try again."));
     }
   };
 
@@ -1472,9 +1497,10 @@ export default function AssessmentWorkspace({
       header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} disabled={isClosing}
         returnLabel={onOpenWorkspace ? "Back to referral" : "Back to workspace"}
         onClose={() => void closeAssessment(onOpenWorkspace)}
-        pages={<AssessmentFileNavigation hidden={phoneInterview} disabled={isClosing} preparing={preparing} preparationAvailable={!trainingAssessmentMode}
+        pages={<AssessmentFileNavigation hidden={phoneInterview} disabled={isClosing} preparing={preparing} reviewingChart={reviewingChart} chartAvailable={reviewedAssessmentId === selectedId || Boolean(selected.signed_at)} preparationAvailable={!trainingAssessmentMode}
           onPrepare={() => { setWorkingTarget(null); setNotebookView("prepare"); }}
           onAssessment={() => { setWorkingTarget(null); setNotebookView("assessment"); }}
+          onChart={() => void reviewChart()}
         />}
       />}
       dialogs={<AssessmentSchedulingDialogs
@@ -1526,7 +1552,7 @@ export default function AssessmentWorkspace({
           <PreparationNavigation active={preparationGroup.key} data={draft} pending={pendingFields} onChange={setActiveSection} />
         </aside> : null}
 
-        <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${phoneInterview ? phoneStyles.mobileMain : preparing ? "overflow-y-auto" : workingStyles.readingMain}`}>
+        <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : preparing ? "overflow-y-auto" : workingStyles.readingMain}`}>
           {phoneInterview ? null : preparing ? <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
             <label htmlFor="preparation-group-mobile" className="mb-1 block text-[11px] font-semibold text-[#56665d]">Preparation group</label>
             <select id="preparation-group-mobile" value={preparationGroup.key} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="min-h-11 w-full rounded border border-[#cddace] bg-white px-3 text-[14px] text-[#234c36]">
@@ -1577,7 +1603,14 @@ export default function AssessmentWorkspace({
             </div>
           ) : null}
 
-          <div data-assessment-question-content className={!preparing && !phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
+          {reviewingChart ? <section aria-label="Assessment chart review" className={workingStyles.chartReview}>
+            <div className={workingStyles.chartReviewToolbar}>
+              <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button>
+              <span>{selected.signed_at ? "Signed chart" : "Review before signing"}</span>
+            </div>
+            {pendingFields.length > 0 ? <p className={workingStyles.chartReviewNotice}>{pendingFields.length} imported answers still need verification. Return to questions to review their sources.</p> : null}
+            <CompleteAssessmentChart report={buildAssessmentSummaryReport({ ...selected, ...draft }, referral ?? { name: draft.resident_name ?? "", dob: draft.date_of_birth ?? "", community: "Unassigned", source: draft.referrer_name ?? "", currentMedications: "", admissionDate: "" })} />
+          </section> : <div data-assessment-question-content className={!preparing && !phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
             <div className={preparing && !phoneInterview ? "mb-3" : "sr-only"}>
               <h3 className="text-[21px] font-bold text-[#213629]">{preparing ? preparationGroup.label : sectionDefinition.label}</h3>
                 {preparing ? <p className="mt-2 text-[12px] leading-5 text-[#657167]">Use documented information; leave unknowns unanswered. These are the same answers used in the assessment.</p> : null}
@@ -1586,12 +1619,11 @@ export default function AssessmentWorkspace({
             <QuestionPage
               key={`${selected.assessment_id}-${preparing}`}
               preparing={preparing}
+              onQuestionChange={rememberPhoneQuestion}
               onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }}
               onFinish={() => {
-                if (mobileActionsRef.current) {
-                  mobileActionsRef.current.open = true;
-                  mobileActionsRef.current.querySelector("summary")?.focus();
-                }
+                if (preparing) setNotebookView("assessment");
+                else void reviewChart();
               }}
               section={activeSection}
               assessment={selected}
@@ -1603,7 +1635,7 @@ export default function AssessmentWorkspace({
               questionNavigation={!preparing && !phoneInterview ? <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} groups={assessmentNavigationGroups} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} onJump={(section, field) => { setActiveSection(section); setWorkingTarget({ field }); }} /> : null}
               sectionNavigation={!preparing ? <nav aria-label="Assessment section navigation" className={workingStyles.sectionNavigation}>
                 <button type="button" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key); }} disabled={activeSectionIndex <= 0}><ChevronLeft size={14} /> Previous</button>
-                <button type="button" data-guide-target="assessment-next-section" onClick={() => { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key); }} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1}>Next section <ChevronRight size={14} /></button>
+                <button type="button" data-guide-target="assessment-next-section" onClick={() => { if (activeSectionIndex >= assessmentInterviewSections.length - 1) void reviewChart(); else { setWorkingTarget(null); setActiveSection(assessmentInterviewSections[activeSectionIndex + 1].key); } }}>{activeSectionIndex >= assessmentInterviewSections.length - 1 ? "Review chart" : "Next section"}<ChevronRight size={14} /></button>
               </nav> : null}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
@@ -1645,16 +1677,17 @@ export default function AssessmentWorkspace({
           </div>
               </details>
             ) : null}
-          </div>
+          </div>}
         </main>
 
       </div>
 
-      <footer aria-label="Assessment actions" className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneInterview ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
+      <footer aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneInterview ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
         <span data-guide-target="assessment-save-status" aria-live="polite" className={`flex min-w-0 flex-1 items-center gap-1.5 text-[11px] ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]"}`}>
           {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
           <span className="truncate">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
         </span>
+        {!phoneInterview && !preparing && !selected.signed_at ? recommendationControl?.(selected.assessment_id, setIsRecommendationSaving) : null}
         {showSecondaryActions ? <details ref={secondaryActionsRef} className={workingStyles.secondaryActions} onBlur={(event) => {
           if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
         }} onKeyDown={(event) => {
@@ -1672,6 +1705,7 @@ export default function AssessmentWorkspace({
         }}>
           <summary aria-label="More assessment actions">More<ChevronDown size={14} aria-hidden="true" /></summary>
           <div role="group" aria-label="More assessment actions" className={workingStyles.secondaryPanel}>
+            {phoneInterview && !preparing && !selected.signed_at ? recommendationControl?.(selected.assessment_id, setIsRecommendationSaving) : null}
             {!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button> : null}
             {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} disabled={isBusy || isClosing}><Play size={15} />Begin assessment</button> : null}
             {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
@@ -1681,15 +1715,17 @@ export default function AssessmentWorkspace({
             </> : null}
           </div>
         </details> : null}
-        <details ref={mobileActionsRef} open={phoneInterview ? undefined : true} className={phoneInterview ? phoneStyles.mobileActions : undefined}>
-        {phoneInterview ? <summary aria-label="Assessment progress actions">{preparing ? "Assessment" : "Review & finish"}<ChevronDown size={14} className="ml-1" aria-hidden="true" /></summary> : <summary className="hidden">Assessment actions</summary>}
+        <details ref={mobileActionsRef} open={phoneInterview && !reviewingChart ? undefined : true} className={phoneInterview && !reviewingChart ? phoneStyles.mobileActions : undefined}>
+        {phoneInterview && !reviewingChart ? <summary aria-label="Assessment progress actions">{preparing ? "Assessment" : "Review chart"}<ChevronDown size={14} className="ml-1" aria-hidden="true" /></summary> : <summary className="hidden">Assessment actions</summary>}
         <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">
           {selected.signed_at ? (
             onContinueToWorkflow ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Admission decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>
           ) : preparing ? (
             <button type="button" onClick={() => setNotebookView("assessment")}>{selected.started_at ? "Return to assessment" : "Open assessment"}<ChevronRight size={14} /></button>
-          ) : canEditClinical && !preparing ? (
-            <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing}>Sign assessment</button>
+          ) : !reviewingChart ? (
+            <button type="button" onClick={() => void reviewChart()} disabled={isBusy || isClosing}>Review chart<ChevronRight size={14} /></button>
+          ) : canEditClinical ? (
+            <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : "Sign assessment"}</button>
           ) : !selected.started_at && canSupervise ? (
             <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
           ) : null}

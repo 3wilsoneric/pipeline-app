@@ -63,6 +63,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await expect(pocket).toBeVisible();
       await pocket.getByRole("button", { name: "Client info", exact: true }).tap();
       const reference = page.getByRole("dialog", { name: "Client information", exact: true });
+      await reference.getByLabel("Reference information").selectOption("all");
       await expect(reference.getByText("Synthetic phone note", { exact: true })).toBeVisible();
       await reference.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).tap();
       await expect(diagnosis).toHaveValue("Synthetic phone note");

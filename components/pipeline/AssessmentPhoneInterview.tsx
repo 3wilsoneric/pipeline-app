@@ -6,7 +6,7 @@ import { assessmentInterviewFieldLabel, assessmentInterviewSections, getAssessme
 import { assessmentPreparationGroups, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 import type { AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import { WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
-import { assessmentQuestionStatus, capturedAssessmentAnswer, assessmentWorkingCounts, matchesAssessmentQuestion } from "@/components/pipeline/assessment-working-view";
+import { assessmentQuestionStatus, assessmentConversationContext, capturedAssessmentAnswer, assessmentWorkingCounts, matchesAssessmentQuestion } from "@/components/pipeline/assessment-working-view";
 import styles from "./AssessmentPhoneInterview.module.css";
 
 const phoneQuery = "(max-width: 639px), (max-width: 959px) and (max-height: 500px) and (pointer: coarse)";
@@ -23,10 +23,12 @@ type Props = WorkingSectionProps & {
   preparing: boolean;
   onSectionChange: (section: AssessmentToolSection) => void;
   onFinish: () => void;
+  onQuestionChange: (field: AssessmentToolFieldKey) => void;
 };
 
 export default function AssessmentPhoneInterview(props: Props) {
   const { questions, data, pending, target } = props;
+  const { onQuestionChange } = props;
   const sections = props.preparing
     ? assessmentPreparationGroups.map((group) => ({ ...group, questions: preparationQuestions(group, data) }))
     : assessmentInterviewSections.map((section) => ({ ...section, questions: getAssessmentInterviewQuestions(section.key, data) }));
@@ -36,6 +38,7 @@ export default function AssessmentPhoneInterview(props: Props) {
   const [received, setReceived] = useState({ section: section.key, target });
   const [panel, setPanel] = useState<"sections" | "reference">("sections");
   const [query, setQuery] = useState("");
+  const [allReference, setAllReference] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLParagraphElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -46,10 +49,13 @@ export default function AssessmentPhoneInterview(props: Props) {
   }
   const index = Math.max(0, questions.findIndex((question) => question.field === field));
   const question = questions[index];
+  const questionField = question?.field;
   const sectionIndex = sections.findIndex((item) => item.key === section.key);
   const counts = assessmentWorkingCounts(questions, data, pending);
   const reference = assessmentInterviewSections.flatMap((section) => getAssessmentInterviewQuestions(section.key, data))
     .filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field));
+  const briefing = assessmentConversationContext(props.section, data, pending).flatMap((group) => group.questions);
+  const shownReference = allReference ? reference : briefing;
 
   // Unmounting a focused input does not reliably emit blur. Commit through the
   // same field-save owner before every swipe, section jump, or reference edit.
@@ -84,9 +90,10 @@ export default function AssessmentPhoneInterview(props: Props) {
     dialog.current?.showModal();
   };
   useLayoutEffect(() => {
+    if (questionField) onQuestionChange(questionField);
     if (scroller.current) scroller.current.scrollTop = 0;
     heading.current?.focus({ preventScroll: true });
-  }, [question?.field, target]);
+  }, [questionField, target, onQuestionChange]);
 
   return <section className={styles.interview} data-phone-interview aria-label={props.preparing ? "Guided questionnaire" : "Guided assessment"}>
     <nav className={styles.toolbar} aria-label="Question navigation">
@@ -113,7 +120,7 @@ export default function AssessmentPhoneInterview(props: Props) {
     </div>
     <nav className={styles.paging} aria-label="Question steps">
       <button type="button" aria-label="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={20} aria-hidden="true" />Back</button>
-      <button type="button" onClick={() => move(1)}>{index < questions.length - 1 ? "Next" : sectionIndex < sections.length - 1 ? "Next section" : "Review & finish"}<ChevronRight size={20} aria-hidden="true" /></button>
+      <button type="button" onClick={() => move(1)}>{index < questions.length - 1 ? "Next" : sectionIndex < sections.length - 1 ? "Next section" : props.preparing ? "Open assessment" : "Review chart"}<ChevronRight size={20} aria-hidden="true" /></button>
     </nav>
     <dialog ref={dialog} className={styles.sheet} aria-label={panel === "sections" ? "Questionnaire sections" : "Client information"} onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }} onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
       <header><h3>{panel === "sections" ? "Your questionnaire" : "Client information"}</h3><button type="button" aria-label="Close information panel" onClick={() => dialog.current?.close()}><X size={20} aria-hidden="true" /></button></header>
@@ -126,10 +133,10 @@ export default function AssessmentPhoneInterview(props: Props) {
             return <button type="button" key={item.key} aria-current={item.key === section.key ? "step" : undefined} onClick={() => chooseSection(item.key)}><strong>{item.label}</strong><span>{count.captured} / {item.questions.length} recorded{count.verify ? ` · ${count.verify} to verify` : ""}</span><ChevronRight size={17} aria-hidden="true" /></button>;
           })}
           {query.trim() && !sections.some((item) => item.questions.some((question) => matchesAssessmentQuestion(question, query))) ? <p role="status">No matching questions.</p> : null}
-          <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>Review & finish</strong><span>Scheduling and assessment actions</span><ChevronRight size={17} aria-hidden="true" /></button>
+          <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Open assessment" : "Review chart"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
         </> : <>
-          <p>Recorded answers from this client file. Tap an answer to review it.</p>
-          {!reference.length ? <p>No information recorded yet.</p> : reference.map((item) => <button type="button" key={item.field} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
+          <label>Reference information<select aria-label="Reference information" value={allReference ? "all" : "briefing"} onChange={(event) => setAllReference(event.target.value === "all")}><option value="briefing">For this conversation</option><option value="all">All recorded information</option></select></label>
+          {!shownReference.length ? <p>No recorded context for this section. Choose All recorded information to look elsewhere in the file.</p> : shownReference.map((item) => <button type="button" key={item.field} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
             const destination = sections.find((section) => section.questions.some((question) => question.field === item.field));
             if (destination) chooseSection(destination.key, item.field);
           }} disabled={!sections.some((section) => section.questions.some((question) => question.field === item.field))}>

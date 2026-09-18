@@ -2507,6 +2507,8 @@ export default function ReferralPacketCanvas({
                 <AssessmentWorkspace
                   readOnly={permissionReadOnly}
                   referralId={referralWorkspaceId}
+                  referral={loadedReferral ?? undefined}
+                  recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenProfile={onOpenProfile} /> : undefined}
                   trainingAssessmentMode={trainingAssessmentMode}
                   trainingAssessmentSection={trainingAssessmentSection}
                   initialSection={routedWorkspaceLocation.view === "assessment" ? routedWorkspaceLocation.assessmentSection : undefined}

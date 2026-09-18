@@ -21,6 +21,7 @@ import { AssessmentField } from "@/components/pipeline/AssessmentInterviewFields
 import { latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import {
   assessmentQuestionStatus,
+  assessmentConversationContext,
   assessmentWorkingCounts,
   capturedAssessmentAnswer,
   groupWorkingQuestions,
@@ -174,29 +175,30 @@ export function WorkingAssessmentField({ question, data, assessment, required, p
 function CapturedAssessmentAnswers({ section, data, pending, questions, referenceGroup, onReferenceGroupChange, onEdit, assessment }: WorkingSectionProps & { onEdit: (field: AssessmentToolFieldKey) => void }) {
   const [expanded, setExpanded] = useState(false);
   const readingPage = useRef<HTMLDivElement>(null);
-  const referenceSection = referenceGroup === "section" ? section : null;
+  const referenceSection = referenceGroup === "section" || referenceGroup === "briefing" ? section : null;
   useLayoutEffect(() => {
     if (readingPage.current) readingPage.current.scrollTop = 0;
   }, [referenceGroup, referenceSection]);
   const reference = assessmentPreparationGroups.find((group) => group.key === referenceGroup);
   const referenceQuestions = reference ? preparationQuestions(reference, data) : referenceGroup === "section" ? questions : assessmentInterviewSections.flatMap((section) => getAssessmentInterviewQuestions(section.key, data));
   const captured = referenceQuestions.filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field));
-  const groups = groupWorkingQuestions(captured);
+  const groups = referenceGroup === "briefing" ? assessmentConversationContext(section, data, pending) : groupWorkingQuestions(captured);
   const id = "captured-answers-" + section;
   return <aside aria-label="Captured assessment answers" className={styles.reference}>
-    <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)} className={styles.referenceToggle}><span>Captured answers · {captured.length}</span><ChevronDown size={16} aria-hidden="true" /></button>
+    <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)} className={styles.referenceToggle}><span>Captured answers · {groups.reduce((count, group) => count + group.questions.length, 0)}</span><ChevronDown size={16} aria-hidden="true" /></button>
     <div id={id} data-expanded={expanded} className={styles.referenceContent}>
       <header className={styles.referenceHeader}>
-      <h4 className={styles.referenceHeading}>Client information</h4>
-      {onReferenceGroupChange ? <select aria-label="Reference information" value={referenceGroup ?? "all"} onChange={(event) => onReferenceGroupChange(event.target.value)} className={styles.referenceSelector}>
+      <h4 className="sr-only">Client information</h4>
+      {onReferenceGroupChange ? <select aria-label="Reference information" value={referenceGroup ?? "briefing"} onChange={(event) => onReferenceGroupChange(event.target.value)} className={styles.referenceSelector}>
+        <option value="briefing">For this conversation</option>
         <option value="all">All recorded information</option>
         <option value="section">This assessment section</option>
         {assessmentPreparationGroups.map((group) => <option key={group.key} value={group.key}>{group.label}</option>)}
       </select> : null}
       </header>
       <div ref={readingPage} className={styles.readingPage} data-assessment-reference-page>
-      {!captured.length ? <p className={styles.empty}>No information recorded here yet.</p> : null}
-      {groups.map((group, index) => <section key={group.label} className={styles.referenceGroup}><header><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><h5>{group.label}</h5></header>
+      {!groups.length ? <p className={styles.empty}>No recorded context for this section yet. All recorded information is available above.</p> : null}
+      {groups.map((group) => <section key={group.label} className={styles.referenceGroup}><header><h5>{group.label}</h5></header>
         {group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} signed={isAssessmentFinalized(assessment)} onEdit={(field) => { setExpanded(false); onEdit(field); }} />)}
       </section>)}
       </div>
