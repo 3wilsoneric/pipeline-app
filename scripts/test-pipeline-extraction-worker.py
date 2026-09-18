@@ -5,6 +5,8 @@ import json
 import pathlib
 import sys
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -17,6 +19,46 @@ SPEC.loader.exec_module(worker)
 
 
 class PipelineExtractionWorkerTests(unittest.TestCase):
+    def test_worker_does_not_wait_for_scan_or_claim_clean(self):
+        content = b"%PDF-1.7 synthetic fixture"
+        blob = Mock()
+        blob.get_blob_properties.return_value = SimpleNamespace(
+            size=len(content), content_settings=SimpleNamespace(content_type="application/pdf"))
+        blob.download_blob.return_value.readall.return_value = content
+        blob.get_blob_tags.side_effect = AssertionError("scanning must not be called")
+        service = Mock()
+        service.get_blob_client.return_value = blob
+        for job_type in ("referral_packet", "document_preview"):
+            args = base_args()
+            args[args.index("--job-type") + 1] = job_type
+            with self.subTest(job_type=job_type), \
+                    patch.object(worker, "get_service_credential"), \
+                    patch.object(worker, "get_blob_service", return_value=service), \
+                    patch.object(worker, "create_read_url", return_value="https://example.com/synthetic.pdf"), \
+                    patch.object(worker, "analyze_document", return_value={"analyzeResult": {"pages": [{"pageNumber": 1, "lines": [{"content": "DOB: 01/02/1980"}]}]}}), \
+                    patch.object(worker, "render_page_evidence", return_value={1: "synthetic/page-1.png"}), \
+                    patch.object(worker, "upload_blob"), \
+                    patch.object(worker, "post_report") as report:
+                worker.run_worker(worker.parse_args(args))
+                payload = report.call_args.args[1]
+                self.assertEqual(payload["status"], "succeeded")
+                self.assertEqual(payload["malware_scan_status"], "not_scanned")
+                self.assertEqual(payload["verified_sha256"], worker.hashlib.sha256(content).hexdigest())
+                blob.get_blob_tags.assert_not_called()
+
+    def test_unscanned_upload_still_rejects_wrong_type_size_and_signature(self):
+        blob = Mock()
+        blob.get_blob_properties.return_value = SimpleNamespace(
+            size=5, content_settings=SimpleNamespace(content_type="text/html"))
+        with self.assertRaisesRegex(worker.WorkerError, "source_content_type_unsupported"):
+            worker.download_blob(blob)
+        blob.get_blob_properties.return_value.content_settings.content_type = "application/pdf"
+        blob.download_blob.return_value.readall.return_value = b"shorter"
+        with self.assertRaisesRegex(worker.WorkerError, "source_blob_size_mismatch"):
+            worker.download_blob(blob)
+        with self.assertRaisesRegex(worker.WorkerError, "uploaded_file_signature_invalid"):
+            worker.validate_signature("application/pdf", b"<script>not a pdf</script>")
+
     def test_normalizes_line_polygons_and_carries_field_provenance(self):
         pages = worker.pages_from_analysis({
             "analyzeResult": {

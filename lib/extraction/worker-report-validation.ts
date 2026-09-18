@@ -29,7 +29,7 @@ export type WorkerReport = {
   provider_job_id?: string;
   error_code?: string;
   retryable?: boolean;
-  malware_scan_status?: "clean" | "infected" | "failed";
+  malware_scan_status?: "clean" | "infected" | "failed" | "not_scanned";
   verified_sha256?: string;
   page_count?: number;
   preview?: {
@@ -92,7 +92,7 @@ function validateDigestAndScan(input: WorkerReport) {
   if (input.verified_sha256 !== undefined && !/^[a-f0-9]{64}$/.test(input.verified_sha256)) {
     throw new DocumentProcessingError("verified_sha256_invalid", 400);
   }
-  if (input.malware_scan_status !== undefined && !["clean", "infected", "failed"].includes(input.malware_scan_status)) {
+  if (input.malware_scan_status !== undefined && !["clean", "infected", "failed", "not_scanned"].includes(input.malware_scan_status)) {
     throw new DocumentProcessingError("malware_scan_status_invalid", 400);
   }
 }

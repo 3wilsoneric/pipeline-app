@@ -28,7 +28,7 @@ resources:
   jobs:
     pipeline_extraction:
       name: pipeline-referral-extraction
-      description: Scan-gated deterministic extraction for Pipeline-owned referral packets.
+      description: Background deterministic extraction for authenticated Pipeline referral uploads.
       max_concurrent_runs: 8
       queue:
         enabled: true

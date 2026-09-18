@@ -2,6 +2,7 @@ import "server-only";
 
 import { getDocumentFileMetadata, getDocumentOriginalAsset } from "@/lib/extraction/document-assets";
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
+import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
 import {
   meetClientAttachmentDeliveryMode,
   type MeetClientAttachmentDeliveryMode,
@@ -131,7 +132,7 @@ function metadataIssue(status: string, byteSize: number): MeetClientAttachmentIt
   if (byteSize < 1) return "empty";
   if (status === "infected") return "infected";
   if (status === "failed") return "scan_failed";
-  if (status !== "clean") return "scan_pending";
+  if (!isDocumentContentAvailable(status)) return "scan_pending";
   return undefined;
 }
 

@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { FileText, X } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
@@ -125,7 +126,7 @@ export default function ReferralFilePreviewDialog({ file, onClose }: { file: Ref
 
 function originalFileUrl(file: ReferralFile, metadata: FilePreviewMetadata | null) {
   return file.downloadUrl ?? file.previewUrl
-    ?? (metadata?.malware_scan_status === "clean" ? toPipelinePath(`/api/files/${file.id}/download`) : undefined);
+    ?? (isDocumentContentAvailable(metadata?.malware_scan_status) ? toPipelinePath(`/api/files/${file.id}/download`) : undefined);
 }
 
 function PreviewBody({
@@ -163,17 +164,14 @@ function PreviewBody({
       </div>
     );
   }
-  if (metadata?.malware_scan_status === "clean") {
+  if (isDocumentContentAvailable(metadata?.malware_scan_status)) {
     return <iframe src={file.previewUrl ?? toPipelinePath(`/api/files/${file.id}/preview`)} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
   }
-  const scanPending = metadata?.malware_scan_status === "pending";
   return (
     <div className="bg-white px-5 py-16 text-center">
-      <div className="text-[14px] font-black text-[#111111]">{scanPending ? "Safety scan pending" : "Page previews are not ready yet"}</div>
+      <div className="text-[14px] font-black text-[#111111]">Page previews are not ready yet</div>
       <p className="mt-2 text-[12px] text-[#737373]">
-        {scanPending
-          ? "Pipeline will not display uploaded bytes until the file passes its safety scan. The client workspace and metadata remain available."
-          : "Safety scanning and page rendering finish separately from the upload."}
+        Preview preparation runs in the background. You can keep working in the workspace.
       </p>
     </div>
   );

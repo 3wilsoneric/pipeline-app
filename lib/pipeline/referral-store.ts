@@ -7,6 +7,7 @@ import { dirname } from "node:path";
 import type { JSONValue, TransactionSql } from "postgres";
 
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
+import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
 import {
   resolveDurableStoreMode,
   selectStoreAdapter,
@@ -2705,7 +2706,7 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
     sourceSystem: row.source_system ?? undefined,
     identityStatus: row.identity_status ?? undefined,
     ...(row.page_count === null ? {} : { pageCount: Number(row.page_count) }),
-    ...(row.malware_scan_status === "clean" && /^[0-9a-f-]{36}$/i.test(row.id)
+    ...(isDocumentContentAvailable(row.malware_scan_status) && /^[0-9a-f-]{36}$/i.test(row.id)
       ? {
           downloadUrl: toPipelinePath(`/api/files/${row.id}/download`),
           ...(row.preview_status === "ready" || isBrowserPreviewableContentType(row.content_type)

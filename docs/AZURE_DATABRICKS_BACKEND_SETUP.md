@@ -9,7 +9,7 @@
 - The worker is deterministic, uses Azure Document Intelligence, and has no LLM
   dependency. Missing fields remain null for human review.
 - Production stays in `manual` mode until the Pipeline-only Databricks identity,
-  service credential, callback secret, and malware gate all pass.
+  service credential, callback secret, and synthetic provider flow all pass.
 
 ## Production Target
 
@@ -17,7 +17,6 @@
 Next.js UI/API
   -> Azure Blob signed upload
   -> upload-complete sentinel
-  -> Microsoft Defender scan result
   -> Pipeline Databricks extraction job
   -> Azure Document Intelligence + private evidence artifacts
   -> authenticated worker callback + PostgreSQL state
@@ -74,9 +73,11 @@ existing Pipeline Key Vault without printing it. It records the non-secret host,
 job ID, and client ID for deployment, but it does not switch the production
 extraction backend.
 
-Microsoft Defender for Storage on-upload scanning must be enabled and proven on
-the existing Pipeline storage account before production switches from `manual`
-to `azure_databricks`. It is metered and is therefore a separate cost approval.
+The owner explicitly disabled malware scanning for approved-user uploads on
+September 18, 2026. Extraction starts without reading Defender tags. Successful
+uploads and worker reports use `not_scanned`, never a fabricated `clean` verdict.
+Authentication, upload reservations, size/type/signature limits, source digest
+verification, callback authentication and attempt fencing remain required.
 
 ## Auth Integration
 
@@ -97,13 +98,15 @@ to `azure_databricks`. It is metered and is therefore a separate cost approval.
 
 ## Activation Order
 
-1. Run `npm run check:extraction-worker` and the complete platform suite.
+1. Run the focused worker, PostgreSQL upload/callback/access, and Beta browser checks.
 2. Run the Databricks setup script in plan mode.
 3. Apply the isolated Databricks identity, credential, scope, and job.
-4. Enable malware scanning only after cost approval and prove a synthetic file
-   receives an authentic `No threats found` result.
+4. Apply migration `0039_document_scan_not_required` before the web rollout,
+   deploy the worker, and prove a generated synthetic upload produces OCR fields
+   and evidence with `malware_scan_status=not_scanned`. Migration 0038 belongs
+   to the separately held assessment final-send change and is not required here.
 5. Deploy Pipeline with `PIPELINE_EXTRACTION_BACKEND=azure_databricks`.
-6. Run one approved, sanitized packet through upload, scan, OCR, evidence,
+6. Run one approved, sanitized packet through upload, OCR, evidence,
    correction, reopen, duplicate, retry, and dead-letter checks.
 7. Keep the previous immutable web revision promotable for rollback.
 
@@ -159,31 +162,38 @@ metadata to the authenticated callback. Relevant PostgreSQL tables include:
 
 The intake **Document suggestions — Beta** area reads the main face sheet/referral
 packet in the background. Creation, manual saves, and navigation never wait for
-scanning, OCR, or review. Suggestions require explicit confirmation; typed values
+OCR or review. Suggestions require explicit confirmation; typed values
 and previously reviewed field values/provenance are retained. Status failures show
 neutral optional guidance. Supporting files still upload, but this Beta dispatcher
 only claims jobs belonging to `extract_referral` packets; historical imports and
 `preview_only` jobs are held. Revisit that boundary when multi-document evidence
 review and representative extraction measurements are ready.
 
-The user authorized production setup and focused testing. Resource-scoped Defender
-scanning uses a 50 GB/month cap; exceeding it pauses extraction, not manual work.
-For the HNS storage account register `Microsoft.Storage/BlobIndexForHns`, then
-re-register `Microsoft.Storage`; `Microsoft.EventGrid` must also be registered.
-`infra/azure/main.bicep` retains the account-level scan configuration. Prove a new
-synthetic upload receives `No threats found` before enabling production extraction.
-The worker's managed identity and callback secret remain separate from user login.
+The owner authorized production setup, focused testing, and removal of malware
+scanning for approved-user uploads. `infra/azure/main.bicep` keeps on-upload
+scanning disabled. The existing Databricks worker uses its managed identity and
+callback secret separately from user login; it no longer needs blob tag reads.
+
+Completed uploads are recorded as `not_scanned` and can be opened without waiting
+for OCR or optional page rendering. Migration 0039 expands the existing status
+constraint and changes only completed Pipeline uploads still marked `pending`.
+Reserved files, historical imports without upload receipts, and existing
+`infected`/`failed` verdicts retain their states. The latter remain unavailable;
+removing a scan requirement does not erase an actual prior verdict.
+
+This policy is bounded to the current approved-user application. Revisit the
+policy before adding public/anonymous upload access or an untrusted integration.
+It provides no malware-detection guarantee. OCR suggestions remain optional and
+require human confirmation before populating the referral.
 
 Focused checks: `node --test scripts/extraction-beta.test.mjs` (disposable local
 PostgreSQL), `python3 scripts/test-pipeline-extraction-worker.py`, and Playwright
-`tests/e2e/extraction-beta.spec.ts`. A live synthetic upload must additionally prove
-Defender, Databricks, Document Intelligence, callback persistence, and source review.
-These tests establish workflow behavior, not accuracy across all clinical documents.
+`tests/e2e/extraction-beta.spec.ts`. A real generated synthetic upload additionally
+proves Databricks, Document Intelligence and source evidence. These checks
+establish workflow behavior, not accuracy across all clinical documents.
 
-The connector identity also needs the data action
-`Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/read`.
-The built-in Blob Data Contributor role omits it. Production grants the custom
-`Pipeline extraction scan results reader` role only on the Pipeline storage
-account to its existing Databricks connector identity; it grants no tag writes.
-Retain that role when rebuilding the extraction identity and prove the scan gate
-with a newly uploaded fixture. The application runtime does not need this role.
+Rollback: keep migration 0039 and its truthful `not_scanned` data. Reverting to
+an older web revision may hide those files because it only understands `clean`;
+manual referral work remains available. If rollback is needed, select manual
+extraction mode as well; do not relabel unscanned documents as clean or restart
+the old scan-dependent worker while scanning is disabled.

@@ -220,7 +220,7 @@ export async function reportExtractionJob(input: WorkerReport) {
     await failOrRetry(job, "uploaded_blob_digest_mismatch", false);
     throw new DocumentProcessingError("uploaded_blob_digest_mismatch", 409, "The uploaded file digest does not match its reservation.");
   }
-  if (!input.malware_scan_status) throw new DocumentProcessingError("malware_scan_status_required", 400, "The worker must report the file safety scan.");
+  if (!input.malware_scan_status) throw new DocumentProcessingError("malware_scan_status_required", 400, "The worker must report whether the file was scanned.");
 
   await sql.begin(async (tx) => {
     const completed = await tx<{ extraction_job_id: string }[]>`
@@ -232,10 +232,14 @@ export async function reportExtractionJob(input: WorkerReport) {
       returning extraction_job_id
     `;
     if (!completed[0]) throw new DocumentProcessingError("stale_job_attempt", 409);
-    const infected = input.malware_scan_status === "infected";
-    const scanFailed = input.malware_scan_status === "failed";
+    const [document] = await tx<{ malware_scan_status: string }[]>`
+      select malware_scan_status from pipeline.documents where document_id = ${job.document_id}::uuid for update
+    `;
+    const scan = input.malware_scan_status === "not_scanned" && ["infected", "failed"].includes(document.malware_scan_status)
+      ? document.malware_scan_status : input.malware_scan_status;
+    const infected = scan === "infected";
+    const scanFailed = scan === "failed";
     const unsafe = infected || scanFailed;
-    const scan = input.malware_scan_status;
     const previewStatus = input.preview ? "ready" : job.job_type === "document_preview" ? "failed" : undefined;
     await tx`
       update pipeline.documents set

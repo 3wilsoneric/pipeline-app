@@ -12,7 +12,7 @@ const check = (name, ok) => checks.push({ name, ok: Boolean(ok) });
 
 execFileSync("python3", ["scripts/test-pipeline-extraction-worker.py"], { stdio: "inherit" });
 
-check("worker requires a Defender malware verdict", worker.includes("wait_for_malware_scan") && worker.includes("MALWARE_RESULT_TAG"));
+check("worker processes approved uploads without claiming a clean scan", !worker.includes("get_blob_tags") && worker.includes('"malware_scan_status": "not_scanned"'));
 check("worker verifies source bytes", worker.includes("hashlib.sha256") && worker.includes("validate_signature"));
 check("worker uses managed service credentials", worker.includes("getServiceCredentialsProvider") && !worker.includes("AZURE_STORAGE_ACCOUNT_KEY"));
 check("Document Intelligence receives a short-lived read-only user-delegation URL", worker.includes("get_user_delegation_key") && worker.includes("BlobSasPermissions(read=True)") && worker.includes('json={"urlSource": source_url}'));
@@ -28,7 +28,7 @@ check("setup is plan-first and deletion-free", setup.includes('mode="plan"') && 
 check("setup cannot activate the production backend", !setup.includes("gh variable set PIPELINE_EXTRACTION_BACKEND"));
 check("setup remains compatible with macOS Bash 3.2", !setup.includes(",,"));
 check("bundle deployment authenticates as the Pipeline principal", setup.includes('DATABRICKS_AUTH_TYPE="oauth-m2m"'));
-check("all successful worker callbacks require digest and malware status", processingWorker.includes('if (!input.verified_sha256)') && processingWorker.includes('if (!input.malware_scan_status)'));
+check("all successful worker callbacks require digest and explicit scan state", processingWorker.includes('if (!input.verified_sha256)') && processingWorker.includes('if (!input.malware_scan_status)'));
 check("successful worker callbacks revalidate the durable source blob", processingWorker.includes('getBlobProperties(job.blob_container, job.blob_key)') && processingWorker.includes('"uploaded_blob_missing"') && processingWorker.includes('"uploaded_blob_size_mismatch"'));
 check("worker reports normalized evidence geometry", worker.includes("normalize_polygon") && worker.includes('"evidence_bbox"'));
 check("provider and heartbeat writes are attempt fenced", (processingWorker.match(/attempt_count = \$\{job\.attempt_count\} and attempt_token = \$\{job\.attempt_token\}::uuid/g) ?? []).length >= 3 && processingWorker.includes("if (!heartbeat[0])"));

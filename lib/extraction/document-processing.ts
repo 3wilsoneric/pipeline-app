@@ -284,7 +284,8 @@ async function completeDurableUploadWithMode(
     `;
     await tx`
       update pipeline.documents d
-      set processing_status = ${queuesWork ? "quarantined" : "uploaded"}, malware_scan_status = 'pending',
+      set processing_status = 'uploaded',
+          malware_scan_status = case when malware_scan_status = 'pending' then 'not_scanned' else malware_scan_status end,
           preview_status = ${queuePreview ? "pending" : "unavailable"}, updated_at = now(), version = version + 1
       from pipeline.packet_upload_files f
       where f.packet_id = ${input.packet_id}::uuid and f.document_id = d.document_id
