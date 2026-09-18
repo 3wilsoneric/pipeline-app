@@ -221,7 +221,7 @@ test("preparation remains keyboard navigable and motion-free with reduced motion
   await expect(page.getByRole("heading", { name: "Referral & placement", exact: true })).toBeVisible();
 });
 
-test("preparation preserves the signed assessment's read-only boundary", async ({ page }) => {
+test("preparation stays editable after signing and preserves the sent assessment's read-only boundary", async ({ page }) => {
   const referral = await createReferral(page);
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
     client_mutation_id: randomUUID(), data: { secondary_diagnoses: ["Signed synthetic diagnosis"] },
@@ -237,10 +237,30 @@ test("preparation preserves the signed assessment's read-only boundary", async (
   await notebook.getByRole("navigation", { name: "Client file pages" }).getByRole("button", { name: "Prepare", exact: true }).click();
   await choosePreparationGroup(page, "Clinical history", "prior_history");
   await expect(notebook.locator("#assessment-secondary_diagnoses")).toHaveValue("Signed synthetic diagnosis");
+  await expect(notebook.locator("#assessment-secondary_diagnoses")).toBeEditable();
+  await expect(notebook.getByRole("checkbox", { name: "Bipolar disorder", exact: true })).toBeEnabled();
+  await notebook.locator("#assessment-secondary_diagnoses").fill("Corrected before sending");
+  await notebook.getByRole("heading", { name: "Clinical history", exact: true }).click();
+  const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  await expect.poll(async () => (await read()).secondary_diagnoses).toEqual(["Corrected before sending"]);
+  // Presentation fixture; the real delivery boundary is covered by the local/PostgreSQL fixtures.
+  await page.route(`**/api/referrals/${referral.id}/assessments*`, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    body.assessments = body.assessments.map((item: { assessment_id: string; version: number }) => item.assessment_id === assessment.assessment_id
+      ? { ...item, meet_client_sent_at: "2026-09-18T13:00:00.000Z", meet_client_sent_version: item.version }
+      : item);
+    await route.fulfill({ response, json: body });
+  });
+  await page.reload();
+  await notebook.getByRole("navigation", { name: "Client file pages" }).getByRole("button", { name: "Prepare", exact: true }).click();
+  await choosePreparationGroup(page, "Clinical history", "prior_history");
+  await expect(notebook.locator("#assessment-secondary_diagnoses")).toHaveValue("Corrected before sending");
   await expect(notebook.locator("#assessment-secondary_diagnoses")).toHaveAttribute("readonly");
   await expect(notebook.getByRole("checkbox", { name: "Bipolar disorder", exact: true })).toBeDisabled();
   await expect(notebook.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
-  expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Signed synthetic diagnosis"]);
+  expect((await read()).secondary_diagnoses).toEqual(["Corrected before sending"]);
 });
 
 test.describe("queued preparation recovery", () => {
