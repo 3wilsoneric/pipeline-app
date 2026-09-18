@@ -30,14 +30,14 @@ export function loadTypeScriptModule(root, filePath, globals = {}) {
     if (specifier.startsWith("@/")) {
       const target = resolveModulePath(root, specifier.slice(2));
       if (!target) return providedRequire(specifier);
-      return loadTypeScriptModule(root, relative(root, target), sandboxGlobals);
+      return loadTypeScriptModule(root, relative(root, target), { ...sandboxGlobals, require: providedRequire });
     }
     if (!specifier.startsWith(".")) return providedRequire(specifier);
 
     const target = resolveModulePath(moduleDirectory, specifier);
     if (!target) return providedRequire(specifier);
 
-    return loadTypeScriptModule(root, relative(root, target), sandboxGlobals);
+    return loadTypeScriptModule(root, relative(root, target), { ...sandboxGlobals, require: providedRequire });
   };
   const sandbox = {
     AbortController,

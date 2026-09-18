@@ -30,6 +30,7 @@ import {
   isInternalWorkspaceTag,
 } from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
+import { usePacketExtraction } from "@/components/pipeline/use-packet-extraction";
 import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
@@ -403,6 +404,7 @@ export default function ReferralPacketCanvas({
   const [hasSignedAssessment, setHasSignedAssessment] = useState(false);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
+  const extraction = usePacketExtraction(loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
   const serverDraftsEnabled = usesServerReferralDrafts() && !trainingIntakeMode;
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -961,6 +963,21 @@ export default function ReferralPacketCanvas({
       cancelled = true;
     };
   }, [newDraftKey, referral?.id, serverDraftsEnabled]);
+
+  useEffect(() => {
+    const packet = extraction?.packet;
+    if (!packet) return;
+    setLoadedReferral((current) => {
+      if (!current || current.packetId !== packet.packet_id) return current;
+      const known = new Map(current.packetFields?.map((field) => [field.field_key, field]) ?? []);
+      const updates = packet.fields.filter((field) => !known.has(field.field_key) || (known.get(field.field_key)?.version ?? 0) < field.version);
+      if (!updates.length) return current;
+      for (const field of updates) known.set(field.field_key, field);
+      const next = { ...current, packetFields: [...known.values()], packetReadiness: packet.ehr_readiness, packetCompleteness: packet.packet_completeness };
+      loadedReferralRef.current = next;
+      return next;
+    });
+  }, [extraction?.packet, loadedReferral?.packetFields]);
 
   useEffect(() => {
     const extractedFields = loadedReferral?.packetFields;
@@ -2325,10 +2342,12 @@ export default function ReferralPacketCanvas({
               workspaceFiles={workspaceFiles}
               onAddFiles={attachAdditionalFiles}
             />
-            {referralContextPacketFields.length ? (
+            {loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length ? (
               <PacketExtractionReview
                 fields={referralContextPacketFields}
                 fileName={loadedReferral?.documentName || "the uploaded packet"}
+                status={extraction?.status}
+                hasPacket={Boolean(loadedReferral?.packetId)}
                 developmentOnly={loadedReferral?.packetMessage?.startsWith("Development")}
                 busyFieldKey={reviewBusyFieldKey}
                 bulkBusy={isBulkReviewing}

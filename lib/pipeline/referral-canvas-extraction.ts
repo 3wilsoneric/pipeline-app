@@ -60,7 +60,7 @@ export function populateFormFromExtraction(
 ) {
   const extractedByKey = new Map(
     extractedFields
-      .filter((field) => field.review_status !== "rejected")
+      .filter((field) => field.review_status === "accepted" || field.review_status === "edited")
       .map((field) => [field.field_key, field] as const),
   );
   const updates = buildCanvasFieldUpdates(extractedByKey);

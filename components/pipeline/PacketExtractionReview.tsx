@@ -12,11 +12,13 @@ import {
   X,
 } from "lucide-react";
 
-import type { ExtractedField } from "@/lib/extraction/contracts";
+import type { ExtractedField, PacketStatus } from "@/lib/extraction/contracts";
 
 type PacketExtractionReviewProps = {
   fields: ExtractedField[];
   fileName: string;
+  status?: PacketStatus | "unavailable";
+  hasPacket?: boolean;
   developmentOnly?: boolean;
   busyFieldKey?: string;
   bulkBusy?: boolean;
@@ -57,6 +59,8 @@ const knownLabels: Record<string, string> = {
 export default function PacketExtractionReview({
   fields,
   fileName,
+  status,
+  hasPacket = true,
   developmentOnly = false,
   busyFieldKey,
   bulkBusy = false,
@@ -69,6 +73,7 @@ export default function PacketExtractionReview({
   const [confirmingBulk, setConfirmingBulk] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
+  fields = fields.filter((field) => Boolean(finalFieldValue(field)));
   const pending = fields.filter((field) => field.review_status === "pending").length;
   const conflicts = fields.filter((field) => field.is_conflict && field.review_status === "pending").length;
   const reviewed = fields.filter((field) => field.review_status === "accepted" || field.review_status === "edited").length;
@@ -91,8 +96,9 @@ export default function PacketExtractionReview({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-[12px] font-black uppercase tracking-[0.1em] text-[#111111]">
-                Extraction review
+                Document suggestions
               </h3>
+              <span className="rounded border border-[#cfd8d3] px-2 py-0.5 text-[10px] font-semibold text-[#595959]">Beta</span>
               {developmentOnly ? (
                 <span className="border border-[#c9973b] bg-[#fff5df] px-2 py-0.5 text-[9px] font-black uppercase text-[#8a5b0d]">
                   Development data
@@ -100,13 +106,23 @@ export default function PacketExtractionReview({
               ) : null}
             </div>
             <p className="mt-0.5 truncate text-[11px] text-[#595959]">
-              {fields.length} referral facts found in {fileName}. Confirm them or correct anything the packet got wrong.
+              {fields.length
+                ? `${fields.length} suggestions from ${fileName}. Optional—check the source before using a value.`
+                : !hasPacket
+                  ? "Add a face sheet or referral packet to get suggestions. You can keep working without them."
+                  : status === "failed" || status === "unavailable"
+                    ? "Suggestions are unavailable. Your uploaded file is saved; keep entering details normally."
+                    : status === "ready_for_review" || status === "reviewed"
+                      ? "No intake suggestions found. Your file is saved and you can keep working."
+                      : status === "received"
+                        ? "Your file is saved. Continue entering details normally."
+                        : "Reading the referral packet in the background. You can keep working."}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.06em]">
-          <span className="text-[#8a5b0d]">{pending} to review</span>
-          {conflicts > 0 ? <span className="text-[#a04436]">{conflicts} conflicts</span> : null}
+        {fields.length > 0 ? <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.06em]">
+          <span className="text-[#595959]">{pending} suggestions</span>
+          {conflicts > 0 ? <span className="text-[#595959]">{conflicts} differing values</span> : null}
           <button
             type="button"
             aria-expanded={expanded}
@@ -116,10 +132,10 @@ export default function PacketExtractionReview({
             {expanded ? "Hide fields" : "Review fields"}
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
-        </div>
+        </div> : null}
       </div>
 
-      {expanded ? (
+      {expanded && fields.length > 0 ? (
         <>
       <div className="grid gap-px border-b border-[#dbe2de] bg-[#dbe2de] sm:grid-cols-3" aria-label="Packet ingestion progress">
         <IngestionStep number="1" label="Upload" value="Original saved" complete />
@@ -189,9 +205,10 @@ export default function PacketExtractionReview({
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#737373]">
                   <span>{confidence}% confidence</span>
                   {field.source_page_no ? <span>Page {field.source_page_no}</span> : null}
+                  {field.evidence_url ? <a href={field.evidence_url} target="_blank" rel="noreferrer" className="underline text-[#0c705f]">View source</a> : null}
                   {field.is_conflict ? (
-                    <span className="inline-flex items-center gap-1 font-black text-[#a04436]">
-                      <AlertTriangle size={11} /> Conflict
+                    <span className="inline-flex items-center gap-1 font-black text-[#595959]">
+                      <AlertTriangle size={11} /> Differing values
                     </span>
                   ) : null}
                 </div>

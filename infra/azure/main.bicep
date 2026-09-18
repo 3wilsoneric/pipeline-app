@@ -183,6 +183,26 @@ resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
   }
 }
 
+// HNS accounts also require the Microsoft.Storage/BlobIndexForHns feature.
+// Scan completion gates only background extraction, never referral saves.
+resource uploadMalwareScanning 'Microsoft.Security/defenderForStorageSettings@2025-01-01' = {
+  name: 'current'
+  scope: storage
+  properties: {
+    isEnabled: true
+    overrideSubscriptionLevelSettings: true
+    malwareScanning: {
+      onUpload: {
+        isEnabled: true
+        capGBPerMonth: 50
+      }
+    }
+    sensitiveDataDiscovery: {
+      isEnabled: false
+    }
+  }
+}
+
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2025-01-01' = {
   parent: storage
   name: 'default'
