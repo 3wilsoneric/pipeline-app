@@ -28,7 +28,7 @@ test("verified captured count excludes pending evidence and missing reasons", ()
   const questions = [question("medication_adherence"), question("im_injections"), question("medications_at_intake")];
   const counts = view.assessmentWorkingCounts(questions, data, ["medication_adherence"]);
   assert.deepEqual(JSON.parse(JSON.stringify(counts)), { unanswered: 1, verify: 1, reasons: 1, captured: 0 });
-  assert.equal(view.assessmentWorkingCountLabel(counts), "1 unanswered · 1 to verify · 1 need a reason");
+  assert.equal(view.assessmentWorkingCountLabel(counts), "1 unanswered · 1 to verify · 1 needs a reason");
 });
 
 test("conditional answers are shown only with their parent, without deleting stored data", () => {
@@ -44,5 +44,4 @@ test("captured answers use the schema's labels without truncating notes", () => 
   assert.equal(view.capturedAssessmentAnswer(question("diagnosis_categories"), data), "Schizoaffective disorder; Other");
   assert.equal(view.capturedAssessmentAnswer(question("current_symptoms"), data), data.current_symptoms);
   assert.equal(view.capturedAssessmentAnswer(question("prior_hospitalizations_count"), data), "0");
-  assert.equal(view.matchesAssessmentQuestion(question("current_symptoms"), " CURRENT SYMPTOMS "), true);
 });

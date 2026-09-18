@@ -1,10 +1,22 @@
 import type { ClinicalClientRecord } from "@/lib/clinical/clinical-contracts";
 import { hasReadableClinicalValue } from "@/lib/clinical/clinical-value-presentation";
 import type { UnifiedClientProfileResponse } from "./unified-profile-contracts";
-import type { ClientProfileSection } from "./client-profile-presentation";
+import { formatProfileDate, type ClientProfileSection } from "./client-profile-presentation";
 import type { HistoricalProfileResponse, HistoricalProfileSource } from "./historical-profile-contracts";
 import { persistedCanvasFieldKeys, referralCanvasValue } from "./referral-canvas-persistence";
-import { assessmentToolFieldDefinitions } from "@/lib/assessment/assessment-tool-schema";
+import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+
+export function clientChartAssessments(profile: UnifiedClientProfileResponse, referralId: number, assessment?: PipelineAssessmentRecord): PipelineAssessmentRecord[] {
+  if (!assessment || assessment.referral_id !== referralId || !profile.pipeline.referrals.some((item) => item.id === referralId)) return profile.pipeline.assessments;
+  const stored = profile.pipeline.assessments.find((item) => item.assessment_id === assessment.assessment_id);
+  // Only the assessment reading section consumes this preview. Clinical
+  // priorities keep the saved profile, even while signed answers are edited.
+  // Never mutate the shared cache or replace a newer server version.
+  if (stored && stored.version > assessment.version) return profile.pipeline.assessments;
+  return stored
+    ? profile.pipeline.assessments.map((item) => item.assessment_id === assessment.assessment_id ? assessment : item)
+    : [assessment, ...profile.pipeline.assessments];
+}
 
 const clinicalFields = {
   dob: "date_of_birth", gender: "gender", reportedAge: "age", phone: "phone", email: "email",
@@ -49,6 +61,15 @@ export function clientReferralSections(profile: UnifiedClientProfileResponse): C
     key: `referral:${referral.id}`,
     label: `Workspace #${referral.id} · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
     facts: [
+      ...(referral.admissionDecision ? [
+        { label: "Decision", value: referral.admissionDecision.outcome === "accepted" ? "Accept" : "Deny" },
+        { label: "Decision reason", value: referral.admissionDecision.reasonNote },
+        { label: "Decision recorded by", value: referral.admissionDecision.decidedByName },
+        { label: "Decision date", value: formatProfileDate(referral.admissionDecision.decidedAt) ?? "" },
+      ] : referral.assessmentRecommendation ? [
+        { label: "Placement recommendation", value: referral.assessmentRecommendation.outcome === "accept" ? "Accept" : referral.assessmentRecommendation.outcome === "decline" ? "Deny" : "Under review" },
+        { label: "Recommendation reason", value: referral.assessmentRecommendation.reasonNote },
+      ] : []),
       ...persistedCanvasFieldKeys.map((key) => ({ label: fieldLabels[key], value: referralCanvasValue(referral, key) })),
       { label: "Conserved", value: referral.conserved === "yes" ? "Yes" : referral.conserved === "no" ? "No" : "" },
       { label: "Payor", value: referral.payer },
@@ -58,18 +79,6 @@ export function clientReferralSections(profile: UnifiedClientProfileResponse): C
       })),
     ].filter((fact) => typeof fact.value === "string" && fact.value.trim()),
   }));
-}
-
-export function clientAssessmentSections(profile: UnifiedClientProfileResponse): ClientProfileSection[] {
-  return profile.pipeline.assessments.map((assessment) => ({
-    key: `assessment:${assessment.assessment_id}`,
-    label: `Assessment · ${assessment.assessment_date || assessment.created_at.slice(0, 10)} · ${assessment.status === "complete" && assessment.signed_at ? "Signed" : "In progress, not signed"}`,
-    facts: assessmentToolFieldDefinitions.flatMap((field) => {
-      const value = assessment[field.key];
-      if (value === null || value === undefined || value === "") return [];
-      return [{ label: field.label, value: Array.isArray(value) ? value.join(", ") : String(value) }];
-    }),
-  })).filter((section) => section.facts.length);
 }
 
 function sourceDescription(source: HistoricalProfileSource) {

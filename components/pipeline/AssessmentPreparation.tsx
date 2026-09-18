@@ -8,7 +8,6 @@ import { assessmentWorkingCounts, groupWorkingQuestions } from "@/components/pip
 import folderStyles from "@/components/pipeline/ClientFolder.module.css";
 import workspaceFolderStyles from "@/components/pipeline/ReferralWorkspaceFolder.module.css";
 import styles from "@/components/pipeline/AssessmentPreparation.module.css";
-import { ClientChartFrame, ClientChartHeader } from "@/components/pipeline/ClientMedicalChart";
 
 export function AssessmentFileNavigation({ hidden, disabled, preparing, reviewingChart, preparationAvailable = true, onPrepare, onAssessment, onChart }: {
   hidden: boolean;
@@ -36,9 +35,11 @@ export function AssessmentFileSurface({ title, container, header, dialogs, child
   children: React.ReactNode;
 }) {
   if (title) return <>
-    <PreparationFile>
-      <section role="region" aria-label="Referral preparation" data-assessment-view="preparation" className={styles.embedded}>{children}</section>
-    </PreparationFile>
+    <div data-testid="assessment-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder} ${styles.workspaceFile}`}>
+      <div className={folderStyles.body}>
+        <section aria-label="Assessment pages" data-assessment-view="assessment" className={`${folderStyles.paper} ${styles.workspacePaper}`}>{children}</section>
+      </div>
+    </div>
     {createPortal(dialogs, container?.parentElement ?? document.body)}
   </>;
   return createPortal(
@@ -51,19 +52,6 @@ export function AssessmentFileSurface({ title, container, header, dialogs, child
     </section>,
     container ?? document.body,
   );
-}
-
-function PreparationFile({ children }: { children: React.ReactNode }) {
-  return <div data-testid="preparation-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder} ${styles.file}`}>
-    <div className={folderStyles.body}>
-      <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
-        <ClientChartFrame label="Referral preparation chart">
-          <ClientChartHeader title="Assessment preparation">{null}</ClientChartHeader>
-          {children}
-        </ClientChartFrame>
-      </div>
-    </div>
-  </div>;
 }
 
 export function PreparationNavigation({ active, data, pending, onChange }: Pick<WorkingSectionProps, "data" | "pending"> & {

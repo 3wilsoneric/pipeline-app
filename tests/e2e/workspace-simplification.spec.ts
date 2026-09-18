@@ -75,7 +75,7 @@ for (const width of [1440, 390]) {
     await expect(activity.getByRole("list", { name: "Detailed activity history" })).not.toBeVisible();
   });
 
-  test(`compact decision keeps recommendation, admission date, and email preview at ${width}px`, async ({ page }, testInfo) => {
+  test(`one decision keeps admission date and email preview without supervisor review at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 950 });
     const referral = await createReferral(page);
     const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
@@ -84,22 +84,19 @@ for (const width of [1440, 390]) {
     const signed = await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
     expect(signed.status()).toBe(200);
     await page.goto(workspaceUrl(referral.id, "intake"));
-    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "03 Decision", exact: true }).click();
+    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision$/ }).click();
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(decision).toBeVisible();
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);
     await expect(decision.getByText("From referral to handoff", { exact: true })).toHaveCount(0);
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).not.toBeVisible();
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
-    await decision.getByLabel("Reason", { exact: true }).fill("Synthetic assessment supports this recommendation.");
+    await expect(decision).not.toContainText(/Supervisor decision|Assessment outcome|Open assessment/);
+    await expect(decision.getByRole("radio")).toHaveCount(3);
+    await decision.getByLabel("Reason (optional)", { exact: true }).fill("Synthetic placement decision.");
     await page.screenshot({ path: testInfo.outputPath(`decision-${width}.png`), animations: "disabled" });
-    await decision.getByRole("button", { name: "Finish assessment", exact: true }).click();
-    const outcome = decision.getByRole("combobox", { name: "Decision", exact: true });
-    await expect(outcome).toBeVisible();
-    await outcome.selectOption("accepted");
-    await decision.getByLabel("Decision rationale", { exact: true }).fill("Synthetic placement decision.");
     page.once("dialog", (dialog) => dialog.accept());
-    await decision.getByRole("button", { name: "Record final decision", exact: true }).click();
+    await decision.getByRole("button", { name: "Record decision", exact: true }).click();
     const admitDate = decision.getByLabel("Admission date", { exact: true });
     await expect(admitDate).toBeVisible();
     await admitDate.fill("2026-10-01");
@@ -108,6 +105,9 @@ for (const width of [1440, 390]) {
     const saved = await (await page.request.get(`/api/referrals/${referral.id}`)).json();
     expect(saved.referral.admissionDate).toBe("2026-10-01");
     expect(saved.referral.admissionDecision.outcome).toBe("accepted");
+    const workflow = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
+    expect(workflow.review).toBeNull();
+    expect(workflow.reviews).toEqual([]);
     await expect(page.getByRole("note")).toContainText("Example only. No email will be sent.");
     await expect(page.getByRole("navigation", { name: "Assessment chart views" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Send email & packet" })).toHaveCount(0);
@@ -124,7 +124,7 @@ for (const width of [1440, 390]) {
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("New");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("New");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(page.getByRole("button", { name: "03 Decision", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
   });
 }
 
@@ -132,7 +132,7 @@ test("unsigned Workflow links keep the decision and questionnaire reachable", as
   const referral = await createReferral(page);
   await page.goto(workspaceUrl(referral.id, "workflow"));
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
-  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "02 Questionnaire", exact: true }).click();
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
   await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
   await expect(page.locator("[data-assessment-view]")).toBeVisible();
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toHaveCount(0);
@@ -175,8 +175,8 @@ test("the simplified activity timeline retains file restoration and refreshes it
   await expect(activity.getByRole("button", { name: "Restore file", exact: true })).toHaveCount(0);
 });
 
-for (const outcome of ["Denied", "Under review"] as const) {
-  test(`${outcome} still leaves a saved decision or supervisor review when the assessor is done`, async ({ page }) => {
+for (const outcome of ["Deny", "Under review"] as const) {
+  test(`${outcome} is saved without a supervisor review when the assessor is done`, async ({ page }) => {
     const referral = await createReferral(page);
     const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
     expect(created.status()).toBe(201);
@@ -186,26 +186,35 @@ for (const outcome of ["Denied", "Under review"] as const) {
     await page.goto(workspaceUrl(referral.id, "workflow"));
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
     await panel.getByRole("radio", { name: outcome, exact: true }).check();
-    await panel.getByLabel(outcome === "Denied" ? "Reason" : "What needs review?", { exact: true }).fill("Synthetic rationale for supervisor review.");
-    await panel.getByRole("button", { name: "Finish assessment", exact: true }).click();
-    await expect(panel.getByRole("button", { name: "Done", exact: true })).toBeVisible();
-    if (outcome === "Denied") {
-      await panel.getByRole("combobox", { name: "Decision", exact: true }).selectOption("declined");
-      await panel.getByLabel("Decision rationale", { exact: true }).fill("Synthetic final denial rationale.");
+    await panel.getByLabel(outcome === "Deny" ? "Reason (optional)" : "What needs review?", { exact: true }).fill("Synthetic placement rationale.");
+    if (outcome === "Deny") {
       page.once("dialog", (dialog) => dialog.accept());
-      await panel.getByRole("button", { name: "Record final decision", exact: true }).click();
-      await expect(panel.getByText("Supervisor decision recorded", { exact: true })).toBeVisible();
-    }
+      await panel.getByRole("button", { name: "Record decision", exact: true }).click();
+    } else await panel.getByRole("button", { name: "Save under review", exact: true }).click();
+    await expect(panel.getByRole("button", { name: "Done", exact: true })).toBeVisible();
     await expect(panel.getByLabel("Admission date", { exact: true })).toHaveCount(0);
     await panel.getByRole("button", { name: "Done", exact: true }).click();
     await expect(page).not.toHaveURL(/screen=packet/);
     await expect(page.getByRole("dialog", { name: "Current work", exact: true })).toHaveCount(0);
     const saved = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
-    if (outcome === "Denied") expect(saved.decision.outcome).toBe("declined");
+    expect(saved.review).toBeNull();
+    expect(saved.reviews).toEqual([]);
+    if (outcome === "Deny") expect(saved.decision.outcome).toBe("declined");
     else {
       expect(saved.decision).toBeNull();
-      expect(saved.review.status).toBe("submitted");
       expect(saved.recommendation.outcome).toBe("needs_more_information");
+      expect(saved.referral.workflowStatus).toBe("decision_pending");
+      await page.goto(workspaceUrl(referral.id, "workflow"));
+      await expect(panel.getByRole("radio", { name: "Under review", exact: true })).toBeChecked();
+      await expect(panel.getByRole("textbox", { name: "What needs review?", exact: true })).toHaveValue("Synthetic placement rationale.");
+      await panel.getByRole("radio", { name: "Accept", exact: true }).check();
+      await expect(panel.getByRole("button", { name: "Done", exact: true })).toHaveCount(0);
+      page.once("dialog", (dialog) => dialog.accept());
+      await panel.getByRole("button", { name: "Record decision", exact: true }).click();
+      await expect(panel.getByRole("heading", { name: "Decision recorded", exact: true })).toBeVisible();
+      const accepted = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
+      expect(accepted.decision.outcome).toBe("accepted");
+      expect(accepted.review).toBeNull();
     }
   });
 }

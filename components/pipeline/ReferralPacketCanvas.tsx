@@ -3,7 +3,7 @@
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
-import { useEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowLeft,
@@ -222,9 +222,13 @@ type WorkspaceStageName = "intake" | "assessment" | "chart";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 1, label: "Intake" },
-  { page: 2, label: "Assessment" },
-  { page: 3, label: "Chart" },
 ] as const;
+
+const savedWorkspaceSteps: ReadonlyArray<WorkspaceStep> = [
+  { page: 3, label: "Chart" },
+  { page: 2, label: "Assessment" },
+  { page: "workflow", label: "Decision" },
+];
 
 const importedWorkspaceSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 1, label: "Chart" },
@@ -253,6 +257,8 @@ function visibleWorkspacePage(
   activePage: WorkspaceView,
   steps: ReadonlyArray<WorkspaceStep>,
 ): WorkspaceView {
+  // Intake remains the detail editor inside the saved chart, not another tab.
+  if (activePage === 1 && steps.some((step) => step.page === 3)) return 1;
   if (activePage === "workflow" && !steps.some((step) => step.page === "workflow")) return steps.some((step) => step.page === 2) ? 2 : 1;
   if (typeof activePage !== "number" || steps.some((step) => step.page === activePage)) return activePage;
   return steps[0]?.page ?? 1;
@@ -389,7 +395,7 @@ export default function ReferralPacketCanvas({
   const [initialPacketCategory, setInitialPacketCategory] = useState<InitialDocumentCategory>("face_sheet");
   const [tagsInput, setTagsInput] = useState("");
   const routedWorkspaceLocation = initialWorkspaceLocationOrStage(initialWorkspaceLocation, initialWorkspaceStage);
-  const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation));
+  const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -404,12 +410,16 @@ export default function ReferralPacketCanvas({
     total: 52,
     status: "not_started",
   });
-  const [hasSignedAssessment, setHasSignedAssessment] = useState(false);
   const [emailRecipients, setEmailRecipients] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
-  const { beforeNavigationRef } = usePipelineShell();
+  const { beforeNavigationRef, assessmentFocused, setAssessmentFocused } = usePipelineShell();
+  // Keep the shell stable for the whole folder, not just while its assessment is mounted.
+  useLayoutEffect(() => {
+    setAssessmentFocused(true);
+    return () => setAssessmentFocused(false);
+  }, [setAssessmentFocused]);
   useEffect(() => {
     if (!emailSending) return;
     const previous = beforeNavigationRef.current;
@@ -560,7 +570,6 @@ export default function ReferralPacketCanvas({
 
   useEffect(() => {
     const referralId = loadedReferral?.id ?? referral?.id;
-    setHasSignedAssessment(false);
     setEmailRecipients("");
     if (!referralId) {
       setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
@@ -571,7 +580,6 @@ export default function ReferralPacketCanvas({
     fetchPipelineJson<AssessmentListResponse>(`/api/referrals/${referralId}/assessments`, { cache: "no-store" })
       .then((payload) => {
         if (cancelled) return;
-        setHasSignedAssessment(payload.assessments.some((assessment) => Boolean(assessment.signed_at)));
         const assessment = payload.assessments[0];
         if (!assessment) return;
         setAssessmentSummary({
@@ -1358,7 +1366,9 @@ export default function ReferralPacketCanvas({
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
-    onWorkspaceLocationChange?.(workspaceLocationForPage(page));
+    onWorkspaceLocationChange?.(page === 1 && loadedReferralRef.current
+      ? { view: "intake", intakeField: "name" }
+      : workspaceLocationForPage(page));
     requestAnimationFrame(() => {
       canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -1368,7 +1378,11 @@ export default function ReferralPacketCanvas({
     if (page === activePage || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.();
-      if (activePage === 1 && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
+      if (activePage === 1 && loadedReferralRef.current) {
+        await preservePendingIntake();
+        await intakeSaveQueueRef.current;
+      }
+      if ((activePage === 1 || activePage === 3) && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
         await openQuestionnaireFromIntake();
       } else {
         openPage(page);
@@ -1775,6 +1789,7 @@ export default function ReferralPacketCanvas({
 
   const openAssignedWork = async () => {
     if (!onOpenAssignedWork || emailSendingRef.current) return;
+    await assessmentNavigationRef.current?.();
     await preservePendingIntake();
     onOpenAssignedWork();
   };
@@ -2086,13 +2101,10 @@ export default function ReferralPacketCanvas({
     permissionReadOnly,
   );
   const { readOnly, historicalReadOnly, steps } = workspacePresentation;
-  const workspaceSteps = steps.flatMap<WorkspaceStep>((step) => {
-    if (step.page === 3 && loadedReferral && !historicalReadOnly) return [{ page: "workflow", label: "Decision" }, step];
-    if (step.page === 3 && !hasSignedAssessment && !assessmentSummary.signedAt) return [];
-    return [step.page === 2 && !assessmentSummary.startedAt && !assessmentSummary.signedAt ? { ...step, label: "Questionnaire" } : step];
-  });
+  const workspaceSteps = trainingAssessmentMode ? savedWorkspaceSteps.filter((step) => step.page !== "workflow") : steps;
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
+  const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const chartPagination = loadedReferral && !historicalReadOnly ? <ChartPageNavigation
     emailPage={displayedPage === "email"}
     onOpenChart={() => void navigatePage(chartPage)}
@@ -2145,14 +2157,14 @@ export default function ReferralPacketCanvas({
         data-testid="packet-workspace"
         inert={draftRecoveryLoading}
         aria-busy={draftRecoveryLoading}
-        className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
+        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""}`}
       >
-        <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header}>
+        <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined}>
           <div className={workspaceFolderStyles.tabRow}>
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
             </h1>
-            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === "email" ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
+            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === "email" || (displayedPage === 1 && loadedReferral) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
 
             <div className={workspaceFolderStyles.actions}>
               {remoteChange && remoteChange.conflicts.length === 0 ? (
@@ -2318,7 +2330,7 @@ export default function ReferralPacketCanvas({
           </section>
         ) : null}
 
-        <div key={displayedPage} className="pipeline-step-enter">
+        <div key={readingAssessment ? "assessment-chart" : displayedPage} className={readingAssessment ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}>
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart" flush>
               <WorkspaceChartFolder>
@@ -2326,7 +2338,7 @@ export default function ReferralPacketCanvas({
               </WorkspaceChartFolder>
             </PacketPage>
           ) : displayedPage === 1 ? (
-          <PacketPage id="packet-page-1" title="Intake" flush>
+          <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
             <IntakeEditScope readOnly={permissionReadOnly}>
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
@@ -2371,7 +2383,7 @@ export default function ReferralPacketCanvas({
             ) : null}
             </IntakeDocumentChecklist>
             <ClientChartFrame label="Referral intake chart">
-              <ClientChartHeader title="Referral intake" actions={chartPage === 1 ? chartPagination : undefined}>
+              <ClientChartHeader title={loadedReferral ? "Referral details" : "Referral intake"} actions={chartPage === 1 ? chartPagination : undefined}>
                 <ChartHeaderCell label="Details captured" value={`${fieldCount} / ${visibleChartFieldKeys.length}`} />
               </ClientChartHeader>
               <div className="min-w-0" onFocusCapture={focusIntakeCell} onBlur={blurIntakeCell}>
@@ -2497,14 +2509,16 @@ export default function ReferralPacketCanvas({
               </div>
 
               <aside aria-label="Intake progress" className="border-t border-[#bfcac5] bg-[#f7faf8]">
-                <ChartCompletionRail
+                {loadedReferral && chartPage === 3 ? <div className="flex justify-end px-4 py-3">
+                  <button type="button" onClick={() => void navigatePage(3)} disabled={isSaving} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">Done</button>
+                </div> : <ChartCompletionRail
                   fieldCount={fieldCount}
                   fieldTotal={visibleChartFieldKeys.length}
                   assessmentSummary={assessmentSummary}
                   continuing={isSaving}
                   hasReferral={Boolean(loadedReferral) || trainingIntakeMode}
                   onContinue={() => void continueToAssessment()}
-                />
+                />}
               </aside>
             </ClientChartFrame>
                 </div>
@@ -2523,7 +2537,8 @@ export default function ReferralPacketCanvas({
               onAddFiles={attachAdditionalFiles}
             />
           ) : displayedPage === "workflow" && loadedReferral ? (
-            <PacketPage id="admission-workflow" title="Decision">
+            <PacketPage id="admission-workflow" title="Decision" flush>
+              <WorkspaceChartFolder>
               <ReferralWorkflowPanel
                 referral={loadedReferral}
                 onDone={onOpenAssignedWork ? openAssignedWork : undefined}
@@ -2534,6 +2549,7 @@ export default function ReferralPacketCanvas({
                 onOpenEmail={() => openPage("email")}
                 onOpenProfile={onOpenProfile}
               />
+              </WorkspaceChartFolder>
             </PacketPage>
           ) : displayedPage === "email" ? (
             <PacketPage id="packet-email" title="Email & packet" flush>
@@ -2553,8 +2569,8 @@ export default function ReferralPacketCanvas({
                 }} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">{emailFinishing ? "Saving..." : "Done"}</button> : null}
               </footer>
             </PacketPage>
-          ) : displayedPage === 2 ? (
-            <PacketPage id="packet-page-2" title="Assessment" flush>
+          ) : readingAssessment ? (
+            <PacketPage id="packet-page-2" title={displayedPage === 3 ? "Chart" : "Assessment"} flush>
                 <AssessmentWorkspace
                   readOnly={permissionReadOnly}
                   referralId={referralWorkspaceId}
@@ -2566,11 +2582,14 @@ export default function ReferralPacketCanvas({
                   assignedAssessorId={loadedReferral?.ownerId}
                   startQuestionnaire={preparingReferralId === referralWorkspaceId}
                   workspaceTitle={workspaceTitle}
+                  chartReview={displayedPage === 3}
+                  chartActions={!permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined}
+                  onOpenChart={() => openPage(3)}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onContinueToWorkflow={() => openPage("workflow")}
-                  onOpenWorkspace={() => openPage(1)}
+                  onOpenWorkspace={() => openPage(3)}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
                   onActiveSectionChange={(section) => {
                     if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section });
@@ -2583,14 +2602,13 @@ export default function ReferralPacketCanvas({
                       referral?: Referral;
                     }>(`/api/referrals/${current.id}/canvas`, { cache: "no-store" });
                     if (canvas.referral) receiveRemoteReferral(canvas.referral, canvas.referral.updatedBy?.name, true);
-                    openPage("workflow");
                   }}
                 />
             </PacketPage>
           ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart" flush>
               <WorkspaceChartFolder>
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} headerActions={chartPagination}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} headerActions={chartPagination} />
               </WorkspaceChartFolder>
             </PacketPage>
           ) : (
@@ -2641,10 +2659,11 @@ export default function ReferralPacketCanvas({
   );
 }
 
-function workspacePageForLocation(location: PipelineWorkspaceLocation): WorkspaceView {
+function workspacePageForLocation(location: PipelineWorkspaceLocation, referralId?: number): WorkspaceView {
   if (location.view === "assessment") return 2;
   if (location.view === "chart") return 3;
   if (location.view === "workflow" || location.view === "email" || location.view === "files" || location.view === "activity") return location.view;
+  if (referralId && !location.intakeField) return 3;
   return 1;
 }
 
@@ -2680,7 +2699,7 @@ function useWorkspaceLocationRouting(
 ) {
   const routedWorkspaceRef = useRef("");
   const routeKey = workspaceRouteKey(referralId, draftKey, location);
-  const routedPage = workspacePageForLocation(location);
+  const routedPage = workspacePageForLocation(location, referralId);
   useEffect(() => {
     if (routedWorkspaceRef.current === routeKey) return;
     routedWorkspaceRef.current = routeKey;
@@ -2708,7 +2727,7 @@ function getWorkspacePresentation(
     readOnly: historicalReadOnly || permissionReadOnly,
     historicalReadOnly,
     usesSourceProfile,
-    steps: usesSourceProfile || historicalReadOnly ? importedWorkspaceSteps : packetSteps,
+    steps: usesSourceProfile || historicalReadOnly ? importedWorkspaceSteps : referral ? savedWorkspaceSteps : packetSteps,
     filesLabel: "Files",
     admissionTitle: usesSourceProfile ? "Admission documents" : "Required for admission",
     admissionDetail: usesSourceProfile
@@ -2756,7 +2775,7 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
 function WorkspaceStageButton({ page, label, number, selected, onOpen }: {
   page: WorkspaceStep["page"]; label: string; number?: number; selected: boolean; onOpen: (page: WorkspaceView) => void;
 }) {
-  return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : page === 3 || !number ? "chart-stage" : undefined}
+  return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : label === "Chart" ? "chart-stage" : undefined}
     onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
     data-folder-stage={page}
     className={workspaceFolderStyles.stageTab}>

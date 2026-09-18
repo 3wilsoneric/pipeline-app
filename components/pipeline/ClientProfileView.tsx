@@ -37,16 +37,17 @@ import {
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
+import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import ClientAssessmentSummary from "@/components/pipeline/ClientAssessmentSummary";
 import {
   IdentityReviewControls,
   IdentitySuggestionControls,
 } from "@/components/pipeline/ClientIdentityReview";
-import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
-import ReadableChartText from "@/components/pipeline/ReadableChartText";
+import ClientMedicalChart, { ChartFacts } from "@/components/pipeline/ClientMedicalChart";
+import { ClientAssessmentRecords } from "@/components/pipeline/ClientAssessmentRecord";
 import folderStyles from "./ClientFolder.module.css";
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
-import { clientChartRecord, clientReferralSections, clientSourceSections, clientAssessmentSections } from "@/lib/pipeline/client-chart-context";
+import { clientChartRecord, clientChartAssessments, clientReferralSections, clientSourceSections } from "@/lib/pipeline/client-chart-context";
 
 export default function ClientProfileView({
   residentKey,
@@ -157,13 +158,15 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
-export function ClientChartRecord({ profile, sourceReferralId, headerActions, children }: {
+export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment }: {
   profile: UnifiedClientProfileResponse;
   sourceReferralId: number;
   headerActions?: ReactNode;
   children?: ReactNode;
+  assessment?: PipelineAssessmentRecord;
 }) {
   return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
+    assessmentRecords={clientChartAssessments(profile, sourceReferralId, assessment)}
     embedded sourceReferralId={sourceReferralId} headerActions={headerActions} additionalContent={children} />;
 }
 
@@ -176,6 +179,7 @@ function ResidentProfile({
   additionalContent,
   sourceReferralId,
   headerActions,
+  assessmentRecords = profile.pipeline.assessments,
 }: {
   profile: UnifiedClientProfileResponse;
   onBack: () => void;
@@ -185,6 +189,7 @@ function ResidentProfile({
   additionalContent?: ReactNode;
   sourceReferralId?: number;
   headerActions?: ReactNode;
+  assessmentRecords?: PipelineAssessmentRecord[];
 }) {
   const client = profile.client;
   const resident = profile.resident;
@@ -257,6 +262,8 @@ function ResidentProfile({
             </ProfileSection>
           ) : null}
 
+          <ClientAssessmentRecords assessments={assessmentRecords} />
+
           {completedAssessments.length > 0 ? (
             <ProfileSection title="Assessments">
               <ClientAssessmentSummary
@@ -302,9 +309,6 @@ function ClientRecordedInformation({ profile }: { profile: UnifiedClientProfileR
   return <>
     {profile.pipeline.referrals.length > 0 ? <ProfileSection title="Referral information">
       <CuratedClientRecord sections={clientReferralSections(profile)} />
-    </ProfileSection> : null}
-    {profile.pipeline.assessments.length > 0 ? <ProfileSection title="Assessment records">
-      <CuratedClientRecord sections={clientAssessmentSections(profile)} />
     </ProfileSection> : null}
     <ClientSourceNotes sections={clientSourceSections(profile)} />
     {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
@@ -407,8 +411,8 @@ function CuratedClientRecord({ sections }: { sections: ClientProfileSection[] })
   return (
     <div className="border-y border-[#d9dfdc]">
       {sections.map((section) => (
-        <section key={section.key} className="grid border-b border-[#d9dfdc] last:border-b-0 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <h3 className="bg-[#f2f6f4] px-4 py-4 text-[11px] font-black uppercase tracking-[0.08em] text-[#244b41] lg:px-5">
+        <section key={section.key} className="border-b border-[#d9dfdc] last:border-b-0">
+          <h3 className="bg-[#f5f7f6] px-4 py-3 text-[16px] font-bold text-[#244b41] lg:px-5">
             {section.label}
           </h3>
           <FactGrid facts={section.facts} className="px-4 py-4 lg:px-6" />
@@ -1220,8 +1224,8 @@ function ProfileSection({ title, detail, children }: { title: string; detail?: s
   return (
     <section className="border border-[#cfd7d2] bg-white px-5 py-5 md:px-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#d9dfdc] pb-3">
-        <h2 className="text-[15px] font-black tracking-[-0.01em]">{title}</h2>
-        {detail ? <span className="text-[11px] text-[#737373]">{detail}</span> : null}
+        <h2 className="text-[19px] font-bold tracking-[-0.01em]">{title}</h2>
+        {detail ? <span className="text-[13px] text-[#59675f]">{detail}</span> : null}
       </div>
       <div className="pt-5">{children}</div>
     </section>
@@ -1265,25 +1269,11 @@ function profileIdentity(profile: UnifiedClientProfileResponse) {
 }
 
 function FactGrid({ facts, className = "" }: { facts: ClientProfileFact[]; className?: string }) {
-  return (
-    <div className={`grid gap-x-7 gap-y-5 sm:grid-cols-2 2xl:grid-cols-3 ${className}`}>
-      {facts.map((item) => <DataPoint key={item.label} label={item.label} value={item.value} />)}
-    </div>
-  );
+  return <ChartFacts facts={facts} className={className} />;
 }
 
 function EmptyChartMessage({ children }: { children: React.ReactNode }) {
   return <div className="border-l-2 border-[#d9d9d9] bg-[#f8f8f8] px-4 py-3 text-[12px] text-[#595959]">{children}</div>;
-}
-
-function DataPoint({ label, value }: { label: string; value: string | number | null }) {
-  const display = typeof value === "number" ? String(value) : value?.trim() || "Not reported";
-  const present = display !== "Not reported";
-  return <div className={chartFactLayout(display)}><div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#68706c]">{label}</div><div className={`mt-1.5 whitespace-pre-line break-words text-[14px] font-semibold leading-5 ${present ? "text-[#111111]" : "text-[#9a6a18]"}`}><ReadableChartText value={display} /></div></div>;
-}
-
-function chartFactLayout(value: string) {
-  return value.length > 160 ? "sm:col-span-2 2xl:col-span-3" : undefined;
 }
 
 

@@ -1,4 +1,18 @@
 .surface.surface { min-height: 0; padding: 0 8px 8px; }
+.workspaceFile, .workspaceFile > div, .workspacePaper { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+.workspaceFile > div { padding: 7px; }
+.workspacePaper { padding: 0; background: #fff; }
+.workspacePaper footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
+.workspacePaper > footer { border-top: 1px solid #d8d8cb; }
+@media (min-width: 640px) {
+  .workspaceFile, .workspaceFile > div, .workspacePaper { flex: 1 0 auto; min-height: auto; overflow: visible; }
+  .workspacePaper > div, .workspacePaper main { min-height: auto; overflow: visible; }
+  .workspacePaper main { background: #fff; }
+  .workspacePaper > footer { position: sticky; bottom: 0; z-index: 10; padding-bottom: max(8px, env(safe-area-inset-bottom)); box-shadow: 0 -3px 12px #203a3210; }
+}
+@media (max-width: 639px) {
+  .workspacePaper footer .fileDetails > summary { font-size: 12px; }
+}
 .beginDialog { width: min(460px, calc(100% - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 24px; overflow-y: auto; border: 1px solid #d3d9d7; border-radius: 12px; background: #fff; color: #293630; box-shadow: 0 20px 70px #172a3029; }
 .beginDialog::backdrop { background: #25303845; }
 .beginDialog h2 { font-size: 22px; font-weight: 650; }

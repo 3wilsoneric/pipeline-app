@@ -33,7 +33,7 @@ export default function ClientMedicalChart({
         </ChartGrid>
       </ChartBand>
 
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#bfcac5] bg-[#f7faf8] px-5 py-3.5 text-[10px] leading-4 text-[#5f6b66] sm:px-7">
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#d9e0dc] bg-[#f8faf9] px-5 py-3.5 text-[12px] leading-5 text-[#5f6b66] sm:px-7">
         <span>Missing means the field was not documented in the available record.</span>
         {chart.assessmentDate ? <span>Latest assessment {formatDate(chart.assessmentDate)}</span> : null}
       </footer>
@@ -42,15 +42,15 @@ export default function ClientMedicalChart({
 }
 
 export function ClientChartFrame({ label, children }: { label: string; children: React.ReactNode }) {
-  return <article aria-label={label} className="overflow-hidden border border-[#aebbb5] bg-white">{children}</article>;
+  return <article aria-label={label} className="min-w-0 overflow-hidden border border-[#d4dcd8] bg-white">{children}</article>;
 }
 
 export function ClientChartHeader({ title, children, actions }: { title: string; children: React.ReactNode; actions?: React.ReactNode }) {
-  return <header className="grid grid-cols-1 border-b-2 border-[#aebbb5] bg-[#f3f7f5] sm:grid-cols-[1fr_auto_auto]">
+  return <header className="grid grid-cols-1 border-b border-[#d4dcd8] bg-[#f5f7f6] sm:grid-cols-[1fr_auto_auto]">
     <div className={`flex min-w-0 flex-wrap items-center justify-between gap-x-4 px-5 sm:px-6 ${actions ? "py-1" : "py-3.5"}`}>
       <div className="flex items-center gap-2.5">
       <span aria-hidden="true" className="h-6 w-1 bg-[#2f8475]" />
-      <h1 className="text-[16px] font-black tracking-[-0.02em] text-[#1d2924] sm:text-[17px]">{title}</h1>
+      <h1 className="text-[21px] font-bold tracking-[-0.02em] text-[#1d2924]">{title}</h1>
       </div>
       {actions}
     </div>
@@ -61,8 +61,8 @@ export function ClientChartHeader({ title, children, actions }: { title: string;
 export function ChartHeaderCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 border-t border-[#c3cec9] px-4 py-2.5 sm:border-l sm:border-t-0 sm:px-5">
-      <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#66736d]">{label}</div>
-      <div className="mt-0.5 truncate text-[11px] font-bold text-[#28332e]" title={value}>{value}</div>
+      <div className="text-[12px] font-semibold text-[#59675f]">{label}</div>
+      <div className="mt-0.5 break-words text-[14px] font-semibold text-[#28332e]">{value}</div>
     </div>
   );
 }
@@ -70,9 +70,9 @@ export function ChartHeaderCell({ label, value }: { label: string; value: string
 export function ChartBand({ title, detail, children }: { title: string; detail?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section aria-labelledby={`client-chart-${slug(title)}`}>
-      <h2 id={`client-chart-${slug(title)}`} className="border-y-2 border-[#aebbb5] bg-[#eaf1ee] px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.09em] text-[#244b41] sm:px-7 sm:text-[12px]">
+      <h2 id={`client-chart-${slug(title)}`} className="flex flex-wrap items-baseline justify-between gap-2 border-y border-[#d9e0dc] bg-[#f5f7f6] px-5 py-3 text-[17px] font-bold text-[#29483d] sm:px-7">
         {title}
-        {detail ? <span className="float-right ml-4 text-[10px] font-bold normal-case tracking-normal text-[#5f6b66]">{detail}</span> : null}
+        {detail ? <span className="text-[13px] font-medium text-[#5f6b66]">{detail}</span> : null}
       </h2>
       {children}
     </section>
@@ -91,22 +91,35 @@ function ChartGrid({
   const layout = columns === "identity"
     ? "grid-cols-2 lg:grid-cols-6"
     : columns === "priorities"
-      ? "md:grid-cols-3"
-      : "grid-cols-2 lg:grid-cols-3";
-  return <dl aria-label={ariaLabel} className={`grid gap-px bg-[#bfcac5] ${layout}`}>{children}</dl>;
+      ? "lg:grid-cols-2"
+      : "sm:grid-cols-2 lg:grid-cols-3";
+  return <dl aria-label={ariaLabel} className={`grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
 function ChartCell({ fact, multiline = false }: { fact: ClientChartFact; multiline?: boolean }) {
   const missing = fact.value === "Not documented";
-  const span = fact.span === "wide" ? "col-span-2" : "";
+  const span = fact.span === "wide" ? "col-span-2" : multiline && (fact.value.length > 160 || fact.label === "Medications on record") ? "lg:col-span-2" : "";
   return (
-    <div data-chart-field={fact.label} className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${multiline ? "md:min-h-[104px]" : ""} ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
-      <dt className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{fact.label}</dt>
-      <dd className={`mt-1.5 break-words font-bold leading-6 ${fact.label === "Client" ? "text-[22px] tracking-[-0.025em] sm:text-[24px]" : multiline ? "text-[14px] sm:text-[15px]" : "text-[14px]"} ${multiline ? "whitespace-pre-line" : ""} ${missing ? "text-[#966715]" : "text-[#18211d]"}`}>
+    <div data-chart-field={fact.label} className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
+      <dt className="text-[13px] font-semibold leading-5 text-[#59675f]">{fact.label}</dt>
+      <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? "text-[#865e20]" : "text-[#18211d]"}`}>
         {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}
       </dd>
     </div>
   );
+}
+
+export function ChartFacts({ facts, className = "" }: { facts: { label: string; value: string | number | null }[]; className?: string }) {
+  return <dl className={`grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 ${className}`}>
+    {facts.map((fact, index) => {
+      const value = String(fact.value ?? "").trim();
+      const narrative = value.length > 160 || value.includes("\n");
+      return <div key={`${index}:${fact.label}`} data-chart-fact={fact.label} className={`min-w-0 ${narrative ? "sm:col-span-2" : ""}`}>
+        <dt className="text-[13px] font-semibold leading-5 text-[#59675f]">{fact.label}</dt>
+        <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? "text-[#18211d]" : "text-[#865e20]"}`}><ReadableChartText value={value || "Not reported"} /></dd>
+      </div>;
+    })}
+  </dl>;
 }
 
 function formatDate(value: string) {

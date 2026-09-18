@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, Suspense, useRef, useState } from "react";
+import { ReactNode, Suspense, useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
@@ -40,22 +40,32 @@ export default function PipelineAppShell({
 }
 
 function AppNavigation({ focused, searchOpen }: { focused: boolean; searchOpen: boolean }) {
+  const navigationRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [previousFocused, setPreviousFocused] = useState(focused);
   if (focused !== previousFocused) {
     setPreviousFocused(focused);
     setOpen(false);
   }
+  const expanded = open || searchOpen;
+  useEffect(() => {
+    if (!focused || !open) return;
+    const dismissOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !navigationRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    return () => document.removeEventListener("pointerdown", dismissOutside);
+  }, [focused, open]);
   return (
-    <div data-assessment-app-navigation={focused ? "collapsed" : "standard"} className={`relative shrink-0 ${focused ? "z-[100] h-0" : "z-10"}`}
-      onPointerEnter={(event) => { if (focused && event.pointerType === "mouse" && window.matchMedia("(min-width: 960px) and (hover: hover) and (pointer: fine)").matches) setOpen(true); }}
-      onPointerLeave={(event) => { if (focused && event.pointerType === "mouse" && window.matchMedia("(min-width: 960px) and (hover: hover) and (pointer: fine)").matches) setOpen(false); }}
+    <div ref={navigationRef} data-assessment-app-navigation={focused ? "collapsed" : "standard"} className={`relative shrink-0 ${focused ? `z-[100] ${expanded ? "" : "h-0"}` : "z-10"}`}
+      onPointerEnter={(event) => { if (focused && event.pointerType === "mouse") setOpen(true); }}
+      onPointerLeave={(event) => { if (focused && event.pointerType === "mouse" && !event.currentTarget.contains(document.activeElement)) setOpen(false); }}
       onFocusCapture={() => { if (focused) setOpen(true); }}
       onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}
       onKeyDown={(event) => { if (focused && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (event.target instanceof HTMLElement) event.target.blur(); setOpen(false); } }}>
-      {focused ? <button type="button" aria-label="Show app navigation" title="App navigation" aria-expanded={open || searchOpen} aria-controls="pipeline-app-navigation" onClick={() => setOpen(true)} className="absolute left-2 top-1.5 z-20 flex h-11 w-11 items-center justify-center rounded bg-white text-[#315d41] hover:bg-[#edf3f2] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><ChevronDown size={16} aria-hidden="true" /></button> : null}
-      {focused ? <div data-assessment-nav-edge aria-hidden="true" className="absolute inset-x-0 top-0 h-1" /> : null}
-      <div id="pipeline-app-navigation" className={focused ? `absolute inset-x-0 top-0 transition-transform duration-150 motion-reduce:transition-none focus-within:translate-y-0 focus-within:opacity-100 focus-within:pointer-events-auto ${open || searchOpen ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"}` : "relative"}>
+      {focused ? <button type="button" aria-label="Show app navigation" title="App navigation" aria-expanded={expanded} aria-controls="pipeline-app-navigation" onClick={() => setOpen(true)} className={`absolute left-2 top-1.5 flex h-11 w-11 items-center justify-center rounded bg-white text-[#315d41] hover:bg-[#edf3f2] focus-visible:outline-2 focus-visible:outline-[#0f8b73] ${expanded ? "-z-10" : "z-20"}`}><ChevronDown size={16} aria-hidden="true" /></button> : null}
+      {focused && !expanded ? <div data-assessment-nav-edge aria-hidden="true" className="absolute inset-x-0 top-0 h-3" /> : null}
+      <div id="pipeline-app-navigation" inert={focused && !expanded} className={focused ? `inset-x-0 top-0 transition-transform duration-150 motion-reduce:transition-none ${expanded ? "relative translate-y-0 opacity-100" : "absolute pointer-events-none -translate-y-full opacity-0"}` : "relative"}>
         <Suspense fallback={<div aria-hidden="true" className="h-[68px] shrink-0 bg-white sm:h-[74px] xl:h-[82px]" />}>
           <PipelineHeader />
         </Suspense>
