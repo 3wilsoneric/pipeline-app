@@ -68,6 +68,54 @@ async function mockLayout(page: Page, moduleIds: string[] = defaults) {
   return writes;
 }
 
+for (const width of [1440, 390]) {
+  test(`keeps assigned work open without a Board heading or saved Home module at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 950 });
+    await mockLayout(page, []);
+    let assigned = false;
+    await page.route("**/api/operations/home", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      const items = assigned ? [{
+        referral_id: 910201, client_name: "Avery Assigned", community: "San Pablo", stage: "New",
+        workflow_status: "ready_to_schedule", flow_state: "ready_to_schedule", assessment_state: "not_started",
+        outcome_state: "pending", assignment_state: "assigned", document_state: "partial", profile_state: "partial",
+        assessment_is_reassessment: false, owner: payload.viewer.name, priority: "standard", categories: [],
+        primary_category: "follow_up", next_action: "Schedule the assessment", blockers: [], missing_data: [],
+        urgency: "normal", due_at: null, last_activity_at: "2026-09-17T15:00:00Z", age_hours: 1,
+        completion_pct: 40, missing_document_count: 1, location: { view: "intake" },
+      }] : [];
+      payload.scope = "personal";
+      payload.unavailable_sections = [];
+      payload.workflow.active_items = items;
+      payload.workflow.board_items = items;
+      payload.workflow.active_total = items.length;
+      payload.continuity.new_assignments = [];
+      await route.fulfill({ response, json: payload });
+    });
+    await page.goto("/");
+    const work = page.getByRole("region", { name: "Current work", exact: true });
+    await expect(work).toContainText("No active referral work");
+    assigned = true;
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    const card = work.getByRole("button", { name: "Open Avery Assigned", exact: true });
+    await expect(card).toBeVisible();
+    await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
+    await expect(work.getByRole("heading", { name: "Board", exact: true })).toHaveCount(0);
+    await expect(work.getByText(/^(Team referrals|Assigned to you)$/)).toHaveCount(0);
+    await expect(work.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
+    await page.goto("/?editHome=1");
+    await expect(card).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(Remove Board from Home|Move Board)$/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.reload();
+    await expect(card).toBeVisible();
+    await work.screenshot({ path: testInfo.outputPath(`always-open-work-${width}.png`) });
+    await card.click();
+    await expect(page).toHaveURL(/referralId=910201/);
+  });
+}
+
 test("separates Home modules with light emerald surfaces and responsive spacing", async ({ page }, testInfo) => {
   await mockLayout(page, completeModuleSet);
   await page.goto("/");
