@@ -14,8 +14,8 @@ async function directory(page: Page, count = 3) {
   await page.goto("/?screen=profiles");
   await page.getByRole("button", { name: /file cabinet$/ }).first().click();
   await expect(page.getByRole("button", { name: "Open profile for Avery Example", exact: true })).toBeVisible();
-  await expect.poll(() => page.getByRole("dialog").evaluate((node) => node.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
-  return page.getByRole("dialog").getByRole("button", { name: /^Open profile for/ });
+  await expect.poll(() => page.getByRole("region", { name: /file cabinet$/ }).evaluate((node) => node.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  return page.getByRole("region", { name: /file cabinet$/ }).getByRole("button", { name: /^Open profile for/ });
 }
 
 test("client folders retain their dimensions and fan like Home for pointer and keyboard", async ({ page }, testInfo) => {
