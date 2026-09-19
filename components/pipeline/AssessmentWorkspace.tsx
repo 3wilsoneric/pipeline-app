@@ -1557,8 +1557,7 @@ export default function AssessmentWorkspace({
     );
   }
 
-  const assessmentDetails = <>
-    {showSecondaryActions ? <>
+  const assessmentDetails = showSecondaryActions ? <>
     {!preparing && !selected.signed_at ? recommendationControl?.(selected.assessment_id, setIsRecommendationSaving) : null}
     {!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button> : null}
     {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} disabled={isBusy || isClosing}><Play size={15} />Begin assessment</button> : null}

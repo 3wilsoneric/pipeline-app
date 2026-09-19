@@ -32,8 +32,10 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   const email = page.getByRole("region", { name: "Email and referral packet", exact: true });
   const stages = page.getByRole("navigation", { name: "Workspace stages" });
   const finishTab = stages.getByRole("button", { name: /Finish & send/ });
+  const stagePicker = stages.getByRole("combobox", { name: "Workspace view", exact: true });
   await expect(email).toBeVisible();
-  await expect(finishTab).toHaveAttribute("aria-current", "page");
+  if (width < 640) await expect(stagePicker.locator("option:checked")).toHaveText("Finish & send");
+  else await expect(finishTab).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("navigation", { name: "Chart pages" })).toHaveCount(0);
   await expect(email).toContainText("Review the handoff summary");
   const folder = page.getByTestId("workspace-chart-folder");
@@ -60,26 +62,44 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   const payload = await response.json();
   const { user } = await (await page.request.get("/api/auth/me")).json();
   expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", []));
-  await email.getByRole("textbox", { name: "Authorized recipients" }).fill("care@example.invalid");
+  await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+  const recipients = email.getByRole("textbox", { name: "Authorized recipients" });
+  await recipients.click();
+  await expect(recipients).toBeFocused();
+  await recipients.fill("care@example.invalid");
+  await expect(recipients).toHaveValue("care@example.invalid");
   await email.getByRole("button", { name: "Manage files", exact: true }).click();
   await expect(page).toHaveURL(/workspaceView=files/);
-  await stages.getByRole("button", { name: /Chart/ }).click();
+  if (width < 640) await stagePicker.selectOption({ label: "Chart" });
+  else await stages.getByRole("button", { name: /Chart/ }).click();
   const chart = page.getByRole("article", { name: "Referral chart", exact: true });
   await expect(chart).toBeVisible();
   await expect(folder.getByRole("button", { name: "New referral", exact: true })).toHaveCount(0);
   const chartFolder = page.getByTestId("assessment-client-folder");
   expect(Math.abs((await chartFolder.boundingBox())!.y - (await header.boundingBox())!.y - (await header.boundingBox())!.height)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: info.outputPath(`flush-chart-${width}.png`), animations: "disabled" });
-  await finishTab.focus();
-  await page.keyboard.press("Enter");
+  if (width < 640) await stagePicker.selectOption({ label: "Finish & send" });
+  else {
+    await finishTab.focus();
+    await page.keyboard.press("Enter");
+  }
   await expect(email.getByRole("textbox", { name: "Authorized recipients" })).toHaveValue("care@example.invalid");
-  await stages.getByRole("button", { name: /Chart/ }).click();
+  if (width < 640) await stagePicker.selectOption({ label: "Chart" });
+  else await stages.getByRole("button", { name: /Chart/ }).click();
   await expect(page).toHaveURL(/workspaceStage=chart/);
-  await expect(stages.getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
-  await finishTab.click();
+  if (width < 640) {
+    await expect(stagePicker.locator("option:checked")).toHaveText("Chart");
+    await stagePicker.selectOption({ label: "Finish & send" });
+  } else {
+    await expect(stages.getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
+    await finishTab.click();
+  }
   await expect(page).toHaveURL(/workspaceView=email/);
   await expect(email).toBeVisible();
   await page.reload();
+  await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   await expect(email).toBeVisible();
   await expect(preview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

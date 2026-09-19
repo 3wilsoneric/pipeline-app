@@ -8,7 +8,18 @@ for (const width of [1440, 834, 390]) {
     const name = `Example Jamie ${randomUUID().replace(/[^a-z]/g, "")}`;
     await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
     await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
-    await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button")).toHaveText(["Intake"]);
+    const stages = page.getByRole("navigation", { name: "Workspace stages" });
+    const stagePicker = stages.getByRole("combobox", { name: "Workspace view", exact: true });
+    const expectStage = async (label: string) => {
+      if (width < 640) await expect(stagePicker.locator("option:checked")).toHaveText(label);
+      else await expect(stages.getByRole("button", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
+    };
+    const openStage = async (label: string) => {
+      if (width < 640) await stagePicker.selectOption({ label });
+      else await stages.getByRole("button", { name: label, exact: true }).click();
+    };
+    if (width < 640) await expect(stagePicker.locator(":scope > option")).toHaveText(["Intake"]);
+    else await expect(stages.getByRole("button")).toHaveText(["Intake"]);
     const intake = page.getByTestId("intake-client-folder");
     await intake.locator('[data-workspace-field="name"] input').fill(name);
     await intake.locator('[data-workspace-field="email"] input').fill("example@example.invalid");
@@ -22,16 +33,16 @@ for (const width of [1440, 834, 390]) {
     expect(referral.name).toContain("Example");
     expect(referral.community).toBe("San Pablo");
     expect(referral.email).toBe("example@example.invalid");
-    const stages = page.getByRole("navigation", { name: "Workspace stages" });
-    await expect(stages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
-    await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+    if (width < 640) await expect(stagePicker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
+    else await expect(stages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
+    await expectStage("Chart");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("San Pablo");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true }).getByTestId("client-identity-title")).not.toHaveText(/Not documented/);
     expect((await (await page.request.get(`/api/referrals/${referralId}/assessments`)).json()).assessments).toHaveLength(0);
 
     // Referral details are an editor in this same file, not an Intake stage left behind.
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
-    await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+    await expectStage("Chart");
     await intake.locator('[data-workspace-field="email"] input').fill("updated@example.invalid");
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
@@ -39,10 +50,10 @@ for (const width of [1440, 834, 390]) {
     await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
     await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}`);
     await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
-    await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+    await expectStage("Chart");
     await page.screenshot({ path: info.outputPath(`living-chart-${width}.png`) });
 
-    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
+    await openStage("Assessment");
     await expect(page.locator("[data-assessment-view]")).toBeVisible();
     const list = await (await page.request.get(`/api/referrals/${referralId}/assessments`)).json();
     expect(list.assessments).toHaveLength(1);
@@ -69,23 +80,25 @@ for (const width of [1440, 834, 390]) {
     }
     const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
     await expect(review).toContainText("Synthetic conversation completed");
-    await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+    await expectStage("Assessment");
     await expect(page).toHaveURL(/assessmentMode=review/);
     const reviewUrl = page.url();
     await page.reload();
     await expect(review.getByRole("heading", { name: "Review & sign", exact: true })).toBeVisible();
-    await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+    await expectStage("Assessment");
     await page.screenshot({ path: info.outputPath(`assessment-review-${width}.png`), animations: "disabled" });
     await review.getByRole("button", { name: "Back to questions", exact: true }).click();
     await expect(page).not.toHaveURL(/assessmentMode=/);
     expect(new URL(page.url()).searchParams.get("assessmentSection")).toBe(new URL(reviewUrl).searchParams.get("assessmentSection"));
     await page.goto(reviewUrl);
-    await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+    // A native select does not navigate when its current option is reselected.
+    if (width < 640) await openStage("Chart");
+    await openStage("Assessment");
     await expect(page).not.toHaveURL(/assessmentMode=/);
     await page.goto(reviewUrl);
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
-    await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
+    await expectStage("Decision");
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(decision).toBeVisible();
     await page.screenshot({ path: info.outputPath(`decision-after-signing-${width}.png`) });
@@ -94,14 +107,14 @@ for (const width of [1440, 834, 390]) {
     page.once("dialog", (dialog) => dialog.accept());
     await decision.getByRole("button", { name: "Record decision", exact: true }).click();
     await expect(decision.getByLabel("Admission date", { exact: true })).toBeVisible();
-    await stages.getByRole("button", { name: /Chart$/ }).click();
+    await openStage("Chart");
     await expect(page.getByTestId("profile-workspace")).toContainText("Synthetic end-to-end example, not a clinical decision.");
     await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
     await decision.getByLabel("Admission date", { exact: true }).fill("2026-10-01");
     let mailRequests = 0;
     page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) mailRequests++; });
     await decision.getByRole("button", { name: "Continue to finish & send", exact: true }).click();
-    await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
+    await expectStage("Finish & send");
     await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
     await expect(page.getByRole("note")).toContainText("Example only. No email will be sent.");
