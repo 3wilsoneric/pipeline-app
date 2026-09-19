@@ -158,12 +158,10 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
           data-platform-page-active="pipeline"
           className={sidebarStyles.home}
         >
+          <PipelineLogoMark size={32} />
+          <span className={sidebarStyles.brandDivider} data-brand-divider aria-hidden="true" />
           <span className={sidebarStyles.brandAlamo}>
             <Image src={toPipelinePath("/brand/alamo-health-management.png")} alt="Alamo Health Management" width={774} height={206} unoptimized draggable={false} className={sidebarStyles.brandAlamoImage} />
-          </span>
-          <span className={sidebarStyles.brandProduct} aria-hidden="true">
-            <PipelineLogoMark size={32} />
-            <span className={sidebarStyles.brandName}>Pipeline</span>
           </span>
         </button>
       </div>
