@@ -16,7 +16,7 @@ async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
       assessment_state: index === 2 ? "scheduled" : "in_progress", outcome_state: index === 5 ? "accepted" : "pending",
       assignment_state: "assigned", document_state: "partial", profile_state: "partial", assessment_is_reassessment: false,
       owner: "Example Assessor", priority: "standard", categories: [], primary_category: "follow_up", next_action: actions[index],
-      blockers: [], missing_data: [], urgency: "normal", due_at: null, last_activity_at: "2026-09-17T15:00:00Z",
+      blockers: [], missing_data: [], urgency: "normal", due_at: null, last_activity_at: "2026-09-17T15:00:00Z", received_at: "2026-09-17T15:00:00Z",
       age_hours: 1, completion_pct: 40, missing_document_count: index === 0 ? 2 : 0, location: { view: index < 2 ? "intake" : "assessment" },
     }));
     payload.scope = scope;
@@ -36,7 +36,8 @@ async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
     await route.fulfill({ response, json: payload });
   });
   await page.goto("/");
-  await expect(page.locator("[data-board-card]")).toHaveCount(6);
+  // The active board excludes the sixth fixture's completed admission.
+  await expect(page.locator("[data-board-card]")).toHaveCount(5);
   await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
 }
@@ -69,7 +70,7 @@ for (const width of [1440, 1024, 437, 390]) {
     const folderTab = firstCard.locator('[data-folder-name]');
     const folderBody = firstCard.locator('[data-folder-body]');
     await expect(folderTab).toHaveText("Taylor Rivera");
-    await expect(folderTab).toHaveCSS("font-size", "15px");
+    await expect(folderTab).toHaveCSS("font-size", "17px");
     await expect(folderTab).toHaveCSS("background-image", /linear-gradient/);
     await expect(folderBody).toHaveCSS("background-image", /linear-gradient/);
     await expect(folderBody.locator(':scope > span')).toHaveCSS("background-color", "rgb(255, 255, 255)");
@@ -78,7 +79,7 @@ for (const width of [1440, 1024, 437, 390]) {
     expect(tabBox.y + tabBox.height - bodyBox.y).toBe(1);
     const statusTab = firstCard.locator('[data-board-status]');
     await expect(statusTab).toHaveText("Referral created");
-    await expect(statusTab).toHaveCSS("font-size", "11px");
+    await expect(statusTab).toHaveCSS("font-size", "12px");
     const statusBox = (await statusTab.boundingBox())!;
     expect(statusBox.x).toBeGreaterThan(tabBox.x + tabBox.width);
     expect(statusBox.height).toBeLessThan(tabBox.height);
@@ -107,7 +108,7 @@ for (const width of [1440, 1024, 437, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`home-${width}.png`) });
     await expect(page.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
-    await expect(page.locator("[data-board-card]")).toHaveCount(6);
+    await expect(page.locator("[data-board-card]")).toHaveCount(5);
     if (width < 1024) {
       for (const stage of ["in_progress", "decision", "admitted", "received"]) {
         await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(stage);
@@ -167,15 +168,15 @@ for (const width of [1440, 390]) {
       const first = stack.locator("[data-board-card]").first();
       const last = stack.locator("[data-board-card]").last();
       await expect(first).toContainText("Referral #910101");
-      await expect(first).toContainText("Updated Sep 17, 2026");
+      await expect(first).toContainText("Received Sep 17, 2026");
       await expect(first.locator("[data-folder-details]")).toContainText("Documents needed2");
-      await expect(last.locator("[data-folder-name]")).toHaveCSS("font-weight", "800");
+      await expect(last.locator("[data-folder-name]")).toHaveCSS("font-weight", "700");
       await expect(last.locator("[data-board-status]")).toHaveCSS("font-weight", "700");
       await expect(last.locator("[data-folder-details]")).toContainText("CommunitySan Pablo");
       await expect(last.locator("[data-folder-details]")).toContainText("File progress40% complete");
       await expect(last.locator("[data-folder-details]")).toContainText("Documents needed0");
-      await expect(last.getByText("Assessor", { exact: true })).toHaveCount(scope === "team" ? 1 : 0);
-      if (scope === "team") await expect(last).toContainText("Example Assessor");
+      await expect(last.getByText("Assessor", { exact: true })).toHaveCount(1);
+      await expect(last).toContainText("Example Assessor");
       await last.scrollIntoViewIfNeeded();
       expect(await last.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       const body = last.locator("[data-folder-body]");
@@ -205,7 +206,7 @@ test("board folders fan halfway on hover and keyboard focus without fetching or 
   const first = cards.first();
   const second = cards.nth(1);
   await stack.scrollIntoViewIfNeeded();
-  await page.mouse.move(1, 1);
+  await page.mouse.move(page.viewportSize()!.width - 1, 1);
   const gap = async () => (await second.boundingBox())!.y - (await first.boundingBox())!.y;
   const height = (await first.boundingBox())!.height;
   await expect.poll(gap).toBeLessThan(height * 0.35);
@@ -220,7 +221,7 @@ test("board folders fan halfway on hover and keyboard focus without fetching or 
   const actionBox = (await action.boundingBox())!;
   expect(actionBox.y + actionBox.height).toBeLessThan((await second.boundingBox())!.y);
   await page.screenshot({ path: testInfo.outputPath("folder-stack-expanded.png") });
-  await page.mouse.move(1, 1);
+  await page.mouse.move(page.viewportSize()!.width - 1, 1);
   await expect.poll(gap).toBe(compactGap);
   await expect(action.locator("..")).toHaveCSS("opacity", "0");
   await first.focus();
@@ -249,7 +250,7 @@ test("hovering a lower folder keeps the intended client under the pointer", asyn
   const box = (await tab.boundingBox())!;
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
-  await page.mouse.move(1, y);
+  await page.mouse.move(page.viewportSize()!.width - 1, y);
   await page.mouse.move(x, y);
   await page.locator('[data-board-stage="received"]').evaluate(async (element) => {
     await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));

@@ -2895,23 +2895,21 @@ function WorkspaceSaveControl({
       aria-busy={saving}
       className={workspaceFolderStyles.createTab}
     >
-      <Icon size={15} aria-hidden="true" className={saving ? "motion-safe:animate-spin" : undefined} />
-      <span className="hidden sm:inline">{control.expandedLabel}</span>
-      <span className="sm:hidden">{control.compactLabel}</span>
+      <Icon size={20} aria-hidden="true" className={saving ? "motion-safe:animate-spin" : undefined} />
+      <span>{control.expandedLabel}</span>
     </button>
   );
 }
 
 function workspaceSaveControlState(saving: boolean, hasReferral: boolean, hasChanges: boolean, blocked: boolean, retry: boolean) {
   const mode = hasReferral
-    ? { label: "Retry saving", compactLabel: "Retry", busyLabel: "Saving...", target: undefined }
-    : { label: "Create referral", compactLabel: "Create", busyLabel: "Creating...", target: "create-workspace" };
+    ? { label: "Retry saving", busyLabel: "Saving...", target: undefined }
+    : { label: "Create referral", busyLabel: "Creating...", target: "create-workspace" };
   return {
     ...mode,
     visible: !hasReferral || retry,
     disabled: saving || blocked || (hasReferral && !hasChanges),
     expandedLabel: saving ? mode.busyLabel : mode.label,
-    compactLabel: saving ? "Working..." : mode.compactLabel,
   };
 }
 

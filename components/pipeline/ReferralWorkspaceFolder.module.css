@@ -1,5 +1,6 @@
 .header {
   --folder-edge: #cbbd9d;
+  --folder-fill: #ede4d0;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -9,37 +10,41 @@
 .tabRow {
   display: flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  padding-top: 6px;
+  padding-top: 8px;
   border-bottom: 1px solid var(--folder-edge);
 }
 
 .identity {
   display: flex;
   align-items: center;
-  flex: 0 1 270px;
+  flex: 0 1 290px;
   min-width: 110px;
-  min-height: 51px;
+  min-height: 58px;
   margin: 0 0 -1px;
   padding: 7px 10px 8px;
   border: 1px solid var(--folder-edge);
   border-bottom-color: #ede4d0;
-  border-radius: 8px 12px 0 0;
-  background: linear-gradient(#f4eddc, #ede4d0);
-  box-shadow: inset 0 1px 0 #fff9;
+  border-radius: 10px 18px 0 0;
+  background: linear-gradient(#f9f3e5, var(--folder-fill));
+  box-shadow: inset 0 1px 0 #fffc, 2px -2px 4px #493b2010;
 }
 
 .nameLabel {
   overflow: hidden;
   width: 100%;
-  padding: 4px 9px;
+  padding: 5px 10px;
   border: 1px solid #d8d2c4;
-  background: #fffefb;
+  border-radius: 2px;
+  background: linear-gradient(#fff, #fffdf8);
+  box-shadow: 0 1px 1px #56472b12;
   color: #252a25;
-  font-size: 16px;
-  font-weight: 750;
-  line-height: 20px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: -.018em;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -75,8 +80,10 @@
   border-radius: 8px 10px 0 0;
   background: #f3f5f4;
   color: #4b5652;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 650;
+  text-align: center;
+  letter-spacing: -.015em;
   white-space: nowrap;
   box-shadow: inset 0 1px 0 #fff9;
   transition: background-color 120ms ease;
@@ -89,13 +96,14 @@
   --tab-active: #d1e9db;
   position: relative;
   z-index: 1;
-  min-height: 46px;
-  padding-inline: 22px;
-  font-size: 14px;
+  min-height: 50px;
+  padding-inline: 24px;
+  font-size: 17px;
   border-color: var(--tab-edge);
   border-top: 2px solid var(--tab-ink);
-  border-radius: 10px 14px 0 0;
-  background: linear-gradient(#ffffff38, #ffffff00), var(--tab-fill);
+  border-radius: 10px 18px 0 0;
+  background: linear-gradient(120deg, #ffffff60, #ffffff00 65%, #162f2310), var(--tab-fill);
+  box-shadow: inset 0 1px 0 #ffffffbf, 3px -1px 4px #263e3214;
   color: var(--tab-ink);
   transform-origin: center bottom;
   transition: transform 140ms ease, background-color 120ms ease;
@@ -127,9 +135,9 @@
 .stageTab[aria-current="page"] {
   z-index: 3;
   background-color: var(--tab-active);
-  font-weight: 750;
-  transform: scale(1.035, 1.1);
-  box-shadow: inset 0 1px 0 #ffffffb3, 0 -2px 7px #263e3214;
+  font-weight: 700;
+  transform: scale(1.025, 1.1);
+  box-shadow: inset 0 1px 0 #ffffffd9, 3px -2px 6px #263e3224;
 }
 
 .stageTab:hover { background-color: var(--tab-active); }
@@ -137,16 +145,25 @@
 .stageNumber { font-size: 11px; font-weight: 600; }
 .utilityTab:hover, .utilityTab[aria-current="page"] { background: #e5ebe8; color: #253d32; }
 
-.createTab {
+.createTab.createTab {
+  min-width: 184px;
+  min-height: 56px;
+  padding-inline: 20px;
   border: 1px solid #16634f;
-  border-radius: 7px;
-  background: linear-gradient(#117c64, #0b6f5d);
+  border-bottom: 3px solid #075641;
+  border-radius: 10px 14px 0 0;
+  background: linear-gradient(135deg, #10866b, #08715a);
   color: #fff;
-  box-shadow: inset 0 1px 0 #ffffff26;
+  font-size: 17px;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 #ffffff40, 0 -2px 6px #15483518;
 }
 
-.createTab:hover { background: #075a4b; }
+.createTab svg { flex-shrink: 0; width: 20px; height: 20px; }
+.createTab:hover:not(:disabled) { background: linear-gradient(135deg, #0c785f, #065e4b); }
+.createTab:active:not(:disabled) { box-shadow: inset 0 2px 4px #043a3038; }
 .createTab:disabled { cursor: not-allowed; background: #e0e7e3; border-color: #c4cfc9; color: #56645b; }
+.tabRow .createTab:focus-visible { outline-color: #fff; }
 
 .tabRow button:focus-visible {
   outline: 2px solid #193d32;
@@ -201,24 +218,43 @@
   .utilityTab span, .actions > button[aria-label="Open assigned referrals"] span { display: none; }
 }
 
+@media (max-width: 959px) {
+  /* Keep creation attached to the folder edge, with utilities beside the name. */
+  .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) 96px 44px 44px; gap: 0 3px; }
+  .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / 3; grid-row: 1; }
+  .tabRow:has([data-guide-target="create-workspace"]) .actions { display: contents; }
+  .tabRow:has([data-guide-target="create-workspace"]) .utilityTab { grid-column: 3; grid-row: 1; width: 44px; padding-inline: 0; }
+  .tabRow:has([data-guide-target="create-workspace"]) .utilityTab span { display: none; }
+  .tabRow:has([data-guide-target="create-workspace"]) .utilityTab + .utilityTab { grid-column: 4; }
+  .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; padding-inline: 1px 4px; max-width: 180px; }
+  .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2 / -1; grid-row: 2; align-self: end; }
+}
+
 @media (max-width: 639px) {
   .header { background: var(--pipeline-canvas); }
   .tabRow { padding-top: 0; gap: 0 4px; }
-  .nameLabel { padding: 0; border: 0; background: transparent; }
-  .identity { padding: 5px 8px; min-height: 50px; border: 0; background: transparent; box-shadow: none; }
-  .stageTab, .utilityTab, .createTab { gap: 4px; padding-inline: 10px; font-size: 12px; }
-  .stageTab { padding-inline: 18px; font-size: 13px; }
+  .nameLabel { padding: 3px 6px; font-size: 17px; line-height: 22px; }
+  .identity { padding: 5px 7px 7px; min-height: 48px; }
+  .stageTab, .utilityTab, .createTab { gap: 5px; padding-inline: 10px; font-size: 15px; }
+  .stageTab { padding-inline: 18px; font-size: 16px; min-height: 46px; }
   .stageTab + .stageTab { margin-left: -8px; }
   .utilityTab { width: 44px; padding-inline: 0; }
   .utilityTab span { display: none; }
-  .utilityTab, .createTab { border: 1px solid #d6dad9; border-radius: 5px; }
+  .utilityTab { border: 1px solid #d6dad9; border-radius: 5px; }
   .utilityTab { background: transparent; border-color: transparent; }
-  .createTab { padding-inline: 8px; border-color: #16634f; }
+  .createTab.createTab { min-width: 0; min-height: 50px; padding-inline: 10px; font-size: 16px; }
   .actions { align-items: center; align-self: center; gap: 0; }
   .actions > button { min-width: 44px; min-height: 44px; }
   .stages { overflow: visible; }
-  .stageTab { flex: 1 1 0; min-width: 0; padding-inline: 12px; }
+  .stageTab { flex: 1 1 auto; min-width: 0; padding-inline: 12px; }
   .stageNumber { display: none; }
+
+  .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px 44px; gap: 0 2px; }
+}
+
+@media (max-width: 379px) {
+  .stageTab { padding-inline: 9px; }
+  .connectedFolder [data-testid="document-checklist-toggle"] > div:first-child { flex-wrap: wrap; gap: 2px 6px; }
 }
 
 @media (max-width: 1100px) {
@@ -246,11 +282,12 @@
 }
 
 @media (forced-colors: active) {
-  .identity, .stageTab, .utilityTab, .createTab, .nameLabel {
+  .identity, .stageTab, .utilityTab, .createTab.createTab, .nameLabel {
     background: Canvas;
     border-color: ButtonText;
     color: ButtonText;
     box-shadow: none;
   }
   .stageTab[aria-current="page"], .utilityTab[aria-current="page"] { border-bottom: 3px solid Highlight; }
+  .tabRow .createTab:focus-visible { outline-color: Highlight; }
 }
