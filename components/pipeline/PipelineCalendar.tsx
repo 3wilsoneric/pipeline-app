@@ -340,7 +340,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   };
 
   return (
-    <main ref={calendarElement} onScroll={(event) => { const saved = calendarNavigation.get(navigationKey); if (saved && restoreScroll.current === null) saved.scrollTop = event.currentTarget.scrollTop; }} data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className={calendarStyles.desktop}>
+    <main ref={calendarElement} tabIndex={0} aria-label="Calendar" onScroll={(event) => { const saved = calendarNavigation.get(navigationKey); if (saved && restoreScroll.current === null) saved.scrollTop = event.currentTarget.scrollTop; }} data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className={calendarStyles.desktop}>
       <div className={calendarStyles.board}>
         <CalendarHeader
           view={view}
@@ -373,7 +373,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           onOpenQueue={() => setQueueOpen(true)}
           onRefresh={() => setRefreshToken((value) => value + 1)}
         />
-        <div className={calendarStyles.paper}>
+        <div data-testid="calendar-sheet" role="region" aria-label="Calendar entries" className={calendarStyles.paper}>
         <CalendarNotices error={error} mutationError={mutationState.error} scheduleOpen={Boolean(scheduleTarget)} onRetry={() => setRefreshToken((value) => value + 1)} />
         {view === "day" ? <CalendarDay
           date={anchor} loading={loading || !navigationReady} error={error}

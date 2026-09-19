@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
+import { clientDirectoryFixture, unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
 async function openClients(page: Page) {
   const communities = ["A & A Health Services San Pablo", "AHS Turlock OP LLC", "JC Wallace House", "JC Wallace House"];
@@ -151,7 +151,8 @@ test("compact cabinets expand across the page body and return focus on close", a
   await searchCabinet("oscar");
   await expect(drawer.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
   await searchCabinet("r-102");
-  await expect(drawer.getByRole("button", { name: "Open profile for Oscar Martin", exact: true })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
+  await expect(drawer.getByText("No clients match the current search and filters in this cabinet.")).toBeVisible();
   await searchCabinet("Riley");
   await expect(drawer.getByText("No clients match the current search and filters in this cabinet.")).toBeVisible();
   await expect(drawer.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
@@ -164,6 +165,75 @@ test("compact cabinets expand across the page body and return focus on close", a
   await page.getByRole("button", { name: "Back to cabinets", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toBeFocused();
   await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toHaveValue("Riley");
+  await expect(page.getByRole("list", { name: "Matching client files" }).getByRole("button", { name: "Open profile for Riley Perez", exact: true })).toBeVisible();
+});
+
+test("client name search surfaces files across cabinets and excludes other fields", async ({ page }, testInfo) => {
+  await openClients(page);
+  const search = page.getByRole("textbox", { name: "Search clients", exact: true });
+  const results = page.getByRole("list", { name: "Matching client files", exact: true });
+  await expect(search).toHaveAttribute("placeholder", "Search by client name");
+  await search.fill("  a  ");
+  await expect(results.getByRole("listitem")).toHaveCount(3);
+  await expect(results).toContainText("Taylor Chen");
+  await expect(results).toContainText("Oscar Martin");
+  await expect(results).toContainText("Aaron Hill");
+  await expect(page.getByRole("group", { name: "Community file cabinets" })).toHaveCount(0);
+  await search.fill("  rIlEy  ");
+  await expect(results.getByRole("listitem")).toHaveCount(1);
+  await expect(results).toContainText("Riley Perez");
+  await expect(results).toContainText("A & A Health Services San Pablo");
+  for (const width of [1440, 834, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(results.getByRole("button")).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`name-search-${width}.png`) });
+  }
+  for (const nonName of ["r-100", "San Pablo"]) {
+    await search.fill(nonName);
+    await expect(page.getByRole("heading", { name: "No clients match that search." })).toBeVisible();
+    await expect(results.getByRole("listitem")).toHaveCount(0);
+    await expect(page.getByText("0 matching files", { exact: true })).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Clear client search", exact: true }).click();
+  await expect(results).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Community file cabinets" }).getByRole("button")).toHaveCount(3);
+});
+
+test("name search walks all result pages and opens the matching chart directly", async ({ page }) => {
+  await openClients(page);
+  await page.route("**/api/profiles/name-match**", (route) => route.fulfill({ json: unifiedProfileFixture }));
+  const requestedCursors: Array<string | null> = [];
+  await page.route("**/api/profiles/directory**", (route) => {
+    const cursor = new URL(route.request().url()).searchParams.get("cursor");
+    requestedCursors.push(cursor);
+    const client = {
+      ...clientDirectoryFixture.clients[0],
+      canonical_client_id: cursor ? "name-match" : "community-match",
+      display_name: cursor ? "Riley Perez" : "Taylor Chen",
+      current_community: cursor ? "San Pablo" : "Perez House",
+      community_names: [cursor ? "San Pablo" : "Perez House"],
+    };
+    return route.fulfill({ json: {
+      ...clientDirectoryFixture, clients: [client], total: 2,
+      next_cursor: cursor ? null : "second-page", data_as_of: "2026-08-07",
+    } });
+  });
+  await page.getByRole("textbox", { name: "Search clients", exact: true }).fill("Perez");
+  await expect.poll(() => requestedCursors).toEqual([null, "second-page"]);
+  const results = page.getByRole("list", { name: "Matching client files" });
+  const file = results.getByRole("button", { name: "Open profile for Riley Perez", exact: true });
+  await expect(file).toBeVisible();
+  await expect(results.getByRole("listitem")).toHaveCount(1);
+  await expect(page.getByText("1 matching file", { exact: true })).toBeVisible();
+  await file.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/screen=profile&clientId=name-match/);
+  await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+  await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toHaveValue("Perez");
+  await expect(results.getByRole("listitem")).toHaveCount(1);
+  await expect(file).toBeFocused();
 });
 
 test("cabinet controls stay readable and reachable with long labels on small screens", async ({ page }, testInfo) => {

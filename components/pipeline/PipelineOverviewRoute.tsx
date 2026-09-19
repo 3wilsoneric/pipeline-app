@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { Activity, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
 import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
@@ -369,7 +369,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   } else if (screen === "trash") {
     page = <PipelineTrash />;
   } else if (screen === "profiles") {
-    page = <ClientProfileDirectory onOpenProfile={(clientId) => navigate("profile", undefined, clientId)} />;
+    page = null;
   } else {
     page = (
       <ReferralHome
@@ -386,6 +386,11 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div className="pipeline-route-enter h-full min-h-0 flex-1 overflow-hidden">
+        {/* Retain only the directory/chart round trip, not every visited screen.
+            Activity suspends hidden effects and preserves cabinet/filter/scroll state. */}
+        {screen === "profiles" || screen === "profile" ? <Activity key={viewerId} mode={screen === "profiles" ? "visible" : "hidden"}>
+          <ClientProfileDirectory onOpenProfile={(clientId) => navigate("profile", undefined, clientId)} />
+        </Activity> : null}
         {page}
       </div>
       <PacketAssignedWorkOverlay

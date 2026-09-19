@@ -38,6 +38,7 @@ test.describe("Pipeline calendar characterization", () => {
 
     await page.goto("/?screen=calendar");
     await expect(page.getByText("My schedule", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Show calendar filters" }).click();
     await expect(page.getByRole("checkbox", { name: "My appointments", exact: true })).toBeChecked();
     await expect(page.getByRole("region", { name: "Continue working", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "week", exact: true }).click();
@@ -118,8 +119,8 @@ test.describe("Pipeline calendar characterization", () => {
 
     for (const width of [834, 390]) {
       await page.setViewportSize({ width, height: 932 });
-      await expect(page.getByRole("button", { name: "Upcoming", exact: true })).toBeVisible();
-      for (const name of ["Upcoming", "Refresh calendar", "Scheduling queue 30"]) {
+      await expect(width < 621 ? page.getByRole("combobox", { name: "Calendar view", exact: true }) : page.getByRole("button", { name: "Upcoming", exact: true })).toBeVisible();
+      for (const name of ["Show calendar filters", "Refresh calendar", "Scheduling queue 30"]) {
         const control = await page.getByRole("button", { name, exact: true }).boundingBox();
         expect(control).not.toBeNull();
         expect(control!.x).toBeGreaterThanOrEqual(0);
@@ -184,6 +185,7 @@ test.describe("Pipeline calendar characterization", () => {
     });
 
     await page.goto("/?screen=calendar");
+    await page.getByRole("button", { name: "Show calendar filters" }).click();
     await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
     await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();
     const queue = page.getByRole("dialog", { name: "Scheduling queue" });
@@ -317,6 +319,7 @@ test.describe("Pipeline calendar characterization", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole("button", { name: "month", exact: true }).click();
     await page.clock.setFixedTime(new Date("2026-09-09T12:00:16.000Z"));
+    await page.getByRole("button", { name: "Show calendar filters" }).click();
     await page.getByRole("button", { name: "Refresh calendar" }).click();
     await expect(page.getByRole("button", { name: "month", exact: true })).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Upcoming", exact: true }).click();
@@ -339,6 +342,7 @@ test.describe("Pipeline calendar characterization", () => {
       await route.fulfill({ ...response, body: JSON.stringify(payload) });
     });
     await page.goto("/?screen=calendar");
+    await page.getByRole("button", { name: "Show calendar filters" }).click();
     await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
     const week = page.getByRole("region", { name: "Supervisor team week" });
     await page.getByRole("button", { name: "week", exact: true }).click();
