@@ -92,6 +92,11 @@ test('sustained browser saves survive alternating application instances', async 
         const { page, context, id, actor, field } = session;
         const value = field === 'email' ? `${runId}-${actor.id.split('-').at(-1)}-${cycle}@example.invalid` : `555-${actor.id.split('-').at(-1)}-${cycle}`;
         const input = page.getByRole('textbox', { name: field === 'phone' ? 'Client phone:' : 'Client email:', exact: true });
+        // A person cannot type through the recovery overlay. fill() can alter an
+        // inert input without focus/blur events, producing a false missing-save.
+        await expect(page.getByTestId('packet-workspace')).toHaveAttribute('aria-busy', 'false');
+        await input.click();
+        await expect(input).toBeFocused();
         await input.fill(value);
         const started = Date.now();
         const [response] = await Promise.all([
