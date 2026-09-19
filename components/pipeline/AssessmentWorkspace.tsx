@@ -1013,6 +1013,11 @@ export default function AssessmentWorkspace({
 
   const syncOfflineChanges = useCallback(async () => {
     if (!offlinePrincipal || !window.navigator.onLine || offlineSyncRef.current) return;
+    const initialization = initializedAssessmentIdRef.current;
+    const isCurrentSync = () => initialization !== null
+      && initializedAssessmentIdRef.current === initialization
+      && selectedRef.current?.assessment_id === initialization.id
+      && initialization.principal === offlinePrincipal;
     offlineSyncRef.current = true;
     try {
       const staleWorkbooks: Array<{ url: string; section: AssessmentToolSection; data: Partial<AssessmentToolData>; source: NonNullable<AssessmentPatchInput["workbook_restore"]> }> = [];
@@ -1028,6 +1033,7 @@ export default function AssessmentWorkspace({
             }
             throw failure;
           }
+          if (!isCurrentSync()) return;
           const current = selectedRef.current;
           const saved = payload.assessment;
           if (!current || current.assessment_id !== saved.assessment_id || saved.version <= current.version) return;
@@ -1045,6 +1051,7 @@ export default function AssessmentWorkspace({
         saveQueueRef.current = next.catch(() => undefined);
         await next;
       });
+      if (!isCurrentSync()) return;
       setPendingOfflineSaves(result.remaining);
       const current = selectedRef.current;
       if (current && result.completed + result.conflicts > 0) {
@@ -1053,6 +1060,9 @@ export default function AssessmentWorkspace({
             `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
             { cache: "no-store" },
           );
+          // A -> B -> A and principal switches are new sessions too. Never use
+          // the newly open assessment's clean refs to discard the old draft.
+          if (!isCurrentSync()) return;
           receiveRemoteAssessment(payload.assessment, false);
           // A preceding queued edit can advance this section's version. Rebase
           // only still-current workbook answers after the canonical three-way
@@ -1068,6 +1078,7 @@ export default function AssessmentWorkspace({
             saveQueueRef.current = retry.catch(() => undefined);
             await retry;
           }
+          if (!isCurrentSync()) return;
           if (remoteChangeRef.current?.conflicts.length) {
             setMessage("Offline changes need conflict review");
           } else {
@@ -1230,7 +1241,10 @@ export default function AssessmentWorkspace({
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
   });
 
-  useEffect(() => () => saveOnUnmount(), []);
+  useEffect(() => () => {
+    initializedAssessmentIdRef.current = null;
+    saveOnUnmount();
+  }, []);
 
   const reviewExtractedField = async (
     field: AssessmentToolFieldKey,
