@@ -150,7 +150,6 @@ test("future delivery cannot be abandoned through the handoff controls while its
     await expect(page.getByRole("button", { name: "Done", exact: true })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Edit decision", exact: true })).toBeDisabled();
     const beforeNavigation = page.url();
-    await page.getByRole("button", { name: "Show app navigation", exact: true }).click();
     await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("button", { name: "Open calendar", exact: true }).click();
     await expect(page).toHaveURL(beforeNavigation);
     await expect(page.getByRole("button", { name: "Done", exact: true })).toBeDisabled();

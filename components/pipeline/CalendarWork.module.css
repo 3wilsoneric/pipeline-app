@@ -124,3 +124,8 @@
   .headerActions { justify-content: space-between; }
   .statusStrip { justify-content: flex-start; }
 }
+
+@media (max-width: 360px) {
+  .rangeTitle { font-size: 16px; }
+  .summary > span:nth-child(2) { display: none; }
+}

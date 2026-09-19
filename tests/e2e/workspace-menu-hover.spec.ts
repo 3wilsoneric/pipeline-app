@@ -1,71 +1,68 @@
 import { chromium, expect, test, webkit } from "@playwright/test";
 
 for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
-  for (const width of [1440, 834, 440]) {
-    test(`${engine} menu is reachable below the top edge and never overlaps intake at ${width}px`, async ({ baseURL }, info) => {
+  for (const width of [1440, 834, 437, 320]) {
+    test(`${engine} persistent sidebar works across pages at ${width}px`, async ({ baseURL }, info) => {
       const browser = await browserType.launch();
       try {
-        const page = await browser.newPage({ baseURL, viewport: { width, height: 900 } });
-        await page.goto("/?view=referrals&screen=packet");
-        const handle = page.getByRole("button", { name: "Show app navigation", exact: true });
-        const menu = page.locator("#pipeline-app-navigation");
-        const header = page.getByTestId("workspace-folder-header");
-        const canvas = page.locator('[data-guide-target="packet-workspace"]');
-        await expect(page.getByTestId("intake-client-folder")).toBeVisible();
-        await expect(handle).toHaveAttribute("aria-expanded", "false");
-        await expect(menu).toHaveAttribute("inert", "");
-        const bounds = (await handle.boundingBox())!;
-        // The lower half of the full-size handle must work, including narrow desktop panes.
-        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 34);
-        await expect(handle).toHaveAttribute("aria-expanded", "true");
-        await expect(menu).toHaveCSS("opacity", "1");
-        let menuBounds = (await menu.boundingBox())!;
-        expect((await header.boundingBox())!.y).toBeGreaterThanOrEqual(menuBounds.y + menuBounds.height);
-        const home = page.getByRole("button", { name: "Pipeline home", exact: true });
-        await expect.poll(() => home.evaluate((el) => {
-          const rect = el.getBoundingClientRect();
-          return el.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
-        })).toBe(true);
-        const homeBounds = (await home.boundingBox())!;
-        await page.screenshot({ path: info.outputPath(`intake-menu-${width}.png`) });
-        await page.mouse.move(homeBounds.x + homeBounds.width / 2, homeBounds.y + homeBounds.height / 2);
-        await expect(handle).toHaveAttribute("aria-expanded", "true");
-        await page.mouse.move(width - 20, 400);
-        await expect(handle).toHaveAttribute("aria-expanded", "false");
-        await expect(menu).toHaveCSS("opacity", "0");
-        await canvas.evaluate((el) => { el.scrollTop = 350; });
-        await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(100);
-        await handle.focus();
-        await expect(handle).toHaveAttribute("aria-expanded", "true");
-        menuBounds = (await menu.boundingBox())!;
-        expect((await header.boundingBox())!.y).toBeGreaterThanOrEqual(menuBounds.y + menuBounds.height);
-        await handle.press("Escape");
-        await expect(handle).toHaveAttribute("aria-expanded", "false");
-        await expect(menu).toHaveAttribute("inert", "");
-        const edge = page.locator("[data-assessment-nav-edge]");
-        expect((await edge.boundingBox())!.height).toBeGreaterThanOrEqual(12);
-        await edge.hover({ position: { x: width / 2, y: 8 } });
-        await expect(handle).toHaveAttribute("aria-expanded", "true");
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        const height = width === 437 ? 536 : 900;
+        const page = await browser.newPage({ baseURL, viewport: { width, height }, hasTouch: width < 960 });
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
+        const panel = page.locator("#pipeline-app-navigation");
+        const content = page.locator(".pipeline-surfaces > div > main");
+        for (const path of ["/", "/?screen=calendar", "/?screen=profiles", "/?screen=operations", "/?view=referrals&screen=packet", "/settings", "/training"]) {
+          await page.goto(path);
+          await expect(rail).toBeVisible();
+          await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
+          await expect(page.getByRole("button", { name: "Show app navigation" })).toHaveCount(0);
+          await expect(rail.getByRole("button", { name: "Pipeline home", exact: true }).locator("img")).toBeVisible();
+          const bounds = (await panel.boundingBox())!;
+          expect(bounds.width).toBe(width < 960 ? 56 : 68);
+          const pageBounds = (await content.boundingBox())!;
+          expect(pageBounds.x).toBeGreaterThanOrEqual(bounds.x + bounds.width);
+          expect(pageBounds.y).toBe(bounds.y);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+          await rail.getByRole("button", { name: "Open calendar", exact: true }).hover();
+          await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
+        }
+
+        await page.goto("/?screen=calendar");
+        const collapsedContent = (await content.boundingBox())!;
+        await rail.getByRole("button", { name: "Expand navigation", exact: true }).click();
+        await expect(rail).toHaveAttribute("data-sidebar-expanded", "true");
+        await expect(rail.getByRole("button", { name: "Open calendar", exact: true }).getByText("Calendar", { exact: true })).toBeVisible();
+        await expect(panel).toHaveCSS("width", "216px");
+        expect((await content.boundingBox())!.x).toBe(width < 960 ? collapsedContent.x : 216);
+        for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
+          const bounds = (await rail.getByRole("button", { name, exact: true }).boundingBox())!;
+          expect(bounds.height).toBeGreaterThanOrEqual(44);
+          expect(bounds.width).toBeGreaterThanOrEqual(44);
+        }
+        await page.screenshot({ path: info.outputPath(`sidebar-expanded-${width}.png`) });
+        await rail.getByRole("button", { name: "Collapse navigation", exact: true }).press("Escape");
+        await expect(rail.getByRole("button", { name: "Expand navigation", exact: true })).toBeFocused();
+        await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
+        await rail.getByRole("button", { name: "Expand navigation", exact: true }).click();
+        if (width < 960) {
+          await page.getByRole("button", { name: "Close navigation", exact: true }).click({ position: { x: width - 10, y: 180 } });
+          await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
+          await rail.getByRole("button", { name: "Expand navigation", exact: true }).click();
+        }
+        await rail.getByRole("button", { name: "Open client profiles", exact: true }).click();
+        await expect(page).toHaveURL(/screen=profiles/);
+        await expect(rail).toHaveAttribute("data-sidebar-expanded", width < 960 ? "false" : "true");
+        await rail.getByRole("button", { name: /^Open profile menu for/ }).click();
+        const profile = page.getByRole("dialog", { name: "Profile settings", exact: true });
+        await expect(profile).toBeInViewport();
+        const profileBounds = (await profile.boundingBox())!;
+        expect(profileBounds.x).toBeGreaterThanOrEqual(0);
+        expect(profileBounds.x + profileBounds.width).toBeLessThanOrEqual(width);
+        await page.keyboard.press("Escape");
+        await expect(profile).toBeHidden();
+        await expect(rail).toBeVisible();
+        await page.screenshot({ path: info.outputPath(`sidebar-collapsed-${width}.png`) });
       } finally { await browser.close(); }
     });
   }
-
-  test(`${engine} touch menu opens on tap and closes outside without hiding the intake header`, async ({ baseURL }) => {
-    const browser = await browserType.launch();
-    try {
-      const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-      await page.goto("/?view=referrals&screen=packet");
-      const handle = page.getByRole("button", { name: "Show app navigation", exact: true });
-      const menu = page.locator("#pipeline-app-navigation");
-      await expect(page.getByTestId("intake-client-folder")).toBeVisible();
-      await handle.tap();
-      await expect(handle).toHaveAttribute("aria-expanded", "true");
-      const bounds = (await menu.boundingBox())!;
-      expect((await page.getByTestId("workspace-folder-header").boundingBox())!.y).toBeGreaterThanOrEqual(bounds.y + bounds.height);
-      await page.touchscreen.tap(380, bounds.y + bounds.height + 160);
-      await expect(handle).toHaveAttribute("aria-expanded", "false");
-      await expect(menu).toHaveAttribute("inert", "");
-    } finally { await browser.close(); }
-  });
 }
