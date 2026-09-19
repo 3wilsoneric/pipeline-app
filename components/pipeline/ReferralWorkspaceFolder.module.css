@@ -64,6 +64,7 @@
   gap: 0;
   padding: 5px 0 0;
 }
+.phoneStagePicker { display: none; }
 .actions { margin-left: auto; flex-shrink: 0; }
 .actions > button { min-height: 44px; }
 
@@ -165,7 +166,6 @@
 }
 
 .stageTab:focus-visible { z-index: 4; }
-.stageNumber { font-size: 11px; font-weight: 600; }
 .utilityTab:hover, .utilityTab[aria-current="page"] { background: #e5ebe8; color: #253d32; }
 
 .createTab.createTab {
@@ -267,7 +267,6 @@
   .stages { overflow: visible; }
   .stageTab { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: 14px; }
   .stageTab > span:last-child { white-space: normal; line-height: 1.15; }
-  .stageNumber { display: none; }
 
   .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px 44px; gap: 0 2px; }
 }
@@ -300,6 +299,25 @@
 @media (prefers-reduced-motion: reduce) {
   .stageTab, .utilityTab, .createTab { transition: none; }
 }
+
+/* Phones keep the file identity, not the desktop folder's decorative chrome. */
+.phoneWorkspace > [data-testid="packet-workspace"] { padding-inline: 0; }
+.phoneWorkspace .header { background: #fff; }
+.phoneWorkspace .tabRow { grid-template-columns: minmax(0, 1fr) minmax(108px, 140px) auto; align-items: center; gap: 4px; padding: 4px 12px; border-bottom: 1px solid #dce5df; }
+.phoneWorkspace .identity { grid-column: 1; grid-row: 1; min-width: 0; min-height: 44px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.phoneWorkspace .nameLabel { padding: 0 6px 0 0; border: 0; background: transparent; box-shadow: none; color: #263c32; font-size: 18px; line-height: 1.25; font-weight: 650; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.phoneWorkspace .stages { grid-column: 2; grid-row: 1; padding: 0; overflow: visible; }
+.phoneWorkspace .stageTab { display: none; }
+.phoneWorkspace .phoneStagePicker { display: inline-flex; width: 100%; min-height: 44px; padding: 8px; border: 1px solid #dce6e0; border-radius: 7px; background: #f5f8f6; color: #1f664d; font-size: 16px; font-weight: 600; }
+.phoneWorkspace .actions { grid-column: 3; grid-row: 1; gap: 0; }
+.phoneWorkspace .actions .utilityTab, .phoneWorkspace .actions [aria-label="Workspaces"], .phoneWorkspace .readingWorkspace .actions [aria-label="Move workspace to trash"] { display: none; }
+.phoneWorkspace .readingWorkspace { height: 100%; min-height: 0; padding-bottom: 0; }
+.phoneWorkspace :is(.readingPages, .readingPages > section, .readingPages > section > div) { flex: 1; min-height: 0; overflow: hidden; }
+.phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) auto; }
+.phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / -1; grid-row: 1; }
+.phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; max-width: none; padding: 0; }
+.phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2; grid-row: 2; min-height: 44px; border-radius: 7px; }
+.phoneWorkspace :is(.phoneStagePicker, .actions button):focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
 
 @media (forced-colors: active) {
   .identity, .stageTab, .utilityTab, .createTab.createTab, .nameLabel {

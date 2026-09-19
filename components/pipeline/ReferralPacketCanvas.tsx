@@ -39,6 +39,7 @@ import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import folderStyles from "./ClientFolder.module.css";
+import { usePhoneAssessment } from "./use-phone-layout";
 import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
@@ -385,6 +386,7 @@ export default function ReferralPacketCanvas({
   onOpenProfile = () => undefined,
   onOpenAssignedWork,
 }: ReferralPacketCanvasProps = {}) {
+  const phone = usePhoneAssessment();
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
     name: { ...initialFields.name, value: referral?.name ?? "" },
@@ -583,8 +585,9 @@ export default function ReferralPacketCanvas({
     ownerPrincipalIdRef.current = ownerPrincipalId;
   }, [ownerPrincipalId]);
 
+  const referralWorkspaceId = activeReferralId(loadedReferral, referral);
   useEffect(() => {
-    const referralId = loadedReferral?.id ?? referral?.id;
+    const referralId = referralWorkspaceId;
     setEmailRecipients("");
     if (!referralId) {
       setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
@@ -614,7 +617,7 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
     };
-  }, [loadedReferral?.id, referral?.id]);
+  }, [referralWorkspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1399,7 +1402,7 @@ export default function ReferralPacketCanvas({
     setSavedAt("Unsaved changes");
   };
 
-  const openPage = (page: WorkspaceView, editField?: ReferralChartEditField) => {
+  const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review") => {
     if (emailSendingRef.current) return;
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
@@ -1407,7 +1410,7 @@ export default function ReferralPacketCanvas({
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(page === 1 && loadedReferralRef.current
       ? { view: "intake", intakeField: editField && editField !== "conserved" ? editField : "name" }
-      : page === 2 ? { view: "assessment", assessmentSection: lastAssessmentSectionRef.current }
+      : page === 2 ? { view: "assessment", assessmentSection: lastAssessmentSectionRef.current, assessmentMode }
       : workspaceLocationForPage(page));
     requestAnimationFrame(() => {
       if (!editField) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -1415,7 +1418,7 @@ export default function ReferralPacketCanvas({
   };
 
   const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField) => {
-    if (page === activePage || emailSendingRef.current) return;
+    if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.();
       if (activePage === 1 && loadedReferralRef.current) {
@@ -2157,7 +2160,6 @@ export default function ReferralPacketCanvas({
   const suggestionCount = visibleChartFieldKeys.filter((key) => intakeSuggestions[key] && !intakeSuggestions[key]?.conflicting).length;
   const packetEvidenceVersion = referralPacketEvidenceVersion(loadedReferral);
   const hasPendingWorkspaceChanges = workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
-  const referralWorkspaceId = activeReferralId(loadedReferral, referral);
   const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
   const queuedFileCount = Object.keys(pendingDocuments).length + Number(Boolean(initialPacket)) + additionalFiles.length;
   const saveStatus = referralDraftSaveStatus(savedAt, hasReferral, queuedFileCount);
@@ -2185,7 +2187,7 @@ export default function ReferralPacketCanvas({
   };
 
   return (
-    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className="relative h-full overflow-y-auto pipeline-page-surface text-[#111111]">
+    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className={`relative h-full overflow-y-auto pipeline-page-surface text-[#111111] ${phone ? workspaceFolderStyles.phoneWorkspace : ""}`}>
       {draftRecoveryLoading ? (
         <div className="absolute inset-0 z-50 flex items-start justify-center bg-white/85 pt-24" role="status" aria-live="polite">
           <div className="border-l-2 border-[#0f8b73] bg-white px-4 py-3 text-[12px] font-black text-[#174f43] shadow-sm">
@@ -2614,7 +2616,7 @@ export default function ReferralPacketCanvas({
                 {onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
                   setEmailFinishing(true);
                   void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));
-                }} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">{emailFinishing ? "Saving..." : "Done"}</button> : null}
+                }} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null}
               </footer>
             </PacketPage>
           ) : readingAssessment ? (
@@ -2630,10 +2632,12 @@ export default function ReferralPacketCanvas({
                   assignedAssessorId={loadedReferral?.ownerId}
                   startQuestionnaire={preparingReferralId === referralWorkspaceId}
                   workspaceTitle={workspaceTitle}
-                  chartReview={displayedPage === 3}
+                  chartReview={displayedPage === 3 || routedWorkspaceLocation.assessmentMode === "review"}
+                  assessmentReview={displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review"}
                   chartActions={!permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined}
                   onEditReferralField={!permissionReadOnly && loadedReferral ? (field) => void navigatePage(1, field) : undefined}
                   onOpenChart={() => openPage(3)}
+                  onReviewAssessment={() => openPage(2, undefined, "review")}
                   onOpenAssessment={() => openPage(2)}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
@@ -2643,7 +2647,7 @@ export default function ReferralPacketCanvas({
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
                   onActiveSectionChange={(section) => {
                     lastAssessmentSectionRef.current = section;
-                    if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section });
+                    if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section, assessmentMode: routedWorkspaceLocation.assessmentMode });
                   }}
                   onAssessmentSaved={async (assessment, savedReferral) => {
                     if (savedReferral) {
@@ -2767,7 +2771,7 @@ function workspaceRouteKey(
   draftKey: ReferralPacketCanvasProps["newDraftKey"],
   location: PipelineWorkspaceLocation,
 ) {
-  return `${referralId ?? draftKey ?? "new"}:${location.view}:${location.assessmentSection ?? ""}:${location.intakeField ?? ""}`;
+  return `${referralId ?? draftKey ?? "new"}:${location.view}:${location.assessmentSection ?? ""}:${location.assessmentMode ?? ""}:${location.intakeField ?? ""}`;
 }
 
 function getWorkspacePresentation(
@@ -2806,22 +2810,27 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
   activePage: WorkspaceView;
   onOpen: (page: WorkspaceView) => void;
 }) {
-  const numbered = steps.length > 1;
   return (
     <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className={workspaceFolderStyles.stages}>
-      {steps.map((step, index) => <WorkspaceStageButton key={step.page} {...step} number={numbered ? index + 1 : undefined} selected={activePage === step.page} onOpen={onOpen} />)}
+      <select aria-label="Workspace view" className={workspaceFolderStyles.phoneStagePicker} value={activePage} onChange={(event) => {
+        const view = [...steps, { page: "files" as const }, { page: "activity" as const }].find((step) => String(step.page) === event.target.value)?.page;
+        if (view !== undefined) onOpen(view);
+      }}>
+        {steps.map((step) => <option key={step.page} value={step.page}>{step.label}</option>)}
+        <optgroup label="File tools"><option value="files">Files</option><option value="activity">Activity</option></optgroup>
+      </select>
+      {steps.map((step) => <WorkspaceStageButton key={step.page} {...step} selected={activePage === step.page} onOpen={onOpen} />)}
     </nav>
   );
 }
 
-function WorkspaceStageButton({ page, label, number, selected, onOpen }: {
-  page: WorkspaceStep["page"]; label: string; number?: number; selected: boolean; onOpen: (page: WorkspaceView) => void;
+function WorkspaceStageButton({ page, label, selected, onOpen }: {
+  page: WorkspaceStep["page"]; label: string; selected: boolean; onOpen: (page: WorkspaceView) => void;
 }) {
   return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : label === "Chart" ? "chart-stage" : page === "email" ? "chart-meet-client-tab" : undefined}
     onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
     data-folder-stage={page}
     className={workspaceFolderStyles.stageTab}>
-    {number ? <span className={workspaceFolderStyles.stageNumber}>0{number}</span> : null}
     <span className="whitespace-nowrap">{label}</span>
   </button>;
 }

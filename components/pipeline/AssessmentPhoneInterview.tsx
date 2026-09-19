@@ -1,13 +1,14 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue } from "@/lib/assessment/assessment-interview-schema";
 import { assessmentPreparationGroups, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 import type { AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import { WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
 import { assessmentQuestionStatus, assessmentGapSections, capturedAssessmentAnswer, assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
 import styles from "./AssessmentPhoneInterview.module.css";
+import readingStyles from "./AssessmentWorkingSection.module.css";
 
 type Props = WorkingSectionProps & {
   preparing: boolean;
@@ -117,12 +118,13 @@ export default function AssessmentPhoneInterview(props: Props) {
       </div>
     </div>
     <nav className={styles.paging} aria-label="Question steps">
-      <button type="button" aria-label="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={20} aria-hidden="true" />Previous</button>
+      <button type="button" aria-label="Previous question" title="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={22} aria-hidden="true" /></button>
+      <span className={styles.stepCount} aria-hidden="true">{question ? <><strong>{index + 1}</strong> / {steps.length}</> : "Complete"}</span>
       <button type="button" onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Open assessment" : "Review & sign"}<ChevronRight size={20} aria-hidden="true" /></button>
     </nav>
     <dialog ref={dialog} className={styles.sheet} aria-label={panel === "sections" ? "Questionnaire sections" : "Client information"} onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }} onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
       <header><h3>{panel === "sections" ? "Assessment sections" : "Client information"}</h3><button type="button" aria-label="Close information panel" onClick={() => dialog.current?.close()}><X size={20} aria-hidden="true" /></button></header>
-      <div className={styles.sheetBody}>
+      <div className={`${styles.sheetBody} ${panel === "reference" ? readingStyles.referenceSheet : ""}`}>
         {panel === "sections" ? <>
           <p>Go in any order. Unknown answers can stay blank.</p>
           <input type="search" aria-label="Find a question" placeholder="Find a question…" value={search} onChange={(event) => setSearch(event.target.value)} className={styles.sheetSearch} />
@@ -140,11 +142,11 @@ export default function AssessmentPhoneInterview(props: Props) {
           <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Open assessment" : "Review & sign"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
         </> : <>
           <label className={styles.sheetScope}>Reference information<select aria-label="Reference information" value={referenceScope} onChange={(event) => setReferenceScope(event.target.value)}><option value="section">This section</option><option value="all">All sections</option></select></label>
-          {!shownReference.length ? <p>{referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
+          {!shownReference.length ? <p>{referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} className={readingStyles.answer} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
             const destination = sections.find((section) => section.questions.some((question) => question.field === item.field));
             if (destination) chooseSection(destination.key, item.field);
           }} disabled={!sections.some((section) => section.questions.some((question) => question.field === item.field))}>
-            <strong>{assessmentInterviewFieldLabel(item.field)}</strong><span>{capturedAssessmentAnswer(item, data)}</span>{getAssessmentUnableReason(data, item.field) ? <span>{getAssessmentUnableReason(data, item.field)}</span> : null}{pending.includes(item.field) ? <small>Needs verification</small> : null}
+            <strong className={readingStyles.answerLabel}>{assessmentInterviewFieldLabel(item.field)}{!props.disabled ? <Pencil size={15} aria-hidden="true" /> : null}</strong><span className={readingStyles.answerValue}>{capturedAssessmentAnswer(item, data)}</span>{getAssessmentUnableReason(data, item.field) ? <span className={readingStyles.answerReason}>{getAssessmentUnableReason(data, item.field)}</span> : null}{pending.includes(item.field) ? <small className={readingStyles.attention}>Needs verification</small> : null}
           </button>)}
         </>}
       </div>

@@ -4,7 +4,7 @@
 .workspacePaper { padding: 0; background: #fff; }
 .workspacePaper footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
 .workspacePaper > footer { border-top: 1px solid #d8d8cb; }
-@media (min-width: 640px) {
+@media (min-width: 640px) and (min-height: 501px), (min-width: 960px), (min-width: 640px) and (pointer: fine) {
   .workspaceFile, .workspaceFile > div, .workspacePaper { flex: 1 0 auto; min-height: auto; overflow: visible; }
   .workspacePaper > div, .workspacePaper main { min-height: auto; overflow: visible; }
   .workspacePaper main { background: #fff; }

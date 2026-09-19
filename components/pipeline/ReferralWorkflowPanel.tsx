@@ -287,13 +287,13 @@ export default function ReferralWorkflowPanel({
 
   if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return <span className={assessmentStyles.recommendationStatus}>Open the current assessment to recommend placement.</span>;
   if (compactRecommendation) return <div data-quick-recommendation className={assessmentStyles.quickRecommendation}>
-    <label><span className="sr-only">Placement recommendation</span><select aria-label="Placement recommendation" value={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
+    <label><span>Placement recommendation</span><select aria-label="Placement recommendation" value={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
       const next = { ...recommendationDraft, outcome: event.target.value as AssessmentRecommendation["outcome"] };
       recommendationDirty.current = true;
       setRecommendationDraft(next);
       saveRecommendation(next);
     }}>
-      <option value="" disabled>Placement recommendation</option>
+      <option value="" disabled>Select recommendation</option>
       <option value="accept">Accept</option>
       <option value="decline">Deny</option>
       <option value="needs_more_information">Under review</option>
