@@ -81,6 +81,7 @@
     "check:ci-impact": "node scripts/ci-change-impact-fixtures.mjs",
     "check:desktop": "node scripts/desktop-readiness.mjs",
     "check:assessment-workbook": "node scripts/assessment-workbook-contracts.mjs",
+    "check:assessment-excel-postgres": "npm run build && node scripts/assessment-excel-postgres.mjs",
     "generate:assessment-workbook": "node scripts/generate-assessment-workbook.mjs",
     "check:artifacts": "node scripts/build-artifact-audit.mjs",
     "check:load": "node scripts/http-load-smoke.mjs",
