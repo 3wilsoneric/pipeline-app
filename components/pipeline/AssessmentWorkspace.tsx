@@ -103,7 +103,8 @@ import { assessmentGapSections } from "@/components/pipeline/assessment-working-
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 import AssessmentPreparation, { PreparationNavigation, AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
-import AssessmentPhoneInterview, { usePhoneAssessment } from "@/components/pipeline/AssessmentPhoneInterview";
+import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
+import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
 import phoneStyles from "@/components/pipeline/AssessmentPhoneInterview.module.css";
 import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
@@ -299,7 +300,8 @@ export default function AssessmentWorkspace({
   const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "prepare" | "assessment" | "chart" } | null>(null);
   const [isRecommendationSaving, setIsRecommendationSaving] = useState(false);
   const phoneQuestionRef = useRef<AssessmentToolFieldKey | null>(null);
-  const rememberPhoneQuestion = useCallback((field: AssessmentToolFieldKey) => { phoneQuestionRef.current = field; }, []);
+  const [phoneQuestion, setPhoneQuestion] = useState<AssessmentToolFieldKey | null>(null);
+  const rememberPhoneQuestion = useCallback((field: AssessmentToolFieldKey) => { phoneQuestionRef.current = field; setPhoneQuestion(field); }, []);
   const chartScrollRef = useRef<HTMLElement>(null);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
@@ -454,7 +456,13 @@ export default function AssessmentWorkspace({
       }
     }
     draftVersionRef.current = recoveredVersion;
-    if (!recovered || recovered.assessmentId !== assessment.assessment_id || recovered.dirtySections.length === 0) return;
+    if (!recovered || recovered.assessmentId !== assessment.assessment_id) return;
+    // Reading position is useful even when every answer already reached the server.
+    if (!initialSection || initialSection === recovered.activeSection) {
+      if (recovered.activeSection) setActiveSection(recovered.activeSection);
+      if (recovered.activeQuestion) setWorkingTarget({ field: recovered.activeQuestion });
+    }
+    if (recovered.dirtySections.length === 0) return;
 
     const merged = pickAssessmentToolData(currentData);
     const conflicts: AssessmentFieldConflict[] = [];
@@ -501,6 +509,7 @@ export default function AssessmentWorkspace({
       sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
       dirtySections: [...dirtySectionsRef.current],
       activeSection,
+      ...(phoneQuestion && assessmentToolFieldDefinitions.some((field) => field.key === phoneQuestion && field.section === activeSection) ? { activeQuestion: phoneQuestion } : {}),
       data: pickAssessmentToolData(draftRef.current),
       baseData: pickAssessmentToolData(baseDataRef.current),
     };
@@ -510,7 +519,7 @@ export default function AssessmentWorkspace({
       `${window.location.pathname}${window.location.search}`,
       { editable: true },
     );
-  }, [activeSection, canEditClinical, offlinePrincipal, referralId]);
+  }, [activeSection, canEditClinical, offlinePrincipal, phoneQuestion, referralId]);
 
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (dirtySectionsRef.current.size === 0) return;
@@ -523,6 +532,7 @@ export default function AssessmentWorkspace({
       sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
       dirtySections: [...dirtySectionsRef.current],
       activeSection,
+      ...(phoneQuestionRef.current && assessmentToolFieldDefinitions.some((field) => field.key === phoneQuestionRef.current && field.section === activeSection) ? { activeQuestion: phoneQuestionRef.current } : {}),
       data: pickAssessmentToolData(draftRef.current),
       baseData: pickAssessmentToolData(baseDataRef.current),
     };

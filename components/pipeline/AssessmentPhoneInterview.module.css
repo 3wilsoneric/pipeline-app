@@ -1,15 +1,15 @@
 .interview { display: flex; flex: 1; flex-direction: column; min-height: 0; color: #20352d; background: #fff; }
-.toolbar { display: flex; flex-shrink: 0; gap: 8px; padding: 7px 12px 7px 16px; border-bottom: 1px solid #075d49; background: #075d49; color: #fff; }
+.toolbar { display: flex; flex-shrink: 0; gap: 8px; padding: 7px 12px 7px 20px; border-bottom: 1px solid #e0e6e2; background: #fafbf9; color: #283b31; }
 .toolbar button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; min-width: 44px; font-size: 13px; font-weight: 650; text-align: left; }
 .toolbar button:first-child { flex: 1; min-width: 0; }
 .toolbar button:first-child span { min-width: 0; white-space: normal; font-size: 14px; line-height: 1.35; }
-.toolbar small { display: block; margin-bottom: 3px; color: #d0e6dd; font-size: 11px; font-weight: 500; letter-spacing: .025em; }
-.toolbar button:last-child { flex-shrink: 0; flex-direction: column; justify-content: center; gap: 4px; padding-inline: 10px 4px; border-left: 1px solid #ffffff30; color: #fff; font-size: 11px; line-height: 1.2; }
+.toolbar small { display: block; margin-bottom: 3px; color: #647368; font-size: 12px; font-weight: 500; }
+.toolbar button:last-child { flex-shrink: 0; flex-direction: column; justify-content: center; gap: 4px; padding-inline: 10px 4px; color: #30654c; font-size: 12px; line-height: 1.2; }
 .progress { height: 3px; flex-shrink: 0; background: #e4ede8; }
 .progress span { display: block; height: 100%; background: #188260; }
 .scroller { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y pinch-zoom; scroll-padding-block: 16px; }
 .question { max-width: 580px; margin-inline: auto; padding: 20px 20px 28px; }
-.position { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; margin: 0 0 22px; color: #64766c; font-size: 12px; font-weight: 550; }
+.position { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; margin: 0 0 16px; color: #64766c; font-size: 12px; font-weight: 500; }
 .position:focus { outline: none; }
 .question [data-working-field] > div > div:first-child { align-items: flex-start; margin-bottom: 18px; }
 .question [data-working-field] > div > div:first-child > label { color: #20352d; font-size: 25px; font-weight: 650; line-height: 1.25; letter-spacing: -0.025em; }
@@ -29,7 +29,7 @@
 .paging button:last-child { min-width: 48%; color: #fff; background: #137553; border-color: #137553; }
 .paging button:disabled { opacity: .4; }
 .interview :is(button, select, input, textarea, summary):focus-visible { outline: 2px solid #137553; outline-offset: 3px; }
-.toolbar button:focus-visible { outline-color: #fff; outline-offset: -2px; }
+.toolbar button:focus-visible { outline-color: #137553; outline-offset: -2px; }
 .sheet { position: fixed; inset: auto 0 0; width: 100%; max-width: 640px; max-height: calc(var(--mobile-viewport-height, 100dvh) - 32px); margin: auto auto 0; padding: 0; border: 1px solid #d4e1d9; border-radius: 20px 20px 0 0; background: #fff; color: #20352d; box-shadow: 0 -10px 60px #163e3226; }
 .sheet[open] { display: flex; flex-direction: column; }
 .sheet::backdrop { background: #15382d59; }
@@ -45,6 +45,9 @@
 .sheetBody small { display: block; color: #875010; margin-top: 5px; }
 .sheetBody svg { position: absolute; right: 0; top: 24px; }
 .sheetBody > button:disabled { opacity: 1; cursor: default; }
+.sheetSearch, .sheetScope select { display: block; width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #c4d2c9; border-radius: 8px; background: #fff; font-size: 16px; }
+.sheetScope { display: block; padding-block: 12px; font-size: 13px; }
+.sheetScope select { margin-top: 6px; }
 .mobileMain { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .mobileMain > div:not([data-assessment-question-content]) { flex-shrink: 0; max-height: 35%; overflow-y: auto; }
 .mobileMain > [data-assessment-question-content] { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0; }
@@ -60,5 +63,5 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .question { animation: enter 130ms ease-out; }
-  @keyframes enter { from { opacity: .65; transform: translateX(5px); } to { opacity: 1; transform: none; } }
+  @keyframes enter { from { transform: translateX(5px); } to { transform: none; } }
 }

@@ -11,6 +11,8 @@
   .workspacePaper > footer { position: sticky; bottom: 0; z-index: 10; padding-bottom: max(8px, env(safe-area-inset-bottom)); box-shadow: 0 -3px 12px #203a3210; }
 }
 @media (max-width: 639px) {
+  .workspaceFile, .workspacePaper { border: 0; border-radius: 0; box-shadow: none; background: #fff; }
+  .workspaceFile > div { padding: 0; border: 0; background: #fff; }
   .workspacePaper footer .fileDetails > summary { font-size: 12px; }
 }
 .beginDialog { width: min(460px, calc(100% - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 24px; overflow-y: auto; border: 1px solid #d3d9d7; border-radius: 12px; background: #fff; color: #293630; box-shadow: 0 20px 70px #172a3029; }

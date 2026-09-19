@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue } from "@/lib/assessment/assessment-interview-schema";
 import { assessmentPreparationGroups, preparationQuestions } from "@/lib/assessment/assessment-preparation";
@@ -8,16 +8,6 @@ import type { AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assess
 import { WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
 import { assessmentQuestionStatus, assessmentGapSections, capturedAssessmentAnswer, assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
 import styles from "./AssessmentPhoneInterview.module.css";
-
-const phoneQuery = "(max-width: 639px), (max-width: 959px) and (max-height: 500px) and (pointer: coarse)";
-function subscribePhone(onChange: () => void) {
-  const query = window.matchMedia(phoneQuery);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-export function usePhoneAssessment() {
-  return useSyncExternalStore(subscribePhone, () => window.matchMedia(phoneQuery).matches, () => false);
-}
 
 type Props = WorkingSectionProps & {
   preparing: boolean;
@@ -39,6 +29,8 @@ export default function AssessmentPhoneInterview(props: Props) {
   const [visitGaps, setVisitGaps] = useState(() => questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured").map((question) => question.field));
   const [received, setReceived] = useState({ section: section.key, target });
   const [panel, setPanel] = useState<"sections" | "reference">("sections");
+  const [search, setSearch] = useState("");
+  const [referenceScope, setReferenceScope] = useState("section");
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLParagraphElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -58,7 +50,9 @@ export default function AssessmentPhoneInterview(props: Props) {
   const sectionIndex = sections.findIndex((item) => item.key === section.key);
   const nextSection = sections[sectionIndex + 1];
   const counts = assessmentWorkingCounts(questions, data, pending);
-  const shownReference = questions
+  const allQuestions = sections.flatMap((section) => section.questions);
+  const matchedQuestions = allQuestions.filter((question) => assessmentInterviewFieldLabel(question.field).toLowerCase().includes(search.trim().toLowerCase()));
+  const shownReference = (referenceScope === "all" ? allQuestions : questions)
     .filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field));
 
   // Unmounting a focused input does not reliably emit blur. Commit through the
@@ -88,6 +82,7 @@ export default function AssessmentPhoneInterview(props: Props) {
   const openPanel = (next: typeof panel, opener: HTMLButtonElement) => {
     commit();
     setPanel(next);
+    setSearch("");
     // Safari touch does not focus buttons; give the native dialog a return target.
     opener.focus({ preventScroll: true });
     dialog.current?.showModal();
@@ -101,7 +96,7 @@ export default function AssessmentPhoneInterview(props: Props) {
   return <section className={styles.interview} data-phone-interview aria-label={props.preparing ? "Guided questionnaire" : "Guided assessment"}>
     <nav className={styles.toolbar} aria-label="Question navigation">
       <button type="button" onClick={(event) => openPanel("sections", event.currentTarget)} aria-haspopup="dialog" aria-label="Choose questionnaire section"><span><small>Section {sectionIndex + 1} of {sections.length}</small>{section.label}</span><ChevronDown size={16} aria-hidden="true" /></button>
-      <button type="button" onClick={(event) => openPanel("reference", event.currentTarget)} aria-haspopup="dialog"><BookOpen size={17} aria-hidden="true" /><span>Current info</span></button>
+      <button type="button" onClick={(event) => openPanel("reference", event.currentTarget)} aria-haspopup="dialog"><BookOpen size={17} aria-hidden="true" /><span>Client info</span></button>
     </nav>
     <div className={styles.progress} role="progressbar" aria-label="Recorded in this section" aria-valuemin={0} aria-valuemax={questions.length || 1} aria-valuenow={counts.captured}><span style={{ width: `${counts.captured / (questions.length || 1) * 100}%` }} /></div>
     <div ref={scroller} className={styles.scroller} data-phone-question-scroll onTouchStart={(event) => {
@@ -118,26 +113,34 @@ export default function AssessmentPhoneInterview(props: Props) {
     }}>
       <div className={styles.question} key={question?.field ?? section.key}>
         <p ref={heading} tabIndex={-1} className={styles.position} aria-live="polite">{question ? `Question ${index + 1} of ${steps.length}` : "Section complete"}</p>
-        {question ? <WorkingAssessmentField {...props} question={question} /> : <p>Continue to the next section, or open Current info to review an answer.</p>}
+        {question ? <WorkingAssessmentField {...props} question={question} /> : <p>Continue to the next section, or open Client info to review an answer.</p>}
       </div>
     </div>
     <nav className={styles.paging} aria-label="Question steps">
-      <button type="button" aria-label="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={20} aria-hidden="true" />Back</button>
+      <button type="button" aria-label="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={20} aria-hidden="true" />Previous</button>
       <button type="button" onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Open assessment" : "Review chart"}<ChevronRight size={20} aria-hidden="true" /></button>
     </nav>
-    <dialog ref={dialog} className={styles.sheet} aria-label={panel === "sections" ? "Questionnaire sections" : "Current information"} onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }} onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
-      <header><h3>{panel === "sections" ? "Assessment sections" : "Current information"}</h3><button type="button" aria-label="Close information panel" onClick={() => dialog.current?.close()}><X size={20} aria-hidden="true" /></button></header>
+    <dialog ref={dialog} className={styles.sheet} aria-label={panel === "sections" ? "Questionnaire sections" : "Client information"} onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }} onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
+      <header><h3>{panel === "sections" ? "Assessment sections" : "Client information"}</h3><button type="button" aria-label="Close information panel" onClick={() => dialog.current?.close()}><X size={20} aria-hidden="true" /></button></header>
       <div className={styles.sheetBody}>
         {panel === "sections" ? <>
           <p>Go in any order. Unknown answers can stay blank.</p>
+          <input type="search" aria-label="Find a question" placeholder="Find a question…" value={search} onChange={(event) => setSearch(event.target.value)} className={styles.sheetSearch} />
+          {search.trim() ? matchedQuestions.map((question) => <button type="button" key={question.field} onClick={() => {
+            const destination = sections.find((item) => item.questions.some((q) => q.field === question.field));
+            if (destination) chooseSection(destination.key, question.field);
+          }}><strong>{assessmentInterviewFieldLabel(question.field)}</strong><span>{capturedAssessmentAnswer(question, data)}</span></button>) : <>
+          <button type="button" onClick={() => chooseSection("identity", "assessment_date")}><strong>Assessment date</strong><span>{data.assessment_date || "Add the interview date"}</span><ChevronRight size={17} aria-hidden="true" /></button>
           {sections.map((item, index) => {
             const count = assessmentWorkingCounts(item.questions, data, pending);
             return <button type="button" key={item.key} aria-current={item.key === section.key ? "step" : undefined} onClick={() => chooseSection(item.key)}><strong>{index + 1}. {item.label}</strong><span>{assessmentWorkingCountLabel(count)}</span><ChevronRight size={17} aria-hidden="true" /></button>;
           })}
+          </>}
+          {search.trim() && !matchedQuestions.length ? <p>No matching questions.</p> : null}
           <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Open assessment" : "Review chart"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
         </> : <>
-          <p>{section.label}</p>
-          {!shownReference.length ? <p>No information recorded for this section yet.</p> : shownReference.map((item) => <button type="button" key={item.field} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
+          <label className={styles.sheetScope}>Reference information<select aria-label="Reference information" value={referenceScope} onChange={(event) => setReferenceScope(event.target.value)}><option value="section">This section</option><option value="all">All sections</option></select></label>
+          {!shownReference.length ? <p>{referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
             const destination = sections.find((section) => section.questions.some((question) => question.field === item.field));
             if (destination) chooseSection(destination.key, item.field);
           }} disabled={!sections.some((section) => section.questions.some((question) => question.field === item.field))}>

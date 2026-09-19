@@ -1,7 +1,8 @@
 import { chromium, expect, test, webkit } from "@playwright/test";
 
 for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
-  for (const width of [1440, 834, 437, 320]) {
+  // Phone navigation has its own menu/return/save contract in phone-app.spec.ts.
+  for (const width of [1440, 834]) {
     test(`${engine} persistent sidebar works across pages at ${width}px`, async ({ baseURL }, info) => {
       const browser = await browserType.launch();
       try {

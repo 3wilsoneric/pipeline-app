@@ -4,6 +4,8 @@ import {
 } from "@/lib/pipeline/referral-types";
 import {
   pickAssessmentToolData,
+  assessmentToolFieldDefinitions,
+  type AssessmentToolFieldKey,
   type AssessmentToolData,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
@@ -96,6 +98,7 @@ export type PipelineAssessmentDraft = {
   sectionVersions: AssessmentSectionVersions;
   dirtySections: AssessmentToolSection[];
   activeSection?: AssessmentToolSection;
+  activeQuestion?: AssessmentToolFieldKey;
   data: AssessmentToolData;
   baseData: AssessmentToolData;
 };
@@ -278,9 +281,11 @@ function parseAssessmentDraftSections(candidate: Partial<PipelineAssessmentDraft
   const dirtySections = [...new Set(candidate.dirtySections.filter(isAssessmentToolSection))];
   if (dirtySections.length !== candidate.dirtySections.length) return null;
   if (candidate.activeSection !== undefined && !isAssessmentToolSection(candidate.activeSection)) return null;
+  if (candidate.activeQuestion !== undefined && !assessmentToolFieldDefinitions.some((field) => field.key === candidate.activeQuestion && (!candidate.activeSection || field.section === candidate.activeSection))) return null;
   return {
     dirtySections,
     activeSection: candidate.activeSection,
+    activeQuestion: candidate.activeQuestion,
   };
 }
 
