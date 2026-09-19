@@ -339,7 +339,6 @@
 .pipeline-surfaces [data-working-field] details[open]:has([data-guide-target="assessment-answer-help"]) > div { border: 1px solid #d8e3ed; border-radius: 5px; background: #f5f9fd; }
 
 /* One action family, with emerald reserved for the forward or primary action. */
-.pipeline-surfaces [aria-label="Assessment actions"] button,
 .pipeline-surfaces [data-assessment-question-editor] > button,
 .pipeline-surfaces [data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button {
   min-height: 36px;
@@ -357,25 +356,13 @@
   white-space: nowrap;
 }
 
-.pipeline-surfaces [aria-label="Assessment actions"] button svg { width: 15px; height: 15px; }
-.pipeline-surfaces [aria-label="Assessment actions"] button:hover:not(:disabled),
 .pipeline-surfaces [data-assessment-question-editor] > button:hover:not(:disabled) { border-color: #819aab; box-shadow: 0 1px 3px rgb(32 45 60 / 12%); }
-.pipeline-surfaces [aria-label="Assessment actions"] button:focus-visible { outline: 2px solid var(--surface-accent); outline-offset: 2px; }
 
-.pipeline-surfaces [data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button[data-guide-target="assessment-next-section"],
-.pipeline-surfaces [aria-label="Assessment actions"] [data-guide-target="assessment-sign"] {
+.pipeline-surfaces [data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button[data-guide-target="assessment-next-section"] {
   border-color: #007254;
   background: #007e60;
   color: #fff;
   box-shadow: 0 1px 0 rgb(255 255 255 / 16%) inset, 0 1px 2px rgb(19 63 47 / 15%);
-}
-
-.pipeline-surfaces [aria-label="Assessment actions"] {
-  padding: 10px 16px max(10px, env(safe-area-inset-bottom));
-  border: 1px solid #d1d9df;
-  border-radius: 0 0 8px 8px;
-  background: #f8fafc;
-  box-shadow: 0 -2px 6px rgb(32 45 60 / 3%), 0 5px 12px rgb(25 62 52 / 8%);
 }
 
 .pipeline-surfaces [data-home-module="new-assignments"] button { font-size: 12px; }
@@ -393,12 +380,6 @@
   .pipeline-surfaces [data-assessment-client-header] { height: 44px; padding-inline: 12px; }
   .pipeline-surfaces [data-assessment-client-header] h2 { font-size: 16px; }
   .pipeline-surfaces [data-assessment-view="chart"] main > div:has(> [data-assessment-working-section]) { padding: 12px; }
-  .pipeline-surfaces [aria-label="Assessment actions"] { justify-content: flex-start; gap: 6px; padding: 8px 10px max(8px, env(safe-area-inset-bottom)); }
-  .pipeline-surfaces [aria-label="Assessment actions"] > div:first-child,
-  .pipeline-surfaces [aria-label="Assessment actions"] > div:last-child { display: contents; }
-  .pipeline-surfaces [aria-label="Assessment actions"] div:has(> button[aria-label^="Switch to"]) { margin: 0; }
-  .pipeline-surfaces [aria-label="Assessment actions"] button { height: 40px; min-height: 40px; padding-inline: 9px; font-size: 12px; }
-  .pipeline-surfaces [data-guide-target="assessment-save-status"] { flex: 1 1 130px; justify-content: flex-end; font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

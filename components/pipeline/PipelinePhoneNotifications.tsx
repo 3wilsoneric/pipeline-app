@@ -49,9 +49,9 @@ export default function PipelinePhoneNotifications({ onOpenWorkspace }: {
   const unread = briefing?.continuity.new_assignments.length ?? 0;
   return <>
     <button type="button" className={styles.phoneBell} aria-label={`Notifications${unread ? `, ${unread} new assignments` : ""}`} aria-haspopup="dialog" onClick={(event) => { event.currentTarget.focus(); dialog.current?.showModal(); void refresh(); }}>
-      <Bell size={21} aria-hidden="true" />{unread > 0 ? <span className={styles.phoneBadge}>{unread > 99 ? "99+" : unread}</span> : null}
+      <Bell size={20} aria-hidden="true" /><span>Notifications</span>{unread > 0 ? <span className={styles.phoneBadge}>{unread > 99 ? "99+" : unread}</span> : null}
     </button>
-    <dialog ref={dialog} aria-label="Notifications" className={styles.phoneMenu} onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
+    <dialog ref={dialog} aria-label="Notifications" className={`${styles.phoneMenu} ${styles.notificationCenter}`} onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
       <div className={styles.phoneMenuHeading}><h2>Notifications</h2><button type="button" aria-label="Close notifications" onClick={() => dialog.current?.close()}><X size={20} /></button></div>
       <div className={styles.phoneUpdates}>
         {error ? <p role="alert">{error} <button type="button" onClick={() => void refresh()}>Retry</button></p> : null}
