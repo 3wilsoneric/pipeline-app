@@ -2,8 +2,10 @@
 
 Status: **FROZEN FOR THE COORDINATED RELEASE**. The deployment coordinator relayed Eric's explicit “deploy all” authorization, releasing the earlier local-only hold. This task does not deploy independently; integration and release remain with task `01a098e2-ae78-7fe2-9ef0-54fb77e8dccd`.
 
-Worktree: `/Users/eric/pipeline-calendar-workflow-20260918`  
-Branch: `codex/calendar-workflow-20260918`  
+Worktree: `/Users/eric/pipeline-calendar-workflow-20260918`
+
+Branch: `codex/calendar-workflow-20260918`
+
 Base: `91354f55a1d427887e5033d92aafe1381cae2492`
 
 ## Included
