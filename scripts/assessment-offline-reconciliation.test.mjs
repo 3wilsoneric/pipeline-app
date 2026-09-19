@@ -21,7 +21,7 @@ function deferred() {
   return { promise, resolve };
 }
 
-function fixture() {
+function fixture(result = { completed: 1, conflicts: 0, remaining: 0 }) {
   const started = deferred();
   const response = deferred();
   const removed = [];
@@ -34,7 +34,7 @@ function fixture() {
     selectedRef: { current: { assessment_id: "assessment-a" } },
     saveQueueRef: { current: Promise.resolve() },
     dirtySectionsRef: { current: new Set() }, remoteChangeRef: { current: null },
-    flushOfflineAssessmentMutations: async () => ({ completed: 0, conflicts: 1, remaining: 0 }),
+    flushOfflineAssessmentMutations: async () => result,
     fetchPipelineJson: async () => { started.resolve(); await response.promise; return { assessment: { assessment_id: "assessment-a" } }; },
     receiveRemoteAssessment: (record) => received.push(record.assessment_id),
     removeOfflineAssessmentDraft: async (...args) => removed.push(args),
@@ -74,7 +74,18 @@ test("unchanged clean session still completes its acknowledged cleanup", async (
   assert.deepEqual(f.messages, ["Offline changes synced"]);
 });
 
-test("unchanged dirty session retains its unsaved answer", async () => {
+test("unchanged conflicted session retains its unsaved answer", async () => {
+  const f = fixture({ completed: 0, conflicts: 1, remaining: 0 });
+  f.context.dirtySectionsRef.current.add("prior_history");
+  const pending = f.run();
+  await f.started.promise;
+  f.response.resolve();
+  await pending;
+  assert.deepEqual(f.removed, []);
+  assert.deepEqual(f.messages, ["1 offline change need conflict review"]);
+});
+
+test("unchanged session keeps newer unsaved answers after an older queued save completes", async () => {
   const f = fixture();
   f.context.dirtySectionsRef.current.add("prior_history");
   const pending = f.run();
@@ -82,5 +93,6 @@ test("unchanged dirty session retains its unsaved answer", async () => {
   f.response.resolve();
   await pending;
   assert.deepEqual(f.removed, []);
-  assert.deepEqual(f.messages, ["Changes saved on this device; waiting to sync"]);
+  assert.deepEqual(f.received, ["assessment-a"]);
+  assert.equal(f.context.offlineSyncRef.current, false);
 });
