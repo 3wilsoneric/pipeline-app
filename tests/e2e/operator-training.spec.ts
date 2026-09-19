@@ -345,12 +345,17 @@ test.describe("Pipeline Learning Center", () => {
       await mockTrainingProgress(page);
       await page.goto("/?screen=calendar");
       const help = page.getByRole("button", { name: "Open guided tutorials", exact: true });
+      const openHelp = async () => {
+        if (width < 640 && !await help.isVisible()) await page.getByRole("button", { name: /^Open page menu/ }).click();
+        await help.click();
+      };
+      if (width < 640) await page.getByRole("button", { name: /^Open page menu/ }).click();
       await expect(help).toBeVisible();
       await expect(help).toHaveAttribute("title", "Help · Learning Center");
       await page.getByRole("button", { name: /Open profile menu for/ }).click();
       await expect(page.getByRole("dialog", { name: "Profile settings", exact: true }).getByText(/Learning Center/)).toHaveCount(0);
       await page.keyboard.press("Escape");
-      await help.click();
+      await openHelp();
       const library = page.getByRole("dialog", { name: "Guided tutorial library" });
       await expect(library.getByText("Learning Center", { exact: true })).toBeVisible();
       await expect(library.getByRole("heading", { name: "Guided walkthroughs" })).toBeVisible();
@@ -363,7 +368,7 @@ test.describe("Pipeline Learning Center", () => {
       await expect(page.getByRole("dialog", { name: "Find a referral guided tutorial" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
       await page.getByRole("button", { name: "Pause tutorial", exact: true }).click();
-      await help.click();
+      await openHelp();
       await expect(library.getByRole("button", { name: /Continue where you stopped/ })).toBeVisible();
       await library.getByRole("button", { name: "Close guided tutorials", exact: true }).click();
       await expect(library).toBeHidden();
