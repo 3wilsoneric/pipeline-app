@@ -10,6 +10,8 @@ async function openInterview(page: Page) {
   expect(response.status(), await response.text()).toBe(201);
   const { assessment } = await response.json();
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   await expect(page.locator("[data-phone-interview]")).toBeVisible();
   return { referral, read: async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment };
 }
@@ -131,6 +133,8 @@ test("iPhone WebKit supports portrait, landscape and iPad without replacing answ
     const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     const { read } = await openInterview(page);
     const answer = page.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true });
+    await answer.tap();
+    await expect(answer).toBeFocused();
     await answer.fill("Synthetic rotation answer.");
     await answer.blur();
     await expect.poll(async () => (await read()).prior_awol_failed_placements).toBe("Synthetic rotation answer.");
