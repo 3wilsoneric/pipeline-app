@@ -30,7 +30,7 @@ export type AssessmentAddendumCommand = AssessmentLifecycleCommand & {
   reason_code: string;
 };
 
-const scheduleStatuses = ["unscheduled", "scheduled", "rescheduled", "cancelled", "no_show"] as const;
+const scheduleStatuses = ["unscheduled", "scheduled", "rescheduled", "cancelled", "no_show", "completed"] as const;
 const scheduleMethods = ["in_person", "phone", "zoom", "record_review"] as const;
 
 export type AssessmentCompletionBlocker = {
@@ -86,6 +86,9 @@ export function getReferralWorkflowStatusAfterAssessment(
   // Completed legacy records predate explicit start/sign events. Keep their
   // clinical content ready for review without inventing either timestamp.
   if (assessment.status === "complete") return "assessment_ready_to_sign";
+  if (assessment.schedule_status === "completed") {
+    return getAssessmentCompletionBlockers(assessment).length === 0 ? "assessment_ready_to_sign" : "assessment_in_progress";
+  }
   if (!assessment.started_at) {
     if (assessment.schedule_status === "scheduled" || assessment.schedule_status === "rescheduled") {
       return "assessment_scheduled";
@@ -129,7 +132,7 @@ export function validateAssessmentScheduleCommand(value: unknown): Result<Assess
   if (!location.ok) return failure("schedule.location is invalid.");
   const conflictOverride = validateConflictOverride(value.allow_conflict);
   if (!conflictOverride.ok) return conflictOverride;
-  if (["scheduled", "rescheduled"].includes(status) && (!startAt.value || duration === null || method === null)) {
+  if (["scheduled", "rescheduled", "completed"].includes(status) && (!startAt.value || duration === null || method === null)) {
     return failure("Scheduled assessments require a start time, duration, and method.");
   }
   return {

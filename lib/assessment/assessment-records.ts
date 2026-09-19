@@ -26,6 +26,7 @@ export type AssessmentAuditAction =
   | "assessment_rescheduled"
   | "assessment_cancelled"
   | "assessment_no_show"
+  | "assessment_interview_completed"
   | "assessment_started"
   | "assessment_signed"
   | "assessment_revision_created"
@@ -46,7 +47,7 @@ export type AssessmentScheduleUpdate = {
   duration_minutes: number | null;
   method: AssessmentScheduleMethod | null;
   location: string | null;
-  status: Exclude<AssessmentScheduleStatus, "completed">;
+  status: AssessmentScheduleStatus;
 };
 
 export type AssessmentAddendum = {

@@ -47,6 +47,7 @@ function resolveQueueOptions(params: URLSearchParams) {
       queueOwner,
       queueMine: params.get("queue_mine") === "true",
       includeAssignments: params.get("include_assignments") !== "false",
+      includeWork: params.get("include_work") === "true",
     },
   };
 }

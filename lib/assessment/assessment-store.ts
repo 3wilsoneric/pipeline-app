@@ -1640,6 +1640,7 @@ function assessmentPatchAuditAction(
   if (patch.mark_started) return "assessment_started";
   if (patch.schedule?.status === "cancelled") return "assessment_cancelled";
   if (patch.schedule?.status === "no_show") return "assessment_no_show";
+  if (patch.schedule?.status === "completed") return "assessment_interview_completed";
   if (patch.schedule?.status === "rescheduled") return "assessment_rescheduled";
   if (patch.schedule) return "assessment_scheduled";
   if (nextStatus !== "complete" && current.status === "complete") return "assessment_reopened";
@@ -2225,6 +2226,7 @@ function isAssessmentAuditAction(value: string): value is AssessmentAuditAction 
     "assessment_rescheduled",
     "assessment_cancelled",
     "assessment_no_show",
+    "assessment_interview_completed",
     "assessment_started",
     "assessment_signed",
     "assessment_revision_created",

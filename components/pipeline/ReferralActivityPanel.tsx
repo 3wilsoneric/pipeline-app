@@ -24,6 +24,7 @@ const actionLabels: Record<string, string> = {
   assessment_rescheduled: "Assessment rescheduled",
   assessment_cancelled: "Assessment cancelled",
   assessment_no_show: "Assessment missed",
+  assessment_interview_completed: "Interview completed; documentation remains editable",
   assessment_started: "Assessment started",
   assessment_completed: "Assessment completed",
   assessment_signed: "Assessment signed",
