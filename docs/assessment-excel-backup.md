@@ -2,11 +2,13 @@
 
 ## Using It
 
-Open **Details > Excel backup** in the assessment footer and choose **Download current assessment**. The file includes the answers currently on screen, including changes waiting to sync. It is a snapshot; download again to refresh it.
+Use the **Excel workbook strip** above the assessment questions. **Download copy** includes the answers currently on screen, including changes waiting to sync. It is a snapshot; download again to refresh it.
 
-Continue in the answer cells in Excel. Choice fields have dropdowns. Lists use one item per line. Put an explanation beside any answer marked unable to assess. Save the workbook, then drop it into **Excel backup** in the same assessment.
+Continue in the answer cells in Excel. Choice fields have dropdowns. Lists use one item per line. Put an explanation beside any answer marked unable to assess. Save the workbook, then drop it on the strip in the same assessment, or press the strip to choose a file.
 
-Pipeline reads mapped cells locally, without AI or uploading the workbook. It compares the original snapshot, the Excel answers, and the current assessment. Unchanged Excel cells leave newer assessment answers alone. Conflicts and clearing an existing answer require explicit approval. Apply updates the existing draft and save queue. This never signs an assessment, records a decision, or sends an email.
+Pipeline reads mapped cells locally, without AI or uploading the workbook. A modal shows proposed changes alongside the populated clinical chart. Selecting or deselecting an answer updates that preview only. **Cancel** or Escape leaves the assessment untouched.
+
+The comparison uses the original snapshot, the Excel answers, and the current assessment. Unchanged Excel cells leave newer assessment answers alone. Ordinary changes start selected; conflicts and clearing an existing answer require explicit selection. **Commit changes** applies only the selected answers to the existing draft and save queue. This never signs an assessment, records a decision, or sends an email. The normal assessment save status distinguishes local application from server sync.
 
 Signed/read-only assessments allow download but not restore. A mismatched client, assessment, site, or questionnaire version is rejected before any answers change. Keep an incompatible workbook for manual reconciliation; do not delete it.
 
@@ -66,3 +68,11 @@ The harness creates and migrates a new loopback cluster, ignores configured appl
 `tests/e2e/assessment-excel-recovery.spec.ts` adds two final-integration probes. Build with `NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=true`, then run this spec with `PIPELINE_DESKTOP_E2E=true PIPELINE_E2E_PREBUILT=true` and an unused local `PORT`. The assessment-switch probe passed. The late-recovery probe exposes a release blocker on the queued snapshot: delayed recovery replaces newer typed/imported answers on screen. Keep this assertion failing until the separately owned recovery fixes are integrated; do not skip it for release. Workbook imports must participate in touched-field tracking, retries must preserve workbook metadata, and the complete combined candidate must pass the probe.
 
 The original six Excel browser checks still pass, including all-field round trips, offline restore/conflict handling and iPad WebKit. Build, lint and whitespace checks passed. Native Excel compatibility and final recovery integration remain outstanding; this evidence is not deployment approval.
+
+## Review-First Import Follow-Up
+
+The visible strip opens a populated chart preview using `ClientAssessmentRecord`, rather than a second chart implementation. Import selection never mutates the assessment; only the commit action invokes the existing restore callback. In short landscape touch layouts, compact side controls preserve question space without remounting the preview or losing its selections during rotation. The parser, workbook contract, API, store, save queue and encrypted recovery code are unchanged by this UI follow-up.
+
+The focused final run passed 18 checks: nine Excel tests, eight footer-layout tests, and the cross-assessment save-isolation probe. Evidence includes actual browser drop, unchanged record/version after preview and Cancel, live selected-answer preview, explicit clearing, selective commit/provenance, invalid-workbook refusal, offline conflicts, keyboard dismissal/focus return, iPad WebKit, and compact portrait/landscape touch layouts. Desktop, iPad and phone screenshots were inspected. Build, TypeScript, lint and whitespace checks passed; every function in the import UI component is at most 15 by the repository's complexity check.
+
+The late-recovery integration probe still fails both original newer-answer assertions on this isolated base; it remains a release blocker for the combined recovery integration. An additional older 28-test mobile/phone/footer sweep produced 19 passes and nine failures: that recovery failure plus eight assertions against superseded navigation/full-screen assessment UI (including the former `Assessment interview` dialog and `02 Questionnaire` button). Those older test files were not weakened or rewritten here. Full `certify:refactor` still stops at inherited complexity ratchet failures; no baseline or disposition was changed. Neither this follow-up nor its focused tests certify native Excel compatibility or the final deployment candidate.
