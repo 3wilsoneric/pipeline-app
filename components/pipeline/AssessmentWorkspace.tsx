@@ -49,7 +49,6 @@ import {
   setAssessmentUnableReason,
 } from "@/lib/assessment/assessment-interview-schema";
 import {
-  fieldsForAssessmentSection,
   normalizeAssessmentSectionVersions,
 } from "@/lib/assessment/assessment-sections";
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
@@ -81,6 +80,7 @@ import {
   canCreateAssessment,
   canEditAssessment,
   canSaveAssessmentSection,
+  canRebaseAssessmentAnswers,
   canSuperviseAssessment,
   dirtyAssessmentSections,
   editableSectionData,
@@ -856,7 +856,8 @@ export default function AssessmentWorkspace({
       const field = definition.key;
       const localChanged = !sameAssessmentValue(local[field], base[field]);
       const remoteChanged = !sameAssessmentValue(latestData[field], base[field]);
-      if (localChanged && remoteChanged && !sameAssessmentValue(local[field], latestData[field])) {
+      const unresolved = remoteChangeRef.current?.conflicts.some((conflict) => conflict.field === field);
+      if (localChanged && (remoteChanged || unresolved) && !sameAssessmentValue(local[field], latestData[field])) {
         merged[field] = local[field] as never;
         conflicts.push({ field, localValue: local[field], remoteValue: latestData[field], section: definition.section });
       } else if (localChanged) {
@@ -872,46 +873,59 @@ export default function AssessmentWorkspace({
     const nextDirty = dirtyAssessmentSections(merged, latestData);
     dirtySectionsRef.current = nextDirty;
     setDirtySections(nextDirty);
-    setRemoteChange(conflicts.length > 0 || announce ? { assessment: latest, conflicts } : null);
+    const change = conflicts.length > 0 || announce ? { assessment: latest, conflicts } : null;
+    remoteChangeRef.current = change;
+    setRemoteChange(change);
     if (announce) {
       setMessage(remoteAssessmentMessage(conflicts.length, latest.updated_by.name));
     }
   }, []);
 
   const saveSectionNow = useCallback(async (section: AssessmentToolSection, captured?: Partial<AssessmentToolData>) => {
-    const current = selectedRef.current;
-    if (!canSaveAssessmentSection(current, dirtySectionsRef.current, section, Boolean(captured))) return;
-    if (hasSectionConflict(remoteChangeRef.current, section)) {
+    const initial = selectedRef.current;
+    if (!canSaveAssessmentSection(initial, dirtySectionsRef.current, section, Boolean(captured))) return;
+    let current = initial;
+    const sentData = captured ?? Object.fromEntries(Object.entries(editableSectionData(draftRef.current, section))
+      .filter(([field, value]) => !sameAssessmentValue(baseDataRef.current[field as AssessmentToolFieldKey], value))) as Partial<AssessmentToolData>;
+    if (hasSectionConflict(remoteChangeRef.current, section, sentData)) {
       throw new Error(`Resolve the ${sectionLabels[section]} conflict before saving.`);
     }
 
-    const sentData = captured ?? editableSectionData(draftRef.current, section);
     if (Object.entries(sentData).every(([field, value]) => sameAssessmentValue(current[field as AssessmentToolFieldKey], value))) return;
     setMessage("Saving changes...");
-    const requestBody = JSON.stringify({
-      section,
-      if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
-      ...(sentData.resident_name !== undefined && sentData.resident_name !== current.resident_name
-        ? { if_match_referral_name: referral?.name ?? current.resident_name }
-        : {}),
-      client_mutation_id: mutationId(`assessment-${section}`),
-      patch: { data: sentData },
-    });
+    let requestBody = "";
     try {
-      const payload = trainingAssessmentMode ? { assessment: updateTrainingAssessment(current, sentData), referral: undefined } : await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; referral?: Referral }>(
-        `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
-        {
-          method: "PATCH",
-          body: requestBody,
-        },
-      );
+      let payload: { assessment: PipelineAssessmentRecord; referral?: Referral };
+      for (let attempt = 0; ; attempt += 1) {
+        requestBody = JSON.stringify({
+          section,
+          if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
+          ...(sentData.resident_name !== undefined && sentData.resident_name !== current.resident_name
+            ? { if_match_referral_name: referral?.name ?? current.resident_name }
+            : {}),
+          client_mutation_id: mutationId(`assessment-${section}`),
+          patch: { data: sentData },
+        });
+        try {
+          payload = trainingAssessmentMode ? { assessment: updateTrainingAssessment(current, sentData), referral: undefined } : await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; referral?: Referral }>(
+            `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+            { method: "PATCH", body: requestBody },
+          );
+          break;
+        } catch (error) {
+          const latest = error instanceof PipelineApiError && error.status === 409 ? assessmentFromConflict(error.payload) : null;
+          if (!latest || attempt >= 3 || !canRebaseAssessmentAnswers(current, latest, sentData)) throw error;
+          current = latest;
+        }
+      }
       const saved = payload.assessment;
       const savedData = pickAssessmentToolData(saved);
       const local = draftRef.current;
       const nextDraft = pickAssessmentToolData(local);
-      for (const field of fieldsForAssessmentSection(section)) {
+      for (const { key: field } of assessmentToolFieldDefinitions) {
         const sentValue = sentData[field];
-        if (sentValue !== undefined && sameAssessmentValue(local[field], sentValue)) {
+        if ((sentValue !== undefined && sameAssessmentValue(local[field], sentValue))
+          || sameAssessmentValue(local[field], baseDataRef.current[field])) {
           nextDraft[field] = savedData[field] as never;
         }
       }

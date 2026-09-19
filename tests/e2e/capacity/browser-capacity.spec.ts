@@ -1,6 +1,7 @@
 import { test, expect, chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { totalmem, freemem } from 'node:os';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
+import { execFileSync } from 'node:child_process';
 import postgres from 'postgres';
 import { createOperationalReferral } from '../support/operational-api';
 import { operationalHeadersForActor, type PipelineActor } from '../support/pipeline-actors';
@@ -9,6 +10,8 @@ import { clientDirectoryFixture } from '../support/pipeline-clinical-fixtures';
 test('sustained browser saves survive alternating application instances', async ({ baseURL }, testInfo) => {
   test.skip(testInfo.config.metadata.pipelineCapacityRehearsal !== true, 'Opt in with playwright.capacity.config.ts; never run as part of the ordinary browser suite');
   const users = Number(process.env.PIPELINE_CAPACITY_USERS ?? 100);
+  const candidate = process.env.PIPELINE_CAPACITY_COMMIT ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  if (!/^[a-f0-9]{40}$/.test(candidate)) throw Error('Exact candidate commit required');
   const seconds = Number(process.env.PIPELINE_CAPACITY_SECONDS ?? 1200);
   if (!Number.isInteger(users) || users < 2 || users > 100 || !Number.isInteger(seconds) || seconds < 10 || seconds > 7200) throw Error('Invalid bounded capacity profile');
   test.setTimeout((seconds + 180 + users * 3) * 1000);
@@ -118,7 +121,7 @@ test('sustained browser saves survive alternating application instances', async 
     if (sampler) clearInterval(sampler);
     delay.disable();
     const sorted = ledger.map(entry => entry.ms).sort((a, b) => a - b);
-    await testInfo.attach('capacity-evidence', { body: Buffer.from(JSON.stringify({ runId, application_baseline: 'ccd474433c05001ed621c30643bde3f1b3e8a201', environment: 'local-postgres-two-process-synthetic-auth', requested_users: users, created_sessions: sessions.length, actors_with_confirmed_saves: new Set(ledger.map(entry => entry.actor)).size, measuredStart, measuredEnd, browser_processes: browsers.length, backendCounts, overlap, saves: ledger.length, p95_save_ms: sorted[Math.ceil(sorted.length * .95) - 1] ?? null, p99_save_ms: sorted[Math.ceil(sorted.length * .99) - 1] ?? null, generator_event_loop_p99_ms: delay.percentile(99) / 1e6, errors, ledger, limits: ['Not Entra sign-in or Azure performance certification', 'Current workload: intake save/cross-replica reads/calendar navigation; assessment/upload/fault waves remain separate'] }, null, 2)), contentType: 'application/json' });
+    await testInfo.attach('capacity-evidence', { body: Buffer.from(JSON.stringify({ runId, candidate_commit: candidate, application_baseline: 'ccd474433c05001ed621c30643bde3f1b3e8a201', environment: 'loopback-postgres-two-process-synthetic-auth', requested_users: users, created_sessions: sessions.length, actors_with_confirmed_saves: new Set(ledger.map(entry => entry.actor)).size, measuredStart, measuredEnd, browser_processes: browsers.length, backendCounts, overlap, saves: ledger.length, p95_save_ms: sorted[Math.ceil(sorted.length * .95) - 1] ?? null, p99_save_ms: sorted[Math.ceil(sorted.length * .99) - 1] ?? null, generator_event_loop_p99_ms: delay.percentile(99) / 1e6, errors, ledger, limits: ['Not Entra sign-in or Azure production performance certification', 'Current workload: intake save/cross-replica reads/calendar navigation; assessment/upload/fault waves remain separate'] }, null, 2)), contentType: 'application/json' });
     await Promise.allSettled(sessions.map(session => session.context.close()));
     await Promise.allSettled(browsers.map(browser => browser.close()));
     await sql.end({ timeout: 5 });
