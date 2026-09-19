@@ -120,12 +120,21 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
 
 test("read-only intake does not accept dropped files", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
+  let releaseReferral = () => {};
+  const loading = new Promise<void>((resolve) => { releaseReferral = resolve; });
+  await page.route(`**/api/referrals/${referral.id}`, async (route) => { await loading; await route.continue(); });
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: { user: { id: "synthetic-no-edit", name: "Synthetic reader", roles: [] } } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=name`);
   const panel = page.getByTestId("document-checklist-panel");
   await expect(panel).not.toHaveAttribute("open");
   const uploads: string[] = [];
   page.on("request", (request) => { if (request.method() === "POST" && /upload|documents/.test(request.url())) uploads.push(request.url()); });
+  await dragFiles(page.getByTestId("document-checklist-toggle"), ["forbidden.pdf"], "enter");
+  await dragFiles(page.getByTestId("document-checklist-toggle"), ["forbidden.pdf"]);
+  await expect(panel).not.toHaveAttribute("open");
+  releaseReferral();
+  await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(referral.name!);
+  await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toBeDisabled();
   await dragFiles(page.getByTestId("document-checklist-toggle"), ["forbidden.pdf"], "enter");
   await dragFiles(page.getByTestId("document-checklist-toggle"), ["forbidden.pdf"]);
   await expect(panel).not.toHaveAttribute("open");

@@ -470,7 +470,8 @@ export default function ReferralPacketCanvas({
   const [saveAlert, setSaveAlert] = useState("");
   const [pendingOwnerChange, setPendingOwnerChange] = useState<{ principalId: string; displayName: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const permissionReadOnly = isWorkspacePermissionReadOnly(loadedReferral, viewer, trainingAssessmentMode);
+  const permissionReadOnly = Boolean(referral?.id && loadedReferral?.id !== referral.id)
+    || isWorkspacePermissionReadOnly(loadedReferral, viewer, trainingAssessmentMode);
   const editableReferralId = mutableReferralId(loadedReferral, referral?.id, permissionReadOnly);
   const canvasRef = useRef<HTMLDivElement>(null);
   const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);

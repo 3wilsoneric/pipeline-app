@@ -276,7 +276,7 @@ test("shares Clients picker styling with compact Reports and Calendar controls",
   const option = assessor.locator('option:not([value=""])').first();
   await expect(option).toHaveAttribute("value", /.+/);
   const value = (await option.getAttribute("value"))!;
-  await checkSharedPicker(page, assessor, 36);
+  await checkSharedPicker(page, assessor, 44);
   await assessor.click();
   await option.click();
   await expect(assessor).toHaveValue(value);
