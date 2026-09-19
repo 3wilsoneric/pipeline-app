@@ -4,8 +4,9 @@ import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CircleHelp, FlaskConical, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, CircleHelp, FlaskConical, LogOut, Settings, Trash2, UserRound, X } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -22,8 +23,11 @@ import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state
 import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
 import DemoAssessmentLabButton from "@/components/pipeline/DemoAssessmentLabButton";
 import sidebarStyles from "@/components/pipeline/PipelineMobileShell.module.css";
+import PipelinePhoneNotifications from "@/components/pipeline/PipelinePhoneNotifications";
+import { applyPipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 
-export default function PipelineHeader({ onDestinationChange }: { onDestinationChange: () => void }) {
+export default function PipelineHeader({ onDestinationChange, phone = false }: { onDestinationChange: () => void; phone?: boolean }) {
+  const phoneMenuRef = useRef<HTMLDialogElement>(null);
   const auth = usePipelineAuth();
   const [user, setUser] = useState<PipelineCurrentUser | null>(auth.initialUser);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -37,7 +41,7 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
   const canAccessReports = canAccessOperationsReports(user);
   useWorkspacePresenceHeartbeat(Boolean(user));
-  useEffect(() => { onDestinationChange(); }, [pathname, locationSearch, onDestinationChange]);
+  useEffect(() => { phoneMenuRef.current?.close(); onDestinationChange(); }, [pathname, locationSearch, onDestinationChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +91,7 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
       // The active editor owns the save error and keeps the working copy open.
       return;
     }
+    phoneMenuRef.current?.close();
     action();
   }, [beforeNavigationRef]);
 
@@ -134,15 +139,7 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
     };
   }, [focusHomeSearch]);
 
-  return (
-    <header data-pipeline-header="true" onClickCapture={(event) => {
-      if (!beforeNavigationRef.current || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
-      if (!link || link.origin !== window.location.origin) return;
-      event.preventDefault();
-      event.stopPropagation();
-      void runNavigation(() => { setIsProfileMenuOpen(false); router.push(`${link.pathname}${link.search}${link.hash}`); });
-    }} className={sidebarStyles.sidebar}>
+  const navigationContent = <>
       <div className={sidebarStyles.brand}>
         <button
           type="button"
@@ -158,9 +155,9 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
           className={sidebarStyles.home}
         >
           <PipelineLogoMark size={32} />
-          <span className={sidebarStyles.brandText}>
-            <span className={sidebarStyles.brandName}>Pipeline</span>
-            <span className={sidebarStyles.brandOwner}>Alamo Health<br />Management</span>
+          <span className={sidebarStyles.brandDivider} data-brand-divider aria-hidden="true" />
+          <span className={sidebarStyles.brandAlamo}>
+            <Image src={toPipelinePath("/brand/alamo-health-management.png")} alt="Alamo Health Management" width={774} height={206} loading="eager" unoptimized draggable={false} className={sidebarStyles.brandAlamoImage} />
           </span>
         </button>
       </div>
@@ -207,7 +204,6 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
               <div className="mt-0.5 truncate text-[11px] text-[#6b716d]">{profileAppearance.detail}</div>
             </div>
             <ProfileSettingsLink active={pathname === "/settings"} onSelect={() => setIsProfileMenuOpen(false)} />
-            <ProfileLearningAvailability />
             <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
             {canEditWorkspace(user) ? (
               <button
@@ -241,22 +237,51 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
           </div>
         </div>
       </div>
-    </header>
-  );
+  </>;
+  const pageLabel = pathname === "/settings" ? "Settings" : activeSearchParams.get("screen") === "packet" ? "Workspace" : activeNav === "calendar" ? "Calendar" : activeNav === "profiles" ? "Clients" : activeNav === "operations" ? "Reports" : "Workspaces";
+  const hasBack = activeSearchParams.has("referralId") || activeSearchParams.has("residentKey") || activeSearchParams.has("profileKey") || activeSearchParams.get("screen") === "packet" || pathname !== "/";
+  const goBack = () => void runNavigation(() => {
+    const previous = window.history.state?.pipelinePrevious;
+    if (typeof previous === "string" && previous.startsWith("/") && !previous.startsWith("//")) window.history.back();
+    else navigatePipelineDestination(pathname, activeNav === "profiles" ? "/?screen=profiles" : "/", router);
+  });
+  return <header data-pipeline-header="true" data-phone-header={phone || undefined} onClickCapture={(event) => {
+    if (!beforeNavigationRef.current || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+    if (!link || link.origin !== window.location.origin) return;
+    event.preventDefault(); event.stopPropagation();
+    void runNavigation(() => { setIsProfileMenuOpen(false); router.push(`${link.pathname}${link.search}${link.hash}`); });
+  }} className={phone ? sidebarStyles.phoneHeader : sidebarStyles.sidebar}>
+    {phone ? <>
+      <div className={sidebarStyles.phoneBar}>
+        {hasBack ? <button type="button" aria-label="Back to previous page" onClick={goBack}><ArrowLeft size={20} aria-hidden="true" /><span>Back</span></button> : <button type="button" aria-label="Pipeline home" onClick={() => navigateTo("home")}><PipelineLogoMark size={28} /></button>}
+        <button type="button" className={sidebarStyles.phonePageButton} aria-label={`Open page menu, current page ${pageLabel}`} aria-haspopup="dialog" onClick={(event) => { event.currentTarget.focus(); phoneMenuRef.current?.showModal(); }}>{pageLabel}<ChevronDown size={16} aria-hidden="true" /></button>
+        <PipelinePhoneNotifications key={user?.id ?? "anonymous"} onOpenWorkspace={(id, location) => void runNavigation(() => {
+          const params = new URLSearchParams({ view: "referrals", screen: "packet", referralId: String(id) });
+          applyPipelineWorkspaceLocation(params, location ?? { view: "intake" });
+          navigatePipelineDestination(pathname, `/?${params}`, router);
+        })} />
+      </div>
+      <dialog ref={phoneMenuRef} aria-label="Pipeline pages" className={sidebarStyles.phoneMenu} onClick={(event) => { if (event.target === event.currentTarget || event.target instanceof Element && event.target.closest('[data-guide-target="guided-help"]')) phoneMenuRef.current?.close(); }}>
+        <div className={sidebarStyles.phoneMenuHeading}><span>Pipeline pages</span><button type="button" aria-label="Close page menu" onClick={() => phoneMenuRef.current?.close()}><X size={20} /></button></div>
+        {navigationContent}
+      </dialog>
+    </> : navigationContent}
+  </header>;
 }
 
 function HeaderSessionControls({ user, hideGlobalGuide }: { user: PipelineCurrentUser | null; hideGlobalGuide: boolean }) {
   return <>
     {user?.demoPersona ? <DemoAssessmentLabButton className="flex items-center text-[#08745f]" ><FlaskConical size={18} aria-hidden="true" /><span>Assessment lab</span></DemoAssessmentLabButton> : null}
     {user?.demoPersona ? <DemoPersonaSwitch persona={user.demoPersona} /> : <ActiveAssessorSessionPill user={user} />}
-    {!hideGlobalGuide && !user?.demoPersona ? (
+    {!hideGlobalGuide ? (
       <button
         type="button"
         aria-label="Open guided tutorials"
-        title="Guided tutorials"
+        title="Help · Learning Center"
         data-guide-target="guided-help"
         onClick={() => dispatchOperatorGuide({ type: "open-library" })}
-        className="mr-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 min-[360px]:flex sm:h-12 sm:w-10"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"
       >
         <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
         <span>Help</span>
@@ -281,7 +306,6 @@ function DemoProfileMenu({ user, signedInName, onSelect, onTrash, children }: {
     <div className="p-1 text-[14px] text-[#28372f]">
       <DemoAssessmentLabButton className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73] sm:hidden" />
       <Link href="/settings" onClick={onSelect} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Profile</Link>
-      <button type="button" disabled className="block w-full px-3 py-3 text-left text-[#737373]">Learning Center · Temporarily unavailable</button>
       <button type="button" onClick={onTrash} className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Trash</button>
     </div>
   </>;
@@ -349,10 +373,6 @@ function profilePresenceIndicatorClass(online: boolean) {
 
 function ProfileSettingsLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {
   return <Link href="/settings" prefetch={true} aria-label="Profile settings Account and display preferences" aria-current={active ? "page" : undefined} onClick={onSelect} className={`group grid min-h-[60px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${active ? "border-l-[#0f8b73] bg-[#edf7f3]" : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"}`}><Settings size={17} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Profile settings</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Account and display preferences</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
-}
-
-function ProfileLearningAvailability() {
-  return <button type="button" disabled className="grid min-h-[64px] w-full grid-cols-[28px_minmax(0,1fr)] items-center gap-3 border-t border-[#e5e5e5] px-4 py-3 text-left text-[#737373]"><GraduationCap size={18} strokeWidth={1.8} aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black">Learning Center</span><span className="mt-0.5 block text-[10px] leading-4">Temporarily unavailable</span></span></button>;
 }
 
 function navigatePipelineDestination(

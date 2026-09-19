@@ -84,7 +84,9 @@ export default function ClientProfileDirectory({
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
   const [sort, setSort] = useState<SortOption>("name");
   const [layout, setLayout] = useState<DirectoryLayout>("cards");
-  const [openCabinet, setOpenCabinet] = useState<{ community: string; origin: DOMRect } | null>(null);
+  const [openCabinet, setOpenCabinet] = useState<{ community: string } | null>(null);
+  const directoryRef = useRef<HTMLElement>(null);
+  const cabinetScrollTop = useRef(0);
   const cabinetRef = useRef<HTMLElement>(null);
   const cabinetOpener = useRef<HTMLButtonElement | null>(null);
   const profileOpener = useRef<HTMLButtonElement | null>(null);
@@ -102,6 +104,7 @@ export default function ClientProfileDirectory({
     }
     if (!openCabinet) {
       if (cabinetOpener.current) {
+        directoryRef.current?.scrollTo({ top: cabinetScrollTop.current, behavior: "instant" });
         const target = cabinetOpener.current.isConnected ? cabinetOpener.current : directorySearchRef.current;
         target?.focus({ preventScroll: true });
       }
@@ -111,14 +114,10 @@ export default function ClientProfileDirectory({
     if (!cabinet) return;
     cabinet.focus({ preventScroll: true });
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const bounds = cabinet.getBoundingClientRect();
-    const origin = openCabinet.origin;
-    const x = origin.x + origin.width / 2 - bounds.x - bounds.width / 2;
-    const y = origin.y + origin.height / 2 - bounds.y - bounds.height / 2;
     const animation = cabinet.animate([
-      { transform: `translate(${x}px, ${y}px) scale(${origin.width / bounds.width}, ${origin.height / bounds.height})`, opacity: 0.65 },
+      { transform: "translateY(8px)", opacity: 0.65 },
       { transform: "none", opacity: 1 },
-    ], { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" });
+    ], { duration: 160, easing: "ease-out" });
     return () => animation.cancel();
   }, [openCabinet]);
 
@@ -262,7 +261,7 @@ export default function ClientProfileDirectory({
   };
 
   return (
-    <main data-guide-target="client-directory" data-performance-ready={pipelineSurfaceReady("profiles", isLoading, error)} aria-label="Client profiles" className={`${styles.directoryShell} ${openCabinet ? "overflow-hidden" : "overflow-y-auto"}`}>
+    <main ref={directoryRef} data-guide-target="client-directory" data-performance-ready={pipelineSurfaceReady("profiles", isLoading, error)} aria-label="Client profiles" className={`${styles.directoryShell} ${openCabinet ? "overflow-hidden" : "overflow-y-auto"}`}>
       <div hidden={Boolean(openCabinet)} data-testid="profiles-workspace" className={styles.directoryWorkspace}>
         <section aria-label="Find clients" className={styles.directoryToolbar}>
             <div className={styles.cabinetTitle}><h1>Client files</h1><span aria-live="polite">{countLabel}</span></div>
@@ -329,19 +328,19 @@ export default function ClientProfileDirectory({
               <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)}><ChevronDown size={14} aria-hidden="true" /> Show more</button>
             </div> : null}
           </> : <div role="group" aria-label="Community file cabinets" className={styles.cabinetRow} hidden={communityBoxes.length === 0}>
-            {communityBoxes.map(([community, records], index) => (
+            {communityBoxes.map(([community, records]) => (
               <button key={community} type="button" aria-label={`Open ${community} file cabinet`} className={styles.cabinet} onClick={(event) => {
                 cabinetOpener.current = event.currentTarget;
+                cabinetScrollTop.current = directoryRef.current?.scrollTop ?? 0;
                 clearFilters();
-                setOpenCabinet({ community, origin: event.currentTarget.getBoundingClientRect() });
+                setOpenCabinet({ community });
               }}>
-                <span className={styles.cabinetIndex} aria-hidden="true">FILE / {String(index + 1).padStart(2, "0")}</span>
                 <span className={styles.cabinetFiles} aria-hidden="true"><i /><i /><i /></span>
                 <span className={styles.cabinetFace}>
                   <span className={styles.cabinetName}>{community}</span>
-                  <span className={styles.cabinetHandle} aria-hidden="true" />
                   <span className={styles.cabinetCount}>{countNoun(records.length, "client")}</span>
                 </span>
+                <ArrowRight size={18} className={styles.cabinetArrow} aria-hidden="true" />
               </button>
             ))}
           </div>}
@@ -419,7 +418,6 @@ export default function ClientProfileDirectory({
             <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)}><ChevronDown size={14} aria-hidden="true" /> Show more</button>
           </div> : null}
         </div>
-        <div className={styles.cabinetLip} aria-hidden="true"><span className={styles.cabinetHandle} /></div>
       </section> : null}
     </main>
   );

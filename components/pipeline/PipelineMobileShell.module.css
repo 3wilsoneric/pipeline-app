@@ -17,10 +17,11 @@
 .home { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 44px; border-radius: 6px; color: #31574a; }
 .home { font-size: 20px; font-weight: 750; letter-spacing: -.04em; }
 .home svg { flex-shrink: 0; }
-.brandText { min-width: 0; text-align: left; }
-.brandName { display: block; color: #28614f; font-size: 22px; font-weight: 750; line-height: 1.15; letter-spacing: -.04em; }
-.brandOwner { display: block; margin-top: 4px; color: #576b60; font-size: 11px; font-weight: 550; line-height: 1.3; letter-spacing: .015em; }
-.navigation[data-sidebar-expanded="true"] .home { min-height: 72px; gap: 10px; }
+.brandDivider { flex: 0 0 1px; height: 32px; background: #c4cdc7; }
+.brandAlamo { display: block; flex: 1; min-width: 0; aspect-ratio: 4.5; overflow: hidden; }
+/* Frame the supplied screenshot's logo, excluding its outer whitespace. */
+.brandAlamoImage { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: scale(1.1); }
+.navigation[data-sidebar-expanded="false"] .brandDivider { display: none; }
 .expandButton { position: absolute; z-index: 1; top: 50%; right: -22px; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 56px; color: #31574a; cursor: pointer; }
 .expandButton::before { content: ""; position: absolute; inset: 6px 10px; border: 1px solid #b9cdc2; border-radius: 9px; background: #f8fbf9; box-shadow: 0 2px 5px #1f372615; }
 .expandButton svg { position: relative; }
@@ -47,11 +48,43 @@
 .shell .navigation[data-sidebar-expanded="true"] [data-testid="primary-navigation"] :global(.pipeline-command),
 .shell .navigation[data-sidebar-expanded="true"] .utilities > button,
 .shell .navigation[data-sidebar-expanded="true"] .utilities > div > button { justify-content: flex-start; padding-inline: 12px; }
+.shell .navigation[data-sidebar-expanded="true"] .home { min-height: 52px; padding: 4px 0; gap: 8px; }
 .shell .navigation[data-sidebar-expanded="true"] [data-testid="primary-navigation"] button > span,
 .shell .navigation[data-sidebar-expanded="true"] .utilities > button > span:not([aria-hidden]),
 .shell .navigation[data-sidebar-expanded="true"] .utilities > div > button > span:not([aria-hidden]) { display: inline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profileMenu, .utilities > div > [role="alert"] { position: fixed; z-index: 110; top: auto; right: auto; bottom: 12px; left: calc(var(--sidebar-width) + 8px); width: min(320px, calc(100vw - var(--sidebar-width) - 20px)); max-height: calc(100dvh - 24px); }
 .backdrop { display: none; }
+
+.body:has([data-phone-header]) { flex-direction: column; }
+.phoneHeader { flex-shrink: 0; background: #fff; color: #24352e; border-bottom: 1px solid #e2e6e3; z-index: 40; }
+.phoneBar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 4px 12px; }
+.phoneBar > button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; font-size: 14px; font-weight: 600; border-radius: 8px; }
+.phoneBar .phonePageButton { padding-inline: 12px; font-size: 16px; }
+.phoneBar > button:active { background: #edf3ef; }
+.phoneHeader button:focus-visible { outline: 2px solid #167452; outline-offset: -2px; }
+.phoneBell { position: relative; }
+.phoneBadge { position: absolute; top: 0; right: 0; padding: 1px 4px; min-width: 16px; border-radius: 12px; background: #176f54; color: white; font-size: 10px; }
+.phoneMenu { position: fixed; inset: auto 0 0; margin: 0 auto; width: 100%; max-width: 640px; max-height: calc(var(--mobile-viewport-height, 100dvh) - 72px); padding: 12px 20px max(20px, env(safe-area-inset-bottom)); border: 1px solid #dce4df; border-radius: 18px 18px 0 0; background: #fff; color: #24352e; overflow-y: auto; overscroll-behavior: contain; box-shadow: 0 -8px 30px #20382c12; }
+.phoneMenu::backdrop { background: #18281f55; }
+.phoneMenuHeading { display: flex; justify-content: space-between; align-items: center; min-height: 48px; font-size: 18px; font-weight: 650; }
+.phoneMenuHeading button { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
+.phoneMenu .brand { max-width: 230px; margin: 10px 0 16px; }
+.phoneMenu .home { gap: 8px; }
+.phoneMenu [data-testid="primary-navigation"], .phoneMenu [aria-label="Primary navigation"] { display: flex; flex-direction: column; width: 100%; align-items: stretch; gap: 4px; }
+.phoneMenu :global(.pipeline-command) { width: 100%; min-height: 48px; justify-content: flex-start; padding: 10px 12px; border: 0; border-radius: 8px; box-shadow: none; font-size: 16px; }
+.phoneMenu :global(.pipeline-command) > span, .phoneMenu .utilities > div > button > span:not([aria-hidden]) { display: inline; text-transform: none; letter-spacing: 0; }
+.shell .phoneMenu [data-testid="primary-navigation"] :global(.pipeline-command) > span { font-size: 16px; font-weight: 550; text-transform: none; letter-spacing: 0; }
+.phoneMenu .utilities { margin-top: 16px; }
+.phoneMenu .utilities > button, .phoneMenu .utilities > div > button { justify-content: flex-start; padding-inline: 12px; min-height: 48px; }
+.phoneMenu .utilities > div > button { position: relative; }
+.phoneMenu .utilities > div > button > span[title="Online"] { position: static; margin-left: auto; flex-shrink: 0; }
+.phoneMenu .profileMenu { position: fixed; inset: auto 12px 12px; width: auto; max-height: calc(var(--mobile-viewport-height, 100dvh) - 90px); }
+.phoneUpdates { padding-bottom: 12px; }
+.phoneUpdates button { min-height: 44px; }
+.phoneUpdates p { font-size: 14px; line-height: 1.5; }
+.body:has([data-phone-header]) [data-guide-target="workspace-stage-nav"] { gap: 0; border-bottom: 1px solid #dce5de; padding: 0; background: #fff; }
+.body:has([data-phone-header]) [data-folder-stage] { flex: 1; min-height: 44px; margin: 0; padding: 8px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: #fff; color: #56665c; transform: none; box-shadow: none; font-weight: 550; }
+.body:has([data-phone-header]) [data-folder-stage][aria-current="page"] { border-bottom-color: #167452; color: #166844; font-weight: 650; }
 
 @media (prefers-reduced-motion: no-preference) {
   .navigation { transition: width 150ms ease-out, flex-basis 150ms ease-out; }

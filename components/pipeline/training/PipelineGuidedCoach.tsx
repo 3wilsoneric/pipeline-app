@@ -206,11 +206,12 @@ export default function PipelineGuidedCoach() {
 
   const handleLocationChange = useEffectEvent(() => {
     setLocationKey(currentGuideLocationKey());
-    if (state.mode !== "active") {
+    setState((current) => {
+      if (current.mode === "active") return current;
       const next = emptyOperatorGuideState();
       writeGuideState(next);
-      setState(next);
-    }
+      return next;
+    });
   });
 
   useEffect(() => {
@@ -322,7 +323,7 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
   return (
     <section role="dialog" aria-label="Guided tutorial library" className="fixed bottom-4 right-4 z-[90] flex max-h-[min(720px,calc(100dvh-2rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden border border-[#b9c7c2] bg-white shadow-[0_20px_60px_rgba(17,35,30,0.24)]">
       <header className="flex items-center justify-between gap-4 border-b border-[#d8dfdc] bg-[#f3f7f5] px-4 py-3.5">
-        <div><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#0c705f]"><Compass size={13} aria-hidden="true" /> Pipeline guide</div><h2 className="mt-1 text-[18px] font-black tracking-normal text-[#171b19]">Guided walkthroughs</h2></div>
+        <div><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#0c705f]"><Compass size={13} aria-hidden="true" /> Learning Center</div><h2 className="mt-1 text-[18px] font-black tracking-normal text-[#171b19]">Guided walkthroughs</h2></div>
         <button type="button" aria-label="Close guided tutorials" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center text-[#6c7672] hover:bg-white hover:text-[#111111]"><X size={16} /></button>
       </header>
       <div className="overflow-y-auto p-3">

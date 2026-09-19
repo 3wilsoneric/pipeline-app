@@ -24,7 +24,7 @@ test("client folders retain their dimensions and fan like Home for pointer and k
   const second = cards.nth(1);
   const last = cards.nth(2);
   const gap = async () => (await second.boundingBox())!.y - (await first.boundingBox())!.y;
-  await page.mouse.move(1, 1);
+  await page.mouse.move(page.viewportSize()!.width - 1, 1);
   await expect.poll(gap).toBe(86);
   const original = (await first.boundingBox())!;
   expect(original.height).toBe((await last.boundingBox())!.height);
@@ -38,14 +38,14 @@ test("client folders retain their dimensions and fan like Home for pointer and k
   await expect(first.getByText("Date of birth", { exact: true }).locator("..")).toHaveCSS("opacity", "0");
   await page.screenshot({ path: testInfo.outputPath("clients-fanned.png") });
 
-  await page.mouse.move(1, 1);
+  await page.mouse.move(page.viewportSize()!.width - 1, 1);
   await expect.poll(gap).toBe(86);
   // Opening a lower folder must not move its label away from the pointer.
   const tab = second.locator(":scope > strong");
   const tabBox = (await tab.boundingBox())!;
   await page.mouse.move(tabBox.x + 20, tabBox.y + 15);
   await expect.poll(async () => (await tab.boundingBox())!.y).toBe(tabBox.y);
-  await page.mouse.move(1, 1);
+  await page.mouse.move(page.viewportSize()!.width - 1, 1);
   await first.focus();
   await expect.poll(gap).toBe(188);
   await page.keyboard.press("Tab");

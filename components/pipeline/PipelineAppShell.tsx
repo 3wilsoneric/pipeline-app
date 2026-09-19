@@ -10,6 +10,7 @@ import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-cont
 import PipelinePerformanceObserver from "@/components/pipeline/PipelinePerformanceObserver";
 import { useMobileViewport } from "@/components/pipeline/use-mobile-viewport";
 import mobileStyles from "@/components/pipeline/PipelineMobileShell.module.css";
+import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
 
 export default function PipelineAppShell({
   children,
@@ -42,6 +43,7 @@ export default function PipelineAppShell({
 }
 
 function AppNavigation() {
+  const phone = usePhoneAssessment();
   const navigationRef = useRef<HTMLElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [pinned, setPinned] = useState(false);
@@ -57,6 +59,7 @@ function AppNavigation() {
     setPreview(false);
     setPinned(false);
   };
+  if (phone) return <Suspense fallback={null}><PipelineHeader phone onDestinationChange={closeOnDestination} /></Suspense>;
   return (
     <aside ref={navigationRef} aria-label="App navigation" data-assessment-app-navigation="standard" data-sidebar-expanded={expanded} data-sidebar-pinned={pinned} className={mobileStyles.navigation}
       onPointerOver={() => clearTimeout(closeTimer.current)}

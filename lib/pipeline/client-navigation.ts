@@ -56,13 +56,13 @@ function canPrefetchPipelineData() {
 
 export function pushPipelineHistory(path: string) {
   beginPipelineNavigation(path);
-  window.history.pushState(null, "", toPipelinePath(path));
+  window.history.pushState({ pipelinePrevious: `${window.location.pathname}${window.location.search}` }, "", toPipelinePath(path));
   notifyPipelineNavigation();
 }
 
 export function replacePipelineHistory(path: string) {
   beginPipelineNavigation(path);
-  window.history.replaceState(null, "", toPipelinePath(path));
+  window.history.replaceState(window.history.state, "", toPipelinePath(path));
   notifyPipelineNavigation();
 }
 
