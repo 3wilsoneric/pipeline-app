@@ -5,8 +5,6 @@ import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import {
   ArrowLeft,
   ArrowRight,
-  ArrowUpDown,
-  CalendarDays,
   ChevronDown,
   CircleAlert,
   FileText,
@@ -215,37 +213,27 @@ export default function ClientProfileDirectory({
     setFreshness(payload.freshness);
   };
 
-  const filteredClients = useMemo(() => clients
-    .filter((client) => {
-      if (admissionFilter !== "any" && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
-      return true;
-    })
-    .sort((left, right) => compareDirectoryClients(left, right, sort)), [
-      admissionFilter,
-      clients,
-      dataAsOf,
-      sort,
-    ]);
   const communityBoxes = useMemo(() => {
     const boxes = new Map<string, DirectoryClient[]>();
-    for (const client of filteredClients) {
+    for (const client of clients) {
       const community = resolveClientCommunity(client.current_community, ...client.community_names) ?? "Community not listed";
       const box = boxes.get(community) ?? [];
       box.push(client);
       boxes.set(community, box);
     }
     return [...boxes].sort(([left], [right]) => left.localeCompare(right, "en"));
-  }, [filteredClients]);
-  const cabinetClients = communityBoxes.find(([community]) => community === openCabinet?.community)?.[1] ?? [];
+  }, [clients]);
+  const cabinetClients = (communityBoxes.find(([community]) => community === openCabinet?.community)?.[1] ?? [])
+    .filter((client) => admissionFilter === "any" || matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf))
+    .sort((left, right) => compareDirectoryClients(left, right, sort));
   const visibleClients = cabinetClients.slice(0, displayLimit);
-  const hasDirectoryFilters = admissionFilter !== "any";
-  const hasAppliedFilters = hasDirectoryFilters || Boolean(query.trim());
+  const hasCabinetFilters = admissionFilter !== "any" || sort !== "name";
   const countLabel = isLoading && clients.length === 0
     ? "Loading clients..."
     : isCompletingRoster
       ? `${clients.length} of ${total} loaded`
-      : hasAppliedFilters
-        ? `${filteredClients.length} matching`
+      : query.trim()
+        ? `${clients.length} matching`
         : `${total} client${total === 1 ? "" : "s"}`;
   const directoryNotice = freshness?.status === "stale"
     ? "Live census information may be out of date. Referral records are still available while the source refreshes."
@@ -260,20 +248,19 @@ export default function ClientProfileDirectory({
   };
 
   return (
-    <main data-guide-target="client-directory" data-performance-ready={pipelineSurfaceReady("profiles", isLoading, error)} aria-label="Client profiles" className={`relative isolate h-full bg-white text-[#111111] ${openCabinet ? "overflow-hidden" : "overflow-y-auto"}`}>
-      <div hidden={Boolean(openCabinet)} data-testid="profiles-workspace" className="mx-auto w-full max-w-[1800px] px-4 pb-12 pt-4 sm:px-6 lg:px-8">
-        <section aria-label="Find clients" className="pb-1">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <label className="relative min-w-0 flex-1">
+    <main data-guide-target="client-directory" data-performance-ready={pipelineSurfaceReady("profiles", isLoading, error)} aria-label="Client profiles" className={`${styles.directoryShell} ${openCabinet ? "overflow-hidden" : "overflow-y-auto"}`}>
+      <div hidden={Boolean(openCabinet)} data-testid="profiles-workspace" className={styles.directoryWorkspace}>
+        <section aria-label="Find clients" className={styles.directoryToolbar}>
+            <div className={styles.cabinetTitle}><h1>Client files</h1><span aria-live="polite">{countLabel}</span></div>
+            <label className={styles.cabinetSearch}>
               <span className="sr-only">Search clients</span>
-              <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#68716d]" />
+              <Search size={18} aria-hidden="true" />
               <input
                 ref={directorySearchRef}
                 aria-label="Search clients"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Name, resident number, or community"
-                className="h-12 w-full border border-[#aeb8b4] bg-white pl-12 pr-12 text-[15px] outline-none placeholder:text-[#7d8581] focus:border-[#0f8b73] focus:ring-1 focus:ring-[#0f8b73]"
               />
               {query ? (
                 <button
@@ -281,16 +268,14 @@ export default function ClientProfileDirectory({
                   aria-label="Clear client search"
                   title="Clear search"
                   onClick={() => setQuery("")}
-                  className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-[#65706b] hover:text-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#0f8b73]"
                 >
                   <X size={17} />
                 </button>
               ) : null}
             </label>
 
-            <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
-              <div aria-live="polite" className="relative text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}<FeedbackCue value={`${admissionFilter}:${sort}:${displayLimit}`} /></div>
-              {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#69716c] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
+            <div className={styles.directoryFreshness}>
+              {dataAsOf ? <span>Data through <strong>{formatDate(dataAsOf)}</strong></span> : null}
               <button
                 type="button"
                 aria-label="Refresh client directory"
@@ -300,56 +285,24 @@ export default function ClientProfileDirectory({
                   setReloadKey((current) => current + 1);
                 }}
                 disabled={isLoading || isCompletingRoster}
-                className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#ccd3d0] text-[#0f8b73] hover:border-[#0f8b73] hover:bg-[#f2f8f6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] disabled:cursor-wait disabled:text-[#aab1ae]"
+                className={styles.directoryRefresh}
               >
                 <RefreshCw size={16} className={isLoading || isCompletingRoster ? "animate-spin" : ""} />
               </button>
             </div>
-          </div>
-
-        </section>
-
-        <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1fr_1fr_auto]">
-          <DirectorySelect label="Admitted" active={admissionFilter !== "any"} icon={<CalendarDays size={14} />}>
-            <select aria-label="Filter profiles by admission date" value={admissionFilter} onChange={(event) => { setAdmissionFilter(event.target.value as AdmissionFilter); setDisplayLimit(DISPLAY_INCREMENT); }}>
-              <option value="any">Any date</option>
-              <option value="last_30_days">Last 30 days</option>
-              <option value="last_3_months">Last 3 months</option>
-              <option value="last_6_months">Last 6 months</option>
-              <option value="last_12_months">Last 12 months</option>
-              <option value="older_than_12_months">More than 12 months ago</option>
-              <option value="missing">Date unavailable</option>
-            </select>
-          </DirectorySelect>
-          <DirectorySelect label="Sort" active={sort !== "name"} icon={<ArrowUpDown size={14} />}>
-            <select aria-label="Sort clients" value={sort} onChange={(event) => { setSort(event.target.value as SortOption); setDisplayLimit(DISPLAY_INCREMENT); }}>
-              <option value="name">Name A-Z</option>
-              <option value="recent_admission">Recently admitted</option>
-              <option value="pipeline_activity">Most Pipeline activity</option>
-            </select>
-          </DirectorySelect>
-          {hasAppliedFilters || sort !== "name" ? (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="col-span-2 h-9 justify-self-end px-2 text-[11px] font-black text-[#59635e] hover:text-[#a63d2f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] lg:col-span-1 lg:h-[50px] lg:justify-self-auto lg:px-3"
-            >
-              Reset
-            </button>
-          ) : null}
         </section>
 
         {isCompletingRoster ? <div className="flex items-center gap-2 border-b border-[#e4e8e6] py-2 text-[11px] text-[#66706b]" role="status"><RefreshCw size={12} className="animate-spin text-[#0f8b73]" /> Completing the directory. Results update as records arrive.</div> : null}
         {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
         {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
 
-        <section aria-label="Client list" className="pt-6 sm:pt-8">
+        <section aria-label="Client list" className={styles.directoryCabinets}>
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
-          <div role="group" aria-label="Community file cabinets" className={styles.cabinetRow}>
+          <div role="group" aria-label="Community file cabinets" className={styles.cabinetRow} hidden={communityBoxes.length === 0}>
             {communityBoxes.map(([community, records], index) => (
               <button key={community} type="button" aria-label={`Open ${community} file cabinet`} className={styles.cabinet} onClick={(event) => {
                 cabinetOpener.current = event.currentTarget;
-                setDisplayLimit(DISPLAY_INCREMENT);
+                clearFilters();
                 setOpenCabinet({ community, origin: event.currentTarget.getBoundingClientRect() });
               }}>
                 <span className={styles.cabinetIndex} aria-hidden="true">FILE / {String(index + 1).padStart(2, "0")}</span>
@@ -363,30 +316,56 @@ export default function ClientProfileDirectory({
             ))}
           </div>
 
-          {!isLoading && !error && filteredClients.length === 0 ? (
-            <div className="px-5 py-16 text-center">
-              <div className="text-[16px] font-black text-[#252c29]">{emptyRosterMessage(query, hasDirectoryFilters)}</div>
-              <p className="mx-auto mt-2 max-w-[430px] text-[12px] leading-5 text-[#6b746f]">Try a broader name, remove a filter, or refresh the directory if the client was recently added.</p>
-              {hasAppliedFilters ? <button type="button" onClick={clearFilters} className="mt-4 h-10 border border-[#0f8b73] px-4 text-[11px] font-black text-[#0f8b73] hover:bg-[#f1f8f5]">Reset directory</button> : null}
+          {!isLoading && !error && clients.length === 0 ? (
+            <div className={styles.directoryEmpty}>
+              <FolderOpen size={28} aria-hidden="true" />
+              <h2>{emptyRosterMessage(query)}</h2>
+              <p>Try a broader name or refresh the directory if the client was recently added.</p>
+              {query.trim() ? <button type="button" onClick={() => setQuery("")} className={styles.cabinetReset}>Clear search</button> : null}
             </div>
           ) : null}
         </section>
 
       </div>
       {openCabinet ? <section ref={cabinetRef} tabIndex={-1} aria-label={`${openCabinet.community} file cabinet`} className={styles.cabinetDrawer} onKeyDown={(event) => {
+        // Native pickers own Escape, including the event that dismisses their menu.
+        if (event.target instanceof Element && event.target.closest("select")) return;
         if (event.key === "Escape") { event.stopPropagation(); setOpenCabinet(null); }
       }}>
         <div className={styles.cabinetToolbar}>
           <div className={styles.cabinetHeading}>
-            <button type="button" onClick={() => setOpenCabinet(null)} className={styles.cabinetBack}><ArrowLeft size={17} aria-hidden="true" /> Back to cabinets</button>
-            <div className={styles.cabinetTitle}><h2>{openCabinet.community}</h2><span aria-live="polite">{isLoading ? "Loading clients…" : countNoun(cabinetClients.length, "client")}</span></div>
-          </div>
-          <div className={styles.cabinetSearch}>
-            <Search size={18} aria-hidden="true" />
-            <input aria-label="Search this cabinet" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name or resident number" />
-            {query ? <button type="button" aria-label="Clear cabinet search" onClick={() => setQuery("")}><X size={16} aria-hidden="true" /></button> : null}
+            <button type="button" aria-label="Back to cabinets" onClick={() => setOpenCabinet(null)} className={styles.cabinetBack}><ArrowLeft size={18} aria-hidden="true" /><span>Cabinets</span></button>
+            <div className={styles.cabinetTitle}><h2>{openCabinet.community}</h2><span aria-live="polite" className="relative">{isLoading ? "Loading clients…" : countNoun(cabinetClients.length, "client")}<FeedbackCue value={`${admissionFilter}:${sort}:${displayLimit}`} /></span></div>
           </div>
           <DirectoryLayoutToggle layout={layout} onChange={selectLayout} />
+          <div className={styles.cabinetTools}>
+          <div className={styles.cabinetSearch}>
+            <Search size={18} aria-hidden="true" />
+            <input aria-label="Search this cabinet" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a client" />
+            {query ? <button type="button" aria-label="Clear cabinet search" onClick={() => setQuery("")}><X size={16} aria-hidden="true" /></button> : null}
+          </div>
+          <section aria-label="Cabinet filters" className={styles.cabinetFilters}>
+            <DirectorySelect label="Admitted" active={admissionFilter !== "any"}>
+              <select aria-label="Filter profiles by admission date" value={admissionFilter} onChange={(event) => { setAdmissionFilter(event.target.value as AdmissionFilter); setDisplayLimit(DISPLAY_INCREMENT); }}>
+                <option value="any">Any date</option>
+                <option value="last_30_days">Last 30 days</option>
+                <option value="last_3_months">Last 3 months</option>
+                <option value="last_6_months">Last 6 months</option>
+                <option value="last_12_months">Last 12 months</option>
+                <option value="older_than_12_months">More than 12 months ago</option>
+                <option value="missing">Date unavailable</option>
+              </select>
+            </DirectorySelect>
+            <DirectorySelect label="Sort" active={sort !== "name"}>
+              <select aria-label="Sort clients" value={sort} onChange={(event) => { setSort(event.target.value as SortOption); setDisplayLimit(DISPLAY_INCREMENT); }}>
+                <option value="name">Name A-Z</option>
+                <option value="recent_admission">Recently admitted</option>
+                <option value="pipeline_activity">Most Pipeline activity</option>
+              </select>
+            </DirectorySelect>
+            {hasCabinetFilters ? <button type="button" onClick={clearFilters} className={styles.cabinetReset}>Reset filters</button> : null}
+          </section>
+          </div>
         </div>
         <div className={styles.cabinetContents}>
           {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
@@ -507,28 +486,26 @@ async function fetchCompleteClientDirectory(
 function DirectorySelect({
   label,
   active,
-  icon,
   children,
 }: {
   label: string;
   active: boolean;
-  icon: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <label data-filter-active={active} className="pipeline-directory-select relative flex h-[50px] min-w-0 items-center border border-[#c9d0cd] bg-white text-[#27302c] data-[filter-active=true]:border-[#0f8b73] data-[filter-active=true]:bg-[#f4faf7] focus-within:border-[#0f8b73] focus-within:ring-1 focus-within:ring-[#0f8b73]">
-      <span className="pointer-events-none absolute left-3 top-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.06em] text-[#66706b]">{icon}{label}</span>
-      <span className="min-w-0 flex-1 [&>select]:h-full [&>select]:w-full [&>select]:appearance-none [&>select]:bg-transparent [&>select]:pb-1 [&>select]:pl-3 [&>select]:pr-9 [&>select]:pt-5 [&>select]:text-[12px] [&>select]:font-bold [&>select]:outline-none">{children}</span>
-      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 mt-1 -translate-y-1/2 text-[#66706b]" />
+    <label data-filter-active={active} className={`pipeline-directory-select ${styles.directorySelect}`}>
+      <span className={styles.directorySelectLabel}>{label}</span>
+      {children}
+      <ChevronDown size={15} aria-hidden="true" />
     </label>
   );
 }
 
 function DirectoryLayoutToggle({ layout, onChange }: { layout: DirectoryLayout; onChange: (layout: DirectoryLayout) => void }) {
   return (
-    <div role="group" aria-label="Client view" className="pipeline-segmented flex shrink-0 border border-[#cfd7d3] bg-white p-0.5">
-      <button type="button" aria-label="Show clients as cards" aria-pressed={layout === "cards"} onClick={() => onChange("cards")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "cards" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={14} aria-hidden="true" />Cards</button>
-      <button type="button" aria-label="Show clients as a list" aria-pressed={layout === "list"} onClick={() => onChange("list")} className={`flex h-9 items-center gap-1.5 px-2.5 text-[11px] font-bold ${layout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={14} aria-hidden="true" />List</button>
+    <div role="group" aria-label="Client view" className={styles.directoryLayout}>
+      <button type="button" aria-label="Show clients as cards" aria-pressed={layout === "cards"} onClick={() => onChange("cards")}><LayoutGrid size={16} aria-hidden="true" /><span>Folders</span></button>
+      <button type="button" aria-label="Show clients as a list" aria-pressed={layout === "list"} onClick={() => onChange("list")}><List size={16} aria-hidden="true" /><span>List</span></button>
     </div>
   );
 }
@@ -729,10 +706,8 @@ function isIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function emptyRosterMessage(query: string, hasDirectoryFilters: boolean) {
-  if (query.trim() && hasDirectoryFilters) return "No clients match that search and those filters.";
+function emptyRosterMessage(query: string) {
   if (query.trim()) return "No clients match that search.";
-  if (hasDirectoryFilters) return "No clients match these filters.";
   return "The client directory is empty.";
 }
 

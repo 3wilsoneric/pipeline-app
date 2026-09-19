@@ -3,7 +3,7 @@
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
-import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowLeft,
@@ -32,6 +32,8 @@ import {
 } from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import { usePacketExtraction } from "@/components/pipeline/use-packet-extraction";
+import { useIntakeFileExtraction } from "@/components/pipeline/use-intake-file-extraction";
+import { IntakeExtractionProgress, IntakeSuggestionLabel } from "@/components/pipeline/IntakeExtractionProgress";
 import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -109,7 +111,9 @@ import {
 } from "@/lib/pipeline/referral-packet-upload";
 import {
   extractedCanvasFieldKeys,
+  intakePreviewSuggestions,
   populateFormFromExtraction,
+  type IntakeFieldSuggestion,
   type ReferralCanvasDirtyKey,
   type ReferralCanvasPacketField,
 } from "@/lib/pipeline/referral-canvas-extraction";
@@ -135,6 +139,7 @@ import {
   type DraftValueSnapshot,
 } from "@/components/pipeline/referral-canvas-save-state";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import type { ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
 import ReferralContactsCard from "@/components/pipeline/ReferralContactsCard";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import ContactDirectorySuggestion from "@/components/pipeline/ContactDirectorySuggestion";
@@ -435,6 +440,13 @@ export default function ReferralPacketCanvas({
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const extraction = usePacketExtraction(loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
+  const intakeExtraction = useIntakeFileExtraction();
+  const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<FieldKey>>(() => new Set());
+  const { start: startIntakeExtraction, reset: resetIntakeExtraction } = intakeExtraction;
+  useEffect(() => {
+    resetIntakeExtraction();
+    setDismissedSuggestionKeys(new Set());
+  }, [newDraftKey, referral?.id, resetIntakeExtraction]);
   const serverDraftsEnabled = usesServerReferralDrafts() && !trainingIntakeMode;
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -478,6 +490,7 @@ export default function ReferralPacketCanvas({
   const deleteMutationIdRef = useRef(createMutationId());
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
   const lastFocusRef = useRef<FieldKey | undefined>(initialIntakeFocus(routedWorkspaceLocation));
+  const chartEditTargetRef = useRef<ReferralChartEditField | null>(null);
   const locallyFocusedFieldRef = useRef<FieldKey | undefined>(undefined);
   useWorkspaceLocationRouting(referral?.id, newDraftKey, routedWorkspaceLocation, setActivePage);
   const defaultOwnerRef = useRef<{ principalId: string; displayName: string } | null>(null);
@@ -688,7 +701,7 @@ export default function ReferralPacketCanvas({
     }
   };
 
-  const restoreLocalFiles = (recovery: ReferralLocalRecovery) => {
+  const restoreLocalFiles = useCallback((recovery: ReferralLocalRecovery) => {
     initialPacketRef.current = recovery.initialPacket;
     setInitialPacket(recovery.initialPacket);
     pendingDocumentsRef.current = recovery.pendingDocuments;
@@ -701,8 +714,11 @@ export default function ReferralPacketCanvas({
       dirtyKeysRef.current.add("initialPacket");
       setDirtyKeys(new Set(dirtyKeysRef.current));
       setRecoveredPacketName("");
+      startIntakeExtraction(recovery.initialPacket, "initial", loadedReferralRef.current?.id);
     }
-  };
+    Object.entries(recovery.pendingDocuments).forEach(([key, file]) => startIntakeExtraction(file, key, loadedReferralRef.current?.id));
+    recovery.additionalFiles.forEach((file) => startIntakeExtraction(file, `additional-${createMutationId()}`, loadedReferralRef.current?.id));
+  }, [startIntakeExtraction]);
 
   const loadIntakeRecovery = async (reference: ReferralRecoveryDraftKey) => {
     const [server, local] = await Promise.allSettled([
@@ -991,7 +1007,7 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
     };
-  }, [newDraftKey, referral?.id, serverDraftsEnabled]);
+  }, [newDraftKey, referral?.id, serverDraftsEnabled, restoreLocalFiles]);
 
   useEffect(() => {
     const packet = extraction?.packet;
@@ -1046,16 +1062,21 @@ export default function ReferralPacketCanvas({
   }, [loadedReferral?.documentName, loadedReferral?.packetFields, loadedReferral?.workspaceStatus]);
 
   useEffect(() => {
-    const field = routedWorkspaceLocation.view === "intake" ? routedWorkspaceLocation.intakeField : undefined;
+    const editTarget = chartEditTargetRef.current;
+    const field = editTarget ?? (routedWorkspaceLocation.view === "intake" ? routedWorkspaceLocation.intakeField : undefined);
     if (!field || draftRecoveryLoading || activePage !== 1) return;
-    if (locallyFocusedFieldRef.current === field) {
+    if (!editTarget && locallyFocusedFieldRef.current === field) {
       locallyFocusedFieldRef.current = undefined;
       return;
     }
-    lastFocusRef.current = field;
+    if (field !== "conserved") lastFocusRef.current = field;
     const frame = window.requestAnimationFrame(() => {
-      canvasRef.current?.querySelector<HTMLElement>(`[data-workspace-field="${field}"]`)
-        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+      const cell = canvasRef.current?.querySelector<HTMLElement>(`[data-workspace-field="${field}"]`);
+      if (editTarget) {
+        chartEditTargetRef.current = null;
+        cell?.querySelector<HTMLElement>("input, select, textarea")?.focus({ preventScroll: true });
+      }
+      cell?.scrollIntoView({ block: "center", behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [activePage, draftRecoveryLoading, newDraftKey, referral?.id, routedWorkspaceLocation.intakeField, routedWorkspaceLocation.view]);
@@ -1172,6 +1193,7 @@ export default function ReferralPacketCanvas({
   }, [activePage, editableReferralId]);
 
   const updateField = (key: FieldKey, value: string) => {
+    setDismissedSuggestionKeys((current) => new Set(current).add(key));
     setSaveError("");
     setDuplicateReview((current) => duplicateIdentityFields.has(key) ? null : current);
     setSavedAt("Unsaved changes");
@@ -1179,6 +1201,16 @@ export default function ReferralPacketCanvas({
     const next = { ...fieldsRef.current, [key]: { ...fieldsRef.current[key], value } };
     fieldsRef.current = next;
     setFields(next);
+  };
+
+  const acceptIntakeSuggestion = (key: FieldKey, suggestion: IntakeFieldSuggestion) => {
+    if (permissionReadOnly || suggestion.conflicting || fieldsRef.current[key].value.trim() || dirtyKeysRef.current.has(key)) return;
+    updateField(key, suggestion.value);
+    const next = { ...fieldsRef.current, [key]: { ...fieldsRef.current[key], sourceFile: suggestion.fileName } };
+    fieldsRef.current = next;
+    setFields(next);
+    commitIntakeCell(key);
+    focusedCellRef.current = null;
   };
 
   const applyOwnerChange = (change: { principalId: string; displayName: string }, handoffReason = "") => {
@@ -1206,6 +1238,7 @@ export default function ReferralPacketCanvas({
     pendingDocumentsRef.current = nextPendingDocuments;
     setDocuments(nextDocuments);
     setPendingDocuments(nextPendingDocuments);
+    intakeExtraction.start(file, id, loadedReferralRef.current?.id);
     const currentReferral = loadedReferralRef.current;
     if (currentReferral) void queueFileUpload(() => uploadAndLinkSupportingDocument(loadedReferralRef.current ?? currentReferral, id, file)).catch(() => undefined);
   };
@@ -1220,6 +1253,7 @@ export default function ReferralPacketCanvas({
     const next = [...additionalFilesRef.current, ...files];
     additionalFilesRef.current = next;
     setAdditionalFiles(next);
+    files.forEach((file) => intakeExtraction.start(file, `additional-${createMutationId()}`, loadedReferralRef.current?.id));
     markDirty("documents");
     setSaveError("");
     setSavedAt(loadedReferralRef.current ? "Uploading files..." : "Files queued with referral draft");
@@ -1327,6 +1361,7 @@ export default function ReferralPacketCanvas({
 
     initialPacketRef.current = selection.file;
     setInitialPacket(selection.file);
+    intakeExtraction.start(selection.file, "initial", loadedReferralRef.current?.id);
     markDirty("initialPacket");
     setSaveError("");
     setSavedAt("Unsaved changes");
@@ -1354,6 +1389,7 @@ export default function ReferralPacketCanvas({
   };
 
   const clearInitialPacket = () => {
+    intakeExtraction.remove("initial");
     initialPacketRef.current = null;
     setInitialPacket(null);
     setSaveError("");
@@ -1361,20 +1397,21 @@ export default function ReferralPacketCanvas({
     setSavedAt("Unsaved changes");
   };
 
-  const openPage = (page: WorkspaceView) => {
+  const openPage = (page: WorkspaceView, editField?: ReferralChartEditField) => {
     if (emailSendingRef.current) return;
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
+    chartEditTargetRef.current = editField ?? null;
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(page === 1 && loadedReferralRef.current
-      ? { view: "intake", intakeField: "name" }
+      ? { view: "intake", intakeField: editField && editField !== "conserved" ? editField : "name" }
       : workspaceLocationForPage(page));
     requestAnimationFrame(() => {
-      canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      if (!editField) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
   };
 
-  const navigatePage = async (page: WorkspaceView) => {
+  const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField) => {
     if (page === activePage || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.();
@@ -1385,7 +1422,7 @@ export default function ReferralPacketCanvas({
       if ((activePage === 1 || activePage === 3) && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
         await openQuestionnaireFromIntake();
       } else {
-        openPage(page);
+        openPage(page, editField);
       }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Your last changes could not be saved. Try again before leaving this page.");
@@ -2115,6 +2152,8 @@ export default function ReferralPacketCanvas({
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
     (field) => extractedCanvasFieldKeys(field.field_key).length > 0,
   );
+  const intakeSuggestions = intakePreviewSuggestions(fields, intakeExtraction.previews, new Set([...dirtyKeys, ...dismissedSuggestionKeys]));
+  const suggestionCount = visibleChartFieldKeys.filter((key) => intakeSuggestions[key] && !intakeSuggestions[key]?.conflicting).length;
   const packetEvidenceVersion = referralPacketEvidenceVersion(loadedReferral);
   const hasPendingWorkspaceChanges = workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
   const referralWorkspaceId = activeReferralId(loadedReferral, referral);
@@ -2344,7 +2383,9 @@ export default function ReferralPacketCanvas({
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
                 <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
+            <IntakeExtractionProgress extraction={intakeExtraction} referralId={loadedReferral?.id} suggestionCount={suggestionCount} />
             <IntakeDocumentChecklist
+              readOnly={permissionReadOnly}
               initialPacket={initialPacket}
               initialPacketCategory={initialPacketCategory}
               recordedName={loadedReferral?.documentName}
@@ -2395,6 +2436,8 @@ export default function ReferralPacketCanvas({
                         key={key}
                         fieldKey={key}
                         field={fields[key]}
+                        suggestion={intakeSuggestions[key]}
+                        onAcceptSuggestion={acceptIntakeSuggestion}
                         className={key === "name" ? "sm:col-span-2" : key === "ssn" ? "sm:col-span-2 xl:col-span-1" : undefined}
                         options={key === "gender" ? ["Male", "Female", "Nonbinary", "Other", "Prefer not to say"] : undefined}
                         detail={key === "dob" ? (
@@ -2437,6 +2480,8 @@ export default function ReferralPacketCanvas({
                           key={key}
                           fieldKey={key}
                           field={fields[key]}
+                          suggestion={intakeSuggestions[key]}
+                          onAcceptSuggestion={acceptIntakeSuggestion}
                           options={key === "community" ? pipelineCommunities : key === "county" ? californiaCountyOptions : undefined}
                           directory={canSupervise || editableReferralId ? (
                             key === "referent" ? "organization" : key === "responsiblePerson" ? "person" : undefined
@@ -2487,6 +2532,8 @@ export default function ReferralPacketCanvas({
                         key={key}
                         fieldKey={key}
                         field={fields[key]}
+                        suggestion={intakeSuggestions[key]}
+                        onAcceptSuggestion={acceptIntakeSuggestion}
                         onChange={(value) => updateField(key, value)}
                         onFocus={focusWorkspaceField}
                       />
@@ -2585,7 +2632,9 @@ export default function ReferralPacketCanvas({
                   workspaceTitle={workspaceTitle}
                   chartReview={displayedPage === 3}
                   chartActions={!permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined}
+                  onEditReferralField={!permissionReadOnly && loadedReferral ? (field) => void navigatePage(1, field) : undefined}
                   onOpenChart={() => openPage(3)}
+                  onOpenAssessment={() => openPage(2)}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
@@ -2934,6 +2983,7 @@ function WorkspaceFilesPage({
 }
 
 function IntakeDocumentChecklist({
+  readOnly = false,
   initialPacket,
   initialPacketCategory,
   recordedName,
@@ -2952,6 +3002,7 @@ function IntakeDocumentChecklist({
   onAddFiles,
   children,
 }: {
+  readOnly?: boolean;
   initialPacket: File | null;
   initialPacketCategory: InitialDocumentCategory;
   recordedName?: string;
@@ -2970,6 +3021,10 @@ function IntakeDocumentChecklist({
   onAddFiles: (files: File[]) => void;
   children?: React.ReactNode;
 }) {
+  const panelRef = useRef<HTMLDetailsElement>(null);
+  const dragDepthRef = useRef(0);
+  const [dragActive, setDragActive] = useState(false);
+  const [dropError, setDropError] = useState("");
   const documentItems = [...requirements, ...attachments];
   const capturedDocuments = documentItems.filter((item) => (
     !pendingDocuments[item.id] && !uploadingDocumentIds.has(item.id) && getRequirementReviewValue(item, documents[item.id], referral)
@@ -2977,8 +3032,47 @@ function IntakeDocumentChecklist({
   const hasInitialPacket = Boolean(initialPacket || (recordedName && recordedStatus !== "Missing"));
 
   return (
-    <section aria-label="Document checklist" className="mb-6">
+    <section aria-label="Document checklist" className={`mb-6 rounded transition-colors ${dragActive ? "outline-2 outline-offset-2 outline-[#0f8b73]" : ""}`}
+      data-file-drag-active={dragActive || undefined}
+      onDragEnter={(event) => {
+        if (readOnly || !event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        dragDepthRef.current += 1;
+        setDragActive(true);
+        if (panelRef.current) panelRef.current.open = true;
+      }}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = readOnly ? "none" : "copy";
+      }}
+      onDragLeave={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        if (!dragDepthRef.current) setDragActive(false);
+      }}
+      onDrop={(event) => {
+        if (!event.dataTransfer.types.includes("Files") && !event.dataTransfer.files.length) return;
+        const handledByUploadControl = event.defaultPrevented;
+        event.preventDefault();
+        dragDepthRef.current = 0;
+        setDragActive(false);
+        setDropError("");
+        if (readOnly || handledByUploadControl) return;
+        const files = Array.from(event.dataTransfer.files);
+        if (!files.length) return;
+        if (panelRef.current) panelRef.current.open = true;
+        // Dropping on the broad Documents surface must not replace a packet.
+        // Explicit packet/checklist drop targets keep their own handlers.
+        if (hasInitialPacket) onAddFiles(files);
+        else {
+          const result = onInitialPacketSelect(files);
+          if (!result.accepted) setDropError(result.error ?? "");
+          else panelRef.current?.querySelector('[data-guide-target="initial-packet-upload"]')?.dispatchEvent(new CustomEvent("pipeline:guide-complete", { bubbles: true }));
+        }
+      }}>
       <details
+        ref={panelRef}
         data-testid="document-checklist-panel"
         className="pipeline-details-feedback group bg-white"
       >
@@ -2992,7 +3086,7 @@ function IntakeDocumentChecklist({
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className={`text-[10px] font-black ${hasInitialPacket && !initialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
-              {initialPacket ? "Packet selected" : hasInitialPacket ? "Packet added" : "Packet needed"}
+              {dragActive ? "Release to add files" : initialPacket ? "Packet selected" : hasInitialPacket ? "Packet added" : "Packet needed"}
             </span>
             <span className={`hidden text-[10px] font-black sm:inline ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
               {capturedDocuments} / {documentItems.length} files
@@ -3002,6 +3096,7 @@ function IntakeDocumentChecklist({
         </summary>
 
         <div className="px-1 pb-4 pt-4">
+          {dropError ? <p role="alert" className="mb-3 text-[12px] font-semibold text-[#9a492e]">{dropError}</p> : null}
           <InitialPacketDropzone
             file={initialPacket}
             recordedName={recordedName}
@@ -3009,10 +3104,10 @@ function IntakeDocumentChecklist({
             message={packetMessage}
             category={initialPacketCategory}
             onCategoryChange={onInitialPacketCategoryChange}
-            onSelect={onInitialPacketSelect}
+            onSelect={(files) => { setDropError(""); return onInitialPacketSelect(files); }}
             onClear={onInitialPacketClear}
           />
-          <AdditionalDocumentDropzone queued={additionalFiles} files={workspaceFiles} onAdd={onAddFiles} />
+          <AdditionalDocumentDropzone queued={additionalFiles} files={workspaceFiles} onAdd={(files) => { setDropError(""); onAddFiles(files); }} />
           {children}
 
           <div className="mb-2 flex items-center justify-between gap-3">
@@ -3461,6 +3556,8 @@ function OwnerChangeDialog({
 type EditablePacketFieldProps = {
   fieldKey: FieldKey;
   field: PacketField;
+  suggestion?: IntakeFieldSuggestion;
+  onAcceptSuggestion?: (key: FieldKey, suggestion: IntakeFieldSuggestion) => void;
   options?: readonly string[];
   className?: string;
   detail?: string;
@@ -3473,6 +3570,8 @@ type EditablePacketFieldProps = {
 function EditablePacketField({
   fieldKey,
   field,
+  suggestion,
+  onAcceptSuggestion,
   options,
   className,
   detail,
@@ -3487,7 +3586,8 @@ function EditablePacketField({
       <div className="flex items-start justify-between gap-2">
         <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{label}</label>
       </div>
-      <PacketFieldControl fieldKey={fieldKey} field={field} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
+      <PacketFieldControl fieldKey={fieldKey} field={suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
+      {suggestion ? <IntakeSuggestionLabel suggestion={suggestion} label={label} onAccept={() => onAcceptSuggestion?.(fieldKey, suggestion)} /> : null}
       {detail ? <div className="mt-1 text-[12px] font-bold text-[#176f60]" aria-live="polite">{detail}</div> : null}
       {field.sourceFile ? (
         <div className="mt-2 flex items-center gap-1 text-[10px] font-black text-[#317f8f]">

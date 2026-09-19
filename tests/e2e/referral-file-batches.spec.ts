@@ -30,7 +30,7 @@ test("keeps intake and later referral files in one workspace", async ({ page }) 
     const payload = await response.json() as { files: { name: string }[] };
     return payload.files.map((file) => file.name);
   }).toContain("later-care-note.pdf");
-  await expect(page.getByRole("list", { name: "Additional referral file list" })).toContainText("later-care-note.pdf");
+  await expect(page.getByRole("region", { name: "Uploaded documents", exact: true })).toContainText("later-care-note.pdf");
 
   const invalid = await page.request.get("/api/files?referral_id=not-a-number");
   expect(invalid.status()).toBe(400);

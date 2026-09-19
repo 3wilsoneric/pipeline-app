@@ -38,16 +38,17 @@ import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import type { AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
 import ClientAssessmentSummary from "@/components/pipeline/ClientAssessmentSummary";
 import {
   IdentityReviewControls,
   IdentitySuggestionControls,
 } from "@/components/pipeline/ClientIdentityReview";
-import ClientMedicalChart, { ChartFacts } from "@/components/pipeline/ClientMedicalChart";
+import ClientMedicalChart, { ChartFacts, type ChartEditActions } from "@/components/pipeline/ClientMedicalChart";
 import { ClientAssessmentRecords } from "@/components/pipeline/ClientAssessmentRecord";
 import folderStyles from "./ClientFolder.module.css";
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
-import { clientChartRecord, clientChartAssessments, clientReferralSections, clientSourceSections } from "@/lib/pipeline/client-chart-context";
+import { clientChartRecord, clientChartAssessments, clientReferralSections, clientSourceSections, referralChartEditFields, type ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
 
 export default function ClientProfileView({
   residentKey,
@@ -158,16 +159,19 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
-export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment }: {
+export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment, onEditReferralField, onEditAssessmentField }: {
   profile: UnifiedClientProfileResponse;
   sourceReferralId: number;
   headerActions?: ReactNode;
   children?: ReactNode;
   assessment?: PipelineAssessmentRecord;
+  onEditReferralField?: (field: ReferralChartEditField) => void;
+  onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
 }) {
   return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
     assessmentRecords={clientChartAssessments(profile, sourceReferralId, assessment)}
-    embedded sourceReferralId={sourceReferralId} headerActions={headerActions} additionalContent={children} />;
+    embedded sourceReferralId={sourceReferralId} headerActions={headerActions} additionalContent={children} onEditReferralField={onEditReferralField}
+    editableAssessmentId={assessment?.assessment_id} onEditAssessmentField={onEditAssessmentField} />;
 }
 
 function ResidentProfile({
@@ -180,6 +184,9 @@ function ResidentProfile({
   sourceReferralId,
   headerActions,
   assessmentRecords = profile.pipeline.assessments,
+  onEditReferralField,
+  editableAssessmentId,
+  onEditAssessmentField,
 }: {
   profile: UnifiedClientProfileResponse;
   onBack: () => void;
@@ -190,6 +197,9 @@ function ResidentProfile({
   sourceReferralId?: number;
   headerActions?: ReactNode;
   assessmentRecords?: PipelineAssessmentRecord[];
+  onEditReferralField?: (field: ReferralChartEditField) => void;
+  editableAssessmentId?: string;
+  onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
 }) {
   const client = profile.client;
   const resident = profile.resident;
@@ -223,6 +233,15 @@ function ResidentProfile({
     profile.pipeline.assessments,
   );
   const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at);
+  const referralEditActions: ChartEditActions | undefined = onEditReferralField
+    ? Object.fromEntries(Object.entries(referralChartEditFields).map(([label, field]) => [label, () => onEditReferralField(field)])) : undefined;
+  // The summary may belong to a connected census record or another episode.
+  // Only expose intake edits when this workspace owns the displayed values.
+  const summaryEditActions = pipelineOnly && profile.pipeline.referrals[0]?.id === sourceReferralId ? { ...referralEditActions } : undefined;
+  if (summaryEditActions && completedAssessments.length) {
+    delete summaryEditActions["Medications on record"];
+    delete summaryEditActions["Conserved status"];
+  }
 
   return (
     <ClientChartContainer embedded={embedded} title={identity.title} onBack={onBack}>
@@ -241,6 +260,7 @@ function ResidentProfile({
             dataAsOf={profile.data_as_of}
             sourceLabel={clientProfileSourceLabel(pipelineOnly)}
             headerActions={headerActions}
+            editActions={summaryEditActions}
           />
         </div>
 
@@ -262,7 +282,7 @@ function ResidentProfile({
             </ProfileSection>
           ) : null}
 
-          <ClientAssessmentRecords assessments={assessmentRecords} />
+          <ClientAssessmentRecords assessments={assessmentRecords} editableAssessmentId={editableAssessmentId} onEditField={onEditAssessmentField} />
 
           {completedAssessments.length > 0 ? (
             <ProfileSection title="Assessments">
@@ -280,7 +300,7 @@ function ResidentProfile({
           />
 
           <ProfileSection title="Client information" detail="Clinical, support, and stay details">
-            <CuratedClientRecord sections={chart.detailSections} />
+            <CuratedClientRecord sections={chart.detailSections} editActions={summaryEditActions} />
             {!pipelineOnly ? (
               <ClientStayHistory episodes={chart.episodes} history={history} />
             ) : null}
@@ -291,7 +311,7 @@ function ResidentProfile({
             sourceDocuments={client.source_documents}
             referralDocuments={profile.pipeline.documents}
           />
-          <ClientRecordedInformation profile={profile} />
+          <ClientRecordedInformation profile={profile} sourceReferralId={sourceReferralId} editActions={referralEditActions} />
 
           {!pipelineOnly && client.canonical_client_id ? (
             <ProfileSection title="Record quality" detail={`${completeness.complete} of ${completeness.total} tracked fields`}>
@@ -304,11 +324,11 @@ function ResidentProfile({
   );
 }
 
-function ClientRecordedInformation({ profile }: { profile: UnifiedClientProfileResponse }) {
+function ClientRecordedInformation({ profile, sourceReferralId, editActions }: { profile: UnifiedClientProfileResponse; sourceReferralId?: number; editActions?: ChartEditActions }) {
   const client = profile.client;
   return <>
     {profile.pipeline.referrals.length > 0 ? <ProfileSection title="Referral information">
-      <CuratedClientRecord sections={clientReferralSections(profile)} />
+      <CuratedClientRecord sections={clientReferralSections(profile)} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} />
     </ProfileSection> : null}
     <ClientSourceNotes sections={clientSourceSections(profile)} />
     {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
@@ -403,7 +423,7 @@ const UNAVAILABLE_CLIENT_HISTORY: ClientHistoryProjection = {
   episodes: [],
 };
 
-function CuratedClientRecord({ sections }: { sections: ClientProfileSection[] }) {
+function CuratedClientRecord({ sections, editActions, editableSectionKey }: { sections: ClientProfileSection[]; editActions?: ChartEditActions; editableSectionKey?: string }) {
   if (sections.length === 0) {
     return <EmptyChartMessage>No additional client information is available in the current clinical record.</EmptyChartMessage>;
   }
@@ -415,7 +435,7 @@ function CuratedClientRecord({ sections }: { sections: ClientProfileSection[] })
           <h3 className="bg-[#f5f7f6] px-4 py-3 text-[16px] font-bold text-[#244b41] lg:px-5">
             {section.label}
           </h3>
-          <FactGrid facts={section.facts} className="px-4 py-4 lg:px-6" />
+          <ChartFacts facts={section.facts} className="px-4 py-4 lg:px-6" editActions={!editableSectionKey || section.key === editableSectionKey ? editActions : undefined} />
         </section>
       ))}
     </div>

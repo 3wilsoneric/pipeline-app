@@ -23,6 +23,7 @@ import {
 } from "@/lib/auth/authenticated-fetch";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import type { ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
 import WorkspaceClientChart from "@/components/pipeline/TransferredWorkspaceChart";
 import type {
   AssessmentListResponse,
@@ -120,7 +121,9 @@ type AssessmentWorkspaceProps = {
   workspaceTitle?: string;
   chartReview?: boolean;
   chartActions?: ReactNode;
+  onEditReferralField?: (field: ReferralChartEditField) => void;
   onOpenChart?: () => void;
+  onOpenAssessment?: () => void;
   beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
@@ -262,7 +265,9 @@ export default function AssessmentWorkspace({
   workspaceTitle,
   chartReview,
   chartActions,
+  onEditReferralField,
   onOpenChart,
+  onOpenAssessment,
   beforeWorkspaceNavigationRef,
   packetEvidenceVersion,
   onSummaryChange,
@@ -1449,7 +1454,7 @@ export default function AssessmentWorkspace({
 
   if (!selected) {
     if (reviewingChart) return <AssessmentFileSurface title={workspaceTitle} container={contentRef.current} header={null} dialogs={null}>
-      <div className="min-h-0 flex-1 overflow-y-auto"><WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} /></div>
+      <div className="min-h-0 flex-1 overflow-y-auto"><WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} /></div>
     </AssessmentFileSurface>;
     return (
       <AssessmentEmpty
@@ -1611,7 +1616,14 @@ export default function AssessmentWorkspace({
               <span>{selected.signed_at && dirtySections.size === 0 ? "Assessment signed" : "Chart in progress"}</span>
             </div> : null}
             {conversationSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>Assessment has {conversationSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items.</p> : null}
-            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)} />
+            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField}
+              onEditAssessmentField={!isBusy && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
+                setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
+                setWorkingTarget({ field });
+                setNotebookView("assessment");
+                onOpenAssessment?.();
+              } : undefined}
+              assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)} />
           </section> : <div data-assessment-question-content className={!preparing && !phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
             <div className={preparing && !phoneInterview ? "mb-3" : "sr-only"}>
               <h3 className="text-[21px] font-bold text-[#213629]">{preparing ? preparationGroup.label : sectionDefinition.label}</h3>

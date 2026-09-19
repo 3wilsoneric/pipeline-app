@@ -89,6 +89,8 @@ function isNavigationBookkeeping(input: string) {
 
 function invalidatesPipelineData(input: string, init: RequestInit) {
   const method = (init.method ?? "GET").toUpperCase();
+  // Reading a selected file does not save or mutate any shared workspace data.
+  if (input.split("?")[0] === "/api/uploads/preview") return false;
   // Recovery drafts change only private workspace state, not saved referrals.
   // Evict their own reads without throwing away every warm list and chart.
   if (["PUT", "DELETE"].includes(method) && /^\/api\/me\/(?:referral|assessment)-drafts\/[^/?]+$/.test(input)) {

@@ -6,6 +6,17 @@ import type { HistoricalProfileResponse, HistoricalProfileSource } from "./histo
 import { persistedCanvasFieldKeys, referralCanvasValue } from "./referral-canvas-persistence";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 
+// Only fields with an existing intake editor. Admission and signed clinical
+// facts retain their own workflow instead of becoming generic chart edits.
+export const referralChartEditFields = {
+  Name: "name", Client: "name", Gender: "gender", "Date of birth": "dob", SSN: "ssn",
+  Assessor: "owner", "Referral received": "referralReceived", Community: "community",
+  County: "county", "Referral source": "referent", "Responsible person": "responsiblePerson",
+  Phone: "phone", Email: "email", "Medications on record": "currentMedications",
+  Conserved: "conserved", "Conserved status": "conserved",
+} as const;
+export type ReferralChartEditField = (typeof referralChartEditFields)[keyof typeof referralChartEditFields];
+
 export function clientChartAssessments(profile: UnifiedClientProfileResponse, referralId: number, assessment?: PipelineAssessmentRecord): PipelineAssessmentRecord[] {
   if (!assessment || assessment.referral_id !== referralId || !profile.pipeline.referrals.some((item) => item.id === referralId)) return profile.pipeline.assessments;
   const stored = profile.pipeline.assessments.find((item) => item.assessment_id === assessment.assessment_id);

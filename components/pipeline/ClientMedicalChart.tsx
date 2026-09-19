@@ -1,15 +1,27 @@
 import type { ClientChartFact, ClientMedicalChartModel } from "@/lib/pipeline/client-medical-chart";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
+import { Pencil } from "lucide-react";
+
+export type ChartEditActions = Partial<Record<string, () => void>>;
+
+function ChartFieldLabel({ label, onEdit }: { label: string; onEdit?: () => void }) {
+  return onEdit ? <button type="button" aria-label={`Edit ${label}`} onClick={onEdit}
+    className="-my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
+    <span>{label}</span><Pencil size={14} aria-hidden="true" className="shrink-0 text-[#08735e]" />
+  </button> : label;
+}
 
 export default function ClientMedicalChart({
   chart,
   dataAsOf,
   headerActions,
+  editActions,
 }: {
   chart: ClientMedicalChartModel;
   dataAsOf: string;
   sourceLabel: string;
   headerActions?: React.ReactNode;
+  editActions?: ChartEditActions;
 }) {
   return (
     <ClientChartFrame label="Client medical chart">
@@ -18,18 +30,18 @@ export default function ClientMedicalChart({
       </ClientChartHeader>
 
       <ChartGrid ariaLabel="Client identity" columns="identity">
-        {chart.identity.map((fact) => <ChartCell key={fact.label} fact={fact} />)}
+        {chart.identity.map((fact) => <ChartCell key={fact.label} fact={fact} onEdit={editActions?.[fact.label]} />)}
       </ChartGrid>
 
       <ChartBand title="Clinical priorities">
         <ChartGrid ariaLabel="Clinical priorities" columns="priorities">
-          {chart.priorities.map((fact) => <ChartCell key={fact.label} fact={fact} multiline />)}
+          {chart.priorities.map((fact) => <ChartCell key={fact.label} fact={fact} multiline onEdit={editActions?.[fact.label]} />)}
         </ChartGrid>
       </ChartBand>
 
       <ChartBand title="Care and support">
         <ChartGrid ariaLabel="Care and support" columns="care">
-          {chart.care.map((fact) => <ChartCell key={fact.label} fact={fact} />)}
+          {chart.care.map((fact) => <ChartCell key={fact.label} fact={fact} onEdit={editActions?.[fact.label]} />)}
         </ChartGrid>
       </ChartBand>
 
@@ -96,12 +108,12 @@ function ChartGrid({
   return <dl aria-label={ariaLabel} className={`grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
-function ChartCell({ fact, multiline = false }: { fact: ClientChartFact; multiline?: boolean }) {
+function ChartCell({ fact, multiline = false, onEdit }: { fact: ClientChartFact; multiline?: boolean; onEdit?: () => void }) {
   const missing = fact.value === "Not documented";
   const span = fact.span === "wide" ? "col-span-2" : multiline && (fact.value.length > 160 || fact.label === "Medications on record") ? "lg:col-span-2" : "";
   return (
     <div data-chart-field={fact.label} className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
-      <dt className="text-[13px] font-semibold leading-5 text-[#59675f]">{fact.label}</dt>
+      <dt className="text-[13px] font-semibold leading-5 text-[#59675f]"><ChartFieldLabel label={fact.label} onEdit={onEdit} /></dt>
       <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? "text-[#865e20]" : "text-[#18211d]"}`}>
         {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}
       </dd>
@@ -109,13 +121,13 @@ function ChartCell({ fact, multiline = false }: { fact: ClientChartFact; multili
   );
 }
 
-export function ChartFacts({ facts, className = "" }: { facts: { label: string; value: string | number | null }[]; className?: string }) {
+export function ChartFacts({ facts, className = "", editActions }: { facts: { label: string; value: string | number | null; onEdit?: () => void }[]; className?: string; editActions?: ChartEditActions }) {
   return <dl className={`grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 ${className}`}>
     {facts.map((fact, index) => {
       const value = String(fact.value ?? "").trim();
       const narrative = value.length > 160 || value.includes("\n");
       return <div key={`${index}:${fact.label}`} data-chart-fact={fact.label} className={`min-w-0 ${narrative ? "sm:col-span-2" : ""}`}>
-        <dt className="text-[13px] font-semibold leading-5 text-[#59675f]">{fact.label}</dt>
+        <dt className="text-[13px] font-semibold leading-5 text-[#59675f]"><ChartFieldLabel label={fact.label} onEdit={fact.onEdit ?? editActions?.[fact.label]} /></dt>
         <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? "text-[#18211d]" : "text-[#865e20]"}`}><ReadableChartText value={value || "Not reported"} /></dd>
       </div>;
     })}
