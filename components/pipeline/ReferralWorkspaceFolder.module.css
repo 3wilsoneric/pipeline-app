@@ -235,17 +235,7 @@
   .stageTab { flex: 1 0 auto; }
 }
 
-@media (min-width: 960px) and (max-width: 1100px) {
-  .tabRow { display: flex; gap: 0; }
-  .identity { flex: 1 1 160px; min-width: 110px; }
-  .stages { flex-shrink: 1; max-width: 50%; }
-  .stageTab { padding-inline: 18px; }
-  .actions { flex-shrink: 0; }
-  .utilityTab { width: 44px; padding-inline: 0; }
-  .utilityTab span, .actions > button[aria-label="Open assigned referrals"] span { display: none; }
-}
-
-@media (max-width: 959px) {
+@media (max-width: 1250px) {
   /* Keep creation attached to the folder edge, with utilities beside the name. */
   .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) 96px 44px 44px; gap: 0 3px; }
   .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / 3; grid-row: 1; }

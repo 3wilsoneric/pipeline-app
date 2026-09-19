@@ -83,7 +83,7 @@
 .phoneUpdates button { min-height: 44px; }
 .phoneUpdates p { font-size: 14px; line-height: 1.5; }
 .body:has([data-phone-header]) [data-guide-target="workspace-stage-nav"] { gap: 0; border-bottom: 1px solid #dce5de; padding: 0; background: #fff; }
-.body:has([data-phone-header]) [data-folder-stage] { flex: 1; min-height: 44px; margin: 0; padding: 8px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: #fff; color: #56665c; transform: none; box-shadow: none; font-weight: 550; }
+.body:has([data-phone-header]) [data-folder-stage] { flex: 1 1 auto; min-height: 44px; margin: 0; padding: 8px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: #fff; color: #56665c; transform: none; box-shadow: none; font-weight: 550; }
 .body:has([data-phone-header]) [data-folder-stage][aria-current="page"] { border-bottom-color: #167452; color: #166844; font-weight: 650; }
 
 @media (prefers-reduced-motion: no-preference) {
