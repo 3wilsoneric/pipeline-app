@@ -478,6 +478,8 @@ export default function AssessmentWorkspace({
       if (touchedFieldsRef.current.has(field)) continue;
       const localChanged = !sameAssessmentValue(recovered.data[field], recovered.baseData[field]);
       if (!localChanged) continue;
+      const previousConflict = conflicts.findIndex((conflict) => conflict.field === field);
+      if (previousConflict >= 0) conflicts.splice(previousConflict, 1);
       const remoteChanged = !sameAssessmentValue(currentData[field], recovered.baseData[field]);
       merged[field] = recovered.data[field] as never;
       if (remoteChanged && !sameAssessmentValue(recovered.data[field], currentData[field])) {
