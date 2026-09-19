@@ -17,6 +17,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
           await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
           await expect(page.getByRole("button", { name: "Show app navigation" })).toHaveCount(0);
           await expect(rail.getByRole("button", { name: "Pipeline home", exact: true }).locator("img")).toBeVisible();
+          await expect(rail.getByRole("button", { name: "Pipeline home", exact: true }).getByText("Pipeline", { exact: true })).toBeHidden();
           const bounds = (await panel.boundingBox())!;
           expect(bounds.width).toBe(width < 960 ? 56 : 68);
           const pageBounds = (await content.boundingBox())!;
@@ -33,6 +34,13 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         await expect(rail).toHaveAttribute("data-sidebar-expanded", "true");
         await expect(rail.getByRole("button", { name: "Open calendar", exact: true }).getByText("Calendar", { exact: true })).toBeVisible();
         await expect(panel).toHaveCSS("width", "216px");
+        const brand = rail.getByRole("button", { name: "Pipeline home", exact: true });
+        await expect(brand).toHaveAttribute("title", "Pipeline — Alamo Health Management");
+        await expect(brand.getByText("Pipeline", { exact: true })).toHaveCSS("color", "rgb(40, 97, 79)");
+        await expect(brand.getByText(/Alamo Health/)).toBeVisible();
+        await expect(brand).toContainText("Management");
+        expect(await brand.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+        await brand.screenshot({ path: info.outputPath(`pipeline-alamo-brand-${width}.png`) });
         expect((await content.boundingBox())!.x).toBe(width < 960 ? collapsedContent.x : 216);
         for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
           const bounds = (await rail.getByRole("button", { name, exact: true }).boundingBox())!;

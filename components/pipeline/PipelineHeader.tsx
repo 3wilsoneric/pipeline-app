@@ -151,14 +151,17 @@ export default function PipelineHeader({ expanded, onToggle, onDestinationChange
             navigateTo("home");
           }}
           aria-label="Pipeline home"
-          title="Pipeline home"
+          title="Pipeline — Alamo Health Management"
           data-pipeline-home="true"
           data-guide-target="pipeline-home"
           data-platform-page-active="pipeline"
           className={sidebarStyles.home}
         >
           <PipelineLogoMark size={32} />
-          <span>Pipeline</span>
+          <span className={sidebarStyles.brandText}>
+            <span className={sidebarStyles.brandName}>Pipeline</span>
+            <span className={sidebarStyles.brandOwner}>Alamo Health<br />Management</span>
+          </span>
         </button>
       </div>
       <button type="button" data-navigation-toggle aria-label={expanded ? "Collapse navigation" : "Expand navigation"} title={expanded ? "Collapse navigation" : "Expand navigation"} aria-expanded={expanded} aria-controls="pipeline-primary-navigation" onClick={onToggle} className={sidebarStyles.expandButton}>
