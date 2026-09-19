@@ -7,13 +7,16 @@ param namePrefix string
 @allowed(['dev', 'test', 'prod'])
 param environment string
 
-@allowed(['pilot', 'production_ha'])
+@allowed(['pilot', 'pilot_same_zone_ha', 'pilot_ha', 'production_ha'])
 param databaseServiceLevel string
 
 param location string = resourceGroup().location
 param postgresAdministratorLogin string
 param githubRepository string
 param githubBranch string = 'main'
+
+@description('Preserve the reviewed notification destinations in the state read by routine runtime deployments.')
+param alertActionGroupResourceIds array = []
 
 var suffix = toLower(uniqueString(subscription().subscriptionId, resourceGroup().id, namePrefix, environment))
 var compactPrefix = toLower(replace(namePrefix, '-', ''))
@@ -73,6 +76,7 @@ output storageAccountName string = storage.name
 output namePrefix string = namePrefix
 output environment string = environment
 output databaseServiceLevel string = databaseServiceLevel
+output alertActionGroupResourceIds array = alertActionGroupResourceIds
 output location string = location
 output postgresHost string = postgres.properties.fullyQualifiedDomainName
 output postgresAdministratorLogin string = postgresAdministratorLogin
