@@ -6,7 +6,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       const browser = await browserType.launch();
       try {
         const height = width === 437 ? 536 : 900;
-        const page = await browser.newPage({ baseURL, viewport: { width, height }, hasTouch: width < 960 });
+        const page = await browser.newPage({ baseURL, viewport: { width, height }, hasTouch: width < 960, deviceScaleFactor: width < 960 ? 3 : 2 });
         await page.emulateMedia({ reducedMotion: "reduce" });
         const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
         const panel = page.locator("#pipeline-app-navigation");
@@ -59,6 +59,13 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         await expect(alamoLogo).toBeVisible();
         await expect(alamoLogo).toHaveAttribute("src", "/brand/alamo-health-management.png");
         await expect.poll(() => alamoLogo.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(774);
+        // Keep enough source pixels for a sharp logo on Retina desktops and phones.
+        expect(await alamoLogo.evaluate((element) => {
+          const image = element as HTMLImageElement;
+          const bounds = image.getBoundingClientRect();
+          return image.naturalWidth >= bounds.width * devicePixelRatio
+            && image.naturalHeight >= bounds.height * devicePixelRatio;
+        })).toBe(true);
         const divider = brand.locator("[data-brand-divider]");
         await expect(divider).toBeVisible();
         await expect(divider).toHaveCSS("width", "1px");
