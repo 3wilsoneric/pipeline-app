@@ -2645,7 +2645,11 @@ export default function ReferralPacketCanvas({
                     lastAssessmentSectionRef.current = section;
                     if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section });
                   }}
-                  onAssessmentSaved={async (assessment) => {
+                  onAssessmentSaved={async (assessment, savedReferral) => {
+                    if (savedReferral) {
+                      receiveRemoteReferral(savedReferral, savedReferral.updatedBy?.name, true);
+                      return;
+                    }
                     if (assessment.status !== "complete" || !assessment.signed_at) return;
                     const current = loadedReferralRef.current;
                     if (!current) return;

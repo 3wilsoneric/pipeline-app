@@ -7,6 +7,8 @@ import { dirname } from "node:path";
 import type { TransactionSql } from "postgres";
 
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
+import type { Referral } from "@/lib/pipeline/referral-types";
 import {
   resolveDurableStoreMode,
   selectStoreAdapter,
@@ -82,6 +84,7 @@ type AssessmentStoreFile = {
 
 export type AssessmentPatchOptions = {
   expectedVersion?: number;
+  expectedReferralName?: string;
   section?: AssessmentToolSection;
   expectedSectionVersion?: number;
   mutationId?: string;
@@ -119,8 +122,8 @@ export type AssessmentStoreReadiness = {
 };
 
 export type AssessmentMutation =
-  | { ok: true; assessment: PipelineAssessmentRecord; revision: number; warnings?: ReturnType<typeof getAssessmentCompletionBlockers> }
-  | { ok: false; conflict: true; assessment: PipelineAssessmentRecord }
+  | { ok: true; assessment: PipelineAssessmentRecord; revision: number; referral?: Referral; warnings?: ReturnType<typeof getAssessmentCompletionBlockers> }
+  | { ok: false; conflict: true; assessment: PipelineAssessmentRecord; referralNameConflict?: boolean }
   | {
       ok: false;
       blocked: true;
@@ -766,6 +769,8 @@ async function patchLocalAssessment(
     assertPatchMatchesSection(patch, options.section);
     const prepared = prepareAssessmentPatch(current, patch, actor);
     const candidate = prepared.candidate;
+    const nameSync = await syncAssessmentReferralName(current, candidate, patch, actor, options);
+    if (nameSync && !nameSync.ok) return { ok: false, conflict: true, assessment: current, referralNameConflict: true };
     candidate.audit_events = appendAuditEvent(
       current.audit_events,
       createAuditEvent(assessmentId, current.referral_id, prepared.action, actor, prepared.changedFields),
@@ -775,7 +780,7 @@ async function patchLocalAssessment(
     if (options.mutationId) state.patchMutations.set(options.mutationId, assessmentId);
     await persist();
     await syncLocalReferralWorkflow(candidate, actor, prepared.action);
-    return { ok: true, assessment: candidate, revision: state.revision, warnings: candidate.status === "complete" ? getAssessmentCompletionBlockers(candidate) : [] };
+    return { ok: true, assessment: candidate, revision: state.revision, referral: nameSync?.referral, warnings: candidate.status === "complete" ? getAssessmentCompletionBlockers(candidate) : [] };
   });
 }
 
@@ -1315,6 +1320,8 @@ async function patchPostgresAssessment(
       if (!referralRows[0]) throw new Error("The assessment referral no longer exists.");
     }
     const candidate = prepared.candidate;
+    const nameSync = await syncAssessmentReferralName(current, candidate, patch, actor, options, tx);
+    if (nameSync && !nameSync.ok) return { ok: false, conflict: true, assessment: current, referralNameConflict: true };
     const updated = await updateAssessmentRow(tx, candidate, current.version);
     if (!updated) {
       const latest = await getAssessmentInTransaction(tx, assessmentId);
@@ -1328,7 +1335,7 @@ async function patchPostgresAssessment(
     }
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after update.");
-    return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx), warnings: candidate.status === "complete" ? getAssessmentCompletionBlockers(saved) : [] };
+    return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx), referral: nameSync?.referral, warnings: candidate.status === "complete" ? getAssessmentCompletionBlockers(saved) : [] };
   });
 }
 
@@ -1414,6 +1421,10 @@ function prepareAssessmentPatch(
   }
   const currentData = pickAssessmentToolData(current);
   const requestedData = { ...(patch.data ?? {}) };
+  if (requestedData.resident_name !== undefined && requestedData.resident_name !== current.resident_name) {
+    requestedData.resident_name = normalizeClientName(requestedData.resident_name ?? "");
+    if (!requestedData.resident_name) throw new Error("Enter a client name before saving.");
+  }
   const emptyData = createEmptyAssessmentToolData();
   for (const review of patch.review_extraction ?? []) {
     if (review.action === "reject" && !Object.hasOwn(requestedData, review.field)) {
@@ -1653,6 +1664,25 @@ function assessmentPatchAuditAction(
 async function loadLocalAssessmentReferral(referralId: number) {
   const { getReferral } = await import("@/lib/pipeline/referral-store");
   return getReferral(referralId);
+}
+
+async function syncAssessmentReferralName(
+  current: PipelineAssessmentRecord,
+  candidate: PipelineAssessmentRecord,
+  patch: AssessmentPatchInput,
+  actor: AssessmentActor,
+  options: AssessmentPatchOptions,
+  transaction?: TransactionSql,
+) {
+  // Only an explicit correction writes through. Imports and unrelated answer
+  // saves must never replace the workspace's identity with an old snapshot.
+  if (patch.data?.resident_name === undefined || candidate.resident_name === current.resident_name) return;
+  const { renameReferralFromAssessment } = await import("@/lib/pipeline/referral-store");
+  const result = await renameReferralFromAssessment(
+    current.referral_id, candidate.resident_name!, options.expectedReferralName ?? current.resident_name, actor, transaction,
+  );
+  if (!result) throw new Error("The client name could not be saved to the workspace.");
+  return result;
 }
 
 async function syncLocalReferralWorkflow(

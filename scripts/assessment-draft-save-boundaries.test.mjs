@@ -40,7 +40,7 @@ function fixture(options = {}) {
       getAssessment: async () => assessment,
       patchAssessment: async (...args) => {
         calls.patches.push(clean(args));
-        if (options.conflict) return { ok: false, conflict: true, assessment };
+        if (options.conflict) return { ok: false, conflict: true, assessment, ...(options.nameConflict ? { referralNameConflict: true } : {}) };
         if (options.storeFailure) throw new Error(options.storeFailure);
         const { data, ...metadata } = args[1];
         return { ok: true, assessment: { ...assessment, ...data, ...metadata, version: 8 } };
@@ -100,6 +100,20 @@ test("explicit identity updates retain governed lookup and fail closed when it i
     if (identityAvailable) assert.deepEqual(current.calls.patches[0][1], {
       resident_key: "site:verified-client", canonical_client_id: "verified-client",
     });
+  }
+});
+
+test("name corrections retain the shared-name precondition and explain a stale workspace name", async () => {
+  const current = fixture({ conflict: true, nameConflict: true });
+  const response = await current.patch({ ...command, if_match_referral_name: "Original Fixture", patch: { data: { resident_name: "Corrected Fixture" } } });
+  assert.equal(response.status, 409);
+  assert.match((await response.json()).error, /client name changed in another session/);
+  assert.equal(current.calls.patches[0][3].expectedReferralName, "Original Fixture");
+  assert.deepEqual(current.calls.identities, []);
+  for (const invalid of [null, 4, {}, "x".repeat(513)]) {
+    const rejected = fixture();
+    assert.equal((await rejected.patch({ ...command, if_match_referral_name: invalid })).status, 400);
+    assert.equal(rejected.calls.patches.length, 0);
   }
 });
 

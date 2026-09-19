@@ -640,6 +640,25 @@ export async function patchReferral(
   return getReferralStore().patch(id, patch, actor, expectedVersion, expectedSectionVersions, metadata);
 }
 
+export async function renameReferralFromAssessment(
+  id: number,
+  name: string,
+  expectedName: string | null,
+  actor: ReferralActor,
+  transaction?: TransactionSql,
+) {
+  const current = transaction ? await getReferralInTransaction(transaction, id, true) : await getReferral(id);
+  if (!current) throw new Error("The assessment referral no longer exists.");
+  assertMutableWorkspace(current);
+  // A retry after a lost response must not rename or audit the workspace twice.
+  if (current.name === name) return { ok: true as const, referral: current };
+  if (current.name !== expectedName) return { ok: false as const, conflict: true as const, referral: current };
+  const metadata = { auditReason: "Client name corrected in assessment." };
+  return transaction
+    ? patchPostgresReferral(id, { name }, actor, current.version, undefined, metadata, transaction)
+    : patchReferral(id, { name }, current.version, actor, undefined, metadata);
+}
+
 export async function getReferralMutationReplay(
   id: number,
   scope: string,
@@ -1919,9 +1938,10 @@ async function patchPostgresReferral(
   expectedVersion?: number,
   expectedSectionVersions?: Partial<ReferralSectionVersions>,
   metadata?: ReferralMutationMetadata,
+  transaction?: TransactionSql,
 ): Promise<ReferralMutation | null> {
   const sql = getPipelineSql();
-  return sql.begin(async (tx) => {
+  const mutate = async (tx: TransactionSql): Promise<ReferralMutation | null> => {
     const idempotency = referralPatchIdempotency(metadata);
     if (idempotency) {
       await tx`select pg_advisory_xact_lock(hashtextextended(${`${idempotency.scope}:${idempotency.mutationId}`}, 0))`;
@@ -2093,7 +2113,8 @@ async function patchPostgresReferral(
     }
     const revision = await bumpReferralRevision(tx);
     return { ok: true, referral, revision };
-  });
+  };
+  return transaction ? mutate(transaction) : sql.begin(mutate);
 }
 
 function referralPatchIdempotency(metadata?: ReferralMutationMetadata) {
