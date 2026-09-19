@@ -339,14 +339,56 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("button", { name: /Continue where you stopped/ })).toHaveCount(0);
   });
 
-  test("is discoverable from the signed-in profile menu", async ({ page }) => {
-    await page.goto(homeUrl);
-    await page.getByRole("button", { name: /Open profile menu for/ }).click();
-    const learningLink = page.getByRole("link", { name: /Learning Center Pipeline walkthrough and quick help/ });
-    await expect(learningLink).toBeVisible();
-    await learningLink.click();
-    await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Learning Center" })).toBeVisible();
+  for (const width of [1440, 834, 320]) {
+    test(`Help is the Learning Center and starts existing walkthroughs at ${width}px`, async ({ page }, info) => {
+      await page.setViewportSize({ width, height: 900 });
+      await mockTrainingProgress(page);
+      await page.goto("/?screen=calendar");
+      const help = page.getByRole("button", { name: "Open guided tutorials", exact: true });
+      await expect(help).toBeVisible();
+      await expect(help).toHaveAttribute("title", "Help · Learning Center");
+      await page.getByRole("button", { name: /Open profile menu for/ }).click();
+      await expect(page.getByRole("dialog", { name: "Profile settings", exact: true }).getByText(/Learning Center/)).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await help.click();
+      const library = page.getByRole("dialog", { name: "Guided tutorial library" });
+      await expect(library.getByText("Learning Center", { exact: true })).toBeVisible();
+      await expect(library.getByRole("heading", { name: "Guided walkthroughs" })).toBeVisible();
+      await expect(page).toHaveURL(/screen=calendar/);
+      const bounds = (await library.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: info.outputPath(`help-walkthroughs-${width}.png`) });
+      await library.getByRole("button", { name: /Find a referral/ }).click();
+      await expect(page.getByRole("dialog", { name: "Find a referral guided tutorial" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
+      await page.getByRole("button", { name: "Pause tutorial", exact: true }).click();
+      await help.click();
+      await expect(library.getByRole("button", { name: /Continue where you stopped/ })).toBeVisible();
+      await library.getByRole("button", { name: "Close guided tutorials", exact: true }).click();
+      await expect(library).toBeHidden();
+    });
+  }
+
+  test("old Learning Center URLs return to the app with Help available", async ({ page }) => {
+    for (const route of ["/training", "/training/demo"]) {
+      await page.goto(route);
+      await expect(page).toHaveURL(new URL("/", test.info().project.use.baseURL).toString());
+      await expect(page.getByRole("button", { name: "Open guided tutorials" })).toBeVisible();
+      await expect(page.getByText("Temporarily unavailable while we make improvements.")).toHaveCount(0);
+    }
+  });
+
+  test("Help opens and closes without leaving the current intake draft", async ({ page }) => {
+    await mockTrainingProgress(page);
+    await page.goto(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}`);
+    const name = page.getByTestId("intake-client-folder").locator('[data-workspace-field="name"] input');
+    await name.fill("Synthetic Help Draft");
+    const currentUrl = page.url();
+    await page.getByRole("button", { name: "Open guided tutorials" }).click();
+    await page.getByRole("button", { name: "Close guided tutorials", exact: true }).click();
+    await expect(name).toHaveValue("Synthetic Help Draft");
+    await expect(page).toHaveURL(currentUrl);
   });
 
   test("opens the full presentation from the Learning Center", async ({ page }) => {

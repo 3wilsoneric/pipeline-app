@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CircleHelp, FlaskConical, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, CircleHelp, FlaskConical, LogOut, Settings, Trash2, UserRound } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -208,7 +208,6 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
               <div className="mt-0.5 truncate text-[11px] text-[#6b716d]">{profileAppearance.detail}</div>
             </div>
             <ProfileSettingsLink active={pathname === "/settings"} onSelect={() => setIsProfileMenuOpen(false)} />
-            <ProfileLearningAvailability />
             <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
             {canEditWorkspace(user) ? (
               <button
@@ -250,14 +249,14 @@ function HeaderSessionControls({ user, hideGlobalGuide }: { user: PipelineCurren
   return <>
     {user?.demoPersona ? <DemoAssessmentLabButton className="flex items-center text-[#08745f]" ><FlaskConical size={18} aria-hidden="true" /><span>Assessment lab</span></DemoAssessmentLabButton> : null}
     {user?.demoPersona ? <DemoPersonaSwitch persona={user.demoPersona} /> : <ActiveAssessorSessionPill user={user} />}
-    {!hideGlobalGuide && !user?.demoPersona ? (
+    {!hideGlobalGuide ? (
       <button
         type="button"
         aria-label="Open guided tutorials"
-        title="Guided tutorials"
+        title="Help · Learning Center"
         data-guide-target="guided-help"
         onClick={() => dispatchOperatorGuide({ type: "open-library" })}
-        className="mr-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 min-[360px]:flex sm:h-12 sm:w-10"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"
       >
         <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
         <span>Help</span>
@@ -282,7 +281,6 @@ function DemoProfileMenu({ user, signedInName, onSelect, onTrash, children }: {
     <div className="p-1 text-[14px] text-[#28372f]">
       <DemoAssessmentLabButton className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73] sm:hidden" />
       <Link href="/settings" onClick={onSelect} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Profile</Link>
-      <button type="button" disabled className="block w-full px-3 py-3 text-left text-[#737373]">Learning Center · Temporarily unavailable</button>
       <button type="button" onClick={onTrash} className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Trash</button>
     </div>
   </>;
@@ -350,10 +348,6 @@ function profilePresenceIndicatorClass(online: boolean) {
 
 function ProfileSettingsLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {
   return <Link href="/settings" prefetch={true} aria-label="Profile settings Account and display preferences" aria-current={active ? "page" : undefined} onClick={onSelect} className={`group grid min-h-[60px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${active ? "border-l-[#0f8b73] bg-[#edf7f3]" : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"}`}><Settings size={17} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Profile settings</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Account and display preferences</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
-}
-
-function ProfileLearningAvailability() {
-  return <button type="button" disabled className="grid min-h-[64px] w-full grid-cols-[28px_minmax(0,1fr)] items-center gap-3 border-t border-[#e5e5e5] px-4 py-3 text-left text-[#737373]"><GraduationCap size={18} strokeWidth={1.8} aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black">Learning Center</span><span className="mt-0.5 block text-[10px] leading-4">Temporarily unavailable</span></span></button>;
 }
 
 function navigatePipelineDestination(
