@@ -5,7 +5,7 @@ import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CircleHelp, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, CircleHelp, FlaskConical, GraduationCap, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Trash2, UserRound } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -21,8 +21,9 @@ import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
 import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
 import DemoAssessmentLabButton from "@/components/pipeline/DemoAssessmentLabButton";
+import sidebarStyles from "@/components/pipeline/PipelineMobileShell.module.css";
 
-export default function PipelineHeader() {
+export default function PipelineHeader({ expanded, onToggle, onDestinationChange }: { expanded: boolean; onToggle: () => void; onDestinationChange: () => void }) {
   const auth = usePipelineAuth();
   const [user, setUser] = useState<PipelineCurrentUser | null>(auth.initialUser);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -32,10 +33,11 @@ export default function PipelineHeader() {
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
-  const { homeMode, searchOpen, setSearchOpen, setHomeMode, beforeNavigationRef } = usePipelineShell();
+  const { searchOpen, setSearchOpen, setHomeMode, beforeNavigationRef } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
   const canAccessReports = canAccessOperationsReports(user);
   useWorkspacePresenceHeartbeat(Boolean(user));
+  useEffect(() => { onDestinationChange(); }, [pathname, locationSearch, onDestinationChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,10 +78,6 @@ export default function PipelineHeader() {
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" ? "Account" : "Eric Wilson");
   const profileAppearance = getProfileAppearance(user);
   const trashActive = activeSearchParams.get("screen") === "trash";
-  const isWelcomeSurface = homeMode === "welcome"
-    && pathname === "/"
-    && activeNav === null
-    && !searchOpen;
   const hideGlobalGuide = pathname === "/note-lab" || pathname.startsWith("/note-lab/");
 
   const runNavigation = useCallback(async (action: () => void) => {
@@ -144,25 +142,8 @@ export default function PipelineHeader() {
       event.preventDefault();
       event.stopPropagation();
       void runNavigation(() => { setIsProfileMenuOpen(false); router.push(`${link.pathname}${link.search}${link.hash}`); });
-    }} className="relative z-10 flex h-[68px] shrink-0 items-center overflow-visible bg-white px-3 max-[359px]:px-1 sm:h-[74px] sm:px-5 lg:px-6 xl:h-[82px] xl:px-8">
-      <div className="relative z-10 flex shrink-0 items-center">
-        <div
-          role={isWelcomeSurface ? "img" : undefined}
-          aria-label={isWelcomeSurface ? "Alamo Platform" : undefined}
-          aria-hidden={!isWelcomeSurface}
-          data-platform-brand="alamo"
-          className={`flex h-12 cursor-default items-center gap-2 overflow-hidden whitespace-nowrap text-[17px] font-semibold text-[#595959] transition-opacity duration-150 ease-out motion-reduce:transition-none ${
-            isWelcomeSurface ? "max-w-[128px] opacity-100" : "pointer-events-none max-w-0 opacity-0"
-          }`}
-        >
-          <span className="hidden sm:inline"><span className="font-black text-[#08745f]">Alamo</span><span className="ml-1">Health</span></span>
-        </div>
-        <span
-          aria-hidden="true"
-          className={`hidden h-8 bg-[#d9d9d9] transition-opacity duration-150 ease-out motion-reduce:transition-none sm:block ${
-            isWelcomeSurface ? "mx-4 w-px opacity-100" : "mx-0 w-0 opacity-0"
-          }`}
-        />
+    }} className={sidebarStyles.sidebar}>
+      <div className={sidebarStyles.brand}>
         <button
           type="button"
           onClick={(event) => {
@@ -174,14 +155,18 @@ export default function PipelineHeader() {
           data-pipeline-home="true"
           data-guide-target="pipeline-home"
           data-platform-page-active="pipeline"
-          className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] max-sm:h-9 max-sm:w-9 min-[360px]:max-sm:w-10"
+          className={sidebarStyles.home}
         >
           <PipelineLogoMark size={32} />
+          <span>Pipeline</span>
         </button>
       </div>
+      <button type="button" data-navigation-toggle aria-label={expanded ? "Collapse navigation" : "Expand navigation"} title={expanded ? "Collapse navigation" : "Expand navigation"} aria-expanded={expanded} aria-controls="pipeline-primary-navigation" onClick={onToggle} className={sidebarStyles.expandButton}>
+        {expanded ? <PanelLeftClose size={19} aria-hidden="true" /> : <PanelLeftOpen size={19} aria-hidden="true" />}<span>Collapse</span>
+      </button>
 
-      <div data-testid="primary-navigation-dock" className="pipeline-nav-dock-enter ml-2 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-2 max-sm:ml-0.5 sm:ml-4 lg:ml-5 xl:ml-6 xl:py-3">
-        <div className="pointer-events-auto w-max">
+      <div id="pipeline-primary-navigation" data-testid="primary-navigation-dock" className={sidebarStyles.destinations}>
+        <div>
           <PipelineActionNav
             active={activeNav}
             showReports={canAccessReports}
@@ -190,7 +175,7 @@ export default function PipelineHeader() {
         </div>
       </div>
 
-      <div className="relative z-10 ml-auto flex items-center">
+      <div className={sidebarStyles.utilities}>
         <HeaderSessionControls user={user} hideGlobalGuide={hideGlobalGuide} />
         <div ref={profileMenuRef} className="relative">
           <button
@@ -214,7 +199,7 @@ export default function PipelineHeader() {
             aria-label="Profile settings"
             data-profile-menu="true"
             hidden={!isProfileMenuOpen}
-            className="pipeline-popover-enter absolute right-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-88px)] w-[min(320px,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-md border border-[#cfd6d2] bg-white shadow-[0_12px_30px_rgba(17,17,17,0.14)]"
+            className={`pipeline-popover-enter ${sidebarStyles.profileMenu} overflow-y-auto overscroll-contain rounded-md border border-[#cfd6d2] bg-white shadow-[0_12px_30px_rgba(17,17,17,0.14)]`}
           >
             <DemoProfileMenu user={user} signedInName={signedInName} onSelect={() => setIsProfileMenuOpen(false)} onTrash={() => { setIsProfileMenuOpen(false); navigateTo("trash"); }}>
             <div className="border-b border-[#e2e6e3] px-5 py-4">
@@ -263,7 +248,7 @@ export default function PipelineHeader() {
 
 function HeaderSessionControls({ user, hideGlobalGuide }: { user: PipelineCurrentUser | null; hideGlobalGuide: boolean }) {
   return <>
-    {user?.demoPersona ? <DemoAssessmentLabButton className="mr-1 flex h-10 shrink-0 items-center px-2 text-[12px] font-semibold text-[#08745f] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><span className="sm:hidden">Lab</span><span className="hidden sm:inline">Assessment lab</span></DemoAssessmentLabButton> : null}
+    {user?.demoPersona ? <DemoAssessmentLabButton className="flex items-center text-[#08745f]" ><FlaskConical size={18} aria-hidden="true" /><span>Assessment lab</span></DemoAssessmentLabButton> : null}
     {user?.demoPersona ? <DemoPersonaSwitch persona={user.demoPersona} /> : <ActiveAssessorSessionPill user={user} />}
     {!hideGlobalGuide && !user?.demoPersona ? (
       <button
@@ -275,6 +260,7 @@ function HeaderSessionControls({ user, hideGlobalGuide }: { user: PipelineCurren
         className="mr-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 min-[360px]:flex sm:h-12 sm:w-10"
       >
         <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
+        <span>Help</span>
       </button>
     ) : null}
   </>;

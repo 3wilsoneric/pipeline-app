@@ -6,11 +6,12 @@ import { getExtractionBackendReadiness } from "@/lib/extraction/backend-config";
 import { getReferralProgress, type ReferralProgress } from "@/lib/pipeline/referral-progress";
 import {
   activeReferralFlowStates,
+  isFinishedBoardReferral,
   referralFlowStateForWorkspaceFocus,
   type ActiveReferralFlowState,
 } from "@/lib/pipeline/referral-flow";
 import { isAssignedToUser, isReferralOwner, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
-import { canViewTeamReferralBoard, isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { referralWorklistBuckets } from "@/lib/pipeline/referral-worklist-filter";
 import {
   getReferralStoreReadiness,
@@ -21,6 +22,7 @@ import {
   getStageLabel,
 } from "@/lib/pipeline/referral-workflow";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { referralReceivedDate } from "@/lib/pipeline/referral-sort";
 import {
   hasInitialDocument,
   hasManualIntakeAuthorization,
@@ -193,14 +195,11 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
       requirementsByReferral.get(work.referral_id) ?? [],
     ),
   ).sort(compareReferralWorklistItems);
-  const recentOutcomes = ["declined", "admitted"].flatMap((status) =>
-    operational.work
-      .filter((item) => item.workflow_status === status)
-      .sort((left, right) =>
-        String(referralsById.get(right.referral_id)?.updatedAt ?? "").localeCompare(String(referralsById.get(left.referral_id)?.updatedAt ?? "")))
-      .slice(0, 10)
-      .map((item) => toReferralWorklistItem(item, referralsById.get(item.referral_id)!, [])),
-  );
+  const finishedItems = operational.work
+    .filter(isFinishedBoardReferral)
+    .map((item) => toReferralWorklistItem(item, referralsById.get(item.referral_id)!, []));
+  const boardItems = [...activeItems, ...finishedItems].sort((left, right) =>
+    (right.received_at ?? "").localeCompare(left.received_at ?? "") || right.referral_id - left.referral_id);
   const readyToSchedule = activeItems.filter((item) =>
     workByReferral.get(item.referral_id)?.flow_state === "ready_to_schedule",
   );
@@ -228,7 +227,7 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
     overall_completion_pct: overallCompletion,
     flow_counts: flowCounts,
     active_items: activeItems,
-    board_items: [...activeItems, ...recentOutcomes],
+    board_items: boardItems,
     ready_to_schedule: {
       total: readyToSchedule.length,
       items: readyToSchedule.slice(0, 6),
@@ -242,19 +241,12 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
 }
 
 function homeWorkForViewer(operational: Awaited<ReturnType<typeof loadOperationalWork>>, user: PipelineUser) {
-  if (canViewTeamReferralBoard(user)) return operational;
   const owned = new Set(operational.referrals.filter((referral) => isReferralOwner(referral, user)).map((referral) => referral.id));
-  // Submitted assessments belong to the supervisor until returned for changes.
-  // Keep them accessible in Workspaces, but not in the assessor's active queue.
-  const submitted = new Set(operational.work.filter((item) => isAssessorUser(user) &&
-    item.assessment_state === "signed" && !item.has_decision
-      && ["recommendation_submitted", "decision_pending"].includes(item.workflow_status),
-  ).map((item) => item.referral_id));
   return {
     ...operational,
-    work: operational.work.filter((item) => owned.has(item.referral_id) && !submitted.has(item.referral_id)),
-    activeWork: operational.activeWork.filter((item) => owned.has(item.referral_id) && !submitted.has(item.referral_id)),
-    openRequirements: operational.openRequirements.filter((item) => owned.has(item.referral_id) && !submitted.has(item.referral_id)),
+    work: operational.work.filter((item) => owned.has(item.referral_id)),
+    activeWork: operational.activeWork.filter((item) => owned.has(item.referral_id) && !isFinishedBoardReferral(item)),
+    openRequirements: operational.openRequirements.filter((item) => owned.has(item.referral_id)),
   };
 }
 
@@ -855,6 +847,7 @@ function toReferralWorklistItem(
     urgency,
     due_at: dueAt,
     last_activity_at: referral.updatedAt ?? referral.createdAt,
+    received_at: referralReceivedDate(referral),
     age_hours: work.age_hours,
     completion_pct: work.completion_pct,
     missing_document_count: missingDocuments.length + missingInitialPacketCount(work, referral),

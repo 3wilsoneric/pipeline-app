@@ -18,7 +18,7 @@ async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared d
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
   const folder = page.getByTestId("assessment-client-folder");
   await expect(folder).toBeVisible();
-  await expect(page.locator('[data-assessment-app-navigation="collapsed"]')).toBeAttached();
+  await expect(page.getByRole("complementary", { name: "App navigation", exact: true })).toBeVisible();
   return { referral, assessment, folder };
 }
 
@@ -59,7 +59,7 @@ for (const width of [1440, 834, 390]) {
       }
       if (label === "Chart") await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toBeVisible();
       if (label === "Assessment") await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-      await expect(navigation).toHaveAttribute("data-assessment-app-navigation", "collapsed");
+      await expect(navigation).toHaveAttribute("data-assessment-app-navigation", "standard");
       await expect(navigation).toHaveAttribute("data-layout-transitions", "");
       const current = (await header.boundingBox())!;
       for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(current[key] - bounds[key])).toBeLessThan(1);
@@ -67,11 +67,10 @@ for (const width of [1440, 834, 390]) {
       if (label === "Decision") await page.screenshot({ path: info.outputPath(`stable-decision-${width}.png`) });
     }
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual([answer]);
-    const showNavigation = page.getByRole("button", { name: "Show app navigation", exact: true });
-    await showNavigation.click();
-    await expect(showNavigation).toHaveAttribute("aria-expanded", "true");
-    await showNavigation.press("Escape");
-    await expect(showNavigation).toHaveAttribute("aria-expanded", "false");
+    await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Collapse navigation", exact: true })).toHaveAttribute("aria-expanded", "true");
+    await page.getByRole("button", { name: "Collapse navigation", exact: true }).press("Escape");
+    await expect(page.getByRole("button", { name: "Expand navigation", exact: true })).toHaveAttribute("aria-expanded", "false");
     await header.getByRole("button", { name: "Workspaces", exact: true }).click();
     await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
     await expect(navigation).toHaveAttribute("data-assessment-app-navigation", "standard");
@@ -160,7 +159,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
       await expect(folder.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
     } else {
       expect((await header.boundingBox())!.height).toBeLessThanOrEqual(110);
-      const menu = (await page.getByRole("button", { name: "Show app navigation", exact: true }).boundingBox())!;
+      const menu = (await page.locator("#pipeline-app-navigation").boundingBox())!;
       expect(menu.x + menu.width).toBeLessThanOrEqual(titleBox.x);
     }
     await page.screenshot({ path: info.outputPath(`assessment-folder-${width}.png`) });

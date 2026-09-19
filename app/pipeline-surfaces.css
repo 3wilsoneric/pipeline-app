@@ -35,15 +35,6 @@
   letter-spacing: 0.055em;
 }
 
-.pipeline-surfaces [data-assessment-app-navigation="collapsed"] {
-  background: var(--surface-canvas);
-}
-
-.pipeline-surfaces [aria-label="Show app navigation"] {
-  background: #fff;
-  color: #356250;
-}
-
 .pipeline-surfaces [data-guide-target="home-workspace"] {
   --surface-line: var(--pipeline-surface-edge);
   --surface-radius: 12px;

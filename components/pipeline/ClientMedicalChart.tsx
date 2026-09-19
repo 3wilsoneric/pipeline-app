@@ -91,7 +91,7 @@ export function ChartBand({ title, detail, children }: { title: string; detail?:
   );
 }
 
-function ChartGrid({
+export function ChartGrid({
   ariaLabel,
   columns,
   children,
@@ -108,7 +108,7 @@ function ChartGrid({
   return <dl aria-label={ariaLabel} className={`grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
-function ChartCell({ fact, multiline = false, onEdit }: { fact: ClientChartFact; multiline?: boolean; onEdit?: () => void }) {
+export function ChartCell({ fact, multiline = false, onEdit }: { fact: ClientChartFact; multiline?: boolean; onEdit?: () => void }) {
   const missing = fact.value === "Not documented";
   const span = fact.span === "wide" ? "col-span-2" : multiline && (fact.value.length > 160 || fact.label === "Medications on record") ? "lg:col-span-2" : "";
   return (

@@ -18,6 +18,7 @@ type ReferralQueryValues = {
   query: string;
   cursor?: string;
   stage?: string;
+  nameInitial?: string;
   communities: string[];
   county?: string;
   owners: string[];
@@ -49,6 +50,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
       limit: values.limit,
       cursor: values.cursor,
       stage: values.stage as ReferralStage | undefined,
+      nameInitial: values.nameInitial,
       community: values.communities.length === 1 ? values.communities[0] : undefined,
       communities: values.communities.length > 1 ? values.communities : undefined,
       county: values.county,
@@ -72,6 +74,7 @@ function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryVa
     query: searchParams.get("q")?.trim() ?? "",
     cursor: trimmedParameter(searchParams, "cursor") || undefined,
     stage: trimmedParameter(searchParams, "stage") || undefined,
+    nameInitial: trimmedParameter(searchParams, "initial") || undefined,
     communities: readQuerySelections(searchParams, "community"),
     county: trimmedParameter(searchParams, "county") || undefined,
     owners: readQuerySelections(searchParams, "owner"),
@@ -89,6 +92,7 @@ function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryVa
 function validateReferralQueryValues(values: ReferralQueryValues): string | undefined {
   const rules: QueryValidationRule[] = [
     { invalid: !isOptionalReferralWorkspaceScope(values.scope), message: "scope must be mine or team." },
+    { invalid: Boolean(values.nameInitial && !/^[A-Z]$/.test(values.nameInitial)), message: "initial must be a letter A–Z." },
     { invalid: values.query.length > 200, message: "q must be 200 characters or fewer." },
     { invalid: !isReferralSort(values.sort), message: "sort is invalid." },
     {

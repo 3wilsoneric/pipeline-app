@@ -61,8 +61,8 @@ const homeModuleDefinitions: HomeModuleDefinition[] = [
   {
     id: "current-work",
     title: "Board",
-    detail: "Every assigned referral, until its work is complete.",
-    opens: "Scan referrals by stage or open the Board full screen. Supervisors see team referrals.",
+    detail: "Referrals you own or are assigned to assess.",
+    opens: "Scan your referrals by stage, newest received first, or browse all workspaces.",
     icon: BriefcaseBusiness,
     wide: true,
   },

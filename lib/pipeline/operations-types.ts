@@ -99,6 +99,7 @@ export type ReferralWorklistItem = {
   urgency: MyQueueUrgency;
   due_at: string | null;
   last_activity_at: string;
+  received_at?: string;
   age_hours: number;
   completion_pct: number;
   missing_document_count: number;

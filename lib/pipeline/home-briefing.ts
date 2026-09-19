@@ -6,7 +6,6 @@ import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import { getHomeContinuity } from "@/lib/pipeline/home-continuity";
 import type { HomeWorkflowSummary } from "@/lib/pipeline/operations-types";
 import { getHomeWorkflowSummary } from "@/lib/pipeline/operations-snapshot";
-import { canViewTeamReferralBoard } from "@/lib/pipeline/referral-access";
 
 export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingSnapshot> {
   const today = dateKey(new Date());
@@ -26,13 +25,14 @@ export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingS
   if (calendarResult.status === "rejected") unavailableSections.push("upcoming");
   const upcoming = calendar.events
     .filter((event) => event.kind === "assessment")
+    .sort((left, right) => (left.startsAt ?? left.date).localeCompare(right.startsAt ?? right.date))
     .slice(0, 8);
   const generatedAt = new Date().toISOString();
   const continuity = await getHomeContinuity(user, workflow, generatedAt);
 
   return {
     generated_at: generatedAt,
-    scope: canViewTeamReferralBoard(user) ? "team" : "personal",
+    scope: "personal",
     viewer: { id: user.id, name: user.name },
     current_work: {
       total: workflow.current_work.total,
