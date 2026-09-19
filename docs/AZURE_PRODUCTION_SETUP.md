@@ -25,7 +25,7 @@ Azure subscription ID:
 Azure subscription display name:
 Azure production region:
 Azure resource group (recommended: rg-pipeline-prod):
-Initial database service level (`pilot`, `pilot_ha`, or `production_ha`):
+Initial database service level (`pilot`, `pilot_same_zone_ha`, `pilot_ha`, or `production_ha`):
 Desired hostname (recommended: pipeline.<your-domain>):
 Domain registrar/DNS provider:
 Entra tenant ID:
@@ -132,7 +132,9 @@ The script registers providers, creates the resource group, asks for a new
 PostgreSQL administrator password without echoing it, and displays `what-if`.
 Stop if the region, SKU, networking, or resource count is wrong. Type `DEPLOY`
 only after review. `pilot` uses a private General Purpose database without a
-standby; `pilot_ha` keeps the 2-vCore/128-GB pilot size and 14-day regional
+standby; `pilot_same_zone_ha` adds a same-zone standby at the same pilot size
+and backup policy (server protection, not zone-outage protection).
+`pilot_ha` keeps the 2-vCore/128-GB pilot size and 14-day regional
 backup policy, adding only a zone-redundant standby. `production_ha` adds a larger primary, zone-redundant standby,
 35-day backups, and geo-redundant backup. The choice is explicit so a database
 standby is never purchased by accident. Do not rerun bootstrap on an existing

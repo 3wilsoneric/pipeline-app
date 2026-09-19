@@ -13,7 +13,10 @@ const strict = process.argv.includes("--require-regional-failover");
 const checks = {
   production_blob_storage_is_zone_redundant: infrastructure.includes("environment == 'prod' ? 'Standard_ZRS'"),
   database_ha_is_an_explicit_cost_choice: infrastructure.includes("databaseServiceLevel") && infrastructure.includes("production_ha"),
-  production_ha_enables_zone_standby: infrastructure.includes("highAvailabilityDatabase ? 'ZoneRedundant'"),
+  production_ha_enables_zone_standby: infrastructure.includes("var enableDatabaseStandby = databaseServiceLevel != 'pilot'")
+    && infrastructure.includes("mode: databaseServiceLevel == 'pilot_same_zone_ha' ? 'SameZone' : (enableDatabaseStandby ? 'ZoneRedundant' : 'Disabled')"),
+  same_zone_pilot_is_explicit: infrastructure.includes("'pilot_same_zone_ha'")
+    && infrastructure.includes("databaseServiceLevel == 'pilot_same_zone_ha' ? 'SameZone'"),
   production_ha_enables_geo_backup: infrastructure.includes("geoRedundantBackup: highAvailabilityDatabase ? 'Enabled'"),
   logical_backup_is_automated: Boolean(packageJson.scripts["database:backup"]),
   destructive_restore_requires_disposable_confirmation: recoveryGuide.includes("PIPELINE_ALLOW_RESTORE_DRILL=true") && recoveryGuide.includes("--confirm-disposable"),

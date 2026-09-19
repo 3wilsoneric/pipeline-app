@@ -7,7 +7,7 @@ param namePrefix string
 @allowed(['dev', 'test', 'prod'])
 param environment string
 
-@allowed(['pilot', 'pilot_ha', 'production_ha'])
+@allowed(['pilot', 'pilot_same_zone_ha', 'pilot_ha', 'production_ha'])
 param databaseServiceLevel string
 
 param location string = resourceGroup().location

@@ -7,8 +7,8 @@ param namePrefix string
 @allowed(['dev', 'test', 'prod'])
 param environment string
 
-@description('Explicit cost/resilience choice. pilot_ha adds a standby at pilot size; production_ha also increases compute, storage, and backup coverage. Existing servers require a separate reviewed update, not bootstrap.')
-@allowed(['pilot', 'pilot_ha', 'production_ha'])
+@description('Explicit cost/resilience choice. pilot_same_zone_ha adds a same-zone standby at pilot size; pilot_ha uses zone redundancy; production_ha also increases compute, storage, and backup coverage. Existing servers require a separate reviewed update, not bootstrap.')
+@allowed(['pilot', 'pilot_same_zone_ha', 'pilot_ha', 'production_ha'])
 param databaseServiceLevel string
 
 param location string = resourceGroup().location
@@ -253,7 +253,7 @@ resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2025-08-01' = {
     }
     createMode: 'Create'
     highAvailability: {
-      mode: enableDatabaseStandby ? 'ZoneRedundant' : 'Disabled'
+      mode: databaseServiceLevel == 'pilot_same_zone_ha' ? 'SameZone' : (enableDatabaseStandby ? 'ZoneRedundant' : 'Disabled')
     }
     network: {
       delegatedSubnetResourceId: postgresSubnet.id

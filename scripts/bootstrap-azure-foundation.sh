@@ -29,8 +29,8 @@ if ! [[ "$PIPELINE_GITHUB_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; t
   exit 2
 fi
 
-if [[ "$PIPELINE_AZURE_CAPACITY_PROFILE" != "pilot" && "$PIPELINE_AZURE_CAPACITY_PROFILE" != "pilot_ha" && "$PIPELINE_AZURE_CAPACITY_PROFILE" != "production_ha" ]]; then
-  printf 'PIPELINE_AZURE_CAPACITY_PROFILE must be pilot, pilot_ha, or production_ha.\n' >&2
+if [[ "$PIPELINE_AZURE_CAPACITY_PROFILE" != "pilot" && "$PIPELINE_AZURE_CAPACITY_PROFILE" != "pilot_same_zone_ha" && "$PIPELINE_AZURE_CAPACITY_PROFILE" != "pilot_ha" && "$PIPELINE_AZURE_CAPACITY_PROFILE" != "production_ha" ]]; then
+  printf 'PIPELINE_AZURE_CAPACITY_PROFILE must be pilot, pilot_same_zone_ha, pilot_ha, or production_ha.\n' >&2
   exit 2
 fi
 

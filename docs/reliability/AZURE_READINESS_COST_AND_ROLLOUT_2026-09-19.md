@@ -1,16 +1,69 @@
-# Azure readiness: priced candidate, not activated
+# Azure readiness: approved cost and rollout record
 
 Owner: Eric. Prepared 2026-09-19. Source baseline:
 `ccd474433c05001ed621c30643bde3f1b3e8a201`.
 Branch: `codex/azure-readiness-costed-20260919`.
 
-**STOP: no approval of the price has been received. Do not merge the runtime
-change, provision resources, send test notifications, run paid rehearsals, or
-deploy this candidate until Eric approves the cost.** This work is isolated
+**Approved September 19, 2026:** Eric authorized execution of the priced plan
+and setup of the 100-user test. Recurring baseline budget approximately $260
+additional/month, variable usage excluded; $50 one-off rehearsal allowance.
+Alert recipient confirmed as ericwilsonalamo@outlook.com. This work is isolated
 from the app/product branches. No user workflow, database schema, permissions,
 clinical data, extraction behavior, or application code was changed.
 
-## Read-only production inventory
+**Approval amendment:** after Azure reported zone-redundant HA unavailable
+for this subscription/SKU, Eric explicitly approved the recommended **same-zone**
+standby at the same $144.66/month incremental estimate. The named profile is
+`pilot_same_zone_ha`; it does not provide zone-level protection. The original
+quote and proposed sequence below are retained as preparation history; the
+execution record takes precedence for actual deployed state.
+
+## Execution record, September 19
+
+- All 13 scheduled-query and 5 metric alerts now route to the enabled
+  `pipeline-prod-operators` group and its approved email, while retaining
+  prior destinations. The output-only `pipeline-foundation-state` preserves
+  both group IDs for later releases. Strict read-only configuration audit passes.
+- Inbox delivery **confirmed by Eric in this task**. Earlier metric/service-health
+  test requests were rejected by Azure with `There are no valid receivers in the
+  request`; the subsequent `logalertv2` test was accepted at 19:32:32 UTC and
+  completed at 19:35:56 UTC, correlation `a2d75aa9-89f7-44f6-a983-5154809d1e83`.
+  Eric explicitly answered “Yes, received it.” The read-only audit still reports
+  `delivery_verified: false` because it only checks configuration; this separate
+  recipient-confirmed test supplies delivery evidence, not proof every signal fires.
+- Private point-in-time restore to `pipeline-readiness-drill-20260919`, restore
+  point `2026-09-19T19:10:00Z`, succeeded. A read-only Azure job using the current
+  production image verified 39 migration checksums, zero invalid constraints,
+  and readable counts: 2,717 referrals, 19 assessments, 14,171 documents,
+  39,508 audit events. Evidence logged `2026-09-19T19:21:03.9664684Z`.
+  No clinical rows or credentials were copied to the laptop. This proves database
+  restoration, not Blob recovery or a complete app failover.
+- Targeted `PATCH` to the existing database requested `highAvailability.mode:
+  SameZone`, preserving SKU, storage, network and credentials. Azure acknowledged
+  creation at 19:28:33 UTC. Subsequent live readback confirmed database **Ready**,
+  HA **Healthy**, mode **SameZone**, standby zone **1**, same as the primary.
+  The 2-vCore/128-GB size and 14-day regional backup policy are unchanged.
+  The output-only state update uses the explicit `pilot_same_zone_ha` profile
+  with the same alert destinations; its what-if contained no resource changes.
+- No production load test or failover has been run. The current app image stays
+  `ccd474433c05001ed621c30643bde3f1b3e8a201`.
+- Extra warm app replica **held**: the two-process rehearsal passed for separate
+  records but failed for simultaneous disjoint-field edits to one record. One
+  browser retained its unsaved value with `Retry saving` and the message that
+  another session changed the referral. Do not call that acknowledged data loss:
+  the failed write was not acknowledged. Do not call the full 100-user test passed.
+  Production remains min 1 / max 3, and the runtime default remains 1 to prevent
+  a later deploy from silently activating the held change. Authorized baseline
+  is still $260; the standby alone adds approximately **$144.66/month**.
+- Temporary restore server and read-only probe job were deleted after evidence
+  was captured; the production server and its backups were not deleted.
+- Focused evidence: seven alert-audit fixture tests, thirteen alert-contract
+  checks, regional-recovery repository checks, Bicep compilation, bootstrap shell
+  syntax, and whitespace checks passed. Application source directories match the
+  deployed baseline exactly. Local test processes and their PostgreSQL instance
+  were stopped; only disposable synthetic records remain on disk.
+
+## Pre-activation production inventory (historical)
 
 - Pipeline resource group: `rg-pipeline-prod`, West US 2.
 - Container App `pipeline-prod-web`: Consumption, 1 vCPU / 2 GiB per replica,
