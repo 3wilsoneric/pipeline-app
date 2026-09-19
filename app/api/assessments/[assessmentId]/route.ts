@@ -75,6 +75,7 @@ export async function PATCH(
         pipelineAuditActor(auth.user),
         {
           expectedVersion: validated.value.if_match,
+          expectedReferralName: validated.value.if_match_referral_name,
           section: validated.value.section,
           expectedSectionVersion: validated.value.if_match_section,
           mutationId: validated.value.client_mutation_id,
@@ -83,7 +84,9 @@ export async function PATCH(
       if (!result) return jsonError("Assessment not found.", 404);
       if (!result.ok && "conflict" in result) {
         return Response.json({
-          error: "This assessment changed in another session. Review the latest record before saving again.",
+          error: result.referralNameConflict
+            ? "The client name changed in another session. Reopen the workspace to review it before renaming. Your assessment edit has not been saved."
+            : "This assessment changed in another session. Review the latest record before saving again.",
           ...result,
         }, { status: 409 });
       }

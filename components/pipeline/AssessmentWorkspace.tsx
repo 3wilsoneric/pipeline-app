@@ -137,7 +137,7 @@ type AssessmentWorkspaceProps = {
     startedAt?: string | null;
     signedAt?: string | null;
   }) => void;
-  onAssessmentSaved?: (assessment: PipelineAssessmentRecord) => void | Promise<void>;
+  onAssessmentSaved?: (assessment: PipelineAssessmentRecord, referral?: Referral) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
   onOpenWorkspace?: () => void;
   onActiveSectionChange?: (section: AssessmentToolSection) => void;
@@ -891,11 +891,14 @@ export default function AssessmentWorkspace({
     const requestBody = JSON.stringify({
       section,
       if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
+      ...(sentData.resident_name !== undefined && sentData.resident_name !== current.resident_name
+        ? { if_match_referral_name: referral?.name ?? current.resident_name }
+        : {}),
       client_mutation_id: mutationId(`assessment-${section}`),
       patch: { data: sentData },
     });
     try {
-      const payload = trainingAssessmentMode ? { assessment: updateTrainingAssessment(current, sentData) } : await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+      const payload = trainingAssessmentMode ? { assessment: updateTrainingAssessment(current, sentData), referral: undefined } : await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; referral?: Referral }>(
         `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
         {
           method: "PATCH",
@@ -923,6 +926,7 @@ export default function AssessmentWorkspace({
       setMessage(nextDirty.size > 0 ? "Unsaved changes" : trainingAssessmentMode ? "Practice changes saved locally" : "All changes saved");
       setError("");
       if (nextDirty.size === 0 && !trainingAssessmentMode) void clearRecoveryDraft(saved.assessment_id);
+      if (payload.referral) void Promise.resolve(onAssessmentSaved?.(saved, payload.referral)).catch(() => undefined);
     } catch (saveError) {
       if (isOfflineAssessmentSave(saveError, offlinePrincipal)) {
         await queueOfflineAssessmentMutation(offlinePrincipal, {
@@ -950,7 +954,7 @@ export default function AssessmentWorkspace({
       setMessage("");
       throw saveError;
     }
-  }, [clearRecoveryDraft, offlinePrincipal, receiveRemoteAssessment, trainingAssessmentMode]);
+  }, [clearRecoveryDraft, offlinePrincipal, onAssessmentSaved, receiveRemoteAssessment, referral?.name, trainingAssessmentMode]);
 
   const syncOfflineChanges = useCallback(async () => {
     if (!offlinePrincipal || !window.navigator.onLine || offlineSyncRef.current) return;

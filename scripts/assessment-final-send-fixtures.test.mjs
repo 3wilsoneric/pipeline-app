@@ -32,6 +32,7 @@ for (const mode of ["local_file", "postgres"]) {
       }
       const globals = {
         ...(sql ? { __pipelineSql: sql } : {}),
+        globalThis: { ...(sql ? { __pipelineSql: sql } : {}) },
         process: Object.assign(Object.create(process), { env: {
           ...process.env, NODE_ENV: "test", PIPELINE_DATABASE_MODE: mode === "postgres" ? mode : "disconnected",
           PIPELINE_DATABASE_URL: sql ? "postgres://fixture.invalid/disposable" : "",
@@ -58,6 +59,58 @@ for (const mode of ["local_file", "postgres"]) {
         referral_id: referral.id, assigned_assessor: actor, data: schema.createEmptyAssessmentToolData(),
       }, actor, "final-send-assessment")).assessment;
       const id = current.assessment_id;
+      phase = "correct assessment name across workspace records";
+      const renameOptions = { expectedVersion: current.version, expectedReferralName: referral.name, mutationId: "name-correction" };
+      const renamePatch = { data: { resident_name: "  corrected fixture  " } };
+      const renamed = await store.patchAssessment(id, renamePatch, actor, renameOptions);
+      assert.equal(renamed.ok, true);
+      current = renamed.assessment;
+      assert.equal(current.resident_name, "Corrected Fixture");
+      assert.equal(renamed.referral.name, current.resident_name);
+      assert.equal((await referrals.getReferral(referral.id)).name, current.resident_name);
+      assert.equal((await store.patchAssessment(id, renamePatch, actor, renameOptions)).assessment.version, current.version);
+      assert.equal((await referrals.getReferral(referral.id)).version, renamed.referral.version);
+      const events = sql
+        ? await sql`select changed_fields, before_values, after_values from pipeline.audit_events where entity_type = 'referral' and entity_id = ${String(referral.id)}`
+        : await referrals.listLocalReferralAuditEvents(referral.id);
+      const nameEvents = events.filter((event) => event.changed_fields.includes("name"));
+      assert.equal(nameEvents.length, 1);
+      assert.equal(nameEvents[0].before_values.name, referral.name);
+      assert.equal(nameEvents[0].after_values.name, "Corrected Fixture");
+
+      phase = "reject stale or empty name without losing unrelated fields";
+      const changedElsewhere = await referrals.patchReferral(referral.id, { name: "Newer Fixture", phone: "555-0102" }, renamed.referral.version, actor);
+      assert.equal(changedElsewhere.ok, true);
+      const staleName = await store.patchAssessment(id, { data: { resident_name: "Stale Fixture" } }, actor,
+        { expectedVersion: current.version, expectedReferralName: current.resident_name });
+      assert.equal(staleName.ok, false);
+      assert.equal(staleName.referralNameConflict, true);
+      assert.equal((await store.getAssessment(id)).version, current.version);
+      assert.equal((await referrals.getReferral(referral.id)).name, "Newer Fixture");
+      await assert.rejects(store.patchAssessment(id, { data: { resident_name: " " } }, actor,
+        { expectedVersion: current.version }), /Enter a client name/);
+      // Sending an unchanged snapshot with other identity answers is not a rename.
+      current = (await store.patchAssessment(id, { data: { resident_name: current.resident_name, current_location: "Synthetic location" } }, actor,
+        { expectedVersion: current.version })).assessment;
+      assert.equal((await referrals.getReferral(referral.id)).name, "Newer Fixture");
+      current = (await store.patchAssessment(id, { data: { resident_name: "Confirmed Fixture" } }, actor,
+        { expectedVersion: current.version, expectedReferralName: "Newer Fixture" })).assessment;
+      assert.equal((await referrals.getReferral(referral.id)).name, "Confirmed Fixture");
+      assert.equal((await referrals.getReferral(referral.id)).phone, "555-0102");
+
+      if (sql) {
+        phase = "roll back both names when assessment audit fails";
+        await sql.unsafe(`create function pipeline.fail_name_audit() returns trigger language plpgsql as $$ begin
+          if new.entity_type = 'assessment' and new.action = 'assessment_updated' then raise exception 'Synthetic audit failure'; end if;
+          return new; end $$;
+          create trigger fail_name_audit before insert on pipeline.audit_events for each row execute function pipeline.fail_name_audit();`);
+        await assert.rejects(store.patchAssessment(id, { data: { resident_name: "Rollback Fixture" } }, actor,
+          { expectedVersion: current.version, expectedReferralName: current.resident_name }), /Synthetic audit failure/);
+        await sql.unsafe("drop trigger fail_name_audit on pipeline.audit_events; drop function pipeline.fail_name_audit();");
+        assert.equal((await referrals.getReferral(referral.id)).name, "Confirmed Fixture");
+        assert.equal((await store.getAssessment(id)).version, current.version);
+        assert.equal(Number((await sql`select count(*) from pipeline.people where display_name = 'Rollback Fixture'`)[0].count), 0);
+      }
       assert.equal((await store.addAssessmentAddendum(id, "Too early", "test", actor, current.version)).ok, false);
       phase = "sign";
       current = (await store.patchAssessment(id, { signer: actor }, actor, { expectedVersion: current.version })).assessment;

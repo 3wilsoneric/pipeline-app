@@ -26,6 +26,7 @@ export type AssessmentCreateRequest = {
 
 export type AssessmentPatchRequest = {
   if_match?: number;
+  if_match_referral_name?: string;
   if_match_section?: number;
   section?: AssessmentToolSection;
   assessor_id?: string | null;
@@ -77,10 +78,14 @@ export function validateAssessmentPatchRequest(value: unknown): AssessmentValida
   const mutationResult = validateMutationId(value.client_mutation_id);
   if (!mutationResult.ok) return mutationResult;
 
+  if (value.if_match_referral_name !== undefined && !isBoundedString(value.if_match_referral_name, 512)) {
+    return invalid("if_match_referral_name is invalid.");
+  }
   return {
     ok: true,
     value: {
       ...(value.if_match !== undefined ? { if_match: value.if_match as number } : {}),
+      ...(value.if_match_referral_name !== undefined ? { if_match_referral_name: value.if_match_referral_name as string } : {}),
       ...(value.if_match_section !== undefined ? { if_match_section: value.if_match_section as number } : {}),
       ...(section ? { section } : {}),
       ...(value.assessor_id !== undefined ? { assessor_id: value.assessor_id as string | null } : {}),
