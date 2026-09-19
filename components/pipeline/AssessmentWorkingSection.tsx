@@ -151,7 +151,7 @@ function CapturedAssessmentAnswers({ section, data, pending, questions, onEdit, 
       <header className={styles.referenceHeader}>
       <h4>Current information</h4>
       </header>
-      <div ref={readingPage} className={styles.readingPage} data-assessment-reference-page>
+      <div key={section} ref={readingPage} className={styles.readingPage} data-assessment-reference-page>
       {!groups.length ? <p className={styles.empty}>No information recorded for this section yet.</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.referenceGroup}>
         {group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} signed={isAssessmentFinalized(assessment)} onEdit={(field) => { setExpanded(false); onEdit(field); }} />)}
@@ -165,7 +165,7 @@ function CapturedAnswer({ question, data, pending, onEdit, signed }: WorkingData
   const status = assessmentQuestionStatus(question, data, pending);
   const reason = getAssessmentUnableReason(data, question.field);
   return <button type="button" aria-label={(signed ? "Review " : "Edit ") + assessmentInterviewFieldLabel(question.field)} onClick={() => onEdit(question.field)} className={styles.answer}>
-    <span className={styles.answerLabel}>{assessmentInterviewFieldLabel(question.field)}{!signed ? <Pencil size={12} aria-hidden="true" /> : null}</span>
+    <span className={styles.answerLabel}>{assessmentInterviewFieldLabel(question.field)}{!signed ? <Pencil size={15} aria-hidden="true" /> : null}</span>
     <span className={styles.answerValue}>{capturedAssessmentAnswer(question, data)}</span>
     {reason ? <span className={styles.answerReason}>{reason}</span> : null}
     {status === "verify" ? <span className={styles.attention}>Needs verification</span> : status === "reason" ? <span className={styles.attention}>Reason missing</span> : null}

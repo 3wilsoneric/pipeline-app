@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, ChevronDown, CircleHelp, FlaskConical, LogOut, Settings, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CircleHelp, FlaskConical, ListTodo, LogOut, MoreHorizontal, Settings, Trash2, UserRound, X } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -254,16 +254,16 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
   }} className={phone ? sidebarStyles.phoneHeader : sidebarStyles.sidebar}>
     {phone ? <>
       <div className={sidebarStyles.phoneBar}>
-        {hasBack ? <button type="button" aria-label="Back to previous page" onClick={goBack}><ArrowLeft size={20} aria-hidden="true" /><span>Back</span></button> : <button type="button" aria-label="Pipeline home" onClick={() => navigateTo("home")}><PipelineLogoMark size={28} /></button>}
-        <button type="button" className={sidebarStyles.phonePageButton} aria-label={`Open page menu, current page ${pageLabel}`} aria-haspopup="dialog" onClick={(event) => { event.currentTarget.focus(); phoneMenuRef.current?.showModal(); }}>{pageLabel}<ChevronDown size={16} aria-hidden="true" /></button>
+        {hasBack ? <button type="button" aria-label="Back to previous page" onClick={goBack}><ArrowLeft size={20} aria-hidden="true" /><span>Back</span></button> : <button type="button" aria-label="Pipeline home" onClick={() => navigateTo("home")}><ListTodo size={20} aria-hidden="true" /><span>My work</span></button>}
         <PipelinePhoneNotifications key={user?.id ?? "anonymous"} onOpenWorkspace={(id, location) => void runNavigation(() => {
           const params = new URLSearchParams({ view: "referrals", screen: "packet", referralId: String(id) });
           applyPipelineWorkspaceLocation(params, location ?? { view: "intake" });
           navigatePipelineDestination(pathname, `/?${params}`, router);
         })} />
+        <button type="button" className={sidebarStyles.phonePageButton} aria-label={`Open page menu, current page ${pageLabel}`} aria-haspopup="dialog" onClick={(event) => { event.currentTarget.focus(); phoneMenuRef.current?.showModal(); }}><MoreHorizontal size={20} aria-hidden="true" /><span>More</span></button>
       </div>
       <dialog ref={phoneMenuRef} aria-label="Pipeline pages" className={sidebarStyles.phoneMenu} onClick={(event) => { if (event.target === event.currentTarget || event.target instanceof Element && event.target.closest('[data-guide-target="guided-help"]')) phoneMenuRef.current?.close(); }}>
-        <div className={sidebarStyles.phoneMenuHeading}><span>Pipeline pages</span><button type="button" aria-label="Close page menu" onClick={() => phoneMenuRef.current?.close()}><X size={20} /></button></div>
+        <div className={sidebarStyles.phoneMenuHeading}><span>More</span><button type="button" aria-label="Close page menu" onClick={() => phoneMenuRef.current?.close()}><X size={20} /></button></div>
         {navigationContent}
       </dialog>
     </> : navigationContent}

@@ -432,6 +432,7 @@ function clearDestinationParams(params: URLSearchParams) {
     "trainingAssessment",
     "trainingIntake",
     "assessmentSection",
+    "assessmentMode",
     "editHome",
     "workspaceStage",
     "workspaceView",

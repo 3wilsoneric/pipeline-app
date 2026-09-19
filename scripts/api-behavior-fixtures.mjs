@@ -80,6 +80,18 @@ const results = [
     const location = workContinuity.parsePipelineWorkspaceLocation({ view: "assessment", assessmentSection: "medication" });
     assert(location?.assessmentSection === "medication", "A known assessment section must be retained");
     assert(workContinuity.parsePipelineWorkspaceLocation({ view: "files", intakeField: "name" }) === null, "A field cannot leak into another workspace surface");
+    assert(workContinuity.parsePipelineWorkspaceLocation({ view: "assessment", assessmentMode: "invalid" }) === null, "Unknown assessment modes are rejected");
+    for (const view of ["intake", "chart", "workflow", "email", "files", "activity"]) {
+      assert(workContinuity.parsePipelineWorkspaceLocation({ view, assessmentMode: "review" }) === null, "Review mode belongs only to Assessment");
+    }
+    const review = { view: "assessment", assessmentSection: "medication", assessmentMode: "review" };
+    const reviewParams = new URLSearchParams();
+    workContinuity.applyPipelineWorkspaceLocation(reviewParams, review);
+    assert(JSON.stringify(workContinuity.pipelineWorkspaceLocationFromSearchParams(reviewParams)) === JSON.stringify(review), "Review and the return section survive a URL round trip");
+    const reviewState = workContinuity.mergePipelineWorkContinuityState(workContinuity.emptyPipelineWorkContinuityState(), {
+      lastWorkspace: { referralId: 42, location: review, visitedAt: "2026-09-03T00:00:00.000Z" },
+    });
+    assert(workContinuity.parsePipelineWorkContinuityState(reviewState)?.lastWorkspace?.location.assessmentMode === "review", "Saved workspace continuity preserves review mode");
 
     const merged = workContinuity.mergePipelineWorkContinuityState(
       {
@@ -103,7 +115,7 @@ const results = [
     assert(merged.assignmentAcknowledgedThrough === "2026-09-04T00:00:00.000Z", "The acknowledgment watermark must move only forward");
     assert(merged.acknowledgedAssignmentIds.join(",") === "assignment-2,assignment-1", "Specific acknowledgments must be retained across concurrent updates");
 
-    const params = new URLSearchParams("workspaceStage=assessment&assessmentSection=identity&workspaceView=files&workspaceField=name");
+    const params = new URLSearchParams("workspaceStage=assessment&assessmentSection=identity&assessmentMode=review&workspaceView=files&workspaceField=name");
     workContinuity.applyPipelineWorkspaceLocation(params, { view: "workflow" });
     assert(params.toString() === "workspaceView=workflow", "Changing surfaces must remove every stale destination parameter");
   }),

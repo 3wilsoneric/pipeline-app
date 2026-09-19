@@ -75,6 +75,7 @@ export async function GET(
         eligible: snapshot.decision?.outcome === "accepted",
         can_send: canSend,
         ready: canSend && emailBlockers.length === 0,
+        sent_at: assessment?.meet_client_sent_at ?? null,
         blockers: emailBlockers,
         admission_packet: {
           files: admissionPacket.files.map((file) => ({
