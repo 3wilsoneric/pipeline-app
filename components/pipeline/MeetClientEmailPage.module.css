@@ -3,6 +3,8 @@
 .pageHeader h2 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.025em; }
 .pageHeader p { margin: 6px 0 0; color: #59665f; font-size: 16px; line-height: 1.5; }
 .headerActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.deliveryStatus { display: inline-flex; align-items: center; min-height: 30px; padding: 4px 10px; border: 1px solid #dce4df; border-radius: 5px; color: #53615a; background: #f7f9f8; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.deliveryStatus[data-sent] { border-color: #b4d5c8; color: #08664f; background: #edf7f2; }
 .composer { overflow: hidden; border: 1px solid var(--pipeline-surface-edge); border-radius: 8px; background: #fff; box-shadow: 0 3px 14px #00000008; }
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 20px; border-bottom: 1px solid #e8e8e8; background: #fafafa; }
 .sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: 6px; background: #087d66; color: #fff; font-size: 16px; font-weight: 650; }

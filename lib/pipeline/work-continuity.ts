@@ -9,6 +9,7 @@ export type PipelineWorkspaceView = (typeof pipelineWorkspaceViews)[number];
 export type PipelineWorkspaceLocation = {
   view: PipelineWorkspaceView;
   assessmentSection?: AssessmentToolSection;
+  assessmentMode?: "review";
   intakeField?: ReferralCanvasFieldKey;
 };
 
@@ -100,14 +101,15 @@ export function mergePipelineWorkContinuityState(
 
 export function pipelineWorkspaceLocationFromSearchParams(params: URLSearchParams): PipelineWorkspaceLocation {
   const workspaceView = params.get("workspaceView");
-  if (workspaceView && pipelineWorkspaceViews.includes(workspaceView as PipelineWorkspaceView)) {
+  if (workspaceView && workspaceView !== "assessment" && pipelineWorkspaceViews.includes(workspaceView as PipelineWorkspaceView)) {
     return parsePipelineWorkspaceLocation({ view: workspaceView }) ?? { view: "intake" };
   }
   const stage = params.get("workspaceStage");
-  if (stage === "assessment") {
+  if (workspaceView === "assessment" || stage === "assessment") {
     return parsePipelineWorkspaceLocation({
       view: "assessment",
       assessmentSection: params.get("assessmentSection") ?? undefined,
+      assessmentMode: params.get("assessmentMode") ?? undefined,
     }) ?? { view: "assessment" };
   }
   if (stage === "chart") return { view: "chart" };
@@ -124,10 +126,12 @@ export function applyPipelineWorkspaceLocation(
   params.delete("workspaceStage");
   params.delete("workspaceView");
   params.delete("assessmentSection");
+  params.delete("assessmentMode");
   params.delete("workspaceField");
   if (location.view === "assessment") {
     params.set("workspaceStage", "assessment");
     if (location.assessmentSection) params.set("assessmentSection", location.assessmentSection);
+    if (location.assessmentMode) params.set("assessmentMode", location.assessmentMode);
   } else if (location.view === "chart") {
     params.set("workspaceStage", "chart");
   } else if (location.view === "intake") {
@@ -143,14 +147,17 @@ export function isReferralCanvasFieldKey(value: unknown): value is ReferralCanva
 
 function parseAssessmentLocation(candidate: Record<string, unknown>): PipelineWorkspaceLocation | null {
   if (candidate.intakeField !== undefined) return null;
-  if (candidate.assessmentSection === undefined) return { view: "assessment" };
-  return isAssessmentToolSection(candidate.assessmentSection)
-    ? { view: "assessment", assessmentSection: candidate.assessmentSection }
-    : null;
+  if (candidate.assessmentSection !== undefined && !isAssessmentToolSection(candidate.assessmentSection)) return null;
+  if (candidate.assessmentMode !== undefined && candidate.assessmentMode !== "review") return null;
+  return {
+    view: "assessment",
+    ...(candidate.assessmentSection !== undefined ? { assessmentSection: candidate.assessmentSection as AssessmentToolSection } : {}),
+    ...(candidate.assessmentMode === "review" ? { assessmentMode: "review" } : {}),
+  };
 }
 
 function parseIntakeLocation(candidate: Record<string, unknown>): PipelineWorkspaceLocation | null {
-  if (candidate.assessmentSection !== undefined) return null;
+  if (candidate.assessmentSection !== undefined || candidate.assessmentMode !== undefined) return null;
   if (candidate.intakeField === undefined) return { view: "intake" };
   return isReferralCanvasFieldKey(candidate.intakeField)
     ? { view: "intake", intakeField: candidate.intakeField }
@@ -161,7 +168,7 @@ function parseSimpleLocation(
   view: Exclude<PipelineWorkspaceView, "assessment" | "intake">,
   candidate: Record<string, unknown>,
 ): PipelineWorkspaceLocation | null {
-  return candidate.assessmentSection === undefined && candidate.intakeField === undefined
+  return candidate.assessmentSection === undefined && candidate.assessmentMode === undefined && candidate.intakeField === undefined
     ? { view }
     : null;
 }

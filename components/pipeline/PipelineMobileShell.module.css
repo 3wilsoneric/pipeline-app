@@ -57,9 +57,10 @@
 
 .body:has([data-phone-header]) { flex-direction: column; }
 .phoneHeader { flex-shrink: 0; background: #fff; color: #24352e; border-bottom: 1px solid #e2e6e3; z-index: 40; }
-.phoneBar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 4px 12px; }
+.phoneBar { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 52px; padding: 4px 12px; }
 .phoneBar > button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; font-size: 14px; font-weight: 600; border-radius: 8px; }
-.phoneBar .phonePageButton { padding-inline: 12px; font-size: 16px; }
+.phoneBar .phonePageButton { padding-inline: 4px; color: #596a63; font-size: 13px; }
+.phoneBar .phoneBell { padding-inline: 8px; color: #126b53; font-size: 13px; }
 .phoneBar > button:active { background: #edf3ef; }
 .phoneHeader button:focus-visible { outline: 2px solid #167452; outline-offset: -2px; }
 .phoneBell { position: relative; }
@@ -68,7 +69,7 @@
 .phoneMenu::backdrop { background: #18281f55; }
 .phoneMenuHeading { display: flex; justify-content: space-between; align-items: center; min-height: 48px; font-size: 18px; font-weight: 650; }
 .phoneMenuHeading button { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
-.phoneMenu .brand { max-width: 230px; margin: 10px 0 16px; }
+.phoneMenu .brand { display: none; }
 .phoneMenu .home { gap: 8px; }
 .phoneMenu [data-testid="primary-navigation"], .phoneMenu [aria-label="Primary navigation"] { display: flex; flex-direction: column; width: 100%; align-items: stretch; gap: 4px; }
 .phoneMenu :global(.pipeline-command) { width: 100%; min-height: 48px; justify-content: flex-start; padding: 10px 12px; border: 0; border-radius: 8px; box-shadow: none; font-size: 16px; }
@@ -82,6 +83,25 @@
 .phoneUpdates { padding-bottom: 12px; }
 .phoneUpdates button { min-height: 44px; }
 .phoneUpdates p { font-size: 14px; line-height: 1.5; }
+.notificationCenter { inset: var(--mobile-viewport-top, 0px) 0 auto; height: var(--mobile-viewport-height, 100dvh); max-height: none; padding: max(12px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); border: 0; border-radius: 0; }
+.notificationCenter[open] { display: flex; flex-direction: column; }
+.notificationCenter .phoneMenuHeading { flex-shrink: 0; min-height: 64px; padding-bottom: 12px; border-bottom: 1px solid #dce5df; }
+.notificationCenter h2 { font-size: 24px; letter-spacing: -.025em; }
+.notificationCenter .phoneMenuHeading button { border-radius: 50%; background: #f1f5f3; }
+.notificationCenter .phoneUpdates { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-top: 12px; }
+.notificationCenter .phoneUpdates h2 { font-size: 16px; letter-spacing: 0; }
+.notificationCenter .phoneUpdates [aria-label="Since your last visit"] > div:first-child { height: auto; min-height: 56px; flex-wrap: wrap; gap: 0 8px; }
+.notificationCenter .phoneUpdates [aria-label="Since your last visit"] > div:first-child > span { display: none; }
+.notificationCenter .phoneUpdates [aria-label="Since your last visit"] > div:first-child button { font-size: 13px; font-weight: 550; }
+.notificationCenter .phoneUpdates button:global(.group) { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 18px 14px; border-left: 3px solid #1b8466; background: #f6faf8; }
+.notificationCenter .phoneUpdates button:global(.group) > span:first-child > span:first-child { overflow: visible; white-space: normal; font-size: 18px; line-height: 1.4; font-weight: 650; }
+.notificationCenter .phoneUpdates button:global(.group) > span:first-child > span:last-child { overflow: visible; white-space: normal; font-size: 14px; }
+.notificationCenter .phoneUpdates button:global(.group) > span:last-child { flex-wrap: wrap; font-size: 12px; font-weight: 500; }
+.notificationCenter .phoneUpdates button:global(.group) > span:last-child svg { margin-left: auto; }
+.notificationCenter .phoneUpdates p { border-radius: 8px; font-size: 16px; }
+.notificationCenter .phoneUpdates [role="alert"] { padding: 12px; border-left: 3px solid #ae5549; background: #fff6f3; }
+.notificationCenter .phoneUpdates [role="alert"] button { display: block; color: #125c47; font-size: 15px; text-decoration: underline; }
+.shell[data-mobile-keyboard="true"] .phoneHeader { display: none; }
 .body:has([data-phone-header]) [data-guide-target="workspace-stage-nav"] { gap: 0; border-bottom: 1px solid #dce5de; padding: 0; background: #fff; }
 .body:has([data-phone-header]) [data-folder-stage] { flex: 1 1 auto; min-height: 44px; margin: 0; padding: 8px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: #fff; color: #56665c; transform: none; box-shadow: none; font-weight: 550; }
 .body:has([data-phone-header]) [data-folder-stage][aria-current="page"] { border-bottom-color: #167452; color: #166844; font-weight: 650; }

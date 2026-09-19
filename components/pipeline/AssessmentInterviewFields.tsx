@@ -49,7 +49,7 @@ function AssessmentFieldHeader({ id, definition, value, pending }: Pick<Assessme
   return (
     <div className="mb-1.5 flex items-center justify-between gap-2">
       <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}</label>
-      {pending ? <span className="bg-[#f2f5f3] px-2 py-0.5 text-[9px] font-black uppercase text-[#59645e]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : <span className="text-[9px] font-semibold uppercase text-[#737373]">Unanswered</span>}
+      {pending ? <span className="bg-[#f2f5f3] px-2 py-0.5 text-xs font-semibold text-[#59645e]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : null}
     </div>
   );
 }

@@ -125,6 +125,7 @@ export type AssessmentCreateInput = {
 
 export type AssessmentPatchInput = {
   data?: Partial<AssessmentToolData>;
+  workbook_restore?: { export_id: string; exported_at: string };
   /** Server-resolved only. Browser requests supply an active workspace member ID. */
   assigned_assessor?: AssessmentActor | null;
   /** Server-resolved only. A canonical identity can be attached once and never changed. */
