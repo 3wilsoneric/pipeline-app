@@ -172,6 +172,8 @@ test('assessment same-answer conflict survives a different answer save and reope
     await contactB.blur();
     await expect(b.page.getByRole('button', { name: 'Keep mine', exact: true })).toBeVisible();
     const date = b.page.getByLabel('Assessment date', { exact: true });
+    await date.focus();
+    await expect(date).toBeFocused();
     await date.fill('2026-09-19'); await date.blur();
     await expect.poll(async () => (await (await b.context.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.assessment_date).toBe('2026-09-19');
     await expect(b.page.getByRole('button', { name: 'Keep mine', exact: true })).toBeVisible();
@@ -262,6 +264,8 @@ test('assessment answers recover from offline saving and a lost acknowledgement 
     const referral = await seed(s);
     const assessment = await createOperationalAssessment(s.context.request, referral.id);
     await s.page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await expect(s.page.locator('[data-phone-interview]')).toBeVisible();
+    await expect(s.page.getByTestId('packet-workspace')).toHaveAttribute('aria-busy', 'false');
     const date = s.page.getByLabel('Assessment date', { exact: true });
     await expect(date).toBeVisible();
     const mutations: string[] = [];
@@ -274,6 +278,8 @@ test('assessment answers recover from offline saving and a lost acknowledgement 
       expect((await route.fetch()).ok()).toBe(true);
       await route.fulfill({ status: 503, json: { error: 'Synthetic lost assessment reply' } });
     });
+    await date.click({ position: { x: 20, y: 20 } });
+    await expect(date).toBeFocused();
     await date.fill('2026-09-19'); await date.blur();
     await expect.poll(() => mutations.length, { timeout: 20_000 }).toBe(2);
     expect(mutations[1]).toBe(mutations[0]);
@@ -282,6 +288,8 @@ test('assessment answers recover from offline saving and a lost acknowledgement 
     expect(saved.assessment_date).toBe('2026-09-19');
     expect(saved.audit_events.filter((e: { action: string }) => e.action === 'assessment_updated')).toHaveLength(1);
     await s.context.setOffline(true);
+    await date.click({ position: { x: 20, y: 20 } });
+    await expect(date).toBeFocused();
     await date.fill('2026-09-18'); await date.blur();
     await expect(s.page.getByText('Offline · 1 queued', { exact: true })).toBeVisible();
     await expect(date).toHaveValue('2026-09-18');
