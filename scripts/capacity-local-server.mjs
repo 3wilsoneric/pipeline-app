@@ -1,4 +1,4 @@
-// Synthetic-only two-process target. Never points at production data.
+// Synthetic-only bounded replica target. Never points at production data.
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { mkdirSync, openSync } from 'node:fs';
@@ -8,7 +8,9 @@ const database = new URL(process.env.PIPELINE_TEST_DATABASE_URL ?? '');
 if (database.hostname !== '127.0.0.1' || !/^\/pipeline_capacity_[a-z0-9_]+$/.test(database.pathname)) throw Error('Dedicated loopback capacity database required');
 const durableUpload = process.env.PIPELINE_CAPACITY_DURABLE_UPLOAD === 'true';
 if (durableUpload && process.env.AZURE_STORAGE_ACCOUNT !== 'pipelinerehearsal0919') throw Error('Only the disposable rehearsal Blob account is allowed');
-const ports = [4178, 4179];
+const replicas = Number(process.env.PIPELINE_CAPACITY_REPLICAS ?? 2);
+if (![2, 3].includes(replicas)) throw Error('Only the two- or three-replica rehearsal is supported');
+const ports = Array.from({ length: replicas }, (_, index) => 4178 + index);
 const root = resolve('.data/capacity-20260919');
 mkdirSync(root, { recursive: true });
 const env = {
@@ -20,7 +22,7 @@ const env = {
   PIPELINE_DATABASE_POOL_MAX: '10', PIPELINE_REFERRAL_STORE_MODE: 'postgres',
   PIPELINE_ASSESSMENT_STORE_MODE: 'postgres', PIPELINE_RESIDENT_LINK_STORE_MODE: 'postgres',
   PIPELINE_ALLOWED_EMAILS: Array.from({ length: 100 }, (_, i) => `capacity-${i}@pipeline.local`).join(','),
-  PIPELINE_ALLOWED_MUTATION_ORIGINS: 'http://127.0.0.1:4177,http://127.0.0.1:4178,http://127.0.0.1:4179',
+  PIPELINE_ALLOWED_MUTATION_ORIGINS: [4177, ...ports].map(port => `http://127.0.0.1:${port}`).join(','),
   PIPELINE_CANONICAL_ORIGIN: 'http://127.0.0.1:4177',
   PIPELINE_ENTRA_SESSION_SECRET: 'synthetic-capacity-only-never-deploy-20260919',
   PIPELINE_EXTRACTION_BACKEND: durableUpload ? 'manual' : 'mock', PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION: durableUpload ? 'false' : 'true',

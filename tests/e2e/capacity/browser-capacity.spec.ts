@@ -13,6 +13,9 @@ test('sustained browser saves survive alternating application instances', async 
   const users = Number(process.env.PIPELINE_CAPACITY_USERS ?? 100);
   const actorOffset = Number(process.env.PIPELINE_CAPACITY_ACTOR_OFFSET ?? 0);
   const navigationMode = process.env.PIPELINE_CAPACITY_NAVIGATION ?? 'reload';
+  const replicas = Number(process.env.PIPELINE_CAPACITY_REPLICAS ?? 2);
+  if (![2, 3].includes(replicas)) throw Error('Only the two- or three-replica rehearsal is supported');
+  const backendPorts = Array.from({ length: replicas }, (_, index) => 4178 + index);
   if (!['reload', 'in-app'].includes(navigationMode)) throw Error('Unknown capacity navigation mode');
   if (!Number.isInteger(actorOffset) || actorOffset < 0 || actorOffset + users > 100) throw Error('Distinct distributed actors must remain inside the synthetic allowlist');
   const candidate = process.env.PIPELINE_CAPACITY_COMMIT ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -98,7 +101,8 @@ test('sustained browser saves survive alternating application instances', async 
         const backend = response.headers()['x-capacity-backend'];
         backendCounts[backend] = (backendCounts[backend] ?? 0) + 1;
         ledger.push({ actor: actor.id, id, field, value, ms: Date.now() - started, backend, at: Date.now() });
-        const oppositePort = backend === '4178' ? 4179 : 4178;
+        expect(backendPorts.map(String)).toContain(backend);
+        const oppositePort = backendPorts[(backendPorts.indexOf(Number(backend)) + 1) % replicas];
         await expect.poll(async () => {
           const read = await context.request.get(`http://127.0.0.1:${oppositePort}/api/referrals/${id}`);
           if (!read.ok()) return null;
@@ -140,7 +144,7 @@ test('sustained browser saves survive alternating application instances', async 
       expect(audit).toHaveLength(expected.length);
       expect(audit.every(row => row.count === 1), 'Each acknowledged write must have exactly one independent audit entry').toBe(true);
     }
-    expect(Object.keys(backendCounts).sort()).toEqual(['4178', '4179']);
+    expect(Object.keys(backendCounts).sort()).toEqual(backendPorts.map(String));
     expect(new Set(ledger.map(entry => entry.actor)).size).toBe(users);
     if (seconds >= 60) {
       const steady = overlap.filter(sample => sample.at >= measuredStart + 30_000);
@@ -151,7 +155,7 @@ test('sustained browser saves survive alternating application instances', async 
   } finally {
     if (sampler) clearInterval(sampler);
     delay.disable();
-    await testInfo.attach('workload-profile', { body: JSON.stringify({ navigationMode, actorOffset, users }), contentType: 'application/json' });
+    await testInfo.attach('workload-profile', { body: JSON.stringify({ navigationMode, actorOffset, users, replicas }), contentType: 'application/json' });
     const sorted = ledger.map(entry => entry.ms).sort((a, b) => a - b);
     await testInfo.attach('capacity-evidence', { body: Buffer.from(JSON.stringify({ runId, candidate_commit: candidate, application_baseline: 'ccd474433c05001ed621c30643bde3f1b3e8a201', environment: 'loopback-postgres-two-process-synthetic-auth', requested_users: users, created_sessions: sessions.length, actors_with_confirmed_saves: new Set(ledger.map(entry => entry.actor)).size, measuredStart, measuredEnd, browser_processes: browsers.length, backendCounts, overlap, processMemory, calendar_and_return_navigation_ms: navigationMs, saves: ledger.length, p95_save_ms: sorted[Math.ceil(sorted.length * .95) - 1] ?? null, p99_save_ms: sorted[Math.ceil(sorted.length * .99) - 1] ?? null, generator_event_loop_p99_ms: delay.percentile(99) / 1e6, errors, ledger, limits: ['Not Entra sign-in or Azure production performance certification', 'Current workload: intake save/cross-replica reads/calendar navigation; assessment/upload/fault waves remain separate'] }, null, 2)), contentType: 'application/json' });
     await Promise.allSettled(sessions.map(session => session.context.close()));

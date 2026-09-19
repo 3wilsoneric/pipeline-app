@@ -32,6 +32,13 @@ async function editPhone(page: Page, id: number) {
   return page.getByRole('textbox', { name: 'Client phone:', exact: true });
 }
 
+async function openAssessment(page: Page, referralId: number) {
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment`);
+  // Programmatic fill/focus can target an inert input underneath the recovery
+  // overlay. A real click cannot; begin only when the workspace is interactive.
+  await expect(page.getByTestId('packet-workspace')).toHaveAttribute('aria-busy', 'false');
+}
+
 test('same-field conflict keeps the losing answer and still permits a different field to save', async ({ browser, baseURL }) => {
   const a = await session(browser, baseURL!, 0);
   const b = await session(browser, baseURL!, 1);
@@ -123,7 +130,7 @@ test('assessment permits partial unscheduled answers on a phone and retains them
   try {
     const referral = await seed(s);
     const assessment = await createOperationalAssessment(s.context.request, referral.id);
-    await s.page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await openAssessment(s.page, referral.id);
     await s.page.getByRole('navigation', { name: 'Question steps' }).getByRole('button', { name: 'Next', exact: true }).click();
     const location = s.page.getByRole('textbox', { name: 'Referrer contact', exact: true });
     await expect(location).toBeVisible();
@@ -144,7 +151,7 @@ test('assessment disjoint answers in one section do not interrupt either assesso
   try {
     const referral = await seed(a);
     const assessment = await createOperationalAssessment(a.context.request, referral.id);
-    for (const s of [a, b]) await s.page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    for (const s of [a, b]) await openAssessment(s.page, referral.id);
     const location = a.page.getByRole('textbox', { name: 'Referrer contact', exact: true });
     const time = b.page.getByLabel('Assessment date', { exact: true });
     await location.fill('Synthetic changed location');
@@ -162,7 +169,7 @@ test('assessment same-answer conflict survives a different answer save and reope
   try {
     const referral = await seed(a);
     const assessment = await createOperationalAssessment(a.context.request, referral.id);
-    for (const s of [a, b]) await s.page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    for (const s of [a, b]) await openAssessment(s.page, referral.id);
     const contactA = a.page.getByRole('textbox', { name: 'Referrer contact', exact: true });
     const contactB = b.page.getByRole('textbox', { name: 'Referrer contact', exact: true });
     await contactA.fill('Synthetic first answer');
@@ -207,7 +214,7 @@ test('late assessment recovery restores untouched answers without replacing newl
       const response = await route.fetch(); captured++;
       await gate; await route.fulfill({ response });
     });
-    await s.page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await openAssessment(s.page, referral.id);
     await expect.poll(() => captured).toBeGreaterThan(0);
     const contact = s.page.getByRole('textbox', { name: 'Referrer contact', exact: true });
     await contact.fill('Newer input during recovery');
@@ -263,9 +270,8 @@ test('assessment answers recover from offline saving and a lost acknowledgement 
   try {
     const referral = await seed(s);
     const assessment = await createOperationalAssessment(s.context.request, referral.id);
-    await s.page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await openAssessment(s.page, referral.id);
     await expect(s.page.locator('[data-phone-interview]')).toBeVisible();
-    await expect(s.page.getByTestId('packet-workspace')).toHaveAttribute('aria-busy', 'false');
     const date = s.page.getByLabel('Assessment date', { exact: true });
     await expect(date).toBeVisible();
     const mutations: string[] = [];
