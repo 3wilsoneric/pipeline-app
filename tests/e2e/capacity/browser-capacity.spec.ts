@@ -47,7 +47,9 @@ test('sustained browser saves survive alternating application instances', async 
     for (let start = 0; start < users; start += 5) await Promise.all(Array.from({ length: Math.min(5, users - start) }, async (_, offset) => {
       const i = start + offset;
       const actorIndex = actorOffset + i;
-      const actor: PipelineActor = { id: `${runId}-${actorIndex}`, name: `Synthetic Assessor ${actorIndex}`, email: `capacity-${actorIndex}@pipeline.local`, roleClaim: 'Pipeline.Reviewer', expectedRoles: ['reviewer', 'viewer'] };
+      // Rehearsals reuse real-world stable staff identities. Run-scoped records
+      // and values still isolate the audit ledger; reruns must not invent staff.
+      const actor: PipelineActor = { id: `capacity-assessor-${actorIndex}`, name: `Synthetic Assessor ${actorIndex}`, email: `capacity-${actorIndex}@pipeline.local`, roleClaim: 'Pipeline.Reviewer', expectedRoles: ['reviewer', 'viewer'] };
       const context = await browsers[Math.floor(i / 10)].newContext({ baseURL, extraHTTPHeaders: operationalHeadersForActor(actor, baseURL!), viewport: { width: 1365, height: 900 } });
       context.setDefaultTimeout(30_000);
       context.setDefaultNavigationTimeout(30_000);
