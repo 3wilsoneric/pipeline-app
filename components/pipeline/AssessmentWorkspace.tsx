@@ -1008,11 +1008,17 @@ export default function AssessmentWorkspace({
 
   const syncOfflineChanges = useCallback(async () => {
     if (!offlinePrincipal || !window.navigator.onLine || offlineSyncRef.current) return;
+    const initialization = initializedAssessmentIdRef.current;
+    const isCurrentSync = () => initialization !== null
+      && initializedAssessmentIdRef.current === initialization
+      && selectedRef.current?.assessment_id === initialization.id
+      && initialization.principal === offlinePrincipal;
     offlineSyncRef.current = true;
     try {
       const result = await flushOfflineAssessmentMutations(offlinePrincipal, async (mutation) => {
         const next = saveQueueRef.current.then(async () => {
           const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(mutation.url, { method: mutation.method, body: mutation.body });
+          if (!isCurrentSync()) return;
           const current = selectedRef.current;
           const saved = payload.assessment;
           if (!current || current.assessment_id !== saved.assessment_id || saved.version <= current.version) return;
@@ -1030,6 +1036,7 @@ export default function AssessmentWorkspace({
         saveQueueRef.current = next.catch(() => undefined);
         await next;
       });
+      if (!isCurrentSync()) return;
       setPendingOfflineSaves(result.remaining);
       const current = selectedRef.current;
       if (current && result.completed + result.conflicts > 0) {
@@ -1038,6 +1045,9 @@ export default function AssessmentWorkspace({
             `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
             { cache: "no-store" },
           );
+          // A -> B -> A and principal switches are new sessions too. Never use
+          // the newly open assessment's clean refs to discard the old draft.
+          if (!isCurrentSync()) return;
           receiveRemoteAssessment(payload.assessment, false);
           if (result.conflicts > 0) {
             setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
@@ -1175,7 +1185,10 @@ export default function AssessmentWorkspace({
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
   });
 
-  useEffect(() => () => saveOnUnmount(), []);
+  useEffect(() => () => {
+    initializedAssessmentIdRef.current = null;
+    saveOnUnmount();
+  }, []);
 
   const reviewExtractedField = async (
     field: AssessmentToolFieldKey,
