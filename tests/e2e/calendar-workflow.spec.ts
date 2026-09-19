@@ -18,6 +18,7 @@ test("interview completion preserves answers, editability, original appointment 
   expect(booked.status(), await booked.text()).toBe(200);
   assessment = (await booked.json()).assessment;
   await page.goto("/?screen=calendar");
+  await page.getByRole("button", { name: "Show calendar filters" }).click();
   await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
   const continuing = page.getByRole("region", { name: "Continue working", exact: true });
   await continuing.getByRole("button", { name: new RegExp(referral.name) }).first().click();
@@ -44,6 +45,7 @@ test("interview completion preserves answers, editability, original appointment 
   expect(patched.status(), await patched.text()).toBe(200);
   expect((await read()).current_symptoms).toBe("Synthetic documentation finished tomorrow");
   await page.reload();
+  await page.getByRole("button", { name: "Show calendar filters" }).click();
   await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
   await expect(continuing).toContainText(referral.name);
   await expect(continuing).toContainText("Interview completed · documentation unfinished");

@@ -127,7 +127,14 @@ export function CalendarHeader(props: CalendarHeaderProps) {
     <header aria-label="Calendar controls" className={`pipeline-commands ${calendarStyles.header}`}>
       <div className={calendarStyles.toolbar}>
         <div className={calendarStyles.rangeControls}>
-          <h1 className={calendarStyles.rangeTitle}>{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
+          <div className={calendarStyles.rangeSummary}>
+            <h1 className={calendarStyles.rangeTitle}>{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
+            <div className={calendarStyles.summary}>
+              <span>{props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule"}</span>
+              <span>{props.scheduledCount.toLocaleString()} scheduled</span>
+              <abbr title="Pacific Time">PT</abbr>
+            </div>
+          </div>
           <div role="group" aria-label="Calendar dates" className={calendarStyles.dateNavigation}>
           <IconButton label="Previous calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, -1))}><ChevronLeft size={17} /></IconButton>
           <IconButton label="Next calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, 1))}><ChevronRight size={17} /></IconButton>
@@ -135,33 +142,31 @@ export function CalendarHeader(props: CalendarHeaderProps) {
           </div>
         </div>
         <div className={calendarStyles.headerActions}>
-          <button type="button" aria-haspopup="dialog" aria-expanded={props.queueOpen} onClick={props.onOpenQueue} className={calendarStyles.queueButton}>
+          <CalendarViewSwitch view={props.view} onView={props.onView} />
+          <button type="button" aria-label={`Scheduling queue ${props.queueCount.toLocaleString()}`} aria-haspopup="dialog" aria-expanded={props.queueOpen} onClick={props.onOpenQueue} className={calendarStyles.queueButton}>
             <ClipboardList size={15} />
-            <span>Scheduling queue</span>
+            <span><span className={calendarStyles.queueDetail}>Scheduling </span>queue</span>
             <span className="tabular-nums text-[#116b5a]">{props.queueCount.toLocaleString()}</span>
           </button>
-          <IconButton label="Refresh calendar" onClick={props.onRefresh}><RefreshCw size={14} className={props.refreshing ? "animate-spin" : ""} /></IconButton>
           <button type="button" aria-label="Show calendar filters" aria-expanded={props.showFilters} onClick={() => props.onShowFilters(!props.showFilters)} className={`${calendarStyles.filterToggle} ${props.hasFilters ? "text-[#116b5a]" : "text-[#626a66]"}`}><Filter size={16} /></button>
-          <CalendarViewSwitch view={props.view} onView={props.onView} />
         </div>
       </div>
-      <div className={calendarStyles.contextRow}>
       <CalendarFilters {...props} onClear={clearFilters} onToggleMine={toggleMine} />
-      <div className={calendarStyles.statusStrip}>
-        <span className="font-extrabold text-[#176f5e]">{props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule"}</span>
-        <span className="relative"><strong className="text-[#2c332f]">{props.scheduledCount.toLocaleString()}</strong> assessment{props.scheduledCount === 1 ? "" : "s"}<FeedbackCue value={`${props.community}:${props.owner}:${props.mySchedule}`} /></span>
+      <div className={calendarStyles.statusStrip} data-visible={Boolean(status) || props.overdueCount > 0}>
         {props.overdueCount > 0 ? <span className="text-[#9c3d32]"><strong>{props.overdueCount.toLocaleString()}</strong> need{props.overdueCount === 1 ? "s" : ""} completion</span> : null}
-        <span>Pacific Time</span>
         <span role="status" aria-live="polite" className="relative ml-auto min-w-0 text-right font-normal">{status}<FeedbackCue value={props.message} enabled={Boolean(props.message) && !props.busy && !props.loading && !props.refreshing} /></span>
       </div>
-      </div>
-      <div className={calendarStyles.binding} aria-hidden="true">{[0, 1, 2, 3].map((ring) => <span key={ring} />)}</div>
     </header>
   );
 }
 
 function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (value: CalendarView) => void }) {
-  return <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className={calendarStyles.viewSwitch}>{(["day", "agenda", "week", "month"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)}>{option === "day" ? "Day" : option === "agenda" ? "Upcoming" : option}</button>)}</div>;
+  return <div data-guide-target="calendar-view" className={calendarStyles.viewControl}>
+    <div role="group" aria-label="Calendar view" className={calendarStyles.viewSwitch}>{(["day", "agenda", "week", "month"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)}>{option === "day" ? "Day" : option === "agenda" ? "Upcoming" : option}</button>)}</div>
+    <select aria-label="Calendar view" value={view} onChange={(event) => onView(event.target.value as CalendarView)} className={calendarStyles.viewSelect}>
+      <option value="day">Day</option><option value="agenda">Upcoming</option><option value="week">Week</option><option value="month">Month</option>
+    </select>
+  </div>;
 }
 
 function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onToggleMine: () => void }) {
@@ -171,6 +176,7 @@ function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onT
       {props.scope === "team" ? <OwnerFilter value={props.owner} onChange={(owner) => { props.onOwner(owner); props.onMySchedule(false); }} options={props.ownerOptions} /> : null}
       {props.scope === "team" ? <label className="flex h-9 shrink-0 cursor-pointer items-center gap-2 px-2 text-[12px] font-bold text-[#525a56]"><input type="checkbox" checked={props.mySchedule} onChange={props.onToggleMine} className="h-4 w-4 accent-[#167f6b]" /><UserRoundCheck size={14} /> My appointments</label> : null}
       {props.hasFilters ? <button type="button" onClick={props.onClear} className="flex h-8 items-center gap-1 px-2 text-[10px] font-bold text-[#6d7470] hover:text-[#9c3d32]"><X size={12} /> Clear</button> : null}
+      <IconButton label="Refresh calendar" onClick={props.onRefresh}><RefreshCw size={14} className={props.refreshing ? "animate-spin" : ""} /></IconButton>
     </div>
   );
 }

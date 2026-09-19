@@ -53,7 +53,7 @@ import { loadPipelineWorkspaceResumeLocation } from "@/lib/pipeline/work-continu
 export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void }) {
   const { initialUser } = usePipelineAuth();
   const navigationKey = initialUser?.id ?? "calendar";
-  const calendarElement = useRef<HTMLDivElement>(null);
+  const calendarElement = useRef<HTMLElement>(null);
   const restoreScroll = useRef<number | null>(null);
   const [view, setView] = useState<CalendarView>("day");
   const [anchor, setAnchor] = useState(todayKey);
@@ -340,7 +340,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   };
 
   return (
-    <main data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className={calendarStyles.desktop}>
+    <main ref={calendarElement} tabIndex={0} aria-label="Calendar" onScroll={(event) => { const saved = calendarNavigation.get(navigationKey); if (saved && restoreScroll.current === null) saved.scrollTop = event.currentTarget.scrollTop; }} data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className={calendarStyles.desktop}>
       <div className={calendarStyles.board}>
         <CalendarHeader
           view={view}
@@ -373,7 +373,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           onOpenQueue={() => setQueueOpen(true)}
           onRefresh={() => setRefreshToken((value) => value + 1)}
         />
-        <div ref={calendarElement} data-testid="calendar-sheet" tabIndex={0} role="region" aria-label="Calendar entries" onScroll={(event) => { const saved = calendarNavigation.get(navigationKey); if (saved && restoreScroll.current === null) saved.scrollTop = event.currentTarget.scrollTop; }} className={calendarStyles.paper}>
+        <div data-testid="calendar-sheet" role="region" aria-label="Calendar entries" className={calendarStyles.paper}>
         <CalendarNotices error={error} mutationError={mutationState.error} scheduleOpen={Boolean(scheduleTarget)} onRetry={() => setRefreshToken((value) => value + 1)} />
         {view === "day" ? <CalendarDay
           date={anchor} loading={loading || !navigationReady} error={error}
