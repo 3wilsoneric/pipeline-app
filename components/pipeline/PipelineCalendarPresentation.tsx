@@ -124,14 +124,15 @@ export function CalendarHeader(props: CalendarHeaderProps) {
     props.onOwner("");
   };
   return (
-    <header className={`pipeline-commands ${calendarStyles.header}`}>
-      <div className={calendarStyles.labelRail}><span className={calendarStyles.nameplate}>Calendar</span></div>
+    <header aria-label="Calendar controls" className={`pipeline-commands ${calendarStyles.header}`}>
       <div className={calendarStyles.toolbar}>
         <div className={calendarStyles.rangeControls}>
+          <h1 className={calendarStyles.rangeTitle}>{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
+          <div role="group" aria-label="Calendar dates" className={calendarStyles.dateNavigation}>
           <IconButton label="Previous calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, -1))}><ChevronLeft size={17} /></IconButton>
           <IconButton label="Next calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, 1))}><ChevronRight size={17} /></IconButton>
-          <h1 className={calendarStyles.rangeTitle}>{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
           <button type="button" onClick={() => props.onAnchor(todayKey())} className={calendarStyles.today}>Today</button>
+          </div>
         </div>
         <div className={calendarStyles.headerActions}>
           <button type="button" aria-haspopup="dialog" aria-expanded={props.queueOpen} onClick={props.onOpenQueue} className={calendarStyles.queueButton}>
@@ -140,10 +141,11 @@ export function CalendarHeader(props: CalendarHeaderProps) {
             <span className="tabular-nums text-[#116b5a]">{props.queueCount.toLocaleString()}</span>
           </button>
           <IconButton label="Refresh calendar" onClick={props.onRefresh}><RefreshCw size={14} className={props.refreshing ? "animate-spin" : ""} /></IconButton>
-          <button type="button" aria-label="Show calendar filters" aria-expanded={props.showFilters} onClick={() => props.onShowFilters(!props.showFilters)} className={`flex h-9 w-9 items-center justify-center border md:hidden ${props.hasFilters ? "border-[#167f6b] text-[#116b5a]" : "border-[#cfd5d2] text-[#626a66]"}`}><Filter size={15} /></button>
+          <button type="button" aria-label="Show calendar filters" aria-expanded={props.showFilters} onClick={() => props.onShowFilters(!props.showFilters)} className={`${calendarStyles.filterToggle} ${props.hasFilters ? "text-[#116b5a]" : "text-[#626a66]"}`}><Filter size={16} /></button>
           <CalendarViewSwitch view={props.view} onView={props.onView} />
         </div>
       </div>
+      <div className={calendarStyles.contextRow}>
       <CalendarFilters {...props} onClear={clearFilters} onToggleMine={toggleMine} />
       <div className={calendarStyles.statusStrip}>
         <span className="font-extrabold text-[#176f5e]">{props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule"}</span>
@@ -152,7 +154,8 @@ export function CalendarHeader(props: CalendarHeaderProps) {
         <span>Pacific Time</span>
         <span role="status" aria-live="polite" className="relative ml-auto min-w-0 text-right font-normal">{status}<FeedbackCue value={props.message} enabled={Boolean(props.message) && !props.busy && !props.loading && !props.refreshing} /></span>
       </div>
-      <div className={calendarStyles.binding} aria-hidden="true">{[0, 1, 2, 3, 4, 5].map((ring) => <span key={ring} />)}</div>
+      </div>
+      <div className={calendarStyles.binding} aria-hidden="true">{[0, 1, 2, 3].map((ring) => <span key={ring} />)}</div>
     </header>
   );
 }
@@ -163,7 +166,7 @@ function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (val
 
 function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onToggleMine: () => void }) {
   return (
-    <div data-guide-target="calendar-filters" className={`${props.showFilters ? "flex" : "hidden"} mt-1 flex-wrap items-center gap-2 pt-1 md:flex`}>
+    <div data-guide-target="calendar-filters" data-expanded={props.showFilters} className={calendarStyles.filters}>
       <CalendarFilter label="community" value={props.community} onChange={props.onCommunity} options={props.communityOptions} />
       {props.scope === "team" ? <OwnerFilter value={props.owner} onChange={(owner) => { props.onOwner(owner); props.onMySchedule(false); }} options={props.ownerOptions} /> : null}
       {props.scope === "team" ? <label className="flex h-9 shrink-0 cursor-pointer items-center gap-2 px-2 text-[12px] font-bold text-[#525a56]"><input type="checkbox" checked={props.mySchedule} onChange={props.onToggleMine} className="h-4 w-4 accent-[#167f6b]" /><UserRoundCheck size={14} /> My appointments</label> : null}
@@ -264,7 +267,7 @@ export function CalendarViews(props: CalendarViewsProps) {
 function MonthView({ month, eventsByDate, onOpen }: { month: string; eventsByDate: Map<string, PipelineCalendarEvent[]>; onOpen: (event: PipelineCalendarEvent) => void }) {
   const days = calendarDays(month);
   return (
-    <div className="mt-3 overflow-x-auto border border-[#d8dedb]"><div className="grid min-w-[760px] grid-cols-7">
+    <div className={calendarStyles.monthGrid}><div className="grid min-w-[760px] grid-cols-7">
       {weekdays.map((day) => <div key={day} className="border-b border-r border-[#d8dedb] bg-[#f7f9f8] px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#69706c] last:border-r-0">{day}</div>)}
       {days.map((day) => {
         const dayEvents = eventsByDate.get(day.date) ?? [];
@@ -279,8 +282,8 @@ function TimedWeekView({ range, eventsByDate, onOpen }: { range: { from: string;
   const dates = dateKeys(range.from, range.to);
   const hours = Array.from({ length: weekEndHour - weekStartHour }, (_, index) => weekStartHour + index);
   return (
-    <section aria-label="Timed assessment week" className="mt-3 overflow-auto border border-[#d8dedb]"><div className="min-w-[980px]">
-      <div className="grid grid-cols-[62px_repeat(7,minmax(125px,1fr))] border-b border-[#d8dedb] bg-[#f7f9f8]"><div />{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-3 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[9px] font-extrabold uppercase tracking-[0.07em] text-[#737a76]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="mt-0.5 block text-[13px] font-extrabold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
+    <section aria-label="Timed assessment week" className={calendarStyles.weekGrid}><div className="min-w-[980px]">
+      <div data-calendar-week-heading className={`grid grid-cols-[62px_repeat(7,minmax(125px,1fr))] ${calendarStyles.weekHeading}`}><div className={calendarStyles.timeCorner}>PT</div>{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-3 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[10px] font-bold uppercase tracking-[0.07em] text-[#626e66]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="mt-0.5 block text-[14px] font-bold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
       <div className="grid grid-cols-[62px_repeat(7,minmax(125px,1fr))]"><div className="relative" style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <span key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] font-semibold text-[#7b827e]" style={{ top: index * hourHeight }}>{formatHour(hour)}</span>)}</div>{dates.map((date) => { const timed = (eventsByDate.get(date) ?? []).filter((event) => event.kind === "assessment" && event.startsAt); return <div key={date} className={`relative border-l border-[#d8dedb] ${date === todayKey() ? "bg-[#fbfefd]" : "bg-white"}`} style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <div key={hour} className="absolute inset-x-0 border-t border-[#edf0ee]" style={{ top: index * hourHeight }} />)}{timed.map((event) => { const position = timedEventPosition(event, timed); if (!position) return null; return <button key={event.id} type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title}`} className={`absolute z-10 overflow-hidden border-l-[3px] px-2 py-1.5 text-left shadow-sm hover:z-20 hover:ring-1 hover:ring-[#4b68ad] ${event.status === "overdue" ? "border-l-[#a9473d] bg-[#fff3f1] text-[#7c3229]" : eventColors.assessment}`} style={position}><span className="block truncate text-[10px] font-extrabold">{eventTime(event.startsAt)}</span><span className="mt-0.5 block truncate text-[11px] font-extrabold">{calendarClientName(event.clientName, event.community)}</span><span className="mt-0.5 block truncate text-[9px] opacity-75">{methodLabel(event.method)} - {event.durationMinutes ?? 60} min</span></button>; })}</div>; })}</div>
     </div></section>
   );
@@ -291,8 +294,8 @@ function TeamWeekView({ range, events, unscheduled, assessors, conflicts, onOpen
   const owners = uniqueOwnerOptions([...assessors, ...events.map((event) => ({ id: event.ownerId, name: event.owner })), ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner }))]).filter((item) => item.label !== "Unassigned");
   if (owners.length === 0) return <EmptyCalendar title="No team assessments scheduled this week." />;
   return (
-    <section aria-label="Supervisor team week" className="mt-3 overflow-auto border border-[#d8dedb]"><div className="min-w-[1080px]">
-      <div className="sticky top-0 z-10 grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] border-b border-[#d8dedb] bg-[#f7f9f8]"><div className="sticky left-0 z-20 bg-[#f7f9f8] px-3 py-3 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#69706c]">Assessor</div>{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-2 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[9px] font-extrabold uppercase text-[#737a76]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="block text-[12px] font-extrabold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
+    <section aria-label="Supervisor team week" className={calendarStyles.teamGrid}><div className="min-w-[1080px]">
+      <div data-calendar-week-heading className={`grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] ${calendarStyles.weekHeading}`}><div className="sticky left-0 z-20 bg-[#f7f9f8] px-3 py-3 text-[11px] font-bold text-[#69706c]">Assessor</div>{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-2 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[10px] font-bold uppercase text-[#626e66]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="block text-[14px] font-bold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
       {owners.map((assessor) => {
         const ownerEvents = events.filter((event) => ownerKey(event.ownerId, event.owner) === assessor.value);
         const conflictCount = ownerEvents.filter((event) => conflicts.has(event.id)).length;
