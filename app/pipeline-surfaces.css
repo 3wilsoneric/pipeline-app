@@ -1,7 +1,7 @@
 /* Static surface depth: no animated backgrounds or blur on scrolling records. */
 .pipeline-surfaces {
-  --surface-canvas: #edf3f2;
-  --surface-line: #cedbd7;
+  --surface-canvas: var(--pipeline-canvas);
+  --surface-line: var(--pipeline-surface-edge);
   --surface-ink: #252c35;
   --surface-muted: #626d79;
   --surface-accent: #007e60;
@@ -45,11 +45,11 @@
 }
 
 .pipeline-surfaces [data-guide-target="home-workspace"] {
-  --surface-line: #dfe4e9;
+  --surface-line: var(--pipeline-surface-edge);
   --surface-radius: 12px;
-  background-color: #f5f6f8;
-  background-image: radial-gradient(ellipse 65% 460px at 0 0, rgb(27 173 129 / 15%), transparent 78%),
-    radial-gradient(ellipse 55% 420px at 100% 0, rgb(108 135 234 / 11%), transparent 75%);
+  background-color: var(--pipeline-canvas);
+  background-image: radial-gradient(ellipse 65% 460px at 0 0, rgb(27 173 129 / 10%), transparent 78%),
+    radial-gradient(ellipse 55% 420px at 100% 0, rgb(108 135 234 / 7%), transparent 75%);
 }
 
 .pipeline-surfaces [data-guide-target="home-workspace"] > div {
@@ -59,7 +59,7 @@
 
 .pipeline-surfaces [data-home-surface] {
   background: rgb(255 255 255 / 88%);
-  border: 1px solid #e0e5eb;
+  border: 1px solid var(--pipeline-surface-edge);
   border-radius: 12px;
   box-shadow: 0 1px 0 #fff inset, 0 2px 3px rgb(27 39 56 / 2%), 0 12px 24px -20px rgb(27 39 56 / 20%);
 }
@@ -228,7 +228,7 @@
 
 /* Directory tools, browsing, and records are distinct surfaces, not extra cards. */
 .pipeline-surfaces [data-guide-target="workspace-directory"] {
-  background: linear-gradient(125deg, #e4f0e9, #f2f5f9 48%, #e8eff7);
+  background: linear-gradient(125deg, var(--pipeline-surface), var(--pipeline-canvas) 48%, #e4eae7);
   color: var(--surface-ink);
 }
 .pipeline-surfaces [data-guide-target="workspace-directory"] > div:first-child { padding-top: 8px; padding-bottom: max(32px, env(safe-area-inset-bottom)); }

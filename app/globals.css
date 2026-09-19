@@ -18,6 +18,19 @@
   --pipeline-subtle: #737373;
   --pipeline-rule: #d9d9d9;
   --pipeline-rule-strong: #111111;
+  --pipeline-canvas: #e8edea;
+  --pipeline-surface: #eef1ee;
+  --pipeline-surface-edge: #bdc8c1;
+}
+
+/* Shared page surrounds; records, controls, and status colors keep their own surfaces. */
+.pipeline-page-surface {
+  background: var(--pipeline-canvas);
+}
+
+@media print {
+  :root { --pipeline-canvas: #fff; --pipeline-surface: #fff; }
+  .pipeline-page-surface { background: #fff; }
 }
 
 @theme inline {

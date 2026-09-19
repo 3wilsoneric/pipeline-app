@@ -75,7 +75,7 @@ export default function PipelineTrash() {
   };
 
   return (
-    <main data-performance-ready={pipelineSurfaceReady("trash", loading, error)} aria-busy={loading} className="h-full overflow-y-auto bg-white px-4 pb-8 pt-2 sm:px-6 lg:px-8">
+    <main data-performance-ready={pipelineSurfaceReady("trash", loading, error)} aria-busy={loading} className="h-full overflow-y-auto pipeline-page-surface px-4 pb-8 pt-2 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-[1240px]">
         <div className="flex min-h-14 flex-col items-stretch gap-2 border-b border-[#d9d9d9] pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="relative min-w-0 flex-1">

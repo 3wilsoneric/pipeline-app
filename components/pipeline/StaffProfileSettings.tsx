@@ -111,7 +111,7 @@ function StaffProfileSettingsView({ member, form, loading, saving, message, onSa
   onUpdateField: (field: keyof StaffProfilePreferences, value: string) => void;
 }) {
   return (
-    <div className="h-full overflow-y-auto bg-white">
+    <div className="h-full overflow-y-auto pipeline-page-surface">
       <div className="mx-auto w-full max-w-[1080px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <header className="pb-5">
           <h1 className="text-[26px] font-black text-[#111111] sm:text-[30px]">Profile settings</h1>

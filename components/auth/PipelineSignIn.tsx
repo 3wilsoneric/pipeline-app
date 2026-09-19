@@ -27,7 +27,7 @@ export default function PipelineSignIn({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f6f8f7] px-5 py-10 text-[#111111] sm:px-8">
+    <main className="flex min-h-screen items-center justify-center pipeline-page-surface px-5 py-10 text-[#111111] sm:px-8">
       <section
         aria-labelledby="sign-in-heading"
         className="w-full max-w-[480px] overflow-hidden rounded-md border border-[#ced8d4] border-t-4 border-t-[#0f8b73] bg-white shadow-[0_18px_45px_rgba(29,56,48,0.11)]"

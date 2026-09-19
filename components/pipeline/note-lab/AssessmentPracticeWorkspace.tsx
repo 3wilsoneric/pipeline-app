@@ -237,11 +237,11 @@ export default function AssessmentPracticeWorkspace({
 
   const footer = <PracticeFooter walkthroughOnly={walkthroughOnly} currentIndex={currentIndex} autosaveState={autosaveState} onBack={() => moveSection(-1)} saveAndContinue={saveAndContinue} exitLab={exitLab} />;
   return (
-    <div aria-label={`${traineeName} practice assessment`} className="pipeline-route-enter flex h-full min-h-0 flex-col overflow-hidden bg-white">
+    <div aria-label={`${traineeName} practice assessment`} className="pipeline-route-enter flex h-full min-h-0 flex-col overflow-hidden pipeline-page-surface">
       <PracticeHeader walkthroughOnly={walkthroughOnly} returnToPresentation={returnToPresentation} returnLabel={returnLabel} exitLab={exitLab} reset={reset} />
 
       <div className="flex min-h-0 flex-1 flex-col bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
-        <aside aria-label="Assessment section navigation" className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
+        <aside aria-label="Assessment section navigation" className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[var(--pipeline-surface)] px-3 py-4 lg:block">
           <div className="mb-5 px-2">
             <div className="flex items-end justify-between">
               <span className="text-[10px] font-black uppercase text-[#666666]">{walkthroughOnly ? "Section" : "Captured"}</span>

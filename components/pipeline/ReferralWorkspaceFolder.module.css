@@ -3,7 +3,7 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: #fff;
+  background: var(--pipeline-canvas);
 }
 
 .tabRow {
@@ -203,7 +203,7 @@
 }
 
 @media (max-width: 639px) {
-  .header { background: #faf9f5; }
+  .header { background: var(--pipeline-canvas); }
   .tabRow { padding-top: 0; gap: 0 4px; }
   .nameLabel { padding: 0; border: 0; background: transparent; }
   .identity { padding: 5px 8px; min-height: 50px; border: 0; background: transparent; box-shadow: none; }

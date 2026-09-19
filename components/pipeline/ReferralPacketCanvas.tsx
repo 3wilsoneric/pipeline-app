@@ -2185,7 +2185,7 @@ export default function ReferralPacketCanvas({
   };
 
   return (
-    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className="relative h-full overflow-y-auto bg-white text-[#111111]">
+    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className="relative h-full overflow-y-auto pipeline-page-surface text-[#111111]">
       {draftRecoveryLoading ? (
         <div className="absolute inset-0 z-50 flex items-start justify-center bg-white/85 pt-24" role="status" aria-live="polite">
           <div className="border-l-2 border-[#0f8b73] bg-white px-4 py-3 text-[12px] font-black text-[#174f43] shadow-sm">

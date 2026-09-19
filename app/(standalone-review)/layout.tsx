@@ -6,7 +6,7 @@ export default function StandaloneReviewLayout({
   return (
     <div
       data-testid="standalone-review-shell"
-      className="h-screen overflow-hidden bg-white text-[#111111]"
+      className="h-screen overflow-hidden pipeline-page-surface text-[#111111]"
     >
       {children}
     </div>
