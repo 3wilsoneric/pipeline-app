@@ -182,7 +182,7 @@ function OperationsDashboardView({
   onOpenProfiles: () => void;
 }) {
   return (
-    <main aria-label="Reports" className="h-full overflow-y-auto bg-white text-[#171917]">
+    <main aria-label="Reports" className="h-full overflow-y-auto pipeline-page-surface text-[#171917]">
       <div data-testid="operations-workspace" data-guide-target="operations-workspace" data-performance-ready={pipelineSurfaceReady("operations", loading, error)} className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
         <div className="flex items-center py-3">
           <div role="group" aria-label="Reports view" className="pipeline-segmented inline-flex rounded-md bg-[#eef1ef] p-1">
@@ -409,7 +409,7 @@ function ReportTable({
   return (
     <>
     <div role="region" aria-label="Scrollable report table" tabIndex={0} className={`mt-2 overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] ${refreshing ? "opacity-55 pointer-events-none" : ""}`} aria-busy={refreshing}>
-      <table className={`w-full border-collapse text-left ${onOpenGroup ? "min-w-[320px]" : "min-w-[850px]"}`}>
+      <table className={`w-full border-collapse bg-white text-left ${onOpenGroup ? "min-w-[320px]" : "min-w-[850px]"}`}>
         <thead>
           <tr className="border-b border-[#cfd4d1] bg-[#f4f6f5]">
             {columns.map((column) => (

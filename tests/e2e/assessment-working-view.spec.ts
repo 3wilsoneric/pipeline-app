@@ -191,9 +191,9 @@ test("profile links and the practice return link leave through the save path", a
   await expect(assessment).not.toBeVisible();
 });
 
-test("Home uses a light emerald canvas without recoloring other screens", async ({ page }) => {
+test("Home uses the shared refined canvas behind its existing board", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(237, 243, 242)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(232, 237, 234)");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
   await page.screenshot({ path: "outputs/home-working-green.png" });
 });

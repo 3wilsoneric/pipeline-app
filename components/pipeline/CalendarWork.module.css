@@ -1,6 +1,6 @@
 .desktop {
   height: 100%; overflow-y: auto; padding: 24px 28px 40px;
-  background: radial-gradient(ellipse at 50% 0, #f5f7f3, #e9eeea 85%);
+  background: var(--pipeline-canvas);
   scrollbar-gutter: stable;
 }
 .board {

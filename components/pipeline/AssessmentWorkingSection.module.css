@@ -89,8 +89,8 @@
 @media (min-width: 640px) {
   .readingMain, .readingContent { min-height: auto; overflow: visible; }
   .readingMain > div:not(.readingContent), .readingContent > :not(.book):not(:global(.sr-only)) { max-height: none; overflow: visible; }
-  .book { flex: 1 0 auto; align-items: start; grid-template-columns: minmax(0, .38fr) minmax(0, .62fr); gap: 24px; padding: 20px; background: #f6f7f7; }
-  .reference, .editor { border: 1px solid #d7dfdc; border-radius: 5px; background: #fff; box-shadow: 0 2px 4px #1d34290d; }
+  .book { flex: 1 0 auto; align-items: start; grid-template-columns: minmax(0, .38fr) minmax(0, .62fr); gap: 24px; padding: 20px; background: var(--pipeline-surface); }
+  .reference, .editor { border: 1px solid var(--pipeline-surface-edge); border-radius: 5px; background: #fff; box-shadow: 0 2px 4px #1d34290d; }
   .reference { border-top: 3px solid #08745b; }
   .referenceHeader { display: flex; align-items: center; min-height: 74px; padding: 12px 24px; border-bottom-color: #e1e6e3; }
   .readingPage, .questionPage { flex: 1 0 auto; overflow: visible; scrollbar-gutter: auto; }
