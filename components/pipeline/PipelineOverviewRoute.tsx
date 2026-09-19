@@ -7,7 +7,6 @@ import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/compone
 import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
 import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
-import WorkspaceBrowser from "@/components/pipeline/WorkspaceBrowser";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
@@ -150,9 +149,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const screen = getScreenFromParams(activeSearchParams);
   const currentWorkOpen = isCurrentWorkOpen(screen, activeSearchParams);
-  const browserOpen = activeSearchParams.get("browse") === "workspaces";
-  const [browserVisited, setBrowserVisited] = useState(browserOpen);
-  const browserReturnSearch = useRef("");
   const editHome = screen === "home" && activeSearchParams.get("editHome") === "1";
   const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
   const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
@@ -178,6 +174,16 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   }, [setEntryBriefing]);
   const deferredWorkSurfaces = useDeferredWorkSurfaces(screen);
   const selectedReferral = selectedWorkspaceReferral(routeReferral, referralDetails);
+
+  useEffect(() => {
+    if (activeSearchParams.get("browse") !== "workspaces" && !activeSearchParams.has("fromBrowser")) return;
+    // Old browser links now use the directory; existing file links keep their place.
+    const params = new URLSearchParams(activeSearchParams.toString());
+    if (screen === "referrals") params.set("view", "referrals");
+    params.delete("browse");
+    params.delete("fromBrowser");
+    replacePipelineHistory(params.size ? `/?${params}` : "/");
+  }, [activeSearchParams, screen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -238,7 +244,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     setEntryBriefing(null);
     setSearchOpen(false);
     const params = workspaceDestinationParams(activeSearchParams.toString(), nextScreen, referral, clientId, workspaceLocation);
-    if (nextScreen === "packet" && browserOpen) params.set("fromBrowser", "1");
     pushPipelineHistory(params.size ? `/?${params.toString()}` : "/");
     recordNavigatedWorkspace(nextScreen, referral, workspaceLocation);
     recordCompleteNavigation(nextScreen, referral);
@@ -276,26 +281,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
   };
 
-  const openWorkspaceBrowser = () => {
-    setBrowserVisited(true);
-    setSearchOpen(false);
-    const params = new URLSearchParams(activeSearchParams.toString());
-    params.delete("work");
-    params.set("browse", "workspaces");
-    browserReturnSearch.current = params.toString();
-    pushPipelineHistory(`/?${params}`);
-  };
-  const closeWorkspaceBrowser = () => {
-    const params = new URLSearchParams(activeSearchParams.toString());
-    params.delete("browse");
-    replacePipelineHistory(params.size ? `/?${params}` : "/");
-    requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-workspace-browser-trigger]")?.focus({ preventScroll: true }));
-  };
-  const returnToWorkspaceBrowser = () => {
-    setBrowserVisited(true);
-    pushPipelineHistory(`/?${browserReturnSearch.current || "browse=workspaces"}`);
-  };
-
   let page: ReactNode;
   if (screen === "home") {
     page = (
@@ -313,7 +298,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         onResumeDraft={resumeReferralDraft}
         currentWorkOpen={currentWorkOpen}
         onOpenCurrentWork={openCurrentWork}
-        onOpenWorkspaceBrowser={openWorkspaceBrowser}
         onCloseCurrentWork={closeCurrentWork}
         editHome={editHome}
         onFinishEditingHome={finishEditingHome}
@@ -411,7 +395,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
-      {screen === "packet" && activeSearchParams.get("fromBrowser") === "1" ? <div className="shrink-0 border-b border-[#d6ded7] bg-[#f5f7f3] px-4"><button type="button" onClick={returnToWorkspaceBrowser} className="min-h-10 text-[13px] font-semibold text-[#176f60] focus-visible:outline-[#0f8b73]">← Back to all workspaces</button></div> : null}
       <div className="pipeline-route-enter h-full min-h-0 flex-1 overflow-hidden">
         {/* Retain only the directory/chart round trip, not every visited screen.
             Activity suspends hidden effects and preserves cabinet/filter/scroll state. */}
@@ -420,10 +403,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         </Activity> : null}
         {page}
       </div>
-      {browserVisited || browserOpen ? <WorkspaceBrowser key={`workspace-browser:${viewerId}`} open={browserOpen} onClose={closeWorkspaceBrowser} onOpenWorkspace={(referral) => {
-        browserReturnSearch.current = activeSearchParams.toString();
-        void navigate("packet", referral);
-      }} onOpenTrash={() => { void navigate("trash"); }} /> : null}
       <PacketAssignedWorkOverlay
         key={viewerId}
         screen={screen}
@@ -499,7 +478,7 @@ function getScreenFromParams(params: URLSearchParams): PipelineScreen {
   if (params.get("screen") === "trash") return "trash";
   if (params.get("screen") === "profile" && params.get("clientId")) return "profile";
   if (params.get("screen") === "profiles") return "profiles";
-  if (params.get("view") === "referrals") return "referrals";
+  if (params.get("view") === "referrals" || params.get("browse") === "workspaces") return "referrals";
   return "home";
 }
 

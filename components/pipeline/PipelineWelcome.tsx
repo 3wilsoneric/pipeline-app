@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { ArrowRight, CalendarClock, CalendarPlus, Maximize2, Files } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarPlus, Maximize2 } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import ReferralWorkflowTracker, { WorkflowCardSkeleton } from "@/components/pipeline/ReferralWorkflowTracker";
@@ -31,7 +31,6 @@ export default function PipelineWelcome({
   onViewAllSearchResults,
   currentWorkOpen,
   onOpenCurrentWork,
-  onOpenWorkspaceBrowser,
   onCloseCurrentWork,
   editHome = false,
   onFinishEditingHome,
@@ -46,7 +45,6 @@ export default function PipelineWelcome({
   onResumeDraft: (draftKey: `new-${string}`, intakeField?: PipelineWorkspaceLocation["intakeField"]) => void;
   currentWorkOpen: boolean;
   onOpenCurrentWork: () => void;
-  onOpenWorkspaceBrowser: () => void;
   onCloseCurrentWork: () => void;
   editHome?: boolean;
   onFinishEditingHome?: () => void;
@@ -156,7 +154,7 @@ export default function PipelineWelcome({
   };
   const briefingModules = briefing ? {
     "recent-work": <ContinueWorkPanel items={briefing.continuity.resume_items} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onResumeDraft={onResumeDraft} />,
-    "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} onOpenPacket={onOpenPacket} onBrowse={onOpenWorkspaceBrowser} />,
+    "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} onOpenPacket={onOpenPacket} />,
     "new-assignments": <SinceLastVisitAssignments items={briefing.continuity.new_assignments} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onAcknowledge={acknowledgeAssignments} />,
     "upcoming-assessments": <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />,
     "scheduling-queue": <SchedulingQueuePanel briefing={briefing} onOpenPacket={onOpenPacket} />,
@@ -237,17 +235,15 @@ function HomeSearchAccess({ visible, searchProps, onClose }: {
   );
 }
 
-function CurrentWorkSummary({ briefing, onOpen, onOpenPacket, onBrowse }: {
+function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
   briefing: HomeBriefingSnapshot;
   onOpen: () => void;
-  onBrowse: () => void;
   onOpenPacket: BriefingPanelProps["onOpenPacket"];
 }) {
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-[20px] font-bold text-[#293b31]">Board</h2><p className="mt-0.5 text-[12px] text-[#67756b]">Your referrals · newest received first</p></div>
-        <button data-workspace-browser-trigger type="button" onClick={onBrowse} className="flex min-h-11 items-center gap-2 rounded border border-[#bdc8c1] bg-[#f5f7f3] px-3 text-[13px] font-semibold text-[#176f60] hover:bg-[#eaf0e9] focus-visible:outline-[#0f8b73]"><Files size={17} aria-hidden="true" />All workspaces</button>
+      <div className="mb-4">
+        <h2 className="text-[20px] font-bold text-[#293b31]">Board</h2><p className="mt-0.5 text-[12px] text-[#67756b]">Your referrals · newest received first</p>
       </div>
       <div id="home-referral-board">
         <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} layout="board" />
