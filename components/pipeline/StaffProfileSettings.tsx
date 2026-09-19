@@ -119,6 +119,9 @@ function StaffProfileSettingsView({ member, form, loading, saving, message, onSa
         </header>
 
         <ProfileSettingsBody member={member} form={form} loading={loading} saving={saving} message={message} onSave={onSave} onUpdateField={onUpdateField} />
+        {process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" && member?.roles.some((role) => role === "admin" || role === "assessment_coordinator") ? (
+          <Link href="/settings/contact-lists" className="mt-7 flex min-h-14 items-center justify-between gap-3 rounded-lg border border-[#cbd9d0] bg-white px-5 py-4 text-[15px] font-semibold text-[#08765f] hover:bg-[#f4faf6]">Community contact lists <ArrowRight size={18} aria-hidden="true" /></Link>
+        ) : null}
         {member && canAccessSupervisorOperations(member.roles) ? (
           <details className="mt-8 border-t border-[#cfd6d2] pt-5">
             <summary className="cursor-pointer text-[16px] font-black text-[#18211d]">Referral directory</summary>
