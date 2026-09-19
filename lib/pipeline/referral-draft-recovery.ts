@@ -93,6 +93,13 @@ export function clearServerReferralDraft(draftReference?: ReferralRecoveryDraftK
   if (Number.isSafeInteger(expectedVersion) && Number(expectedVersion) > 0) versions.set(key, Number(expectedVersion));
   const previous = saveQueues.get(key) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(async () => {
+    // A confirmed zero version has nothing this session may delete. A draft
+    // created elsewhere would reject if_match: 0 anyway; never clear that draft.
+    // Check inside the queue so an earlier save still gets its versioned delete.
+    if (versions.get(key) === 0) {
+      await clearLocalReferralRecovery(draftReference);
+      return;
+    }
     await fetchPipelineJson(`/api/me/referral-drafts/${encodeURIComponent(key)}`, {
       method: "DELETE",
       body: JSON.stringify({ if_match: versions.get(key) ?? 0 }),

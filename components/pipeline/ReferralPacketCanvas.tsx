@@ -120,6 +120,7 @@ import {
 import {
   buildReferralCanvasCreateInput,
   buildReferralCanvasPatch,
+  canRebaseReferralCanvasPatch,
   isPersistedCanvasFieldKey,
   persistedCanvasFieldKeys,
   referralCanvasValue,
@@ -819,14 +820,16 @@ export default function ReferralPacketCanvas({
     draftBaseValuesRef.current = {};
   };
 
-  const rebaseDraftTracking = (latest: Referral, activeDirtyKeys: ReadonlySet<DirtyDraftKey>) => {
+  const rebaseDraftTracking = (latest: Referral, activeDirtyKeys: ReadonlySet<DirtyDraftKey>, savedKeys?: ReadonlySet<DirtyDraftKey>) => {
     if (activeDirtyKeys.size === 0) {
       clearDraftTracking();
       return;
     }
     draftBaseVersionRef.current = latest.version;
     draftBaseValuesRef.current = Object.fromEntries(
-      [...activeDirtyKeys].map((key) => [key, referralBaseDraftValue(latest, key)]),
+      [...activeDirtyKeys].map((key) => [key, savedKeys && !savedKeys.has(key)
+        ? draftBaseValuesRef.current[key] ?? referralBaseDraftValue(latest, key)
+        : referralBaseDraftValue(latest, key)]),
     );
   };
 
@@ -1109,11 +1112,15 @@ export default function ReferralPacketCanvas({
     if (!dirty.has("tags")) setTagsInput(workspaceTagsInput(latest.tags));
     if (!dirty.has("documents")) setDocuments(documentsFromReferral(latest));
     if (!dirty.has("initialPacket")) setInitialPacket(null);
-    setRemoteChange({
+    setRemoteChange((previous) => ({
       referral: latest,
       updatedBy: updatedBy?.trim() || latest.updatedBy?.name || "Another user",
-      conflicts,
-    });
+      // A later unrelated update cannot resolve a conflict on the user's behalf.
+      conflicts: [...conflicts, ...(previous?.conflicts ?? []).filter((conflict) =>
+        dirty.has(conflict.key) && !conflicts.some((next) => next.key === conflict.key)
+        && draftKeySignature(conflict.key, currentDraftValues(fieldsRef.current, conservedRef.current, tagsInputRef.current, documentsRef.current, initialPacketRef.current)) !== referralBaseDraftValue(latest, conflict.key)
+      ).map((conflict) => ({ ...conflict, remoteValue: remoteDisplayValue(latest, conflict.key) }))],
+    }));
     if (dirty.size === 0) setSavedAt(`Updated by ${updatedBy?.trim() || latest.updatedBy?.name || "another user"}`);
   };
 
@@ -1468,40 +1475,59 @@ export default function ReferralPacketCanvas({
         referral_source: values.fields.referent.value,
       },
     );
-    const patch = buildCanvasPatch({
-      keys,
-      fields: values.fields,
-      conserved: values.conserved,
-      tags,
-      requirements: admissionRequirements,
-      existingFieldSources: current.fieldSources,
-      packet,
-    });
-    if (Object.keys(patch).length === 0) return current;
-    const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
-    const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
-    const ownerTouched = keys.has("owner");
-    const mutationKey = JSON.stringify([current.id, current.version, patch, ownerId, handoffReason]);
-    const clientMutationId = patchMutationIdsRef.current.get(mutationKey) ?? createMutationId();
-    patchMutationIdsRef.current.set(mutationKey, clientMutationId);
-    const payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${current.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        if_match: current.version,
-        if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),
-        client_mutation_id: clientMutationId,
-        patch,
-        ...(ownerTouched ? { assignee_id: ownerId || undefined } : {}),
-        ...(ownerTouched && handoffReason ? { handoff_reason: handoffReason } : {}),
-      }),
-    });
-    if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral.");
-    loadedReferralRef.current = payload.referral;
-    setLoadedReferral(payload.referral);
-    patchMutationIdsRef.current.delete(mutationKey);
-    if (ownerTouched) acceptSavedOwner(payload.referral, ownerId);
-    return payload.referral;
+    // Bound contention retries; a sustained collision remains an unsaved draft.
+    for (let attempt = 0; ; attempt += 1) {
+      const patch = buildCanvasPatch({
+        keys,
+        fields: values.fields,
+        conserved: values.conserved,
+        tags,
+        requirements: admissionRequirements,
+        existingFieldSources: current.fieldSources,
+        packet,
+      });
+      if (Object.keys(patch).length === 0) return current;
+      const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
+      const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
+      const ownerTouched = keys.has("owner");
+      const mutationKey = JSON.stringify([current.id,
+        [...keys].sort().map((key) => [key, draftKeySignature(key, values)]),
+        packet?.hash, ownerTouched ? ownerId : null, ownerTouched ? handoffReason : null]);
+      const clientMutationId = patchMutationIdsRef.current.get(mutationKey) ?? createMutationId();
+      patchMutationIdsRef.current.set(mutationKey, clientMutationId);
+      let payload: { referral?: Referral; error?: string };
+      try {
+        payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${current.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            if_match: current.version,
+            if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),
+            client_mutation_id: clientMutationId,
+            patch,
+            ...(ownerTouched ? { assignee_id: ownerId || undefined } : {}),
+            ...(ownerTouched && handoffReason ? { handoff_reason: handoffReason } : {}),
+          }),
+        });
+      } catch (error) {
+        const latest = error instanceof PipelineApiError && error.status === 409 ? getConflictReferral(error.payload) : null;
+        if (!latest || attempt >= 3 || !canRebaseReferralCanvasPatch(current, latest, patch)) throw error;
+        // The 409 confirms this mutation was not applied. A new version gets a new
+        // mutation ID; an uncertain network response keeps its original ID.
+        patchMutationIdsRef.current.delete(mutationKey);
+        current = latest;
+        continue;
+      }
+      if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral.");
+      const saved = payload.referral;
+      loadedReferralRef.current = saved;
+      setLoadedReferral(saved);
+      setFields((fields) => mergeRemoteReferralFields(fields, saved, dirtyKeysRef.current));
+      setSaveError("");
+      patchMutationIdsRef.current.delete(mutationKey);
+      if (ownerTouched) acceptSavedOwner(saved, ownerId);
+      return saved;
+    }
   };
 
   const acceptSavedOwner = (saved: Referral, sentOwnerId: string) => {
@@ -1727,7 +1753,8 @@ export default function ReferralPacketCanvas({
     );
     dirtyKeysRef.current = remainingDirtyKeys;
     setDirtyKeys(remainingDirtyKeys);
-    rebaseDraftTracking(savedReferral, remainingDirtyKeys);
+    setFields((current) => mergeRemoteReferralFields(current, savedReferral, remainingDirtyKeys));
+    rebaseDraftTracking(savedReferral, remainingDirtyKeys, snapshot.dirtyKeys);
     if (remainingDirtyKeys.size === 0) await clearSessionDraft(savedReferral.id);
     setRecoveredDraftAt("");
     setRecoveredPacketName("");
@@ -3851,7 +3878,11 @@ function buildRemoteFieldConflicts(input: {
     const baseValue = referralDraftValue(input.base, key);
     const remoteValue = referralDraftValue(input.latest, key);
     const localValue = input.fields[key].value;
-    if (baseValue !== remoteValue && localValue !== remoteValue) {
+    const baseSource = input.base.fieldSources?.[key] ?? "";
+    const remoteSource = input.latest.fieldSources?.[key] ?? "";
+    const localSource = input.fields[key].sourceFile ?? "";
+    if ((baseValue !== remoteValue || baseSource !== remoteSource)
+      && (localValue !== remoteValue || localSource !== remoteSource)) {
       conflicts.push({ key, label: input.fields[key].label, localValue, remoteValue });
     }
   }
@@ -4167,7 +4198,7 @@ function applyRecoveryDraft(draft: CanvasSessionDraft, setters: DraftRestoreSett
 }
 
 function buildRecoveredDraftConflicts(draft: CanvasSessionDraft, latest: Referral) {
-  if (!draft.baseVersion || draft.baseVersion === latest.version) return [];
+  if (!draft.baseVersion) return [];
   const conflicts: RemoteFieldConflict[] = [];
   for (const key of draft.dirtyKeys) {
     if (key === "initialPacket") continue;
