@@ -5,7 +5,7 @@ import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CircleHelp, FlaskConical, GraduationCap, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, CircleHelp, FlaskConical, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -23,7 +23,7 @@ import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
 import DemoAssessmentLabButton from "@/components/pipeline/DemoAssessmentLabButton";
 import sidebarStyles from "@/components/pipeline/PipelineMobileShell.module.css";
 
-export default function PipelineHeader({ expanded, onToggle, onDestinationChange }: { expanded: boolean; onToggle: () => void; onDestinationChange: () => void }) {
+export default function PipelineHeader({ onDestinationChange }: { onDestinationChange: () => void }) {
   const auth = usePipelineAuth();
   const [user, setUser] = useState<PipelineCurrentUser | null>(auth.initialUser);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -164,10 +164,6 @@ export default function PipelineHeader({ expanded, onToggle, onDestinationChange
           </span>
         </button>
       </div>
-      <button type="button" data-navigation-toggle aria-label={expanded ? "Collapse navigation" : "Expand navigation"} title={expanded ? "Collapse navigation" : "Expand navigation"} aria-expanded={expanded} aria-controls="pipeline-primary-navigation" onClick={onToggle} className={sidebarStyles.expandButton}>
-        {expanded ? <PanelLeftClose size={19} aria-hidden="true" /> : <PanelLeftOpen size={19} aria-hidden="true" />}<span>Collapse</span>
-      </button>
-
       <div id="pipeline-primary-navigation" data-testid="primary-navigation-dock" className={sidebarStyles.destinations}>
         <div>
           <PipelineActionNav
