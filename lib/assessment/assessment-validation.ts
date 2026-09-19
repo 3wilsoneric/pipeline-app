@@ -108,17 +108,26 @@ function validatePatchVersion(
   return { ok: true, value: true };
 }
 
-function validatePatchFields(patch: Record<string, unknown>): AssessmentValidationResult<true> {
+function validatePatchEnvelope(patch: Record<string, unknown>): AssessmentValidationResult<true> {
   const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction", "workbook_restore"]);
   for (const key of Object.keys(patch)) {
     if (!allowed.has(key)) return invalid(`Unknown assessment patch field: ${key}.`);
   }
-  if (patch.workbook_restore !== undefined) {
-    const source = patch.workbook_restore;
-    if (!isRecord(source) || typeof source.export_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(source.export_id)
-      || typeof source.exported_at !== "string" || source.exported_at.length > 40 || !Number.isFinite(Date.parse(source.exported_at))
-      || !isRecord(patch.data) || Object.keys(patch).some((k) => k !== "data" && k !== "workbook_restore")) return invalid("Excel restore must contain answers and valid copy identification only.");
-  }
+  if (patch.workbook_restore === undefined) return { ok: true, value: true };
+  return validateWorkbookRestorePatch(patch);
+}
+
+function validateWorkbookRestorePatch(patch: Record<string, unknown>): AssessmentValidationResult<true> {
+  const source = patch.workbook_restore;
+  if (!isRecord(source) || typeof source.export_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(source.export_id)
+    || typeof source.exported_at !== "string" || source.exported_at.length > 40 || !Number.isFinite(Date.parse(source.exported_at))
+    || !isRecord(patch.data) || Object.keys(patch).some((k) => k !== "data" && k !== "workbook_restore")) return invalid("Excel restore must contain answers and valid copy identification only.");
+  return { ok: true, value: true };
+}
+
+function validatePatchFields(patch: Record<string, unknown>): AssessmentValidationResult<true> {
+  const envelopeResult = validatePatchEnvelope(patch);
+  if (!envelopeResult.ok) return envelopeResult;
   if (patch.data !== undefined) {
     if (!isRecord(patch.data)) return invalid("patch.data must be an object.");
     const dataResult = validatePartialData(patch.data);

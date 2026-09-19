@@ -1404,7 +1404,7 @@ function prepareAssessmentPatch(
   patch: AssessmentPatchInput,
   actor: AssessmentActor,
 ) {
-  if (patch.workbook_restore && current.signed_at) throw new Error("Excel restore cannot change a signed assessment.");
+  assertAssessmentWorkbookRestoreAllowed(current, patch);
   if (isAssessmentFinalized(current) && (
     patch.data !== undefined
     || patch.review_extraction !== undefined
@@ -1510,8 +1510,22 @@ function prepareAssessmentPatch(
     candidate,
     completesAssessment: nextStatus === "complete" && current.status !== "complete",
     changedFields: Array.from(new Set([...changedFields, ...reviewedFields])),
-    action: patch.workbook_restore ? "assessment_imported" as const : assessmentPatchAuditAction(current, patch, nextStatus, reviewedFields.length),
+    action: assessmentWorkbookPatchAuditAction(current, patch, nextStatus, reviewedFields.length),
   };
+}
+
+function assertAssessmentWorkbookRestoreAllowed(current: PipelineAssessmentRecord, patch: AssessmentPatchInput) {
+  if (patch.workbook_restore && current.signed_at) throw new Error("Excel restore cannot change a signed assessment.");
+}
+
+function assessmentWorkbookPatchAuditAction(
+  current: PipelineAssessmentRecord,
+  patch: AssessmentPatchInput,
+  nextStatus: PipelineAssessmentRecord["status"],
+  acceptedFieldCount: number,
+): AssessmentAuditAction {
+  if (patch.workbook_restore) return "assessment_imported";
+  return assessmentPatchAuditAction(current, patch, nextStatus, acceptedFieldCount);
 }
 
 function prepareAssessmentImport(
