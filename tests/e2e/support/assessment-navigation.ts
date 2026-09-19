@@ -11,7 +11,7 @@ export async function openAssessmentChart(page: Page) {
     await pages.getByRole("button", { name: "Chart", exact: true }).click();
   } else {
     await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-    await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review chart/ }).click();
+    await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review & sign/ }).click();
   }
 }
 

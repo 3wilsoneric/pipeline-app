@@ -151,7 +151,7 @@ export function ReferralWorkflowPanelPresentation({
         </details>
       </div>
 
-      {(workflow.recommendation?.outcome === "needs_more_information" || workflow.decision) && onDone ? (
+      {(workflow.decision ? workflow.decision.outcome === "declined" : workflow.recommendation?.outcome === "needs_more_information") && onDone ? (
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#d9dfdb] pt-5">
           <p className="text-[12px] text-[#68716c]">Saved. You can return to this referral anytime.</p>
           <PrimaryButton busy={busy === "done"} disabled={Boolean(busy)} onClick={onDone}>Done</PrimaryButton>
@@ -221,7 +221,7 @@ function CurrentGateCard({
             Admission date
             <input id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={!workflow.capabilities.can_update || Boolean(busy)} className="mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]" />
           </label>
-          {workflow.capabilities.can_email ? <PrimaryButton busy={busy.startsWith("admit-date:")} disabled={Boolean(busy)} onClick={onSaveAdmissionDate}>Prepare Meet the Client</PrimaryButton> : <p className="text-[12px] text-[#68716c]">A supervisor prepares and sends Meet the Client.</p>}
+          <PrimaryButton busy={busy.startsWith("admit-date:")} disabled={Boolean(busy)} onClick={onSaveAdmissionDate}>Continue to finish &amp; send</PrimaryButton>
         </div>
       ) : null}
       {forwardTransition ? (

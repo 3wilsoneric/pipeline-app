@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 import { openAssessmentChart } from "./support/assessment-navigation";
@@ -8,11 +8,14 @@ for (const width of [1440, 834, 390]) {
     await page.setViewportSize({ width, height: 950 });
     const name = `Example Jamie ${randomUUID().replace(/[^a-z]/g, "")}`;
     await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
+    await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
     await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button")).toHaveText(["Intake"]);
     const intake = page.getByTestId("intake-client-folder");
     await intake.locator('[data-workspace-field="name"] input').fill(name);
     await intake.locator('[data-workspace-field="email"] input').fill("example@example.invalid");
     await page.getByLabel("Requested community", { exact: true }).selectOption("San Pablo");
+    await expect(intake.locator('[data-workspace-field="name"] input')).toHaveValue(name);
+    await expect(intake.locator('[data-workspace-field="email"] input')).toHaveValue("example@example.invalid");
     await page.getByRole("button", { name: "Create referral", exact: true }).click();
     await expect(page).toHaveURL(/referralId=\d+/);
     const referralId = new URL(page.url()).searchParams.get("referralId")!;
@@ -21,7 +24,7 @@ for (const width of [1440, 834, 390]) {
     expect(referral.community).toBe("San Pablo");
     expect(referral.email).toBe("example@example.invalid");
     const stages = page.getByRole("navigation", { name: "Workspace stages" });
-    await expect(stages.getByRole("button")).toHaveText(["01Chart", "02Assessment", "03Decision"]);
+    await expect(stages.getByRole("button")).toHaveText(["01Chart", "02Assessment", "03Decision", "04Finish & send"]);
     await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("San Pablo");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true }).getByTestId("client-identity-title")).not.toHaveText(/Not documented/);
@@ -39,7 +42,6 @@ for (const width of [1440, 834, 390]) {
     await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
     await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
     await page.screenshot({ path: info.outputPath(`living-chart-${width}.png`) });
-    const chartBounds = (await page.getByRole("article", { name: "Referral chart", exact: true }).boundingBox())!;
 
     await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
     await expect(page.locator("[data-assessment-view]")).toBeVisible();
@@ -59,23 +61,19 @@ for (const width of [1440, 834, 390]) {
     await page.reload();
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open assessment", exact: true })).toHaveCount(0);
-    await openAssessmentChart(page);
+    if (width >= 640) {
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentSection=provenance_qc`);
+      await page.getByRole("button", { name: "Review & sign", exact: true }).click();
+    } else await openAssessmentChart(page);
     const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
     await expect(review).toContainText("Synthetic conversation completed");
     await expect(review.getByRole("button", { name: "Return to questions" })).toHaveCount(0);
     page.once("dialog", (dialog) => dialog.accept());
-    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expect(page.locator('footer[aria-label="Assessment actions"]')).toContainText("Assessment signed");
-    await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("button", { name: /^(Admission decision|View admission)$/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+    await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
-    await expect(decision).toHaveCount(0);
-    const signedBounds = (await review.getByRole("article", { name: "Referral chart", exact: true }).boundingBox())!;
-    expect(Math.abs(signedBounds.x - chartBounds.x)).toBeLessThan(1);
-    expect(Math.abs(signedBounds.width - chartBounds.width)).toBeLessThan(1);
-    await page.screenshot({ path: info.outputPath(`signed-in-place-${width}.png`) });
-    await stages.getByRole("button", { name: /Decision$/ }).click();
     await expect(decision).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`decision-after-signing-${width}.png`) });
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
     await decision.getByLabel("Reason (optional)", { exact: true }).fill("Synthetic end-to-end example, not a clinical decision.");
     page.once("dialog", (dialog) => dialog.accept());
@@ -83,11 +81,12 @@ for (const width of [1440, 834, 390]) {
     await expect(decision.getByLabel("Admission date", { exact: true })).toBeVisible();
     await stages.getByRole("button", { name: /Chart$/ }).click();
     await expect(page.getByTestId("profile-workspace")).toContainText("Synthetic end-to-end example, not a clinical decision.");
-    await stages.getByRole("button", { name: /Decision$/ }).click();
+    await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
     await decision.getByLabel("Admission date", { exact: true }).fill("2026-10-01");
     let mailRequests = 0;
     page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) mailRequests++; });
-    await decision.getByRole("button", { name: "Prepare Meet the Client", exact: true }).click();
+    await decision.getByRole("button", { name: "Continue to finish & send", exact: true }).click();
+    await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
     await expect(page.getByRole("note")).toContainText("Example only. No email will be sent.");
@@ -123,7 +122,7 @@ for (const width of [1440, 834, 390]) {
 }
 
 test("future delivery cannot be abandoned through the handoff controls while its result is pending", async ({ page }) => {
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "Annette Everhart", tags: [] }, { assigneeId: "provisional:allo:annette" });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await signOperationalAssessment(page.request, assessment);
   const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
@@ -142,23 +141,111 @@ test("future delivery cannot be abandoned through the handoff controls while its
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "03 Decision", exact: true }).click();
-  await page.getByRole("button", { name: "Prepare Meet the Client", exact: true }).click();
+  await page.getByRole("button", { name: "Continue to finish & send", exact: true }).click();
   await page.getByLabel("Authorized recipients", { exact: true }).fill("example@example.invalid");
   await page.getByRole("checkbox", { name: /I verified that each recipient/ }).check();
   try {
     await page.getByRole("button", { name: "Send email & packet", exact: true }).click();
     await expect(page.getByRole("button", { name: "Done", exact: true })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Edit decision", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Back to decision", exact: true })).toBeDisabled();
+    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart$/ }).click();
+    await expect(page).toHaveURL(/workspaceView=email/);
     const beforeNavigation = page.url();
     await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("button", { name: "Open calendar", exact: true }).click();
     await expect(page).toHaveURL(beforeNavigation);
     await expect(page.getByRole("button", { name: "Done", exact: true })).toBeDisabled();
   } finally { release(); }
   await expect(page.getByRole("button", { name: "Done", exact: true })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Edit decision", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Back to decision", exact: true })).toBeEnabled();
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.meet_client_sent_at).toBeFalsy();
   await expect(page.getByRole("navigation", { name: "Primary navigation", exact: true })).toBeVisible();
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("button", { name: "Open calendar", exact: true }).click();
   await expect(page).toHaveURL(/screen=calendar/);
+});
+
+test("a failed signature or decision stays in place; retry advances only after saving", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Recovery", owner: "", tags: [] });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  let sends = 0;
+  page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+  const stages = page.getByRole("navigation", { name: "Workspace stages" });
+  const signRoute = `**/api/assessments/${assessment.assessment_id}/sign`;
+  await page.route(signRoute, (route) => route.fulfill({ status: 503, json: { error: "Synthetic signature unavailable. Retry signing." } }));
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Synthetic signature unavailable" })).toBeVisible();
+  await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+  expect((await read()).signed_at).toBeNull();
+  expect((await read()).current_location).toBe("Synthetic referral source");
+  await page.unroute(signRoute);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+  await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
+  const decision = page.getByRole("region", { name: "Admission decision", exact: true });
+  await decision.getByRole("radio", { name: "Under review", exact: true }).check();
+  await decision.getByRole("button", { name: "Save under review", exact: true }).click();
+  await expect(decision.getByRole("button", { name: "Done", exact: true })).toBeVisible();
+  await decision.getByRole("radio", { name: "Accept", exact: true }).check();
+  await decision.getByLabel("Reason (optional)").fill("Synthetic retained decision note");
+  const decisionRoute = `**/api/referrals/${referral.id}/decision`;
+  await page.route(decisionRoute, (route) => route.fulfill({ status: 503, json: { error: "Synthetic decision unavailable" } }));
+  page.once("dialog", (dialog) => dialog.accept());
+  await decision.getByRole("button", { name: "Record decision", exact: true }).click();
+  await expect(decision.getByRole("alert")).toContainText("Synthetic decision unavailable");
+  await expect(decision.getByLabel("Reason (optional)")).toHaveValue("Synthetic retained decision note");
+  await expect(decision.getByRole("button", { name: "Continue to finish & send" })).toHaveCount(0);
+  await page.unroute(decisionRoute);
+  page.once("dialog", (dialog) => dialog.accept());
+  await decision.getByRole("button", { name: "Record decision", exact: true }).click();
+  await decision.getByLabel("Admission date", { exact: true }).fill("2026-10-12");
+  await expect(decision.getByRole("button", { name: "Done", exact: true })).toHaveCount(0);
+  const saveRoute = `**/api/referrals/${referral.id}`;
+  await page.route(saveRoute, (route) => route.request().method() === "PATCH"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic date save unavailable" } }) : route.continue());
+  await decision.getByRole("button", { name: "Continue to finish & send" }).click();
+  await expect(decision.getByRole("alert")).toContainText("Synthetic date save unavailable");
+  await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
+  await expect(decision.getByLabel("Admission date", { exact: true })).toHaveValue("2026-10-12");
+  await page.unroute(saveRoute);
+  await decision.getByRole("button", { name: "Continue to finish & send" }).click();
+  await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
+  expect((await read()).meet_client_sent_at).toBeFalsy();
+  expect(sends).toBe(0);
+});
+
+test("practice signing stays in the practice chart and never creates a decision", async ({ page }) => {
+  let writes = 0;
+  page.on("request", (request) => { if (request.method() !== "GET" && /\/(sign|decision|meet-client-email)$/.test(request.url())) writes++; });
+  await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&demo=1&workspaceStage=chart");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
+  await expect(page.locator('footer[aria-label="Assessment actions"]')).toContainText("Signed");
+  await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toHaveCount(0);
+  expect(writes).toBe(0);
+});
+
+test("iPad WebKit keeps signing and finishing in the same folder", async ({ baseURL }, info) => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
+    const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Tablet", owner: "", tags: [] });
+    await createOperationalAssessment(page.request, referral.id);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).tap();
+    const stages = page.getByRole("navigation", { name: "Workspace stages" });
+    await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
+    await stages.getByRole("button", { name: /Finish & send$/ }).tap();
+    await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("note")).toContainText("No email will be sent");
+    const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
+    await expect(preview.locator("li").first()).toHaveCSS("font-size", "17px");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await preview.locator("body").evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath("ipad-finish-webkit.png"), animations: "disabled" });
+  } finally { await browser.close(); }
 });

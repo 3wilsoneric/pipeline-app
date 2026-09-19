@@ -29,7 +29,7 @@
 .beginDialog button:last-child { border-color: #007254; background: #007e60; color: #fff; }
 .beginDialog button:disabled { opacity: .5; }
 .beginDialog button:focus-visible { outline: 2px solid #087e64; outline-offset: 3px; }
-.folderHeader { position: relative; z-index: 10; display: flex; align-items: flex-end; flex-shrink: 0; gap: 10px; min-width: 0; padding-top: 4px; padding-left: 50px; }
+.folderHeader { position: relative; z-index: 10; display: flex; align-items: flex-end; flex-shrink: 0; gap: 0; min-width: 0; padding-top: 4px; padding-left: 50px; }
 .folderHeader .folderIdentity { position: relative; z-index: 4; flex: 0 1 38%; max-width: 420px; min-height: 50px; margin-left: 0; }
 .folderIdentity > span { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
 .fileDetails { position: relative; }
@@ -43,7 +43,7 @@
 .fileDetailsPanel button:hover { background: #edf4ef; }
 .fileDetailsPanel :is(button, select):focus-visible, .fileDetails > summary:focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
 .embedded footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
-.folderHeader .filePages { flex-shrink: 0; overflow: visible; max-width: none; padding: 6px 4px 0; }
+.folderHeader .filePages { flex-shrink: 0; overflow: visible; max-width: none; margin-left: -8px; padding: 6px 0 0; }
 .filePages button:focus-visible, .groupNavigation button:focus-visible, .returnButton:focus-visible { outline: 2px solid #087e64; outline-offset: -3px; }
 .returnButton { display: inline-flex; align-items: center; align-self: center; justify-content: center; gap: 7px; flex-shrink: 0; min-height: 44px; margin-left: auto; padding: 8px 12px; border: 1px solid #bfcfc7; border-radius: 5px; background: #ffffffa6; color: #2c5142; font-size: 14px; font-weight: 600; }
 .returnButton svg { flex-shrink: 0; }
@@ -112,8 +112,8 @@
 
 @media (max-width: 959px), (hover: none) and (pointer: coarse) {
   .surface.surface { padding: 0 4px 4px; }
-  .folderHeader { gap: 8px; padding-left: 54px; padding-top: 5px; }
-  .folderHeader .folderIdentity { flex: 1; min-width: 100px; min-height: 52px; margin-left: 0; padding: 5px 8px; border: 1px solid var(--folder-edge); border-bottom: 0; background: linear-gradient(#f4eddc, #ede4d0); }
+  .folderHeader { gap: 0; padding-left: 54px; padding-top: 5px; }
+  .folderHeader .folderIdentity { flex: 1; min-width: 100px; min-height: 52px; margin-left: 0; padding: 5px 8px; border: 1px solid var(--folder-edge); border-bottom: 0; background: linear-gradient(#fbf3df, var(--folder-fill)); }
   .folderIdentity > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; padding: 2px 4px; font-size: 16px; line-height: 21px; }
   .folderIdentity > summary > h2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 16px; line-height: 21px; }
   .folderHeader .filePages button { min-height: 44px; padding-inline: 16px; }

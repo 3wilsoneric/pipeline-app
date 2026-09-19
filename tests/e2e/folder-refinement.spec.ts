@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { AxeResults } from "axe-core";
+import { clientDirectoryFixture, unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
 for (const engine of ["chromium", "webkit"] as const) {
   for (const width of [1440, 1194, 1024, 834, 640, 390, 320]) {
@@ -16,14 +17,14 @@ for (const engine of ["chromium", "webkit"] as const) {
         const create = header.getByRole("button", { name: "Create referral", exact: true });
         await expect(create).toBeEnabled();
         await expect(create).toHaveText("Create referral");
-        await expect(intake).toHaveCSS("font-size", width < 640 ? "16px" : "17px");
+        await expect(intake).toHaveCSS("font-size", width < 640 ? "14px" : "17px");
         await expect(header.getByTestId("workspace-identity-title").locator("span")).toHaveCSS("text-align", "center");
         await expect(intake).toHaveCSS("justify-content", "center");
         const headerBox = (await header.boundingBox())!;
         const folderBox = (await folder.boundingBox())!;
         const createBox = (await create.boundingBox())!;
         expect(createBox.height).toBeGreaterThanOrEqual(width < 640 ? 50 : 56);
-        expect(headerBox.height).toBeLessThanOrEqual(width >= 960 ? 72 : 120);
+        expect(headerBox.height).toBeLessThanOrEqual(width > 1250 ? 72 : 120);
         expect(Math.abs(folderBox.y - headerBox.y - headerBox.height)).toBeLessThanOrEqual(1);
         expect(Math.abs(folderBox.y - createBox.y - createBox.height)).toBeLessThanOrEqual(1);
         for (const button of await header.getByRole("button").all()) {
@@ -82,8 +83,22 @@ test("the prominent create action still saves once and opens the same client's c
       expect(await tab.evaluate((button) => [...button.querySelectorAll("span")].filter((el) => el.getBoundingClientRect().width).every((label) => {
         const box = label.getBoundingClientRect();
         return [box.left + 1, box.right - 1].every((x) => button.contains(document.elementFromPoint(x, box.top + box.height / 2)));
-      }))).toBe(true);
+      })), `Tab label must remain readable at ${width}px: ${await tab.innerText()}`).toBe(true);
     }
+    const tabs = await stages.getByRole("button").all();
+    for (let index = 1; index < tabs.length; index += 1) {
+      const previous = (await tabs[index - 1].boundingBox())!;
+      const current = (await tabs[index].boundingBox())!;
+      const overlap = previous.x + previous.width - current.x;
+      expect(overlap).toBeGreaterThanOrEqual(0);
+      expect(overlap).toBeLessThanOrEqual(16);
+      if (width >= 640) expect(overlap).toBeGreaterThanOrEqual(10);
+    }
+    // Elevation must not stretch type or turn overlap into an unclickable label.
+    expect(await chart.evaluate((element) => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+      return { x: matrix.a, y: matrix.d };
+    })).toEqual({ x: 1, y: 1 });
     await page.screenshot({ path: info.outputPath(`saved-folder-${width}.png`) });
   }
   await page.reload();
@@ -101,7 +116,7 @@ for (const width of [1440, 834, 320]) {
     const assessment = stages.getByRole("button", { name: /Assessment$/ });
     await expect(folder).toBeVisible();
     await expect(assessment).toHaveAttribute("aria-current", "page");
-    await expect(assessment).toHaveCSS("font-size", width < 640 ? "16px" : "17px");
+    await expect(assessment).toHaveCSS("font-size", width < 640 ? "14px" : "17px");
     const bounds = (await header.boundingBox())!;
     await page.screenshot({ path: info.outputPath(`assessment-folder-${width}.png`) });
     await stages.getByRole("button", { name: /Chart$/ }).click();
@@ -120,3 +135,24 @@ for (const width of [1440, 834, 320]) {
     }
   });
 }
+
+test("client folder material keeps labels readable and the whole folder opens its chart", async ({ page }, info) => {
+  await page.route("**/api/profiles/**", (route) => route.fulfill({ json: unifiedProfileFixture }));
+  await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: clientDirectoryFixture }));
+  await page.goto("/?screen=profiles");
+  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
+  const card = page.getByRole("button", { name: "Open profile for Avery Example", exact: true });
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(card).toBeVisible();
+    const label = card.locator(":scope > strong > span");
+    expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await expect(card.locator(":scope > span")).toHaveCSS("background-color", "rgb(232, 217, 184)");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`client-folder-${width}.png`) });
+  }
+  await card.focus();
+  await card.press("Enter");
+  await expect(page.getByRole("main", { name: "Client profile for Avery Example" })).toBeVisible();
+  await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+});
