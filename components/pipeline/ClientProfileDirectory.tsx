@@ -317,7 +317,10 @@ export default function ClientProfileDirectory({
             <div role="list" aria-label="Matching client files" className="grid gap-6 lg:grid-cols-2">
               {matchingClients.slice(0, displayLimit).map((client) => (
                 <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                  <ClientDirectoryCard client={client} layout="cards" onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
+                  <ClientDirectoryCard client={client} layout="cards" onOpen={(opener) => {
+                    profileOpener.current = opener;
+                    onOpenProfile(client.profile_key ?? client.canonical_client_id);
+                  }} />
                 </div>
               ))}
             </div>

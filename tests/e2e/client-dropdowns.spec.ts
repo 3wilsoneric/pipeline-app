@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
+import { clientDirectoryFixture, unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
 async function openClients(page: Page) {
   const communities = ["A & A Health Services San Pablo", "AHS Turlock OP LLC", "JC Wallace House", "JC Wallace House"];
@@ -202,6 +202,7 @@ test("client name search surfaces files across cabinets and excludes other field
 
 test("name search walks all result pages and opens the matching chart directly", async ({ page }) => {
   await openClients(page);
+  await page.route("**/api/profiles/name-match**", (route) => route.fulfill({ json: unifiedProfileFixture }));
   const requestedCursors: Array<string | null> = [];
   await page.route("**/api/profiles/directory**", (route) => {
     const cursor = new URL(route.request().url()).searchParams.get("cursor");
@@ -228,6 +229,11 @@ test("name search walks all result pages and opens the matching chart directly",
   await file.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/screen=profile&clientId=name-match/);
+  await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+  await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toHaveValue("Perez");
+  await expect(results.getByRole("listitem")).toHaveCount(1);
+  await expect(file).toBeFocused();
 });
 
 test("cabinet controls stay readable and reachable with long labels on small screens", async ({ page }, testInfo) => {
