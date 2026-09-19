@@ -4,6 +4,7 @@ import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CircleHelp, FlaskConical, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
 
@@ -157,10 +158,12 @@ export default function PipelineHeader({ onDestinationChange }: { onDestinationC
           data-platform-page-active="pipeline"
           className={sidebarStyles.home}
         >
-          <PipelineLogoMark size={32} />
-          <span className={sidebarStyles.brandText}>
+          <span className={sidebarStyles.brandAlamo}>
+            <Image src={toPipelinePath("/brand/alamo-health-management.png")} alt="Alamo Health Management" width={774} height={206} unoptimized draggable={false} className={sidebarStyles.brandAlamoImage} />
+          </span>
+          <span className={sidebarStyles.brandProduct} aria-hidden="true">
+            <PipelineLogoMark size={32} />
             <span className={sidebarStyles.brandName}>Pipeline</span>
-            <span className={sidebarStyles.brandOwner}>Alamo Health<br />Management</span>
           </span>
         </button>
       </div>
