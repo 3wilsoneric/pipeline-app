@@ -108,13 +108,17 @@ test('sustained browser saves survive alternating application instances', async 
         cycle++;
         if (cycle % 3 === 0) {
           const navigationStarted = Date.now();
+          const documentStarted = await page.evaluate(() => performance.timeOrigin);
           if (navigationMode === 'reload') await page.goto('/?screen=calendar');
           else await page.getByRole('button', { name: 'Open calendar', exact: true }).click();
           await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeVisible();
           if (navigationMode === 'reload') await page.goto(`/?view=referrals&screen=packet&referralId=${id}`);
           else await page.goBack();
-          await intakeChart(page).getByRole('button', { name: field === 'phone' ? 'Edit Phone' : 'Edit Email', exact: true }).click();
+          const edit = intakeChart(page).getByRole('button', { name: field === 'phone' ? 'Edit Phone' : 'Edit Email', exact: true });
+          await expect(input.or(edit).first()).toBeVisible();
+          if (await edit.isVisible()) await edit.click();
           await expect(input).toHaveValue(value);
+          if (navigationMode === 'in-app') expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentStarted);
           navigationMs.push(Date.now() - navigationStarted);
         }
         await page.waitForTimeout(1000 + (Number(actor.id.split('-').at(-1)) % 5) * 200);
