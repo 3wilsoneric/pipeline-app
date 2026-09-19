@@ -1200,6 +1200,7 @@ export default function AssessmentWorkspace({
       void clearRecoveryDraft(payload.assessment.assessment_id);
       void persistOfflineWorkingSet(payload.assessment);
       setMessage("Assessment signed");
+      onContinueToWorkflow?.();
     } catch (signError) {
       setError(messageFor(signError, "The assessment could not be signed."));
       setMessage("");
@@ -1710,15 +1711,15 @@ export default function AssessmentWorkspace({
         {!preparing && !reviewingChart && !phoneInterview ? <nav aria-label="Assessment section steps" className={workingStyles.sectionSteps}>
           <button type="button" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isBusy || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" />Previous section</button>
           <span className={workingStyles.stepPosition} aria-label={`Section ${activeSectionIndex + 1} of ${conversationSections.length}`}>{activeSectionIndex + 1} / {conversationSections.length}</span>
-          <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing} title={nextSection ? `Next: ${nextSection.label}` : "Review the chart before signing"}>{nextSection ? "Next section" : "Review chart"}<ChevronRight size={16} aria-hidden="true" /></button></div>
+          <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing} title={nextSection ? `Next: ${nextSection.label}` : "Review the chart before signing"}>{nextSection ? "Next section" : "Review & sign"}<ChevronRight size={16} aria-hidden="true" /></button></div>
         </nav> : (preparing || reviewingChart || selected.signed_at) ? <div>
         <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">
           {selected.signed_at ? (
-            onContinueToWorkflow && !embeddedFolder ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Admission decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>
+            onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>
           ) : preparing ? (
             <button type="button" onClick={() => setNotebookView("assessment")}>{selected.started_at ? "Return to assessment" : "Open assessment"}<ChevronRight size={14} /></button>
           ) : canEditClinical ? (
-            <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : "Sign assessment"}</button>
+            <button type="button" data-guide-target="assessment-sign" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>
           ) : !selected.started_at && canSupervise ? (
             <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
           ) : null}

@@ -134,7 +134,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   if (emailPage) return (
     <section className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
-        <div><h2>Email &amp; packet</h2><p>Explore the packet workflow. Email delivery is not live yet.</p></div>
+        <div><h2>Meet the Client</h2><p>Review the handoff summary, recipients and admission packet.</p></div>
         <div className={styles.headerActions}>{headerActions}{readyPayload.email.example_only ? null : refresh}</div>
       </header>
       <ChartStatusMessage error={error} message={message} />

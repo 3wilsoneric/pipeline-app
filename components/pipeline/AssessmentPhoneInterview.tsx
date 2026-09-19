@@ -118,7 +118,7 @@ export default function AssessmentPhoneInterview(props: Props) {
     </div>
     <nav className={styles.paging} aria-label="Question steps">
       <button type="button" aria-label="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={20} aria-hidden="true" />Previous</button>
-      <button type="button" onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Open assessment" : "Review chart"}<ChevronRight size={20} aria-hidden="true" /></button>
+      <button type="button" onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Open assessment" : "Review & sign"}<ChevronRight size={20} aria-hidden="true" /></button>
     </nav>
     <dialog ref={dialog} className={styles.sheet} aria-label={panel === "sections" ? "Questionnaire sections" : "Client information"} onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }} onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
       <header><h3>{panel === "sections" ? "Assessment sections" : "Client information"}</h3><button type="button" aria-label="Close information panel" onClick={() => dialog.current?.close()}><X size={20} aria-hidden="true" /></button></header>
@@ -137,7 +137,7 @@ export default function AssessmentPhoneInterview(props: Props) {
           })}
           </>}
           {search.trim() && !matchedQuestions.length ? <p>No matching questions.</p> : null}
-          <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Open assessment" : "Review chart"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
+          <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Open assessment" : "Review & sign"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
         </> : <>
           <label className={styles.sheetScope}>Reference information<select aria-label="Reference information" value={referenceScope} onChange={(event) => setReferenceScope(event.target.value)}><option value="section">This section</option><option value="all">All sections</option></select></label>
           {!shownReference.length ? <p>{referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {

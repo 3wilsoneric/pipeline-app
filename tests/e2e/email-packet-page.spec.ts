@@ -5,8 +5,8 @@ import { renderMeetClientEmail } from "../../lib/notifications/meet-client-email
 
 async function referralWithAssessment(page: Page, signed = true) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: `Packet ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing",
-  }, { assigneeId: "provisional:allo:annette" });
+    name: `Packet ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "", tags: [], documentName: "", documentStatus: "Missing",
+  });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
     client_mutation_id: randomUUID(), data: { current_location: 'Synthetic facility <img src=x onerror="alert(1)">', family_involvement: "Sister helps with appointments." },
   } });
@@ -16,7 +16,7 @@ async function referralWithAssessment(page: Page, signed = true) {
   return { referral, assessment };
 }
 
-for (const width of [1440, 390]) test(`Chart pagination preserves the email URL and canonical Outlook-style preview at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the email URL and readable canonical preview at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 950 });
   const { referral } = await referralWithAssessment(page);
   // Exercise live-mode editing independently of the isolated demo send guard.
@@ -31,15 +31,17 @@ for (const width of [1440, 390]) test(`Chart pagination preserves the email URL 
   await page.goto(url);
   const email = page.getByRole("region", { name: "Email and referral packet", exact: true });
   const stages = page.getByRole("navigation", { name: "Workspace stages" });
-  const chartPages = page.getByRole("navigation", { name: "Chart pages" });
+  const finishTab = stages.getByRole("button", { name: /Finish & send/ });
   await expect(email).toBeVisible();
-  await expect(stages.getByRole("button", { name: /Email & packet/ })).toHaveCount(0);
-  await expect(stages.getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
-  await expect(chartPages).toContainText("Page 2 of 2");
-  await expect(chartPages).toContainText("Demo · Beta");
-  await expect(email).toContainText("Email delivery is not live yet.");
+  await expect(finishTab).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Chart pages" })).toHaveCount(0);
+  await expect(email).toContainText("Review the handoff summary");
   const folder = page.getByTestId("workspace-chart-folder");
   const header = page.getByTestId("workspace-folder-header");
+  for (const button of await header.getByRole("button").all()) {
+    const bounds = (await button.boundingBox())!;
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+  }
   expect(Math.abs((await folder.boundingBox())!.y - (await header.boundingBox())!.y - (await header.boundingBox())!.height)).toBeLessThanOrEqual(1);
   const verification = email.getByRole("checkbox", { name: /I verified/ });
   await expect(verification).toBeInViewport();
@@ -56,44 +58,47 @@ for (const width of [1440, 390]) test(`Chart pagination preserves the email URL 
   const response = await page.request.get(`/api/referrals/${referral.id}/admission-summary`);
   expect(response.headers()["cache-control"]).toContain("no-store");
   const payload = await response.json();
-  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, "Playwright QA", "Preview — assigned when sent", []));
+  const { user } = await (await page.request.get("/api/auth/me")).json();
+  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", []));
   await email.getByRole("textbox", { name: "Authorized recipients" }).fill("care@example.invalid");
   await email.getByRole("button", { name: "Manage files", exact: true }).click();
   await expect(page).toHaveURL(/workspaceView=files/);
   await stages.getByRole("button", { name: /Chart/ }).click();
-  await expect(chartPages).toContainText("Page 1 of 2");
   const chart = page.getByRole("article", { name: "Referral chart", exact: true });
   await expect(chart).toBeVisible();
   await expect(folder.getByRole("button", { name: "New referral", exact: true })).toHaveCount(0);
-  await expect(chart.locator("header").getByRole("navigation", { name: "Chart pages" })).toBeVisible();
-  expect(Math.abs((await folder.boundingBox())!.y - (await header.boundingBox())!.y - (await header.boundingBox())!.height)).toBeLessThanOrEqual(1);
-  // Existing desktop folder padding is 10px + 16px, plus the paper border.
-  expect((await chart.boundingBox())!.y - (await folder.boundingBox())!.y).toBeLessThanOrEqual(28);
+  const chartFolder = page.getByTestId("assessment-client-folder");
+  expect(Math.abs((await chartFolder.boundingBox())!.y - (await header.boundingBox())!.y - (await header.boundingBox())!.height)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: info.outputPath(`flush-chart-${width}.png`), animations: "disabled" });
-  await chartPages.getByRole("button", { name: "Email & packet", exact: true }).focus();
+  await finishTab.focus();
   await page.keyboard.press("Enter");
   await expect(email.getByRole("textbox", { name: "Authorized recipients" })).toHaveValue("care@example.invalid");
-  await chartPages.getByRole("button", { name: "Client chart", exact: true }).click();
+  await stages.getByRole("button", { name: /Chart/ }).click();
   await expect(page).toHaveURL(/workspaceStage=chart/);
   await expect(stages.getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
-  await chartPages.getByRole("button", { name: "Email & packet", exact: true }).click();
+  await finishTab.click();
   await expect(page).toHaveURL(/workspaceView=email/);
   await expect(email).toBeVisible();
   await page.reload();
   await expect(email).toBeVisible();
   await expect(preview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(await preview.locator("body").evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(preview.locator("li").first()).toHaveCSS("font-size", "17px");
+  if (width === 1440) expect((await preview.locator(".email-sheet").boundingBox())!.width).toBeGreaterThan(1000);
   await page.getByTestId("packet-workspace").evaluate((element) => element.scrollTo({ top: 0 }));
   await page.screenshot({ path: info.outputPath(`email-packet-${width}.png`), fullPage: false, animations: "disabled" });
   expect(sends).toBe(0);
 });
 
-test("chart load failure leaves the beta email preview reachable", async ({ page }) => {
+test("chart load failure leaves the finish tab reachable", async ({ page }) => {
   const { referral } = await referralWithAssessment(page, false);
-  await page.route("**/api/profiles/**", (route) => route.fulfill({ status: 503, json: { error: "Synthetic unavailable chart" } }));
+  await page.route(`**/api/referrals/${referral.id}/assessments*`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic unavailable chart" } }));
+  const failedLoad = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}/assessments`) && response.status() === 503);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
-  await expect(page.getByTestId("workspace-chart-folder").getByRole("alert")).toContainText("could not be loaded");
-  await page.getByRole("navigation", { name: "Chart pages" }).getByRole("button", { name: "Email & packet", exact: true }).click();
+  await failedLoad;
+  await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Finish & send/ }).click();
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your email preview will appear here" })).toBeVisible();
 });
@@ -102,11 +107,11 @@ test("unsigned packet preview and acceptance stay accessible without signing or 
   const { referral, assessment } = await referralWithAssessment(page, false);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
   await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
-  await page.getByRole("navigation", { name: "Chart pages" }).getByRole("button", { name: "Email & packet", exact: true }).click();
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Finish & send/ }).click();
   await expect(page.getByRole("heading", { name: "Your email preview will appear here" })).toBeVisible();
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision/ }).click();
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Decision", exact: true })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Accept", exact: true })).toBeVisible();
   const current = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(current.signed_at).toBeNull();
   expect(current.meet_client_sent_at).toBeFalsy();

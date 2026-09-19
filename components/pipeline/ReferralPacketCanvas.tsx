@@ -6,7 +6,6 @@ import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
 import dynamic from "next/dynamic";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   CheckCircle2,
@@ -222,7 +221,7 @@ type ExtractionReviewConflict = {
 
 type WorkspaceStage = 1 | 2 | 3;
 type WorkspaceView = WorkspaceStage | "workflow" | "email" | "files" | "activity";
-type WorkspaceStep = { page: WorkspaceStage | "workflow"; label: string };
+type WorkspaceStep = { page: WorkspaceStage | "workflow" | "email"; label: string };
 type WorkspaceStageName = "intake" | "assessment" | "chart";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -233,6 +232,7 @@ const savedWorkspaceSteps: ReadonlyArray<WorkspaceStep> = [
   { page: 3, label: "Chart" },
   { page: 2, label: "Assessment" },
   { page: "workflow", label: "Decision" },
+  { page: "email", label: "Finish & send" },
 ];
 
 const importedWorkspaceSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -2141,15 +2141,13 @@ export default function ReferralPacketCanvas({
     permissionReadOnly,
   );
   const { readOnly, historicalReadOnly, steps } = workspacePresentation;
-  const workspaceSteps = trainingAssessmentMode ? savedWorkspaceSteps.filter((step) => step.page !== "workflow") : steps;
+  const workspaceSteps = trainingAssessmentMode
+    ? savedWorkspaceSteps.filter((step) => step.page !== "workflow" && step.page !== "email")
+    : workspacePresentation.usesSourceProfile && !historicalReadOnly
+      ? [...steps, savedWorkspaceSteps[3]] : steps;
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
-  const chartPagination = loadedReferral && !historicalReadOnly ? <ChartPageNavigation
-    emailPage={displayedPage === "email"}
-    onOpenChart={() => void navigatePage(chartPage)}
-    onOpenEmail={() => void navigatePage("email")}
-  /> : null;
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
@@ -2206,7 +2204,7 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
             </h1>
-            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === "email" || (displayedPage === 1 && loadedReferral) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
+            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === 1 && loadedReferral ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
 
             <div className={workspaceFolderStyles.actions}>
               {remoteChange && remoteChange.conflicts.length === 0 ? (
@@ -2428,7 +2426,7 @@ export default function ReferralPacketCanvas({
             ) : null}
             </IntakeDocumentChecklist>
             <ClientChartFrame label="Referral intake chart">
-              <ClientChartHeader title={loadedReferral ? "Referral details" : "Referral intake"} actions={chartPage === 1 ? chartPagination : undefined}>
+              <ClientChartHeader title={loadedReferral ? "Referral details" : "Referral intake"}>
                 <ChartHeaderCell label="Details captured" value={`${fieldCount} / ${visibleChartFieldKeys.length}`} />
               </ClientChartHeader>
               <div className="min-w-0" onFocusCapture={focusIntakeCell} onBlur={blurIntakeCell}>
@@ -2603,17 +2601,16 @@ export default function ReferralPacketCanvas({
               </WorkspaceChartFolder>
             </PacketPage>
           ) : displayedPage === "email" ? (
-            <PacketPage id="packet-email" title="Email & packet" flush>
+            <PacketPage id="packet-email" title="Finish & send" flush>
               <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
-                headerActions={chartPagination}
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={{ recipients: emailRecipients, onChange: setEmailRecipients }}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2)}
                 onOpenDecision={() => openPage("workflow")} />
               </WorkspaceChartFolder>
               <footer aria-label="Handoff actions" className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-[#dce4df] bg-white/95 px-3 py-3 backdrop-blur-sm">
-                <button type="button" onClick={() => openPage("workflow")} disabled={emailSending || emailFinishing} className="min-h-11 px-3 text-[14px] font-semibold text-[#53615a] focus-visible:outline-2 disabled:opacity-50">Edit decision</button>
+                <button type="button" onClick={() => openPage("workflow")} disabled={emailSending || emailFinishing} className="min-h-11 px-3 text-[14px] font-semibold text-[#53615a] focus-visible:outline-2 disabled:opacity-50">Back to decision</button>
                 {onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
                   setEmailFinishing(true);
                   void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));
@@ -2662,7 +2659,7 @@ export default function ReferralPacketCanvas({
           ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart" flush>
               <WorkspaceChartFolder>
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} headerActions={chartPagination} />
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} />
               </WorkspaceChartFolder>
             </PacketPage>
           ) : (
@@ -2800,19 +2797,6 @@ function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
   </div>;
 }
 
-function ChartPageNavigation({ emailPage, onOpenChart, onOpenEmail }: {
-  emailPage: boolean;
-  onOpenChart: () => void;
-  onOpenEmail: () => void;
-}) {
-  return <nav aria-label="Chart pages" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[11px] text-[#616161]">
-    <span className="rounded border border-[#d6d6d6] bg-white px-2 py-1 font-semibold text-[#424242]" title="Packet workflow preview. Email delivery is not live yet.">Demo · Beta</span>
-    {emailPage ? <button type="button" aria-label="Client chart" title="Previous page: Client chart" onClick={onOpenChart} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-2 text-[12px] font-semibold text-[#0f6cbd] hover:bg-[#f0f5fa] focus-visible:outline-2 focus-visible:outline-offset-2"><ArrowLeft size={16} aria-hidden="true" /><span className="hidden sm:inline">Client chart</span></button> : null}
-    <span aria-current="page">Page {emailPage ? "2" : "1"} of 2<span className="sr-only"> · {emailPage ? "Email & packet" : "Client chart"}</span></span>
-    {!emailPage ? <button type="button" aria-label="Email & packet" title="Next page: Email & packet" data-guide-target="chart-meet-client-tab" onClick={onOpenEmail} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-2 text-[12px] font-semibold text-[#0f6cbd] hover:bg-[#f0f5fa] focus-visible:outline-2 focus-visible:outline-offset-2"><span className="hidden sm:inline">Email &amp; packet</span><ArrowRight size={16} aria-hidden="true" /></button> : null}
-  </nav>;
-}
-
 function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
   steps: ReadonlyArray<WorkspaceStep>;
   activePage: WorkspaceView;
@@ -2829,7 +2813,7 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
 function WorkspaceStageButton({ page, label, number, selected, onOpen }: {
   page: WorkspaceStep["page"]; label: string; number?: number; selected: boolean; onOpen: (page: WorkspaceView) => void;
 }) {
-  return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : label === "Chart" ? "chart-stage" : undefined}
+  return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : label === "Chart" ? "chart-stage" : page === "email" ? "chart-meet-client-tab" : undefined}
     onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
     data-folder-stage={page}
     className={workspaceFolderStyles.stageTab}>

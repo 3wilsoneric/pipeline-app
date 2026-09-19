@@ -64,7 +64,7 @@
   gap: 0;
   padding: 5px 0 0;
 }
-.actions { margin-left: auto; }
+.actions { margin-left: auto; flex-shrink: 0; }
 .actions > button { min-height: 44px; }
 
 .syncStatus { display: inline-flex; align-items: center; align-self: center; flex-shrink: 0; padding-inline: 4px; color: #176c51; }
@@ -131,6 +131,13 @@
   --tab-fill: #e9f1f7;
   --tab-edge: #b7ccdc;
   --tab-active: #d9e8f1;
+}
+
+.stageTab[data-folder-stage="email"] {
+  --tab-ink: #176c51;
+  --tab-fill: #e6f1e9;
+  --tab-edge: #b2cdbc;
+  --tab-active: #cfe7d8;
 }
 
 .stageTab[aria-current="page"] {
@@ -220,7 +227,7 @@
   @keyframes paper-in { from { opacity: .75; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1250px) {
   .tabRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; padding-top: 0; }
   .identity { min-width: 0; max-width: 340px; }
   .actions { grid-column: 2; grid-row: 1; }
@@ -268,7 +275,8 @@
   .actions { align-items: center; align-self: center; gap: 0; }
   .actions > button { min-width: 44px; min-height: 44px; }
   .stages { overflow: visible; }
-  .stageTab { flex: 1 1 auto; min-width: 0; padding-inline: 12px; }
+  .stageTab { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: 14px; }
+  .stageTab > span:last-child { white-space: normal; line-height: 1.15; }
   .stageNumber { display: none; }
 
   .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px 44px; gap: 0 2px; }
