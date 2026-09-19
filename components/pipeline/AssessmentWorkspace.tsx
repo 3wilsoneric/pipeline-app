@@ -1564,7 +1564,6 @@ export default function AssessmentWorkspace({
     {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} disabled={isBusy || isClosing}><Play size={15} />Begin assessment</button> : null}
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
     </> : null}
-    <AssessmentExcelBackup key={selected.assessment_id} identity={{ assessmentId: selected.assessment_id, referralId: selected.referral_id }} data={draft} readOnly={Boolean(selected.signed_at) || isAssessmentFinalized(selected) || !canEditClinical || isBusy || isClosing} onApply={restoreWorkbook} />
   </>;
   const nextConversationSection = () => {
     setWorkingTarget(null);
@@ -1636,6 +1635,7 @@ export default function AssessmentWorkspace({
         </aside> : null}
 
         <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : preparing ? "overflow-y-auto" : workingStyles.readingMain}`}>
+          <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={Boolean(selected.signed_at) || isAssessmentFinalized(selected) || !canEditClinical || isBusy || isClosing} onApply={restoreWorkbook} />
           {phoneInterview ? null : preparing ? <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
             <label htmlFor="preparation-group-mobile" className="mb-1 block text-[11px] font-semibold text-[#56665d]">Preparation group</label>
             <select id="preparation-group-mobile" value={preparationGroup.key} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="min-h-11 w-full rounded border border-[#cddace] bg-white px-3 text-[14px] text-[#234c36]">

@@ -36,10 +36,9 @@ test.describe("workbook recovery integration boundaries", () => {
     await expect.poll(async () => (await fixture.read()).prior_awol_failed_placements).toBe("Newer typed answer");
     const { dialog, bytes } = await downloadCopy(page);
     const changed = changeWorkbook(bytes, [{ sheet: 4, cell: "C11", value: "Newer Excel answer" }]);
-    await dialog.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
-    await dialog.getByRole("button", { name: "Apply 1 answer", exact: true }).click();
-    await expect(dialog.getByRole("status")).toContainText("Answers restored");
-    await dialog.getByRole("button", { name: "Close Excel backup", exact: true }).click();
+    await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
+    await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
     release();
     await expect.poll(() => delivered).toBe(true);
     await expect.soft(page.getByRole("button", { name: "Edit Prior AWOL / failed placements", exact: true })).toContainText("Newer typed answer");
@@ -70,14 +69,14 @@ test.describe("workbook recovery integration boundaries", () => {
       await route.fulfill({ response: await route.fetch() });
       requestFinished = true;
     });
-    await dialog.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
-    await dialog.getByRole("button", { name: "Apply 2 answers", exact: true }).click();
+    await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
+    await dialog.getByRole("button", { name: "Commit 2 changes", exact: true }).click();
     await expect.poll(() => requestStarted).toBe(true);
     // Exercise a browser-history route change while the original request is in flight.
     try {
       await page.evaluate((href) => { history.pushState(null, "", href); dispatchEvent(new PopStateEvent("popstate")); }, second.href);
       await expect(page.locator('[data-guide-target="packet-workspace"]')).toContainText(secondBefore.resident_name!);
-      await expect(page.getByRole("dialog", { name: "Excel backup", exact: true })).toHaveCount(0);
+      await expect(dialog).toHaveCount(0);
     } finally { release(); }
     await expect.poll(() => requestFinished).toBe(true);
     await expect.poll(async () => (await first.read()).current_location).toBe("Synthetic imported first location");
@@ -98,10 +97,8 @@ async function createFixture(page: Page, name: string) {
 }
 
 async function downloadCopy(page: Page) {
-  await page.locator('summary[aria-label="Assessment details"]').click();
-  await page.getByRole("button", { name: "Excel backup", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Excel backup", exact: true });
+  const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
   const pending = page.waitForEvent("download");
-  await dialog.getByRole("button", { name: "Download current assessment", exact: true }).click();
+  await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
   return { dialog, bytes: await fs.readFile((await (await pending).path())!) };
 }
