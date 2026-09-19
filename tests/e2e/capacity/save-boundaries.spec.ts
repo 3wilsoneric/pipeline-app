@@ -2,6 +2,8 @@ import { test, expect, type Browser, type Page, type Route } from '@playwright/t
 import postgres from 'postgres';
 import { randomUUID } from 'node:crypto';
 import { createCanvas } from '@napi-rs/canvas';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createOperationalReferral, createOperationalAssessment } from '../support/operational-api';
 import { operationalHeadersForActor, type PipelineActor } from '../support/pipeline-actors';
 import { clientDirectoryFixture } from '../support/pipeline-clinical-fixtures';
@@ -153,6 +155,33 @@ test('assessment disjoint answers in one section do not interrupt either assesso
   } finally { await Promise.all([a.context.close(), b.context.close()]); }
 });
 
+test('assessment same-answer conflict survives a different answer save and reopening', async ({ browser, baseURL }) => {
+  const a = await session(browser, baseURL!, 8, { width: 1365, height: 900 });
+  const b = await session(browser, baseURL!, 9, { width: 1365, height: 900 });
+  try {
+    const referral = await seed(a);
+    const assessment = await createOperationalAssessment(a.context.request, referral.id);
+    for (const s of [a, b]) await s.page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    const contactA = a.page.getByRole('textbox', { name: 'Referrer contact', exact: true });
+    const contactB = b.page.getByRole('textbox', { name: 'Referrer contact', exact: true });
+    await contactA.fill('Synthetic first answer');
+    await contactB.fill('Synthetic second answer');
+    await contactA.blur();
+    await expect.poll(async () => (await (await a.context.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.referrer_contact).toBe('Synthetic first answer');
+    await contactB.blur();
+    await expect(b.page.getByRole('button', { name: 'Keep mine', exact: true })).toBeVisible();
+    const date = b.page.getByLabel('Assessment date', { exact: true });
+    await date.fill('2026-09-19'); await date.blur();
+    await expect.poll(async () => (await (await b.context.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.assessment_date).toBe('2026-09-19');
+    await expect(b.page.getByRole('button', { name: 'Keep mine', exact: true })).toBeVisible();
+    await b.page.waitForTimeout(1200); // Existing encrypted draft persistence debounce.
+    await b.page.reload();
+    await expect(b.page.getByRole('button', { name: 'Keep mine', exact: true })).toBeVisible();
+    await b.page.getByRole('button', { name: 'Keep mine', exact: true }).click();
+    await expect.poll(async () => (await (await b.context.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.referrer_contact).toBe('Synthetic second answer');
+  } finally { await Promise.all([a.context.close(), b.context.close()]); }
+});
+
 test('uploaded document survives a lost completion reply, previews and remains a single file', async ({ browser, baseURL }) => {
   test.skip(process.env.PIPELINE_CAPACITY_DURABLE_UPLOAD !== 'true', 'Requires the isolated Azure Blob rehearsal; local mock uploads are not a multi-instance storage backend');
   const s = await session(browser, baseURL!, 6);
@@ -225,4 +254,50 @@ test('assessment answers recover from offline saving and a lost acknowledgement 
     await s.page.reload();
     await expect(date).toHaveValue('2026-09-18');
   } finally { await s.context.close(); }
+});
+
+test('expired save authorization preserves the typed intake answer until an authorized retry', async ({ browser, baseURL }) => {
+  const s = await session(browser, baseURL!, 10);
+  try {
+    const referral = await seed(s);
+    const phone = await editPhone(s.page, referral.id);
+    await s.page.route(`**/api/referrals/${referral.id}`, route => route.request().method() === 'PATCH'
+      ? route.fulfill({ status: 401, json: { error: 'Synthetic session expiry' } }) : route.continue());
+    await phone.fill('555-0444'); await phone.blur();
+    await expect(s.page.getByRole('button', { name: 'Retry saving', exact: true })).toBeVisible();
+    await expect(phone).toHaveValue('555-0444');
+    expect((await (await s.context.request.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe('');
+    await s.page.unroute(`**/api/referrals/${referral.id}`);
+    await s.page.getByRole('button', { name: 'Retry saving', exact: true }).click();
+    await expect.poll(async () => (await (await s.context.request.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe('555-0444');
+  } finally { await s.context.close(); }
+});
+
+test('a real disposable database outage retains the field and recovers without a false saved state', async ({ browser, baseURL }) => {
+  test.skip(process.env.PIPELINE_CAPACITY_FAULTS !== 'true', 'Explicit isolated outage rehearsal only');
+  const run = promisify(execFile);
+  const data = process.env.PIPELINE_CAPACITY_PG_DATA;
+  // This exact directory belongs to this disposable runner, not the operator's
+  // normal database or any Azure PostgreSQL server.
+  if (data !== '/home/rehearsal/artifacts/postgres' || process.platform !== 'linux') throw Error('Disposable Linux PostgreSQL directory required');
+  const s = await session(browser, baseURL!, 11);
+  let stopped = false;
+  const restart = () => run('/usr/lib/postgresql/16/bin/pg_ctl', ['-D', data, '-l', '/home/rehearsal/artifacts/postgres.log', '-o', '-h 127.0.0.1 -p 55479 -k /home/rehearsal/artifacts -c max_connections=100 -c shared_buffers=512MB', 'start']);
+  try {
+    const referral = await seed(s);
+    const phone = await editPhone(s.page, referral.id);
+    await run('/usr/lib/postgresql/16/bin/pg_ctl', ['-D', data, '-m', 'fast', 'stop']);
+    stopped = true;
+    await phone.fill('555-0555'); await phone.blur();
+    await expect(s.page.getByRole('button', { name: 'Retry saving', exact: true })).toBeVisible();
+    await expect(phone).toHaveValue('555-0555');
+    await restart(); stopped = false;
+    await s.page.getByRole('button', { name: 'Retry saving', exact: true }).click();
+    await expect.poll(async () => (await (await s.context.request.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe('555-0555');
+    await s.page.reload();
+    await expect(s.page.getByRole('textbox', { name: 'Client phone:', exact: true })).toHaveValue('555-0555');
+  } finally {
+    if (stopped) await restart();
+    await s.context.close();
+  }
 });

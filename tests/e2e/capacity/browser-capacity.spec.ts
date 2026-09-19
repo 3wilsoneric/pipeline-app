@@ -27,6 +27,8 @@ test('sustained browser saves survive alternating application instances', async 
   const backendCounts: Record<string, number> = {};
   const heartbeats = new Map<string, number>();
   const overlap: Array<{ at: number; actors_progressing_last_30s: number; free_memory_bytes: number }> = [];
+  const navigationMs: number[] = [];
+  const processMemory: Array<{ at: number; app_rss_kib: number; browser_rss_kib: number }> = [];
   const delay = monitorEventLoopDelay({ resolution: 20 });
   let sampler: ReturnType<typeof setInterval> | undefined;
   let measuredStart = 0;
@@ -66,7 +68,12 @@ test('sustained browser saves survive alternating application instances', async 
     measuredStart = Date.now();
     const deadline = measuredStart + seconds * 1000;
     delay.enable();
-    sampler = setInterval(() => overlap.push({ at: Date.now(), actors_progressing_last_30s: [...heartbeats.values()].filter(at => Date.now() - at < 30_000).length, free_memory_bytes: freemem() }), 5000);
+    sampler = setInterval(() => {
+      overlap.push({ at: Date.now(), actors_progressing_last_30s: [...heartbeats.values()].filter(at => Date.now() - at < 30_000).length, free_memory_bytes: freemem() });
+      const rows = execFileSync('ps', ['-eo', 'rss,comm'], { encoding: 'utf8' }).split('\n');
+      const rss = (pattern: RegExp) => rows.reduce((sum, row) => pattern.test(row) ? sum + Number(row.trim().split(/\s+/)[0]) : sum, 0);
+      processMemory.push({ at: Date.now(), app_rss_kib: rss(/next-server/), browser_rss_kib: rss(/chrome|chromium/i) });
+    }, 5000);
     await Promise.all(sessions.map(async session => {
       let cycle = 0;
       do {
@@ -90,11 +97,13 @@ test('sustained browser saves survive alternating application instances', async 
         heartbeats.set(actor.id, Date.now());
         cycle++;
         if (cycle % 3 === 0) {
+          const navigationStarted = Date.now();
           await page.goto('/?screen=calendar');
           await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeVisible();
           await page.goto(`/?view=referrals&screen=packet&referralId=${id}`);
           await intakeChart(page).getByRole('button', { name: field === 'phone' ? 'Edit Phone' : 'Edit Email', exact: true }).click();
           await expect(input).toHaveValue(value);
+          navigationMs.push(Date.now() - navigationStarted);
         }
         await page.waitForTimeout(1000 + (Number(actor.id.split('-').at(-1)) % 5) * 200);
       } while (Date.now() < deadline);
@@ -105,9 +114,14 @@ test('sustained browser saves survive alternating application instances', async 
       const [row] = await sql`select data from pipeline.referrals where referral_id=${entry.id}`;
       expect(row.data[entry.field]).toBe(entry.value);
     }
-    for (const entry of ledger) {
-      const [audit] = await sql`select count(*)::int as count from pipeline.audit_events where entity_type='referral' and entity_id=${String(entry.id)} and actor_id=${entry.actor} and after_values ->> ${entry.field} = ${entry.value}`;
-      expect(audit.count, 'Every acknowledged value must be represented in independent audit history').toBeGreaterThan(0);
+    for (let offset = 0; offset < ledger.length; offset += 500) {
+      const expected = ledger.slice(offset, offset + 500).map(({ actor, id, field, value }) => ({ actor, id: String(id), field, value }));
+      const audit = await sql`select e.actor, e.id, e.field, e.value, count(a.audit_event_id)::int as count
+        from jsonb_to_recordset(${sql.json(expected)}::jsonb) as e(actor text, id text, field text, value text)
+        left join pipeline.audit_events a on a.entity_type='referral' and a.entity_id=e.id and a.actor_id=e.actor and a.after_values->>e.field=e.value
+        group by e.actor, e.id, e.field, e.value`;
+      expect(audit).toHaveLength(expected.length);
+      expect(audit.every(row => row.count === 1), 'Each acknowledged write must have exactly one independent audit entry').toBe(true);
     }
     expect(Object.keys(backendCounts).sort()).toEqual(['4178', '4179']);
     expect(new Set(ledger.map(entry => entry.actor)).size).toBe(users);
@@ -121,7 +135,7 @@ test('sustained browser saves survive alternating application instances', async 
     if (sampler) clearInterval(sampler);
     delay.disable();
     const sorted = ledger.map(entry => entry.ms).sort((a, b) => a - b);
-    await testInfo.attach('capacity-evidence', { body: Buffer.from(JSON.stringify({ runId, candidate_commit: candidate, application_baseline: 'ccd474433c05001ed621c30643bde3f1b3e8a201', environment: 'loopback-postgres-two-process-synthetic-auth', requested_users: users, created_sessions: sessions.length, actors_with_confirmed_saves: new Set(ledger.map(entry => entry.actor)).size, measuredStart, measuredEnd, browser_processes: browsers.length, backendCounts, overlap, saves: ledger.length, p95_save_ms: sorted[Math.ceil(sorted.length * .95) - 1] ?? null, p99_save_ms: sorted[Math.ceil(sorted.length * .99) - 1] ?? null, generator_event_loop_p99_ms: delay.percentile(99) / 1e6, errors, ledger, limits: ['Not Entra sign-in or Azure production performance certification', 'Current workload: intake save/cross-replica reads/calendar navigation; assessment/upload/fault waves remain separate'] }, null, 2)), contentType: 'application/json' });
+    await testInfo.attach('capacity-evidence', { body: Buffer.from(JSON.stringify({ runId, candidate_commit: candidate, application_baseline: 'ccd474433c05001ed621c30643bde3f1b3e8a201', environment: 'loopback-postgres-two-process-synthetic-auth', requested_users: users, created_sessions: sessions.length, actors_with_confirmed_saves: new Set(ledger.map(entry => entry.actor)).size, measuredStart, measuredEnd, browser_processes: browsers.length, backendCounts, overlap, processMemory, calendar_and_return_navigation_ms: navigationMs, saves: ledger.length, p95_save_ms: sorted[Math.ceil(sorted.length * .95) - 1] ?? null, p99_save_ms: sorted[Math.ceil(sorted.length * .99) - 1] ?? null, generator_event_loop_p99_ms: delay.percentile(99) / 1e6, errors, ledger, limits: ['Not Entra sign-in or Azure production performance certification', 'Current workload: intake save/cross-replica reads/calendar navigation; assessment/upload/fault waves remain separate'] }, null, 2)), contentType: 'application/json' });
     await Promise.allSettled(sessions.map(session => session.context.close()));
     await Promise.allSettled(browsers.map(browser => browser.close()));
     await sql.end({ timeout: 5 });

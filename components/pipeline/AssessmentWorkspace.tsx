@@ -481,7 +481,11 @@ export default function AssessmentWorkspace({
         });
       }
     }
-    baseDataRef.current = currentData;
+    // Keep the pre-conflict comparison value until the assessor chooses an
+    // answer. Otherwise the next persisted draft loses the conflict on reopen.
+    const recoveredBase = pickAssessmentToolData(currentData);
+    for (const conflict of conflicts) recoveredBase[conflict.field] = recovered.baseData[conflict.field] as never;
+    baseDataRef.current = recoveredBase;
     draftRef.current = merged;
     setDraft(merged);
     const recoveredDirty = dirtyAssessmentSections(merged, currentData);
@@ -850,6 +854,7 @@ export default function AssessmentWorkspace({
     const local = draftRef.current;
     const latestData = pickAssessmentToolData(latest);
     const merged = pickAssessmentToolData(latestData);
+    const nextBase = pickAssessmentToolData(latestData);
     const conflicts: AssessmentFieldConflict[] = [];
 
     for (const definition of assessmentToolFieldDefinitions) {
@@ -859,6 +864,7 @@ export default function AssessmentWorkspace({
       const unresolved = remoteChangeRef.current?.conflicts.some((conflict) => conflict.field === field);
       if (localChanged && (remoteChanged || unresolved) && !sameAssessmentValue(local[field], latestData[field])) {
         merged[field] = local[field] as never;
+        nextBase[field] = base[field] as never;
         conflicts.push({ field, localValue: local[field], remoteValue: latestData[field], section: definition.section });
       } else if (localChanged) {
         merged[field] = local[field] as never;
@@ -866,7 +872,7 @@ export default function AssessmentWorkspace({
     }
 
     selectedRef.current = latest;
-    baseDataRef.current = latestData;
+    baseDataRef.current = nextBase;
     draftRef.current = merged;
     setDraft(merged);
     setAssessments((items) => [latest, ...items.filter((item) => item.assessment_id !== latest.assessment_id)]);
@@ -930,7 +936,13 @@ export default function AssessmentWorkspace({
         }
       }
       selectedRef.current = saved;
-      baseDataRef.current = savedData;
+      const nextBase = pickAssessmentToolData(savedData);
+      for (const conflict of remoteChangeRef.current?.conflicts ?? []) {
+        if (!Object.hasOwn(sentData, conflict.field) && !sameAssessmentValue(nextDraft[conflict.field], savedData[conflict.field])) {
+          nextBase[conflict.field] = baseDataRef.current[conflict.field] as never;
+        }
+      }
+      baseDataRef.current = nextBase;
       draftRef.current = nextDraft;
       setDraft(nextDraft);
       setAssessments((items) => [saved, ...items.filter((item) => item.assessment_id !== saved.assessment_id)]);
