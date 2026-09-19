@@ -190,8 +190,8 @@
 }
 
 .folder, .recordFolder {
-  --folder-fill: #ede4d0;
-  --folder-edge: #cbbd9d;
+  --folder-fill: #e8d9b8;
+  --folder-edge: #bca77e;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -294,8 +294,8 @@
   padding: 8px 12px 10px;
   border: 1px solid var(--folder-edge);
   border-bottom: 0;
-  border-radius: 10px 18px 0 0;
-  background: linear-gradient(180deg, #ffffff65, #ffffff00 80%), var(--folder-fill);
+  border-radius: 10px 20px 0 0;
+  background: linear-gradient(180deg, #ffffff80, #ffffff00 85%), var(--folder-fill);
   color: #252a25;
   font-size: 18px;
   font-weight: 700;
@@ -303,16 +303,16 @@
   letter-spacing: -.018em;
   text-align: center;
   overflow-wrap: anywhere;
-  box-shadow: inset 0 1px 0 #fffc, 2px -2px 4px #493b2010;
+  box-shadow: inset 0 1px 0 #fff9, inset 1px 0 0 #fff5, 2px -1px 2px #5945231c;
 }
 
 .tabLabel {
   display: block;
   padding: 3px 9px;
-  border: 1px solid #d8d2c4;
+  border: 1px solid #c9bea8;
   border-radius: 2px;
   background: linear-gradient(#fff, #fffdf8);
-  box-shadow: 0 1px 1px #56472b12;
+  box-shadow: inset 0 1px 2px #5945230d, 0 1px 0 #fff9;
   text-align: center;
 }
 
@@ -323,18 +323,18 @@
   padding: 10px;
   border: 1px solid var(--folder-edge);
   border-radius: 9px;
-  background: linear-gradient(110deg, #ffffff3d, #ffffff00 42%, #75603e0c), var(--folder-fill);
-  box-shadow: inset 0 1px 0 #fff9, inset 0 -3px 0 #9c85581a, 0 2px 3px #43341812, 0 8px 18px #4334180c;
+  background: linear-gradient(110deg, #ffffff45, #ffffff00 48%, #75603e0a), var(--folder-fill);
+  box-shadow: inset 0 1px 0 #fff9, inset 1px 0 0 #fff5, inset 0 -3px 0 #9c855826, 0 2px 2px #43341824, 0 8px 16px -6px #43341826;
 }
 
 .paper {
   display: flex;
   flex: 1;
   flex-direction: column;
-  border: 1px solid #d8d5cb;
+  border: 1px solid #ccc6b8;
   border-radius: 2px;
   background: #ffffff;
-  box-shadow: 0 1px 3px #43341814, 0 3px 0 -1px #faf8f2, 0 4px 0 -1px #cfc6b5;
+  box-shadow: 0 1px 2px #4334181a, 0 3px 0 -1px #faf8f2, 0 4px 0 -1px #c4b798;
 }
 
 .open {
@@ -416,7 +416,7 @@
   }
 
   .folder:hover .body {
-    box-shadow: 0 2px 4px rgb(67 52 24 / 9%), 0 6px 12px rgb(67 52 24 / 8%);
+    box-shadow: inset 0 1px 0 #fff9, inset 1px 0 0 #fff5, inset 0 -3px 0 #9c855826, 0 2px 3px #43341829, 0 10px 20px -6px #4334182e;
   }
 
   .folder:hover .open {
@@ -433,7 +433,7 @@
 }
 
 .folder:active .body {
-  box-shadow: 0 1px 2px rgb(67 52 24 / 8%);
+  box-shadow: inset 0 1px 0 #fff6, inset 0 -2px 0 #9c855826, 0 1px 2px #4334181f;
 }
 
 @media (forced-colors: active) {

@@ -1,6 +1,6 @@
 .header {
-  --folder-edge: #cbbd9d;
-  --folder-fill: #ede4d0;
+  --folder-edge: #bca77e;
+  --folder-fill: #e8d9b8;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -10,13 +10,15 @@
 .tabRow {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 0;
   min-width: 0;
   padding-top: 8px;
   border-bottom: 1px solid var(--folder-edge);
 }
 
 .identity {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   flex: 0 1 290px;
@@ -25,20 +27,20 @@
   margin: 0 0 -1px;
   padding: 7px 10px 8px;
   border: 1px solid var(--folder-edge);
-  border-bottom-color: #ede4d0;
-  border-radius: 10px 18px 0 0;
-  background: linear-gradient(#f9f3e5, var(--folder-fill));
-  box-shadow: inset 0 1px 0 #fffc, 2px -2px 4px #493b2010;
+  border-bottom-color: var(--folder-fill);
+  border-radius: 10px 20px 0 0;
+  background: linear-gradient(180deg, #fbf3df, var(--folder-fill) 85%);
+  box-shadow: inset 0 1px 0 #fff9, inset 1px 0 0 #fff5, 2px -1px 2px #5945231c;
 }
 
 .nameLabel {
   overflow: hidden;
   width: 100%;
   padding: 5px 10px;
-  border: 1px solid #d8d2c4;
+  border: 1px solid #c9bea8;
   border-radius: 2px;
   background: linear-gradient(#fff, #fffdf8);
-  box-shadow: 0 1px 1px #56472b12;
+  box-shadow: inset 0 1px 2px #5945230d, 0 1px 0 #fff9;
   color: #252a25;
   font-size: 18px;
   font-weight: 700;
@@ -60,7 +62,7 @@
   isolation: isolate;
   flex-shrink: 0;
   gap: 0;
-  padding: 5px 4px 0;
+  padding: 5px 0 0;
 }
 .actions { margin-left: auto; }
 .actions > button { min-height: 44px; }
@@ -101,15 +103,14 @@
   font-size: 17px;
   border-color: var(--tab-edge);
   border-top: 2px solid var(--tab-ink);
-  border-radius: 10px 18px 0 0;
-  background: linear-gradient(120deg, #ffffff60, #ffffff00 65%, #162f2310), var(--tab-fill);
-  box-shadow: inset 0 1px 0 #ffffffbf, 3px -1px 4px #263e3214;
+  border-radius: 10px 20px 0 0;
+  background: linear-gradient(180deg, #ffffff80, #ffffff00 36%, #5945230d), var(--tab-fill);
+  box-shadow: inset 0 1px 0 #ffffffbf, inset 1px 0 0 #ffffff60, 2px -1px 2px #43341824;
   color: var(--tab-ink);
-  transform-origin: center bottom;
-  transition: transform 140ms ease, background-color 120ms ease;
+  transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
 }
 
-.stageTab + .stageTab { margin-left: -10px; }
+.stageTab + .stageTab { margin-left: -14px; }
 
 .stageTab[data-folder-stage="2"] {
   --tab-ink: #a44249;
@@ -134,13 +135,28 @@
 
 .stageTab[aria-current="page"] {
   z-index: 3;
-  background-color: var(--tab-active);
+  background: linear-gradient(180deg, var(--tab-active), #f5eddb 66%, var(--folder-fill, #e8d9b8));
   font-weight: 700;
-  transform: scale(1.025, 1.1);
-  box-shadow: inset 0 1px 0 #ffffffd9, 3px -2px 6px #263e3224;
+  transform: translateY(-3px);
+  box-shadow: inset 0 1px 0 #ffffffd9, inset 1px 0 0 #ffffff80, 3px -1px 3px #43341826;
 }
 
-.stageTab:hover { background-color: var(--tab-active); }
+/* Carry the raised tab back to the folder edge without scaling its lettering. */
+.stageTab[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -4px;
+  height: 4px;
+  border-inline: 1px solid var(--tab-edge);
+  background: var(--folder-fill, #e8d9b8);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stageTab:hover:not(:disabled):not([aria-current="page"]) { background-color: var(--tab-active); transform: translateY(-1px); }
+  .stageTab:active:not(:disabled) { transform: none; }
+}
+
 .stageTab:focus-visible { z-index: 4; }
 .stageNumber { font-size: 11px; font-weight: 600; }
 .utilityTab:hover, .utilityTab[aria-current="page"] { background: #e5ebe8; color: #253d32; }
@@ -184,6 +200,10 @@
 .connectedFolder.connectedFolder { margin-top: 0; }
 .connectedFolder > div { border-top: 0; border-radius: 0 0 6px 6px; }
 
+@media (min-width: 1251px) {
+  .identity + .stages { margin-left: -10px; }
+}
+
 .readingWorkspace { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: 4px; }
 .readingWorkspace > .header { flex-shrink: 0; }
 .readingPages, .readingPages > section, .readingPages > section > div { display: flex; flex: 1; flex-direction: column; min-height: 0; }
@@ -209,7 +229,7 @@
 }
 
 @media (min-width: 960px) and (max-width: 1100px) {
-  .tabRow { display: flex; gap: 4px; }
+  .tabRow { display: flex; gap: 0; }
   .identity { flex: 1 1 160px; min-width: 110px; }
   .stages { flex-shrink: 1; max-width: 50%; }
   .stageTab { padding-inline: 18px; }
@@ -238,6 +258,8 @@
   .stageTab, .utilityTab, .createTab { gap: 5px; padding-inline: 10px; font-size: 15px; }
   .stageTab { padding-inline: 18px; font-size: 16px; min-height: 46px; }
   .stageTab + .stageTab { margin-left: -8px; }
+  .stageTab[aria-current="page"] { transform: none; }
+  .stageTab[aria-current="page"]::after { display: none; }
   .utilityTab { width: 44px; padding-inline: 0; }
   .utilityTab span { display: none; }
   .utilityTab { border: 1px solid #d6dad9; border-radius: 5px; }
@@ -289,5 +311,6 @@
     box-shadow: none;
   }
   .stageTab[aria-current="page"], .utilityTab[aria-current="page"] { border-bottom: 3px solid Highlight; }
+  .stageTab[aria-current="page"]::after { display: none; }
   .tabRow .createTab:focus-visible { outline-color: Highlight; }
 }

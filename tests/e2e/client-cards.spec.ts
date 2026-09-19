@@ -41,8 +41,8 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await expect(chartLabel).toHaveCSS("border-left-width", "3px");
       await expect(body.locator(":scope > span > span").first()).toHaveCSS("background-color", "rgb(241, 247, 243)");
       await expect(body).not.toHaveCSS("box-shadow", "none");
-      await expect(tab).toHaveCSS("background-color", "rgb(237, 228, 208)");
-      await expect(body).toHaveCSS("background-color", "rgb(237, 228, 208)");
+      await expect(tab).toHaveCSS("background-color", "rgb(232, 217, 184)");
+      await expect(body).toHaveCSS("background-color", "rgb(232, 217, 184)");
       const tabBounds = await tab.boundingBox();
       const label = tab.locator(":scope > span");
       await expect(label).toHaveCSS("background-color", "rgb(255, 255, 255)");

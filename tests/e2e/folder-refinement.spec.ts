@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { AxeResults } from "axe-core";
+import { clientDirectoryFixture, unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
 for (const engine of ["chromium", "webkit"] as const) {
   for (const width of [1440, 1194, 1024, 834, 640, 390, 320]) {
@@ -84,6 +85,20 @@ test("the prominent create action still saves once and opens the same client's c
         return [box.left + 1, box.right - 1].every((x) => button.contains(document.elementFromPoint(x, box.top + box.height / 2)));
       }))).toBe(true);
     }
+    const tabs = await stages.getByRole("button").all();
+    for (let index = 1; index < tabs.length; index += 1) {
+      const previous = (await tabs[index - 1].boundingBox())!;
+      const current = (await tabs[index].boundingBox())!;
+      const overlap = previous.x + previous.width - current.x;
+      expect(overlap).toBeGreaterThanOrEqual(0);
+      expect(overlap).toBeLessThanOrEqual(16);
+      if (width >= 640) expect(overlap).toBeGreaterThanOrEqual(10);
+    }
+    // Elevation must not stretch type or turn overlap into an unclickable label.
+    expect(await chart.evaluate((element) => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+      return { x: matrix.a, y: matrix.d };
+    })).toEqual({ x: 1, y: 1 });
     await page.screenshot({ path: info.outputPath(`saved-folder-${width}.png`) });
   }
   await page.reload();
@@ -120,3 +135,24 @@ for (const width of [1440, 834, 320]) {
     }
   });
 }
+
+test("client folder material keeps labels readable and the whole folder opens its chart", async ({ page }, info) => {
+  await page.route("**/api/profiles/**", (route) => route.fulfill({ json: unifiedProfileFixture }));
+  await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: clientDirectoryFixture }));
+  await page.goto("/?screen=profiles");
+  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
+  const card = page.getByRole("button", { name: "Open profile for Avery Example", exact: true });
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(card).toBeVisible();
+    const label = card.locator(":scope > strong > span");
+    expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await expect(card.locator(":scope > span")).toHaveCSS("background-color", "rgb(232, 217, 184)");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`client-folder-${width}.png`) });
+  }
+  await card.focus();
+  await card.press("Enter");
+  await expect(page.getByRole("main", { name: "Client profile for Avery Example" })).toBeVisible();
+  await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+});
