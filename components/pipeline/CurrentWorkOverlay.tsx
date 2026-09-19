@@ -29,7 +29,7 @@ export default function CurrentWorkOverlay({
   const dataGeneration = usePipelineDataGeneration();
   const currentBriefing = briefing ?? loadedBriefing;
   const briefingReady = Boolean(currentBriefing);
-  const scopeLabel = currentBriefing?.scope === "team" ? "Team referrals" : "Assigned to you";
+  const scopeLabel = "Owned by you or assigned to you";
   const portalReady = useSyncExternalStore(subscribeToBrowser, browserSnapshot, serverSnapshot);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);

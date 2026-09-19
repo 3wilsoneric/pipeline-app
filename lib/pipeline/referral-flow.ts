@@ -63,3 +63,9 @@ export function referralFlowStateForStatus(status: ReferralWorkflowStatus): Refe
   ) return "complete_chart";
   return "complete";
 }
+
+/** A later reassessment remains current work even after the original outcome. */
+export function isFinishedBoardReferral(item: { workflow_status: string; assessment_is_reassessment?: boolean; flow_state: string }) {
+  return ["admitted", "declined"].includes(item.workflow_status)
+    && (!item.assessment_is_reassessment || item.flow_state === "complete");
+}

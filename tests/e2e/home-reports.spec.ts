@@ -430,11 +430,11 @@ test.describe("role-scoped home and reports", () => {
 
     await page.goto("/");
     const homeModule = page.getByRole("region", { name: "Current work", exact: true });
-    await expect(homeModule.getByRole("heading", { name: "Board", exact: true })).toHaveCount(0);
+    await expect(homeModule.getByRole("heading", { name: "Board", exact: true })).toHaveCount(1);
     await expect(homeModule.getByText("Team referrals", { exact: true })).toHaveCount(0);
     const homeBoard = homeModule.getByRole("region", { name: "Current work board" });
-    await expect(homeBoard.getByRole("button", { name: /^Open / })).toHaveCount(13);
-    for (const stage of ["Referral received", "In progress", "Decision", "Admitted"]) await expect(homeBoard.getByRole("heading", { name: stage })).toBeVisible();
+    await expect(homeBoard.getByRole("button", { name: /^Open / })).toHaveCount(11);
+    for (const stage of ["Referral received", "In progress", "Decision"]) await expect(homeBoard.getByRole("heading", { name: stage })).toBeVisible();
     await expect(page.locator("[data-home-module]").first()).toHaveAttribute("data-home-module", "current-work");
     await expect(page.locator('[data-home-module="upcoming-assessments"]')).toBeVisible();
     await expect(homeModule.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
@@ -442,13 +442,14 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Open current work" }).click();
     const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
     const cards = board.getByRole("button", { name: /^Open / });
-    await expect(cards).toHaveCount(13);
+    await expect(cards).toHaveCount(11);
     await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
-    for (const stage of ["Referral received", "In progress", "Decision", "Admitted"]) await expect(board.getByRole("heading", { name: stage })).toBeVisible();
+    for (const stage of ["Referral received", "In progress", "Decision"]) await expect(board.getByRole("heading", { name: stage })).toBeVisible();
     await expect(board.getByRole("button", { name: "Open Blake Ribbon" })).toContainText("Assessment scheduled");
     await expect(board.getByRole("button", { name: "Open Dana Ribbon" })).toContainText("Under review");
-    await expect(board.getByRole("button", { name: "Open Mara Denied" })).toContainText("Denied");
-    await expect(board.getByRole("button", { name: "Open Nora Admitted" })).toContainText("Admission recorded");
+    await board.locator("summary").click();
+    await expect(board.getByRole("button", { name: /Mara Denied.*Declined/ })).toBeVisible();
+    await expect(board.getByRole("button", { name: /Nora Admitted.*Admitted/ })).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => board.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
     await board.getByRole("combobox", { name: "Referral stage" }).selectOption("in_progress");
@@ -458,7 +459,7 @@ test.describe("role-scoped home and reports", () => {
     await page.goBack();
     await board.getByRole("combobox", { name: "Referral stage" }).selectOption("in_progress");
     await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
-    await expect(board.locator('button[aria-label^="Open "]')).toHaveCount(13);
+    await expect(board.locator('button[aria-label^="Open "]')).toHaveCount(11);
   });
 
   test("runs a report, exposes only contextual filters, and exports the current scope", async ({ page }) => {
