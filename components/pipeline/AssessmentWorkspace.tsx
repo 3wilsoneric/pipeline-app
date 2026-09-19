@@ -29,6 +29,7 @@ import type { ReferralChartEditField } from "@/lib/pipeline/client-chart-context
 import WorkspaceClientChart from "@/components/pipeline/TransferredWorkspaceChart";
 import type {
   AssessmentListResponse,
+  AssessmentPatchInput,
   PipelineAssessmentRecord,
 } from "@/lib/assessment/assessment-records";
 import { isAssessmentFinalized } from "@/lib/assessment/assessment-records";
@@ -106,6 +107,8 @@ import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSch
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 import AssessmentPreparation, { PreparationNavigation, AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
 import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
+import AssessmentExcelBackup from "@/components/pipeline/AssessmentExcelBackup";
+import { validateAssessmentPatchRequest } from "@/lib/assessment/assessment-validation";
 import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
 import phoneStyles from "@/components/pipeline/AssessmentPhoneInterview.module.css";
 import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
@@ -902,7 +905,7 @@ export default function AssessmentWorkspace({
     }
   }, []);
 
-  const saveSectionNow = useCallback(async (section: AssessmentToolSection, captured?: Partial<AssessmentToolData>) => {
+  const saveSectionNow = useCallback(async (section: AssessmentToolSection, captured?: Partial<AssessmentToolData>, workbook?: AssessmentPatchInput["workbook_restore"]) => {
     const initial = selectedRef.current;
     if (!canSaveAssessmentSection(initial, dirtySectionsRef.current, section, Boolean(captured))) return;
     let current = initial;
@@ -923,7 +926,7 @@ export default function AssessmentWorkspace({
             ? { if_match_referral_name: referral?.name ?? current.resident_name }
             : {}),
           client_mutation_id: mutationId(`assessment-${section}`),
-          patch: { data: sentData },
+          patch: { data: sentData, ...(workbook ? { workbook_restore: workbook } : {}) },
         });
     };
     const persistSectionAnswers = async () => {
@@ -1019,9 +1022,19 @@ export default function AssessmentWorkspace({
       && initialization.principal === offlinePrincipal;
     offlineSyncRef.current = true;
     try {
+      const staleWorkbooks: Array<{ url: string; section: AssessmentToolSection; data: Partial<AssessmentToolData>; source: NonNullable<AssessmentPatchInput["workbook_restore"]> }> = [];
       const result = await flushOfflineAssessmentMutations(offlinePrincipal, async (mutation) => {
         const next = saveQueueRef.current.then(async () => {
-          const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(mutation.url, { method: mutation.method, body: mutation.body });
+          let payload: { assessment: PipelineAssessmentRecord };
+          try {
+            payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(mutation.url, { method: mutation.method, body: mutation.body });
+          } catch (failure) {
+            const failed = JSON.parse(mutation.body) as { section?: AssessmentToolSection; patch?: AssessmentPatchInput };
+            if (failure instanceof PipelineApiError && failure.status === 409 && failed.section && failed.patch?.data && failed.patch.workbook_restore) {
+              staleWorkbooks.push({ url: mutation.url, section: failed.section, data: failed.patch.data, source: failed.patch.workbook_restore });
+            }
+            throw failure;
+          }
           if (!isCurrentSync()) return;
           const current = selectedRef.current;
           const saved = payload.assessment;
@@ -1042,26 +1055,33 @@ export default function AssessmentWorkspace({
       });
       if (!isCurrentSync()) return;
       setPendingOfflineSaves(result.remaining);
-      const reconcileOfflineResult = async () => {
-        const current = selectedRef.current;
-        if (current && result.completed + result.conflicts > 0) {
-          try {
-            const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-              `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
-              { cache: "no-store" },
-            );
-            // A -> B -> A and principal switches are new sessions too. Never use
-            // the newly open assessment's clean refs to discard the old draft.
-            if (!isCurrentSync()) return;
-            receiveRemoteAssessment(payload.assessment, false);
-            if (result.conflicts > 0) {
-              setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
-            } else {
-              setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : "Offline changes synced");
-              if (result.remaining + dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
-            }
-          } catch {
-            // The normal active-assessment poll will reconcile the saved version.
+      const current = selectedRef.current;
+      if (current && result.completed + result.conflicts > 0) {
+        try {
+          const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+            `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+            { cache: "no-store" },
+          );
+          receiveRemoteAssessment(payload.assessment, false);
+          // A preceding queued edit can advance this section's version. Rebase
+          // only still-current workbook answers after the canonical three-way
+          // merge; never replay over another person's conflicting edit.
+          for (const workbook of staleWorkbooks) {
+            if (workbook.url !== `/api/assessments/${encodeURIComponent(current.assessment_id)}`) continue;
+            const retry = saveQueueRef.current.then(async () => {
+              if (selectedRef.current?.assessment_id !== current.assessment_id || hasSectionConflict(remoteChangeRef.current, workbook.section)) return;
+              const stillCurrent = Object.fromEntries(Object.entries(workbook.data).filter(([key, value]) => sameAssessmentValue(draftRef.current[key as AssessmentToolFieldKey], value)));
+              if (Object.keys(stillCurrent).length) await saveSectionNow(workbook.section, stillCurrent, workbook.source);
+            });
+            saveQueueRef.current = retry.catch(() => undefined);
+            await retry;
+          }
+          if (remoteChangeRef.current?.conflicts.length) {
+            setMessage("Offline changes need conflict review");
+          } else {
+            setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : dirtySectionsRef.current.size > 0 ? "Changes saved on this device; waiting to sync" : "Offline changes synced");
+            if (result.remaining + dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+          if (!isCurrentSync()) return;
           }
         }
       };
@@ -1069,7 +1089,7 @@ export default function AssessmentWorkspace({
     } finally {
       offlineSyncRef.current = false;
     }
-  }, [offlinePrincipal, receiveRemoteAssessment]);
+  }, [offlinePrincipal, receiveRemoteAssessment, saveSectionNow]);
 
   useEffect(() => {
     if (!offlinePrincipal) return;
@@ -1097,10 +1117,10 @@ export default function AssessmentWorkspace({
     };
   }, [offlinePrincipal, syncOfflineChanges]);
 
-  const queueSectionSave = useCallback((section: AssessmentToolSection, captured?: Partial<AssessmentToolData>, expectedAssessmentId?: string) => {
+  const queueSectionSave = useCallback((section: AssessmentToolSection, captured?: Partial<AssessmentToolData>, expectedAssessmentId?: string, workbook?: AssessmentPatchInput["workbook_restore"]) => {
     const next = saveQueueRef.current.then(() => {
       if (expectedAssessmentId && selectedRef.current?.assessment_id !== expectedAssessmentId) return;
-      return saveSectionNow(section, captured);
+      return saveSectionNow(section, captured, workbook);
     });
     saveQueueRef.current = next.catch(() => undefined);
     return next;
@@ -1124,6 +1144,27 @@ export default function AssessmentWorkspace({
       window.history.replaceState(window.history.state, "", url);
     }).catch(() => undefined); // Canonical saving retains the draft and its error/conflict feedback.
   }, [flushDirtySections, offlineReturnToSync]);
+
+  const restoreWorkbook = async (patch: Partial<AssessmentToolData>, expected: AssessmentToolData, source: NonNullable<AssessmentPatchInput["workbook_restore"]>) => {
+    const current = selectedRef.current;
+    if (!current || current.signed_at || isAssessmentFinalized(current) || !canEditClinical || isBusy || isClosing) throw new Error("This assessment cannot accept Excel changes right now.");
+    if (JSON.stringify(draftRef.current) !== JSON.stringify(expected) || remoteChangeRef.current?.conflicts.length) throw new Error("The assessment changed while reviewing Excel. Review the current answers before applying.");
+    const validation = validateAssessmentPatchRequest({ if_match: current.version, patch: { data: patch, workbook_restore: source } });
+    if (!validation.ok) throw new Error(validation.message);
+    const next = pickAssessmentToolData({ ...draftRef.current, ...patch });
+    draftRef.current = next;
+    dirtySectionsRef.current = dirtyAssessmentSections(next, baseDataRef.current);
+    setDraft(next); setDirtySections(new Set(dirtySectionsRef.current));
+    setMessage("Restored answers; saving changes...");
+    // Preserve the full restored working copy before starting per-section saves.
+    // The existing queue owns retries, authorization, optimistic versions and sync.
+    if (!trainingAssessmentMode) await persistRecoveryDraft(current);
+    for (const section of new Set(Object.keys(patch).map((key) => assessmentToolFieldDefinitions.find((field) => field.key === key)!.section))) {
+      if (selectedRef.current?.assessment_id !== current.assessment_id) throw new Error("The open assessment changed. Return to the original assessment to finish restoring its saved draft.");
+      const captured = Object.fromEntries(Object.entries(patch).filter(([key]) => fieldsForAssessmentSection(section).includes(key as AssessmentToolFieldKey))) as Partial<AssessmentToolData>;
+      await queueSectionSave(section, captured, current.assessment_id, source);
+    }
+  };
 
   const saveBeforeExit = async () => {
     const current = selectedRef.current;
@@ -1600,7 +1641,9 @@ export default function AssessmentWorkspace({
     {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} disabled={isBusy || isClosing}><Play size={15} />Begin assessment</button> : null}
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
   </> : null;
-  const assessmentDetails = renderAssessmentDetails();
+  const assessmentDetails = <>{renderAssessmentDetails()}
+    <AssessmentExcelBackup key={selected.assessment_id} identity={{ assessmentId: selected.assessment_id, referralId: selected.referral_id }} data={draft} readOnly={Boolean(selected.signed_at) || isAssessmentFinalized(selected) || !canEditClinical || isBusy || isClosing} onApply={restoreWorkbook} />
+  </>;
   const nextConversationSection = () => {
     setWorkingTarget(null);
     if (nextSection) setActiveSection(nextSection.key);

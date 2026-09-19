@@ -1402,6 +1402,7 @@ function prepareAssessmentPatch(
   patch: AssessmentPatchInput,
   actor: AssessmentActor,
 ) {
+  if (patch.workbook_restore && current.signed_at) throw new Error("Excel restore cannot change a signed assessment.");
   if (isAssessmentFinalized(current) && (
     patch.data !== undefined
     || patch.review_extraction !== undefined
@@ -1446,7 +1447,7 @@ function prepareAssessmentPatch(
       .map((review) => review.field),
   );
   for (const key of changedFields) {
-    if (!rejectedWithoutEdit.has(key)) appendManualProvenance(fieldProvenance, key);
+    if (!rejectedWithoutEdit.has(key)) appendManualProvenance(fieldProvenance, key, patch.workbook_restore);
   }
   const acceptedFields = patch.accept_pending
     ? acceptPendingProvenance(fieldProvenance)
@@ -1507,7 +1508,7 @@ function prepareAssessmentPatch(
     candidate,
     completesAssessment: nextStatus === "complete" && current.status !== "complete",
     changedFields: Array.from(new Set([...changedFields, ...reviewedFields])),
-    action: assessmentPatchAuditAction(current, patch, nextStatus, reviewedFields.length),
+    action: patch.workbook_restore ? "assessment_imported" as const : assessmentPatchAuditAction(current, patch, nextStatus, reviewedFields.length),
   };
 }
 
@@ -1596,14 +1597,15 @@ function importedAssessmentLifecycle(current: PipelineAssessmentRecord | null): 
 function appendManualProvenance(
   provenance: PipelineAssessmentRecord["field_provenance"],
   key: AssessmentToolFieldKey,
+  workbook?: AssessmentPatchInput["workbook_restore"],
 ) {
   appendProvenance(provenance, key, {
-    source_field_key: `manual.${key}`,
-    source_file: null,
+    source_field_key: `${workbook ? "workbook" : "manual"}.${key}`,
+    source_file: workbook ? `Excel backup ${workbook.export_id}` : null,
     confidence: 1,
     review_status: "edited",
     source_page_no: null,
-    evidence_url: null,
+    evidence_url: workbook ? `workbook://${workbook.export_id}?exported=${encodeURIComponent(workbook.exported_at)}` : null,
   });
 }
 
