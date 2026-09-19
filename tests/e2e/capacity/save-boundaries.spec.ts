@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { createOperationalReferral, createOperationalAssessment } from '../support/operational-api';
 import { operationalHeadersForActor, type PipelineActor } from '../support/pipeline-actors';
 import { clientDirectoryFixture } from '../support/pipeline-clinical-fixtures';
+import { pickAssessmentToolData } from '../../../lib/assessment/assessment-tool-schema';
 
 test.beforeEach(async ({ baseURL }, testInfo) => {
   test.skip(testInfo.config.metadata.pipelineCapacityRehearsal !== true, 'Dedicated synthetic capacity configuration only');
@@ -180,6 +181,41 @@ test('assessment same-answer conflict survives a different answer save and reope
     await b.page.getByRole('button', { name: 'Keep mine', exact: true }).click();
     await expect.poll(async () => (await (await b.context.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.referrer_contact).toBe('Synthetic second answer');
   } finally { await Promise.all([a.context.close(), b.context.close()]); }
+});
+
+test('late assessment recovery restores untouched answers without replacing newly typed input', async ({ browser, baseURL }) => {
+  const s = await session(browser, baseURL!, 12, { width: 1365, height: 900 });
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    const referral = await seed(s);
+    const created = await createOperationalAssessment(s.context.request, referral.id);
+    const assessment = (await (await s.context.request.get(`/api/assessments/${created.assessment_id}`)).json()).assessment;
+    const base = pickAssessmentToolData(assessment);
+    const path = `/api/me/assessment-drafts/${created.assessment_id}`;
+    expect((await s.context.request.put(path, { data: { if_match: 0, draft: {
+      schema: 1, assessmentId: created.assessment_id, referralId: referral.id,
+      savedAt: new Date().toISOString(), baseVersion: assessment.version,
+      sectionVersions: assessment.section_versions, dirtySections: ['identity'], activeSection: 'identity',
+      data: { ...base, referrer_contact: 'Older unsaved contact', assessment_date: '2026-09-18' }, baseData: base,
+    } } })).ok()).toBe(true);
+    let captured = 0;
+    await s.page.route(`**${path}`, async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      const response = await route.fetch(); captured++;
+      await gate; await route.fulfill({ response });
+    });
+    await s.page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await expect.poll(() => captured).toBeGreaterThan(0);
+    const contact = s.page.getByRole('textbox', { name: 'Referrer contact', exact: true });
+    await contact.fill('Newer input during recovery');
+    release();
+    await expect(s.page.getByRole('button', { name: 'Edit Assessment date', exact: true })).toContainText('2026-09-18');
+    await expect(contact).toHaveValue('Newer input during recovery');
+    expect((await (await s.context.request.get(`/api/assessments/${created.assessment_id}`)).json()).assessment.referrer_contact).toBeNull();
+    await contact.blur();
+    await expect.poll(async () => (await (await s.context.request.get(`/api/assessments/${created.assessment_id}`)).json()).assessment.referrer_contact).toBe('Newer input during recovery');
+  } finally { release(); await s.context.close(); }
 });
 
 test('uploaded document survives a lost completion reply, previews and remains a single file', async ({ browser, baseURL }) => {

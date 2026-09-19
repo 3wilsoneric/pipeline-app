@@ -324,7 +324,8 @@ export default function AssessmentWorkspace({
   const localRecoveryQueueRef = useRef<Promise<void>>(Promise.resolve());
   const offlineSyncRef = useRef(false);
   const closingRef = useRef(false);
-  const initializedAssessmentIdRef = useRef("");
+  const initializedAssessmentIdRef = useRef<{ id: string; principal: string } | null>(null);
+  const touchedFieldsRef = useRef(new Set<AssessmentToolFieldKey>());
   const focusedAssessmentIdRef = useRef("");
   const preparationRequestedRef = useRef(false);
   const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string } | null>(null);
@@ -428,6 +429,7 @@ export default function AssessmentWorkspace({
   }, []);
 
   const loadRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord, currentData: AssessmentToolData) => {
+    const initialization = initializedAssessmentIdRef.current;
     let recovered: PipelineAssessmentDraft | null = null;
     let recoveredVersion = 0;
     if (offlinePrincipal) {
@@ -455,24 +457,31 @@ export default function AssessmentWorkspace({
         // Browser recovery remains available during a transient server-state outage.
       }
     }
+    if (initializedAssessmentIdRef.current !== initialization || selectedRef.current?.assessment_id !== assessment.assessment_id) return;
     draftVersionRef.current = recoveredVersion;
     if (!recovered || recovered.assessmentId !== assessment.assessment_id) return;
     // Reading position is useful even when every answer already reached the server.
-    if (!initialSection || initialSection === recovered.activeSection) {
+    if (touchedFieldsRef.current.size === 0 && (!initialSection || initialSection === recovered.activeSection)) {
       if (recovered.activeSection) setActiveSection(recovered.activeSection);
       if (recovered.activeQuestion) setWorkingTarget({ field: recovered.activeQuestion });
     }
     if (recovered.dirtySections.length === 0) return;
 
-    const merged = pickAssessmentToolData(currentData);
-    const conflicts: AssessmentFieldConflict[] = [];
+    // Recovery may finish after the assessor has already typed or saved. Only
+    // restore untouched fields; a late read must never erase newer input.
+    currentData = pickAssessmentToolData(selectedRef.current);
+    const merged = pickAssessmentToolData(draftRef.current);
+    const recoveredBase = pickAssessmentToolData(baseDataRef.current);
+    const conflicts: AssessmentFieldConflict[] = [...(remoteChangeRef.current?.conflicts ?? [])];
     for (const definition of assessmentToolFieldDefinitions) {
       const field = definition.key;
+      if (touchedFieldsRef.current.has(field)) continue;
       const localChanged = !sameAssessmentValue(recovered.data[field], recovered.baseData[field]);
       if (!localChanged) continue;
       const remoteChanged = !sameAssessmentValue(currentData[field], recovered.baseData[field]);
       merged[field] = recovered.data[field] as never;
       if (remoteChanged && !sameAssessmentValue(recovered.data[field], currentData[field])) {
+        recoveredBase[field] = recovered.baseData[field] as never;
         conflicts.push({
           field,
           localValue: recovered.data[field],
@@ -483,16 +492,16 @@ export default function AssessmentWorkspace({
     }
     // Keep the pre-conflict comparison value until the assessor chooses an
     // answer. Otherwise the next persisted draft loses the conflict on reopen.
-    const recoveredBase = pickAssessmentToolData(currentData);
-    for (const conflict of conflicts) recoveredBase[conflict.field] = recovered.baseData[conflict.field] as never;
     baseDataRef.current = recoveredBase;
     draftRef.current = merged;
     setDraft(merged);
     const recoveredDirty = dirtyAssessmentSections(merged, currentData);
     dirtySectionsRef.current = recoveredDirty;
     setDirtySections(recoveredDirty);
-    setActiveSection((current) => initialSection ?? recovered.activeSection ?? current);
-    setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
+    if (touchedFieldsRef.current.size === 0) setActiveSection((current) => initialSection ?? recovered.activeSection ?? current);
+    const change = conflicts.length > 0 ? { assessment: selectedRef.current, conflicts } : null;
+    remoteChangeRef.current = change;
+    setRemoteChange(change);
     setMessage(conflicts.length > 0
       ? "Restored answers · review conflicting changes"
       : recoveredDirty.size > 0 ? "Restored answers · not yet saved" : "All changes saved");
@@ -665,15 +674,24 @@ export default function AssessmentWorkspace({
 
   useEffect(() => {
     if (!selected) return;
-    const initializationKey = `${selected.assessment_id}:${offlinePrincipal || "server"}`;
-    if (initializedAssessmentIdRef.current === initializationKey) return;
-    initializedAssessmentIdRef.current = initializationKey;
+    const previous = initializedAssessmentIdRef.current;
+    if (previous?.id === selected.assessment_id && previous.principal === offlinePrincipal) return;
+    const attachingPrincipal = previous?.id === selected.assessment_id && !previous.principal && Boolean(offlinePrincipal);
+    initializedAssessmentIdRef.current = { id: selected.assessment_id, principal: offlinePrincipal };
     const data = pickAssessmentToolData(selected);
-    selectedRef.current = selected;
-    baseDataRef.current = data;
-    setDraft(data);
-    setDirtySections(new Set());
-    setRemoteChange(null);
+    // Resolving the signed-in identity enables encrypted recovery; it does not
+    // open a different assessment or authorize resetting work already entered.
+    if (!attachingPrincipal) {
+      touchedFieldsRef.current.clear();
+      selectedRef.current = selected;
+      baseDataRef.current = data;
+      draftRef.current = data;
+      setDraft(data);
+      dirtySectionsRef.current = new Set();
+      setDirtySections(dirtySectionsRef.current);
+      remoteChangeRef.current = null;
+      setRemoteChange(null);
+    }
     setScheduleStart(isoToOperationalInput(selected.scheduled_start_at));
     setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
     setScheduleMethod(normalizeScheduleMethod(selected.scheduled_method));
@@ -1343,6 +1361,7 @@ export default function AssessmentWorkspace({
   };
 
   const updateField = (key: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => {
+    touchedFieldsRef.current.add(key);
     const next = setAssessmentValue(draftRef.current, key, value);
     draftRef.current = next;
     setDraft(next);
@@ -1356,6 +1375,7 @@ export default function AssessmentWorkspace({
     const change = remoteChangeRef.current;
     const conflict = change?.conflicts.find((item) => item.field === field);
     if (!change || !conflict) return;
+    touchedFieldsRef.current.add(field);
     const nextDraft = pickAssessmentToolData(draftRef.current);
     const nextBase = pickAssessmentToolData(baseDataRef.current);
     if (useLatest) nextDraft[field] = conflict.remoteValue as never;

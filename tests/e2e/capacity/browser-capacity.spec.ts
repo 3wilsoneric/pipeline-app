@@ -12,6 +12,8 @@ test('sustained browser saves survive alternating application instances', async 
   test.skip(testInfo.config.metadata.pipelineCapacityRehearsal !== true, 'Opt in with playwright.capacity.config.ts; never run as part of the ordinary browser suite');
   const users = Number(process.env.PIPELINE_CAPACITY_USERS ?? 100);
   const actorOffset = Number(process.env.PIPELINE_CAPACITY_ACTOR_OFFSET ?? 0);
+  const navigationMode = process.env.PIPELINE_CAPACITY_NAVIGATION ?? 'reload';
+  if (!['reload', 'in-app'].includes(navigationMode)) throw Error('Unknown capacity navigation mode');
   if (!Number.isInteger(actorOffset) || actorOffset < 0 || actorOffset + users > 100) throw Error('Distinct distributed actors must remain inside the synthetic allowlist');
   const candidate = process.env.PIPELINE_CAPACITY_COMMIT ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   if (!/^[a-f0-9]{40}$/.test(candidate)) throw Error('Exact candidate commit required');
@@ -106,9 +108,11 @@ test('sustained browser saves survive alternating application instances', async 
         cycle++;
         if (cycle % 3 === 0) {
           const navigationStarted = Date.now();
-          await page.goto('/?screen=calendar');
+          if (navigationMode === 'reload') await page.goto('/?screen=calendar');
+          else await page.getByRole('button', { name: 'Open calendar', exact: true }).click();
           await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeVisible();
-          await page.goto(`/?view=referrals&screen=packet&referralId=${id}`);
+          if (navigationMode === 'reload') await page.goto(`/?view=referrals&screen=packet&referralId=${id}`);
+          else await page.goBack();
           await intakeChart(page).getByRole('button', { name: field === 'phone' ? 'Edit Phone' : 'Edit Email', exact: true }).click();
           await expect(input).toHaveValue(value);
           navigationMs.push(Date.now() - navigationStarted);
@@ -143,6 +147,7 @@ test('sustained browser saves survive alternating application instances', async 
   } finally {
     if (sampler) clearInterval(sampler);
     delay.disable();
+    await testInfo.attach('workload-profile', { body: JSON.stringify({ navigationMode, actorOffset, users }), contentType: 'application/json' });
     const sorted = ledger.map(entry => entry.ms).sort((a, b) => a - b);
     await testInfo.attach('capacity-evidence', { body: Buffer.from(JSON.stringify({ runId, candidate_commit: candidate, application_baseline: 'ccd474433c05001ed621c30643bde3f1b3e8a201', environment: 'loopback-postgres-two-process-synthetic-auth', requested_users: users, created_sessions: sessions.length, actors_with_confirmed_saves: new Set(ledger.map(entry => entry.actor)).size, measuredStart, measuredEnd, browser_processes: browsers.length, backendCounts, overlap, processMemory, calendar_and_return_navigation_ms: navigationMs, saves: ledger.length, p95_save_ms: sorted[Math.ceil(sorted.length * .95) - 1] ?? null, p99_save_ms: sorted[Math.ceil(sorted.length * .99) - 1] ?? null, generator_event_loop_p99_ms: delay.percentile(99) / 1e6, errors, ledger, limits: ['Not Entra sign-in or Azure production performance certification', 'Current workload: intake save/cross-replica reads/calendar navigation; assessment/upload/fault waves remain separate'] }, null, 2)), contentType: 'application/json' });
     await Promise.allSettled(sessions.map(session => session.context.close()));
