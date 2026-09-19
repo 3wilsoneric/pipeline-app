@@ -50,6 +50,7 @@ import {
   setAssessmentUnableReason,
 } from "@/lib/assessment/assessment-interview-schema";
 import {
+  fieldsForAssessmentSection,
   normalizeAssessmentSectionVersions,
 } from "@/lib/assessment/assessment-sections";
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
