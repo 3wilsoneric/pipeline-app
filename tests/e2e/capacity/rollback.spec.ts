@@ -1,0 +1,52 @@
+import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import postgres from 'postgres';
+import { createOperationalReferral, createOperationalAssessment } from '../support/operational-api';
+import { operationalHeadersForActor, type PipelineActor } from '../support/pipeline-actors';
+import { clientDirectoryFixture } from '../support/pipeline-clinical-fixtures';
+
+test('previous release and restarted process retain writes made by the new application', async ({ browser, baseURL }, info) => {
+  test.skip(info.config.metadata.pipelineCapacityRehearsal !== true || process.env.PIPELINE_CAPACITY_ROLLBACK !== 'true', 'Explicit disposable Linux rollback rehearsal only');
+  const db = new URL(process.env.PIPELINE_TEST_DATABASE_URL ?? '');
+  if (baseURL !== 'http://127.0.0.1:4177' || db.hostname !== '127.0.0.1' || !db.pathname.startsWith('/pipeline_capacity_') || process.platform !== 'linux') throw Error('Isolated rollback environment required');
+  const actor: PipelineActor = { id: `rollback-${randomUUID()}`, name: 'Synthetic Rollback Assessor', email: 'capacity-90@pipeline.local', roleClaim: 'Pipeline.Reviewer', expectedRoles: ['reviewer', 'viewer'] };
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders: operationalHeadersForActor(actor, baseURL), viewport: { width: 1440, height: 950 } });
+  const sql = postgres(db.href, { ssl: false, max: 1 });
+  const old = 'http://127.0.0.1:4180';
+  await context.route('**/api/profiles/directory**', route => route.fulfill({ json: { ...clientDirectoryFixture, clients: [], total: 0, next_cursor: null } }));
+  const page = await context.newPage();
+  try {
+    const referral = await createOperationalReferral(context.request, actor, { name: `Synthetic ${randomUUID().replace(/[^a-z]/g, '')}`, phone: '', email: '', documentName: '', documentStatus: 'Missing' });
+    const assessment = await createOperationalAssessment(context.request, referral.id);
+    const url = `/?view=referrals&screen=packet&referralId=${referral.id}`;
+    await page.goto(url);
+    await page.locator('article[aria-label="Referral chart"]:not([data-testid="profile-workspace"] article)').getByRole('button', { name: 'Edit Phone', exact: true }).click();
+    const phone = page.getByRole('textbox', { name: 'Client phone:', exact: true });
+    await phone.fill('555-0711'); await phone.blur();
+    const read = async (origin: string) => (await (await context.request.get(`${origin}/api/referrals/${referral.id}`)).json()).referral;
+    await expect.poll(async () => (await read(old)).phone).toBe('555-0711');
+    expect((await context.request.patch(`/api/assessments/${assessment.assessment_id}`, { data: { if_match: assessment.version, client_mutation_id: randomUUID(), patch: { data: { referrer_contact: 'New-release answer retained through rollback' } } } })).ok()).toBe(true);
+    await page.goto(`${old}${url}`);
+    await page.locator('article[aria-label="Referral chart"]:not([data-testid="profile-workspace"] article)').getByRole('button', { name: 'Edit Phone', exact: true }).click();
+    await expect(phone).toHaveValue('555-0711');
+    await phone.fill('555-0722'); await phone.blur();
+    await expect.poll(async () => (await read(baseURL)).phone).toBe('555-0722');
+    const oldPid = (await promisify(execFile)('systemctl', ['show', 'pipeline-rollback-old', '--property=MainPID', '--value'])).stdout.trim();
+    expect(Number(oldPid)).toBeGreaterThan(1);
+    await promisify(execFile)('sudo', ['systemctl', 'kill', '--signal=SIGKILL', 'pipeline-rollback-old']);
+    await expect.poll(async () => (await promisify(execFile)('systemctl', ['show', 'pipeline-rollback-old', '--property=MainPID', '--value'])).stdout.trim()).not.toBe(oldPid);
+    await expect.poll(async () => { try { return (await context.request.get(`${old}/api/health/live`)).status(); } catch { return 0; } }).toBe(200);
+    expect((await read(old)).phone).toBe('555-0722');
+    const retained = (await (await context.request.get(`${old}/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+    expect(retained.referrer_contact).toBe('New-release answer retained through rollback');
+    expect(retained.signed_at).toBeNull();
+    await page.goto(url);
+    await page.locator('article[aria-label="Referral chart"]:not([data-testid="profile-workspace"] article)').getByRole('button', { name: 'Edit Phone', exact: true }).click();
+    await expect(phone).toHaveValue('555-0722');
+    const audit = await sql`select after_values->>'phone' as value, count(*)::int as count from pipeline.audit_events where entity_type='referral' and entity_id=${String(referral.id)} and after_values->>'phone' in ('555-0711','555-0722') group by after_values->>'phone' order by value`;
+    expect(audit).toEqual([{ value: '555-0711', count: 1 }, { value: '555-0722', count: 1 }]);
+    await info.attach('rollback-evidence', { body: JSON.stringify({ previous_release: 'ccd474433c05001ed621c30643bde3f1b3e8a201', current_candidate: process.env.PIPELINE_CAPACITY_COMMIT, new_write_read_by_old: true, old_write_read_by_new: true, killed_process_restarted: true, new_assessment_answer_retained: true, independent_audit: audit, database_restored_during_rollback: false, production_access: false }), contentType: 'application/json' });
+  } finally { await context.close(); await sql.end(); }
+});

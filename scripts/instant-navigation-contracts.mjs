@@ -5,6 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const require = createRequire(import.meta.url);
 function load(file, stubs = {}, extra = {}) {
@@ -94,7 +95,7 @@ const proxy = load("proxy.ts", {
   },
   "@/lib/auth/canonical-origin": { getCanonicalPageRedirect: () => null },
   "@/lib/pipeline/base-path": { fromPipelinePath: (path) => path, toPipelinePath: (path) => path },
-  "@/shared/pipeline-security-headers.mjs": { PIPELINE_PERMISSIONS_POLICY: "fixture" },
+  "@/shared/pipeline-security-headers.mjs": require("../shared/pipeline-security-headers.mjs"),
 });
 function proxyRequest(path) {
   const url = new URL(path, "https://pipeline.invalid");
@@ -126,6 +127,10 @@ assert.match(renderToStaticMarkup(React.createElement(Provider, { initialUser: {
 assert.equal(renderToStaticMarkup(React.createElement(Provider, {}, visible)), "<p>Authenticating</p>");
 
 const Header = load("components/pipeline/PipelineHeader.tsx", {
+  "@/components/pipeline/PipelinePhoneNotifications": () => null,
+  "@/lib/pipeline/work-continuity": loadTypeScriptModule(process.cwd(), "lib/pipeline/work-continuity.ts"),
+  "@/components/pipeline/PipelineMobileShell.module.css": {},
+  "@/lib/pipeline/referral-ownership": loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts"),
   "next/link": ({ children, ...props }) => { delete props.prefetch; return React.createElement("a", props, children); },
   "next/navigation": { usePathname: () => "/", useSearchParams: () => new URLSearchParams(), useRouter: () => ({ prefetch() {} }) },
   "@/components/pipeline/AssessorSessionControl": { ActiveAssessorSessionPill: () => null, AssessorSessionMenuAction: () => null },
@@ -138,7 +143,7 @@ const Header = load("components/pipeline/PipelineHeader.tsx", {
   "@/lib/auth/browser-session": { pipelinePageHeaders: () => ({}) },
   "@/components/auth/PipelineAuthProvider": { usePipelineAuth: providerModule.usePipelineAuth },
   "@/lib/pipeline/client-navigation": { usePipelineLocationSearch: () => "" },
-  "@/lib/pipeline/base-path": {},
+  "@/lib/pipeline/base-path": loadTypeScriptModule(process.cwd(), "lib/pipeline/base-path.ts"),
   "@/lib/pipeline/report-access": { canAccessOperationsReports: (principal) => principal?.roles.includes("admin") },
   "@/lib/training/operator-guided-tour-state": {},
 }).default;
@@ -258,6 +263,7 @@ let linksStarted = false;
 let linksFail = false;
 const clinical = { client: { canonical_client_id: "fixture", resident_numbers: ["1"], current_resident: true, resident_profile: { facility_id: "F", res_number: "1" } } };
 const unified = load("lib/pipeline/unified-profile.ts", {
+  "./referral-ownership": loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts"),
   "./workspace-presentation": { isImportedWorkspace: () => false },
   "./historical-profile-store": {},
   "@/lib/assessment/assessment-store": { getAssessmentStoreReadiness: () => ({ ready: false }) },

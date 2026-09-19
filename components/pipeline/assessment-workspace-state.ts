@@ -68,6 +68,20 @@ export function sameAssessmentValue(
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+export function canRebaseAssessmentAnswers(
+  base: PipelineAssessmentRecord,
+  latest: PipelineAssessmentRecord,
+  answers: Partial<AssessmentToolData>,
+) {
+  if (base.assessment_id !== latest.assessment_id || latest.version <= base.version || isAssessmentFinalized(latest)) return false;
+  // Renaming also checks the referral's identity; never retry that lifecycle race.
+  if (answers.resident_name !== undefined) return false;
+  return Object.entries(answers).every(([key, value]) => {
+    const field = key as AssessmentToolFieldKey;
+    return sameAssessmentValue(base[field], latest[field]) || sameAssessmentValue(value, latest[field]);
+  });
+}
+
 export function assessmentFromConflict(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
   const assessment = (payload as { assessment?: unknown }).assessment;
@@ -149,8 +163,10 @@ export function canSaveAssessmentSection(
 export function hasSectionConflict(
   remoteChange: AssessmentRemoteChange | null,
   section: AssessmentToolSection,
+  fields?: Partial<AssessmentToolData>,
 ) {
-  return Boolean(remoteChange?.conflicts.some((conflict) => conflict.section === section));
+  return Boolean(remoteChange?.conflicts.some((conflict) => conflict.section === section
+    && (!fields || Object.hasOwn(fields, conflict.field))));
 }
 
 export function isOfflineAssessmentSave(error: unknown, offlinePrincipal: string): error is PipelineApiError {

@@ -103,15 +103,19 @@ export function buildReferralCanvasPatch(input: {
   packet?: { name: string; size: number; hash: string };
 }): ReferralPatch {
   const patch: ReferralPatch = {};
+  const sources = { ...input.existingFieldSources };
   let fieldChanged = false;
   for (const key of persistedCanvasFieldKeys.filter((key) => key !== "admissionDate")) {
     // Intake cannot record an actual admission, including recovered older drafts.
     if (!input.keys.has(key)) continue;
     fieldChanged = true;
     (patch as Record<string, unknown>)[referralPatchKeyByCanvasField[key]] = input.fields[key].value;
+    const source = input.fields[key].sourceFile?.trim();
+    if (source) sources[key] = source;
+    else delete sources[key];
   }
   if (fieldChanged) {
-    patch.fieldSources = intakeFieldSources(input.fields, input.existingFieldSources);
+    patch.fieldSources = sources;
   }
   if (input.keys.has("conserved")) patch.conserved = input.conserved;
   if (input.keys.has("tags")) patch.tags = input.tags;
@@ -123,6 +127,25 @@ export function buildReferralCanvasPatch(input: {
     patch.documentStatus = "Missing";
   }
   return patch;
+}
+
+// Section CAS remains the server's atomic boundary. Only a rejected, disjoint
+// field edit can be retried against a newer section; never retry ambiguous errors.
+export function canRebaseReferralCanvasPatch(base: Referral, latest: Referral, patch: ReferralPatch) {
+  if (base.id !== latest.id || (latest.version ?? 0) <= (base.version ?? 0)) return false;
+  // File linking and assignment carry additional lifecycle/identity semantics.
+  if ("requirements" in patch || "documentHash" in patch || "owner" in patch) return false;
+  const same = (left: unknown, right: unknown) => JSON.stringify(left ?? "") === JSON.stringify(right ?? "");
+  for (const key of Object.keys(patch) as (keyof ReferralPatch)[]) {
+    if (key === "fieldSources") continue;
+    if (!same(base[key], latest[key]) && !same(patch[key], latest[key])) return false;
+  }
+  for (const key of persistedCanvasFieldKeys) {
+    if (!(referralPatchKeyByCanvasField[key] in patch)) continue;
+    if (!same(base.fieldSources?.[key], latest.fieldSources?.[key])
+      && !same(patch.fieldSources?.[key], latest.fieldSources?.[key])) return false;
+  }
+  return true;
 }
 
 export function buildReferralCanvasCreateInput(input: {
