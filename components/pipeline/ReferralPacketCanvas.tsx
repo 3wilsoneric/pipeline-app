@@ -872,7 +872,7 @@ export default function ReferralPacketCanvas({
           if (cancelled) return;
           const recovered = draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null;
           if (local) restoreLocalFiles(local);
-          if (recovered || dirtyKeysRef.current.size === 0) setSavedAt(recovered ? "Recovered unsaved changes" : "Draft");
+          if (recovered || dirtyKeysRef.current.size === 0) setSavedAt(recovered ? "Restored edits · not yet saved" : "Draft");
         }).catch(() => {
           if (!cancelled) setSaveError("Could not check for a recovery draft.");
         }).finally(() => {
@@ -881,7 +881,7 @@ export default function ReferralPacketCanvas({
       } else {
         setDraftRecoveryLoading(false);
         const recovered = restoreDraftTracking(restoreSessionDraft(newDraftKey, setters));
-        setSavedAt(recovered ? "Recovered unsaved changes" : "Draft");
+        setSavedAt(recovered ? "Restored edits · not yet saved" : "Draft");
       }
       return () => {
         cancelled = true;
@@ -958,7 +958,7 @@ export default function ReferralPacketCanvas({
               conflicts: recoveredConflicts,
             });
           }
-          if (recovered) setSavedAt("Recovered unsaved changes");
+          if (recovered) setSavedAt("Restored edits · not yet saved");
         };
         if (serverDraftsEnabled) {
           setDraftRecoveryLoading(true);
@@ -2080,7 +2080,7 @@ export default function ReferralPacketCanvas({
     setRecoveredDraftAt("");
     setRecoveredPacketName("");
     void clearSessionDraft(current?.id ?? referral?.id ?? newDraftKey);
-    setSavedAt(current ? "Saved record restored" : "Draft cleared");
+    setSavedAt(current ? "Saved chart kept; unsaved edits discarded" : "Unfinished intake cleared");
   };
 
   const fieldCount = countCompleteFields(fields, visibleChartFieldKeys);
@@ -2246,19 +2246,20 @@ export default function ReferralPacketCanvas({
         </div>
 
         {recoveredDraftAt ? (
-          <section aria-label="Recovered draft" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-l-2 border-[#0f8b73] bg-[#effaf5] px-4 py-3" aria-live="polite">
+          <section aria-label="Restored edits" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-l-2 border-[#0f8b73] bg-[#effaf5] px-4 py-3" aria-live="polite">
             <div>
               <div className="text-[12px] font-black text-[#174f43]">
-                {serverDraftsEnabled ? "Recovered changes from your account." : "Recovered changes from this browser tab."}
+                Unfinished edits restored
               </div>
               <div className="mt-1 text-[11px] text-[#3c665d]">
-                {recoveredPacketName
-                  ? `Your field changes are back. Re-select ${recoveredPacketName} before uploading the packet.`
-                  : "Review the recovered fields or let autosave store them."}
+                {hasReferral
+                  ? "These edits are back in the form, but aren't saved to the chart yet."
+                  : "Continue intake, then choose Create referral when you're ready."}
+                {recoveredPacketName ? <span className="block">Re-select {recoveredPacketName} before uploading the packet.</span> : null}
               </div>
             </div>
             <button type="button" onClick={discardRecoveredDraft} className="h-8 border border-[#0f8b73] px-3 text-[10px] font-black text-[#174f43] hover:bg-white">
-              Discard recovered draft
+              Discard unsaved edits
             </button>
           </section>
         ) : null}

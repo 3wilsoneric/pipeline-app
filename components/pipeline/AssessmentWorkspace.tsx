@@ -476,7 +476,9 @@ export default function AssessmentWorkspace({
     setDirtySections(recoveredDirty);
     setActiveSection((current) => initialSection ?? recovered.activeSection ?? current);
     setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
-    setMessage(conflicts.length > 0 ? "Recovered changes need conflict review" : "Recovered unsaved assessment changes");
+    setMessage(conflicts.length > 0
+      ? "Restored answers · review conflicting changes"
+      : recoveredDirty.size > 0 ? "Restored answers · not yet saved" : "All changes saved");
   }, [initialSection, offlinePrincipal]);
 
   const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord) => {

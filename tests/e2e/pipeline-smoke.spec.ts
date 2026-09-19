@@ -1502,7 +1502,7 @@ test.describe("Referral home and packet canvas", () => {
 
     page.once("dialog", (dialog) => void dialog.accept());
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("region", { name: "Recovered draft" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Restored edits" })).toBeVisible();
     await expect(phone).toHaveValue("(415) 555-0132");
 
     await expect.poll(async () => {
