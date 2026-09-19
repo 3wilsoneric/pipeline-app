@@ -76,6 +76,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   const [visited, setVisited] = useState<AssessmentToolFieldKey[]>([]);
   const [entryFields, setEntryFields] = useState(() => questions.map((question) => question.field));
   const editor = useRef<HTMLDivElement>(null);
+  const previousSection = useRef(props.section);
 
   if (props.section !== receivedSection || target !== receivedTarget) {
     if (props.section !== receivedSection) {
@@ -93,6 +94,10 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   useLayoutEffect(() => {
     if (editor.current) editor.current.scrollTop = 0;
     editor.current?.closest('[data-guide-target="packet-workspace"]')?.scrollTo({ top: 0, behavior: "instant" });
+    if (previousSection.current !== props.section) {
+      editor.current?.parentElement?.querySelector<HTMLSelectElement>('[aria-label="Assessment section"]')?.focus({ preventScroll: true });
+    }
+    previousSection.current = props.section;
   }, [props.section]);
   useLayoutEffect(() => {
     if (!localTarget) return;
@@ -160,7 +165,7 @@ function CapturedAnswer({ question, data, pending, onEdit, signed }: WorkingData
   const status = assessmentQuestionStatus(question, data, pending);
   const reason = getAssessmentUnableReason(data, question.field);
   return <button type="button" aria-label={(signed ? "Review " : "Edit ") + assessmentInterviewFieldLabel(question.field)} onClick={() => onEdit(question.field)} className={styles.answer}>
-    <span className={styles.answerLabel}>{assessmentInterviewFieldLabel(question.field)}<Pencil size={12} aria-hidden="true" /></span>
+    <span className={styles.answerLabel}>{assessmentInterviewFieldLabel(question.field)}{!signed ? <Pencil size={12} aria-hidden="true" /> : null}</span>
     <span className={styles.answerValue}>{capturedAssessmentAnswer(question, data)}</span>
     {reason ? <span className={styles.answerReason}>{reason}</span> : null}
     {status === "verify" ? <span className={styles.attention}>Needs verification</span> : status === "reason" ? <span className={styles.attention}>Reason missing</span> : null}

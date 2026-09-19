@@ -87,11 +87,19 @@ export default function ClientProfileDirectory({
   const [openCabinet, setOpenCabinet] = useState<{ community: string; origin: DOMRect } | null>(null);
   const cabinetRef = useRef<HTMLElement>(null);
   const cabinetOpener = useRef<HTMLButtonElement | null>(null);
+  const profileOpener = useRef<HTMLButtonElement | null>(null);
   const directorySearchRef = useRef<HTMLInputElement>(null);
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
 
   useLayoutEffect(() => {
+    if (profileOpener.current) {
+      const opener = profileOpener.current;
+      profileOpener.current = null;
+      if (opener.isConnected) opener.focus({ preventScroll: true });
+      else (cabinetRef.current ?? directorySearchRef.current)?.focus({ preventScroll: true });
+      return;
+    }
     if (!openCabinet) {
       if (cabinetOpener.current) {
         const target = cabinetOpener.current.isConnected ? cabinetOpener.current : directorySearchRef.current;
@@ -395,7 +403,10 @@ export default function ClientProfileDirectory({
           <div role="list" aria-label={`${openCabinet.community} clients`} className={layout === "cards" ? styles.directoryStack : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
             {visibleClients.map((client) => (
               <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                <ClientDirectoryCard client={client} layout={layout} onOpen={() => { setOpenCabinet(null); onOpenProfile(client.profile_key ?? client.canonical_client_id); }} />
+                <ClientDirectoryCard client={client} layout={layout} onOpen={(opener) => {
+                  profileOpener.current = opener;
+                  onOpenProfile(client.profile_key ?? client.canonical_client_id);
+                }} />
               </div>
             ))}
           </div>
@@ -542,7 +553,7 @@ function DirectoryError({ message, onRetry, hasPartialResults }: { message: stri
   );
 }
 
-function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClient; layout: DirectoryLayout; onOpen: () => void }) {
+function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClient; layout: DirectoryLayout; onOpen: (opener: HTMLButtonElement) => void }) {
   const identityTitle = formatClientIdentityTitle({
     name: client.display_name,
     gender: client.gender,
@@ -560,7 +571,10 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
     <button
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
-      onClick={(event) => openClientChart(event.currentTarget, onOpen)}
+      onClick={(event) => {
+        const opener = event.currentTarget;
+        openClientChart(opener, () => onOpen(opener));
+      }}
       onPointerEnter={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onFocus={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
       onPointerLeave={cancelPipelineWarmup}

@@ -41,8 +41,8 @@
 .answer { display: block; width: 100%; padding: 9px 0; border-radius: 3px; text-align: left; }
 .answer:hover { background: #edf1e9; }
 .answerLabel { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: #506258; font-size: 14px; font-weight: 600; line-height: 1.5; }
-.answerLabel svg { visibility: hidden; flex-shrink: 0; }
-.answer:is(:hover, :focus-visible) svg { visibility: visible; }
+.answerLabel svg { opacity: .7; flex-shrink: 0; }
+.answer:is(:hover, :focus-visible) svg { opacity: 1; }
 .answerValue { display: block; margin-top: 5px; white-space: pre-wrap; overflow-wrap: anywhere; color: #24312c; font-size: 18px; font-weight: 450; line-height: 1.65; }
 .answerReason { display: block; margin-top: 6px; overflow-wrap: anywhere; color: #536258; font-size: 16px; line-height: 1.6; }
 .attention { display: block; margin-top: 7px; color: #84541b; font-size: 13px; font-weight: 600; }
@@ -77,14 +77,14 @@
 .quickRecommendation { min-width: 0; max-width: 250px; }
 .quickRecommendation select { width: 100%; min-height: 44px; border: 1px solid #c9d3ce; border-radius: 5px; padding: 6px 10px; background: #fff; color: #314b3e; font-size: 16px; font-weight: 600; }
 .quickRecommendation [role="alert"] { display: block; max-width: 30ch; padding-top: 4px; color: #9c342f; font-size: 12px; }
-.recommendationStatus { display: block; padding-top: 3px; color: #68746e; font-size: 11px; }
+.recommendationStatus { display: block; padding-top: 3px; color: #68746e; font-size: 13px; }
 .chartReview { padding: 0 0 32px; background: #fff; }
 .chartReviewToolbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding-inline: 20px; border-bottom: 1px solid #dde3df; background: #fff; font-size: 14px; color: #54645c; }
 .chartReviewToolbar button { display: flex; align-items: center; gap: 5px; min-height: 44px; color: #286350; font-weight: 600; }
 .chartReviewNotice { padding: 12px 20px; color: #875f25; font-size: 14px; }
 .footer [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; height: auto; padding: 10px 16px; border: 1px solid #007254; border-radius: 5px; background: #007e60; color: #fff; font-size: 14px; font-weight: 600; }
 .footer [data-assessment-primary-action] > button:disabled { opacity: .5; cursor: not-allowed; }
-.footer [data-guide-target="assessment-save-status"] { justify-content: flex-start; }
+.footer [data-guide-target="assessment-save-status"] { justify-content: flex-start; font-size: 13px; line-height: 1.4; }
 
 @media (min-width: 640px) {
   .readingMain, .readingContent { min-height: auto; overflow: visible; }
