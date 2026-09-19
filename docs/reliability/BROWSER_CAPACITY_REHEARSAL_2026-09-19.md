@@ -36,6 +36,11 @@ automatically certified as meeting a production latency SLO**.
 
 ## Run safely
 
+The spec is skipped unless the dedicated capacity config explicitly opts in via
+`metadata.pipelineCapacityRehearsal`. Ordinary browser suites cannot accidentally
+start it. With the dedicated config selected, missing/invalid database, profile,
+or hardware requirements still fail; they do not silently skip the workload.
+
 Use PostgreSQL 16 and a dedicated loopback-only database whose name starts
 with `pipeline_capacity_`. Apply migrations using the canonical migration
 script. Example for the existing local rehearsal database:

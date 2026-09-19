@@ -7,6 +7,7 @@ import { operationalHeadersForActor, type PipelineActor } from '../support/pipel
 import { clientDirectoryFixture } from '../support/pipeline-clinical-fixtures';
 
 test('sustained browser saves survive alternating application instances', async ({ baseURL }, testInfo) => {
+  test.skip(testInfo.config.metadata.pipelineCapacityRehearsal !== true, 'Opt in with playwright.capacity.config.ts; never run as part of the ordinary browser suite');
   const users = Number(process.env.PIPELINE_CAPACITY_USERS ?? 100);
   const seconds = Number(process.env.PIPELINE_CAPACITY_SECONDS ?? 1200);
   if (!Number.isInteger(users) || users < 2 || users > 100 || !Number.isInteger(seconds) || seconds < 10 || seconds > 7200) throw Error('Invalid bounded capacity profile');

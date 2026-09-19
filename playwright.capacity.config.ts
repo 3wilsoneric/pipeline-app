@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
+  metadata: { pipelineCapacityRehearsal: true },
   testDir: './tests/e2e/capacity', workers: 1, fullyParallel: false, retries: 0,
   timeout: 3 * 60 * 60 * 1000, expect: { timeout: 30_000 },
   outputDir: '.data/capacity-20260919/results',
