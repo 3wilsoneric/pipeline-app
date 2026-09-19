@@ -10,9 +10,10 @@ import {
   CalendarPortal,
   CalendarViews,
   CalendarFollowUps,
+  CalendarContinuing,
+  CalendarDateDetails,
   SchedulingQueue,
 } from "@/components/pipeline/PipelineCalendarPresentation";
-import CalendarDay from "@/components/pipeline/CalendarDay";
 import calendarStyles from "./CalendarWork.module.css";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import {
@@ -55,8 +56,9 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const navigationKey = initialUser?.id ?? "calendar";
   const calendarElement = useRef<HTMLElement>(null);
   const restoreScroll = useRef<number | null>(null);
-  const [view, setView] = useState<CalendarView>("day");
+  const [view, setView] = useState<CalendarView>("week");
   const [anchor, setAnchor] = useState(todayKey);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [community, setCommunity] = useState("");
   const [owner, setOwner] = useState("");
   const [mySchedule, setMySchedule] = useState(true);
@@ -161,7 +163,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       to: range.to,
       queue_limit: String(queueLimit),
       include_assignments: "false",
-      include_work: String(view === "day"),
+      include_work: "true",
     });
     if (deferredQueueSearch) params.set("queue_q", deferredQueueSearch);
     if (community) params.set("queue_community", community);
@@ -363,9 +365,10 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           scheduledCount={scheduledCount}
           overdueCount={overdue.length}
           onView={(value) => {
+            setSelectedDate(null);
             setView(value);
           }}
-          onAnchor={setAnchor}
+          onAnchor={(value) => { setSelectedDate(null); setAnchor(value); }}
           onCommunity={setCommunity}
           onOwner={setOwner}
           onMySchedule={setMySchedule}
@@ -375,17 +378,18 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         />
         <div data-testid="calendar-sheet" role="region" aria-label="Calendar entries" className={calendarStyles.paper}>
         <CalendarNotices error={error} mutationError={mutationState.error} scheduleOpen={Boolean(scheduleTarget)} onRetry={() => setRefreshToken((value) => value + 1)} />
-        {view === "day" ? <CalendarDay
-          date={anchor} loading={loading || !navigationReady} error={error}
-          appointments={appointments} followUps={followUps} continuing={continuing}
-          unscheduled={unscheduled} hasMore={snapshot?.unscheduledHasMore ?? false}
+        <CalendarContinuing events={continuing}
           onOpen={(event) => setSelected({ type: "event", event })}
           onContinue={(event) => void openAssessment(event)}
-          onPrepare={(item) => setSelected({ type: "unscheduled", item })}
-          onSchedule={(item) => beginScheduling(scheduleTargetFromUnscheduled(item))}
-          onQueue={() => setQueueOpen(true)}
-        /> : <CalendarViews
-          loading={loading}
+        />
+        {selectedDate ? <CalendarDateDetails date={selectedDate} loading={loading || !snapshot} error={error}
+          events={appointments.filter((event) => event.date === selectedDate)} scope={scope}
+          onOpen={(event) => setSelected({ type: "event", event })}
+          onAssessment={(event) => void openAssessment(event)}
+          onClose={() => setSelectedDate(null)}
+        /> : null}
+        <CalendarViews
+          loading={loading || !navigationReady || (!snapshot && !error)}
           view={view}
           anchor={anchor}
           scope={scope}
@@ -401,8 +405,12 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           onOpen={(event) => setSelected({ type: "event", event })}
           onAssessment={(event) => void openAssessment(event)}
           onFocusOwner={setOwner}
-        />}
-        {!loading && view !== "day" ? <CalendarFollowUps events={followUps} onOpen={(event) => setSelected({ type: "event", event })} /> : null}
+          onDate={(date) => {
+            if (date < range.from || date > range.to) setAnchor(date);
+            setSelectedDate(date);
+          }}
+        />
+        {!loading ? <CalendarFollowUps events={followUps} onOpen={(event) => setSelected({ type: "event", event })} /> : null}
         </div>
       </div>
       {queueOpen ? (

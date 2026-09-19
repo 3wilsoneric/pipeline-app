@@ -738,6 +738,7 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.goto("/?screen=calendar");
     await expect(page.getByText("My schedule", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Show calendar filters", exact: true }).click();
     await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
     await expect(page.getByText("Team schedule", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
@@ -776,11 +777,11 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.setViewportSize({ width: 768, height: 1024 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
-    await expect(page.getByRole("button", { name: "Upcoming", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "week", exact: true })).toHaveAttribute("aria-pressed", "true");
 
     await page.setViewportSize({ width: 430, height: 932 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
-    await expect(page.getByRole("button", { name: "Upcoming", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("combobox", { name: "Calendar view", exact: true })).toHaveValue("week");
     await expect(page.getByText("Assigned Client", { exact: true })).toHaveCount(0);
     await expect(page.locator("button:visible").filter({ hasText: "Scheduled Client" }).first()).toBeVisible();
   });

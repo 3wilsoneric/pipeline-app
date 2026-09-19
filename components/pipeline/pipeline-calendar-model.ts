@@ -7,7 +7,7 @@ import type {
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
 
-export type CalendarView = "day" | "month" | "week" | "agenda";
+export type CalendarView = "month" | "week";
 export type CalendarSelection =
   | { type: "event"; event: PipelineCalendarEvent }
   | { type: "unscheduled"; item: PipelineUnscheduledAssessment };
@@ -243,14 +243,12 @@ export function calendarClientName(name: string, community: string) {
 }
 
 export function calendarRange(view: CalendarView, anchor: string) {
-  if (view === "day") return { from: anchor, to: anchor };
   if (view === "week") {
     const date = parseDate(anchor);
     date.setUTCDate(date.getUTCDate() - date.getUTCDay());
     const from = dateKey(date);
     return { from, to: addCalendarDays(from, 6) };
   }
-  if (view === "agenda") return { from: anchor, to: addCalendarDays(anchor, 29) };
   const from = `${anchor.slice(0, 7)}-01`;
   const date = parseDate(from);
   date.setUTCMonth(date.getUTCMonth() + 1);
@@ -259,17 +257,15 @@ export function calendarRange(view: CalendarView, anchor: string) {
 }
 
 export function shiftAnchor(view: CalendarView, anchor: string, direction: number) {
-  if (view === "day") return addCalendarDays(anchor, direction);
   if (view === "month") {
     const date = parseDate(`${anchor.slice(0, 7)}-01`);
     date.setUTCMonth(date.getUTCMonth() + direction);
     return dateKey(date);
   }
-  return addCalendarDays(anchor, direction * (view === "week" ? 7 : 30));
+  return addCalendarDays(anchor, direction * 7);
 }
 
 export function rangeLabel(view: CalendarView, range: { from: string; to: string }) {
-  if (view === "day") return longDate(range.from);
   if (view === "month") return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(parseDate(range.from));
   return `${shortDate(range.from)} - ${shortDate(range.to)}`;
 }
