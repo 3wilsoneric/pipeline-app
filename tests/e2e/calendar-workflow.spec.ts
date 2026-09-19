@@ -21,6 +21,7 @@ test("interview completion preserves answers, editability, original appointment 
   await page.getByRole("button", { name: "Show calendar filters" }).click();
   await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
   const continuing = page.getByRole("region", { name: "Continue working", exact: true });
+  await continuing.locator("summary").click();
   await continuing.getByRole("button", { name: new RegExp(referral.name) }).first().click();
   const drawer = page.getByRole("dialog", { name: "Calendar item", exact: true });
   await expect(drawer.getByText("Appointment outcome not recorded", { exact: true }).last()).toBeVisible();
@@ -47,11 +48,12 @@ test("interview completion preserves answers, editability, original appointment 
   await page.reload();
   await page.getByRole("button", { name: "Show calendar filters" }).click();
   await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
+  await continuing.locator("summary").click();
   await expect(continuing).toContainText(referral.name);
   await expect(continuing).toContainText("Interview completed · documentation unfinished");
 });
 
-test("day cards, contacts, previews, follow-up saves and layouts work on desktop, iPad and phone", async ({ page }, testInfo) => {
+test("weekly calendar, contacts, previews, follow-up saves and layouts work on desktop, iPad and phone", async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date("2026-09-18T18:00:00Z"));
   const appointment = { id: "assessment:calendar-test", assessmentId: "calendar-test", assessmentVersion: 1, referralId: 808, clientName: "Morgan Sample", community: "San Pablo", ownerId: "assessor-a", owner: "Annette Everhart", workspaceOwner: "Sandeep Supervisor", date: "2026-09-18", startsAt: "2026-09-18T18:00:00Z", durationMinutes: 60, method: "phone", location: "555-0100", scheduleStatus: "scheduled", kind: "assessment", status: "draft", title: "Assessment scheduled", detail: "Scheduled assessment" };
   const work = { ...appointment, id: "assessment:unfinished", assessmentId: "unfinished", clientName: "Jordan Sample", date: "2026-09-17", startsAt: "2026-09-17T18:00:00Z", scheduleStatus: "completed" };
@@ -70,8 +72,16 @@ test("day cards, contacts, previews, follow-up saves and layouts work on desktop
   });
   await page.goto("/?screen=calendar");
   await expect(page.getByRole("region", { name: "Continue working", exact: true })).toContainText("Jordan Sample");
-  await expect(page.getByRole("region", { name: "Needs a date", exact: true }).getByRole("button", { name: "Schedule Taylor Sample", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Appointment details for Morgan Sample", exact: true }).click();
+  await page.getByRole("button", { name: "month", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Continue working", exact: true })).toContainText("Jordan Sample");
+  await page.locator("summary").filter({ hasText: "Dated follow-ups" }).click();
+  await expect(page.getByText("Medication list", { exact: true })).toBeVisible();
+  await page.locator("summary").filter({ hasText: "Dated follow-ups" }).click();
+  await page.getByRole("button", { name: "week", exact: true }).click();
+  await page.getByRole("button", { name: "Scheduling queue 1", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Scheduling queue", exact: true }).getByRole("button", { name: "Schedule", exact: true })).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await page.locator('button[title^="Morgan Sample -"]').click();
   const drawer = page.getByRole("dialog", { name: "Calendar item", exact: true });
   await expect(drawer).toContainText("Casey Contact");
   await expect(drawer).toContainText("555-0101");
@@ -107,7 +117,7 @@ test("day cards, contacts, previews, follow-up saves and layouts work on desktop
   expect(violations).toEqual([]);
   for (const width of [1440, 834, 390]) {
     await page.setViewportSize({ width, height: 950 });
-    await page.getByRole("button", { name: "Appointment details for Morgan Sample", exact: true }).click();
+    await page.locator('button[title^="Morgan Sample -"]').click();
     await expect(drawer.getByText("Casey Contact", { exact: true })).toBeVisible();
     await expect(drawer.getByRole("button", { name: "Interview completed", exact: true })).toBeInViewport();
     await expect(drawer.getByRole("button", { name: "Cancel appointment", exact: true })).toBeInViewport();

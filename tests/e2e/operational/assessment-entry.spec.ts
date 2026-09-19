@@ -124,8 +124,8 @@ test.describe("assessment editing entry and return paths", () => {
       expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeFalsy();
       await page.clock.setFixedTime(new Date(Date.parse(assessment.scheduled_start_at!) - 60 * 60 * 1000));
       await page.goto("/?screen=calendar");
-      await page.getByRole("button", { name: "Upcoming", exact: true }).click();
-      await page.getByRole("button", { name: `Open assessment for ${referral.name}`, exact: true }).click();
+      await page.locator('button[title]').filter({ hasText: referral.name }).first().click();
+      await page.getByRole("dialog", { name: "Calendar item", exact: true }).getByRole("button", { name: "Open assessment", exact: true }).click();
       await page.getByRole("dialog", { name: "Begin assessment", exact: true })
         .getByRole("button", { name: "Begin assessment", exact: true }).click();
       await expect(page.locator('[data-guided-assessment="true"]')).toBeVisible();

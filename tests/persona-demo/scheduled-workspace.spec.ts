@@ -15,6 +15,7 @@ test("scheduled work opens the same interview without manual intake or stage adv
   let assessment = await createOperationalAssessment(page.request, referral.id);
   assessment = await scheduleOperationalAssessment(page.request, assessment);
   const scheduled = await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json();
+  await page.clock.setFixedTime(new Date(Date.parse(scheduled.assessment.scheduled_start_at) - 60 * 60 * 1000));
   expect(scheduled.assessment.started_at).toBeFalsy();
 
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
@@ -31,8 +32,8 @@ test("scheduled work opens the same interview without manual intake or stage adv
   await interview.getByRole("button", { name: "Switch to Assessor", exact: true }).click();
   await expect(page.getByRole("button", { name: "Switch to Supervisor", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open calendar", exact: true }).click();
-  await page.getByRole("button", { name: "Upcoming", exact: true }).click();
-  await page.getByRole("button", { name: `Open assessment for ${referral.name}`, exact: true }).click();
+  await page.locator('button[title]').filter({ hasText: referral.name }).first().click();
+  await page.getByRole("dialog", { name: "Calendar item", exact: true }).getByRole("button", { name: "Open assessment", exact: true }).click();
   await expect(interview).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);

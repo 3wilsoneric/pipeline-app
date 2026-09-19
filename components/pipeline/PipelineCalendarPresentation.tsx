@@ -5,6 +5,7 @@ import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { AssessmentScheduleLayout } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import type { ReactNode } from "react";
 import calendarStyles from "./CalendarWork.module.css";
+import { usePhoneAssessment as usePhoneLayout } from "./use-phone-layout";
 const CalendarWorkDetails = dynamic(() => import("./CalendarWorkDetails"), { loading: () => <p className="p-5 text-sm text-[#626b65]">Loading workspace details…</p> });
 import {
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   ClipboardList,
   ExternalLink,
   Filter,
+  FilePenLine,
   FolderOpen,
   RefreshCw,
   Search,
@@ -163,9 +165,9 @@ export function CalendarHeader(props: CalendarHeaderProps) {
 
 function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (value: CalendarView) => void }) {
   return <div data-guide-target="calendar-view" className={calendarStyles.viewControl}>
-    <div role="group" aria-label="Calendar view" className={calendarStyles.viewSwitch}>{(["day", "agenda", "week", "month"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)}>{option === "day" ? "Day" : option === "agenda" ? "Upcoming" : option}</button>)}</div>
+    <div role="group" aria-label="Calendar view" className={calendarStyles.viewSwitch}>{(["week", "month"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)}>{option}</button>)}</div>
     <select aria-label="Calendar view" value={view} onChange={(event) => onView(event.target.value as CalendarView)} className={calendarStyles.viewSelect}>
-      <option value="day">Day</option><option value="agenda">Upcoming</option><option value="week">Week</option><option value="month">Month</option>
+      <option value="week">Week</option><option value="month">Month</option>
     </select>
   </div>;
 }
@@ -261,48 +263,59 @@ type CalendarViewsProps = {
   onOpen: (event: PipelineCalendarEvent) => void;
   onAssessment: (event: PipelineCalendarEvent) => void;
   onFocusOwner: (owner: string) => void;
+  onDate: (date: string) => void;
 };
 
 export function CalendarViews(props: CalendarViewsProps) {
+  const phone = usePhoneLayout();
   if (props.loading) return <CalendarSkeleton />;
-  if (props.view === "month") return <MonthView month={props.anchor.slice(0, 7)} eventsByDate={props.eventsByDate} onOpen={props.onOpen} />;
-  if (props.view === "agenda") return <AgendaView events={props.events} hasFilters={props.hasFilters} scope={props.scope} onOpen={props.onOpen} onAssessment={props.onAssessment} />;
-  if (showTeamWeek(props.scope, props.owner, props.mySchedule)) return <TeamWeekView range={props.range} events={props.events} unscheduled={props.unscheduled} assessors={props.assessors} conflicts={props.conflicts} onOpen={props.onOpen} onFocusOwner={props.onFocusOwner} />;
-  return <TimedWeekView range={props.range} eventsByDate={props.eventsByDate} onOpen={props.onOpen} />;
+  if (props.view === "month") return <MonthView month={props.anchor.slice(0, 7)} eventsByDate={props.eventsByDate} onOpen={props.onOpen} onDate={props.onDate} phone={phone} />;
+  if (phone) return <WeekList events={props.events} hasFilters={props.hasFilters} scope={props.scope} onOpen={props.onOpen} onAssessment={props.onAssessment} onDate={props.onDate} />;
+  if (showTeamWeek(props.scope, props.owner, props.mySchedule)) return <TeamWeekView range={props.range} events={props.events} unscheduled={props.unscheduled} assessors={props.assessors} conflicts={props.conflicts} onOpen={props.onOpen} onFocusOwner={props.onFocusOwner} onDate={props.onDate} />;
+  const outsideGrid = props.events.filter((event) => !timedEventPosition(event, [event]));
+  return <>
+    {outsideGrid.length ? <section aria-label="Other appointment times" className={calendarStyles.dateDetails}><h2>Other appointment times</h2><ol className="divide-y divide-[#e5e8e6]">{outsideGrid.map((event) => <li key={event.id}><span className="text-[12px] text-[#626b65]">{longDate(event.date)}</span><ol><AppointmentRow event={event} scope={props.scope} onOpen={props.onOpen} onAssessment={props.onAssessment} /></ol></li>)}</ol></section> : null}
+    <TimedWeekView range={props.range} eventsByDate={props.eventsByDate} onOpen={props.onOpen} onDate={props.onDate} />
+  </>;
 }
 
-function MonthView({ month, eventsByDate, onOpen }: { month: string; eventsByDate: Map<string, PipelineCalendarEvent[]>; onOpen: (event: PipelineCalendarEvent) => void }) {
+function MonthView({ month, eventsByDate, onOpen, onDate, phone }: { month: string; eventsByDate: Map<string, PipelineCalendarEvent[]>; onOpen: (event: PipelineCalendarEvent) => void; onDate: (date: string) => void; phone: boolean }) {
   const days = calendarDays(month);
   return (
-    <div className={calendarStyles.monthGrid}><div className="grid min-w-[760px] grid-cols-7">
+    <div className={calendarStyles.monthGrid} data-phone={phone}><div className="grid min-w-[760px] grid-cols-7">
       {weekdays.map((day) => <div key={day} className="border-b border-r border-[#d8dedb] bg-[#f7f9f8] px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#69706c] last:border-r-0">{day}</div>)}
       {days.map((day) => {
         const dayEvents = eventsByDate.get(day.date) ?? [];
         const scheduled = dayEvents.filter((event) => event.kind === "assessment");
-        return <div key={day.date} className={`min-h-[112px] border-b border-r border-[#e1e5e3] p-2 last:border-r-0 ${day.inMonth ? "bg-white" : "bg-[#fafbfa]"}`}><div className={`mb-2 text-[12px] font-extrabold ${day.today ? "text-[#0f8b73]" : day.inMonth ? "text-[#515854]" : "text-[#a0a6a2]"}`}>{day.day}</div><div className="space-y-1.5">{scheduled.slice(0, 2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}{scheduled.length > 2 ? <details><summary className="cursor-pointer py-1 text-[12px] font-bold text-[#526a63]">{scheduled.length - 2} more</summary><div className="space-y-1.5 pt-1">{scheduled.slice(2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}</div></details> : null}</div></div>;
+        return <div key={day.date} data-month-day className={`min-h-[112px] border-b border-r border-[#e1e5e3] p-2 last:border-r-0 ${day.inMonth ? "bg-white" : "bg-[#fafbfa]"}`}>
+          <button type="button" className={calendarStyles.monthDate} data-today={day.today} data-in-month={day.inMonth} aria-current={day.today ? "date" : undefined} aria-label={`Show appointments for ${longDate(day.date)}`} onClick={() => onDate(day.date)}>
+            <span>{day.day}</span>{phone && scheduled.length > 0 ? <span className={calendarStyles.monthCount} aria-label={`${scheduled.length} appointments`}>{scheduled.length}</span> : null}
+          </button>
+          {!phone ? <div className="space-y-1.5">{scheduled.slice(0, 2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}{scheduled.length > 2 ? <details><summary className="cursor-pointer py-1 text-[12px] font-bold text-[#526a63]">{scheduled.length - 2} more</summary><div className="space-y-1.5 pt-1">{scheduled.slice(2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}</div></details> : null}</div> : null}
+        </div>;
       })}
     </div></div>
   );
 }
 
-function TimedWeekView({ range, eventsByDate, onOpen }: { range: { from: string; to: string }; eventsByDate: Map<string, PipelineCalendarEvent[]>; onOpen: (event: PipelineCalendarEvent) => void }) {
+function TimedWeekView({ range, eventsByDate, onOpen, onDate }: { range: { from: string; to: string }; eventsByDate: Map<string, PipelineCalendarEvent[]>; onOpen: (event: PipelineCalendarEvent) => void; onDate: (date: string) => void }) {
   const dates = dateKeys(range.from, range.to);
   const hours = Array.from({ length: weekEndHour - weekStartHour }, (_, index) => weekStartHour + index);
   return (
     <section aria-label="Timed assessment week" className={calendarStyles.weekGrid}><div className="min-w-[980px]">
-      <div data-calendar-week-heading className={`grid grid-cols-[62px_repeat(7,minmax(125px,1fr))] ${calendarStyles.weekHeading}`}><div className={calendarStyles.timeCorner}>PT</div>{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-3 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[10px] font-bold uppercase tracking-[0.07em] text-[#626e66]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="mt-0.5 block text-[14px] font-bold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
+      <div data-calendar-week-heading className={`grid grid-cols-[62px_repeat(7,minmax(125px,1fr))] ${calendarStyles.weekHeading}`}><div className={calendarStyles.timeCorner}>PT</div>{dates.map((date) => <CalendarDateHeading key={date} date={date} onDate={onDate} />)}</div>
       <div className="grid grid-cols-[62px_repeat(7,minmax(125px,1fr))]"><div className="relative" style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <span key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] font-semibold text-[#7b827e]" style={{ top: index * hourHeight }}>{formatHour(hour)}</span>)}</div>{dates.map((date) => { const timed = (eventsByDate.get(date) ?? []).filter((event) => event.kind === "assessment" && event.startsAt); return <div key={date} className={`relative border-l border-[#d8dedb] ${date === todayKey() ? "bg-[#fbfefd]" : "bg-white"}`} style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <div key={hour} className="absolute inset-x-0 border-t border-[#edf0ee]" style={{ top: index * hourHeight }} />)}{timed.map((event) => { const position = timedEventPosition(event, timed); if (!position) return null; return <button key={event.id} type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title}`} className={`absolute z-10 overflow-hidden border-l-[3px] px-2 py-1.5 text-left shadow-sm hover:z-20 hover:ring-1 hover:ring-[#4b68ad] ${event.status === "overdue" ? "border-l-[#a9473d] bg-[#fff3f1] text-[#7c3229]" : eventColors.assessment}`} style={position}><span className="block truncate text-[10px] font-extrabold">{eventTime(event.startsAt)}</span><span className="mt-0.5 block truncate text-[11px] font-extrabold">{calendarClientName(event.clientName, event.community)}</span><span className="mt-0.5 block truncate text-[9px] opacity-75">{methodLabel(event.method)} - {event.durationMinutes ?? 60} min</span></button>; })}</div>; })}</div>
     </div></section>
   );
 }
 
-function TeamWeekView({ range, events, unscheduled, assessors, conflicts, onOpen, onFocusOwner }: { range: { from: string; to: string }; events: PipelineCalendarEvent[]; unscheduled: PipelineUnscheduledAssessment[]; assessors: Array<{ id?: string; name: string }>; conflicts: Set<string>; onOpen: (event: PipelineCalendarEvent) => void; onFocusOwner: (owner: string) => void }) {
+function TeamWeekView({ range, events, unscheduled, assessors, conflicts, onOpen, onFocusOwner, onDate }: { range: { from: string; to: string }; events: PipelineCalendarEvent[]; unscheduled: PipelineUnscheduledAssessment[]; assessors: Array<{ id?: string; name: string }>; conflicts: Set<string>; onOpen: (event: PipelineCalendarEvent) => void; onFocusOwner: (owner: string) => void; onDate: (date: string) => void }) {
   const dates = dateKeys(range.from, range.to);
   const owners = uniqueOwnerOptions([...assessors, ...events.map((event) => ({ id: event.ownerId, name: event.owner })), ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner }))]).filter((item) => item.label !== "Unassigned");
   if (owners.length === 0) return <EmptyCalendar title="No team assessments scheduled this week." />;
   return (
     <section aria-label="Supervisor team week" className={calendarStyles.teamGrid}><div className="min-w-[1080px]">
-      <div data-calendar-week-heading className={`grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] ${calendarStyles.weekHeading}`}><div className="sticky left-0 z-20 bg-[#f7f9f8] px-3 py-3 text-[11px] font-bold text-[#69706c]">Assessor</div>{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-2 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[10px] font-bold uppercase text-[#626e66]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="block text-[14px] font-bold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
+      <div data-calendar-week-heading className={`grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] ${calendarStyles.weekHeading}`}><div className="sticky left-0 z-20 bg-[#f7f9f8] px-3 py-3 text-[11px] font-bold text-[#69706c]">Assessor</div>{dates.map((date) => <CalendarDateHeading key={date} date={date} onDate={onDate} />)}</div>
       {owners.map((assessor) => {
         const ownerEvents = events.filter((event) => ownerKey(event.ownerId, event.owner) === assessor.value);
         const conflictCount = ownerEvents.filter((event) => conflicts.has(event.id)).length;
@@ -325,10 +338,41 @@ function TeamWeekView({ range, events, unscheduled, assessors, conflicts, onOpen
   );
 }
 
-function AgendaView({ events, hasFilters, scope, onOpen, onAssessment }: { events: PipelineCalendarEvent[]; hasFilters: boolean; scope: "personal" | "team"; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void }) {
+function CalendarDateHeading({ date, onDate }: { date: string; onDate: (date: string) => void }) {
+  return <button type="button" className={calendarStyles.dateHeading} data-today={date === todayKey()} aria-label={`Show appointments for ${longDate(date)}`} onClick={() => onDate(date)}>
+    <span>{weekdays[parseDate(date).getUTCDay()]}</span><strong>{shortDate(date)}</strong>
+  </button>;
+}
+
+function WeekList({ events, hasFilters, scope, onOpen, onAssessment, onDate }: { events: PipelineCalendarEvent[]; hasFilters: boolean; scope: "personal" | "team"; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void; onDate: (date: string) => void }) {
   const groups = groupEventsByDate(events);
   if (events.length === 0) return <EmptyCalendar title={hasFilters ? "No assessments match these filters." : "No assessments scheduled in this range."} />;
-  return <section aria-label="Upcoming assessments" className="mt-4">{[...groups.entries()].map(([date, dayEvents]) => <section key={date} aria-label={longDate(date)} className="py-3 md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-5"><h2 className="mb-2 text-[15px] font-extrabold text-[#343c37] md:pt-5">{longDate(date)}</h2><ol className="divide-y divide-[#e5e8e6]">{dayEvents.map((event) => <AppointmentRow key={event.id} event={event} scope={scope} onOpen={onOpen} onAssessment={onAssessment} />)}</ol></section>)}</section>;
+  return <section aria-label="Week appointments">{[...groups.entries()].map(([date, dayEvents]) => <section key={date} aria-label={longDate(date)} className="py-3"><h2 className="text-[15px] font-extrabold text-[#343c37]"><button type="button" className={calendarStyles.listDate} aria-label={`Show appointments for ${longDate(date)}`} onClick={() => onDate(date)}>{longDate(date)}</button></h2><ol className="divide-y divide-[#e5e8e6]">{dayEvents.map((event) => <AppointmentRow key={event.id} event={event} scope={scope} onOpen={onOpen} onAssessment={onAssessment} />)}</ol></section>)}</section>;
+}
+
+export function CalendarDateDetails({ date, events, scope, loading, error, onOpen, onAssessment, onClose }: { date: string; events: PipelineCalendarEvent[]; scope: "personal" | "team"; loading: boolean; error: string; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void; onClose: () => void }) {
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement;
+    panel.current?.focus({ preventScroll: true });
+    panel.current?.scrollIntoView({ block: "nearest" });
+    return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }); };
+  }, [date]);
+  return <section ref={panel} tabIndex={-1} aria-label={`Appointments on ${longDate(date)}`} className={calendarStyles.dateDetails} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
+    <header><h2>{longDate(date)}</h2><button type="button" aria-label="Close day details" onClick={onClose}><X size={18} /></button></header>
+    {loading ? <p role="status">Loading appointments…</p> : error && !events.length ? <p>Appointments could not be loaded. Use Try again above.</p> : events.length ? <ol className="divide-y divide-[#e5e8e6]">{events.map((event) => <AppointmentRow key={event.id} event={event} scope={scope} onOpen={onOpen} onAssessment={onAssessment} />)}</ol> : <p>No appointments on this date with the current filters.</p>}
+  </section>;
+}
+
+export function CalendarContinuing({ events, onOpen, onContinue }: { events: PipelineCalendarEvent[]; onOpen: (event: PipelineCalendarEvent) => void; onContinue: (event: PipelineCalendarEvent) => void }) {
+  if (!events.length) return null;
+  return <section aria-label="Continue working" className={calendarStyles.continuing}><details>
+    <summary><FilePenLine size={17} />Continue working <span>{events.length}</span><ChevronRight size={16} className={calendarStyles.disclosureIcon} /></summary>
+    <div className={calendarStyles.cards}>{events.map((event) => <article className={calendarStyles.work} key={event.id}>
+      <button type="button" className={calendarStyles.identity} onClick={() => onOpen(event)}><strong>{calendarClientName(event.clientName, event.community)}</strong><span>{appointmentStatusLabel(event)}</span><span>{event.owner}</span></button>
+      <button type="button" className={calendarStyles.action} onClick={() => onContinue(event)} aria-label={`Continue assessment for ${event.clientName}`}>Continue</button>
+    </article>)}</div>
+  </details></section>;
 }
 
 function AppointmentRow({ event, scope, onOpen, onAssessment }: { event: PipelineCalendarEvent; scope: "personal" | "team"; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void }) {
