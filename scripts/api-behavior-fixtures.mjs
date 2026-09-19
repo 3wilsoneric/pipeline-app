@@ -246,7 +246,7 @@ const results = [
     assert(assigned?.id === "assessor-1", "The referral assignment must remain the assessment assignment");
     assert(unassigned?.id === "supervisor-1", "A supervisor should be able to start an otherwise unassigned assessment");
   }),
-  run("calendar uses explicit scheduling and canonical referral assignment", () => {
+  run("calendar distinguishes the conducting assessor from workspace ownership", () => {
     const event = assessmentCalendar.assessmentCalendarEvent({
       assessment_id: "assessment-1",
       referral_id: 41,
@@ -263,7 +263,8 @@ const results = [
       owner: "Referral Owner",
     }, "2026-08-23");
     assert(event?.kind === "assessment", "Expected an assessment event");
-    assert(event?.ownerId === "referral-owner" && event?.owner === "Referral Owner", "Expected the referral assignment to own the event");
+    assert(event?.ownerId === "assessor-1" && event?.owner === "Assigned Assessor", "Expected the conducting assessor to own the appointment");
+    assert(event?.workspaceOwner === "Referral Owner", "Workspace ownership must remain visible independently");
     assert(event?.status === "draft" && event?.title === "Assessment scheduled", "Expected scheduled draft status");
   }),
   run("calendar creates a referral assignment event with creation context", () => {
@@ -301,7 +302,7 @@ const results = [
     assert(assessmentCalendar.referralAssignmentCalendarEvent({ ...base, ownerId: "assessor-1", workspaceOrigin: "allo" })?.kind === "referral_assigned", "Active imported workspaces must create ordinary assignment events");
     assert(assessmentCalendar.referralAssignmentCalendarEvent({ ...base, ownerId: "assessor-1", workspaceOrigin: "allo", workspaceStatus: "archived" }) === null, "Archived imports must not create live assignment events");
   }),
-  run("calendar marks unfinished past assessments overdue", () => {
+  run("calendar does not mistake a past appointment for a missed or overdue interview", () => {
     const event = assessmentCalendar.assessmentCalendarEvent({
       assessment_id: "assessment-2",
       referral_id: 42,
@@ -316,7 +317,18 @@ const results = [
       community: "Turlock",
       owner: "Unassigned",
     }, "2026-08-23");
-    assert(event?.status === "overdue" && event?.title === "Assessment overdue", "Expected overdue status");
+    assert(event?.status === "draft" && event?.title === "Appointment outcome not recorded", "A past date is not evidence of a no-show or missed documentation deadline");
+  }),
+  run("calendar carries unfinished interviews forward without inventing an appointment", () => {
+    const referral = { id: 42, name: "Continue Client", community: "San Pablo", owner: "Owner" };
+    const assessment = { assessment_id: "continue-1", referral_id: 42, status: "draft", version: 2, schedule_status: "completed", scheduled_start_at: "2026-08-20T16:00:00Z" };
+    const event = assessmentCalendar.assessmentContinuationEvent(assessment, referral, "2026-08-23");
+    assert(event?.date === "2026-08-20" && event?.status === "draft", "Keep the original appointment and editable draft");
+    assert(event?.title.includes("documentation unfinished"), "Separate the interview from documentation");
+    const unscheduled = assessmentCalendar.assessmentContinuationEvent({ ...assessment, scheduled_start_at: null, schedule_status: "unscheduled", started_at: "2026-08-20T16:00:00Z" }, referral);
+    assert(unscheduled?.date === "" && !unscheduled.startsAt, "A started draft must not invent an appointment date");
+    assert(assessmentCalendar.assessmentContinuationEvent({ ...assessment, status: "complete" }, referral) === null, "Finished documentation must leave the unfinished list");
+    assert(assessmentCalendar.assessmentPreparationItem({ ...referral, workspaceStatus: "active", stage: "New", workflowStatus: "ready_to_schedule", date: "2026-08-20" }, assessment) === null, "A completed interview must not return to the scheduling queue");
   }),
   run("calendar follows active requirement gates without reopening outcomes", () => {
     const base = {

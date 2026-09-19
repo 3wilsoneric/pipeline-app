@@ -8,21 +8,27 @@ import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-recor
 import ClientAssessmentRecord from "@/components/pipeline/ClientAssessmentRecord";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
+import type { ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
+import type { AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
 
-export default function WorkspaceClientChart({ referral, headerActions, assessment, practice = false }: {
+export default function WorkspaceClientChart({ referral, headerActions, assessment, practice = false, onEditReferralField, onEditAssessmentField }: {
   referral: Referral | null;
   headerActions?: ReactNode;
   assessment?: PipelineAssessmentRecord;
   practice?: boolean;
+  onEditReferralField?: (field: ReferralChartEditField) => void;
+  onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
 }) {
-  if (practice) return assessment ? <ClientAssessmentRecord assessment={assessment} /> : null;
-  return <WorkspaceClientChartLoader key={referral?.clientId ?? "unlinked"} referral={referral} headerActions={headerActions} assessment={assessment} />;
+  if (practice) return assessment ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : null;
+  return <WorkspaceClientChartLoader key={referral?.clientId ?? "unlinked"} referral={referral} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField} />;
 }
 
-function WorkspaceClientChartLoader({ referral, headerActions, assessment }: {
+function WorkspaceClientChartLoader({ referral, headerActions, assessment, onEditReferralField, onEditAssessmentField }: {
   referral: Referral | null;
   headerActions?: ReactNode;
   assessment?: PipelineAssessmentRecord;
+  onEditReferralField?: (field: ReferralChartEditField) => void;
+  onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
 }) {
   const profilePath = referral?.clientId ? `/api/profiles/${encodeURIComponent(`pipeline:${referral.clientId}`)}` : "";
   const [profile, setProfile] = useState<UnifiedClientProfileResponse | null>(() => readPipelineJsonCache<UnifiedClientProfileResponse>(profilePath) ?? null);
@@ -42,7 +48,7 @@ function WorkspaceClientChartLoader({ referral, headerActions, assessment }: {
     {!profilePath ? <p role="alert">This workspace needs its client identity connected before the chart can be loaded.</p>
       : error ? <div role="alert" className="py-4 text-[13px] text-[#59645e]">{error} <button type="button" className="ml-3 underline" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>
       : <p role="status" className="py-4 text-[12px] text-[#68716d]">Loading client chart...</p>}
-    {assessment ? <ClientAssessmentRecord assessment={assessment} /> : null}
+    {assessment ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : null}
   </>;
-  return <ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} />;
+  return <ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField} />;
 }

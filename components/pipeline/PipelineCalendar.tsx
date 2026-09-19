@@ -12,6 +12,9 @@ import {
   CalendarFollowUps,
   SchedulingQueue,
 } from "@/components/pipeline/PipelineCalendarPresentation";
+import CalendarDay from "@/components/pipeline/CalendarDay";
+import calendarStyles from "./CalendarWork.module.css";
+import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import {
   calendarClientName as formatCalendarClientName,
   calendarRange,
@@ -48,7 +51,11 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import { loadPipelineWorkspaceResumeLocation } from "@/lib/pipeline/work-continuity-client";
 
 export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void }) {
-  const [view, setView] = useState<CalendarView>("week");
+  const { initialUser } = usePipelineAuth();
+  const navigationKey = initialUser?.id ?? "calendar";
+  const calendarElement = useRef<HTMLElement>(null);
+  const restoreScroll = useRef<number | null>(null);
+  const [view, setView] = useState<CalendarView>("day");
   const [anchor, setAnchor] = useState(todayKey);
   const [community, setCommunity] = useState("");
   const [owner, setOwner] = useState("");
@@ -60,6 +67,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [refreshToken, setRefreshToken] = useState(0);
   const dataGeneration = usePipelineDataGeneration();
   const [selected, setSelected] = useState<CalendarSelection | null>(null);
+  const pendingFollowUp = useRef(false);
+  const confirmLeaveDetails = () => !pendingFollowUp.current || window.confirm("Leave without saving this follow-up? Choose Cancel to keep editing.");
   const [scheduleTarget, setScheduleTarget] = useState<ScheduleTarget | null>(null);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
@@ -67,25 +76,37 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [scheduleLocation, setScheduleLocation] = useState("");
   const [mutationState, setMutationState] = useState({ busy: false, error: "", message: "", canOverride: false });
   const scheduleAssessmentRef = useRef<PipelineAssessmentRecord | null>(null);
-  const viewChosen = useRef(false);
   const deferredQueueSearch = useDebouncedValue(queueSearch, 250);
   const range = calendarRange(view, anchor);
-  const requestKey = [range.from, range.to, deferredQueueSearch, queueLimit, community, owner, mySchedule].join(":");
+  const requestKey = [view, range.from, range.to, deferredQueueSearch, queueLimit, community, owner, mySchedule].join(":");
   const [cache, setCache] = useState<Record<string, CalendarSnapshot>>({});
+  const [navigationReady, setNavigationReady] = useState(false);
   const [requestState, setRequestState] = useState({ key: "", loading: false, error: "" });
   const calendarState = resolveCalendarState(cache[requestKey], requestState, requestKey);
   const { snapshot, loading, refreshing, error, events, unscheduled, scope, viewer } = calendarState;
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 899px)");
-    const applyResponsiveDefault = (matches: boolean) => {
-      if (matches && !viewChosen.current) setView("agenda");
-    };
-    if (media.matches) queueMicrotask(() => applyResponsiveDefault(true));
-    const handleChange = (event: MediaQueryListEvent) => applyResponsiveDefault(event.matches);
-    media.addEventListener("change", handleChange);
-    return () => media.removeEventListener("change", handleChange);
-  }, []);
+    const saved = calendarNavigation.get(navigationKey);
+    queueMicrotask(() => {
+      if (saved) {
+        restoreScroll.current = saved.scrollTop;
+        setView(saved.view); setAnchor(saved.anchor); setCommunity(saved.community);
+        setOwner(saved.owner); setMySchedule(saved.mine);
+      }
+      setNavigationReady(true);
+    });
+  }, [navigationKey]);
+
+  useEffect(() => {
+    if (navigationReady) calendarNavigation.set(navigationKey, { view, anchor, community, owner, mine: mySchedule, scrollTop: calendarNavigation.get(navigationKey)?.scrollTop ?? 0 });
+  }, [navigationReady, navigationKey, view, anchor, community, owner, mySchedule]);
+
+  useEffect(() => {
+    if (!snapshot || restoreScroll.current === null) return;
+    const top = restoreScroll.current;
+    const frame = requestAnimationFrame(() => { if (calendarElement.current) calendarElement.current.scrollTop = top; restoreScroll.current = null; });
+    return () => cancelAnimationFrame(frame);
+  }, [snapshot]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -111,11 +132,12 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeTopOverlay = (event: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"][aria-label^="Preview "]')) return;
       if (event.key !== "Escape" || mutationState.busy) return;
       if (scheduleTarget) {
         scheduleAssessmentRef.current = null;
         setScheduleTarget(null);
-      } else if (selected) setSelected(null);
+      } else if (selected) { if (!pendingFollowUp.current || window.confirm("Leave without saving this follow-up? Choose Cancel to keep editing.")) setSelected(null); }
       else setQueueOpen(false);
     };
     window.addEventListener("keydown", closeTopOverlay);
@@ -126,12 +148,20 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   }, [mutationState.busy, queueOpen, scheduleTarget, selected]);
 
   useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => { if (pendingFollowUp.current) { event.preventDefault(); event.returnValue = ""; } };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
+
+  useEffect(() => {
+    if (!navigationReady) return;
     const controller = new AbortController();
     const params = new URLSearchParams({
       from: range.from,
       to: range.to,
       queue_limit: String(queueLimit),
       include_assignments: "false",
+      include_work: String(view === "day"),
     });
     if (deferredQueueSearch) params.set("queue_q", deferredQueueSearch);
     if (community) params.set("queue_community", community);
@@ -145,11 +175,11 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       signal: controller.signal,
     }, { cacheTtlMs: 15_000, bypassCache: refreshToken > 0 }).then((payload) => {
       if (controller.signal.aborted) return;
-      if (payload.scope === "personal" && !viewChosen.current) setView("agenda");
       setCache((current) => ({
-        ...current,
+        ...Object.fromEntries(Object.entries(current).filter(([key]) => key !== requestKey).slice(-15)),
         [requestKey]: {
           events: payload.events ?? [],
+          continuing: payload.continuing ?? [],
           unscheduled: payload.unscheduled ?? [],
           unscheduledTotal: payload.unscheduledTotal ?? 0,
           unscheduledHasMore: payload.unscheduledHasMore ?? false,
@@ -165,12 +195,13 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       setRequestState({ key: requestKey, loading: false, error: reason instanceof Error ? reason.message : "Calendar could not be loaded." });
     });
     return () => controller.abort();
-  }, [community, deferredQueueSearch, mySchedule, owner, queueLimit, range.from, range.to, refreshToken, requestKey, dataGeneration]);
+  }, [navigationReady, view, community, deferredQueueSearch, mySchedule, owner, queueLimit, range.from, range.to, refreshToken, requestKey, dataGeneration]);
 
   const calendarEvents = events.filter((event) => event.kind !== "referral_assigned");
   const communityOptions = uniqueValues([
     community,
     ...calendarEvents.map((event) => event.community),
+    ...(snapshot?.continuing ?? []).map((event) => event.community),
     ...unscheduled.map((item) => item.community),
   ]);
   const ownerOptions = uniqueOwnerOptions([
@@ -185,6 +216,11 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   ));
   const appointments = visibleEvents.filter((event) => event.kind === "assessment");
   const followUps = visibleEvents.filter((event) => event.kind === "follow_up");
+  const continuing = (snapshot?.continuing ?? []).filter((event) => (
+    (!community || event.community === community)
+    && (!owner || ownerKey(event.ownerId, event.owner) === owner)
+    && (scope === "personal" || !mySchedule || event.ownerId === viewer?.id)
+  ));
   const eventsByDate = groupEventsByDate(appointments);
   const hasFilters = hasCalendarFilters(community, owner, scope === "team" && mySchedule);
   const overdue = visibleEvents.filter((event) => event.kind === "assessment" && event.status === "overdue");
@@ -261,16 +297,22 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     }
   };
 
-  const updateAppointmentStatus = async (event: PipelineCalendarEvent, status: "cancelled" | "no_show") => {
+  const updateAppointmentStatus = async (event: PipelineCalendarEvent, status: "cancelled" | "no_show" | "completed") => {
+    if (!confirmLeaveDetails()) return;
     if (!event.assessmentId) return;
-    const confirmation = status === "no_show"
+    const confirmation = status === "completed"
+      ? "Record that this interview happened? Documentation stays editable. This does not sign, submit, or send the assessment."
+      : status === "no_show"
       ? "Mark this assessment as a no-show? It will return to the scheduling queue."
       : "Cancel this assessment appointment? It will return to the scheduling queue.";
     if (!window.confirm(confirmation)) return;
-    setMutationState({ busy: true, error: "", message: status === "no_show" ? "Recording no-show..." : "Cancelling appointment...", canOverride: false });
+    setMutationState({ busy: true, error: "", message: status === "completed" ? "Recording interview..." : status === "no_show" ? "Recording no-show..." : "Cancelling appointment...", canOverride: false });
     try {
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(`/api/assessments/${encodeURIComponent(event.assessmentId)}`, { cache: "no-store" });
       const assessment = payload.assessment;
+      if (event.assessmentVersion !== undefined && assessment.version !== event.assessmentVersion) {
+        throw new Error("This assessment changed after the calendar loaded. Close this panel and refresh the calendar before recording the outcome.");
+      }
       await fetchPipelineJson(`/api/assessments/${encodeURIComponent(event.assessmentId)}/schedule`, {
         method: "POST",
         body: JSON.stringify({
@@ -286,7 +328,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         }),
       });
       setSelected(null);
-      refreshCalendar(status === "no_show" ? "No-show recorded" : "Appointment cancelled");
+      refreshCalendar(status === "completed" ? "Interview recorded. Continue documentation whenever you are ready." : status === "no_show" ? "No-show recorded" : "Appointment cancelled");
     } catch (reason) {
       setMutationState({ busy: false, error: reason instanceof Error ? reason.message : "The appointment could not be updated.", message: "", canOverride: false });
     }
@@ -298,8 +340,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   };
 
   return (
-    <main data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className="h-full overflow-y-auto bg-white px-3 pb-8 sm:px-5 lg:px-7">
-      <div className="mx-auto w-full max-w-[1540px]">
+    <main ref={calendarElement} onScroll={(event) => { const saved = calendarNavigation.get(navigationKey); if (saved && restoreScroll.current === null) saved.scrollTop = event.currentTarget.scrollTop; }} data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className={calendarStyles.desktop}>
+      <div className={calendarStyles.board}>
         <CalendarHeader
           view={view}
           anchor={anchor}
@@ -321,7 +363,6 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           scheduledCount={scheduledCount}
           overdueCount={overdue.length}
           onView={(value) => {
-            viewChosen.current = true;
             setView(value);
           }}
           onAnchor={setAnchor}
@@ -332,8 +373,18 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           onOpenQueue={() => setQueueOpen(true)}
           onRefresh={() => setRefreshToken((value) => value + 1)}
         />
+        <div className={calendarStyles.paper}>
         <CalendarNotices error={error} mutationError={mutationState.error} scheduleOpen={Boolean(scheduleTarget)} onRetry={() => setRefreshToken((value) => value + 1)} />
-        <CalendarViews
+        {view === "day" ? <CalendarDay
+          date={anchor} loading={loading || !navigationReady} error={error}
+          appointments={appointments} followUps={followUps} continuing={continuing}
+          unscheduled={unscheduled} hasMore={snapshot?.unscheduledHasMore ?? false}
+          onOpen={(event) => setSelected({ type: "event", event })}
+          onContinue={(event) => void openAssessment(event)}
+          onPrepare={(item) => setSelected({ type: "unscheduled", item })}
+          onSchedule={(item) => beginScheduling(scheduleTargetFromUnscheduled(item))}
+          onQueue={() => setQueueOpen(true)}
+        /> : <CalendarViews
           loading={loading}
           view={view}
           anchor={anchor}
@@ -350,8 +401,9 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           onOpen={(event) => setSelected({ type: "event", event })}
           onAssessment={(event) => void openAssessment(event)}
           onFocusOwner={setOwner}
-        />
-        {!loading ? <CalendarFollowUps events={followUps} onOpen={(event) => setSelected({ type: "event", event })} /> : null}
+        />}
+        {!loading && view !== "day" ? <CalendarFollowUps events={followUps} onOpen={(event) => setSelected({ type: "event", event })} /> : null}
+        </div>
       </div>
       {queueOpen ? (
         <CalendarPortal><SchedulingQueue
@@ -385,14 +437,17 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         scheduleLocation={scheduleLocation}
         mutationState={mutationState}
         scope={scope}
-        onCloseSelection={() => setSelected(null)}
+        onCloseSelection={() => { if (confirmLeaveDetails()) setSelected(null); }}
         onCloseSchedule={closeSchedule}
         onOpenWorkspace={() => {
           if (!selected) return;
+          if (!confirmLeaveDetails()) return;
           if (selected.type === "event" && selected.event.kind === "assessment") void openAssessment(selected.event);
           else openWorkspace(selectionIdentity(selected));
         }}
-        onScheduleSelection={() => selected && beginScheduling(scheduleTargetFromSelection(selected))}
+        onOpenChart={() => { if (selected && confirmLeaveDetails()) openWorkspace(selectionIdentity(selected), { view: "chart" }); }}
+        onDirtyChange={(dirty) => { pendingFollowUp.current = dirty; }}
+        onScheduleSelection={() => { if (selected && confirmLeaveDetails()) beginScheduling(scheduleTargetFromSelection(selected)); }}
         onStatus={(status) => selected?.type === "event" && updateAppointmentStatus(selected.event, status)}
         onStart={setScheduleStart}
         onDuration={setScheduleDuration}
@@ -404,6 +459,9 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     </main>
   );
 }
+
+// Navigation preferences only; client records remain in the authenticated data cache.
+const calendarNavigation = new Map<string, { view: CalendarView; anchor: string; community: string; owner: string; mine: boolean; scrollTop: number }>();
 
 async function assessmentForSchedule(target: ScheduleTarget) {
   if (target.assessmentId) {

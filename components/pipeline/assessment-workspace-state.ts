@@ -223,6 +223,9 @@ function liveAssessmentSaveStatus(
   if (pendingOfflineSaves > 0) {
     return `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync`;
   }
-  if (dirty) return message === "Saving last changes..." ? message : "Saving changes...";
+  if (dirty) {
+    if (message.startsWith("Restored answers") || message === "Saving changes..." || message === "Saving last changes...") return message;
+    return "Changes not yet saved";
+  }
   return message || "All changes saved";
 }

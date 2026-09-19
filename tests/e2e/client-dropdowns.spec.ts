@@ -3,16 +3,16 @@ import { expect, test, type Locator, type Page, type TestInfo } from "@playwrigh
 import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
 
 async function openClients(page: Page) {
-  const communities = ["A & A Health Services San Pablo", "AHS Turlock OP LLC", "JC Wallace House"];
+  const communities = ["A & A Health Services San Pablo", "AHS Turlock OP LLC", "JC Wallace House", "JC Wallace House"];
   const clients = communities.map((community, index) => ({
     ...clientDirectoryFixture.clients[0],
     canonical_client_id: `dropdown-${index}`,
-    display_name: ["Riley Perez", "Taylor Chen", "Oscar Martin"][index],
+    display_name: ["Riley Perez", "Taylor Chen", "Oscar Martin", "Aaron Hill"][index],
     resident_numbers: [`R-${100 + index}`],
     community_names: [community],
     current_community: community,
     current_resident: true,
-    admit_date: "2026-07-08",
+    admit_date: index === 3 ? "2020-01-01" : "2026-07-08",
   }));
   await page.route("**/api/profiles/directory**", (route) => {
     const query = (new URL(route.request().url()).searchParams.get("q") ?? "").trim().toLowerCase();
@@ -30,12 +30,19 @@ async function checkStyledMenus(page: Page, testInfo: TestInfo) {
   const menus = ["Filter profiles by admission date", "Sort clients"];
   for (const width of [1440, 834, 390]) {
     await page.setViewportSize({ width, height: 900 });
+    await expect(page.getByRole("combobox")).toHaveCount(0);
+    const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
+    await cabinet.click();
+    const drawer = page.getByRole("region", { name: "JC Wallace House file cabinet", exact: true });
+    await expect(drawer.getByRole("region", { name: "Cabinet filters", exact: true }).getByRole("combobox")).toHaveCount(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     for (const name of menus) {
       const select = page.getByLabel(name);
       await expect(select).toHaveCSS("appearance", "base-select");
       await select.click();
       await expect.poll(() => select.evaluate((element) => element.matches(":open"))).toBe(true);
-      expect(await select.evaluate((element) => getComputedStyle(element, "::picker(select)").backgroundColor)).toBe("rgb(255, 255, 255)");
+      expect(await select.evaluate((element) => getComputedStyle(element, "::picker(select)").backgroundColor)).toBe("rgb(255, 253, 247)");
+      expect(await select.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(15);
       const bounds = await select.locator("option").evaluateAll((options) => options.map((option) => {
         const rect = option.getBoundingClientRect();
         return { left: rect.left, right: rect.right, height: rect.height };
@@ -51,10 +58,9 @@ async function checkStyledMenus(page: Page, testInfo: TestInfo) {
       await expect(select).toBeFocused();
     }
     await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
-    const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
-    await cabinet.click();
-    const drawer = page.getByRole("region", { name: "JC Wallace House file cabinet", exact: true });
     await expect(drawer.getByRole("list", { name: "JC Wallace House clients", exact: true })).toContainText("Oscar Martin");
+    await page.screenshot({ path: testInfo.outputPath(`cabinet-filters-${width}.png`) });
+    await drawer.focus();
     await page.keyboard.press("Escape");
     await expect(drawer).toHaveCount(0);
     await expect(cabinet).toBeFocused();
@@ -67,18 +73,25 @@ test("styles each native Clients menu and keeps open options inside the viewport
 });
 
 async function checkNativeFallback(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("combobox")).toHaveCount(0);
+  await page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true }).click();
+  const drawer = page.getByRole("region", { name: "JC Wallace House file cabinet", exact: true });
   const admitted = page.getByLabel("Filter profiles by admission date");
   await expect(admitted).toHaveCSS("appearance", "none");
   await admitted.selectOption("last_3_months");
   await expect(admitted).toHaveValue("last_3_months");
-  await expect(page.getByText("3 matching", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true })).toContainText("1 client");
-  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(drawer.getByRole("listitem")).toHaveCount(1);
+  await expect(drawer.getByRole("list")).toContainText("Oscar Martin");
+  await page.getByRole("button", { name: "Reset filters", exact: true }).click();
   await expect(admitted).toHaveValue("any");
-  await expect(page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true })).toBeVisible();
+  await expect(drawer.getByRole("listitem")).toHaveCount(2);
   await admitted.focus();
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Sort clients")).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Back to cabinets", exact: true }).click();
+  await expect(page.getByRole("combobox")).toHaveCount(0);
 }
 
 for (const browserName of ["webkit", "firefox"] as const) {
@@ -100,6 +113,7 @@ test("compact cabinets expand across the page body and return focus on close", a
   await openClients(page);
   await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Open profile for/ })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
   const cabinets = page.getByRole("group", { name: "Community file cabinets" }).getByRole("button");
   const bounds = await cabinets.evaluateAll((nodes) => nodes.map((node) => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }));
   expect(bounds.every((r) => r.y === bounds[0].y && r.width > 220 && r.width <= 260 && r.height <= 260)).toBe(true);
@@ -117,7 +131,7 @@ test("compact cabinets expand across the page body and return focus on close", a
   await expect(page.getByLabel("Pipeline home", { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("cabinet-open.png") });
   await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
-  await expect(drawer.getByTestId("client-chart-thumbnail")).toHaveCount(1);
+  await expect(drawer.getByTestId("client-chart-thumbnail")).toHaveCount(2);
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
   await expect(cabinet).toBeFocused();
@@ -150,6 +164,69 @@ test("compact cabinets expand across the page body and return focus on close", a
   await page.getByRole("button", { name: "Back to cabinets", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toBeFocused();
   await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toHaveValue("Riley");
+});
+
+test("cabinet controls stay readable and reachable with long labels on small screens", async ({ page }, testInfo) => {
+  await openClients(page);
+  for (const width of [834, 390, 320]) {
+    await page.setViewportSize({ width, height: 740 });
+    await page.screenshot({ path: testInfo.outputPath(`directory-${width}.png`) });
+    await page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true }).click();
+    const drawer = page.getByRole("region", { name: "A & A Health Services San Pablo file cabinet", exact: true });
+    await expect(drawer.getByRole("heading")).toHaveText("A & A Health Services San Pablo");
+    await expect.poll(() => drawer.evaluate((node) => node.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+    const controls = [
+      drawer.getByRole("button", { name: "Back to cabinets" }),
+      drawer.getByRole("button", { name: "Show clients as cards" }),
+      drawer.getByRole("button", { name: "Show clients as a list" }),
+      drawer.getByLabel("Search this cabinet"),
+      drawer.getByLabel("Filter profiles by admission date"),
+      drawer.getByLabel("Sort clients"),
+    ];
+    for (const control of controls) {
+      await expect(control).toBeVisible();
+      const rect = (await control.boundingBox())!;
+      expect(rect.x).toBeGreaterThanOrEqual(0);
+      expect(rect.x + rect.width).toBeLessThanOrEqual(width);
+      expect(rect.height).toBeGreaterThanOrEqual(44);
+    }
+    await expect(drawer.getByRole("button", { name: "Open profile for Riley Perez", exact: true })).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath(`cabinet-long-label-${width}.png`) });
+    await drawer.getByRole("button", { name: "Back to cabinets" }).click();
+  }
+});
+
+test("filters and sorting belong only to the open cabinet", async ({ page }) => {
+  await openClients(page);
+  await expect(page.getByRole("combobox")).toHaveCount(0);
+  const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
+  await cabinet.click();
+  const drawer = page.getByRole("region", { name: "JC Wallace House file cabinet", exact: true });
+  const records = drawer.getByRole("list").getByRole("button", { name: /^Open profile for/ });
+  await expect(records).toHaveCount(2);
+  await expect(records.first()).toHaveAccessibleName("Open profile for Aaron Hill");
+  await drawer.getByLabel("Sort clients").selectOption("recent_admission");
+  await expect(records.first()).toHaveAccessibleName("Open profile for Oscar Martin");
+  await drawer.getByLabel("Filter profiles by admission date").selectOption("last_3_months");
+  await expect(records).toHaveCount(1);
+  await expect(records.first()).toHaveAccessibleName("Open profile for Oscar Martin");
+  await drawer.getByLabel("Filter profiles by admission date").selectOption("missing");
+  await expect(records).toHaveCount(0);
+  await expect(drawer.getByText("No clients match the current search and filters in this cabinet.")).toBeVisible();
+  await drawer.getByRole("button", { name: "Reset filters" }).click();
+  await expect(records).toHaveCount(2);
+  await expect(records.first()).toHaveAccessibleName("Open profile for Aaron Hill");
+  await drawer.getByLabel("Filter profiles by admission date").selectOption("missing");
+  await drawer.getByRole("button", { name: "Back to cabinets" }).click();
+  await expect(page.getByRole("combobox")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Community file cabinets" }).getByRole("button")).toHaveCount(3);
+  await expect(cabinet).toContainText("2 clients");
+  await expect(cabinet).toBeFocused();
+  await page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true }).click();
+  await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue("any");
+  await expect(page.getByLabel("Sort clients")).toHaveValue("name");
+  await expect(page.getByRole("button", { name: "Open profile for Riley Perez", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Filter profiles by community")).toHaveCount(0);
 });
 
 async function checkSharedPicker(page: Page, select: Locator, height: number) {
@@ -199,7 +276,7 @@ test("shares Clients picker styling with compact Reports and Calendar controls",
   const option = assessor.locator('option:not([value=""])').first();
   await expect(option).toHaveAttribute("value", /.+/);
   const value = (await option.getAttribute("value"))!;
-  await checkSharedPicker(page, assessor, 36);
+  await checkSharedPicker(page, assessor, 44);
   await assessor.click();
   await option.click();
   await expect(assessor).toHaveValue(value);

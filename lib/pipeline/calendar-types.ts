@@ -23,6 +23,8 @@ export type PipelineCalendarEvent = {
   method?: string;
   location?: string;
   scheduleStatus?: AssessmentScheduleStatus;
+  startedAt?: string;
+  workspaceOwner?: string;
   followUpCount?: number;
   followUpLabels?: string[];
   kind: PipelineCalendarEventKind;
@@ -48,6 +50,7 @@ export type PipelineCalendarResponse = {
   from: string;
   to: string;
   events: PipelineCalendarEvent[];
+  continuing?: PipelineCalendarEvent[];
   unscheduled: PipelineUnscheduledAssessment[];
   unscheduledTotal: number;
   unscheduledHasMore: boolean;

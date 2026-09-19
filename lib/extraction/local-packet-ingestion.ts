@@ -25,6 +25,7 @@ type LocalPacketResult = {
   fields: ExtractedField[];
   pageCount: number;
   ocrPageCount: number;
+  pagesRead: number;
 };
 
 type LocalOcrWorker = {
@@ -68,11 +69,18 @@ export async function ingestLocalPacket(input: {
     contentType: input.contentType,
   });
 
-  const extracted = input.contentType === "application/pdf"
-    ? await extractPdf(input.bytes, input.packetId)
-    : await extractImage(input.bytes, input.packetId);
+  const extracted = await previewLocalPacket(input.bytes, input.contentType, input.packetId);
 
   return { ...extracted, documentHash };
+}
+
+// A pre-referral preview reads bytes without reserving a packet or storing PHI.
+// Durable uploads continue through ingestLocalPacket and its integrity checks.
+export async function previewLocalPacket(bytes: Uint8Array, contentType: string, packetId: string) {
+  validateFileSignature(contentType, bytes);
+  return contentType === "application/pdf"
+    ? extractPdf(bytes, packetId)
+    : extractImage(bytes, packetId);
 }
 
 export function buildLocalIntakeFields(
@@ -165,6 +173,7 @@ async function extractPdf(bytes: Uint8Array, packetId: string): Promise<LocalPac
     fields: buildLocalIntakeFields(pages, pageCount, packetId),
     pageCount,
     ocrPageCount,
+    pagesRead: pages.length,
   };
 }
 
@@ -175,6 +184,7 @@ async function extractImage(bytes: Uint8Array, packetId: string): Promise<LocalP
     fields: buildLocalIntakeFields(pages, 1, packetId),
     pageCount: 1,
     ocrPageCount: 1,
+    pagesRead: 1,
   };
 }
 

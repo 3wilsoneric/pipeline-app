@@ -1,7 +1,11 @@
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { AssessmentScheduleLayout } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import type { ReactNode } from "react";
+import calendarStyles from "./CalendarWork.module.css";
+const CalendarWorkDetails = dynamic(() => import("./CalendarWorkDetails"), { loading: () => <p className="p-5 text-sm text-[#626b65]">Loading workspace details…</p> });
 import {
   AlertTriangle,
   CalendarClock,
@@ -120,16 +124,17 @@ export function CalendarHeader(props: CalendarHeaderProps) {
     props.onOwner("");
   };
   return (
-    <header className="pipeline-commands sticky top-0 z-20 bg-white/95 py-3 backdrop-blur">
-      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1.5">
+    <header className={`pipeline-commands ${calendarStyles.header}`}>
+      <div className={calendarStyles.labelRail}><span className={calendarStyles.nameplate}>Calendar</span></div>
+      <div className={calendarStyles.toolbar}>
+        <div className={calendarStyles.rangeControls}>
           <IconButton label="Previous calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, -1))}><ChevronLeft size={17} /></IconButton>
           <IconButton label="Next calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, 1))}><ChevronRight size={17} /></IconButton>
-          <h1 className="relative ml-1 truncate text-[19px] font-extrabold text-[#202522] sm:text-[22px]">{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
-          <button type="button" onClick={() => props.onAnchor(todayKey())} className="ml-1 h-9 border border-[#bfc7c3] px-3 text-[12px] font-bold text-[#3f4743] hover:border-[#167f6b] hover:text-[#116b5a]">Today</button>
+          <h1 className={calendarStyles.rangeTitle}>{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
+          <button type="button" onClick={() => props.onAnchor(todayKey())} className={calendarStyles.today}>Today</button>
         </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <button type="button" aria-haspopup="dialog" aria-expanded={props.queueOpen} onClick={props.onOpenQueue} className="flex h-10 shrink-0 items-center gap-2 whitespace-nowrap bg-[#edf7f3] px-3 text-[12px] font-extrabold text-[#116b5a] hover:bg-[#dff0e9]">
+        <div className={calendarStyles.headerActions}>
+          <button type="button" aria-haspopup="dialog" aria-expanded={props.queueOpen} onClick={props.onOpenQueue} className={calendarStyles.queueButton}>
             <ClipboardList size={15} />
             <span>Scheduling queue</span>
             <span className="tabular-nums text-[#116b5a]">{props.queueCount.toLocaleString()}</span>
@@ -140,19 +145,20 @@ export function CalendarHeader(props: CalendarHeaderProps) {
         </div>
       </div>
       <CalendarFilters {...props} onClear={clearFilters} onToggleMine={toggleMine} />
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-bold text-[#626b65]">
+      <div className={calendarStyles.statusStrip}>
         <span className="font-extrabold text-[#176f5e]">{props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule"}</span>
         <span className="relative"><strong className="text-[#2c332f]">{props.scheduledCount.toLocaleString()}</strong> assessment{props.scheduledCount === 1 ? "" : "s"}<FeedbackCue value={`${props.community}:${props.owner}:${props.mySchedule}`} /></span>
         {props.overdueCount > 0 ? <span className="text-[#9c3d32]"><strong>{props.overdueCount.toLocaleString()}</strong> need{props.overdueCount === 1 ? "s" : ""} completion</span> : null}
         <span>Pacific Time</span>
         <span role="status" aria-live="polite" className="relative ml-auto min-w-0 text-right font-normal">{status}<FeedbackCue value={props.message} enabled={Boolean(props.message) && !props.busy && !props.loading && !props.refreshing} /></span>
       </div>
+      <div className={calendarStyles.binding} aria-hidden="true">{[0, 1, 2, 3, 4, 5].map((ring) => <span key={ring} />)}</div>
     </header>
   );
 }
 
 function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (value: CalendarView) => void }) {
-  return <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className="flex bg-[#f1f4f2] p-1">{(["agenda", "week", "month"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)} className={`h-9 px-3 text-[12px] font-bold capitalize ${view === option ? "bg-white text-[#202522] shadow-sm" : "text-[#69706c] hover:text-[#202522]"}`}>{option === "agenda" ? "Upcoming" : option}</button>)}</div>;
+  return <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className={calendarStyles.viewSwitch}>{(["day", "agenda", "week", "month"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)}>{option === "day" ? "Day" : option === "agenda" ? "Upcoming" : option}</button>)}</div>;
 }
 
 function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onToggleMine: () => void }) {
@@ -197,7 +203,13 @@ export function SchedulingQueue({ items, total, hasMore, search, loading, onSear
         </label>
         <div className="flex-1 overflow-y-auto px-5 py-3 sm:px-6">
           {items.length === 0 ? <div className="py-16 text-center"><CalendarClock size={21} className="mx-auto text-[#89918d]" /><div className="mt-3 text-[14px] font-extrabold text-[#343a36]">{loading ? "Loading referrals..." : search ? "No referrals match that search." : "No referrals are waiting to be scheduled."}</div></div> : (
-            <ol>{items.map((item) => <li key={item.referralId} className="border-b border-[#e1e5e3] py-5 last:border-b-0"><div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left"><span className="block break-words text-[17px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span><span className="mt-1 block text-[13px] text-[#69706c]">{[item.community, item.owner].filter(Boolean).join(" · ")}</span></button><span className="shrink-0 text-[11px] font-bold text-[#7b827e]">{ageLabel(item.receivedDate)}</span></div><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><span className="text-[12px] font-bold text-[#176f5e]">{preparationLabel(item)}</span><button type="button" onClick={() => item.nextAction === "schedule" ? onSchedule(item) : onOpenWorkspace(item)} className="min-h-10 bg-[#167f6b] px-3 text-[12px] font-extrabold text-white hover:bg-[#116b5a]">{preparationActionLabel(item)}</button></div></li>)}</ol>
+            <ol>{items.map((item) => <li key={item.referralId} className="border-b border-[#e1e5e3] py-5 last:border-b-0">
+              <div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left"><span className="block break-words text-[17px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span><span className="mt-1 block text-[13px] text-[#69706c]">{[item.community, item.owner].filter(Boolean).join(" · ")}</span></button><span className="shrink-0 text-[11px] font-bold text-[#7b827e]">{ageLabel(item.receivedDate)}</span></div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><span className="text-[12px] font-bold text-[#176f5e]">{preparationLabel(item)}</span><div className="flex flex-wrap gap-2">
+                {item.nextAction !== "schedule" ? <button type="button" onClick={() => onOpenWorkspace(item)} className="min-h-11 px-3 text-[12px] font-bold text-[#176f5e]">{preparationActionLabel(item)}</button> : null}
+                <button type="button" onClick={() => onSchedule(item)} className="min-h-11 rounded-md bg-[#167f6b] px-3 text-[12px] font-extrabold text-white hover:bg-[#116b5a]">Schedule</button>
+              </div></div>
+            </li>)}</ol>
           )}
         </div>
         {hasMore ? <div className="border-t border-[#d8dedb] p-4 sm:px-6"><button type="button" onClick={onLoadMore} disabled={loading} className="h-9 w-full border border-[#bfc7c3] text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a] disabled:opacity-50">{loading ? "Loading..." : "Load more"}</button></div> : null}
@@ -351,8 +363,10 @@ type CalendarOverlaysProps = {
   onCloseSelection: () => void;
   onCloseSchedule: () => void;
   onOpenWorkspace: () => void;
+  onOpenChart: () => void;
+  onDirtyChange: (dirty: boolean) => void;
   onScheduleSelection: () => void;
-  onStatus: (status: "cancelled" | "no_show") => void;
+  onStatus: (status: "cancelled" | "no_show" | "completed") => void;
   onStart: (value: string) => void;
   onDuration: (value: string) => void;
   onMethod: (value: AssessmentScheduleMethod) => void;
@@ -362,20 +376,36 @@ type CalendarOverlaysProps = {
 };
 
 export function CalendarOverlays(props: CalendarOverlaysProps) {
-  return <>{props.selected ? <CalendarDrawer selection={props.selected} busy={props.mutationState.busy} scope={props.scope} onClose={props.onCloseSelection} onOpenWorkspace={props.onOpenWorkspace} onSchedule={props.onScheduleSelection} onStatus={props.onStatus} /> : null}{props.scheduleTarget ? <ScheduleDialog target={props.scheduleTarget} start={props.scheduleStart} duration={props.scheduleDuration} method={props.scheduleMethod} location={props.scheduleLocation} state={props.mutationState} onStart={props.onStart} onDuration={props.onDuration} onMethod={props.onMethod} onLocation={props.onLocation} onClose={props.onCloseSchedule} onSave={props.onSave} onOverride={props.onOverride} /> : null}</>;
+  return <>{props.selected ? <CalendarDrawer selection={props.selected} busy={props.mutationState.busy} error={props.mutationState.error} scope={props.scope} onClose={props.onCloseSelection} onOpenWorkspace={props.onOpenWorkspace} onOpenChart={props.onOpenChart} onDirtyChange={props.onDirtyChange} onSchedule={props.onScheduleSelection} onStatus={props.onStatus} /> : null}{props.scheduleTarget ? <ScheduleDialog target={props.scheduleTarget} start={props.scheduleStart} duration={props.scheduleDuration} method={props.scheduleMethod} location={props.scheduleLocation} state={props.mutationState} onStart={props.onStart} onDuration={props.onDuration} onMethod={props.onMethod} onLocation={props.onLocation} onClose={props.onCloseSchedule} onSave={props.onSave} onOverride={props.onOverride} /> : null}</>;
 }
 
-function CalendarDrawer({ selection, busy, scope, onClose, onOpenWorkspace, onSchedule, onStatus }: { selection: CalendarSelection; busy: boolean; scope: "personal" | "team"; onClose: () => void; onOpenWorkspace: () => void; onSchedule: () => void; onStatus: (status: "cancelled" | "no_show") => void }) {
+function CalendarDrawer({ selection, busy, error, scope, onClose, onOpenWorkspace, onOpenChart, onDirtyChange, onSchedule, onStatus }: { selection: CalendarSelection; busy: boolean; error: string; scope: "personal" | "team"; onClose: () => void; onOpenWorkspace: () => void; onOpenChart: () => void; onDirtyChange: (dirty: boolean) => void; onSchedule: () => void; onStatus: (status: "cancelled" | "no_show" | "completed") => void }) {
   const model = calendarDrawerModel(selection, scope);
+  const drawer = useRef<HTMLElement>(null);
+  const referralId = selection.type === "event" ? selection.event.referralId : selection.item.referralId;
+  useEffect(() => {
+    const previous = document.activeElement;
+    drawer.current?.querySelector<HTMLElement>("button")?.focus();
+    return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }); };
+  }, []);
   return (
     <div className="fixed inset-0 z-[100] bg-[#18201d]/30" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-      <aside role="dialog" aria-modal="true" aria-label="Calendar item" className="pipeline-panel-enter absolute inset-y-0 right-0 flex w-full max-w-[430px] flex-col border-l border-[#cfd5d2] bg-white shadow-2xl">
+      <aside ref={drawer} role="dialog" aria-modal="true" aria-label="Calendar item" onKeyDown={(event) => {
+        if (event.key !== "Tab" || !drawer.current?.contains(event.target as Node)) return;
+        const controls = [...drawer.current.querySelectorAll<HTMLElement>('button:not(:disabled), input, textarea, select, a[href], summary')].filter((item) => item.getClientRects().length > 0);
+        if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
+        if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus(); }
+      }} className="pipeline-panel-enter absolute inset-y-0 right-0 flex w-full max-w-[620px] flex-col border-l border-[#cfd5d2] bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-[#d8dedb] p-5">
           <div className="min-w-0"><span className="text-[12px] font-extrabold text-[#167f6b]">{model.kicker}</span><h2 className="mt-1.5 break-words text-[22px] font-extrabold text-[#202522]">{model.clientName}</h2></div>
           <IconButton label="Close calendar item" onClick={onClose}><X size={16} /></IconButton>
         </div>
-        <CalendarDrawerDetails model={model} />
-        <CalendarDrawerActions model={model} busy={busy} onOpenWorkspace={onOpenWorkspace} onSchedule={onSchedule} onStatus={onStatus} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <CalendarDrawerDetails model={model} />
+          <CalendarWorkDetails key={referralId} referralId={referralId} onOpenChart={onOpenChart} onDirtyChange={onDirtyChange} />
+        </div>
+        {error ? <p role="alert" className="px-5 py-2 text-sm text-[#973c30]">{error}</p> : null}
+        <CalendarDrawerActions model={model} busy={busy} onOpenWorkspace={onOpenWorkspace} onOpenChart={onOpenChart} onSchedule={onSchedule} onStatus={onStatus} />
       </aside>
     </div>
   );
@@ -387,24 +417,28 @@ function CalendarDrawerDetails({ model }: { model: CalendarDrawerModel }) {
       <dl className="grid grid-cols-[100px_minmax(0,1fr)] gap-x-3 gap-y-4 break-words text-[14px]">
         <dt className="font-bold text-[#777e7a]">Community</dt><dd className="font-semibold text-[#2d332f]">{model.community}</dd>
         <dt className="font-bold text-[#777e7a]">Assessor</dt><dd className="font-semibold text-[#2d332f]">{model.owner}</dd>
+        {model.workspaceOwner ? <><dt className="font-bold text-[#777e7a]">Workspace owner</dt><dd>{model.workspaceOwner}</dd></> : null}
+        {model.workLabel ? <><dt className="font-bold text-[#777e7a]">Work</dt><dd className="font-semibold text-[#326550]">{model.workLabel}</dd></> : null}
         {model.dateLabel ? <><dt className="font-bold text-[#777e7a]">Date</dt><dd className="font-semibold text-[#2d332f]">{model.dateLabel}</dd></> : null}
-        {model.isAppointment ? <><dt className="font-bold text-[#777e7a]">Method</dt><dd className="font-semibold text-[#2d332f]">{model.methodLabel}</dd><dt className="font-bold text-[#777e7a]">Duration</dt><dd className="font-semibold text-[#2d332f]">{model.durationLabel}</dd></> : null}
+        {model.hasScheduledTime ? <><dt className="font-bold text-[#777e7a]">Method</dt><dd className="font-semibold text-[#2d332f]">{model.methodLabel}</dd><dt className="font-bold text-[#777e7a]">Duration</dt><dd className="font-semibold text-[#2d332f]">{model.durationLabel}</dd></> : null}
         {model.location ? <><dt className="font-bold text-[#777e7a]">{model.locationLabel}</dt><dd className="font-semibold text-[#2d332f]">{model.location}</dd></> : null}
         {model.receivedLabel ? <><dt className="font-bold text-[#777e7a]">Received</dt><dd className="font-semibold text-[#2d332f]">{model.receivedLabel}</dd></> : null}
       </dl>
       {model.followUps.length > 0 ? <div className="mt-5 border-l-2 border-[#a16a16] bg-[#fff8ed] p-3"><div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#8a5c14]">Follow-ups</div>{model.followUps.map((label) => <div key={label} className="mt-1.5 text-[12px] text-[#4b4030]">{label}</div>)}</div> : null}
-      {model.needsAssignment ? <div className="mt-5 border-l-2 border-[#a9473d] bg-[#fff3f1] p-3 text-[12px] text-[#7c3229]">Assign this referral before an assessment can be scheduled.</div> : null}
+      {model.needsAssignment ? <p className="mt-5 text-[13px] text-[#6d7470]">An assessor has not been assigned yet. You can still schedule and work on the referral.</p> : null}
     </div>
   );
 }
 
-function CalendarDrawerActions({ model, busy, onOpenWorkspace, onSchedule, onStatus }: { model: CalendarDrawerModel; busy: boolean; onOpenWorkspace: () => void; onSchedule: () => void; onStatus: (status: "cancelled" | "no_show") => void }) {
+function CalendarDrawerActions({ model, busy, onOpenWorkspace, onOpenChart, onSchedule, onStatus }: { model: CalendarDrawerModel; busy: boolean; onOpenWorkspace: () => void; onOpenChart: () => void; onSchedule: () => void; onStatus: (status: "cancelled" | "no_show" | "completed") => void }) {
   return (
-    <div className="pipeline-commands space-y-2 border-t border-[#d8dedb] p-4">
+    <div className="pipeline-commands grid shrink-0 grid-cols-2 gap-2 border-t border-[#d8dedb] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&_button]:rounded-md">
       {model.zoomUrl ? <a href={model.zoomUrl} target="_blank" rel="noreferrer" className="flex h-10 w-full items-center justify-center gap-2 bg-[#4b68ad] text-[12px] font-extrabold text-white hover:bg-[#3d578f]"><Video size={15} /> Join Zoom <ExternalLink size={13} /></a> : null}
-      {model.canSchedule ? <button type="button" onClick={onSchedule} className="flex h-10 w-full items-center justify-center gap-2 bg-[#167f6b] text-[12px] font-extrabold text-white hover:bg-[#116b5a]"><CalendarClock size={15} /> {model.isAppointment ? "Reschedule" : "Schedule assessment"}</button> : null}
+      {model.canSchedule ? <button type="button" disabled={busy} onClick={onSchedule} className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#167f6b] text-[12px] font-extrabold text-white hover:bg-[#116b5a] disabled:opacity-50"><CalendarClock size={15} /> {model.hasScheduledTime ? "Reschedule" : "Schedule assessment"}</button> : null}
       <button type="button" onClick={onOpenWorkspace} className="flex h-11 w-full items-center justify-center gap-2 border border-[#cfd5d2] text-[13px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]"><FolderOpen size={15} /> {model.isAppointment ? "Open assessment" : "Open workspace"}</button>
-      {model.showStatusActions ? <div className="grid grid-cols-2 gap-2 pt-2"><button type="button" disabled={busy} onClick={() => onStatus("no_show")} className="h-9 border border-[#d8dedb] text-[11px] font-bold text-[#8a5c14] hover:bg-[#fff8ed] disabled:opacity-50">Mark no-show</button><button type="button" disabled={busy} onClick={() => onStatus("cancelled")} className="h-9 border border-[#d8dedb] text-[11px] font-bold text-[#9c3d32] hover:bg-[#fff3f1] disabled:opacity-50">Cancel appointment</button></div> : null}
+      <button type="button" onClick={onOpenChart} className="min-h-11 border border-[#cfd5d2] px-3 text-[13px] font-bold text-[#326550]">Open chart</button>
+      {model.showStatusActions && model.dateLabel ? <button type="button" disabled={busy} onClick={() => onStatus("completed")} className="min-h-11 bg-[#eef6f2] px-3 text-[13px] font-bold text-[#126b54] disabled:opacity-50">Interview completed</button> : null}
+      {model.showStatusActions ? <div className="col-span-2 grid grid-cols-2 gap-2 pt-2"><button type="button" disabled={busy} onClick={() => onStatus("no_show")} className="min-h-11 border border-[#d8dedb] text-[12px] font-bold text-[#8a5c14] hover:bg-[#fff8ed] disabled:opacity-50">Mark no-show</button><button type="button" disabled={busy} onClick={() => onStatus("cancelled")} className="min-h-11 border border-[#d8dedb] text-[12px] font-bold text-[#9c3d32] hover:bg-[#fff3f1] disabled:opacity-50">Cancel appointment</button></div> : null}
     </div>
   );
 }
@@ -441,7 +475,7 @@ function ScheduleDialog({ target, start, duration, method, location, state, onSt
 
 function CalendarEventButton({ event, onOpen, compact = false, conflict = false }: { event: PipelineCalendarEvent; onOpen: (event: PipelineCalendarEvent) => void; compact?: boolean; conflict?: boolean }) {
   const color = event.status === "overdue" ? "border-l-[#a9473d] bg-[#fff3f1] text-[#7c3229]" : eventColors[event.kind];
-  return <button type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title} - ${event.owner}`} className={`block w-full border-l-2 px-2 text-left ${compact ? "py-2" : "py-2.5"} ${color} ${conflict ? "ring-1 ring-[#a9473d]" : ""}`}><span className="block truncate text-[12px] font-extrabold">{event.startsAt && compact ? `${eventTime(event.startsAt)} ` : ""}{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block text-[11px]">{conflict ? "Overlap · " : ""}{event.kind === "assessment" ? methodLabel(event.method) : event.title}</span></button>;
+  return <button type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title} - ${event.owner}`} className={`block w-full rounded-lg border border-[#dce3df] border-l-[3px] px-3 text-left shadow-sm transition-shadow hover:shadow-md ${compact ? "py-3" : "py-3.5"} ${color} ${conflict ? "ring-1 ring-[#a9473d]" : ""}`}><span className="block text-[11px] font-bold">{eventTime(event.startsAt)}</span><span className="mt-1 block break-words text-[13px] font-extrabold">{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block text-[11px]">{conflict ? "Overlap · " : ""}{event.kind === "assessment" ? methodLabel(event.method) : event.title}</span></button>;
 }
 
 function CalendarFilter({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {

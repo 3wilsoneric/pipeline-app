@@ -334,6 +334,7 @@ function activityVerb(action: string) {
     assessment_rescheduled: "rescheduled the assessment for",
     assessment_cancelled: "cancelled the assessment for",
     assessment_no_show: "recorded a no-show for",
+    assessment_interview_completed: "recorded the completed interview for",
     assessment_started: "started the scheduled assessment for",
     assessment_completed: "completed the assessment for",
     assessment_signed: "signed the assessment for",

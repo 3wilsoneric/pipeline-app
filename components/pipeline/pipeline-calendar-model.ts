@@ -7,7 +7,7 @@ import type {
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
 
-export type CalendarView = "month" | "week" | "agenda";
+export type CalendarView = "day" | "month" | "week" | "agenda";
 export type CalendarSelection =
   | { type: "event"; event: PipelineCalendarEvent }
   | { type: "unscheduled"; item: PipelineUnscheduledAssessment };
@@ -22,7 +22,7 @@ export type ScheduleTarget = {
   location?: string;
   reschedule: boolean;
 };
-export type CalendarSnapshot = Pick<PipelineCalendarResponse, "events" | "unscheduled" | "unscheduledTotal" | "unscheduledHasMore" | "assessors" | "scope" | "viewer" | "timezone">;
+export type CalendarSnapshot = Pick<PipelineCalendarResponse, "events" | "continuing" | "unscheduled" | "unscheduledTotal" | "unscheduledHasMore" | "assessors" | "scope" | "viewer" | "timezone">;
 export type CalendarDrawerModel = {
   kicker: string;
   clientName: string;
@@ -39,7 +39,10 @@ export type CalendarDrawerModel = {
   zoomUrl: string;
   canSchedule: boolean;
   isAppointment: boolean;
+  hasScheduledTime: boolean;
   showStatusActions: boolean;
+  workLabel?: string;
+  workspaceOwner?: string;
 };
 
 export const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -58,7 +61,7 @@ export function scheduleTargetFromUnscheduled(item: PipelineUnscheduledAssessmen
 export function scheduleTargetFromSelection(selection: CalendarSelection): ScheduleTarget {
   if (selection.type === "unscheduled") return scheduleTargetFromUnscheduled(selection.item);
   const event = selection.event;
-  return { referralId: event.referralId, assessmentId: event.assessmentId, clientName: event.clientName, community: event.community, startsAt: event.startsAt, durationMinutes: event.durationMinutes, method: event.method, location: event.location, reschedule: event.kind === "assessment" };
+  return { referralId: event.referralId, assessmentId: event.assessmentId, clientName: event.clientName, community: event.community, startsAt: event.startsAt, durationMinutes: event.durationMinutes, method: event.method, location: event.location, reschedule: event.kind === "assessment" && Boolean(event.startsAt) };
 }
 
 export function selectionIdentity(selection: CalendarSelection) {
@@ -152,7 +155,7 @@ export function calendarDrawerModel(selection: CalendarSelection, scope: "person
   if (selection.type === "unscheduled") {
     const item = selection.item;
     return {
-      kicker: "Ready to schedule",
+      kicker: "Needs a date",
       clientName: calendarClientName(item.clientName, item.community),
       community: item.community,
       owner: item.owner,
@@ -165,8 +168,9 @@ export function calendarDrawerModel(selection: CalendarSelection, scope: "person
       followUps: [],
       needsAssignment: scope === "team" && !item.ownerId,
       zoomUrl: "",
-      canSchedule: item.nextAction === "schedule",
+      canSchedule: true,
       isAppointment: false,
+      hasScheduledTime: false,
       showStatusActions: false,
     };
   }
@@ -177,7 +181,7 @@ export function calendarDrawerModel(selection: CalendarSelection, scope: "person
     clientName: calendarClientName(event.clientName, event.community),
     community: event.community,
     owner: event.owner,
-    dateLabel: event.startsAt ? `${longDate(event.date)} at ${eventTime(event.startsAt)}` : longDate(event.date),
+    dateLabel: event.startsAt ? `${longDate(event.date)} at ${eventTime(event.startsAt)}` : event.date ? longDate(event.date) : "",
     receivedLabel: "",
     methodLabel: methodLabel(event.method),
     durationLabel: `${calendarDuration(event)} minutes`,
@@ -188,7 +192,10 @@ export function calendarDrawerModel(selection: CalendarSelection, scope: "person
     zoomUrl: event.method === "zoom" && event.location && isHttpUrl(event.location) ? event.location : "",
     canSchedule: isAppointment && event.status !== "complete" && event.scheduleStatus !== "completed",
     isAppointment,
-    showStatusActions: isAppointment && event.status !== "complete" && event.scheduleStatus !== "completed",
+    hasScheduledTime: isAppointment && Boolean(event.startsAt),
+    showStatusActions: isAppointment && Boolean(event.startsAt) && event.status !== "complete" && event.scheduleStatus !== "completed",
+    workLabel: event.kind === "assessment" ? appointmentStatusLabel(event) : undefined,
+    workspaceOwner: event.workspaceOwner && event.workspaceOwner !== event.owner ? event.workspaceOwner : undefined,
   };
 }
 
@@ -200,9 +207,11 @@ export function appointmentLocationLabel(method: string | undefined) {
 }
 
 export function appointmentStatusLabel(event: PipelineCalendarEvent) {
-  if (event.status === "complete" || event.scheduleStatus === "completed") return "Completed";
+  if (event.status === "complete") return "Documentation complete";
+  if (event.scheduleStatus === "completed") return "Interview completed · documentation unfinished";
   if (event.status === "needs_review") return "Ready for review";
-  if (event.status === "overdue") return "Needs completion";
+  if (event.startsAt && event.date < todayKey()) return "Appointment outcome not recorded";
+  if (event.startedAt) return "Documentation in progress";
   return event.scheduleStatus === "rescheduled" ? "Rescheduled" : "Scheduled";
 }
 
@@ -234,6 +243,7 @@ export function calendarClientName(name: string, community: string) {
 }
 
 export function calendarRange(view: CalendarView, anchor: string) {
+  if (view === "day") return { from: anchor, to: anchor };
   if (view === "week") {
     const date = parseDate(anchor);
     date.setUTCDate(date.getUTCDate() - date.getUTCDay());
@@ -249,6 +259,7 @@ export function calendarRange(view: CalendarView, anchor: string) {
 }
 
 export function shiftAnchor(view: CalendarView, anchor: string, direction: number) {
+  if (view === "day") return addCalendarDays(anchor, direction);
   if (view === "month") {
     const date = parseDate(`${anchor.slice(0, 7)}-01`);
     date.setUTCMonth(date.getUTCMonth() + direction);
@@ -258,6 +269,7 @@ export function shiftAnchor(view: CalendarView, anchor: string, direction: numbe
 }
 
 export function rangeLabel(view: CalendarView, range: { from: string; to: string }) {
+  if (view === "day") return longDate(range.from);
   if (view === "month") return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(parseDate(range.from));
   return `${shortDate(range.from)} - ${shortDate(range.to)}`;
 }

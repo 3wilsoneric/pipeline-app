@@ -51,6 +51,41 @@ export function extractedCanvasFieldKeys(fieldKey: string): ReferralCanvasFieldK
   return canvasFieldMappings[fieldKey] ?? [];
 }
 
+export type IntakeFilePreview = {
+  fileName: string;
+  fields: ExtractedField[];
+  pageCount: number;
+  pagesRead: number;
+};
+
+export type IntakeFieldSuggestion = {
+  value: string;
+  fileName: string;
+  page?: number;
+  conflicting?: boolean;
+};
+
+// Preview values are display-only. Only an explicit human action may copy them
+// into the persisted form; populateFormFromExtraction keeps its review gate.
+export function intakePreviewSuggestions(
+  current: Record<ReferralCanvasFieldKey, ReferralCanvasPacketField>,
+  previews: IntakeFilePreview[],
+  dirty: ReadonlySet<ReferralCanvasDirtyKey>,
+) {
+  const suggestions: Partial<Record<ReferralCanvasFieldKey, IntakeFieldSuggestion>> = {};
+  for (const preview of previews) {
+    const updates = buildCanvasFieldUpdates(new Map(preview.fields.map((field) => [field.field_key, field])));
+    for (const [key, update] of Object.entries(updates) as Array<[ReferralCanvasFieldKey, CanvasFieldUpdate | undefined]>) {
+      if (!update?.value || !update.field || current[key].value.trim() || dirty.has(key) || key === "summary") continue;
+      const previous = suggestions[key];
+      if (previous) {
+        if (previous.value !== update.value) previous.conflicting = true;
+      } else suggestions[key] = { value: update.value, fileName: preview.fileName, page: update.field.source_page_no };
+    }
+  }
+  return suggestions;
+}
+
 export function populateFormFromExtraction(
   current: Record<ReferralCanvasFieldKey, ReferralCanvasPacketField>,
   extractedFields: ExtractedField[],
