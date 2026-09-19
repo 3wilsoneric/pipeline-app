@@ -65,6 +65,7 @@ for (const width of [1440, 834, 390, 320]) {
     const bounds = await dialog.boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    await expect(dialog).toHaveCSS("opacity", "1");
     await page.screenshot({ path: testInfo.outputPath(`workspace-index-${width}.png`) });
     await file.click();
     await expect(dialog).toBeHidden();
