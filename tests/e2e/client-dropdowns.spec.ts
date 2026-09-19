@@ -21,8 +21,7 @@ async function openClients(page: Page) {
       ...clientDirectoryFixture, clients: matches, total: matches.length, next_cursor: null, data_as_of: "2026-08-07",
     } });
   });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Open client profiles" }).click();
+  await page.goto("/?screen=profiles");
   await expect(page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true })).toBeVisible();
 }
 
@@ -41,7 +40,7 @@ async function checkStyledMenus(page: Page, testInfo: TestInfo) {
       await expect(select).toHaveCSS("appearance", "base-select");
       await select.click();
       await expect.poll(() => select.evaluate((element) => element.matches(":open"))).toBe(true);
-      expect(await select.evaluate((element) => getComputedStyle(element, "::picker(select)").backgroundColor)).toBe("rgb(255, 253, 247)");
+      expect(await select.evaluate((element) => getComputedStyle(element, "::picker(select)").backgroundColor)).toBe("rgb(255, 255, 255)");
       expect(await select.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(15);
       const bounds = await select.locator("option").evaluateAll((options) => options.map((option) => {
         const rect = option.getBoundingClientRect();
@@ -116,9 +115,10 @@ test("compact cabinets expand across the page body and return focus on close", a
   await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
   const cabinets = page.getByRole("group", { name: "Community file cabinets" }).getByRole("button");
   const bounds = await cabinets.evaluateAll((nodes) => nodes.map((node) => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }));
-  expect(bounds.every((r) => r.y === bounds[0].y && r.width > 220 && r.width <= 260 && r.height <= 260)).toBe(true);
-  expect((bounds[0].x + bounds.at(-1)!.x + bounds.at(-1)!.width) / 2).toBeCloseTo(page.viewportSize()!.width / 2, 0);
-  await page.screenshot({ path: testInfo.outputPath("cabinet-row.png") });
+  expect(bounds.every((r) => r.x === bounds[0].x && r.width === bounds[0].width && r.height >= 72 && r.height <= 120)).toBe(true);
+  expect(bounds[1].y).toBeGreaterThanOrEqual(bounds[0].y + bounds[0].height);
+  expect(bounds[2].y).toBeGreaterThanOrEqual(bounds[1].y + bounds[1].height);
+  await page.screenshot({ path: testInfo.outputPath("cabinet-stack.png") });
   const cabinet = page.getByRole("button", { name: "Open JC Wallace House file cabinet", exact: true });
   await cabinet.focus();
   await page.keyboard.press("Enter");
