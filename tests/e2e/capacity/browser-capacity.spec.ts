@@ -2,6 +2,7 @@ import { test, expect, chromium, type Browser, type BrowserContext, type Page } 
 import { totalmem, freemem } from 'node:os';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { createOperationalReferral } from '../support/operational-api';
 import { operationalHeadersForActor, type PipelineActor } from '../support/pipeline-actors';
@@ -10,6 +11,8 @@ import { clientDirectoryFixture } from '../support/pipeline-clinical-fixtures';
 test('sustained browser saves survive alternating application instances', async ({ baseURL }, testInfo) => {
   test.skip(testInfo.config.metadata.pipelineCapacityRehearsal !== true, 'Opt in with playwright.capacity.config.ts; never run as part of the ordinary browser suite');
   const users = Number(process.env.PIPELINE_CAPACITY_USERS ?? 100);
+  const actorOffset = Number(process.env.PIPELINE_CAPACITY_ACTOR_OFFSET ?? 0);
+  if (!Number.isInteger(actorOffset) || actorOffset < 0 || actorOffset + users > 100) throw Error('Distinct distributed actors must remain inside the synthetic allowlist');
   const candidate = process.env.PIPELINE_CAPACITY_COMMIT ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   if (!/^[a-f0-9]{40}$/.test(candidate)) throw Error('Exact candidate commit required');
   const seconds = Number(process.env.PIPELINE_CAPACITY_SECONDS ?? 1200);
@@ -21,7 +24,7 @@ test('sustained browser saves survive alternating application instances', async 
   const sql = postgres(dbUrl.href, { ssl: false, max: 2, onnotice: () => {} });
   const browsers: Browser[] = [];
   const sessions: Array<{ context: BrowserContext; page: Page; actor: PipelineActor; id: number; field: string }> = [];
-  const runId = `capacity-${Date.now()}`;
+  const runId = `capacity-${Date.now()}-${randomUUID().slice(0, 8)}`;
   const ledger: Array<{ actor: string; id: number; field: string; value: string; ms: number; backend: string; at: number }> = [];
   const errors: string[] = [];
   const backendCounts: Record<string, number> = {};
@@ -38,7 +41,8 @@ test('sustained browser saves survive alternating application instances', async 
     // Bounded preparation only. The measured actor loops below are NOT batched.
     for (let start = 0; start < users; start += 5) await Promise.all(Array.from({ length: Math.min(5, users - start) }, async (_, offset) => {
       const i = start + offset;
-      const actor: PipelineActor = { id: `${runId}-${i}`, name: `Synthetic Assessor ${i}`, email: `capacity-${i}@pipeline.local`, roleClaim: 'Pipeline.Reviewer', expectedRoles: ['reviewer', 'viewer'] };
+      const actorIndex = actorOffset + i;
+      const actor: PipelineActor = { id: `${runId}-${actorIndex}`, name: `Synthetic Assessor ${actorIndex}`, email: `capacity-${actorIndex}@pipeline.local`, roleClaim: 'Pipeline.Reviewer', expectedRoles: ['reviewer', 'viewer'] };
       const context = await browsers[Math.floor(i / 10)].newContext({ baseURL, extraHTTPHeaders: operationalHeadersForActor(actor, baseURL!), viewport: { width: 1365, height: 900 } });
       context.setDefaultTimeout(30_000);
       context.setDefaultNavigationTimeout(30_000);
