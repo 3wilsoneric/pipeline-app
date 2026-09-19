@@ -62,7 +62,7 @@ for (const width of [1440, 390]) test(`Chart pagination preserves the email URL 
   await expect(page).toHaveURL(/workspaceView=files/);
   await stages.getByRole("button", { name: /Chart/ }).click();
   await expect(chartPages).toContainText("Page 1 of 2");
-  const chart = page.getByRole("article", { name: "Client medical chart", exact: true });
+  const chart = page.getByRole("article", { name: "Referral chart", exact: true });
   await expect(chart).toBeVisible();
   await expect(folder.getByRole("button", { name: "New referral", exact: true })).toHaveCount(0);
   await expect(chart.locator("header").getByRole("navigation", { name: "Chart pages" })).toBeVisible();

@@ -16,14 +16,23 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         }, { assigneeId: "provisional:allo:annette" });
         const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`;
         await page.goto(url);
-        const chart = page.getByRole("article", { name: "Client medical chart", exact: true });
+        const chart = page.getByRole("article", { name: "Referral chart", exact: true });
         for (const field of ["Client", "Date of birth", "Gender", "Community", "Medications on record", "Conserved status"]) {
           const edit = chart.getByRole("button", { name: `Edit ${field}`, exact: true });
           await expect(edit.locator("svg")).toBeVisible();
           expect((await edit.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         }
         for (const field of ["Resident number", "Unit", "Admission date", "Length of stay", "Allergies"]) {
-          await expect(chart.locator(`[data-chart-field="${field}"] button`)).toHaveCount(0);
+          await expect(chart.locator(`[data-chart-field="${field}"]`)).toHaveCount(0);
+        }
+        const identityBounds = await chart.locator('[aria-label="Referral identity"]').evaluate((grid) => {
+          const fields = Array.from(grid.children).map((element) => element.getBoundingClientRect());
+          return { top: fields.map((rect) => rect.top), ssnWidth: fields[3].width, width: grid.getBoundingClientRect().width };
+        });
+        if (width >= 1024) expect(new Set(identityBounds.top).size).toBe(1);
+        else {
+          expect(identityBounds.top[1]).toBe(identityBounds.top[2]);
+          expect(identityBounds.ssnWidth).toBeCloseTo(identityBounds.width, 0);
         }
         await chart.getByRole("button", { name: "Edit Date of birth", exact: true }).click();
         const dobInput = page.locator('[data-workspace-field="dob"] input');
@@ -86,18 +95,19 @@ test("an assessment chart pencil resumes its exact answer and saves it back to t
   await expect(record).toContainText("Synthetic corrected placement");
 });
 
-test("imported chart facts and the standalone client chart do not promise unsupported edits", async ({ page }) => {
+test("referral chart edits its own intake while the standalone client chart stays read-only", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
   const fixture = structuredClone(unifiedProfileFixture);
   const profile = { ...fixture, pipeline: { ...fixture.pipeline, referrals: [(await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral] } };
   await page.route("**/api/profiles/**", (route) => route.fulfill({ json: profile }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
-  const chart = page.getByRole("article", { name: "Client medical chart", exact: true });
+  const chart = page.getByRole("article", { name: "Referral chart", exact: true });
   await expect(chart).toBeVisible();
-  await expect(chart.locator("[data-chart-field] button")).toHaveCount(0);
+  await expect(chart.getByRole("button", { name: "Edit Client", exact: true })).toBeVisible();
+  await expect(chart.locator('[data-chart-field="Resident number"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Edit Name", exact: true })).toBeVisible();
   await page.goto(`/?screen=profile&clientId=pipeline:${referral.clientId}`);
-  await expect(chart).toBeVisible();
+  await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
 });
 
@@ -107,6 +117,6 @@ test("an account without workspace edit permission has no field edit affordances
     user: { id: "synthetic-reader", name: "Synthetic reader", email: "reader@example.invalid", roles: [] },
   } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
-  await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
 });

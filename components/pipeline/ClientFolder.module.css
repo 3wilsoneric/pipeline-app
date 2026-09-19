@@ -425,9 +425,8 @@
   }
 }
 
-/* Complete both the two-column and six-column identity rows without
-   reordering fields or changing embedded workspace chart layouts. */
-.recordFolder :global([data-chart-field="Gender"]) {
+/* The resident identity row has different columns from referral intake. */
+.recordFolder :global([aria-label="Client identity"] [data-chart-field="Gender"]) {
   grid-column: span 2;
 }
 

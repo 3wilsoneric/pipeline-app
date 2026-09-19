@@ -60,9 +60,9 @@ for (const width of [1440, 834, 390]) {
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     await openAssessmentChart(page);
     const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
-    const clientChart = review.getByRole("article", { name: "Client medical chart", exact: true });
-    await expect(clientChart).toContainText("Synthetic assessed diagnosis");
+    await expect(review.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
     const record = review.getByRole("article", { name: "Assessment record", exact: true });
+    await expect(record).toContainText("Synthetic assessed diagnosis");
     await expect(record).toContainText(narrative);
     const body = await record.innerText();
     const fact = record.locator('[data-chart-fact="Prior placements"]');
@@ -77,8 +77,9 @@ for (const width of [1440, 834, 390]) {
     await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
     const workspace = page.getByTestId("profile-workspace");
     await expect(workspace).toBeVisible();
-    await expect(workspace.getByRole("article", { name: "Client medical chart", exact: true })).toContainText("Synthetic assessed diagnosis");
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
     const workspaceRecord = workspace.getByRole("article", { name: "Assessment record", exact: true });
+    await expect(workspaceRecord).toContainText("Synthetic assessed diagnosis");
     await expect(workspaceRecord).toHaveCount(1);
     expect(await workspaceRecord.innerText()).toBe(body);
     expect(await readingStyle(workspaceRecord.locator('[data-chart-fact="Prior placements"]'))).toEqual(style);
@@ -104,7 +105,7 @@ test("current unsigned answers appear without replacing established clinical fac
   const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
   await expect(review.getByRole("article", { name: "Assessment record", exact: true })).toContainText(narrative);
   await expect(review).toContainText("In progress, not signed");
-  await expect(review.getByRole("article", { name: "Client medical chart", exact: true })).toContainText("Sanitized diagnosis");
+  await expect(review.getByRole("article", { name: "Referral chart", exact: true })).not.toContainText("Sanitized diagnosis");
   const draft = { ...staleAssessment, prior_placements: narrative, primary_diagnosis: "Unsigned diagnosis" };
   const projected = clientChartAssessments(profile, referral.id, draft);
   expect(projected[0].prior_placements).toBe(narrative);
@@ -116,6 +117,8 @@ test("current unsigned answers appear without replacing established clinical fac
   const sealed = { ...profile, pipeline: { ...profile.pipeline, assessments: [{ ...staleAssessment, signed_at: "2026-09-18T12:00:00Z" }] } };
   expect(clientChartAssessments(sealed, referral.id, draft)[0]).toBe(draft);
   expect(sealed.pipeline.assessments[0].signed_at).toBe("2026-09-18T12:00:00Z");
+  await page.goto("/?screen=profile&clientId=client-sanitized-100");
+  await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).toContainText("Sanitized diagnosis");
 });
 
 test("chart load failure retains working answers and can retry the full chart", async ({ page }) => {
@@ -131,7 +134,9 @@ test("chart load failure retains working answers and can retry the full chart", 
   await expect(review.getByRole("article", { name: "Assessment record", exact: true })).toContainText(narrative);
   await page.unroute("**/api/profiles/**");
   await review.getByRole("button", { name: "Retry", exact: true }).click();
-  await expect(review.getByRole("article", { name: "Client medical chart", exact: true })).toBeVisible();
+  await expect(review.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
+  await expect(review.getByRole("alert")).toHaveCount(0);
+  await expect(review.getByTestId("profile-workspace")).toBeVisible();
   await expect(review.getByRole("article", { name: "Assessment record", exact: true })).toContainText(narrative);
 });
 
@@ -154,8 +159,11 @@ test("recovered edits to signed answers are not presented as signed clinical inf
   const record = review.getByRole("article", { name: "Assessment record", exact: true });
   await expect(record).toContainText(narrative);
   await expect(record).toContainText("In progress, not signed");
-  await expect(review.getByRole("article", { name: "Client medical chart", exact: true })).toContainText("Original signed diagnosis");
+  await expect(record).toContainText("Original signed diagnosis");
   const saved = (await (await page.request.get(`/api/assessments/${created.assessment_id}`)).json()).assessment;
   expect(saved.prior_placements).toBe("Original signed history");
   expect(saved.signed_at).toBeTruthy();
+  const savedReferral = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+  await page.goto(`/?screen=profile&clientId=pipeline:${savedReferral.clientId}`);
+  await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).toContainText("Original signed diagnosis");
 });

@@ -23,8 +23,8 @@ for (const width of [1440, 834, 390]) {
     const stages = page.getByRole("navigation", { name: "Workspace stages" });
     await expect(stages.getByRole("button")).toHaveText(["01Chart", "02Assessment", "03Decision"]);
     await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).toContainText("San Pablo");
-    await expect(page.getByRole("article", { name: "Client medical chart", exact: true }).getByTestId("client-identity-title")).not.toHaveText(/Not documented/);
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("San Pablo");
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true }).getByTestId("client-identity-title")).not.toHaveText(/Not documented/);
     expect((await (await page.request.get(`/api/referrals/${referralId}/assessments`)).json()).assessments).toHaveLength(0);
 
     // Referral details are an editor in this same file, not an Intake stage left behind.
@@ -39,7 +39,7 @@ for (const width of [1440, 834, 390]) {
     await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
     await expect(stages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
     await page.screenshot({ path: info.outputPath(`living-chart-${width}.png`) });
-    const chartBounds = (await page.getByRole("article", { name: "Client medical chart", exact: true }).boundingBox())!;
+    const chartBounds = (await page.getByRole("article", { name: "Referral chart", exact: true }).boundingBox())!;
 
     await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
     await expect(page.locator("[data-assessment-view]")).toBeVisible();
@@ -70,7 +70,7 @@ for (const width of [1440, 834, 390]) {
     await expect(page.getByRole("button", { name: /^(Admission decision|View admission)$/ })).toHaveCount(0);
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(decision).toHaveCount(0);
-    const signedBounds = (await review.getByRole("article", { name: "Client medical chart", exact: true }).boundingBox())!;
+    const signedBounds = (await review.getByRole("article", { name: "Referral chart", exact: true }).boundingBox())!;
     expect(Math.abs(signedBounds.x - chartBounds.x)).toBeLessThan(1);
     expect(Math.abs(signedBounds.width - chartBounds.width)).toBeLessThan(1);
     await page.screenshot({ path: info.outputPath(`signed-in-place-${width}.png`) });

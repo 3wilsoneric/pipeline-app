@@ -159,7 +159,7 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
-export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment, onEditReferralField, onEditAssessmentField }: {
+export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment, onEditReferralField, onEditAssessmentField, intakeReferral }: {
   profile: UnifiedClientProfileResponse;
   sourceReferralId: number;
   headerActions?: ReactNode;
@@ -167,11 +167,12 @@ export function ClientChartRecord({ profile, sourceReferralId, headerActions, ch
   assessment?: PipelineAssessmentRecord;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
+  intakeReferral?: Referral;
 }) {
   return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
     assessmentRecords={clientChartAssessments(profile, sourceReferralId, assessment)}
     embedded sourceReferralId={sourceReferralId} headerActions={headerActions} additionalContent={children} onEditReferralField={onEditReferralField}
-    editableAssessmentId={assessment?.assessment_id} onEditAssessmentField={onEditAssessmentField} />;
+    editableAssessmentId={assessment?.assessment_id} onEditAssessmentField={onEditAssessmentField} intakeReferral={intakeReferral} />;
 }
 
 function ResidentProfile({
@@ -187,6 +188,7 @@ function ResidentProfile({
   onEditReferralField,
   editableAssessmentId,
   onEditAssessmentField,
+  intakeReferral,
 }: {
   profile: UnifiedClientProfileResponse;
   onBack: () => void;
@@ -200,6 +202,7 @@ function ResidentProfile({
   onEditReferralField?: (field: ReferralChartEditField) => void;
   editableAssessmentId?: string;
   onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
+  intakeReferral?: Referral;
 }) {
   const client = profile.client;
   const resident = profile.resident;
@@ -254,7 +257,7 @@ function ResidentProfile({
           </div>
         ) : null}
 
-        <div className={folderStyles.chartSummary}>
+        {!intakeReferral ? <div className={folderStyles.chartSummary}>
           <ClientMedicalChart
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
@@ -262,7 +265,7 @@ function ResidentProfile({
             headerActions={headerActions}
             editActions={summaryEditActions}
           />
-        </div>
+        </div> : null}
 
         <div className="mt-5 min-w-0 space-y-5">
           {profile.pipeline.connection.status === "candidate" ? (
@@ -299,12 +302,12 @@ function ResidentProfile({
             onOpenWorkspace={onOpenWorkspace}
           />
 
-          <ProfileSection title="Client information" detail="Clinical, support, and stay details">
+          {!intakeReferral ? <ProfileSection title="Client information" detail="Clinical, support, and stay details">
             <CuratedClientRecord sections={chart.detailSections} editActions={summaryEditActions} />
             {!pipelineOnly ? (
               <ClientStayHistory episodes={chart.episodes} history={history} />
             ) : null}
-          </ProfileSection>
+          </ProfileSection> : null}
 
           <ClientFilesSection
             canonicalClientId={client.canonical_client_id}
@@ -313,7 +316,7 @@ function ResidentProfile({
           />
           <ClientRecordedInformation profile={profile} sourceReferralId={sourceReferralId} editActions={referralEditActions} />
 
-          {!pipelineOnly && client.canonical_client_id ? (
+          {!intakeReferral && !pipelineOnly && client.canonical_client_id ? (
             <ProfileSection title="Record quality" detail={`${completeness.complete} of ${completeness.total} tracked fields`}>
               <RecordQualitySummary completeness={completeness} historyDataAsOf={history.data_as_of} />
             </ProfileSection>
