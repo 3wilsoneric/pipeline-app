@@ -6,6 +6,8 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const alerts = readFileSync("infra/azure/operational-alerts.bicep", "utf8");
 const main = readFileSync("infra/azure/main.bicep", "utf8");
+const foundationState = readFileSync("infra/azure/foundation-state.bicep", "utf8");
+const foundationBootstrap = readFileSync("scripts/bootstrap-azure-foundation.sh", "utf8");
 const runtime = readFileSync("infra/azure/runtime.bicep", "utf8");
 const deployment = readFileSync(".github/workflows/deploy-azure.yml", "utf8");
 const metricContract = loadTypeScriptModule(process.cwd(), "lib/observability/metric-contract.ts");
@@ -50,7 +52,7 @@ const checks = [
   { name: "PostgreSQL connections and capacity use native Azure metrics", ok: alerts.includes("active_connections") && alerts.includes("storage_percent") && alerts.includes("Microsoft.DBforPostgreSQL/flexibleServers") },
   { name: "Blob capacity uses the native UsedCapacity metric", ok: alerts.includes("UsedCapacity") && alerts.includes("Microsoft.Storage/storageAccounts") },
   { name: "Container Apps restarts and resiliency timeouts use native metrics", ok: runtime.includes("RestartCount") && runtime.includes("ResiliencyRequestTimeouts") && runtime.includes("Microsoft.App/containerApps") },
-  { name: "runtime alert delivery preserves foundation action groups", ok: main.includes("output alertActionGroupResourceIds") && deployment.includes("alert_action_group_ids") && runtime.includes("param alertActionGroupResourceIds") },
+  { name: "runtime alert delivery preserves foundation action groups", ok: main.includes("output alertActionGroupResourceIds") && foundationState.includes("output alertActionGroupResourceIds array = alertActionGroupResourceIds") && foundationBootstrap.includes('alertActionGroupResourceIds="$alert_action_group_ids"') && deployment.includes("alert_action_group_ids") && runtime.includes("param alertActionGroupResourceIds") },
   { name: "authorization and clinical alerts use only route and status metadata", ok: alerts.includes("toint(payload.status) in (401, 403)") && alerts.includes("startswith '/api/clinical/'") },
   { name: "alert queries do not contain PHI dimensions", ok: !/(resident|diagnosis|medication|client_name|document_id|referral_id)/i.test(alerts) },
   {

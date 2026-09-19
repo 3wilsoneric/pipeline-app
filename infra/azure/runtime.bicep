@@ -59,7 +59,8 @@ param enableClinicalReconcileJob bool = false
 
 @minValue(0)
 @maxValue(3)
-param minimumReplicas int = environment == 'prod' ? 1 : 0
+@description('Two warm production replicas. This changes recurring cost; deploy only after owner approval of the readiness quote.')
+param minimumReplicas int = environment == 'prod' ? 2 : 0
 
 @minValue(1)
 @maxValue(10)

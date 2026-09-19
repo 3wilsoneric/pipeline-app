@@ -7,8 +7,8 @@ param namePrefix string
 @allowed(['dev', 'test', 'prod'])
 param environment string
 
-@description('Explicit database cost/resilience choice. pilot is single-zone and production_ha adds a larger primary, zone-redundant standby, longer backups, and geo-redundant backup.')
-@allowed(['pilot', 'production_ha'])
+@description('Explicit cost/resilience choice. pilot_ha adds a standby at pilot size; production_ha also increases compute, storage, and backup coverage. Existing servers require a separate reviewed update, not bootstrap.')
+@allowed(['pilot', 'pilot_ha', 'production_ha'])
 param databaseServiceLevel string
 
 param location string = resourceGroup().location
@@ -65,6 +65,7 @@ var deploymentIdentityName = take('${namePrefix}-${environment}-github-${suffix}
 var postgresPrivateDnsZoneName = 'private.postgres.database.azure.com'
 var githubSubject = 'repo:${githubRepository}:ref:refs/heads/${githubBranch}'
 var highAvailabilityDatabase = databaseServiceLevel == 'production_ha'
+var enableDatabaseStandby = databaseServiceLevel != 'pilot'
 
 var blobContributorRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
 var keyVaultSecretsUserRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
@@ -252,7 +253,7 @@ resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2025-08-01' = {
     }
     createMode: 'Create'
     highAvailability: {
-      mode: highAvailabilityDatabase ? 'ZoneRedundant' : 'Disabled'
+      mode: enableDatabaseStandby ? 'ZoneRedundant' : 'Disabled'
     }
     network: {
       delegatedSubnetResourceId: postgresSubnet.id
