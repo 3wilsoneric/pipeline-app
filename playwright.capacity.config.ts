@@ -7,7 +7,7 @@ export default defineConfig({
   outputDir: '.data/capacity-20260919/results',
   reporter: [['list'], ['json', { outputFile: '.data/capacity-20260919/playwright.json' }]],
   use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:4177', headless: true, trace: 'off', screenshot: 'only-on-failure' },
-  webServer: {
+  webServer: process.env.PIPELINE_CAPACITY_REMOTE === 'true' ? undefined : {
     command: 'node scripts/capacity-local-server.mjs',
     url: 'http://127.0.0.1:4177/api/health/live', reuseExistingServer: false, timeout: 60_000,
   },

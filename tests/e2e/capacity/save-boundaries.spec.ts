@@ -273,6 +273,26 @@ test('expired save authorization preserves the typed intake answer until an auth
   } finally { await s.context.close(); }
 });
 
+test('a temporary pre-handler capacity rejection retries the same field without another click', async ({ browser, baseURL }) => {
+  const s = await session(browser, baseURL!, 12);
+  try {
+    const referral = await seed(s);
+    const phone = await editPhone(s.page, referral.id);
+    const bodies: string[] = [];
+    await s.page.route(`**/api/referrals/${referral.id}`, route => {
+      if (route.request().method() !== 'PATCH') return route.continue();
+      bodies.push(route.request().postData()!);
+      if (bodies.length === 1) return route.fulfill({ status: 429, headers: { 'X-Pipeline-Capacity-Class': 'mutation', 'Retry-After': '1' }, json: { error: 'Synthetic capacity rejection before handler' } });
+      return route.continue();
+    });
+    await phone.fill('555-0666'); await phone.blur();
+    await expect.poll(async () => (await (await s.context.request.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe('555-0666');
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]).toBe(bodies[1]);
+    await expect(s.page.getByRole('button', { name: 'Retry saving', exact: true })).toHaveCount(0);
+  } finally { await s.context.close(); }
+});
+
 test('a real disposable database outage retains the field and recovers without a false saved state', async ({ browser, baseURL }) => {
   test.skip(process.env.PIPELINE_CAPACITY_FAULTS !== 'true', 'Explicit isolated outage rehearsal only');
   const run = promisify(execFile);

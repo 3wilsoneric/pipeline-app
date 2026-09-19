@@ -49,7 +49,7 @@ test('sustained browser saves survive alternating application instances', async 
       await createOperationalReferral(context.request, actor, { name: `Spare ${uniqueName}`, source: runId, documentName: '', documentStatus: 'Missing' });
       const page = await context.newPage();
       page.on('pageerror', () => errors.push(`browser_exception:${i}`));
-      page.on('response', response => { if (response.url().startsWith(baseURL!) && response.status() >= 500) errors.push(`http_${response.status()}:${new URL(response.url()).pathname}:${i}`); });
+      page.on('response', response => { if (response.url().startsWith(baseURL!) && (response.status() >= 500 || response.status() === 429)) errors.push(`http_${response.status()}:${new URL(response.url()).pathname}:${i}`); });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
       await intakeChart(page).getByRole('button', { name: 'Edit Phone', exact: true }).click();
       await expect(page.getByRole('textbox', { name: 'Client phone:', exact: true })).toBeVisible();
@@ -65,6 +65,9 @@ test('sustained browser saves survive alternating application instances', async 
       await intakeChart(sessions[i + 1].page).getByRole('button', { name: 'Edit Email', exact: true }).click();
       await expect(sessions[i + 1].page.getByRole('textbox', { name: 'Client email:', exact: true })).toBeVisible();
     }
+    const startAt = Number(process.env.PIPELINE_CAPACITY_START_AT ?? 0);
+    if (startAt && (!Number.isSafeInteger(startAt) || startAt <= Date.now() || startAt > Date.now() + 10 * 60_000)) throw Error('Distributed start must be a shared future time within ten minutes');
+    if (startAt) await new Promise(resolve => setTimeout(resolve, startAt - Date.now()));
     measuredStart = Date.now();
     const deadline = measuredStart + seconds * 1000;
     delay.enable();
@@ -74,7 +77,7 @@ test('sustained browser saves survive alternating application instances', async 
       const rss = (pattern: RegExp) => rows.reduce((sum, row) => pattern.test(row) ? sum + Number(row.trim().split(/\s+/)[0]) : sum, 0);
       processMemory.push({ at: Date.now(), app_rss_kib: rss(/next-server/), browser_rss_kib: rss(/chrome|chromium/i) });
     }, 5000);
-    await Promise.all(sessions.map(async session => {
+    const outcomes = await Promise.allSettled(sessions.map(async session => {
       let cycle = 0;
       do {
         const { page, context, id, actor, field } = session;
@@ -82,9 +85,10 @@ test('sustained browser saves survive alternating application instances', async 
         const input = page.getByRole('textbox', { name: field === 'phone' ? 'Client phone:' : 'Client email:', exact: true });
         await input.fill(value);
         const started = Date.now();
-        const saved = page.waitForResponse(response => new URL(response.url()).pathname === `/api/referrals/${id}` && response.request().method() === 'PATCH' && response.ok(), { timeout: 30_000 });
-        await input.blur();
-        const response = await saved;
+        const [response] = await Promise.all([
+          page.waitForResponse(response => new URL(response.url()).pathname === `/api/referrals/${id}` && response.request().method() === 'PATCH' && response.ok(), { timeout: 30_000 }),
+          input.blur(),
+        ]);
         const backend = response.headers()['x-capacity-backend'];
         backendCounts[backend] = (backendCounts[backend] ?? 0) + 1;
         ledger.push({ actor: actor.id, id, field, value, ms: Date.now() - started, backend, at: Date.now() });
@@ -108,6 +112,7 @@ test('sustained browser saves survive alternating application instances', async 
         await page.waitForTimeout(1000 + (Number(actor.id.split('-').at(-1)) % 5) * 200);
       } while (Date.now() < deadline);
     }));
+    for (const outcome of outcomes) if (outcome.status === 'rejected') throw outcome.reason;
     measuredEnd = Date.now();
     const latest = new Map(ledger.map(entry => [`${entry.id}:${entry.field}`, entry]));
     for (const entry of latest.values()) {
