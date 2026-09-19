@@ -43,12 +43,17 @@ for (const width of [1440, 834, 390, 320]) {
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Index ${randomUUID()}`, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
     await mockDirectory(page, referral.id);
     await page.goto("/");
+    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
+    await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`mineral-background-${width}.png`) });
     await page.getByRole("button", { name: "All workspaces", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "All workspaces", exact: true });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("searchbox", { name: "Find any workspace" }).fill("Avery");
     await expect(dialog.getByRole("status").filter({ hasText: "124 workspaces" })).toBeVisible();
     const file = dialog.getByRole("button", { name: "Open workspace for Avery Example 016", exact: true });
+    await expect(file).toContainText("Referral created");
+    await expect(file).not.toContainText("Ready to schedule");
     await file.scrollIntoViewIfNeeded();
     const scroller = dialog.locator("[data-workspace-browser-scroll]");
     const scrollBefore = await scroller.evaluate((element) => element.scrollTop);

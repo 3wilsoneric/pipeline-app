@@ -47,7 +47,7 @@ for (const width of [1440, 1024, 437, 390]) {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: width === 437 ? 536 : width === 390 ? 844 : 1000 });
     await syntheticHome(page);
-    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(245, 246, 248)");
+    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
     await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", "0px");
     const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, "::before").backgroundColor));
     expect(new Set(stageColors).size).toBe(4);
@@ -77,7 +77,7 @@ for (const width of [1440, 1024, 437, 390]) {
     const bodyBox = (await folderBody.boundingBox())!;
     expect(tabBox.y + tabBox.height - bodyBox.y).toBe(1);
     const statusTab = firstCard.locator('[data-board-status]');
-    await expect(statusTab).toHaveText("Ready to schedule");
+    await expect(statusTab).toHaveText("Referral created");
     await expect(statusTab).toHaveCSS("font-size", "11px");
     const statusBox = (await statusTab.boundingBox())!;
     expect(statusBox.x).toBeGreaterThan(tabBox.x + tabBox.width);
@@ -226,7 +226,7 @@ test("board folders fan halfway on hover and keyboard focus without fetching or 
   await first.focus();
   await expect(first).toBeFocused();
   await expect(first).toHaveCSS("outline-width", "2px");
-  await expect(first).toHaveAccessibleDescription("Ready to schedule Schedule the assessment");
+  await expect(first).toHaveAccessibleDescription("Referral created Schedule the assessment");
   await expect.poll(gap).toBeGreaterThan(height * 0.5);
   await page.keyboard.press("Tab");
   await expect(second).toBeFocused();

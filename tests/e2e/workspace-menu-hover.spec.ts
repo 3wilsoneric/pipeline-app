@@ -13,26 +13,50 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         const content = page.locator(".pipeline-surfaces > div > main");
         for (const path of ["/", "/?screen=calendar", "/?screen=profiles", "/?screen=operations", "/?view=referrals&screen=packet", "/settings", "/training"]) {
           await page.goto(path);
+          await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
           await expect(rail).toBeVisible();
           await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
           await expect(page.getByRole("button", { name: "Show app navigation" })).toHaveCount(0);
           await expect(rail.getByRole("button", { name: "Pipeline home", exact: true }).locator("img")).toBeVisible();
+          await expect(rail.getByRole("button", { name: "Pipeline home", exact: true }).getByText("Pipeline", { exact: true })).toBeHidden();
           const bounds = (await panel.boundingBox())!;
           expect(bounds.width).toBe(width < 960 ? 56 : 68);
           const pageBounds = (await content.boundingBox())!;
           expect(pageBounds.x).toBeGreaterThanOrEqual(bounds.x + bounds.width);
           expect(pageBounds.y).toBe(bounds.y);
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-          await rail.getByRole("button", { name: "Open calendar", exact: true }).hover();
+          if (width >= 960) {
+            await rail.getByRole("button", { name: "Open calendar", exact: true }).hover();
+            await expect(rail, `Hover should reveal labels on ${path}`).toHaveAttribute("data-sidebar-expanded", "true");
+            await expect(rail).toHaveAttribute("data-sidebar-pinned", "false");
+            expect((await content.boundingBox())!.x).toBe(pageBounds.x);
+            await page.mouse.move(width - 10, 300);
+          }
           await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
         }
 
         await page.goto("/?screen=calendar");
         const collapsedContent = (await content.boundingBox())!;
-        await rail.getByRole("button", { name: "Expand navigation", exact: true }).click();
+        const toggle = rail.locator("[data-navigation-toggle]");
+        const toggleBounds = (await toggle.boundingBox())!;
+        const panelBounds = (await panel.boundingBox())!;
+        expect(Math.abs(toggleBounds.y + toggleBounds.height / 2 - panelBounds.y - panelBounds.height / 2)).toBeLessThan(1);
+        expect(toggleBounds.width).toBeGreaterThanOrEqual(44);
+        expect(toggleBounds.height).toBeGreaterThanOrEqual(44);
+        await toggle.hover();
+        await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
+        await toggle.click();
         await expect(rail).toHaveAttribute("data-sidebar-expanded", "true");
+        await expect(rail).toHaveAttribute("data-sidebar-pinned", "true");
         await expect(rail.getByRole("button", { name: "Open calendar", exact: true }).getByText("Calendar", { exact: true })).toBeVisible();
         await expect(panel).toHaveCSS("width", "216px");
+        const brand = rail.getByRole("button", { name: "Pipeline home", exact: true });
+        await expect(brand).toHaveAttribute("title", "Pipeline — Alamo Health Management");
+        await expect(brand.getByText("Pipeline", { exact: true })).toHaveCSS("color", "rgb(40, 97, 79)");
+        await expect(brand.getByText(/Alamo Health/)).toBeVisible();
+        await expect(brand).toContainText("Management");
+        expect(await brand.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+        await brand.screenshot({ path: info.outputPath(`pipeline-alamo-brand-${width}.png`) });
         expect((await content.boundingBox())!.x).toBe(width < 960 ? collapsedContent.x : 216);
         for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
           const bounds = (await rail.getByRole("button", { name, exact: true }).boundingBox())!;
@@ -66,3 +90,35 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
     });
   }
 }
+
+test("hover preview, pinning, keyboard and profile flyout keep navigation usable", async ({ page }) => {
+  await page.goto("/?screen=calendar");
+  const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
+  const toggle = rail.locator("[data-navigation-toggle]");
+  const content = page.locator(".pipeline-surfaces > div > main");
+  const start = (await content.boundingBox())!;
+  await rail.getByRole("button", { name: "Open calendar", exact: true }).hover();
+  await expect(toggle).toHaveAccessibleName("Keep navigation expanded");
+  await expect(page.locator("#pipeline-app-navigation")).toHaveCSS("width", "216px");
+  expect((await content.boundingBox())!.x).toBe(start.x);
+  await rail.getByRole("button", { name: /^Open profile menu for/ }).click();
+  const profile = page.getByRole("dialog", { name: "Profile settings", exact: true });
+  await profile.hover();
+  await expect(rail).toHaveAttribute("data-sidebar-expanded", "true");
+  await expect(profile).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(toggle).toBeFocused();
+  await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
+  await page.mouse.move(1000, 300);
+  await page.keyboard.press("Shift+Tab");
+  await expect(rail).toHaveAttribute("data-sidebar-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
+  await toggle.press("Enter");
+  await expect(rail).toHaveAttribute("data-sidebar-pinned", "true");
+  await page.mouse.move(1000, 400);
+  await expect(rail).toHaveAttribute("data-sidebar-expanded", "true");
+  await toggle.click();
+  await expect(rail).toHaveAttribute("data-sidebar-pinned", "false");
+  await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
+});

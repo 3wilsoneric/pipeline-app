@@ -27,6 +27,7 @@ import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { getReferralStoreReadiness, listReferralFacets, listReferrals, listReferralFiles } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import { getConfirmedReferralClinicalIdentities } from "./client-workspace-store";
 import { buildClientDataReport, reviewedReportFields, type ClientReportEvidence } from "./client-data-reports";
 import { listReferralContacts } from "./contact-store";
@@ -910,7 +911,7 @@ function workspaceFocusLabel(state: WorkspaceStateProjection) {
     if (state.focus === "assessment") return "Reassessment in progress";
   }
   return {
-    ready_to_schedule: state.assignment === "unassigned" ? "Needs assignment" : state.documents === "none" ? "Needs initial documents" : state.profile === "incomplete" ? "Finish intake" : "Ready to schedule",
+    ready_to_schedule: state.assignment === "unassigned" ? "Needs assignment" : state.documents === "none" ? "Needs initial documents" : state.profile === "incomplete" ? "Finish intake" : workflowStatusLabels.ready_to_schedule,
     scheduled: "Scheduled",
     assessment: "Assessment in progress",
     follow_up: state.outcome === "accepted" ? "Accepted · follow-up" : "Follow-up",

@@ -34,7 +34,7 @@ export const workflowStatusLabels: Record<ReferralWorkflowStatus, string> = {
   intake_unassigned: "Needs assignment",
   intake_documents_needed: "Needs initial documents",
   profile_incomplete: "Profile incomplete",
-  ready_to_schedule: "Ready to schedule",
+  ready_to_schedule: "Referral created",
   assessment_scheduled: "Assessment scheduled",
   assessment_in_progress: "Assessment in progress",
   waiting_for_information: "Waiting for information",
