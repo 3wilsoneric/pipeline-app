@@ -24,6 +24,7 @@ import {
 
 import type { AssessmentScheduleMethod } from "@/lib/assessment/assessment-records";
 import type { PipelineCalendarEvent, PipelineCalendarEventKind, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
+import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import {
   ageLabel,
   appointmentLocationLabel,
@@ -66,7 +67,7 @@ const workflowLabels: Record<PipelineUnscheduledAssessment["workflowStatus"], st
   intake_unassigned: "Needs an assessor",
   intake_documents_needed: "Documents needed",
   profile_incomplete: "Intake incomplete",
-  ready_to_schedule: "Ready to schedule",
+  ready_to_schedule: workflowStatusLabels.ready_to_schedule,
   assessment_scheduled: "Assessment scheduled",
   assessment_in_progress: "Assessment in progress",
   waiting_for_information: "Waiting for information",

@@ -48,7 +48,7 @@ for (const width of [1440, 390]) {
     await expect(activity.locator('[data-activity-event="referral_updated"]:visible')).toHaveCount(1);
     await expect(activity.getByText("Ownership and timing", { exact: true })).toHaveCount(0);
     await expect(activity.getByText("Contributors", { exact: true })).toHaveCount(0);
-    await expect(activity.getByText("Ready to schedule", { exact: true })).toBeVisible();
+    await expect(activity.locator('[data-activity-event="referral_updated"]').getByText("Referral created", { exact: true }).first()).toBeVisible();
     await expect(activity.getByText("ready_to_schedule", { exact: true })).not.toBeVisible();
     await expect(activity.getByText("Assessment signed", { exact: true }).first()).toHaveCSS("font-size", "15px");
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);

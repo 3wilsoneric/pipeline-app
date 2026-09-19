@@ -1,6 +1,7 @@
 import { ArrowUpRight, CalendarClock, Check, Clock3, FilePenLine } from "lucide-react";
 import type { ReactNode } from "react";
 import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
+import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import { appointmentStatusLabel, calendarClientName, eventTime, longDate, methodLabel } from "@/components/pipeline/pipeline-calendar-model";
 import styles from "./CalendarWork.module.css";
 
@@ -43,7 +44,7 @@ export default function CalendarDay({ date, loading, error, appointments, follow
       </WorkSection>
       <WorkSection title="Needs a date" icon={<CalendarClock size={18} />} empty={!unscheduled.length ? "No referrals waiting for a date." : undefined}>
         {unscheduled.slice(0, 6).map((item) => <article className={styles.work} key={item.referralId}>
-          <button type="button" className={styles.identity} onClick={() => onPrepare(item)}><strong>{calendarClientName(item.clientName, item.community)}</strong><span>{[item.community, item.owner].filter(Boolean).join(" · ")}</span><span>{item.nextAction === "complete_contact" ? "Contact details can be added" : item.nextAction === "assign" ? "Assessor not assigned" : item.nextAction === "complete_intake" ? "Intake in progress" : "Ready to schedule"}</span></button>
+          <button type="button" className={styles.identity} onClick={() => onPrepare(item)}><strong>{calendarClientName(item.clientName, item.community)}</strong><span>{[item.community, item.owner].filter(Boolean).join(" · ")}</span><span>{item.nextAction === "complete_contact" ? "Contact details can be added" : item.nextAction === "assign" ? "Assessor not assigned" : item.nextAction === "complete_intake" ? "Intake in progress" : workflowStatusLabels.ready_to_schedule}</span></button>
           <button type="button" className={styles.action} onClick={() => onSchedule(item)} aria-label={`Schedule ${item.clientName}`}>Schedule <ArrowUpRight size={15} /></button>
         </article>)}
         {hasMore || unscheduled.length > 6 ? <button type="button" className={styles.action} onClick={onQueue}>View scheduling queue <ArrowUpRight size={15} /></button> : null}
