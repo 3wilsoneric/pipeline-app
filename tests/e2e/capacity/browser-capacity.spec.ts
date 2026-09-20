@@ -3,6 +3,9 @@ import { totalmem, freemem } from 'node:os';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { channel } from 'node:diagnostics_channel';
+import type { ClientRequest } from 'node:http';
+import type { Socket } from 'node:net';
 import postgres from 'postgres';
 import { createOperationalReferral } from '../support/operational-api';
 import { operationalHeadersForActor, type PipelineActor } from '../support/pipeline-actors';
@@ -44,6 +47,33 @@ test('sustained browser saves survive alternating application instances', async 
   const actorFailures: Array<{ actor: string; at: number; message: string }> = [];
   const probeTimings: Array<{ at: number; actor: string; port: number; ms: number; status?: number; error?: string }> = [];
   const pageMetrics: Array<Record<string, unknown>> = [];
+  const transportFailures: Array<Record<string, unknown>> = [];
+  const socketLastResponse = new WeakMap<Socket, number>();
+  const observeHttp = (message: unknown) => {
+    const request = (message as { request: ClientRequest }).request;
+    const endpoint = new URL(`http://${request.getHeader('host')}`);
+    if (endpoint.hostname !== '127.0.0.1' || !backendPorts.includes(Number(endpoint.port))) return;
+    const started = Date.now();
+    let socket: Socket | null = null;
+    let idleMs: number | null = null;
+    let localPort: number | undefined;
+    const observeSocket = (current: Socket) => {
+      socket = current;
+      const last = socketLastResponse.get(current);
+      idleMs = last === undefined ? null : started - last;
+      localPort = current.localPort;
+      if (current.connecting) current.once('connect', () => { localPort = current.localPort; });
+    };
+    if (request.socket) observeSocket(request.socket);
+    else request.once('socket', observeSocket);
+    request.once('response', response => response.once('end', () => {
+      if (socket) socketLastResponse.set(socket, Date.now());
+    }));
+    request.once('error', (error: NodeJS.ErrnoException) => {
+      transportFailures.push({ at: started, port: Number(endpoint.port), reusedSocket: request.reusedSocket, idleMs, localPort, code: error.code, message: error.message, elapsedMs: Date.now() - started });
+    });
+  };
+  channel('http.client.request.start').subscribe(observeHttp);
   const requestMinutes = new Map<string, { count: number; total_ms: number; max_ms: number }>();
   const delay = monitorEventLoopDelay({ resolution: 20 });
   let sampler: ReturnType<typeof setInterval> | undefined;
@@ -230,11 +260,12 @@ test('sustained browser saves survive alternating application instances', async 
     }
     expect(errors).toEqual([]);
   } finally {
+    channel('http.client.request.start').unsubscribe(observeHttp);
     if (sampler) clearInterval(sampler);
     if (pageSampler) clearInterval(pageSampler);
     delay.disable();
     await testInfo.attach('workload-profile', { body: JSON.stringify({ navigationMode, actorOffset, users, replicas, application_build_commit: applicationCommit, harness_commit: candidate }), contentType: 'application/json' });
-    await testInfo.attach('capacity-diagnostics', { body: JSON.stringify({ probeConnection, actorFailures, probeTimings, pageMetrics, requestMinutes: Object.fromEntries(requestMinutes) }), contentType: 'application/json' });
+    await testInfo.attach('capacity-diagnostics', { body: JSON.stringify({ probeConnection, actorFailures, transportFailures, probeTimings, pageMetrics, requestMinutes: Object.fromEntries(requestMinutes) }), contentType: 'application/json' });
     const sorted = ledger.map(entry => entry.ms).sort((a, b) => a - b);
     await testInfo.attach('capacity-evidence', { body: Buffer.from(JSON.stringify({ runId, candidate_commit: candidate, application_baseline: 'ccd474433c05001ed621c30643bde3f1b3e8a201', environment: `loopback-postgres-${replicas}-process-synthetic-auth`, requested_users: users, created_sessions: sessions.length, actors_with_confirmed_saves: new Set(ledger.map(entry => entry.actor)).size, measuredStart, measuredEnd, browser_processes: browsers.length, backendCounts, overlap, processMemory, calendar_and_return_navigation_ms: navigationMs, saves: ledger.length, p95_save_ms: sorted[Math.ceil(sorted.length * .95) - 1] ?? null, p99_save_ms: sorted[Math.ceil(sorted.length * .99) - 1] ?? null, generator_event_loop_p99_ms: delay.percentile(99) / 1e6, errors, ledger, limits: ['Not Entra sign-in or Azure production performance certification', 'Current workload: intake save/cross-replica reads/calendar navigation; assessment/upload/fault waves remain separate'] }, null, 2)), contentType: 'application/json' });
     await Promise.allSettled(sessions.map(session => session.context.close()));
