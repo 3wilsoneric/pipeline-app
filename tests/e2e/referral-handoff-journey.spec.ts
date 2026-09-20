@@ -2,6 +2,8 @@ import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 
+test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
+
 for (const width of [1440, 834, 390]) {
   test(`saved intake reaches a clearly unsent handoff and finishes at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 950 });

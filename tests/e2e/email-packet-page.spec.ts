@@ -3,6 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { createOperationalReferral } from "./support/operational-api";
 import { renderMeetClientEmail } from "../../lib/notifications/meet-client-email-template";
 
+test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
+
 async function referralWithAssessment(page: Page, signed = true) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
     name: `Packet ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "", tags: [], documentName: "", documentStatus: "Missing",
