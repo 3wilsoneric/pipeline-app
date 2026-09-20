@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "deploy-clients-upload-product-20260920",
+  "startingCommit": "e7e4bda9c6bb5affcd78504f123c54a9f2273d22",
+  "generatedAt": "2026-09-20T21:00:06.476913+00:00",
+  "previousInventory": "test-suite-assertion-inventory-attachment-only-20260920.json",
+  "comparisonRule": "User-approved Clients product changes consolidate document upload and add file labeling before upload. Browser actions now use the canonical referral-documents input and confirm labels. Three existing UI assertions follow the new file count and drop-area labels. Case order, case and assertion counts, API assertions, and critical two-session conflict assertions are unchanged. This records changed product text; it does not waive refactor coverage.",
+  "playwright": {
+    "sourceFiles": [
+      "tests/e2e/pipeline-smoke.spec.ts",
+      "tests/e2e/pipeline-home.spec.ts"
+    ],
+    "caseCount": 49,
+    "assertionCount": 832,
+    "caseManifestDigest": "7ce221b6d5630e1a2e5d5f62ce8c8fc78e00eaa406316b4335b86035b7c3d2e0",
+    "titleDigest": "0ee06b5f8e286eda7ebf56a85383f7b5a2f87e481de86b9fb8082c2f58233702",
+    "hooks": [
+      "beforeAll",
+      "afterAll",
+      "beforeEach"
+    ]
+  },
+  "apiBehavior": {
+    "sourceFiles": [
+      "scripts/api-behavior-fixtures.mjs"
+    ],
+    "caseCount": 114,
+    "assertionCount": 400,
+    "caseManifestDigest": "88b56c4559e8557946ae6e866474e07715a29493c9a74c5a68c0cbaf49f60ca1",
+    "titleDigest": "738873acc2fa78dd91968617ac7ed43491a14ca85b0956740f8fb9d1b08320fa",
+    "hooks": []
+  },
+  "criticalJourneyTrace": {
+    "id": "coordinates section edits, presence leases, and remote conflicts across two sessions",
+    "assertionCount": 24,
+    "assertionDigest": "7dcd2e3de5c2b203f542842b437941c9ff95751b202067b50f14fd28a6ca503f",
+    "failureSignal": "Two-session presence, disjoint persistence, stale same-field conflict visibility and no silent overwrite remain byte-equivalent assertions."
+  },
+  "sourceSha256": {
+    "tests/e2e/pipeline-smoke.spec.ts": "47c64599853dd6bbd26568f7129c2060cf827a4face8e3d51908ddabc07e33c5",
+    "tests/e2e/pipeline-home.spec.ts": "0d5d77fc9552cfd4a747b46b5aa4231caebaba911e6a37265540ccd21400bc23",
+    "scripts/api-behavior-fixtures.mjs": "3f0f0f538e5b7dd9c24eb90a833033b4da7ad0b5213c19455c93d1978904abf4"
+  }
+}

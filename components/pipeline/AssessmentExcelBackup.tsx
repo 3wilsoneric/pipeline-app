@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Download, FileSpreadsheet, Upload, X } from "lucide-react";
 import { assessmentWorkbookChanges, exportAssessmentWorkbook, importAssessmentWorkbook, type AssessmentWorkbookCopy, type WorkbookChange } from "@/lib/assessment/assessment-excel-backup";
@@ -13,7 +13,9 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 import ClientAssessmentRecord from "./ClientAssessmentRecord";
 import styles from "./AssessmentExcelBackup.module.css";
 
-export default function AssessmentExcelBackup({ assessment, data, readOnly, onApply, toolsOpen, onCloseTools, saveStatus }: {
+export default function AssessmentExcelBackup({ assessment, data, readOnly, onApply, toolsOpen, onCloseTools, saveStatus, importFile, onImportFileRead }: {
+  importFile?: File | null;
+  onImportFileRead?: () => void;
   assessment: PipelineAssessmentRecord;
   data: AssessmentToolData;
   readOnly: boolean;
@@ -36,6 +38,7 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
   const returnFocus = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const latest = useRef(data); latest.current = data;
+  const receivedImport = useRef<File | null>(null);
   const changes = copy ? assessmentWorkbookChanges(copy, data) : [];
   const importDisabled = readOnly || Boolean(busy);
   const selected = changes.filter((change) => approved[changeKey(change)] ?? (!change.conflict && !change.clearing));
@@ -78,6 +81,18 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
     } catch (e) { setError(e instanceof Error ? e.message : "This file could not be restored. Your answers are unchanged."); }
     finally { setBusy(""); if (input.current) input.current.value = ""; }
   };
+  const receiveImport = useEffectEvent((file: File) => {
+    if (readOnly) {
+      setError("This assessment is read-only. No workbook answers were changed.");
+      setOpen(true);
+      onImportFileRead?.();
+    } else void read(file).finally(() => onImportFileRead?.());
+  });
+  useEffect(() => {
+    if (!importFile || busy || receivedImport.current === importFile) return;
+    receivedImport.current = importFile;
+    receiveImport(importFile);
+  }, [importFile, busy]);
   const drop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault(); setDragging(false);
     if (readOnly || busy) return;

@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import type { HomeBriefingSnapshot } from "../../lib/pipeline/home-briefing-types";
@@ -107,9 +108,10 @@ test("assessment can return to Intake, add documents and resume the same saved i
   await page.getByRole("textbox", { name: "Client phone:", exact: true }).blur();
   await phoneSaved;
   await page.getByRole("button", { name: "Workspace files", exact: true }).click();
-  await page.getByLabel("Choose additional referral documents").setInputFiles({
+  await page.getByLabel("Choose referral documents").setInputFiles({
     name: "during-assessment-note.pdf", mimeType: "application/pdf", buffer: Buffer.from("Synthetic supporting note during assessment"),
   });
+    await confirmReferralFileLabels(page);
   await expect.poll(async () => {
     const payload = await (await page.request.get(`/api/files?referral_id=${referral.id}`)).json();
     return payload.files.map((file: { name: string }) => file.name);

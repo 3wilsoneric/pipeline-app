@@ -51,6 +51,12 @@ export function useIntakeFileExtraction() {
     refresh();
   }, [refresh]);
 
+  const removeFile = (file: File) => {
+    for (const [key, job] of jobsRef.current) {
+      if (job.file === file) remove(key);
+    }
+  };
+
   const start = useCallback((file: File, key: string, referralId?: number) => {
     if (!referralDocumentAutofillEnabled) return;
     const previous = jobsRef.current.get(key);
@@ -104,6 +110,7 @@ export function useIntakeFileExtraction() {
     busy: jobs.some((job) => job.status === "queued" || job.status === "reading"),
     start,
     remove,
+    removeFile,
     reset,
   };
 }

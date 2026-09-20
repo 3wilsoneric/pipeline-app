@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { randomUUID } from "node:crypto";
 import { createCanvas } from "@napi-rs/canvas";
 import { expect, test, webkit, type Page } from "@playwright/test";
@@ -28,10 +29,14 @@ for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}:
     const name = `Attachments A${randomUUID().replace(/[^a-f]/g, "")}`;
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
     await page.getByTestId("document-checklist-toggle").click();
-    await page.getByTestId("initial-packet-input").setInputFiles(files);
+    await page.getByTestId("referral-documents-input").setInputFiles(files);
+    await confirmReferralFileLabels(page);
     await expect(page.getByRole("region", { name: "Reading intake files" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Extraction review" })).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(name);
+    const creation = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname === "/api/referrals");
     await page.getByRole("button", { name: "Create referral", exact: true }).click();
+    expect((await creation).postDataJSON().referral.name).toBe(name);
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
     const id = new URL(page.url()).searchParams.get("referralId");
     const inventory = async (): Promise<{ id: string; name: string; downloadUrl: string }[]> => (await (await page.request.get(`/api/files?referral_id=${id}`)).json()).files;
@@ -47,7 +52,8 @@ for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}:
     const list = page.getByRole("region", { name: "Uploaded documents", exact: true });
     // A repeat selection after reload reuses the stored document.
     const uploaded = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/uploads/complete" && response.request().method() === "POST");
-    await page.getByLabel("Choose additional referral documents").setInputFiles(files[1]);
+    await page.getByLabel("Choose referral documents").setInputFiles(files[1]);
+    await confirmReferralFileLabels(page);
     expect((await uploaded).ok()).toBe(true);
     expect(await inventory()).toHaveLength(files.length);
     for (const expected of files) {

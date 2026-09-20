@@ -1,5 +1,6 @@
 import { chromium, expect, test, webkit, type Locator } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { createOperationalReferral } from "./support/operational-api";
 
 async function dragFiles(target: Locator, names: string[], phase: "enter" | "drop" = "drop") {
@@ -50,15 +51,17 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       await page.screenshot({ path: info.outputPath("intake-drag-over.png"), animations: "disabled" });
       expect(await dragFiles(toggle, ["dropped-face-sheet.pdf", "dropped-care-note.pdf"])).toEqual([true]);
       await expect(documents).not.toHaveAttribute("data-file-drag-active");
-      await expect(page.getByRole("group", { name: "Upload initial referral document" })).toContainText("dropped-face-sheet.pdf");
-      const queued = page.getByRole("list", { name: "Additional referral file list" });
-      await expect(queued.getByRole("listitem")).toHaveCount(1);
+      await confirmReferralFileLabels(page, { "dropped-care-note.pdf": "assessment" });
+      await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("dropped-face-sheet.pdf");
+      const queued = page.getByRole("list", { name: "Queued referral files" });
+      await expect(queued.getByRole("listitem")).toHaveCount(2);
       await expect(queued).toContainText("dropped-care-note.pdf");
 
       // A broad drop with an existing packet adds files rather than replacing it.
       await dragFiles(toggle, ["dropped-later-note.pdf"]);
-      await expect(queued.getByRole("listitem")).toHaveCount(2);
-      await expect(page.getByRole("group", { name: "Upload initial referral document" })).toContainText("dropped-face-sheet.pdf");
+      await confirmReferralFileLabels(page, { "dropped-later-note.pdf": "assessment" });
+      await expect(queued.getByRole("listitem")).toHaveCount(3);
+      await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("dropped-face-sheet.pdf");
       await page.getByRole("button", { name: "Create referral", exact: true }).click();
       await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
       const referralId = new URL(page.url()).searchParams.get("referralId");
@@ -71,41 +74,57 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       await expect(panel).not.toHaveAttribute("open");
       await dragFiles(toggle, ["saved-workspace-note.pdf"], "enter");
       await dragFiles(toggle, ["saved-workspace-note.pdf"]);
+      await confirmReferralFileLabels(page, { "saved-workspace-note.pdf": "tb_test" });
       await expect.poll(async () => {
         const payload = await (await page.request.get(`/api/files?referral_id=${referralId}`)).json();
         return payload.files.map((file: { name: string }) => file.name).sort();
       }).toEqual(["dropped-care-note.pdf", "dropped-face-sheet.pdf", "dropped-later-note.pdf", "saved-workspace-note.pdf"]);
+      const inventory = (await (await page.request.get(`/api/files?referral_id=${referralId}`)).json()).files;
+      expect(inventory.find((file: {name: string}) => file.name === "dropped-care-note.pdf").category).toBe("Assessment");
+      expect(inventory.find((file: {name: string}) => file.name === "dropped-later-note.pdf").category).toBe("Assessment");
+      expect(inventory.find((file: {name: string}) => file.name === "saved-workspace-note.pdf").category).toBe("TB test");
       const saved = (await (await page.request.get(`/api/referrals/${referralId}`)).json()).referral;
       expect(saved.documentName).toBe("dropped-face-sheet.pdf");
     } finally { await browser.close(); }
   });
 
-  test(`${name}: nested drop targets handle each file once and invalid drops remain recoverable`, async ({ baseURL }) => {
+  test(`${name}: labeling is cancelable, validates files, and fits a phone`, async ({ baseURL }, info) => {
     const browser = await browserType.launch();
     try {
-      const page = await browser.newPage({ baseURL });
+      const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 } });
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
       const toggle = page.getByTestId("document-checklist-toggle");
       const panel = page.getByTestId("document-checklist-panel");
       await dragFiles(toggle, ["empty.txt"]);
-      await expect(panel).toHaveAttribute("open", "");
-      await expect(panel.getByRole("alert")).toContainText("Choose a nonempty file");
-      await expect(page.getByRole("group", { name: "Upload initial referral document" })).not.toContainText("empty.txt");
-
-      // The file picker still clears the broad-drop error and uses the same pipeline.
-      await page.getByTestId("initial-packet-input").setInputFiles({ name: "chosen-packet.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\nSynthetic packet") });
-      await expect(panel.getByRole("alert")).toHaveCount(0);
-      await dragFiles(page.getByRole("group", { name: "Upload initial referral document" }).getByRole("button", { name: "Replace file" }), ["replacement.pdf", "nested-extra.pdf"]);
-      const queued = page.getByRole("list", { name: "Additional referral file list" });
-      await expect(queued.getByRole("listitem")).toHaveCount(1);
-      await dragFiles(page.getByRole("group", { name: "Drop additional referral documents" }).getByRole("button", { name: "Add files" }), ["additional.pdf"]);
-      await expect(queued.getByRole("listitem")).toHaveCount(2);
-      const checklistItem = panel.getByRole("button", { name: /drop document or browse/ }).first();
-      const replacementLabel = (await checklistItem.getAttribute("aria-label"))!.replace("drop document or browse", "replace document");
-      await dragFiles(checklistItem, ["checklist-evidence.pdf"]);
-      await expect(panel.getByRole("button", { name: replacementLabel, exact: true })).toContainText("checklist-evidence.pdf");
-      await expect(queued.getByRole("listitem")).toHaveCount(2);
-      await expect(page.getByRole("group", { name: "Upload initial referral document" })).toContainText("replacement.pdf");
+      await expect(panel.getByRole("alert")).toContainText("choose a nonempty file");
+      await expect(page.getByRole("dialog", { name: "Label your files" })).toHaveCount(0);
+      const mutations: string[] = [];
+      page.on("request", (request) => { if (request.method() === "POST" && /uploads/.test(request.url())) mutations.push(request.url()); });
+      await page.getByTestId("referral-documents-input").setInputFiles([
+        { name: "unknown.pdf", mimeType: "application/pdf", buffer: Buffer.from(syntheticPdf()) },
+        { name: "medication-list.pdf", mimeType: "application/pdf", buffer: Buffer.from(syntheticPdf()) },
+      ]);
+      const dialog = page.getByRole("dialog", { name: "Label your files", exact: true });
+      await expect(dialog.getByRole("button", { name: "Add files", exact: true })).toBeDisabled();
+      await expect(dialog.getByRole("combobox", { name: "Document type for medication-list.pdf" })).toHaveValue("medication_list");
+      expect(mutations).toEqual([]);
+      expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await page.addScriptTag({ path: "node_modules/axe-core/axe.min.js" });
+      const violations = await page.evaluate(async () => {
+        const axe = (window as unknown as { axe: typeof import("axe-core") }).axe;
+        return (await axe.run(document.querySelector("dialog")!, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations;
+      });
+      expect(violations).toEqual([]);
+      await page.screenshot({ path: info.outputPath("label-files-phone.png"), animations: "disabled" });
+      await dialog.getByRole("button", { name: "Remove medication-list.pdf" }).click();
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(page.getByRole("list", { name: "Queued referral files" })).toHaveCount(0);
+      expect(mutations).toEqual([]);
+      await page.getByTestId("referral-documents-input").setInputFiles({ name: "unknown.pdf", mimeType: "application/pdf", buffer: Buffer.from(syntheticPdf()) });
+      await confirmReferralFileLabels(page, { "unknown.pdf": "provider_form" });
+      await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("Provider form");
+      await page.getByRole("button", { name: "Remove queued unknown.pdf" }).click();
+      await expect(page.getByRole("list", { name: "Queued referral files" })).toHaveCount(0);
       await toggle.click();
       const prevented = await toggle.evaluate((element) => {
         const dataTransfer = new DataTransfer();

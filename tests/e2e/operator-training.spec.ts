@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { expect, test } from "@playwright/test";
 import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
 
@@ -61,29 +62,31 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page).toHaveURL(/view=referrals&screen=packet/);
 
     const coach = page.getByTestId("guided-coach-panel");
-    const upload = page.getByRole("group", { name: "Upload initial referral document" });
+    const upload = page.getByRole("region", { name: "Document checklist", exact: true });
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
     await expect(coach).not.toContainText("This step is on another Pipeline page.");
     await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
     await expect(upload).toBeVisible();
-    await expect(upload.getByRole("button", { name: "Choose file" })).toBeVisible();
+    await expect(upload.getByRole("button", { name: /Drop files or choose files/ })).toBeVisible();
     await expectGuideDoesNotCoverTarget(coach, upload);
 
     const fileChooserPromise = page.waitForEvent("filechooser");
-    await upload.getByRole("button", { name: "Choose file" }).click();
+    await upload.getByRole("button", { name: /Drop files or choose files/ }).click();
     const fileChooser = await fileChooserPromise;
     await fileChooser.setFiles({
       name: "training-notes.txt",
       mimeType: "text/plain",
-      buffer: Buffer.alloc(0),
+      buffer: Buffer.from("Synthetic training notes"),
     });
-    await expect(page.getByTestId("document-checklist-panel").getByRole("alert").filter({ hasText: "Choose a nonempty file, up to 100 MB." })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Label your files" })).toBeVisible();
+    await page.getByRole("dialog", { name: "Label your files" }).getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
 
     await dropTrainingPdf(upload, "training-referral.pdf");
-    await expect(page.getByRole("alert").filter({ hasText: "Choose a nonempty file" })).toHaveCount(0);
+    await confirmReferralFileLabels(page, {}, "referral_packet");
+    await expect(page.getByRole("alert").filter({ hasText: "Upload a PDF" })).toHaveCount(0);
     await expect(upload.getByText("training-referral.pdf", { exact: true })).toBeVisible();
-    await expect(upload.getByText(/Ready to upload/)).toBeVisible();
+    await expect(upload.getByText("Pending upload", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Verify identity" })).toBeVisible();
     await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="intake-identity"]'));
 
@@ -206,10 +209,10 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page).toHaveURL(/view=referrals&screen=packet/);
 
     const coach = page.getByTestId("guided-coach-panel");
-    const upload = page.getByRole("group", { name: "Upload initial referral document" });
+    const upload = page.getByRole("region", { name: "Document checklist", exact: true });
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
     await expectGuideDoesNotCoverTarget(coach, upload);
-    await expect(upload.getByRole("button", { name: "Choose file" })).toBeInViewport();
+    await expect(upload.getByRole("button", { name: /Drop files or choose files/ })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await expect.poll(() => errors).toEqual([]);
   });

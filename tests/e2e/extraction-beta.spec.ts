@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { referralDocumentAutofillEnabled } from "../../lib/extraction/contracts";
 import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
@@ -42,7 +43,8 @@ for (const outcome of ['ready', 'unavailable'] as const) {
     await documents.click();
     await expect(beta).toBeVisible();
     await page.getByRole('textbox', { name:'NAME', exact:true }).fill(`Synthetic Beta ${outcome} ${randomUUID().replace(/[^a-f]/g, '')}`);
-    await page.getByTestId('initial-packet-input').setInputFiles({ name:'synthetic-beta.pdf', mimeType:'application/pdf', buffer:Buffer.from(`synthetic-beta-${randomUUID()}`) });
+    await page.getByTestId('referral-documents-input').setInputFiles({ name:'synthetic-beta.pdf', mimeType:'application/pdf', buffer:Buffer.from(`synthetic-beta-${randomUUID()}`) });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
     await page.getByRole('button', { name:'Create referral', exact:true }).click();
     await expect.poll(()=>new URL(page.url()).searchParams.get('referralId')).not.toBeNull();
     await page.getByRole('button', { name:'Edit referral details', exact:true }).click();

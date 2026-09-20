@@ -358,8 +358,12 @@ test("styles intake pickers and contact suggestions without changing selection b
     id: "dropdown-contact", firstName: "Example", lastName: "Scheduler", organization,
   }] } }));
   await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
-  await page.getByRole("region", { name: "Document checklist" }).locator("summary").click();
-  await checkSharedPicker(page, page.getByLabel("Initial document type"), 32);
+  await page.getByTestId("document-checklist-toggle").click();
+  await page.getByTestId("referral-documents-input").setInputFiles({ name: "picker.pdf", mimeType: "application/pdf", buffer: Buffer.from("Synthetic picker document") });
+  const labels = page.getByRole("dialog", { name: "Label your files" });
+  await labels.getByRole("combobox").selectOption("face_sheet");
+  await expect(labels.getByRole("combobox")).toHaveValue("face_sheet");
+  await labels.getByRole("button", { name: "Cancel", exact: true }).click();
   await checkSharedPicker(page, page.getByLabel("Conservatorship", { exact: true }), 32);
   const source = page.getByRole("combobox", { name: "Referral facility / source", exact: true });
   for (const width of [1440, 390]) {

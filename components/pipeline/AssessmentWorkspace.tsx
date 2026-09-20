@@ -116,6 +116,8 @@ import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
 type AssessmentWorkspaceProps = {
+  workbookImport?: File | null;
+  onWorkbookImportRead?: () => void;
   readOnly?: boolean;
   referralId?: number;
   referral?: Referral;
@@ -262,6 +264,8 @@ function assessmentWorkspacePermissions(
 }
 
 export default function AssessmentWorkspace({
+  workbookImport,
+  onWorkbookImportRead,
   readOnly = false,
   referralId,
   referral,
@@ -1849,6 +1853,7 @@ export default function AssessmentWorkspace({
       <div className="flex min-h-0 flex-1">
         <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : workingStyles.readingMain}`}>
           <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook}
+            importFile={workbookImport} onImportFileRead={onWorkbookImportRead}
             toolsOpen={recoveryToolsAssessment === selected.assessment_id} onCloseTools={() => setRecoveryToolsAssessment(null)}
             saveStatus={<>
               <p role="status">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</p>

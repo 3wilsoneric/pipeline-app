@@ -82,3 +82,54 @@ phone/landscape and iPad WebKit interactions. The phone recovery-panel axe scan 
 no WCAG A/AA violations. TypeScript, focused lint, complexity, repository audit, and
 guidance/setup gates passed. `certify:refactor` again stopped at the reviewed-source
 fingerprint freshness check; the release hold above remains in force.
+
+## Follow-up: one labeled document intake
+
+Documents and Files now use one shared multi-file drop/picker. A native dialog asks
+for a canonical document type per file before any upload or extraction can start.
+Filename suggestions are editable; unknown files require a choice. Signed agreements
+are never inferred from filenames. Cancel and removing a modal row are neutral.
+The checklist is a collapsed status list, not eight competing upload controls.
+
+Confirmed labels travel through the existing upload API and server-side evidence
+reconciliation. The first explicitly labeled face sheet/combined packet can establish
+the primary document; subsequent uploads do not silently replace it. Multiple files
+of the same type retain their individual bytes and names. The encrypted local draft
+now serializes each queued file's category, validates it on recovery, and still reads
+prior on-device copies without category metadata as Other. Queued files can be removed
+before upload; in-flight uploads cannot be removed from their queue.
+
+An intake loading-time edge case surfaced during testing. Its native fieldset now
+stays disabled until recovery completes, in addition to the existing inert overlay.
+This prevents typing from racing initialization. Stored-file editing permissions,
+API contracts, data model, lifecycle, signature, and email behavior are unchanged.
+
+Pipeline workbook selection is a separate route through the same labeling dialog.
+With an existing assessment it opens the canonical import preview, including identity,
+mapping, conflict, read-only, and explicit-commit safeguards. Before an assessment exists,
+the dialog explains the required route instead of uploading the workbook as clinical
+evidence. Mixed workbook/document batches must be separated. A filename only suggests
+the route; the existing workbook parser remains authoritative about its contents.
+
+Boundaries: automatic document extraction remains disabled by the existing
+`referralDocumentAutofillEnabled` flag. No OCR rollout is claimed. Correct labels before
+adding files; an already-stored file does not yet have a relabel operation. If post-upload
+reclassification is requested, implement an authorized, audited metadata mutation with
+checklist reconciliation and explicit local/PostgreSQL parity, not client-only labels.
+
+Final optimized-build run: **21 passed** in `test-results/document-labels-complete`:
+`intake-file-drop`, `referral-file-batches`, `attachment-only`, `referral-workbook-upload`,
+and `assessment-excel-backup`. Includes original-byte/category checks after draft reload,
+same-category batches, cancellation/removal, read-only blocking, Chromium/WebKit phone
+dialogs, iPad workbook flows, and two clean WCAG A/AA modal scans. The encrypted recovery
+fixture, TypeScript, focused lint, and complexity checks also passed.
+
+Earlier attempts exposed the corrected intake initialization race. One intermediate
+Excel snapshot test failed, then passed three isolated repeats and both subsequent
+combined runs; retain that timing-sensitive test as a release regression guard. One
+intermediate upload run hit ECONNRESET; the final run passed without retries.
+Upload-related selectors and tutorial copy were migrated to the confirmation step;
+the entire wider test suite was not executed. The client-workspace source contract
+still fails its unchanged unassigned-file-only-access string check. Full certification
+continues to stop at Developer Academy source freshness; do not change its baselines
+merely to turn the gate green. No production deployment or external service enabled.

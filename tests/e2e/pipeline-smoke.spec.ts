@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { expect, test } from "@playwright/test";
 import { createCanvas } from "@napi-rs/canvas";
 import { createHash, randomUUID } from "node:crypto";
@@ -510,11 +511,12 @@ test.describe("Referral home and packet canvas", () => {
     const shellResponse = await page.request.get(`/api/referrals/${referralId}`);
     expect(shellResponse.ok()).toBeTruthy();
     expect(await shellResponse.json()).toMatchObject({ referral: { documentStatus: "Missing" } });
-    await page.getByTestId("initial-packet-input").setInputFiles({
+    await page.getByTestId("referral-documents-input").setInputFiles({
       name: "required-face-sheet.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from(`required-face-sheet-${randomUUID()}`),
     });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
     await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded and ready for review");
 
     const response = await page.request.get(`/api/referrals/${referralId}`);
@@ -1677,12 +1679,12 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("combobox", { name: "Conservatorship", exact: true }).selectOption("yes");
 
     await page.getByTestId("document-checklist-toggle").click();
-    await page.getByLabel("Initial document type").selectOption("face_sheet");
-    await page.getByTestId("initial-packet-input").setInputFiles({
+    await page.getByTestId("referral-documents-input").setInputFiles({
       name: "face-sheet.pdf",
       mimeType: "application/pdf",
       buffer: packetBytes,
     });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
 
     const documentsRegion = page.getByRole("region", { name: "Document checklist" });
     const medicationButton = documentsRegion.getByRole("button", { name: "Signed Medication List: drop document or browse" });
@@ -2000,11 +2002,12 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-    await page.getByTestId("initial-packet-input").setInputFiles({
+    await page.getByTestId("referral-documents-input").setInputFiles({
       name: "rowan-example-face-sheet.png",
       mimeType: "image/png",
       buffer: packetBytes,
     });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
     const creation = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/referrals");
     await page.getByRole("button", { name: /^Create referral$/ }).click();
     const createdResponse = await creation;
@@ -2081,14 +2084,15 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("combobox", { name: "Requested community" }).selectOption("San Pablo");
     await page.getByRole("combobox", { name: "Client county" }).selectOption("Contra Costa County");
     await page.getByTestId("document-checklist-toggle").click();
-    await page.getByTestId("initial-packet-input").setInputFiles({
+    await page.getByTestId("referral-documents-input").setInputFiles({
       name: "first-copy.pdf",
       mimeType: "application/pdf",
       buffer: packetBytes,
     });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
     await page.getByRole("button", { name: /^Create referral$/ }).click();
     await page.getByRole("button", { name: "Edit referral details" }).click();
-    await expect(page.getByRole("region", { name: "Document checklist" }).getByText("Packet added", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Document checklist" }).getByText("1 file", { exact: true })).toBeVisible();
     await page.getByTestId("document-checklist-toggle").click();
     if (referralDocumentAutofillEnabled) {
       await expect(page.getByRole("region", { name: "Extraction review" })).toBeVisible();
@@ -2102,14 +2106,15 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("combobox", { name: "Requested community" }).selectOption("Turlock");
     await page.getByRole("combobox", { name: "Client county" }).selectOption("Stanislaus County");
     await page.getByTestId("document-checklist-toggle").click();
-    await page.getByTestId("initial-packet-input").setInputFiles({
+    await page.getByTestId("referral-documents-input").setInputFiles({
       name: "renamed-copy.pdf",
       mimeType: "application/pdf",
       buffer: packetBytes,
     });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
     await page.getByRole("button", { name: /^Create referral$/ }).click();
     await page.getByRole("button", { name: "Edit referral details" }).click();
-    await expect(page.getByRole("region", { name: "Document checklist" }).getByText("Packet added", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Document checklist" }).getByText("1 file", { exact: true })).toBeVisible();
     await expect(page.getByTestId("workspace-save-status")).not.toContainText("Save failed");
 
     const duplicateResponse = await page.request.get(`/api/referrals?q=${encodeURIComponent(secondClient)}`);
@@ -2184,7 +2189,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toHaveCount(0);
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expect(page.getByText("TB Test-Results", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Drop document or browse" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /Drop files or choose files/ })).toBeVisible();
     await expect(page.getByText("Provider Form", { exact: true })).toBeVisible();
     await expect(page.getByText("Face Sheet", { exact: true })).toBeVisible();
 
@@ -2212,11 +2217,12 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("combobox", { name: "Client county" }).selectOption("Contra Costa County");
     await page.getByRole("combobox", { name: "Referral facility / source", exact: true }).fill("San Pablo intake team");
     await page.getByRole("combobox", { name: "Assessor", exact: true }).selectOption(testAssessor.id);
-    await page.getByTestId("initial-packet-input").setInputFiles({
+    await page.getByTestId("referral-documents-input").setInputFiles({
       name: "assessment-referral.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from(`assessment-referral-${randomUUID()}`),
     });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
     await page.getByRole("button", { name: "Create referral", exact: true }).click();
     await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded");
     await page.getByRole("button", { name: "Assessment", exact: true }).click();

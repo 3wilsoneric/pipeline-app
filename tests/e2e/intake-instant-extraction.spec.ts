@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { referralDocumentAutofillEnabled } from "../../lib/extraction/contracts";
 import { chromium, expect, test, webkit, type Locator } from "@playwright/test";
 import { createCanvas } from "@napi-rs/canvas";
@@ -21,6 +22,7 @@ async function drop(target: Locator, names: string[], bytes = faceSheet()) {
     names.forEach((name) => dataTransfer.items.add(new File([new Uint8Array(bytes)], name, { type: "image/png" })));
     element.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
   }, { names, bytes: [...bytes] });
+  await confirmReferralFileLabels(target.page(), {}, "face_sheet");
 }
 
 for (const [browserName, browserType, width] of [["chromium", chromium, 1440], ["webkit", webkit, 390]] as const) {
@@ -101,7 +103,7 @@ for (const mode of ["azure_databricks", "manual", "unavailable"] as const) {
   });
 }
 
-test("replacement cancels stale results; extra files are read and conflicts are not guessed", async ({ page }) => {
+test("removing a queued file cancels stale results; extra files are read and conflicts are not guessed", async ({ page }) => {
   let release = () => {};
   const gate = new Promise<void>((resolve) => { release = resolve; });
   let calls = 0;
@@ -113,7 +115,9 @@ test("replacement cancels stale results; extra files are read and conflicts are 
   await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
   await drop(page.getByTestId("document-checklist-toggle"), ["obsolete.png"]);
   await expect.poll(() => calls).toBe(1);
-  await page.getByTestId("initial-packet-input").setInputFiles({ name: "replacement.png", mimeType: "image/png", buffer: faceSheet() });
+  await page.getByRole("button", { name: "Remove queued obsolete.png" }).click();
+  await page.getByTestId("referral-documents-input").setInputFiles({ name: "replacement.png", mimeType: "image/png", buffer: faceSheet() });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
   release();
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Current Person");
   await drop(page.getByTestId("document-checklist-toggle"), ["extra.png"]);
@@ -132,10 +136,10 @@ test("failure has retry, does not lose the attachment, and clearing a file remov
   await drop(page.getByTestId("document-checklist-toggle"), ["retry-me.png"]);
   const progress = page.getByRole("region", { name: "Reading intake files" });
   await expect(progress.getByRole("alert")).toContainText("Synthetic scan failed");
-  await expect(page.getByRole("group", { name: "Upload initial referral document" })).toContainText("retry-me.png");
+  await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("retry-me.png");
   await progress.getByRole("button", { name: "Retry reading" }).click();
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Recovered Person");
-  await page.getByRole("button", { name: "Remove selected initial referral document" }).click();
+  await page.getByRole("button", { name: "Remove queued retry-me.png" }).click();
   await expect(progress).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("");
 });
@@ -145,7 +149,7 @@ test("an extra file on an existing intake suggests missing details and saves onl
   await page.route("**/api/uploads/preview?*", (route) => route.fulfill({ json: proposed("1980-01-15", "referral.date_of_birth") }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=name`);
   await page.getByTestId("document-checklist-toggle").click();
-  await drop(page.getByRole("group", { name: "Drop additional referral documents" }), ["extra-evidence.png"]);
+  await drop(page.getByRole("region", { name: "Document checklist", exact: true }), ["extra-evidence.png"]);
   await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1980-01-15");
   expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.dob).toBe("");
   await page.getByRole("button", { name: "Use suggested Date of birth", exact: true }).click();

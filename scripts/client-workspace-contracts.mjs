@@ -19,6 +19,7 @@ const importTool = read("scripts/import-confirmed-client-files.mjs");
 const reconciliationTool = read("scripts/reconcile-client-file-import.mjs");
 const rollbackTool = read("scripts/rollback-client-file-import.mjs");
 const referralCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
+const documentUploader = read("components/pipeline/ReferralDocumentUpload.tsx");
 const referralPacketUpload = read("lib/pipeline/referral-packet-upload.ts");
 const documentRequirements = read("lib/pipeline/document-requirements.ts");
 const documentReconciliation = read("lib/pipeline/document-requirement-reconciliation.ts");
@@ -75,7 +76,7 @@ check("document requirements have one category mapping", documentRequirements.in
 check("upload completion reconciles checklist evidence server-side", uploadCompleteRoute.includes("reconcileUploadedDocumentRequirements") && documentReconciliation.includes("patchReferralWorkItem"));
 check("checklist reconciliation preserves reviewed evidence", documentReconciliation.includes('["reviewed", "waived"].includes(requirement.status)') && documentReconciliation.includes("requirement.evidenceDocumentId"));
 check("supporting drop zones upload immediately for saved referrals", referralPacketUpload.includes('"preview_only"') && referralCanvas.includes("refreshed.referral") && referralCanvas.includes("linkedRequirement?.evidenceDocumentId"));
-check("initial uploads require an explicit document type", referralCanvas.includes('aria-label="Initial document type"') && referralPacketUpload.includes('"face_sheet" | "referral_packet"'));
+check("uploads require confirmed standard document labels", documentUploader.includes("documentCategories.map") && documentUploader.includes("selection.some((item) => !item.category)") && documentUploader.includes("onAdd(selection as LabeledReferralFile[])") && referralPacketUpload.includes('"face_sheet" | "referral_packet"'));
 check("every material canvas becomes one idempotent imported workspace", historicalWorkspaceMigration.includes("referrals_source_workspace_unique_idx") && historicalWorkspaceImport.includes("on conflict (workspace_origin, source_workspace_id)"));
 check("imported workspaces use a closed historical lifecycle with truthful known or unknown outcomes", historicalWorkspaceImport.includes("'allo', 'historical'") && historicalWorkspaceImport.includes('workflowStatus = admissionDate ? "accepted" : "closed"') && historicalWorkspaceImport.includes('historicalOutcome = admissionDate ? "admitted" : "not_recorded"'));
 check("repeat imports preserve archived and terminal workspace state", historicalWorkspaceImport.includes("pipeline.referrals.workspace_status = 'archived'") && historicalWorkspaceImport.includes("workflow_status in ('accepted', 'declined')"));

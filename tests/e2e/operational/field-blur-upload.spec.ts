@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "../support/referral-upload";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -168,11 +169,12 @@ test.describe("field exit saves and single uploads", () => {
         await route.fetch(); // Server commits; client loses the acknowledgement.
         await route.fulfill({ status: 503, json: { error: "Synthetic lost upload acknowledgement" } });
       });
-      const input = page.getByLabel("Choose additional referral documents");
+      const input = page.getByLabel("Choose referral documents");
       await expect(page.getByRole("combobox", { name: "Assessor", exact: true })).toHaveValue("assessor-a");
       await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
+      await confirmReferralFileLabels(page);
       await expect.poll(() => interrupted, { timeout: 20_000 }).toBe(true);
       await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true })).toBeEnabled();
       const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
@@ -228,7 +230,8 @@ test.describe("field exit saves and single uploads", () => {
       drawing.fillStyle = "black"; drawing.font = "18px sans-serif"; drawing.fillText("Synthetic intake", 12, 50);
       const packet = { name: "initial-synthetic.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") };
       await page.getByTestId("document-checklist-toggle").click();
-      await page.getByTestId("initial-packet-input").setInputFiles(packet);
+      await page.getByTestId("referral-documents-input").setInputFiles(packet);
+      await confirmReferralFileLabels(page, {}, "face_sheet");
       const creation = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/referrals" && response.ok());
       await page.getByRole("button", { name: "Create referral", exact: true }).click();
       const created = [(await (await creation).json()).referral.id];
