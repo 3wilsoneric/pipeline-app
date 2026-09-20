@@ -8,11 +8,24 @@ async function referralWithAssessment(page: Page, signed = true) {
     name: `Packet ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "", tags: [], documentName: "", documentStatus: "Missing",
   });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
-    client_mutation_id: randomUUID(), data: { current_location: 'Synthetic facility <img src=x onerror="alert(1)">', family_involvement: "Sister helps with appointments." },
+    client_mutation_id: randomUUID(), data: {
+      current_location: 'Synthetic facility <img src=x onerror="alert(1)">', family_involvement: "Sister helps with appointments.",
+      medications_at_intake: ["Synthetic recorded medication"], im_injections: "yes", im_injections_details: "Synthetic injection and recorded dose",
+      injection_frequency: "Synthetic injection - every 4 weeks", last_injection: "Synthetic injection - date unknown",
+      assault_history: "yes", last_assault_details: "Historical incident; no current incident described", assaults_last_two_years_count: 0,
+      current_safety_measures: "Recorded support plan",
+    },
   } });
   expect(created.status()).toBe(201);
   const { assessment } = await created.json();
   if (signed) expect((await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } })).status()).toBe(200);
+  const { work_items: workItems } = await (await page.request.get(`/api/referrals/${referral.id}/work-items`)).json();
+  const agreement = workItems.find((item: { type: string }) => item.type === "signed_admission_agreement");
+  expect(agreement).toBeDefined();
+  const received = await page.request.patch(`/api/referrals/${referral.id}/work-items/${agreement.id}`, { data: {
+    if_match: agreement.version, client_mutation_id: randomUUID(), patch: { status: "received", evidenceDocumentName: "Synthetic admission agreement.pdf" },
+  } });
+  expect(received.status()).toBe(200);
   return { referral, assessment };
 }
 
@@ -55,6 +68,11 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');
+  await expect(preview.locator("body")).toContainText("Received; signatures still need review.");
+  await expect(preview.locator("body")).toContainText("Synthetic injection - date unknown");
+  await expect(preview.locator("tr").filter({ hasText: "Next injection due" })).toContainText("Not recorded; confirm");
+  await expect(preview.getByRole("heading", { name: "Behavior & safety", exact: true })).toBeVisible();
+  await expect(preview.locator("body")).toContainText("Historical incident; no current incident described");
   await expect(preview.locator("img, script")).toHaveCount(0);
   await expect(email.locator("iframe")).toHaveAttribute("sandbox", "");
   const response = await page.request.get(`/api/referrals/${referral.id}/admission-summary`);
@@ -62,6 +80,9 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   const payload = await response.json();
   const { user } = await (await page.request.get("/api/auth/me")).json();
   expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name)));
+  const dataSheet = await page.request.get(`/api/referrals/${referral.id}/admission-summary?download=chart`);
+  expect(dataSheet.status()).toBe(200);
+  expect(await dataSheet.text()).toContain("Received; signatures still need review.");
   await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   const recipients = email.getByRole("combobox", { name: /^To/ });

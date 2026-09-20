@@ -19,6 +19,57 @@ test("email copy follows admission handoff sections without inventing example-cl
   assert.doesNotMatch(email.html, /30 days of meds|No Food Allergy|SSI application has not started|<script>/);
 });
 
+test("injection handoff preserves named dates and exposes missing details without calculating a due date", () => {
+  const recorded = { ...assessment, im_injections: "yes", im_injections_details: "Synthetic injection A - recorded dose", injection_frequency: "A - every 4 weeks", last_injection: "A - around September 2\nB - unknown", next_injection_due: "A - confirm with clinic" };
+  const notes = Object.fromEntries(summaryOwner.buildMeetClientSummary(recorded, referral).medicationNotes.map(({ label, value }) => [label, value]));
+  assert.equal(notes["Last injection given"], recorded.last_injection);
+  assert.equal(notes["Next injection due"], recorded.next_injection_due);
+  const incomplete = summaryOwner.buildMeetClientSummary({ ...recorded, next_injection_due: null }, referral);
+  assert.match(incomplete.medicationNotes.find(({ label }) => label === "Next injection due").value, /Not recorded; confirm/);
+  const noInjections = summaryOwner.buildMeetClientSummary({ ...recorded, im_injections: "no" }, referral);
+  assert.equal(noInjections.medicationNotes.find(({ label }) => label === "IM injections").value, "No");
+  assert.ok(!noInjections.medicationNotes.some(({ label }) => label === "Last injection given"));
+  const unknown = summaryOwner.buildMeetClientSummary({ ...assessment, im_injections: null }, referral);
+  assert.match(unknown.medicationNotes.find(({ label }) => label === "IM injections").value, /Not recorded; confirm/);
+  const email = emailOwner.renderMeetClientEmail(summaryOwner.buildMeetClientSummary({ ...assessment, medications_at_intake: [] }, referral), "Fixture", "fixture");
+  assert.match(email.html, /confirm the medication list/);
+});
+
+test("safety handoff keeps history and current support distinct, preserves zero, and never assumes no violence", () => {
+  const recorded = { ...assessment, physical_altercations: "yes", physical_altercation_details: "Historical incident <script>bad()</script>; settled with support", assault_history: "yes", last_assault_details: "Historical incident in 2020", assaults_last_two_years_count: 0, current_safety_measures: "Recorded support plan" };
+  const summary = summaryOwner.buildMeetClientSummary(recorded, referral);
+  const notes = Object.fromEntries(summary.safetyNotes.map(({ label, value }) => [label, value]));
+  assert.equal(notes["Reported assaults in the last two years"], "0");
+  assert.equal(notes["Last reported assault / context"], recorded.last_assault_details);
+  assert.equal(notes["Current safety supports"], recorded.current_safety_measures);
+  const email = emailOwner.renderMeetClientEmail(summary, "Fixture", "fixture");
+  assert.match(email.html, /Behavior &amp; safety/);
+  assert.match(email.html, /&lt;script&gt;/);
+  assert.doesNotMatch(email.html, /<script>|High risk|Client is violent/);
+  const unknown = summaryOwner.buildMeetClientSummary(assessment, referral);
+  assert.match(unknown.safetyNotes.find(({ label }) => label === "Assault history reported").value, /Not recorded; confirm/);
+  const noHistory = summaryOwner.buildMeetClientSummary({ ...recorded, assault_history: "no", physical_altercations: "no" }, referral);
+  assert.equal(noHistory.safetyNotes.find(({ label }) => label === "Assault history reported").value, "No");
+  assert.ok(!noHistory.safetyNotes.some(({ label }) => label === "Last reported assault / context"));
+});
+
+test("agreement copy uses the work item status, never the assessment signature or an uploaded filename", () => {
+  const expected = { needed: /Still needed/, requested: /awaiting the signed copy/, received: /signatures still need review/, reviewed: /Marked reviewed in the chart/, waived: /Requirement waived/, expired: /copy expired/, unavailable: /Signed copy unavailable/, not_applicable: /Marked not applicable/ };
+  for (const [status, pattern] of Object.entries(expected)) {
+    const context = { ...referral, requirements: [{ type: "signed_admission_agreement", status, evidenceDocumentName: "Signed-agreement.pdf", waiverReason: "Synthetic waiver" }] };
+    const report = summaryOwner.buildAssessmentSummaryReport(assessment, context);
+    const agreement = report.meetClient.admissionNotes.find(({ label }) => label === "Signed admission agreement");
+    assert.match(agreement.value, pattern);
+    assert.match(agreement.value, /Recorded evidence: Signed-agreement.pdf/);
+    assert.match(emailOwner.renderMeetClientEmail(report.meetClient, "Fixture", "fixture").html, pattern);
+    assert.match(sheetOwner.renderClientDataSheet(report, context), pattern);
+  }
+  const absent = summaryOwner.buildMeetClientSummary(assessment, referral).admissionNotes.find(({ label }) => label === "Signed admission agreement");
+  assert.match(absent.value, /Not recorded; confirm/);
+  assert.match(summaryOwner.buildAdmissionAgreementSummary([{ type: "signed_admission_agreement", status: "reviewed" }]).value, /No supporting document is linked/);
+  assert.match(sheetOwner.renderClientDataSheet(null, { ...referral, requirements: [{ type: "signed_admission_agreement", status: "received" }] }), /signatures still need review/);
+});
+
 test("data sheet contains canonical chart sections, recorded version, unsigned status and escaped text", () => {
   const report = summaryOwner.buildAssessmentSummaryReport(assessment, referral);
   const html = sheetOwner.renderClientDataSheet(report, referral);

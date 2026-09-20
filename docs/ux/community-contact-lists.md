@@ -75,6 +75,19 @@ permissions. Do not represent this as a deployed mailing-list manager.
   Med room, allergies/diet, billing, support, and attachments. Only recorded
   chart facts are used. SSI/payee and allergies are not structured questionnaire
   fields here, so the copy requests confirmation rather than inventing facts.
+- Med room includes recorded medications, support/PRNs, injection medication,
+  frequency, last given, and next due. Dates remain verbatim, never calculated;
+  missing injection details are explicit when injections are reported. An
+  explicit No hides stale conditional injection details, matching the form.
+- Behavior and safety separates reported altercations/assault history and their
+  context from current concerns and supports. Missing history is not a No;
+  historical incidents are not promoted to a present risk classification.
+- The signed admission agreement status comes from current workflow work items
+  in the preview, delivery, and data sheet. Received means signature review is
+  still needed; reviewed is described as marked reviewed, not a new verification.
+  Missing evidence remains explicit. Neither a signed assessment nor an uploaded
+  filename proves agreement signatures. No new assessment fields or Excel mapping
+  changes are needed for these additions.
 - All referral chart files, including assessment documents, enter the attachment
   inventory with a generated `Client data sheet.html`. The data sheet is a
   printable, escaped, self-contained HTML snapshot using the canonical chart

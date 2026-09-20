@@ -56,7 +56,8 @@ export async function POST(
     const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion);
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
-    const attachmentContext = await loadAdmissionPacket(snapshot.referral, assessment);
+    const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
+    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment);
     if (!attachmentContext.ok) return attachmentContext.response;
 
     const reserveAndDeliver = async () => {
@@ -82,7 +83,7 @@ export async function POST(
         audit,
         recipients: prepared.recipients,
         ccRecipients: prepared.ccRecipients,
-        summary: buildMeetClientSummary(assessment, snapshot.referral),
+        summary: buildMeetClientSummary(assessment, handoffReferral),
         preparedBy: accountableActor.name,
         deliveryId,
         attachments: attachmentContext.attachments,

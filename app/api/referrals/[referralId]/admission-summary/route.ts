@@ -47,18 +47,19 @@ export async function GET(
         assessmentList.assessments,
         snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,
       );
-      const report = assessment ? buildAssessmentSummaryReport(assessment, snapshot.referral) : null;
+      const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
+      const report = assessment ? buildAssessmentSummaryReport(assessment, handoffReferral) : null;
       const latestAssessment = assessmentList.assessments[0];
-      const chartReport = report ?? (latestAssessment ? buildAssessmentSummaryReport(latestAssessment, snapshot.referral) : null);
+      const chartReport = report ?? (latestAssessment ? buildAssessmentSummaryReport(latestAssessment, handoffReferral) : null);
       if (new URL(request.url).searchParams.get("download") === "chart") {
-        return new Response(renderClientDataSheet(chartReport, snapshot.referral), { headers: {
+        return new Response(renderClientDataSheet(chartReport, handoffReferral), { headers: {
           ...privateHeaders(), "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `attachment; filename="${clientDataSheetName}"`,
           "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
         } });
       }
       const mail = getGraphMailReadiness();
       const admissionPacket = await loadAdmissionPacketInventory(
-        snapshot.referral,
+        handoffReferral,
         mail.largeAttachmentDeliveryConfigured,
         chartReport,
       );
