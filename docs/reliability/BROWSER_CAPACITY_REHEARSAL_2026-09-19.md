@@ -302,6 +302,44 @@ Calendar-and-back p95 was 557 / 520 / 600 / 674 ms. The corrected 20-minute peak
 is running. It must pass before endurance; no production application change or
 capacity certification follows from this short control alone.
 
+### Measured-window correction and peak revalidation
+
+The `freshprobe100-peak` raw runner verdict was **failed** on all four shards.
+No actors threw, no transport probes failed, every verification read was 200,
+and all 67,615 acknowledged writes had already passed SQL/audit reconciliation.
+The failing assertion was progress sampling: the timer continued during final
+SQL verification after all actors had intentionally finished. Each shard had
+exactly one failing sample, taken 28.1–28.6 seconds **after** `measuredEnd`.
+Every one of the 235 steady samples per shard inside the measured interval
+contained all 25 active actors. The longest acknowledged-save gap per actor was
+at most 4,092 ms across the whole 20-minute window, including its boundaries.
+
+Harness `056bfddd6c29ccc2ce0a3744bfd59f352cd9e615` stops progress/memory sampling
+when the actors finish and bounds progress assertions to the measured interval.
+It does not discard a stall inside that interval. Seven focused evidence
+controls passed, including an in-window stalled actor, empty measurement window,
+missing audit, duplicate audit and wrong-actor failures; TypeScript and scoped
+ESLint passed. The original failed reports remain unchanged.
+
+The same correction also removes repeated scans from the independent audit
+checker: it reads each selected actor/record/field's history once and verifies
+the exact count for **every** acknowledged value. It does not sample writes or
+change the application's audit table. Rechecking the real peak ledger took
+651–719 ms per shard instead of roughly 30 seconds of overlapping reconciliation.
+All 67,615 audit entries and 100 final actor-field values matched again; a
+deliberately missing value failed against real SQL on each shard.
+
+Separate `freshprobe100-peak-revalidated.json` evidence records the original
+failure and the corrected-window qualification explicitly. That revalidation
+passed duration, all 100 actors, all three backends, every in-window progress
+sample, all verification probes, browser/transport error checks, final fields,
+exact audit counts and existing performance targets. Shard save p95 was
+203 / 210 / 233 / 240 ms; Calendar-and-back p95 was 470 / 503 / 546 / 578 ms.
+Application restarts and kernel OOM events were zero; aggregate app-service
+memory peaked at 2,116,923,392 bytes. No clean original-run verdict or completed
+endurance qualification is claimed. A focused real-browser run of the corrected
+harness precedes the two-hour soak; no further peak is being rerun.
+
 Use only loopback PostgreSQL named `pipeline_capacity_*` and unchanged canonical
 migrations. Never deploy the synthetic build or point this harness at production.
 
