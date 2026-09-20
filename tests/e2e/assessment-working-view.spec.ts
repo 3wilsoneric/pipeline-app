@@ -73,7 +73,7 @@ test("finds an exact question across sections and preserves answers when revisit
   await field.blur();
   await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
   await assessment.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-  await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review & sign/ }).click();
+  await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
   await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toContainText("Synthetic medication A");
   await page.getByRole("button", { name: "Back to questions", exact: true }).click();
   await expect(field).toHaveValue("Synthetic medication A");
@@ -191,9 +191,9 @@ test("profile navigation leaves through the save path and practice help stays in
   await expect(assessment).toBeVisible();
 });
 
-test("Home uses the shared refined canvas behind its existing board", async ({ page }) => {
+test("Home uses the warm canvas behind its board deck", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(238, 238, 231)");
   await expect(page.getByRole("button", { name: "Open current work", exact: true })).toBeVisible();
   await page.screenshot({ path: "outputs/home-working-green.png" });
 });

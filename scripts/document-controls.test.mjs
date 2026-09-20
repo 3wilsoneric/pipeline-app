@@ -51,6 +51,37 @@ test("disposable PostgreSQL document deletion, audit, undo and retention", async
     const row = (await sql`insert into pipeline.referrals(person_id, stage, community, owner_id, owner_name, data, created_by, created_by_name, updated_by, updated_by_name)
       values (${person.person_id}, 'New', 'San Pablo', 'fixture', 'Fixture', ${sql.json({ name: "Synthetic", ownerId: "fixture", owner: "Fixture", documentName: "", documentStatus: "Missing", note: "Keep chart" })}, 'fixture','Fixture','fixture','Fixture') returning referral_id`)[0];
     const id = Number(row.referral_id);
+    // Use the actual PostgreSQL upload owner: mixed attachments must save once,
+    // queue only supported previews, and never queue field extraction.
+    const processing = loadEntry("lib/extraction/document-processing.ts", {
+      "@/lib/database/pipeline-database": { getPipelineSql: () => sql },
+      "@/lib/extraction/azure-blob": { getAzureBlobUploadSigner: () => ({
+        createUploadUrls: async (input) => ({ packet_id: input.packet_id, uploads: input.files.map((file) => ({
+          file_id: file.file_id, blob_path: `${input.packet_id}/${file.filename}`, expires_at: new Date(Date.now() + 60_000).toISOString(),
+        })) }),
+        getBlobProperties: async () => ({ exists: true, byteSize: 1 }),
+      }) },
+    });
+    for (const contentTypes of [["application/octet-stream"], ["application/pdf", "application/zip", "text/plain"]]) {
+      const packetId = randomUUID();
+      const input = { packet_id: packetId, referral_id: String(id), source_type: "manual", submitting_facility: "Synthetic", processing_intent: "preview_only", files: contentTypes.map((content_type, index) => ({
+        file_id: `file_${index}`, filename: `attachment-${index}`, content_type, size: 1, sha256: "b".repeat(64), category: "other",
+      })) };
+      await processing.createDurableUploadTargets(input, { id: "fixture", name: "Fixture" });
+      const completion = { packet_id: packetId, uploaded_file_ids: input.files.map((file) => file.file_id) };
+      const saved = await processing.completeDurableUpload(completion);
+      const replay = await processing.completeDurableUpload(completion);
+      assert.deepEqual(JSON.parse(JSON.stringify(replay.documents)), JSON.parse(JSON.stringify(saved.documents)));
+      const jobs = await sql`select job_type from pipeline.extraction_jobs where packet_id = ${packetId}`;
+      assert.deepEqual(jobs.map((job) => job.job_type), contentTypes.includes("application/pdf") ? ["document_preview"] : []);
+      const documents = await sql`select content_type, processing_status, preview_status, malware_scan_status from pipeline.documents where document_id in ${sql(saved.documents.map((file) => file.document_id))}`;
+      assert.equal(documents.length, contentTypes.length);
+      for (const document of documents) {
+        assert.equal(document.processing_status, "uploaded");
+        assert.equal(document.malware_scan_status, "not_scanned");
+        assert.equal(document.preview_status, document.content_type === "application/pdf" ? "pending" : "unavailable");
+      }
+    }
     const documentId = randomUUID();
     await sql`insert into pipeline.documents(document_id, referral_id, category, file_name, content_type, byte_size, sha256, blob_container, blob_key, processing_status, uploaded_by)
       values (${documentId}, ${id}, 'other', 'synthetic.pdf', 'application/pdf', 20, ${"a".repeat(64)}, 'raw', ${documentId}, 'uploaded', 'fixture')`;

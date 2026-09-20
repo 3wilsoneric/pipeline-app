@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { getPacketContentType } from "@/lib/pipeline/referral-packet-upload";
 import type { IntakeFilePreview } from "@/lib/pipeline/referral-canvas-extraction";
+import { referralDocumentAutofillEnabled } from "@/lib/extraction/contracts";
 
 type FileJob = {
   key: string;
@@ -51,6 +52,7 @@ export function useIntakeFileExtraction() {
   }, [refresh]);
 
   const start = useCallback((file: File, key: string, referralId?: number) => {
+    if (!referralDocumentAutofillEnabled) return;
     const previous = jobsRef.current.get(key);
     if (previous?.file === file && previous.status !== "failed") return;
     previous?.controller.abort();

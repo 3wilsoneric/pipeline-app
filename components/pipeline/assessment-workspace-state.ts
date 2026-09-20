@@ -1,6 +1,7 @@
 import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { PipelineApiError, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
-import { isAssessmentFinalized, type PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { isAssessmentFinalized, type AssessmentPatchInput, type PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import type { AssessmentDraftWorkbookSources } from "@/lib/pipeline/user-workspace-state-types";
 import {
   assessmentToolFieldDefinitions,
   type AssessmentToolData,
@@ -59,6 +60,31 @@ export function dirtyAssessmentSections(data: AssessmentToolData, base: Assessme
     }
   }
   return sections;
+}
+
+// One PATCH has one source. Keep manual answers and different workbook copies
+// separate when a recovered section is flushed through the normal save queue.
+export function assessmentSaveGroups(data: Partial<AssessmentToolData>, currentData: AssessmentToolData, sources: AssessmentDraftWorkbookSources) {
+  const groups = new Map<string, AssessmentPatchInput & { data: Partial<AssessmentToolData> }>();
+  for (const [key, value] of Object.entries(data)) {
+    const field = key as AssessmentToolFieldKey;
+    const source = sameAssessmentValue(value, currentData[field]) ? sources[field] : undefined;
+    const sourceKey = source ? JSON.stringify(source) : "manual";
+    let group = groups.get(sourceKey);
+    if (!group) { group = { data: {}, ...(source ? { workbook_restore: source } : {}) }; groups.set(sourceKey, group); }
+    group.data[field] = value as never;
+  }
+  return [...groups.values()];
+}
+
+export function acknowledgeAssessmentWorkbookSave(sources: AssessmentDraftWorkbookSources, local: AssessmentToolData, sent: Partial<AssessmentToolData>, source: AssessmentPatchInput["workbook_restore"]) {
+  const remaining = { ...sources };
+  if (!source) return remaining;
+  for (const [key, value] of Object.entries(sent)) {
+    const field = key as AssessmentToolFieldKey;
+    if (sources[field]?.export_id === source.export_id && sources[field]?.exported_at === source.exported_at && sameAssessmentValue(local[field], value)) delete remaining[field];
+  }
+  return remaining;
 }
 
 export function sameAssessmentValue(

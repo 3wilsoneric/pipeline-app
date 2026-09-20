@@ -1,3 +1,4 @@
+import { referralDocumentAutofillEnabled } from "../../lib/extraction/contracts";
 import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
@@ -71,3 +72,6 @@ for (const outcome of ['ready', 'unavailable'] as const) {
     await expect(dob).toHaveValue(outcome==='ready'?'1984-06-13':'1984-06-12');
   });
 }
+
+// Kept for the future extraction rollout; attachment-only.spec.ts covers the paused product.
+test.skip(!referralDocumentAutofillEnabled, "Document reading and autofill are temporarily disabled.");

@@ -1,0 +1,17 @@
+.section { margin: 12px 0; border: 1px solid #d7e0dc; border-radius: 8px; background: #fff; color: #233e34; }
+.section summary { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; list-style: none; }
+.section summary::-webkit-details-marker { display: none; }
+.section summary::after { content: "+"; margin-left: auto; font-size: 24px; font-weight: 400; color: #177c64; }
+.section[open] summary::after { content: "-"; }
+.icon { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 1px solid #bfd4ca; border-radius: 7px; background: linear-gradient(145deg,#fff,#e9f3ee); }
+.section summary strong { display: block; font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+.section small { display: block; margin-top: 2px; color: #626f68; font-size: 13px; }
+.section small span { margin: 0 7px; color: #9daaa3; }
+.summaryNote { margin-left: auto; color: #607169; font-size: 13px; }
+.content { padding: 0 16px 12px; border-top: 1px solid #e7ece9; }
+.explanation { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: #617169; }
+.status { margin: 10px 0 0; color: #396e5b; font-size: 12px; }
+.error { font-size: 14px; line-height: 1.6; color: #9b342f; }
+.error button { display: inline-flex; gap: 5px; align-items: center; min-height: 44px; text-decoration: underline; }
+.section :is(button,input,summary):focus-visible { outline: 2px solid #087d66; outline-offset: 3px; }
+@media(max-width:640px) { .summaryNote { display: none; } .section summary { padding: 12px; } .content { padding: 0 12px 12px; } }

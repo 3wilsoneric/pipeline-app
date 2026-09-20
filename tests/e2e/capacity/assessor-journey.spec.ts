@@ -34,7 +34,7 @@ for (const width of [1440, 834, 390]) test(`intake through signed assessment and
     await page.reload();
     if (width >= 640) {
       await page.goto(`/?view=referrals&screen=packet&referralId=${id}&workspaceStage=assessment&assessmentSection=provenance_qc`);
-      await page.getByRole('button', { name: 'Review & sign', exact: true }).click();
+      await page.getByRole('button', { name: 'Review assessment', exact: true }).click();
     } else await openAssessmentChart(page);
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Sign & continue to decision', exact: true }).click();
@@ -42,8 +42,8 @@ for (const width of [1440, 834, 390]) test(`intake through signed assessment and
     await decision.getByRole('radio', { name: 'Accept', exact: true }).check();
     page.once('dialog', dialog => dialog.accept());
     await decision.getByRole('button', { name: 'Record decision', exact: true }).click();
-    await decision.getByLabel('Admission date', { exact: true }).fill('2026-10-01');
-    await decision.getByRole('button', { name: 'Continue to finish & send', exact: true }).click();
+    await decision.getByLabel('Admission date (optional)', { exact: true }).fill('2026-10-01');
+    await decision.getByRole('button', { name: 'Review email & packet', exact: true }).click();
     await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').getByRole('heading', { name: 'Meet the Client', exact: true })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'Preview only · email delivery is not connected.' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Send email & packet', exact: true })).toBeDisabled();

@@ -40,6 +40,7 @@
     "0036_allow_repeated_file_content.sql": "3763fa5d072c2ade5b1d3b3f9858ee93444cb16e6259c36f84e906073817cccf",
     "0037_document_undo.sql": "99eea816e37f8a86ee8c87404e67710955dd5dba08eb93bf67828c68030d34f6",
     "0038_assessment_packet_finalization.sql": "67b27bc1d87f54b87c1f50b8efe33365bc971bdaa272191ec2cc9a11cad54e1c",
-    "0039_document_scan_not_required.sql": "4777c61dbb63b0db1bc5999290fabfe852a406d45f65644dd56c54745da20705"
+    "0039_document_scan_not_required.sql": "4777c61dbb63b0db1bc5999290fabfe852a406d45f65644dd56c54745da20705",
+    "0040_referral_email_drafts.sql": "457f3238710e0030c7b8d1003def47bf30e5c7c759a37b2e7e513e1f85e78e5f"
   }
 }

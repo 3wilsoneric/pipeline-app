@@ -10,6 +10,7 @@ import {
 } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentInterviewQuestions, assessmentInterviewSections } from "../../lib/assessment/assessment-interview-schema";
 import type { PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
+import { referralDocumentAutofillEnabled } from "../../lib/extraction/contracts";
 import type { PacketFieldsResponse, ReviewFieldResponse } from "../../lib/extraction/contracts";
 import type { Referral } from "../../lib/pipeline/referral-types";
 import type { SupervisorExceptionSnapshot } from "../../lib/pipeline/operations-types";
@@ -353,8 +354,12 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: "Search Pipeline" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
@@ -1700,30 +1705,41 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit referral details" }).click();
     const extractionReview = page.getByRole("region", { name: "Extraction review" });
     await page.getByTestId("document-checklist-toggle").click();
-    await expect(extractionReview).toBeVisible();
-    await extractionReview.getByRole("button", { name: "Review fields", exact: true }).click();
-    await expect(extractionReview.locator('[aria-label="Packet ingestion progress"]')).toBeVisible();
-    await expect(extractionReview.getByText("Original saved", { exact: true })).toBeVisible();
-    await expect(extractionReview.getByText(/values found$/)).toBeVisible();
-    await expect(extractionReview.getByText(/0 of \d+ confirmed$/)).toBeVisible();
-    await expect(extractionReview.getByText("Development data", { exact: true })).toBeVisible();
-    await expect(extractionReview.getByText("Robert", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1951-08-14");
+    if (referralDocumentAutofillEnabled) {
+      await expect(extractionReview).toBeVisible();
+      await extractionReview.getByRole("button", { name: "Review fields", exact: true }).click();
+      await expect(extractionReview.locator('[aria-label="Packet ingestion progress"]')).toBeVisible();
+      await expect(extractionReview.getByText("Original saved", { exact: true })).toBeVisible();
+      await expect(extractionReview.getByText(/values found$/)).toBeVisible();
+      await expect(extractionReview.getByText(/0 of \d+ confirmed$/)).toBeVisible();
+      await expect(extractionReview.getByText("Development data", { exact: true })).toBeVisible();
+      await expect(extractionReview.getByText("Robert", { exact: true })).toBeVisible();
+      await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1951-08-14");
 
-    await extractionReview.getByRole("button", { name: "Edit extracted Date of birth" }).click();
-    await extractionReview.getByRole("textbox", { name: "Correct Date of birth" }).fill("1951-08-15");
-    await extractionReview.getByRole("button", { name: "Save correction" }).click();
-    await expect(page.getByTestId("workspace-save-status")).toContainText("Correction saved");
-    await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1951-08-15");
+      await extractionReview.getByRole("button", { name: "Edit extracted Date of birth" }).click();
+      await extractionReview.getByRole("textbox", { name: "Correct Date of birth" }).fill("1951-08-15");
+      await extractionReview.getByRole("button", { name: "Save correction" }).click();
+      await expect(page.getByTestId("workspace-save-status")).toContainText("Correction saved");
+      await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1951-08-15");
 
-    const bulkConfirm = extractionReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ });
-    if (await bulkConfirm.count()) {
-      await bulkConfirm.click();
-      await extractionReview.getByRole("button", { name: "Confirm values", exact: true }).click();
+      async function confirmValues() {
+        const bulkConfirm = extractionReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ });
+        if (await bulkConfirm.count()) {
+          await bulkConfirm.click();
+          await extractionReview.getByRole("button", { name: "Confirm values", exact: true }).click();
+        } else {
+          await extractionReview.getByRole("button", { name: "Confirm", exact: true }).click();
+        }
+      }
+      await confirmValues();
+      await expect(extractionReview.getByText("Extraction review complete", { exact: true })).toBeVisible();
     } else {
-      await extractionReview.getByRole("button", { name: "Confirm", exact: true }).click();
+      await expect(extractionReview).toHaveCount(0);
+      await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1951-08-14");
+      await page.getByLabel("Date of birth", { exact: true }).fill("1951-08-15");
+      await page.getByLabel("Date of birth", { exact: true }).blur();
+      await expect(page.getByTestId("workspace-save-status")).toContainText("Saved");
     }
-    await expect(extractionReview.getByText("Extraction review complete", { exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
     await page.getByRole("button", { name: "Assessment" }).click();
     await expect(page.getByRole("region", { name: "Assessment" })).toBeVisible();
@@ -1770,7 +1786,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(referralList.referrals[0]).toMatchObject({
       documentName: "face-sheet.pdf",
       documentStatus: "Uploaded",
-      packetStatus: "ready_for_review",
+      packetStatus: referralDocumentAutofillEnabled ? "ready_for_review" : "reviewed",
       stage: "New",
       date: "2026-08-09",
       source: "Synthetic County Access",
@@ -1793,43 +1809,47 @@ test.describe("Referral home and packet canvas", () => {
     ]));
     expect(referralList.referrals[0]?.documentHash).toMatch(/^[a-f0-9]{64}$/);
     expect(referralList.referrals[0]?.packetId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(referralList.referrals[0]?.packetFields?.find((field) => field.field_key === "demographics.date_of_birth")).toMatchObject({
-      final_value: "1951-08-15",
-      review_status: "edited",
-    });
-    const reviewedDobField = referralList.referrals[0]?.packetFields?.find(
-      (field) => field.field_key === "demographics.date_of_birth",
-    );
-    expect(reviewedDobField).toBeTruthy();
-    const fieldsBeforeReplay = await page.request.get(`/api/packets/${referralPayload.referral.packetId}/fields`);
-    const fieldsBeforeReplayPayload = await fieldsBeforeReplay.json() as PacketFieldsResponse;
-    const dobAuditCountBeforeReplay = fieldsBeforeReplayPayload.audit_events?.filter(
-      (event) => event.field_key === "demographics.date_of_birth" && event.action === "edit",
-    ).length ?? 0;
-    const replay = await page.request.post(
-      `/api/packets/${referralPayload.referral.packetId}/fields/demographics.date_of_birth/review`,
-      {
-        data: {
-          if_match: reviewedDobField!.version - 1,
-          action: "edit",
-          value: "1951-08-15",
+    if (referralDocumentAutofillEnabled) {
+      expect(referralList.referrals[0]?.packetFields?.find((field) => field.field_key === "demographics.date_of_birth")).toMatchObject({
+        final_value: "1951-08-15",
+        review_status: "edited",
+      });
+      const reviewedDobField = referralList.referrals[0]?.packetFields?.find(
+        (field) => field.field_key === "demographics.date_of_birth",
+      );
+      expect(reviewedDobField).toBeTruthy();
+      const fieldsBeforeReplay = await page.request.get(`/api/packets/${referralPayload.referral.packetId}/fields`);
+      const fieldsBeforeReplayPayload = await fieldsBeforeReplay.json() as PacketFieldsResponse;
+      const dobAuditCountBeforeReplay = fieldsBeforeReplayPayload.audit_events?.filter(
+        (event) => event.field_key === "demographics.date_of_birth" && event.action === "edit",
+      ).length ?? 0;
+      const replay = await page.request.post(
+        `/api/packets/${referralPayload.referral.packetId}/fields/demographics.date_of_birth/review`,
+        {
+          data: {
+            if_match: reviewedDobField!.version - 1,
+            action: "edit",
+            value: "1951-08-15",
+          },
         },
-      },
-    );
-    const replayPayload = await replay.json() as PacketFieldReviewResult;
-    expect(replay.status(), JSON.stringify(replayPayload)).toBe(200);
-    expect(replayPayload).toMatchObject({
-      version: reviewedDobField!.version,
-      review_status: "edited",
-      final_value: "1951-08-15",
-      projection_status: "synchronized",
-      referral: { id: Number(referralId), version: referralPayload.referral.version },
-    });
-    const fieldsAfterReplay = await page.request.get(`/api/packets/${referralPayload.referral.packetId}/fields`);
-    const fieldsAfterReplayPayload = await fieldsAfterReplay.json() as PacketFieldsResponse;
-    expect(fieldsAfterReplayPayload.audit_events?.filter(
-      (event) => event.field_key === "demographics.date_of_birth" && event.action === "edit",
-    ).length ?? 0).toBe(dobAuditCountBeforeReplay);
+      );
+      const replayPayload = await replay.json() as PacketFieldReviewResult;
+      expect(replay.status(), JSON.stringify(replayPayload)).toBe(200);
+      expect(replayPayload).toMatchObject({
+        version: reviewedDobField!.version,
+        review_status: "edited",
+        final_value: "1951-08-15",
+        projection_status: "synchronized",
+        referral: { id: Number(referralId), version: referralPayload.referral.version },
+      });
+      const fieldsAfterReplay = await page.request.get(`/api/packets/${referralPayload.referral.packetId}/fields`);
+      const fieldsAfterReplayPayload = await fieldsAfterReplay.json() as PacketFieldsResponse;
+      expect(fieldsAfterReplayPayload.audit_events?.filter(
+        (event) => event.field_key === "demographics.date_of_birth" && event.action === "edit",
+      ).length ?? 0).toBe(dobAuditCountBeforeReplay);
+    } else {
+      expect(referralList.referrals[0]?.packetFields ?? []).toEqual([]);
+    }
 
     const historyPatch = await page.request.patch(`/api/referrals/${referralId}`, {
       data: {
@@ -1870,21 +1890,25 @@ test.describe("Referral home and packet canvas", () => {
 
     const packetId = referralList.referrals[0]?.packetId;
     expect(packetId).toBeTruthy();
-    const packetFieldsResponse = await page.request.get(`/api/packets/${packetId}/fields`);
-    const packetFields = await packetFieldsResponse.json() as { fields: Array<{ field_key: string; version: number }> };
-    const dobField = packetFields.fields.find((field) => field.field_key === "demographics.date_of_birth");
-    expect(dobField).toBeTruthy();
-    const reviewUrl = `/api/packets/${packetId}/fields/${encodeURIComponent("demographics.date_of_birth")}/review`;
-    const [firstReview, competingReview] = await Promise.all([
-      page.request.post(reviewUrl, { data: { if_match: dobField!.version, action: "edit", value: "1951-08-16" } }),
-      page.request.post(reviewUrl, { data: { if_match: dobField!.version, action: "edit", value: "1951-08-17" } }),
-    ]);
-    expect([firstReview.status(), competingReview.status()].sort((left, right) => left - right)).toEqual([200, 409]);
-    const winningReview = firstReview.ok() ? firstReview : competingReview;
-    const winningReviewPayload = await winningReview.json() as PacketFieldReviewResult;
-    expect(winningReviewPayload.referral?.packetFields?.find(
-      (field) => field.field_key === "demographics.date_of_birth",
-    )?.final_value).toBe(winningReviewPayload.final_value);
+    let expectedDob = "1951-08-15";
+    if (referralDocumentAutofillEnabled) {
+      const packetFieldsResponse = await page.request.get(`/api/packets/${packetId}/fields`);
+      const packetFields = await packetFieldsResponse.json() as { fields: Array<{ field_key: string; version: number }> };
+      const dobField = packetFields.fields.find((field) => field.field_key === "demographics.date_of_birth");
+      expect(dobField).toBeTruthy();
+      const reviewUrl = `/api/packets/${packetId}/fields/${encodeURIComponent("demographics.date_of_birth")}/review`;
+      const [firstReview, competingReview] = await Promise.all([
+        page.request.post(reviewUrl, { data: { if_match: dobField!.version, action: "edit", value: "1951-08-16" } }),
+        page.request.post(reviewUrl, { data: { if_match: dobField!.version, action: "edit", value: "1951-08-17" } }),
+      ]);
+      expect([firstReview.status(), competingReview.status()].sort((left, right) => left - right)).toEqual([200, 409]);
+      const winningReview = firstReview.ok() ? firstReview : competingReview;
+      const winningReviewPayload = await winningReview.json() as PacketFieldReviewResult;
+      expect(winningReviewPayload.referral?.packetFields?.find(
+        (field) => field.field_key === "demographics.date_of_birth",
+      )?.final_value).toBe(winningReviewPayload.final_value);
+      expectedDob = winningReviewPayload.final_value ?? "";
+    }
 
     await page.goto("/?view=referrals");
     await expect(page.getByRole("region", { name: "Referral worklist" })).toBeVisible();
@@ -1902,11 +1926,12 @@ test.describe("Referral home and packet canvas", () => {
     await expect(workspaceButton).toBeVisible();
     await workspaceButton.click();
     await expect(page.getByTestId("workspace-identity-title")).toHaveText(clientIdentityTitle);
+    await page.getByRole("button", { name: "Chart", exact: true }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientIdentityTitle);
     await expect(page.getByRole("combobox", { name: "GENDER", exact: true })).toHaveValue("Other");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveCount(0);
-    await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue(winningReviewPayload.final_value ?? "");
+    await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue(expectedDob);
     await expect(page.getByRole("textbox", { name: "SSN (optional)", exact: true })).toHaveValue("111-11-1111");
     const compactHistory = page.getByRole("region", { name: "Workspace change history" });
     await expect(compactHistory).toHaveCount(0);
@@ -1990,6 +2015,19 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit referral details" }).click();
     const extractionReview = page.getByRole("region", { name: "Extraction review" });
     await page.getByTestId("document-checklist-toggle").click();
+    if (!referralDocumentAutofillEnabled) {
+      await expect(extractionReview).toHaveCount(0);
+      await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Pending Review");
+      await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("");
+      const referralId = new URL(page.url()).searchParams.get("referralId");
+      const saved = await (await page.request.get(`/api/referrals/${referralId}`)).json();
+      expect(saved.referral.packetFields ?? []).toEqual([]);
+      const original = await page.request.get(`/api/referrals/${referralId}/packet`);
+      expect(original.ok()).toBeTruthy();
+      expect(original.headers()["content-type"]).toContain("image/png");
+      expect(await original.body()).toEqual(packetBytes);
+      return;
+    }
     await expect(extractionReview).toBeVisible();
     await extractionReview.getByRole("button", { name: "Review fields", exact: true }).click();
     await expect(extractionReview.getByText(clientName, { exact: true })).toBeVisible();
@@ -2052,7 +2090,11 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit referral details" }).click();
     await expect(page.getByRole("region", { name: "Document checklist" }).getByText("Packet added", { exact: true })).toBeVisible();
     await page.getByTestId("document-checklist-toggle").click();
-    await expect(page.getByRole("region", { name: "Extraction review" })).toBeVisible();
+    if (referralDocumentAutofillEnabled) {
+      await expect(page.getByRole("region", { name: "Extraction review" })).toBeVisible();
+    } else {
+      await expect(page.getByRole("region", { name: "Extraction review" })).toHaveCount(0);
+    }
 
     await page.goto("/?view=referrals&screen=packet");
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
@@ -2234,7 +2276,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(completeInterview.status(), await completeInterview.text()).toBe(200);
     await page.reload();
     await section.selectOption("provenance_qc");
-    await page.getByRole("button", { name: "Review & sign", exact: true }).click();
+    await page.getByRole("button", { name: "Review assessment", exact: true }).click();
     await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toContainText("Schizoaffective disorder");
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();

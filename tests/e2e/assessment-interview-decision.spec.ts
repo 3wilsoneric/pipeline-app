@@ -74,6 +74,7 @@ for (const width of [1440, 390]) {
       await recommendation.selectOption("accept");
       await more.click();
       await openAssessmentChart(page);
+      await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
       await expect(footer.getByRole("button", { name: "Saving recommendation...", exact: true })).toBeDisabled();
     } finally { release(); }
     await expect(footer.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeEnabled();

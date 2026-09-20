@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "deploy-all-attachment-only-product-20260920",
+  "startingCommit": "c4f4a204eac5747b153352009989ee1ede2865f9",
+  "generatedAt": "2026-09-20T18:41:13.829420+00:00",
+  "previousInventory": "test-suite-assertion-inventory-deploy-all-20260920.json",
+  "comparisonRule": "User-approved product changes pause file reading and population, retain manual intake, and use Home focus tabs. Existing extraction assertions remain conditional on the canonical autofill flag; the disabled branch verifies absent extraction UI/fields, unchanged manual identity, exact original bytes, and continued manual edits. All other chart, files, scheduling, history, separate-referral upload and save assertions execute. Home journeys explicitly select the relevant tab. Case/title counts, API digest, and critical conflict digest are unchanged; assertion count increases. This is product behavior evidence, not a refactor coverage waiver.",
+  "playwright": {
+    "sourceFiles": [
+      "tests/e2e/pipeline-smoke.spec.ts",
+      "tests/e2e/pipeline-home.spec.ts"
+    ],
+    "caseCount": 49,
+    "assertionCount": 832,
+    "caseManifestDigest": "2600905841c83c3a9e7828bdcca93106d3c2ba4beecf172ada554cf8b0159a81",
+    "titleDigest": "0ee06b5f8e286eda7ebf56a85383f7b5a2f87e481de86b9fb8082c2f58233702",
+    "hooks": [
+      "beforeAll",
+      "afterAll",
+      "beforeEach"
+    ]
+  },
+  "apiBehavior": {
+    "sourceFiles": [
+      "scripts/api-behavior-fixtures.mjs"
+    ],
+    "caseCount": 114,
+    "assertionCount": 400,
+    "caseManifestDigest": "88b56c4559e8557946ae6e866474e07715a29493c9a74c5a68c0cbaf49f60ca1",
+    "titleDigest": "738873acc2fa78dd91968617ac7ed43491a14ca85b0956740f8fb9d1b08320fa",
+    "hooks": []
+  },
+  "criticalJourneyTrace": {
+    "id": "coordinates section edits, presence leases, and remote conflicts across two sessions",
+    "assertionCount": 24,
+    "assertionDigest": "7dcd2e3de5c2b203f542842b437941c9ff95751b202067b50f14fd28a6ca503f",
+    "failureSignal": "Two-session presence, disjoint persistence, stale same-field conflict visibility and no silent overwrite remain byte-equivalent assertions."
+  },
+  "sourceSha256": {
+    "tests/e2e/pipeline-smoke.spec.ts": "a290e8d74d76be7843f8d225917e1e4d24c0eb38debe71cb45c942533d417f9b",
+    "tests/e2e/pipeline-home.spec.ts": "0d5d77fc9552cfd4a747b46b5aa4231caebaba911e6a37265540ccd21400bc23",
+    "scripts/api-behavior-fixtures.mjs": "3f0f0f538e5b7dd9c24eb90a833033b4da7ad0b5213c19455c93d1978904abf4"
+  }
+}

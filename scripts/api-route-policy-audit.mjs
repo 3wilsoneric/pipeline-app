@@ -63,6 +63,11 @@ check("unused access helpers cannot satisfy the route policy", !resolvedFixture(
 check("ignored access failures cannot satisfy the route policy", !resolvedFixture("const failure = await guard(request); return Response.json({});").includes("requirePipelineUser"));
 check("returning a different value cannot satisfy the route policy", !resolvedFixture("const failure = await guard(request); if (failure) return null;").includes("requirePipelineUser"));
 
+check("awaited result guards count only when their failed response is immediately returned", resolvedFixture("const access = await guard(request, context, true); if (!access.ok) return access.response;").includes("requirePipelineUser"));
+check("result guards with ignored failures do not count", !resolvedFixture("const access = await guard(request, context); return Response.json({});").includes("requirePipelineUser"));
+check("result guards returning a different response do not count", !resolvedFixture("const access = await guard(request, context); if (!access.ok) return null;").includes("requirePipelineUser"));
+check("result guards with an inverted success check do not count", !resolvedFixture("const access = await guard(request, context); if (access.ok) return access.response;").includes("requirePipelineUser"));
+
 for (const absoluteFile of routeFiles) {
   const file = path.relative(root, absoluteFile).split(path.sep).join("/");
   const sourceText = readFileSync(absoluteFile, "utf8");
@@ -216,6 +221,10 @@ function resolvedFunctionText(statement, source, declarations) {
   // Only follow an awaited failure guard whose result immediately exits the
   // handler. Merely declaring or calling an authorization helper is not proof.
   for (const match of statement.getText(source).matchAll(/const\s+(\w+)\s*=\s*await\s+(\w+)\(request\);\s*if\s*\(\1\)\s*return\s+\1\s*;/g)) {
+    const guard = declarations.get(match[2]);
+    if (guard) text += `\n${guard.getText(source)}`;
+  }
+  for (const match of statement.getText(source).matchAll(/const\s+(\w+)\s*=\s*await\s+(\w+)\(request(?:,\s*\w+)*\);\s*if\s*\(!\1\.ok\)\s*return\s+\1\.response\s*;/g)) {
     const guard = declarations.get(match[2]);
     if (guard) text += `\n${guard.getText(source)}`;
   }

@@ -92,14 +92,14 @@ test.describe("assessment outcome and admission handoff", () => {
         expect((await workflow(admin, referral.id)).decision.outcome).toBe(outcome);
         await page.reload();
         if (outcome === "declined") {
-          await expect(page.getByRole("button", { name: "Continue to finish & send", exact: true })).toHaveCount(0);
+          await expect(page.getByRole("button", { name: "Review email & packet", exact: true })).toHaveCount(0);
           return;
         }
         const before = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
         expect(before.email.ready).toBe(false);
         expect(before.email.blockers.join(" ")).not.toContain("admission date");
-        await page.getByLabel("Admission date", { exact: true }).fill("2026-10-12");
-        await page.getByRole("button", { name: "Continue to finish & send", exact: true }).click();
+        await page.getByLabel("Admission date (optional)", { exact: true }).fill("2026-10-12");
+        await page.getByRole("button", { name: "Review email & packet", exact: true }).click();
         await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
         await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("2026-10-12");
         const after = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
@@ -109,7 +109,7 @@ test.describe("assessment outcome and admission handoff", () => {
         expect(after.referral.stage).not.toBe("Accepted / Admitted");
         await page.getByRole("button", { name: "Back to decision", exact: true }).click();
         await page.reload();
-        await expect(page.getByLabel("Admission date", { exact: true })).toHaveValue("2026-10-12");
+        await expect(page.getByLabel("Admission date (optional)", { exact: true })).toHaveValue("2026-10-12");
         await page.setViewportSize({ width: 390, height: 844 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         const unavailableSend = await assessor.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { confirmed: true, if_match: after.referral.version, recipients: ["synthetic@example.invalid"], client_mutation_id: randomUUID() } });

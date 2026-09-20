@@ -38,9 +38,10 @@
 .pipeline-surfaces [data-guide-target="home-workspace"] {
   --surface-line: var(--pipeline-surface-edge);
   --surface-radius: 12px;
-  background-color: var(--pipeline-canvas);
-  background-image: radial-gradient(ellipse 65% 460px at 0 0, rgb(27 173 129 / 10%), transparent 78%),
-    radial-gradient(ellipse 55% 420px at 100% 0, rgb(108 135 234 / 7%), transparent 75%);
+  background-color: #eeeee7;
+  background-image: radial-gradient(ellipse 65% 650px at 5% 0, rgb(184 202 160 / 24%), transparent 78%),
+    radial-gradient(ellipse 60% 650px at 100% 20%, rgb(223 186 159 / 20%), transparent 75%),
+    linear-gradient(180deg, rgb(255 255 255 / 28%), transparent 70%);
 }
 
 .pipeline-surfaces [data-guide-target="home-workspace"] > div {

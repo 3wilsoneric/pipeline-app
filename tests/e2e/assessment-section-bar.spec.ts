@@ -62,7 +62,7 @@ for (const width of [1440, 1024, 768, 640]) {
     }
     await section.selectOption("provenance_qc");
     await expect(bar).toContainText("Section 12 of 12");
-    await expect(paging.getByRole("button", { name: "Review & sign", exact: true })).toBeVisible();
+    await expect(paging.getByRole("button", { name: "Review assessment", exact: true })).toBeVisible();
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;

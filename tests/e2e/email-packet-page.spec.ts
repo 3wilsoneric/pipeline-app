@@ -3,16 +3,31 @@ import { expect, test, type Page } from "@playwright/test";
 import { createOperationalReferral } from "./support/operational-api";
 import { renderMeetClientEmail } from "../../lib/notifications/meet-client-email-template";
 
+test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
+
 async function referralWithAssessment(page: Page, signed = true) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
     name: `Packet ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "", tags: [], documentName: "", documentStatus: "Missing",
   });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
-    client_mutation_id: randomUUID(), data: { current_location: 'Synthetic facility <img src=x onerror="alert(1)">', family_involvement: "Sister helps with appointments." },
+    client_mutation_id: randomUUID(), data: {
+      current_location: 'Synthetic facility <img src=x onerror="alert(1)">', family_involvement: "Sister helps with appointments.",
+      medications_at_intake: ["Synthetic recorded medication"], im_injections: "yes", im_injections_details: "Synthetic injection and recorded dose",
+      injection_frequency: "Synthetic injection - every 4 weeks", last_injection: "Synthetic injection - date unknown",
+      assault_history: "yes", last_assault_details: "Historical incident; no current incident described", assaults_last_two_years_count: 0,
+      current_safety_measures: "Recorded support plan",
+    },
   } });
   expect(created.status()).toBe(201);
   const { assessment } = await created.json();
   if (signed) expect((await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } })).status()).toBe(200);
+  const { work_items: workItems } = await (await page.request.get(`/api/referrals/${referral.id}/work-items`)).json();
+  const agreement = workItems.find((item: { type: string }) => item.type === "signed_admission_agreement");
+  expect(agreement).toBeDefined();
+  const received = await page.request.patch(`/api/referrals/${referral.id}/work-items/${agreement.id}`, { data: {
+    if_match: agreement.version, client_mutation_id: randomUUID(), patch: { status: "received", evidenceDocumentName: "Synthetic admission agreement.pdf" },
+  } });
+  expect(received.status()).toBe(200);
   return { referral, assessment };
 }
 
@@ -47,28 +62,37 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   expect(Math.abs((await folder.boundingBox())!.y - (await header.boundingBox())!.y - (await header.boundingBox())!.height)).toBeLessThanOrEqual(1);
   const verification = email.getByRole("checkbox", { name: /I verified/ });
   await expect(verification).toBeInViewport();
-  expect((await verification.boundingBox())!.y).toBeLessThan((await email.getByRole("textbox", { name: "Authorized recipients" }).boundingBox())!.y);
+  expect((await verification.boundingBox())!.y).toBeLessThan((await email.getByRole("combobox", { name: /^To/ }).boundingBox())!.y);
   await expect(page.getByRole("region", { name: "Client medical chart", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toHaveCount(0);
   await expect(email.getByRole("button", { name: "Send email & packet", exact: true })).toBeDisabled();
-  await expect(email.locator("details")).not.toHaveAttribute("open");
+  await expect(email.locator("details").filter({ hasText: "Delivery details" })).not.toHaveAttribute("open");
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');
+  await expect(preview.locator("body")).toContainText("Received; signatures still need review.");
+  await expect(preview.locator("body")).toContainText("Synthetic injection - date unknown");
+  await expect(preview.locator("tr").filter({ hasText: "Next injection due" })).toContainText("Not recorded; confirm");
+  await expect(preview.getByRole("heading", { name: "Behavior & safety", exact: true })).toBeVisible();
+  await expect(preview.locator("body")).toContainText("Historical incident; no current incident described");
   await expect(preview.locator("img, script")).toHaveCount(0);
   await expect(email.locator("iframe")).toHaveAttribute("sandbox", "");
   const response = await page.request.get(`/api/referrals/${referral.id}/admission-summary`);
   expect(response.headers()["cache-control"]).toContain("no-store");
   const payload = await response.json();
   const { user } = await (await page.request.get("/api/auth/me")).json();
-  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", []));
+  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name)));
+  const dataSheet = await page.request.get(`/api/referrals/${referral.id}/admission-summary?download=chart`);
+  expect(dataSheet.status()).toBe(200);
+  expect(await dataSheet.text()).toContain("Received; signatures still need review.");
   await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-  const recipients = email.getByRole("textbox", { name: "Authorized recipients" });
+  const recipients = email.getByRole("combobox", { name: /^To/ });
   await recipients.click();
   await expect(recipients).toBeFocused();
   await recipients.fill("care@example.invalid");
-  await expect(recipients).toHaveValue("care@example.invalid");
+  await recipients.press("Enter");
+  await expect(email.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   await email.getByRole("button", { name: "Manage files", exact: true }).click();
   await expect(page).toHaveURL(/workspaceView=files/);
   if (width < 640) await stagePicker.selectOption({ label: "Chart" });
@@ -84,7 +108,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
     await finishTab.focus();
     await page.keyboard.press("Enter");
   }
-  await expect(email.getByRole("textbox", { name: "Authorized recipients" })).toHaveValue("care@example.invalid");
+  await expect(email.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   if (width < 640) await stagePicker.selectOption({ label: "Chart" });
   else await stages.getByRole("button", { name: /Chart/ }).click();
   await expect(page).toHaveURL(/workspaceStage=chart/);
@@ -154,17 +178,20 @@ test("packet controls show attachments and retain explicit send confirmation and
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const send = page.getByRole("button", { name: "Send email & packet", exact: true });
   await expect(page.getByRole("link", { name: "Open Synthetic referral packet.pdf" })).toHaveAttribute("href", "/api/files/synthetic-packet/download");
-  await page.getByRole("textbox", { name: "Authorized recipients" }).fill("care@example.invalid");
+  const recipients = page.getByRole("combobox", { name: /^To/ });
+  await recipients.fill("care@example.invalid");
+  await recipients.press("Enter");
   await expect(send).toBeDisabled(); expect(sends).toBe(0);
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Preview");
   await page.getByRole("checkbox", { name: /I verified/ }).check();
   await expect(send).toBeEnabled();
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Ready to send");
   await expect(page.getByText("Recipients verified", { exact: true })).toBeVisible();
-  await page.getByRole("textbox", { name: "Authorized recipients" }).fill("other@example.invalid");
+  await recipients.fill("other@example.invalid");
+  await recipients.press("Enter");
   await expect(page.getByRole("checkbox", { name: /I verified/ })).not.toBeChecked();
   await expect(send).toBeDisabled();
-  await page.getByRole("textbox", { name: "Authorized recipients" }).fill("care@example.invalid");
+  await page.getByRole("button", { name: "Remove other@example.invalid from To", exact: true }).click();
   await page.getByRole("checkbox", { name: /I verified/ }).check();
   await page.getByTestId("packet-workspace").evaluate((element) => element.scrollTo({ top: 0 }));
   await page.screenshot({ path: info.outputPath("email-packet-with-attachments.png"), animations: "disabled" });
@@ -173,7 +200,7 @@ test("packet controls show attachments and retain explicit send confirmation and
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).not.toHaveText("Sent");
   expect(sends).toBe(1);
   expect(sentBody).toMatchObject({ confirmed: true, recipients: ["care@example.invalid"], if_match: expect.any(Number), client_mutation_id: expect.any(String) });
-  await expect(page.getByRole("textbox", { name: "Authorized recipients" })).toHaveValue("care@example.invalid");
+  await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   const refreshed = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}/admission-summary`));
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await refreshed;
@@ -198,7 +225,7 @@ test("a recorded send remains distinct from preview after reopening", async ({ p
   await page.reload();
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Sent");
   await expect(page.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Authorized recipients", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: /^To/ })).toBeDisabled();
   expect(sends).toBe(0);
 });
 
@@ -216,16 +243,17 @@ test("draft recovery blocks entry until ready, then refreshing preserves handoff
     await route.continue();
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const recipients = page.getByLabel("Authorized recipients", { exact: true });
+  const recipients = page.getByRole("combobox", { name: /^To/ });
   try {
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("inert", "");
   } finally { release(); }
   await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
   await expect(page.getByTestId("packet-workspace")).not.toHaveAttribute("inert", "");
   await recipients.fill("care@example.invalid");
-  await expect(recipients).toHaveValue("care@example.invalid");
+  await recipients.press("Enter");
+  await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   const refreshed = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}/admission-summary`));
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await refreshed;
-  await expect(recipients).toHaveValue("care@example.invalid");
+  await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
 });

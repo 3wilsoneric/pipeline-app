@@ -8,6 +8,7 @@ import {
 } from "@/lib/notifications/meet-client-attachment-policy";
 import type { MeetClientMailAttachment } from "@/lib/notifications/meet-client-attachments";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
+import { recipientListLimit } from "@/lib/pipeline/community-recipient-lists";
 
 export { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 
@@ -47,8 +48,8 @@ export function getGraphMailReadiness(): GraphMailReadiness {
 }
 
 export function validateMeetClientRecipients(recipients: unknown, readiness = getGraphMailReadiness()) {
-  if (!Array.isArray(recipients) || recipients.length < 1 || recipients.length > 20) {
-    return { ok: false as const, message: "Add between 1 and 20 authorized recipients." };
+  if (!Array.isArray(recipients) || recipients.length < 1 || recipients.length > recipientListLimit) {
+    return { ok: false as const, message: `Add between 1 and ${recipientListLimit} authorized recipients in To and Cc combined.` };
   }
   const normalized = [...new Set(recipients.map((value) => typeof value === "string" ? value.trim().toLowerCase() : ""))];
   if (normalized.some((value) => !isEmail(value))) {
@@ -63,6 +64,7 @@ export function validateMeetClientRecipients(recipients: unknown, readiness = ge
 
 export async function sendMeetClientMail(input: {
   recipients: string[];
+  ccRecipients?: string[];
   summary: MeetClientSummary;
   preparedBy: string;
   deliveryId: string;
@@ -133,6 +135,7 @@ async function sendDirectMessage(
           subject: content.subject,
           body: { contentType: "HTML", content: content.html },
           toRecipients: input.recipients.map((address) => ({ emailAddress: { address } })),
+          ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
           internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
           attachments,
         },
@@ -159,6 +162,7 @@ async function sendDraftWithAttachments(
       subject: content.subject,
       body: { contentType: "HTML", content: content.html },
       toRecipients: input.recipients.map((address) => ({ emailAddress: { address } })),
+      ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
       internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
     }),
   }, 201, "create_draft");
@@ -239,6 +243,10 @@ async function addLargeAttachment(
 }
 
 async function readSourceBytes(attachment: MeetClientMailAttachment) {
+  if (attachment.contentBytes) {
+    if (attachment.contentBytes.byteLength !== attachment.byteSize) throw new GraphMailDeliveryError("attachment_source_size_mismatch", "The generated chart changed during delivery.");
+    return attachment.contentBytes;
+  }
   const response = await fetch(attachment.sourceUrl, {
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
@@ -252,6 +260,7 @@ async function readSourceBytes(attachment: MeetClientMailAttachment) {
 }
 
 async function readSourceRange(attachment: MeetClientMailAttachment, start: number, end: number) {
+  if (attachment.contentBytes) return Uint8Array.from((await readSourceBytes(attachment)).subarray(start, end + 1));
   const response = await fetch(attachment.sourceUrl, {
     headers: { Range: `bytes=${start}-${end}` },
     cache: "no-store",

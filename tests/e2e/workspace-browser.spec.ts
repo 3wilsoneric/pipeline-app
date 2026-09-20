@@ -128,6 +128,6 @@ test("personal Board keeps all active files and collapses finished outcomes", as
   await expect(board.getByRole("button", { name: "Open Blair Finished" })).toBeHidden();
   await board.locator("summary").click();
   await expect(board.getByRole("button", { name: "Blair Finished Turlock Admitted" })).toBeVisible();
-  await expect(page.getByText("Your referrals · newest received first")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.screenshot({ path: testInfo.outputPath("personal-board.png") });
 });

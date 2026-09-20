@@ -50,6 +50,7 @@ export async function ingestLocalPacket(input: {
   filename: string;
   contentType: string;
   expectedSha256?: string;
+  previewOnly?: boolean;
   bytes: Uint8Array;
 }): Promise<LocalPacketResult & { documentHash: string }> {
   const documentHash = createHash("sha256").update(input.bytes).digest("hex");
@@ -61,7 +62,7 @@ export async function ingestLocalPacket(input: {
     );
   }
 
-  validateFileSignature(input.contentType, input.bytes);
+  if (!input.previewOnly) validateFileSignature(input.contentType, input.bytes);
   await writeLocalReferralPacket({
     documentHash,
     bytes: input.bytes,
@@ -69,7 +70,9 @@ export async function ingestLocalPacket(input: {
     contentType: input.contentType,
   });
 
-  const extracted = await previewLocalPacket(input.bytes, input.contentType, input.packetId);
+  const extracted = input.previewOnly
+    ? { fields: [], pageCount: 0, ocrPageCount: 0, pagesRead: 0 }
+    : await previewLocalPacket(input.bytes, input.contentType, input.packetId);
 
   return { ...extracted, documentHash };
 }

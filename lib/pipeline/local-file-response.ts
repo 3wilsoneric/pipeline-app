@@ -1,4 +1,5 @@
 import "server-only";
+import { isBrowserPreviewable } from "@/lib/extraction/document-access-policy";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getLocalUploadedDocument, getReferralStoreReadiness } from "./referral-store";
 import { requireReferralAccess } from "./referral-access";
@@ -28,7 +29,7 @@ export async function localFileBytesResponse(user: PipelineUser, id: string) {
   if (!packet) return Response.json({ error: "File not found." }, { status: 404 });
   return new Response(packet.bytes, { headers: {
     "Content-Type": packet.contentType, "Content-Length": String(packet.size),
-    "Content-Disposition": `inline; filename="${packet.filename.replace(/[\r\n"\\]/g, "-").slice(0, 180)}"`,
+    "Content-Disposition": `${isBrowserPreviewable(packet.contentType) ? "inline" : "attachment"}; filename="${packet.filename.replace(/[\r\n"\\]/g, "-").slice(0, 180)}"`,
     "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
     "X-Frame-Options": "SAMEORIGIN",

@@ -1,3 +1,4 @@
+import { referralDocumentAutofillEnabled } from "../../lib/extraction/contracts";
 import { chromium, expect, test, webkit, type Locator } from "@playwright/test";
 import { createCanvas } from "@napi-rs/canvas";
 import { randomUUID } from "node:crypto";
@@ -164,3 +165,6 @@ test("preview validates origin, file signature, and workspace before parsing", a
   expect((await request.post("/api/uploads/preview?referralId=999999999", { headers, data: faceSheet() })).status()).toBe(404);
   expect((await request.post("/api/uploads/preview", { headers: { ...headers, "Content-Type": "text/plain" }, data: "unsupported" })).status()).toBe(415);
 });
+
+// Kept for the future extraction rollout; attachment-only.spec.ts covers the paused product.
+test.skip(!referralDocumentAutofillEnabled, "Document reading and autofill are temporarily disabled.");

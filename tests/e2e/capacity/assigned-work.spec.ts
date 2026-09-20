@@ -18,6 +18,7 @@ test('assigned referral opens from Home, schedules, and resumes unfinished answe
     const referral = await createOperationalReferral(owner.request, supervisor, { name: `Synthetic ${randomUUID().replace(/[^a-z]/g, '')}`, documentName: '', documentStatus: 'Missing', phone: '', email: '' }, { assigneeId: assessor.id });
     const name = referral.name!;
     await page.goto('/');
+    await page.getByRole('tab', { name: 'New assignments', exact: true }).click();
     await page.getByRole('region', { name: 'Since your last visit', exact: true }).getByRole('button', { name: new RegExp(name) }).click();
     await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
     await page.getByRole('navigation', { name: 'Workspace stages' }).getByRole('button', { name: /Assessment$/ }).click();
@@ -43,6 +44,7 @@ test('assigned referral opens from Home, schedules, and resumes unfinished answe
     await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
     await expect(page.getByRole('button', { name: 'Edit Referrer contact', exact: true })).toContainText('Synthetic contact; interview details unfinished');
     await page.goto('/');
+    await page.getByRole('tab', { name: 'New assignments', exact: true }).click();
     await page.locator('[data-home-module="current-work"]').getByRole('button', { name: new RegExp(name) }).click();
     await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
     await page.reload();

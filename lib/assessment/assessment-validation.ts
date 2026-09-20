@@ -11,6 +11,7 @@ import { assessmentYesNoQuestionFields } from "./assessment-interview-schema";
 import type { AssessmentToolSection } from "./assessment-tool-schema";
 import type {
   AssessmentPatchInput,
+  AssessmentWorkbookRestoreSource,
   AssessmentWorkflowStatus,
 } from "./assessment-records";
 import { assessmentFieldOwner } from "./assessment-field-ownership";
@@ -112,11 +113,31 @@ function validatePatchVersion(
   return { ok: true, value: true };
 }
 
-function validatePatchFields(patch: Record<string, unknown>): AssessmentValidationResult<true> {
-  const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction"]);
+function validatePatchEnvelope(patch: Record<string, unknown>): AssessmentValidationResult<true> {
+  const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction", "workbook_restore"]);
   for (const key of Object.keys(patch)) {
     if (!allowed.has(key)) return invalid(`Unknown assessment patch field: ${key}.`);
   }
+  if (patch.workbook_restore === undefined) return { ok: true, value: true };
+  return validateWorkbookRestorePatch(patch);
+}
+
+function validateWorkbookRestorePatch(patch: Record<string, unknown>): AssessmentValidationResult<true> {
+  if (!isAssessmentWorkbookRestoreSource(patch.workbook_restore)
+    || !isRecord(patch.data) || Object.keys(patch).some((k) => k !== "data" && k !== "workbook_restore")) return invalid("Excel restore must contain answers and valid copy identification only.");
+  return { ok: true, value: true };
+}
+
+export function isAssessmentWorkbookRestoreSource(value: unknown): value is AssessmentWorkbookRestoreSource {
+  return isRecord(value)
+    && Object.keys(value).every((key) => key === "export_id" || key === "exported_at")
+    && typeof value.export_id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.export_id)
+    && typeof value.exported_at === "string" && value.exported_at.length <= 40 && Number.isFinite(Date.parse(value.exported_at));
+}
+
+function validatePatchFields(patch: Record<string, unknown>): AssessmentValidationResult<true> {
+  const envelopeResult = validatePatchEnvelope(patch);
+  if (!envelopeResult.ok) return envelopeResult;
   if (patch.data !== undefined) {
     if (!isRecord(patch.data)) return invalid("patch.data must be an object.");
     const dataResult = validatePartialData(patch.data);

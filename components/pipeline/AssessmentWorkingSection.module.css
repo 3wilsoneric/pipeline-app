@@ -108,7 +108,7 @@
 .chartReviewToolbar:has(.reviewHeading) { flex-wrap: wrap; padding-block: 12px; }
 .reviewHeading h3 { margin: 0; color: #243b32; font-size: 19px; font-weight: 650; letter-spacing: -.02em; }
 .reviewHeading p { margin: 3px 0 0; font-size: 13px; line-height: 1.4; }
-.chartReviewNotice { padding: 12px 20px; color: #875f25; font-size: 14px; }
+.chartReviewNotice { padding: 12px 20px; color: #59665f; font-size: 14px; }
 .footer [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; height: auto; padding: 10px 16px; border: 1px solid #007254; border-radius: 5px; background: #007e60; color: #fff; font-size: 14px; font-weight: 600; }
 .footer [data-assessment-primary-action] > button:not(:disabled):hover { background: #006e53; }
 .footer [data-assessment-primary-action] > button:disabled { opacity: .5; cursor: not-allowed; }

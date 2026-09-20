@@ -93,7 +93,7 @@ for (const width of [1440, 768, 390, 320]) {
       await next.click();
       await expect(page).toHaveURL(/assessmentSection=prior_history/);
       await page.getByLabel("Assessment section", { exact: true }).selectOption("provenance_qc");
-      await footer.getByRole("button", { name: "Review & sign", exact: true }).click();
+      await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
       await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic interview gap completed");
       await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
       await returnToAssessmentQuestions(page);

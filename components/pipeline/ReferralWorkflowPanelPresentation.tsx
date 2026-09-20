@@ -218,10 +218,10 @@ function CurrentGateCard({
       {workflow.decision?.outcome === "accepted" ? (
         <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-[#e3e6e4] pb-4">
           <label className="block min-w-[180px] flex-1 text-[11px] font-bold text-[#303b34]" htmlFor="workflow-admit-date">
-            Admission date
+            Admission date (optional)
             <input id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={!workflow.capabilities.can_update || Boolean(busy)} className="mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]" />
           </label>
-          <PrimaryButton busy={busy.startsWith("admit-date:")} disabled={Boolean(busy)} onClick={onSaveAdmissionDate}>Continue to finish &amp; send</PrimaryButton>
+          <PrimaryButton busy={busy.startsWith("admit-date:")} disabled={Boolean(busy)} onClick={onSaveAdmissionDate}>Review email &amp; packet</PrimaryButton>
         </div>
       ) : null}
       {forwardTransition ? (
@@ -245,12 +245,12 @@ function CurrentGateCard({
 }
 
 function DecisionCard({ workflow, busy, recommendation, onRecommendationChange, onSubmitDecision }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onRecommendationChange" | "onSubmitDecision">) {
-  if (workflow.decision) return <WorkflowCard title="Decision recorded" detail="">
+  if (workflow.decision) return <WorkflowCard title="Decision recorded" detail="This records the placement decision. Signing and email sending are separate.">
     <RecordSummary title={workflow.decision.outcome === "accepted" ? "Accepted" : "Denied"} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} />
   </WorkflowCard>;
   const underReview = recommendation.outcome === "needs_more_information";
   const legacySubmission = Boolean(workflow.review && workflow.review.assessmentId === workflow.context.assessmentId);
-  const decisionExplanation = () => underReview ? legacySubmission ? "This earlier submission is preserved. Choose Accept or Deny when ready." : "Keeps the referral open. No approval request is sent." : "Signing and packet sending are separate.";
+  const decisionExplanation = () => underReview ? legacySubmission ? "This earlier submission is preserved. Choose Accept or Deny when ready." : "Keeps the referral open. No approval request is sent." : "Record the decision here. Sign in Assessment; send from Finish & send.";
   const decisionUnavailable = () => !workflow.capabilities.can_decide || !recommendation.outcome || (underReview && (!workflow.capabilities.can_recommend || !workflow.context.assessmentId || legacySubmission));
   return (
     <WorkflowCard title="Decision" detail="">

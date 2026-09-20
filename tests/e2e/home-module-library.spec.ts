@@ -23,7 +23,8 @@ for (const entry of ["click", "shortcut"]) {
       await page.goto("/");
       await page.getByRole("button", { name: "Open search", exact: true }).click();
     }
-    const input = page.getByRole("textbox", { name: "Search or ask" });
+    const input = page.getByRole("region", { name: "Search Pipeline", exact: true }).getByRole("textbox", { name: "Search or ask" });
+    await expect(input).toBeFocused();
     await input.fill("Avery");
     const originalInput = await input.elementHandle();
     release();
@@ -101,7 +102,7 @@ for (const width of [1440, 390]) {
     const card = work.getByRole("button", { name: "Open Avery Assigned", exact: true });
     await expect(card).toBeVisible();
     await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
-    await expect(work.getByRole("heading", { name: "Board", exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(work.getByText(/^(Team referrals|Assigned to you)$/)).toHaveCount(0);
     await expect(work.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
     await page.goto("/?editHome=1");
@@ -116,28 +117,16 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("separates Home modules with light emerald surfaces and responsive spacing", async ({ page }, testInfo) => {
+test("keeps optional Home modules below the focus deck on a warm responsive canvas", async ({ page }, testInfo) => {
   await mockLayout(page, completeModuleSet);
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
 
   await expect(page.locator('[data-home-surface="true"]')).toHaveCount(6);
-  await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", "0px");
-  const surfaces = page.locator('[data-home-surface="true"]:not([data-home-module="current-work"])');
-  const styles = await surfaces.evaluateAll((elements) => elements.map((element) => {
-    const style = getComputedStyle(element);
-    return {
-      backgroundColor: style.backgroundColor,
-      borderTopColor: style.borderTopColor,
-      borderTopWidth: style.borderTopWidth,
-    };
-  }));
-  for (const style of styles) {
-    expect(style.backgroundColor).toMatch(/^rgba?\(255, 255, 255/);
-    expect(style.borderTopColor).toBe("rgb(189, 200, 193)");
-    expect(style.borderTopWidth).toBe("1px");
-  }
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
+  await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", "1px");
+  await expect(page.getByTestId("home-focus-deck").locator("[inert][aria-hidden=true]")).toHaveCount(2);
+  await expect(page.getByTestId("home-module-grid").locator("[data-home-module]")).toHaveCount(3);
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(238, 238, 231)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });

@@ -6,10 +6,11 @@ import {
   type AssessmentToolData,
   type AssessmentToolFieldKey,
 } from "./assessment-tool-schema";
-import type { Referral } from "@/lib/pipeline/referral-types";
+import type { AdmissionRequirement, Referral } from "@/lib/pipeline/referral-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 
-type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate">;
+type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate">
+  & Partial<Pick<Referral, "county" | "conserved" | "payer" | "responsiblePerson" | "requirements">>;
 
 export type AssessmentSummaryItem = {
   label: string;
@@ -32,6 +33,10 @@ export type MeetClientSummary = {
   medications: string[];
   medicationNotes: AssessmentSummaryItem[];
   supportSnapshot: AssessmentSummaryItem[];
+  admissionNotes?: AssessmentSummaryItem[];
+  billingNotes?: AssessmentSummaryItem[];
+  dietaryNotes?: AssessmentSummaryItem[];
+  safetyNotes?: AssessmentSummaryItem[];
   preparedFromAssessmentId: string;
   preparedFromAssessmentVersion: number;
 };
@@ -146,6 +151,20 @@ export function buildMeetClientSummary(
     community: assessment.community || referral.community,
     assessmentDate: assessment.assessment_date || "",
     admissionDate: referral.admissionDate || "",
+    admissionNotes: compactItems([
+      buildAdmissionAgreementSummary(referral.requirements),
+      item("Referring county", assessment.county || referral.county),
+      item("Arriving from", assessment.current_location),
+      item("Conserved status", assessment.conservatorship_type || referral.conserved, "conservatorship_type"),
+      item("Legal / signing details", assessment.conservatorship_status),
+      item("Conservator", assessment.conservator_name),
+      item("Referrer contact", assessment.referrer_contact),
+    ]),
+    billingNotes: [
+      { label: "Coverage / payer", value: referral.payer?.trim() || "Not recorded" },
+      { label: "SSI / representative payee", value: "Not recorded in the structured chart. Confirm with the referring team." },
+    ],
+    dietaryNotes: buildDietaryHandoff(assessment),
     bio: compactValues([
       sentence("Current setting", assessment.current_location),
       sentence("Community and routine", assessment.programming_notes),
@@ -154,26 +173,82 @@ export function buildMeetClientSummary(
       sentence("Placement preferences", firstValue(assessment.placement_preferences_concerns, assessment.preferred_facility_characteristics)),
     ]).slice(0, 4),
     medications,
-    medicationNotes: buildItems(assessment, [
-      ["medication_adherence", "Medication support"],
-      ["prn_patterns", "PRN pattern and effect"],
-      ["im_injections", "IM injections"],
-      ["im_injections_details", "Injection details"],
-      ["injection_frequency", "Injection frequency"],
-      ["last_injection", "Last injection"],
-      ["next_injection_due", "Next injection due"],
-    ]),
+    medicationNotes: buildMedicationHandoff(assessment),
+    safetyNotes: buildSafetyHandoff(assessment),
     supportSnapshot: buildItems(assessment, [
       ["mobility", "Mobility"],
       ["adl_needs", "Daily living support"],
       ["language_barrier_details", "Language support"],
       ["linear_conversation_details", "Communication support"],
       ["special_diet_details", "Diet"],
-      ["current_safety_measures", "Current safety support"],
     ]),
     preparedFromAssessmentId: assessment.assessment_id,
     preparedFromAssessmentVersion: assessment.version,
   };
+}
+
+export function buildAdmissionAgreementSummary(requirements?: readonly AdmissionRequirement[]): AssessmentSummaryItem {
+  const agreement = requirements?.find((requirement) => requirement.type === "signed_admission_agreement");
+  const statuses: Record<AdmissionRequirement["status"], string> = {
+    needed: "Still needed; obtain and review the signed copy.",
+    requested: "Requested; awaiting the signed copy.",
+    received: "Received; signatures still need review.",
+    reviewed: "Marked reviewed in the chart.",
+    waived: "Requirement waived; this does not confirm a signed copy.",
+    expired: "Recorded copy expired; an updated signed copy is needed.",
+    unavailable: "Signed copy unavailable; follow up with the referring team.",
+    not_applicable: "Marked not applicable; this does not confirm a signed copy.",
+  };
+  let value = agreement ? statuses[agreement.status] : "Not recorded; confirm whether a signed copy is available.";
+  // A signed assessment or an uploaded filename does not establish agreement signatures.
+  if (agreement?.status === "reviewed" && !agreement.evidenceDocumentId && !agreement.evidenceDocumentName?.trim()) {
+    value += " No supporting document is linked; confirm the signed copy.";
+  }
+  if (agreement?.evidenceDocumentName?.trim()) value += ` Recorded evidence: ${agreement.evidenceDocumentName.trim()}.`;
+  if (agreement?.status === "waived" && agreement.waiverReason?.trim()) value += ` Reason: ${agreement.waiverReason.trim()}`;
+  if (agreement?.status === "unavailable" && agreement.unavailableReason?.trim()) value += ` Reason: ${agreement.unavailableReason.trim()}`;
+  return { label: "Signed admission agreement", value };
+}
+
+function buildDietaryHandoff(assessment: PipelineAssessmentRecord): AssessmentSummaryItem[] {
+  return [
+    { label: "Allergies", value: "Not recorded in the structured chart. Review source documents and confirm." },
+    { label: "Diet", value: assessment.special_diet_details?.trim() || (assessment.special_diet === "no" ? "No special diet reported" : "Confirm dietary requirements") },
+  ];
+}
+
+function buildMedicationHandoff(assessment: PipelineAssessmentRecord): AssessmentSummaryItem[] {
+  const injectionFields = [
+    ["im_injections_details", "Injection medication / dose"],
+    ["injection_frequency", "Injection frequency"],
+    ["last_injection", "Last injection given"],
+    ["next_injection_due", "Next injection due"],
+  ] as const;
+  const includeInjectionDetails = assessment.im_injections !== "no"
+    && (assessment.im_injections === "yes" || injectionFields.some(([key]) => assessment[key]?.trim()));
+  return [
+    ...buildItems(assessment, [["medication_adherence", "Medication support"], ["prn_patterns", "PRN pattern and effect"]]),
+    { label: "IM injections", value: formatValue(assessment.im_injections, "im_injections") || "Not recorded; confirm with the referring team." },
+    ...(includeInjectionDetails ? injectionFields.map(([key, label]) => ({ label, value: assessment[key]?.trim() || "Not recorded; confirm with the referring team." })) : []),
+  ];
+}
+
+function buildSafetyHandoff(assessment: PipelineAssessmentRecord): AssessmentSummaryItem[] {
+  return compactItems([
+    item("Current behavior / recent events", assessment.behavioral_history),
+    { label: "Physical altercations reported", value: formatValue(assessment.physical_altercations, "physical_altercations") || "Not recorded; confirm with the referring team." },
+    assessment.physical_altercations !== "no" ? item("Altercation context and outcome", assessment.physical_altercation_details) : null,
+    { label: "Assault history reported", value: formatValue(assessment.assault_history, "assault_history") || "Not recorded; confirm with the referring team." },
+    assessment.assault_history !== "no" ? item("Last reported assault / context", assessment.last_assault_details) : null,
+    assessment.assault_history !== "no" ? item("Reported assaults in the last two years", assessment.assaults_last_two_years_count) : null,
+    item("Self-harm history reported", assessment.self_harm_history, "self_harm_history"),
+    assessment.self_harm_history !== "no" ? item("Last reported self-harm incident", assessment.last_self_harm_incident) : null,
+    item("Current self-harm thoughts reported", assessment.current_self_harm_ideation, "current_self_harm_ideation"),
+    assessment.current_self_harm_ideation !== "no" ? item("Current self-harm concerns", assessment.current_self_harm_details) : null,
+    item("Elopement history reported", assessment.elopement_history, "elopement_history"),
+    assessment.elopement_history !== "no" ? item("Elopement context / support needs", assessment.elopement_risk) : null,
+    item("Current safety supports", assessment.current_safety_measures),
+  ]);
 }
 
 function buildIdentity(assessment: PipelineAssessmentRecord, referral: AssessmentReferralContext) {

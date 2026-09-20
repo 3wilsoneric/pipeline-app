@@ -1,6 +1,8 @@
 "use client";
 
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
+import ReferralHandoffContacts from "./ReferralHandoffContacts";
+import { useHandoffRecipients } from "./useHandoffRecipients";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
@@ -91,7 +93,7 @@ import { getReferralPatchSections, normalizeReferralSectionVersions } from "@/li
 import { documentCategoryForRequirement } from "@/lib/pipeline/document-requirements";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
 import {
-  allowedUploadContentTypes,
+  referralDocumentAutofillEnabled,
   maxUploadFileBytes,
   type ExtractedField,
   type PacketFieldsResponse,
@@ -103,7 +105,6 @@ import { workspaceCanvasCacheTtlMs } from "@/lib/pipeline/client-navigation";
 import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import {
   createMutationId,
-  getPacketContentType,
   hashPacket,
   uploadReferralPacket,
   uploadReferralSupportingDocument,
@@ -419,10 +420,13 @@ export default function ReferralPacketCanvas({
     total: 52,
     status: "not_started",
   });
-  const [emailRecipients, setEmailRecipients] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
+  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
+  const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
+  const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
+  const flushHandoff = handoff.flush;
   const { beforeNavigationRef, assessmentFocused, setAssessmentFocused } = usePipelineShell();
   // Keep the shell stable for the whole folder, not just while its assessment is mounted.
   useLayoutEffect(() => {
@@ -430,20 +434,18 @@ export default function ReferralPacketCanvas({
     return () => setAssessmentFocused(false);
   }, [setAssessmentFocused]);
   useEffect(() => {
-    if (!emailSending) return;
     const previous = beforeNavigationRef.current;
     const waitForDelivery = async () => {
       if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
+      await flushHandoff();
       await previous?.();
     };
     beforeNavigationRef.current = waitForDelivery;
     return () => {
       if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = previous;
     };
-  }, [beforeNavigationRef, emailSending]);
-  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
-  const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
-  const extraction = usePacketExtraction(loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
+  }, [beforeNavigationRef, emailSending, flushHandoff]);
+  const extraction = usePacketExtraction(extractionPacketId(loadedReferral));
   const intakeExtraction = useIntakeFileExtraction();
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<FieldKey>>(() => new Set());
   const { start: startIntakeExtraction, reset: resetIntakeExtraction } = intakeExtraction;
@@ -589,7 +591,6 @@ export default function ReferralPacketCanvas({
   const referralWorkspaceId = activeReferralId(loadedReferral, referral);
   useEffect(() => {
     const referralId = referralWorkspaceId;
-    setEmailRecipients("");
     if (!referralId) {
       setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
       return;
@@ -1035,7 +1036,7 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     const extractedFields = loadedReferral?.packetFields;
     const sourceFile = loadedReferral?.documentName;
-    if (loadedReferral?.workspaceStatus === "historical" || !extractedFields?.length) return;
+    if (!referralDocumentAutofillEnabled || loadedReferral?.workspaceStatus === "historical" || !extractedFields?.length) return;
 
     setFields((current) => {
       const next = populateFormFromExtraction(
@@ -1233,13 +1234,8 @@ export default function ReferralPacketCanvas({
   };
 
   const attachDocument = (id: string, file: File) => {
-    const contentType = getPacketContentType(file);
-    if (!(allowedUploadContentTypes as readonly string[]).includes(contentType)) {
-      setSaveError("Upload a PDF, JPEG, PNG, TIFF, or HEIC document.");
-      return;
-    }
-    if (file.size > maxUploadFileBytes) {
-      setSaveError("Documents must be 100 MB or smaller.");
+    if (file.size === 0 || file.size > maxUploadFileBytes) {
+      setSaveError("Choose a nonempty file, up to 100 MB.");
       return;
     }
     setSavedAt("Unsaved changes");
@@ -1290,8 +1286,8 @@ export default function ReferralPacketCanvas({
       const remaining = additionalFilesRef.current.filter((queued) => queued !== file);
       additionalFilesRef.current = remaining;
       setAdditionalFiles(remaining);
+      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id } }));
     }
-    window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id } }));
   };
 
   const retainQueuedAdditionalFileDraft = () => {
@@ -1666,7 +1662,7 @@ export default function ReferralPacketCanvas({
     );
     documentsRef.current = refreshedDocuments;
     setDocuments(refreshedDocuments);
-    setSavedAt("Linking extraction...");
+    setSavedAt("Saving document...");
     const extractedForm = upload.fields
       ? populateFormFromExtraction(fieldsRef.current, upload.fields.fields, packet.name, dirtyKeysRef.current)
       : fieldsRef.current;
@@ -1835,6 +1831,7 @@ export default function ReferralPacketCanvas({
 
   const openAssignedWork = async () => {
     if (!onOpenAssignedWork || emailSendingRef.current) return;
+    await handoff.flush();
     await assessmentNavigationRef.current?.();
     await preservePendingIntake();
     onOpenAssignedWork();
@@ -2360,20 +2357,38 @@ export default function ReferralPacketCanvas({
         </div>
   );
 
+  const renderPacketReview = () => (
+    referralDocumentAutofillEnabled && (loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length) ? (
+              <PacketExtractionReview
+                fields={referralContextPacketFields}
+                packetId={loadedReferral?.packetId}
+                fileName={loadedReferral?.documentName || "the uploaded packet"}
+                status={extraction?.status}
+                hasPacket={Boolean(loadedReferral?.packetId)}
+                developmentOnly={loadedReferral?.packetMessage?.startsWith("Development")}
+                busyFieldKey={reviewBusyFieldKey}
+                bulkBusy={isBulkReviewing}
+                onAccept={(field) => reviewExtractedField(field, "accept")}
+                onAcceptAll={acceptExtractedFields}
+                onEdit={(field, value) => reviewExtractedField(field, "edit", value)}
+              />
+            ) : null
+  );
+
   const renderIntakePage = () => (
     <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
             <IntakeEditScope readOnly={permissionReadOnly}>
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
                 <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
-            <IntakeExtractionProgress extraction={intakeExtraction} referralId={loadedReferral?.id} suggestionCount={suggestionCount} />
+            {referralDocumentAutofillEnabled ? <IntakeExtractionProgress extraction={intakeExtraction} referralId={loadedReferral?.id} suggestionCount={suggestionCount} /> : null}
             <IntakeDocumentChecklist
               readOnly={permissionReadOnly}
               initialPacket={initialPacket}
               initialPacketCategory={initialPacketCategory}
               recordedName={loadedReferral?.documentName}
               recordedStatus={loadedReferral?.documentStatus}
-              packetMessage={loadedReferral?.packetMessage}
+              packetMessage={referralDocumentAutofillEnabled ? loadedReferral?.packetMessage : undefined}
               documents={documents}
               pendingDocuments={pendingDocuments}
               referral={loadedReferral}
@@ -2392,21 +2407,7 @@ export default function ReferralPacketCanvas({
               workspaceFiles={workspaceFiles}
               onAddFiles={attachAdditionalFiles}
             >
-            {loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length ? (
-              <PacketExtractionReview
-                fields={referralContextPacketFields}
-                packetId={loadedReferral?.packetId}
-                fileName={loadedReferral?.documentName || "the uploaded packet"}
-                status={extraction?.status}
-                hasPacket={Boolean(loadedReferral?.packetId)}
-                developmentOnly={loadedReferral?.packetMessage?.startsWith("Development")}
-                busyFieldKey={reviewBusyFieldKey}
-                bulkBusy={isBulkReviewing}
-                onAccept={(field) => reviewExtractedField(field, "accept")}
-                onAcceptAll={acceptExtractedFields}
-                onEdit={(field, value) => reviewExtractedField(field, "edit", value)}
-              />
-            ) : null}
+            {renderPacketReview()}
             </IntakeDocumentChecklist>
             <ClientChartFrame label="Referral intake chart">
               <ClientChartHeader title={loadedReferral ? "Referral details" : "Referral intake"}>
@@ -2553,6 +2554,7 @@ export default function ReferralPacketCanvas({
                 />}
               </aside>
             </ClientChartFrame>
+            <ReferralHandoffContacts key={fields.community.value} value={handoff} community={fields.community.value} disabled={permissionReadOnly} compact />
                 </div>
               </div>
             </div>
@@ -2635,8 +2637,8 @@ export default function ReferralPacketCanvas({
               <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
-                emailDraft={{ recipients: emailRecipients, onChange: setEmailRecipients }}
-                onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2)}
+                emailDraft={handoff}
+                onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2, undefined, "review")}
                 onOpenDecision={() => openPage("workflow")} />
               </WorkspaceChartFolder>
               <footer aria-label="Handoff actions" className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-[#dce4df] bg-white/95 px-3 py-3 backdrop-blur-sm">
@@ -3392,7 +3394,7 @@ function InitialPacketDropzone({
           <div id="initial-packet-status" aria-live="polite" className="mt-1 text-[11px] leading-5 text-[#595959]">
             {presentation.status}
           </div>
-          <div id="initial-packet-help" className="mt-0.5 text-[10px] font-semibold text-[#737373]">PDF, JPEG, PNG, TIFF, or HEIC · 100 MB maximum</div>
+          <div id="initial-packet-help" className="mt-0.5 text-[10px] font-semibold text-[#737373]">Any file type · 100 MB per file</div>
         </div>
         <div className="flex shrink-0 items-center justify-center gap-2">
           <button
@@ -3423,7 +3425,6 @@ function InitialPacketDropzone({
           ref={inputRef}
           data-testid="initial-packet-input"
           type="file"
-          accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic"
           aria-label="Choose referral documents"
           multiple
           className="sr-only"
@@ -3459,7 +3460,7 @@ function AdditionalDocumentDropzone({ queued, files, onAdd }: {
       >
         <div className="flex min-w-0 items-center gap-3"><UploadCloud size={20} aria-hidden="true" className="text-[#0f8b73]" /><span className="text-[12px] font-semibold text-[#3f4745]">Drop files here or browse</span></div>
         <button type="button" onClick={() => inputRef.current?.click()} className="h-9 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]">Add files</button>
-        <input ref={inputRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic" aria-label="Choose additional referral documents" className="sr-only" onChange={(event) => { onAdd(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
+        <input ref={inputRef} type="file" multiple aria-label="Choose additional referral documents" className="sr-only" onChange={(event) => { onAdd(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
       </div>
       {queued.length ? (
         <ul className="mt-2 divide-y divide-[#e1e4e2]" aria-label="Additional referral file list">
@@ -3801,7 +3802,6 @@ function DocumentDropRow({
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic"
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -4165,6 +4165,7 @@ function mergeExtractedFields(
 }
 
 function packetUploadStatusMessage(mock: boolean, pageCount: number) {
+  if (!referralDocumentAutofillEnabled) return "Document saved.";
   if (!mock) return "Packet uploaded and extraction started.";
   const pageLabel = pageCount === 1 ? "page" : "pages";
   return `Development local extraction completed. ${pageCount} source ${pageLabel} preserved; confirm the stripped values below.`;
@@ -4418,6 +4419,10 @@ function workspaceHasQueuedChanges(
   return workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
 }
 
+function extractionPacketId(referral: Referral | null) {
+  return !referralDocumentAutofillEnabled || referral?.workspaceStatus === "historical" ? undefined : referral?.packetId;
+}
+
 function activeReferralId(loadedReferral: Referral | null, referral: { id: number } | undefined) {
   return loadedReferral?.id ?? referral?.id;
 }
@@ -4457,19 +4462,15 @@ function workspaceTagsInput(tags: string[] | undefined) {
 
 function validateInitialPacketSelection(file: File | undefined): InitialPacketSelectionResult {
   if (!file) return { accepted: false };
-  const contentType = getPacketContentType(file);
-  if (!(allowedUploadContentTypes as readonly string[]).includes(contentType)) {
-    return { accepted: false, error: "Upload a PDF, JPEG, PNG, TIFF, or HEIC referral document." };
-  }
-  if (file.size > maxUploadFileBytes) {
-    return { accepted: false, error: "The initial referral document must be 100 MB or smaller." };
+  if (file.size === 0 || file.size > maxUploadFileBytes) {
+    return { accepted: false, error: "Choose a nonempty file, up to 100 MB." };
   }
   return { accepted: true, file };
 }
 
 function validateAdditionalFileSelection(files: File[]) {
-  const invalid = files.find((file) => !(allowedUploadContentTypes as readonly string[]).includes(getPacketContentType(file)) || file.size > maxUploadFileBytes);
-  return invalid ? `${invalid.name}: upload a PDF, JPEG, PNG, TIFF, or HEIC document under 100 MB.` : "";
+  const invalid = files.find((file) => file.size === 0 || file.size > maxUploadFileBytes);
+  return invalid ? `${invalid.name}: choose a nonempty file, up to 100 MB.` : "";
 }
 
 function initialPacketDropzonePresentation({

@@ -5,7 +5,7 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { DocumentProcessingError } from "@/lib/extraction/document-processing";
-import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
+import { isBrowserPreviewable, isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
 import { isValidHttpByteRange } from "@/lib/extraction/http-byte-range";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
@@ -359,10 +359,6 @@ async function readBoundedBytes(body: ReadableStream<Uint8Array> | null, maximum
 function requireAvailableContent(value: string) {
   if (value === "infected") throw new DocumentProcessingError("malware_detected", 410, "This file is unavailable.");
   if (!isDocumentContentAvailable(value)) throw new DocumentProcessingError("document_content_unavailable", 409, "This file is not available yet.");
-}
-
-function isBrowserPreviewable(contentType: string) {
-  return contentType === "application/pdf" || contentType.startsWith("image/");
 }
 
 function maxAssetBytes() {

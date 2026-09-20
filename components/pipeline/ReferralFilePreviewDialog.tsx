@@ -6,11 +6,12 @@ import { createPortal } from "react-dom";
 import { FileText, X } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
+import { isBrowserPreviewable, isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 type FilePreviewMetadata = {
+  content_type: string;
   category: string;
   byte_size: number;
   malware_scan_status: string;
@@ -165,7 +166,7 @@ function PreviewBody({
     );
   }
   if (isDocumentContentAvailable(metadata?.malware_scan_status)) {
-    return <iframe src={file.previewUrl ?? toPipelinePath(`/api/files/${file.id}/preview`)} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
+    return <OriginalFilePreview file={file} metadata={metadata} />;
   }
   return (
     <div className="bg-white px-5 py-16 text-center">
@@ -177,11 +178,22 @@ function PreviewBody({
   );
 }
 
+function OriginalFilePreview({ file, metadata }: { file: ReferralFile; metadata: FilePreviewMetadata | null }) {
+  if (isBrowserPreviewable(metadata?.content_type ?? file.contentType)) {
+    return <iframe src={file.previewUrl ?? toPipelinePath(`/api/files/${file.id}/preview`)} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
+  }
+  return <div className="bg-white px-5 py-16 text-center">
+    <div className="text-[14px] font-black text-[#111111]">File saved</div>
+    <p className="mt-2 text-[12px] text-[#737373]">This file type opens in its original application.</p>
+    <a href={originalFileUrl(file, metadata)} target="_blank" rel="noreferrer" className="mt-4 inline-block font-bold text-[#0f8b73]">Open or download original</a>
+  </div>;
+}
+
 function previewDetail(file: ReferralFile, metadata: FilePreviewMetadata | null, isLocalPacket: boolean) {
   if (isLocalPacket) return `${file.category} · ${file.sizeBytes === undefined ? "Size unavailable" : formatFileSize(file.sizeBytes)}`;
   if (!metadata) return `${file.category} · Loading metadata`;
   const pages = metadata.page_count ?? metadata.pages.length;
-  return `${formatDocumentCategory(metadata.category)} · ${formatFileSize(metadata.byte_size)} · ${pages} page${pages === 1 ? "" : "s"}`;
+  return `${formatDocumentCategory(metadata.category)} · ${formatFileSize(metadata.byte_size)}${pages ? ` · ${pages} page${pages === 1 ? "" : "s"}` : ""}`;
 }
 
 function changePage(

@@ -16,7 +16,7 @@ import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 export type AzureBlobUploadSigner = {
   createUploadUrls(input: CreateUploadUrlRequest): Promise<CreateUploadUrlResponse>;
   createWriteUrl(container: string, blobPath: string, lifetimeSeconds?: number): Promise<string>;
-  createReadUrl(container: string, blobPath: string, lifetimeSeconds?: number): Promise<string>;
+  createReadUrl(container: string, blobPath: string, lifetimeSeconds?: number, contentDisposition?: string): Promise<string>;
   createDeleteUrl(container: string, blobPath: string, lifetimeSeconds?: number): Promise<string>;
   getBlobProperties(container: string, blobPath: string): Promise<BlobProperties>;
   deleteBlob(container: string, blobPath: string): Promise<boolean>;
@@ -68,8 +68,8 @@ export function getAzureBlobUploadSigner(): AzureBlobUploadSigner {
     },
     createWriteUrl: (container, blobPath, lifetimeSeconds = 900) =>
       createSignedBlobUrl(account, container, blobPath, "cw", new Date(Date.now() + lifetimeSeconds * 1000)),
-    createReadUrl: (container, blobPath, lifetimeSeconds = 300) =>
-      createSignedBlobUrl(account, container, blobPath, "r", new Date(Date.now() + lifetimeSeconds * 1000)),
+    createReadUrl: (container, blobPath, lifetimeSeconds = 300, contentDisposition) =>
+      createSignedBlobUrl(account, container, blobPath, "r", new Date(Date.now() + lifetimeSeconds * 1000), contentDisposition),
     createDeleteUrl: (container, blobPath, lifetimeSeconds = 300) =>
       createSignedBlobUrl(account, container, blobPath, "d", new Date(Date.now() + lifetimeSeconds * 1000)),
     async getBlobProperties(container, blobPath) {
@@ -123,6 +123,7 @@ async function createSignedBlobUrl(
   blobPath: string,
   permissions: string,
   expiresAt: Date,
+  contentDisposition?: string,
 ) {
   assertSafeBlobPart(container, "container");
   assertSafeBlobPath(blobPath);
@@ -136,6 +137,7 @@ async function createSignedBlobUrl(
     startsOn: startsAt,
     expiresOn: expiresAt,
     version: serviceVersion,
+    ...(contentDisposition ? { contentDisposition } : {}),
   };
   const query = generateBlobSASQueryParameters(
     values,

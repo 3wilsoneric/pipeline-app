@@ -22,6 +22,7 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { prefetchPipelineWorkspace, cancelPipelineWarmup } from "@/lib/pipeline/client-navigation";
 import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
+import deckStyles from "./HomeFocusDeck.module.css";
 
 export default function PipelineWelcome({
   onOpenPacket,
@@ -188,6 +189,7 @@ export default function PipelineWelcome({
                 initialEditing={editHome}
                 onFinishEditing={onFinishEditingHome}
                 onSearchVisibilityChange={setSearchVisible}
+                counts={homeFocusCounts(briefing)}
                 modules={{
                   ...briefingModules,
                   "search": (
@@ -211,6 +213,15 @@ export default function PipelineWelcome({
       ) : null}
     </>
   );
+}
+
+function homeFocusCounts(briefing: HomeBriefingSnapshot | null) {
+  if (!briefing) return undefined;
+  return {
+    "current-work": briefing.unavailable_sections.includes("workflow") ? undefined : (briefing.workflow.board_items ?? briefing.workflow.active_items).length,
+    "upcoming-assessments": briefing.unavailable_sections.includes("upcoming") ? undefined : briefing.upcoming.length,
+    "new-assignments": briefing.continuity.unavailable ? undefined : briefing.continuity.new_assignments.length,
+  };
 }
 
 function HomeLiveCountNotice({ sections }: { sections: HomeBriefingSnapshot["unavailable_sections"] | undefined }) {
@@ -242,9 +253,6 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
 }) {
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
-      <div className="mb-4">
-        <h2 className="text-[20px] font-bold text-[#293b31]">Board</h2><p className="mt-0.5 text-[12px] text-[#67756b]">Your referrals · newest received first</p>
-      </div>
       <div id="home-referral-board">
         <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} layout="board" />
       </div>
@@ -264,7 +272,7 @@ function UpcomingAssessmentsPanel({ briefing, onOpenPacket }: BriefingPanelProps
       {briefing.unavailable_sections.includes("upcoming") ? (
         <UnavailableLine />
       ) : briefing.upcoming.length === 0 ? (
-        <div className="space-y-3"><p className="sr-only">No assessments are scheduled in the next seven days.</p><WorkflowCardSkeleton /><WorkflowCardSkeleton /></div>
+        <div className={deckStyles.empty}><CalendarClock aria-hidden="true" /><h3>A little room in your schedule.</h3><p>No assessments are scheduled in the next seven days.</p></div>
       ) : (
         <div className="divide-y divide-[#e5e9e7]">
           {briefing.upcoming.slice(0, 6).map((event) => <ScheduleRow key={event.id} event={event} onOpenPacket={onOpenPacket} />)}
@@ -328,14 +336,14 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
         { id: event.referralId, name: clientDisplayName(event.clientName, event.community), community: event.community as Referral["community"] },
         { view: "assessment" },
       )}
-      className="grid min-h-14 w-full grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
+      className={deckStyles.scheduleRow}
     >
-      <span className="text-[11px] font-bold text-[#176f60]">{formatScheduleDate(event)}</span>
-      <span className="min-w-0">
-        <span className="block truncate text-[14px] font-bold">{clientDisplayName(event.clientName, event.community)}</span>
-        <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{event.title} · {event.community}</span>
+      <span className={deckStyles.scheduleDate}>{formatScheduleDate(event)}</span>
+      <span className={deckStyles.scheduleClient}>
+        <strong>{clientDisplayName(event.clientName, event.community)}</strong>
+        <span>{event.title} · {event.community}</span>
       </span>
-      <span className="text-[11px] font-semibold text-[#69716c]">{methodLabel(event.method)}</span>
+      <span className={deckStyles.scheduleMethod}>{methodLabel(event.method)}</span>
     </button>
   );
 }

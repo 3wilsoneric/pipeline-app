@@ -5,6 +5,7 @@ import {
 import {
   pickAssessmentToolData,
   assessmentToolFieldDefinitions,
+  assessmentToolSections,
   type AssessmentToolFieldKey,
   type AssessmentToolData,
   type AssessmentToolSection,
@@ -14,6 +15,8 @@ import {
   normalizeAssessmentSectionVersions,
   type AssessmentSectionVersions,
 } from "@/lib/assessment/assessment-sections";
+import type { AssessmentWorkbookRestoreSource } from "@/lib/assessment/assessment-records";
+import { isAssessmentWorkbookRestoreSource } from "@/lib/assessment/assessment-validation";
 
 export const pipelineRecentDestinationKinds = ["page", "profile", "referral"] as const;
 export const pipelineRecentDestinationScreens = [
@@ -89,6 +92,8 @@ export type PipelineReferralDraftSummary = {
   total_fields: number;
 };
 
+export type AssessmentDraftWorkbookSources = Partial<Record<AssessmentToolFieldKey, AssessmentWorkbookRestoreSource>>;
+
 export type PipelineAssessmentDraft = {
   schema: 1;
   assessmentId: string;
@@ -101,6 +106,7 @@ export type PipelineAssessmentDraft = {
   activeQuestion?: AssessmentToolFieldKey;
   data: AssessmentToolData;
   baseData: AssessmentToolData;
+  workbookSources?: AssessmentDraftWorkbookSources;
 };
 
 export function isReferralDraftDirtyKey(value: unknown): value is ReferralDraftDirtyKey {
@@ -236,7 +242,8 @@ export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessment
   const referral = parseOptionalAssessmentReferral(candidate.referralId);
   const sections = parseAssessmentDraftSections(candidate);
   const values = parseAssessmentDraftValues(candidate);
-  if (!identity || !referral || !sections || !values) return null;
+  const workbook = parseAssessmentDraftWorkbookSources(candidate.workbookSources);
+  if (!identity || !referral || !sections || !values || !workbook) return null;
 
   return {
     schema: 1,
@@ -245,7 +252,21 @@ export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessment
     sectionVersions: normalizeAssessmentSectionVersions(candidate.sectionVersions),
     ...sections,
     ...values,
+    ...workbook,
   };
+}
+
+function parseAssessmentDraftWorkbookSources(value: unknown) {
+  if (value === undefined) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const entries = Object.entries(value);
+  if (entries.length > assessmentToolFieldDefinitions.length) return null;
+  const workbookSources: AssessmentDraftWorkbookSources = {};
+  for (const [field, source] of entries) {
+    if (!assessmentToolFieldDefinitions.some((definition) => definition.key === field) || !isAssessmentWorkbookRestoreSource(source)) return null;
+    workbookSources[field as AssessmentToolFieldKey] = { export_id: source.export_id, exported_at: source.exported_at };
+  }
+  return { workbookSources };
 }
 
 function parseReferralDraftMetadata(candidate: Partial<PipelineReferralDraft>) {
@@ -277,7 +298,7 @@ function parseOptionalAssessmentReferral(value: unknown) {
 }
 
 function parseAssessmentDraftSections(candidate: Partial<PipelineAssessmentDraft>) {
-  if (!Array.isArray(candidate.dirtySections) || candidate.dirtySections.length > 11) return null;
+  if (!Array.isArray(candidate.dirtySections) || candidate.dirtySections.length > assessmentToolSections.length) return null;
   const dirtySections = [...new Set(candidate.dirtySections.filter(isAssessmentToolSection))];
   if (dirtySections.length !== candidate.dirtySections.length) return null;
   if (candidate.activeSection !== undefined && !isAssessmentToolSection(candidate.activeSection)) return null;

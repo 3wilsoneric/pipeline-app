@@ -263,6 +263,9 @@ export const maxJsonBodyBytes = 64 * 1024;
 export const maxUploadFileBytes = 100 * 1024 * 1024;
 export const maxUploadFilesPerRequest = 25;
 export const maxUploadRequestBytes = 1024 * 1024 * 1024;
+// Attachments remain available while document reading/autofill is being rebuilt.
+// Re-enable only with an approved extraction rollout and field-accuracy evidence.
+export const referralDocumentAutofillEnabled: boolean = false;
 export const allowedUploadContentTypes = [
   "application/pdf",
   "image/jpeg",
@@ -328,13 +331,8 @@ export function validateCreateUploadUrlRequest(
     }
     fileIds.add(file.file_id);
 
-    if (
-      !(allowedUploadContentTypes as readonly string[]).includes(
-        file.content_type.toLowerCase(),
-      )
-    ) {
-      return invalid("Unsupported file type. Upload PDF, JPEG, PNG, TIFF, or HEIC packets only.", 415);
-    }
+    const contentTypeError = uploadContentTypeError(file.content_type, body.processing_intent);
+    if (contentTypeError) return invalid(contentTypeError, 415);
 
     if (!Number.isFinite(file.size) || file.size <= 0) {
       return invalid("Each file requires a positive size.");
@@ -450,4 +448,16 @@ function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} bytes`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${Math.round(bytes / 1024 / 1024)} MB`;
+}
+
+export function isUploadContentType(value: string) {
+  return value.length <= 128 && /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i.test(value);
+}
+
+function uploadContentTypeError(contentType: string, intent: CreateUploadUrlRequest["processing_intent"]) {
+  if (!isUploadContentType(contentType)) return "Invalid file content type.";
+  if (intent !== "preview_only" && !(allowedUploadContentTypes as readonly string[]).includes(contentType.toLowerCase())) {
+    return "Unsupported file type. Upload PDF, JPEG, PNG, TIFF, or HEIC packets only.";
+  }
+  return "";
 }

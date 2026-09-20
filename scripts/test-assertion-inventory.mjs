@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
 
-const baselinePath = "docs/refactoring/characterization/test-suite-assertion-inventory-release-repair-20260920.json";
+const baselinePath = "docs/refactoring/characterization/test-suite-assertion-inventory-attachment-only-20260920.json";
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
 
 function digest(value) {

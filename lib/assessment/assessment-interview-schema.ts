@@ -44,6 +44,21 @@ export type AssessmentInterviewSectionDefinition = {
   description: string;
 };
 
+export const assessmentConversationSections = ([
+  ["identity", "Confirm the basics"],
+  ["diagnosis_clinical", "How things are now"],
+  ["functional_adl", "A usual day"],
+  ["physical_health", "Health and comfort"],
+  ["medication", "Medication"],
+  ["prior_placement", "Living situation"],
+  ["prior_history", "Recent care and history"],
+  ["substance_use", "Substance use and recovery"],
+  ["behavioral_risk", "Safety and support"],
+  ["legal_conservatorship", "Decisions and legal support"],
+  ["social_support", "What matters next"],
+  ["provenance_qc", "Anything else"],
+] as const).map(([key, label]) => ({ key, label }));
+
 const yesNo = [
   { value: "yes", label: "Yes" },
   { value: "no", label: "No" },
@@ -319,7 +334,22 @@ export function getRequiredAssessmentInterviewQuestions(data: AssessmentToolData
 }
 
 export function isAssessmentQuestionVisible(question: AssessmentInterviewQuestion, data: AssessmentToolData) {
-  return !question.showWhen || matchesRule(question.showWhen, data);
+  return getAssessmentQuestionConditions(question).every((rule) => matchesRule(rule, data));
+}
+
+// A nested follow-up is applicable only while every parent question is applicable.
+export function getAssessmentQuestionConditions(question: AssessmentInterviewQuestion) {
+  const rules: AssessmentQuestionRule[] = [];
+  const visited = new Set<AssessmentToolFieldKey>([question.field]);
+  let current: AssessmentInterviewQuestion | undefined = question;
+  while (current?.showWhen) {
+    const rule: AssessmentQuestionRule = current.showWhen;
+    if (visited.has(rule.field)) throw new Error("Circular assessment question condition");
+    visited.add(rule.field);
+    rules.push(rule);
+    current = assessmentInterviewQuestions.find((parent) => parent.field === rule.field);
+  }
+  return rules;
 }
 
 export function hasAssessmentInterviewValue(value: AssessmentToolData[AssessmentToolFieldKey]) {

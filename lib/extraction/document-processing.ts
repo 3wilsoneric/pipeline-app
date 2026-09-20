@@ -21,6 +21,7 @@ import type {
   ReviewFieldResponse,
 } from "@/lib/extraction/contracts";
 import {
+  allowedUploadContentTypes,
   isReviewFieldReplay,
   resolveReviewFieldOutcome,
 } from "@/lib/extraction/contracts";
@@ -232,7 +233,9 @@ async function completeDurableUploadWithMode(
   }
 
   const queueReferralExtraction = queueExtraction && packet.processing_intent === "extract_referral";
-  const queuePreview = queueExtraction || packet.processing_intent === "preview_only";
+  const previewContentTypes = [...allowedUploadContentTypes];
+  const previewFiles = files.filter((file) => (previewContentTypes as string[]).includes(file.content_type));
+  const queuePreview = shouldQueueDocumentPreviews(queueExtraction, packet.processing_intent, previewFiles.length);
   const queuesWork = queueReferralExtraction || queuePreview;
   const priorJob = queuesWork
     ? await sql<{ extraction_job_id: string }[]>`
@@ -286,7 +289,7 @@ async function completeDurableUploadWithMode(
       update pipeline.documents d
       set processing_status = 'uploaded',
           malware_scan_status = case when malware_scan_status = 'pending' then 'not_scanned' else malware_scan_status end,
-          preview_status = ${queuePreview ? "pending" : "unavailable"}, updated_at = now(), version = version + 1
+          preview_status = case when ${queuePreview} and d.content_type = any(${previewContentTypes}) then 'pending' else 'unavailable' end, updated_at = now(), version = version + 1
       from pipeline.packet_upload_files f
       where f.packet_id = ${input.packet_id}::uuid and f.document_id = d.document_id
     `;
@@ -300,7 +303,7 @@ async function completeDurableUploadWithMode(
     if (queuesWork) for (const file of files) {
       const jobTypes = [
         ...(queueReferralExtraction ? ["referral_packet" as const] : []),
-        ...(queuePreview ? ["document_preview" as const] : []),
+        ...(queuePreview && previewFiles.includes(file) ? ["document_preview" as const] : []),
       ];
       for (const jobType of jobTypes) {
         const jobs = await tx<{ extraction_job_id: string }[]>`
@@ -670,4 +673,8 @@ function uuid(value: string) {
 
 function iso(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function shouldQueueDocumentPreviews(queueExtraction: boolean, intent: PacketRow["processing_intent"], supportedFileCount: number) {
+  return (queueExtraction || intent === "preview_only") && supportedFileCount > 0;
 }

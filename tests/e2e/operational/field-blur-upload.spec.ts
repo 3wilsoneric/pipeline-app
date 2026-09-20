@@ -218,9 +218,9 @@ test.describe("field exit saves and single uploads", () => {
       await input.blur();
       await expect.poll(() => writes.length).toBe(1);
       await expect(page.getByTestId("workspace-save-status")).toContainText("Draft saved");
-      const created: number[] = [];
-      page.on("response", async (response) => {
-        if (response.request().method() === "POST" && new URL(response.url()).pathname === "/api/referrals" && response.ok()) created.push((await response.json()).referral.id);
+      const creations: string[] = [];
+      page.on("request", (request) => {
+        if (request.method() === "POST" && new URL(request.url()).pathname === "/api/referrals") creations.push(request.url());
       });
       const canvas = createCanvas(240, 100);
       const drawing = canvas.getContext("2d");
@@ -229,8 +229,10 @@ test.describe("field exit saves and single uploads", () => {
       const packet = { name: "initial-synthetic.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") };
       await page.getByTestId("document-checklist-toggle").click();
       await page.getByTestId("initial-packet-input").setInputFiles(packet);
+      const creation = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/referrals" && response.ok());
       await page.getByRole("button", { name: "Create referral", exact: true }).click();
-      await expect.poll(() => created.length).toBe(1);
+      const created = [(await (await creation).json()).referral.id];
+      expect(creations).toHaveLength(1);
       await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded and ready for review", { timeout: 20_000 });
       const files = (await (await api.get(`/api/files?referral_id=${created[0]}`)).json()).files;
       expect(files.filter((file: { name: string }) => file.name === packet.name)).toHaveLength(1);
@@ -239,8 +241,8 @@ test.describe("field exit saves and single uploads", () => {
       expect(await download.body()).toEqual(packet.buffer);
       const saved = await readReferral(api, created[0]);
       const evidence = await api.get(`/api/packets/${saved.packetId}/evidence/referral.packet_summary`);
-      expect(evidence.status()).toBe(200);
-      expect(evidence.headers()["content-security-policy"]).toBe("sandbox; default-src 'none'; img-src 'self' data:");
+      expect(evidence.status()).toBe(404); // Attachment-only intake creates no extracted-field evidence.
+      expect(download.headers()["content-security-policy"]).toBe("default-src 'none'; frame-ancestors 'self';");
       const removal = await api.delete(`/api/files/${files[0].id}`, { data: { confirmed: true } });
       expect(removal.status()).toBe(200);
       expect((await api.get(`/api/referrals/${created[0]}/packet`)).status()).toBe(404);

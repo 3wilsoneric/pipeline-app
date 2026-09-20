@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const summaryOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-summary.ts");
+const schemaOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-tool-schema.ts");
 
 const require = createRequire(import.meta.url);
 const source = ts.transpileModule(readFileSync("app/api/referrals/[referralId]/meet-client-email/route.ts", "utf8"), {
@@ -115,6 +116,16 @@ test("an isolated demo cannot reserve or send even with a configured mail provid
   assert.deepEqual(fixture.auditStates, []);
 });
 
+test("delivery and its generated chart use fresh agreement work items and the canonical clinical handoff", async () => {
+  const fixture = deliveryFixture();
+  assert.equal((await fixture.send()).status, 200);
+  const summary = fixture.messages[0].summary;
+  assert.match(summary.admissionNotes.find(({ label }) => label === "Signed admission agreement").value, /signatures still need review/);
+  assert.equal(summary.medicationNotes.find(({ label }) => label === "Last injection given").value, "Synthetic injection - date unknown");
+  assert.equal(summary.safetyNotes.find(({ label }) => label === "Last reported assault \/ context").value, "Synthetic historical incident");
+  assert.deepEqual(fixture.packetReports[0].meetClient, summary);
+});
+
 function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
   let calls = 0;
   let reservations = 0;
@@ -122,8 +133,10 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
   const auditStates = [];
   const metrics = [];
   const audits = [];
-  const assessment = { assessment_id: "synthetic-assessment", version: 7, signed_at: signed ? "2026-09-11T10:00:00Z" : null };
-  const referral = { id: 6, version: 4, community: "San Pablo", admissionDate };
+  const messages = [];
+  const packetReports = [];
+  const assessment = { ...schemaOwner.createEmptyAssessmentToolData(), assessment_id: "synthetic-assessment", version: 7, updated_by: { name: "Synthetic Assessor" }, signed_at: signed ? "2026-09-11T10:00:00Z" : null, im_injections: "yes", last_injection: "Synthetic injection - date unknown", assault_history: "yes", last_assault_details: "Synthetic historical incident" };
+  const referral = { id: 6, version: 4, name: "Synthetic Client", dob: "1970-01-01", source: "Synthetic Clinic", community: "San Pablo", admissionDate, requirements: [{ type: "signed_admission_agreement", status: "needed" }] };
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error {}
   const dependencies = {
@@ -145,18 +158,19 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
         return result;
       },
     },
-    "@/lib/assessment/assessment-summary": { ...summaryOwner, buildMeetClientSummary: () => ({ preparedFromAssessmentId: assessment.assessment_id }) },
+    "@/lib/assessment/assessment-summary": summaryOwner,
     "@/lib/extraction/contracts": { jsonError, readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
     "@/lib/notifications/meet-client-attachments": {
-      getMeetClientAttachmentInventory: async () => ({ ready: true, totalBytes: 800, blockers: [] }),
+      getMeetClientAttachmentInventory: async (_referral, { report }) => { packetReports.push(report); return { ready: true, totalBytes: 800, blockers: [] }; },
       prepareMeetClientMailAttachments: async () => [{ byteSize: 300 }, { byteSize: 500 }],
     },
     "@/lib/notifications/microsoft-graph-mail": {
       GraphMailDeliveryError,
       getGraphMailReadiness: () => ({ configured: true }),
       validateMeetClientRecipients: (recipients) => ({ ok: true, recipients }),
-      sendMeetClientMail: async () => {
+      sendMeetClientMail: async (message) => {
         calls += 1;
+        messages.push(message);
         if (providerFailure) throw new Error("Synthetic transport outcome unknown");
         return { acceptedAt: "2026-09-11T12:00:00.000Z", attachmentCount: 2, attachmentBytes: 800 };
       },
@@ -178,7 +192,7 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
     },
     "@/lib/pipeline/referral-access": { requireMutableReferralAccess: async () => ({ ok: true }) },
     "@/lib/pipeline/referral-store": { requireReferralStore: () => ({ ok: true }) },
-    "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, decision: { outcome: "accepted", decisionId: "synthetic-decision", assessmentId: decisionAssessmentId, assessmentVersion: decisionVersion } }) },
+    "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, work_items: [{ type: "signed_admission_agreement", status: "received", evidenceDocumentName: "Synthetic agreement.pdf" }], decision: { outcome: "accepted", decisionId: "synthetic-decision", assessmentId: decisionAssessmentId, assessmentVersion: decisionVersion } }) },
   };
   const exports = {};
   vm.runInNewContext(source, {
@@ -190,7 +204,7 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
     },
   });
   return {
-    auditStates, metrics, audits, providerCalls: () => calls, reservationCalls: () => reservations,
+    auditStates, metrics, audits, messages, packetReports, providerCalls: () => calls, reservationCalls: () => reservations,
     send: (referralId = "6") => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
       method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture" }),
     }), { params: Promise.resolve({ referralId }) }),

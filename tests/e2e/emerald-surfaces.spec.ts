@@ -48,8 +48,8 @@ for (const width of [1440, 1024, 437, 390]) {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: width === 437 ? 536 : width === 390 ? 844 : 1000 });
     await syntheticHome(page);
-    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
-    await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", "0px");
+    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(238, 238, 231)");
+    await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", width < 640 ? "15px" : "20px");
     const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, "::before").backgroundColor));
     expect(new Set(stageColors).size).toBe(3);
     const dockets = await page.locator('[data-board-stage]').evaluateAll((elements) => elements.map((element) => ({

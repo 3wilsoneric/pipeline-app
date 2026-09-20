@@ -6,6 +6,7 @@ import { Activity, AlertTriangle, ArrowRight, RefreshCw, UserPlus, UserRound, Us
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import deckStyles from "./HomeFocusDeck.module.css";
 import type {
   WorkspaceActivityItem,
   WorkspaceActivityResponse,
@@ -161,9 +162,9 @@ export function SinceLastVisitAssignments({
       </div>
       {acknowledgmentError ? <p role="alert" className="mb-2 border-l-2 border-[#a9473d] bg-[#fff6f4] px-3 py-2 text-[10px] text-[#723d35]">{acknowledgmentError}</p> : null}
       {unavailable ? (
-        <p className="border border-[#ead5ad] bg-[#fffaf0] px-5 py-10 text-center text-[12px] text-[#8a5a10]">New assignments could not be checked. Your current queue is still available above.</p>
+        <p className="border border-[#ead5ad] bg-[#fffaf0] px-5 py-10 text-center text-[12px] text-[#8a5a10]">New assignments could not be checked. Your current queue is still available on the Board.</p>
       ) : items.length === 0 ? (
-        <p className="border border-[#e0e5e2] px-5 py-10 text-center text-[13px] font-medium text-[#626a65]">No referrals were assigned since your last visit.</p>
+        <div className={`${deckStyles.empty} ${deckStyles.assignmentEmpty}`}><UserPlus aria-hidden="true" /><h3>You&apos;re up to date.</h3><p>No referrals were assigned since your last visit.</p></div>
       ) : (
         <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
           {visibleItems.map((item) => (

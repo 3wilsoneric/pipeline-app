@@ -13,7 +13,9 @@ test.describe("Responsive and accessible application shell", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
