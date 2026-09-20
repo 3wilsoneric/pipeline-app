@@ -1,6 +1,8 @@
 "use client";
 
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
+import ReferralHandoffContacts from "./ReferralHandoffContacts";
+import { useHandoffRecipients } from "./useHandoffRecipients";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
@@ -418,10 +420,13 @@ export default function ReferralPacketCanvas({
     total: 52,
     status: "not_started",
   });
-  const [emailRecipients, setEmailRecipients] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
+  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
+  const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
+  const handoff = useHandoffRecipients(loadedReferral?.id ?? referral?.id, fields.community.value);
+  const flushHandoff = handoff.flush;
   const { beforeNavigationRef, assessmentFocused, setAssessmentFocused } = usePipelineShell();
   // Keep the shell stable for the whole folder, not just while its assessment is mounted.
   useLayoutEffect(() => {
@@ -429,19 +434,17 @@ export default function ReferralPacketCanvas({
     return () => setAssessmentFocused(false);
   }, [setAssessmentFocused]);
   useEffect(() => {
-    if (!emailSending) return;
     const previous = beforeNavigationRef.current;
     const waitForDelivery = async () => {
       if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
+      await flushHandoff();
       await previous?.();
     };
     beforeNavigationRef.current = waitForDelivery;
     return () => {
       if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = previous;
     };
-  }, [beforeNavigationRef, emailSending]);
-  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
-  const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
+  }, [beforeNavigationRef, emailSending, flushHandoff]);
   const extraction = usePacketExtraction(!referralDocumentAutofillEnabled || loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
   const intakeExtraction = useIntakeFileExtraction();
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<FieldKey>>(() => new Set());
@@ -588,7 +591,6 @@ export default function ReferralPacketCanvas({
   const referralWorkspaceId = activeReferralId(loadedReferral, referral);
   useEffect(() => {
     const referralId = referralWorkspaceId;
-    setEmailRecipients("");
     if (!referralId) {
       setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
       return;
@@ -1829,6 +1831,7 @@ export default function ReferralPacketCanvas({
 
   const openAssignedWork = async () => {
     if (!onOpenAssignedWork || emailSendingRef.current) return;
+    await handoff.flush();
     await assessmentNavigationRef.current?.();
     await preservePendingIntake();
     onOpenAssignedWork();
@@ -2546,6 +2549,7 @@ export default function ReferralPacketCanvas({
                 />}
               </aside>
             </ClientChartFrame>
+            <ReferralHandoffContacts key={fields.community.value} value={handoff} community={fields.community.value} disabled={permissionReadOnly} compact />
                 </div>
               </div>
             </div>
@@ -2628,7 +2632,7 @@ export default function ReferralPacketCanvas({
               <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
-                emailDraft={{ recipients: emailRecipients, onChange: setEmailRecipients }}
+                emailDraft={handoff}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2, undefined, "review")}
                 onOpenDecision={() => openPage("workflow")} />
               </WorkspaceChartFolder>

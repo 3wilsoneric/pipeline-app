@@ -16,6 +16,7 @@
 .addressRow textarea::placeholder { color: #707070; }
 .addressRow > span { overflow-wrap: anywhere; }
 .subject { font-weight: 600; }
+.recipientSection { padding: 0 24px; }
 .textButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 6px 8px; color: #08745d; font-size: 15px; font-weight: 600; text-align: left; }
 .textButton:hover { background: #edf5f1; border-radius: 4px; }
 .textButton:disabled { opacity: .6; }

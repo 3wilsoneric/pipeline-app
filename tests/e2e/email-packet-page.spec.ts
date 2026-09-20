@@ -47,11 +47,11 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   expect(Math.abs((await folder.boundingBox())!.y - (await header.boundingBox())!.y - (await header.boundingBox())!.height)).toBeLessThanOrEqual(1);
   const verification = email.getByRole("checkbox", { name: /I verified/ });
   await expect(verification).toBeInViewport();
-  expect((await verification.boundingBox())!.y).toBeLessThan((await email.getByRole("textbox", { name: "Authorized recipients" }).boundingBox())!.y);
+  expect((await verification.boundingBox())!.y).toBeLessThan((await email.getByRole("combobox", { name: /^To/ }).boundingBox())!.y);
   await expect(page.getByRole("region", { name: "Client medical chart", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toHaveCount(0);
   await expect(email.getByRole("button", { name: "Send email & packet", exact: true })).toBeDisabled();
-  await expect(email.locator("details")).not.toHaveAttribute("open");
+  await expect(email.locator("details").filter({ hasText: "Delivery details" })).not.toHaveAttribute("open");
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');
@@ -61,14 +61,15 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   expect(response.headers()["cache-control"]).toContain("no-store");
   const payload = await response.json();
   const { user } = await (await page.request.get("/api/auth/me")).json();
-  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", []));
+  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name)));
   await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-  const recipients = email.getByRole("textbox", { name: "Authorized recipients" });
+  const recipients = email.getByRole("combobox", { name: /^To/ });
   await recipients.click();
   await expect(recipients).toBeFocused();
   await recipients.fill("care@example.invalid");
-  await expect(recipients).toHaveValue("care@example.invalid");
+  await recipients.press("Enter");
+  await expect(email.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   await email.getByRole("button", { name: "Manage files", exact: true }).click();
   await expect(page).toHaveURL(/workspaceView=files/);
   if (width < 640) await stagePicker.selectOption({ label: "Chart" });
@@ -84,7 +85,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
     await finishTab.focus();
     await page.keyboard.press("Enter");
   }
-  await expect(email.getByRole("textbox", { name: "Authorized recipients" })).toHaveValue("care@example.invalid");
+  await expect(email.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   if (width < 640) await stagePicker.selectOption({ label: "Chart" });
   else await stages.getByRole("button", { name: /Chart/ }).click();
   await expect(page).toHaveURL(/workspaceStage=chart/);
@@ -154,17 +155,20 @@ test("packet controls show attachments and retain explicit send confirmation and
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const send = page.getByRole("button", { name: "Send email & packet", exact: true });
   await expect(page.getByRole("link", { name: "Open Synthetic referral packet.pdf" })).toHaveAttribute("href", "/api/files/synthetic-packet/download");
-  await page.getByRole("textbox", { name: "Authorized recipients" }).fill("care@example.invalid");
+  const recipients = page.getByRole("combobox", { name: /^To/ });
+  await recipients.fill("care@example.invalid");
+  await recipients.press("Enter");
   await expect(send).toBeDisabled(); expect(sends).toBe(0);
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Preview");
   await page.getByRole("checkbox", { name: /I verified/ }).check();
   await expect(send).toBeEnabled();
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Ready to send");
   await expect(page.getByText("Recipients verified", { exact: true })).toBeVisible();
-  await page.getByRole("textbox", { name: "Authorized recipients" }).fill("other@example.invalid");
+  await recipients.fill("other@example.invalid");
+  await recipients.press("Enter");
   await expect(page.getByRole("checkbox", { name: /I verified/ })).not.toBeChecked();
   await expect(send).toBeDisabled();
-  await page.getByRole("textbox", { name: "Authorized recipients" }).fill("care@example.invalid");
+  await page.getByRole("button", { name: "Remove other@example.invalid from To", exact: true }).click();
   await page.getByRole("checkbox", { name: /I verified/ }).check();
   await page.getByTestId("packet-workspace").evaluate((element) => element.scrollTo({ top: 0 }));
   await page.screenshot({ path: info.outputPath("email-packet-with-attachments.png"), animations: "disabled" });
@@ -173,7 +177,7 @@ test("packet controls show attachments and retain explicit send confirmation and
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).not.toHaveText("Sent");
   expect(sends).toBe(1);
   expect(sentBody).toMatchObject({ confirmed: true, recipients: ["care@example.invalid"], if_match: expect.any(Number), client_mutation_id: expect.any(String) });
-  await expect(page.getByRole("textbox", { name: "Authorized recipients" })).toHaveValue("care@example.invalid");
+  await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   const refreshed = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}/admission-summary`));
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await refreshed;
@@ -198,7 +202,7 @@ test("a recorded send remains distinct from preview after reopening", async ({ p
   await page.reload();
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Sent");
   await expect(page.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Authorized recipients", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: /^To/ })).toBeDisabled();
   expect(sends).toBe(0);
 });
 
@@ -216,16 +220,17 @@ test("draft recovery blocks entry until ready, then refreshing preserves handoff
     await route.continue();
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const recipients = page.getByLabel("Authorized recipients", { exact: true });
+  const recipients = page.getByRole("combobox", { name: /^To/ });
   try {
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("inert", "");
   } finally { release(); }
   await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
   await expect(page.getByTestId("packet-workspace")).not.toHaveAttribute("inert", "");
   await recipients.fill("care@example.invalid");
-  await expect(recipients).toHaveValue("care@example.invalid");
+  await recipients.press("Enter");
+  await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   const refreshed = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}/admission-summary`));
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await refreshed;
-  await expect(recipients).toHaveValue("care@example.invalid");
+  await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
 });

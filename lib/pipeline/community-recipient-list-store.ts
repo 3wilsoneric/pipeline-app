@@ -8,15 +8,18 @@ import { isListCommunity, parseRecipientFields, type CommunityRecipientList, typ
 type StoredList = CommunityRecipientList & { lastMutation?: { id: string; actorId: string } };
 type ListFile = { schema: 1; lists: StoredList[] };
 
-// Draft-only local editor. Shared/live lists need a database-backed owner and
-// explicit audience approval before they can be connected to email delivery.
+// Community templates are read-only outside the isolated demo. Per-referral
+// recipient edits use the private workspace-state owner, not this source file.
 export function recipientListsAvailable() {
-  return isPersonaDemo() && Boolean(process.env.PIPELINE_PERSONA_DEMO_ROOT);
+  return Boolean(process.env.PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH?.trim())
+    || (isPersonaDemo() && Boolean(process.env.PIPELINE_PERSONA_DEMO_ROOT));
 }
 
 function storePath() {
   if (!recipientListsAvailable()) throw new Error("Local contact lists are unavailable.");
-  return resolve(process.env.PIPELINE_PERSONA_DEMO_ROOT!, "community-recipient-lists.json");
+  return process.env.PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH?.trim()
+    ? resolve(process.env.PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH.trim())
+    : resolve(process.env.PIPELINE_PERSONA_DEMO_ROOT!, "community-recipient-lists.json");
 }
 
 async function readStore(): Promise<ListFile> {
@@ -41,6 +44,7 @@ export async function readCommunityRecipientLists() {
 export async function saveCommunityRecipientList(input: {
   community: ListCommunity; version: number; recipients: RecipientFields; mutationId: string; actorId: string;
 }): Promise<{ ok: true; list: CommunityRecipientList } | { ok: false; status: number; error: string }> {
+  if (!isPersonaDemo()) return { ok: false, status: 403, error: "Shared contact lists are read-only here. Edit recipients on the individual handoff." };
   const path = storePath();
   const lock = await open(`${path}.lock`, "wx", 0o600).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "EEXIST") return null;

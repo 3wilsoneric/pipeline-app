@@ -5,6 +5,7 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
+import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
 import { getGraphMailReadiness } from "@/lib/notifications/microsoft-graph-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
@@ -47,10 +48,19 @@ export async function GET(
         snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,
       );
       const report = assessment ? buildAssessmentSummaryReport(assessment, snapshot.referral) : null;
+      const latestAssessment = assessmentList.assessments[0];
+      const chartReport = report ?? (latestAssessment ? buildAssessmentSummaryReport(latestAssessment, snapshot.referral) : null);
+      if (new URL(request.url).searchParams.get("download") === "chart") {
+        return new Response(renderClientDataSheet(chartReport, snapshot.referral), { headers: {
+          ...privateHeaders(), "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `attachment; filename="${clientDataSheetName}"`,
+          "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
+        } });
+      }
       const mail = getGraphMailReadiness();
       const admissionPacket = await loadAdmissionPacketInventory(
         snapshot.referral,
         mail.largeAttachmentDeliveryConfigured,
+        chartReport,
       );
       const emailBlockers = meetClientEmailBlockers(
         report,
@@ -75,6 +85,7 @@ export async function GET(
           allowed_recipient_domains: mail.allowedRecipientDomains,
           eligible: snapshot.decision?.outcome === "accepted",
           can_send: canSend,
+          can_edit_recipients: canSendAdmissionSummary(auth.user, access.referral),
           ready: canSend && emailBlockers.length === 0,
           sent_at: assessment?.meet_client_sent_at ?? null,
           blockers: emailBlockers,
@@ -85,6 +96,7 @@ export async function GET(
               category: file.category,
               byte_size: file.byteSize,
               ready: file.ready,
+              generated: file.generatedContent !== undefined,
             })),
             total_bytes: admissionPacket.totalBytes,
             ready: admissionPacket.ready,
@@ -100,9 +112,10 @@ export async function GET(
 async function loadAdmissionPacketInventory(
   referral: Parameters<typeof getMeetClientAttachmentInventory>[0],
   largeAttachmentDeliveryConfigured: boolean,
+  report: ReturnType<typeof buildAssessmentSummaryReport> | null,
 ) {
   try {
-    return await getMeetClientAttachmentInventory(referral, { largeAttachmentDeliveryConfigured });
+    return await getMeetClientAttachmentInventory(referral, { largeAttachmentDeliveryConfigured, report });
   } catch {
     return {
       files: [],

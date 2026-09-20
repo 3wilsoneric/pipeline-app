@@ -4,7 +4,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { deliverAssessmentPacket, listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
-import { buildMeetClientSummary, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
+import { buildAssessmentSummaryReport, buildMeetClientSummary, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
@@ -56,7 +56,7 @@ export async function POST(
     const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion);
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
-    const attachmentContext = await loadAdmissionPacket(snapshot.referral);
+    const attachmentContext = await loadAdmissionPacket(snapshot.referral, assessment);
     if (!attachmentContext.ok) return attachmentContext.response;
 
     const reserveAndDeliver = async () => {
@@ -71,7 +71,7 @@ export async function POST(
         reviewId: contextResult.reviewId,
         reviewVersion: contextResult.reviewVersion,
         actor: accountableActor,
-        recipients: prepared.recipients,
+        recipients: [...prepared.recipients, ...prepared.ccRecipients],
         attachmentCount: attachmentContext.attachments.length,
         attachmentBytes: attachmentContext.inventory.totalBytes,
       });
@@ -81,6 +81,7 @@ export async function POST(
       return deliverMeetClientEmail({
         audit,
         recipients: prepared.recipients,
+        ccRecipients: prepared.ccRecipients,
         summary: buildMeetClientSummary(assessment, snapshot.referral),
         preparedBy: accountableActor.name,
         deliveryId,
@@ -94,6 +95,7 @@ export async function POST(
 async function deliverMeetClientEmail(input: {
   audit: Parameters<typeof reserveMeetClientDelivery>[0];
   recipients: string[];
+  ccRecipients: string[];
   summary: ReturnType<typeof buildMeetClientSummary>;
   preparedBy: string;
   deliveryId: string;
@@ -139,7 +141,7 @@ async function deliverMeetClientEmail(input: {
     ok: true,
     delivery_id: input.deliveryId,
     accepted_at: result.acceptedAt,
-    recipient_count: input.recipients.length,
+    recipient_count: input.recipients.length + input.ccRecipients.length,
     attachment_count: result.attachmentCount,
     attachment_bytes: result.attachmentBytes,
     ...(auditPending ? { audit_pending: true } : {}),
@@ -159,7 +161,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; referralVersion: number }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 32_000);
@@ -177,10 +179,13 @@ async function prepareEmailRequest(request: Request): Promise<
   if (!readiness.configured) {
     return { ok: false, response: jsonError("Microsoft 365 email is not configured for Pipeline.", 503) };
   }
-  const recipients = validateMeetClientRecipients(body.value.recipients, readiness);
-  return recipients.ok
-    ? { ok: true, mutationId, recipients: recipients.recipients, referralVersion }
-    : { ok: false, response: jsonError(recipients.message) };
+  const to = body.value.recipients;
+  const cc = body.value.cc_recipients ?? [];
+  if (!Array.isArray(to) || to.length === 0 || !Array.isArray(cc)) return { ok: false, response: jsonError("Add at least one To recipient and a valid Cc list.") };
+  const audience = validateMeetClientRecipients([...to, ...cc], readiness);
+  if (!audience.ok) return { ok: false, response: jsonError(audience.message) };
+  const recipients = [...new Set((to as string[]).map((address) => address.trim().toLowerCase()))];
+  return { ok: true, mutationId, recipients, ccRecipients: audience.recipients.filter((address) => !recipients.includes(address)), referralVersion };
 }
 
 async function loadMeetClientContext(referralId: number, referralVersion: number) {
@@ -212,11 +217,12 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   };
 }
 
-async function loadAdmissionPacket(referral: Referral) {
+async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord) {
   try {
     const readiness = getGraphMailReadiness();
     const inventory = await getMeetClientAttachmentInventory(referral, {
       largeAttachmentDeliveryConfigured: readiness.largeAttachmentDeliveryConfigured,
+      report: buildAssessmentSummaryReport(assessment, referral),
     });
     if (!inventory.ready) {
       return { ok: false as const, response: jsonError(inventory.blockers.join(" "), 422) };

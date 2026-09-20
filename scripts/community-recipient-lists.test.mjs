@@ -101,7 +101,7 @@ function route(store, { authorized = true, enabled = true } = {}) {
   return loadEntry("app/api/community-recipient-lists/route.ts", {
     "@/lib/pipeline/community-recipient-lists": model,
     "@/lib/pipeline/community-recipient-list-store": { ...store, recipientListsAvailable: () => enabled },
-    "@/lib/auth/pipeline-auth": { requirePipelineUser: (_request, roles) => { assert.deepEqual(clean(roles), ["admin", "assessment_coordinator"]); return authorized ? { ok: true, user: { id: "test-editor" } } : { ok: false, response: Response.json({ error: "Forbidden" }, { status: 403 }) }; } },
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: (request, roles) => { if (request.method === "PUT") assert.deepEqual(clean(roles), ["admin", "assessment_coordinator"]); else assert.equal(roles, undefined); return authorized ? { ok: true, user: { id: "test-editor" } } : { ok: false, response: Response.json({ error: "Forbidden" }, { status: 403 }) }; } },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _route, handler) => handler() },
   });
 }

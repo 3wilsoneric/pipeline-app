@@ -9,8 +9,9 @@ import {
 } from "@/lib/notifications/meet-client-attachment-policy";
 import { listReferralFiles } from "@/lib/pipeline/referral-store";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
+import type { AssessmentSummaryReport } from "@/lib/assessment/assessment-summary";
+import { clientDataSheetName, renderClientDataSheet } from "./client-data-sheet";
 
-const excludedCategories = new Set<ReferralFile["category"]>(["Assessment"]);
 const defaultMaximumAttachmentCount = 20;
 const defaultMaximumTotalBytes = 25 * 1024 * 1024;
 
@@ -21,6 +22,7 @@ export type MeetClientAttachmentItem = {
   contentType: string;
   byteSize: number;
   ready: boolean;
+  generatedContent?: string;
   issue?: "missing_source" | "scan_pending" | "scan_failed" | "infected" | "empty";
 };
 
@@ -38,20 +40,19 @@ export type MeetClientMailAttachment = {
   name: string;
   contentType: string;
   byteSize: number;
-  sourceUrl: string;
-};
+} & ({ sourceUrl: string; contentBytes?: never } | { contentBytes: Buffer; sourceUrl?: never });
 
 export async function getMeetClientAttachmentInventory(
   referral: Referral,
-  options: { largeAttachmentDeliveryConfigured?: boolean } = {},
+  options: { largeAttachmentDeliveryConfigured?: boolean; report?: AssessmentSummaryReport | null } = {},
 ): Promise<MeetClientAttachmentInventory> {
   const result = await listReferralFiles({ referralId: referral.id, limit: 200 });
-  const candidates = result.files
-    .filter((file) => file.referralId === referral.id)
-    .filter((file) => file.sourceSystem === "pipeline" || file.sourceSystem === undefined)
-    .filter((file) => !excludedCategories.has(file.category));
+  const candidates = [...new Map(result.files.filter((file) => file.referralId === referral.id).map((file) => [file.id, file])).values()];
   const maximumCount = maximumAttachmentCount();
   const files = await Promise.all(candidates.slice(0, maximumCount).map(toAttachmentItem));
+  const generatedContent = renderClientDataSheet(options.report ?? null, referral);
+  files.unshift({ documentId: `chart:${referral.id}:${referral.version}:${options.report?.assessmentVersion ?? 0}`, name: clientDataSheetName,
+    category: "Assessment", contentType: "text/html", byteSize: Buffer.byteLength(generatedContent, "utf8"), ready: true, generatedContent });
   const totalBytes = files.reduce((total, file) => total + file.byteSize, 0);
   const deliveryMode = files.length > 0 && files.every((file) => file.ready)
     ? meetClientAttachmentDeliveryMode(files)
@@ -60,11 +61,12 @@ export async function getMeetClientAttachmentInventory(
   const blockers = attachmentBlockers({
     files,
     totalBytes,
-    candidateCount: candidates.length,
+    candidateCount: candidates.length + 1,
     maximumCount,
     deliveryMode,
     largeAttachmentDeliveryConfigured,
   });
+  if (candidates.length === 0) blockers.unshift("Attach at least one admission packet document before sending.");
   return {
     files,
     totalBytes,
@@ -82,6 +84,10 @@ export async function prepareMeetClientMailAttachments(
     throw new Error(inventory.blockers[0] ?? "The admission packet is not ready to send.");
   }
   return Promise.all(inventory.files.map(async (file) => {
+    if (file.generatedContent !== undefined) return {
+      documentId: file.documentId, name: file.name, contentType: file.contentType, byteSize: file.byteSize,
+      contentBytes: Buffer.from(file.generatedContent, "utf8"),
+    };
     const asset = await getDocumentOriginalAsset(file.documentId);
     if (!asset || asset.byteSize !== file.byteSize) {
       throw new Error("An admission packet file changed after review. Refresh the chart before sending.");

@@ -9,10 +9,10 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/community-recipient-lists", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     if (!recipientListsAvailable()) return jsonError("Local draft contact lists are not enabled here.", 404);
-    return Response.json({ lists: await readCommunityRecipientLists() });
+    return Response.json({ lists: await readCommunityRecipientLists() }, { headers: { "Cache-Control": "private, no-store" } });
   });
 }
 

@@ -9,7 +9,8 @@ import {
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 
-type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate">;
+type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate">
+  & Partial<Pick<Referral, "county" | "conserved" | "payer" | "responsiblePerson">>;
 
 export type AssessmentSummaryItem = {
   label: string;
@@ -32,6 +33,9 @@ export type MeetClientSummary = {
   medications: string[];
   medicationNotes: AssessmentSummaryItem[];
   supportSnapshot: AssessmentSummaryItem[];
+  admissionNotes?: AssessmentSummaryItem[];
+  billingNotes?: AssessmentSummaryItem[];
+  dietaryNotes?: AssessmentSummaryItem[];
   preparedFromAssessmentId: string;
   preparedFromAssessmentVersion: number;
 };
@@ -146,6 +150,22 @@ export function buildMeetClientSummary(
     community: assessment.community || referral.community,
     assessmentDate: assessment.assessment_date || "",
     admissionDate: referral.admissionDate || "",
+    admissionNotes: compactItems([
+      item("Referring county", assessment.county || referral.county),
+      item("Arriving from", assessment.current_location),
+      item("Conserved status", assessment.conservatorship_type || referral.conserved, "conservatorship_type"),
+      item("Legal / signing details", assessment.conservatorship_status),
+      item("Conservator", assessment.conservator_name),
+      item("Referrer contact", assessment.referrer_contact),
+    ]),
+    billingNotes: [
+      { label: "Coverage / payer", value: referral.payer?.trim() || "Not recorded" },
+      { label: "SSI / representative payee", value: "Not recorded in the structured chart. Confirm with the referring team." },
+    ],
+    dietaryNotes: [
+      { label: "Allergies", value: "Not recorded in the structured chart. Review source documents and confirm." },
+      { label: "Diet", value: assessment.special_diet_details?.trim() || (assessment.special_diet === "no" ? "No special diet reported" : "Confirm dietary requirements") },
+    ],
     bio: compactValues([
       sentence("Current setting", assessment.current_location),
       sentence("Community and routine", assessment.programming_notes),

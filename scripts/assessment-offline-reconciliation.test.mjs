@@ -35,13 +35,9 @@ function fixture(result = { completed: 1, conflicts: 0, remaining: 0 }) {
     selectedRef: { current: { assessment_id: "assessment-a" } },
     saveQueueRef: { current: Promise.resolve() },
     dirtySectionsRef: { current: new Set() }, remoteChangeRef: { current: null },
-<<<<<<< HEAD
-    flushOfflineAssessmentMutations: async () => result,
-=======
     draftRef: { current: {} }, workbookSourcesRef: { current: {} },
     editableSectionData: () => ({}), assessmentSaveGroups: () => [],
-    flushOfflineAssessmentMutations: async () => ({ completed: 0, conflicts: 1, remaining: 0 }),
->>>>>>> 49154ff (Preserve workbook source through assessment recovery)
+    flushOfflineAssessmentMutations: async () => result,
     fetchPipelineJson: async () => { started.resolve(); await response.promise; return { assessment: { assessment_id: "assessment-a" } }; },
     receiveRemoteAssessment: (record) => received.push(record.assessment_id),
     removeOfflineAssessmentDraft: async (...args) => removed.push(args),

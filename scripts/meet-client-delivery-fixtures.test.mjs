@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const summaryOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-summary.ts");
+const schemaOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-tool-schema.ts");
 
 const require = createRequire(import.meta.url);
 const source = ts.transpileModule(readFileSync("app/api/referrals/[referralId]/meet-client-email/route.ts", "utf8"), {
@@ -122,8 +123,8 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
   const auditStates = [];
   const metrics = [];
   const audits = [];
-  const assessment = { assessment_id: "synthetic-assessment", version: 7, signed_at: signed ? "2026-09-11T10:00:00Z" : null };
-  const referral = { id: 6, version: 4, community: "San Pablo", admissionDate };
+  const assessment = { ...schemaOwner.createEmptyAssessmentToolData(), assessment_id: "synthetic-assessment", version: 7, updated_by: { name: "Synthetic Assessor" }, signed_at: signed ? "2026-09-11T10:00:00Z" : null };
+  const referral = { id: 6, version: 4, name: "Synthetic Client", dob: "1970-01-01", source: "Synthetic Clinic", community: "San Pablo", admissionDate };
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error {}
   const dependencies = {

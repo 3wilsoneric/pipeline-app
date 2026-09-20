@@ -10,6 +10,8 @@ import type {
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
+import ReferralHandoffContacts from "./ReferralHandoffContacts";
+import type { HandoffRecipients } from "./useHandoffRecipients";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import styles from "./MeetClientEmailPage.module.css";
@@ -25,6 +27,7 @@ type ChartPayload = {
     allowed_recipient_domains: string[];
     eligible: boolean;
     can_send: boolean;
+    can_edit_recipients: boolean;
     ready: boolean;
     sent_at?: string | null;
     blockers: string[];
@@ -35,6 +38,7 @@ type ChartPayload = {
         category: string;
         byte_size: number;
         ready: boolean;
+        generated?: boolean;
       }>;
       total_bytes: number;
       ready: boolean;
@@ -47,7 +51,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
-  emailDraft?: { recipients: string; onChange: (value: string) => void };
+  emailDraft?: HandoffRecipients;
   headerActions?: React.ReactNode;
   onSendingChange?: (sending: boolean) => void;
   onOpenFiles?: () => void;
@@ -59,7 +63,8 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const recipients = emailDraft?.recipients ?? "";
+  const recipients = emailDraft?.fields.to.map((contact) => contact.email) ?? [];
+  const ccRecipients = emailDraft?.fields.cc.map((contact) => contact.email) ?? [];
   const [confirmed, setConfirmed] = useState(false);
   const [acceptedReferralId, setAcceptedReferralId] = useState<number | null>(null);
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
@@ -86,13 +91,16 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => { setConfirmed(false); }, [emailDraft?.fields, referralId]);
 
   const emailMeetClient = async () => {
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
-    const recipientList = recipients.split(/[;,\n]/).map((value) => value.trim()).filter(Boolean);
+    if (!emailDraft || emailDraft.error || emailDraft.loading) return;
+    const recipientList = recipients;
     const requestKey = JSON.stringify([
       payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
       [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
+      [...ccRecipients].sort(),
       payload.email.admission_packet.files.map((file) => file.document_id).sort(),
     ]);
     if (sendRequest.current?.key !== requestKey) sendRequest.current = { key: requestKey, mutationId: crypto.randomUUID() };
@@ -102,12 +110,14 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     setError("");
     setMessage("");
     try {
+      await emailDraft.flush();
       const result = await fetchPipelineJson<{ recipient_count: number; attachment_count: number; delivery_id: string; audit_pending?: boolean }>(
         `/api/referrals/${payload.referral.id}/meet-client-email`,
         {
           method: "POST",
           body: JSON.stringify({
             recipients: recipientList,
+            cc_recipients: ccRecipients,
             confirmed: true,
             if_match: payload.referral.version,
             client_mutation_id: sendRequest.current.mutationId,
@@ -139,12 +149,12 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   if (emailPage) return (
     <section className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
-        <div><h2>Meet the Client</h2><p>Review the handoff summary, recipients and admission packet.</p></div>
+        <div><h2>Meet the Client</h2><p>Review the handoff summary, recipients and admission packet. Only Send email &amp; packet sends this handoff.</p></div>
         <div className={styles.headerActions}><span role="status" aria-label="Email delivery status" className={styles.deliveryStatus} data-sent={sent || undefined}>{deliveryStatus}</span>{headerActions}{readyPayload.email.example_only ? null : refresh}</div>
       </header>
       <ChartStatusMessage error={error} message={message} />
-      <MeetClientEmailPreview email={readyPayload.email} recipients={recipients} confirmed={confirmed} sending={sending} sent={sent}
-        onRecipients={(value) => { emailDraft?.onChange(value); setConfirmed(false); }} onConfirmed={setConfirmed}
+      <MeetClientEmailPreview email={readyPayload.email} emailDraft={emailDraft} referral={readyPayload.referral} confirmed={confirmed} sending={sending} sent={sent}
+        onConfirmed={setConfirmed}
         onSend={() => void emailMeetClient()} onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
     </section>
   );
@@ -165,10 +175,10 @@ function canStartMeetClientSend(payload: ChartPayload | null, alreadyAccepted: b
   return Boolean(payload?.email.ready && !payload.email.example_only && !payload.email.sent_at && !alreadyAccepted && confirmed && !inFlight);
 }
 
-function meetClientDeliveryStatus(email: ChartPayload["email"], sent: boolean, sending: boolean, confirmed: boolean, recipients: string) {
+function meetClientDeliveryStatus(email: ChartPayload["email"], sent: boolean, sending: boolean, confirmed: boolean, recipients: string[]) {
   if (sent) return "Sent";
   if (sending) return "Sending";
-  return !email.example_only && email.ready && confirmed && recipients.trim() ? "Ready to send" : "Preview";
+  return !email.example_only && email.ready && confirmed && recipients.length ? "Ready to send" : "Preview";
 }
 
 function chartUnavailableState(
@@ -260,13 +270,13 @@ function ChartSourceFooter({ report }: { report: AssessmentSummaryReport }) {
   );
 }
 
-function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, onRecipients, onConfirmed, onSend, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sending, sent, onConfirmed, onSend, onOpenFiles, onOpenAssessment, onOpenDecision }: {
   email: ChartPayload["email"];
-  recipients: string;
+  emailDraft?: HandoffRecipients;
+  referral: Referral;
   confirmed: boolean;
   sending: boolean;
   sent: boolean;
-  onRecipients: (value: string) => void;
   onConfirmed: (value: boolean) => void;
   onSend: () => void;
   onOpenFiles?: () => void;
@@ -281,7 +291,7 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
           <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></span>
         </label> : null}
         <button type="button" className={styles.sendButton} onClick={onSend}
-          disabled={sending || !email.ready || !confirmed || !recipients.trim()}>
+          disabled={sending || !email.ready || !confirmed || !emailDraft?.fields.to.length || Boolean(emailDraft?.error) || emailDraft?.loading}>
           <Send size={16} />{sending ? "Sending…" : "Send email & packet"}
         </button>
       </div>
@@ -295,8 +305,8 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
         </div>
         {email.admission_packet.files.length ? <ul className={styles.attachmentList}>
           {email.admission_packet.files.map((file) => <li key={file.document_id}>
-            <a className={styles.attachment} href={toPipelinePath(`/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
-              <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.ready ? formatBytes(file.byte_size) : "Not ready to send"}</small></span>
+            <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
+              <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Full chart · printable data sheet" : file.ready ? formatBytes(file.byte_size) : "Safety review needed"}</small></span>
             </a>
           </li>)}
         </ul> : <p className={styles.emptyAttachments}>No packet files yet. Add them in Files whenever you’re ready.</p>}
@@ -321,11 +331,7 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
       </div>
       {renderSendToolbar()}
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
-      {!email.example_only ? <div className={styles.addressRow}>
-        <label htmlFor="meet-client-recipients">To</label>
-        <textarea id="meet-client-recipients" aria-label="Authorized recipients" value={recipients} onChange={(event) => onRecipients(event.target.value)}
-          disabled={!email.can_send || sending || sent} rows={1} placeholder="Add authorized recipients" spellCheck={false} autoComplete="off" />
-      </div> : null}
+      {emailDraft ? <div className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={!email.can_edit_recipients || sending || sent} /></div> : null}
       <div className={styles.addressRow}><span>Subject</span><span className={styles.subject}>{email.preview?.subject || "Meet the Client"}</span></div>
       {renderPacketAttachments()}
       <div className={styles.messageBody}>

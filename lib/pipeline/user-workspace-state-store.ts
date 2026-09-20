@@ -11,6 +11,7 @@ export type UserWorkspaceStateKind =
   | "recent_destination"
   | "referral_draft"
   | "assessment_draft"
+  | "referral_email_draft"
   | "academy_progress"
   | "operator_training_progress"
   | "home_dashboard_layout"
@@ -430,6 +431,7 @@ function isLocalRecord(value: unknown): value is UserWorkspaceState {
 }
 
 const workspaceStateKinds = new Set<UserWorkspaceStateKind>([
+  "referral_email_draft",
   "recent_destination",
   "referral_draft",
   "assessment_draft",
