@@ -143,10 +143,10 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   </button>;
 
   const renderEmailPage = () => (
-    <section className={styles.page} aria-label="Email and referral packet">
+    <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
         <div><h2>Meet the Client</h2><p>Review the handoff summary, then check the email before sending.</p></div>
-        <div className={styles.headerActions}><span role="status" aria-label="Email delivery status" className={styles.deliveryStatus} data-sent={sent || undefined}>{deliveryStatus}</span>{headerActions}
+        <div className={styles.headerActions}><span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={styles.deliveryStatus} data-sent={sent || undefined}>{deliveryStatus}</span>{headerActions}
           <button type="button" data-guide-target={composerOpen ? undefined : "chart-email-handoff"} className={styles.sendButton} onClick={(event) => { event.currentTarget.focus(); setConfirmed(false); setComposerOpen(true); }}><Mail size={18} aria-hidden="true" />{sent ? "View email" : "Preview email"}</button>
         </div>
       </header>
@@ -380,7 +380,7 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
   );
 
   const renderPacketAttachments = () => (
-    <section className={styles.attachments} aria-label="Referral packet attachments">
+    <section data-guide-target="packet-attachments" className={styles.attachments} aria-label="Referral packet attachments">
         <div className={styles.attachmentHeading}>
           <span><Paperclip size={15} />{email.admission_packet.files.length} attachment{email.admission_packet.files.length === 1 ? "" : "s"} · {formatBytes(email.admission_packet.total_bytes)}</span>
         </div>

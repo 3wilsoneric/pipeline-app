@@ -1,10 +1,10 @@
 import { getOperatorGuidedTutorial, operatorGuidedTutorialIds } from "@/lib/training/operator-guided-tutorials";
 
-export const OPERATOR_GUIDE_STORAGE_KEY = "pipeline-guided-coach:v4";
+export const OPERATOR_GUIDE_STORAGE_KEY = "pipeline-guided-coach:v5";
 export const OPERATOR_GUIDE_EVENT = "pipeline:guided-coach";
 export const OPERATOR_GUIDE_NAVIGATION_RESUME_KEY = "pipeline-guided-coach:navigation-resume:v1";
 export const OPERATOR_GUIDE_PENDING_EVENT_KEY = "pipeline-guided-coach:pending-event:v1";
-export const OPERATOR_GUIDE_STATE_VERSION = 4 as const;
+export const OPERATOR_GUIDE_STATE_VERSION = 5 as const;
 
 export type OperatorGuideMode = "closed" | "library" | "active";
 
@@ -16,6 +16,7 @@ export type OperatorGuideState = {
   sequenceTutorialIds: string[];
   sequenceIndex: number;
   completedTutorialIds: string[];
+  reviewedStepIds: string[];
   startedAt: string | null;
   updatedAt: string;
 };
@@ -26,10 +27,10 @@ export type OperatorGuideEvent =
   | { type: "start-sequence"; tutorialIds: string[] }
   | { type: "resume" }
   | { type: "close" }
-  | { type: "next" }
+  | { type: "next"; skipped?: boolean }
   | { type: "previous" }
   | { type: "restart" }
-  | { type: "finish" }
+  | { type: "finish"; skipped?: boolean }
   | { type: "end" };
 
 type OperatorGuideExternalEvent = Extract<OperatorGuideEvent, { type: "open-library" | "start" | "start-sequence" }>;
@@ -47,6 +48,7 @@ export function emptyOperatorGuideState(): OperatorGuideState {
     sequenceTutorialIds: [],
     sequenceIndex: 0,
     completedTutorialIds: [],
+    reviewedStepIds: [],
     startedAt: null,
     updatedAt: new Date(0).toISOString(),
   };
@@ -67,6 +69,7 @@ export function normalizeOperatorGuideState(value: unknown): OperatorGuideState 
     sequenceTutorialIds: sequenceIndex >= 0 ? sequenceTutorialIds : [],
     sequenceIndex: Math.max(0, sequenceIndex),
     completedTutorialIds: uniqueStrings(value.completedTutorialIds).filter((id) => operatorGuidedTutorialIds.includes(id)),
+    reviewedStepIds: uniqueStrings(value.reviewedStepIds).filter((id) => tutorial?.steps.some((step) => step.id === id)),
     startedAt: validTimestamp(value.startedAt),
     updatedAt: validTimestamp(value.updatedAt) ?? new Date(0).toISOString(),
   };
@@ -79,9 +82,10 @@ export function reduceOperatorGuideState(current: OperatorGuideState, event: Ope
   const tutorial = getOperatorGuidedTutorial(state.activeTutorialId);
   if (!tutorial) return state;
   if (event.type === "previous") return previousGuideState(state, now);
-  if (event.type === "restart") return { ...state, mode: "active", stepIndex: 0, startedAt: now, updatedAt: now };
-  if (event.type === "next") return { ...state, stepIndex: Math.min(tutorial.steps.length - 1, state.stepIndex + 1), updatedAt: now };
-  if (event.type === "finish") return finishGuideState(state, tutorial.id, now);
+  if (event.type === "restart") return { ...state, mode: "active", stepIndex: 0, reviewedStepIds: [], startedAt: now, updatedAt: now };
+  const reviewedStepIds = "skipped" in event && event.skipped ? state.reviewedStepIds : [...new Set([...state.reviewedStepIds, tutorial.steps[state.stepIndex].id])];
+  if (event.type === "next") return { ...state, reviewedStepIds, stepIndex: Math.min(tutorial.steps.length - 1, state.stepIndex + 1), updatedAt: now };
+  if (event.type === "finish") return finishGuideState({ ...state, reviewedStepIds }, tutorial.id, now);
   return state;
 }
 
@@ -96,6 +100,7 @@ function reduceImmediateGuideEvent(state: OperatorGuideState, event: OperatorGui
       stepIndex: normalizedStepIndex(event.stepIndex, tutorial.steps.length),
       sequenceTutorialIds: [],
       sequenceIndex: 0,
+      reviewedStepIds: [],
       startedAt: now,
       updatedAt: now,
     } : state;
@@ -118,6 +123,7 @@ function startGuideSequence(state: OperatorGuideState, requestedIds: readonly st
     stepIndex: 0,
     sequenceTutorialIds: tutorialIds,
     sequenceIndex: 0,
+    reviewedStepIds: [],
     startedAt: now,
     updatedAt: now,
   };
@@ -133,12 +139,22 @@ function previousGuideState(state: OperatorGuideState, now: string): OperatorGui
     activeTutorialId: previousTutorial.id,
     sequenceIndex: state.sequenceIndex - 1,
     stepIndex: previousTutorial.steps.length - 1,
+    reviewedStepIds: [],
     updatedAt: now,
   };
 }
 
+export function operatorGuideCanComplete(state: OperatorGuideState, skipped = false) {
+  const tutorial = getOperatorGuidedTutorial(state.activeTutorialId);
+  if (!tutorial) return false;
+  const reviewed = new Set(state.reviewedStepIds);
+  if (!skipped) reviewed.add(tutorial.steps[state.stepIndex].id);
+  return tutorial.steps.every((step) => reviewed.has(step.id));
+}
+
 function finishGuideState(state: OperatorGuideState, completedTutorialId: string, now: string): OperatorGuideState {
-  const completedTutorialIds = [...new Set([...state.completedTutorialIds, completedTutorialId])];
+  const completedTutorialIds = operatorGuideCanComplete(state, true)
+    ? [...new Set([...state.completedTutorialIds, completedTutorialId])] : state.completedTutorialIds;
   const nextTutorialId = state.sequenceTutorialIds[state.sequenceIndex + 1];
   const nextTutorial = getOperatorGuidedTutorial(nextTutorialId);
   if (nextTutorial) {
@@ -148,6 +164,7 @@ function finishGuideState(state: OperatorGuideState, completedTutorialId: string
       stepIndex: 0,
       sequenceIndex: state.sequenceIndex + 1,
       completedTutorialIds,
+      reviewedStepIds: [],
       startedAt: now,
       updatedAt: now,
     };
@@ -160,6 +177,7 @@ function finishGuideState(state: OperatorGuideState, completedTutorialId: string
     sequenceTutorialIds: [],
     sequenceIndex: 0,
     completedTutorialIds,
+    reviewedStepIds: [],
     startedAt: null,
     updatedAt: now,
   };
