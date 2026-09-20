@@ -77,6 +77,37 @@ test("independent writers cannot overwrite the same version", async (t) => {
   assert.equal((await store.readCommunityRecipientLists())[0].version, 2);
 });
 
+test("partial reads use one file handle across atomic replacement and close it", async (t) => {
+  let reads = 0;
+  let closed = false;
+  const { store } = await fixture(t, { open: async (path, flags) => {
+    assert.equal(flags, "r");
+    const file = await fs.open(path, flags);
+    const replacement = seeded();
+    replacement.lists[0].version = 2;
+    await fs.writeFile(`${path}.replacement`, JSON.stringify(replacement));
+    await fs.rename(`${path}.replacement`, path);
+    return {
+      read: (buffer, offset, length, position) => {
+        reads += 1;
+        return file.read(buffer, offset, Math.min(length, 7), position);
+      },
+      close: async () => { closed = true; await file.close(); },
+    };
+  } });
+  assert.equal((await store.readCommunityRecipientLists())[0].version, 1);
+  assert.ok(reads > 1);
+  assert.equal(closed, true);
+});
+
+test("oversized contact files are rejected before parsing", async (t) => {
+  const { store, path } = await fixture(t);
+  await fs.writeFile(path, " ".repeat(2_000_001));
+  await assert.rejects(store.readCommunityRecipientLists(), /too large/);
+  await fs.writeFile(path, JSON.stringify(seeded()));
+  assert.equal((await store.readCommunityRecipientLists())[0].version, 1);
+});
+
 test("failed atomic replacement preserves the prior list and releases the lock", async (t) => {
   const { store, path, load } = await fixture(t, { rename: async () => { throw new Error("disk failure"); } });
   const before = await fs.readFile(path, "utf8");

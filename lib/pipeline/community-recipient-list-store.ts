@@ -1,6 +1,6 @@
 import "server-only";
 
-import { open, readFile, rename, unlink, stat } from "node:fs/promises";
+import { open, rename, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import { isPersonaDemo } from "@/lib/demo/persona-session";
 import { isListCommunity, parseRecipientFields, type CommunityRecipientList, type ListCommunity, type RecipientFields } from "./community-recipient-lists";
@@ -22,10 +22,27 @@ function storePath() {
     : resolve(process.env.PIPELINE_PERSONA_DEMO_ROOT!, "community-recipient-lists.json");
 }
 
+async function readStoreText() {
+  const file = await open(storePath(), "r");
+  try {
+    // One handle keeps atomic replacements from changing the file mid-read.
+    // Read one byte beyond the limit so concurrent growth stays bounded too.
+    const buffer = Buffer.alloc(2_000_001);
+    let length = 0;
+    while (length < buffer.length) {
+      const { bytesRead } = await file.read(buffer, length, buffer.length - length, length);
+      if (!bytesRead) break;
+      length += bytesRead;
+    }
+    if (length > 2_000_000) throw new Error("Contact list file is too large.");
+    return buffer.subarray(0, length).toString("utf8");
+  } finally {
+    await file.close();
+  }
+}
+
 async function readStore(): Promise<ListFile> {
-  const path = storePath();
-  if ((await stat(path)).size > 2_000_000) throw new Error("Contact list file is too large.");
-  const data = JSON.parse(await readFile(path, "utf8")) as ListFile;
+  const data = JSON.parse(await readStoreText()) as ListFile;
   if (data.schema !== 1 || !Array.isArray(data.lists) || data.lists.length > 5) throw new Error("Invalid contact list file.");
   const communities = new Set<string>();
   for (const list of data.lists) {

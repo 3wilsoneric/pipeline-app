@@ -152,6 +152,11 @@ const checks = [
     args: ["--test", "scripts/referral-upload-idempotency.test.mjs"],
   },
   {
+    name: "Evidence link safety and community handoff integrity",
+    command: "node",
+    args: ["--test", "scripts/evidence-link.test.mjs", "scripts/community-recipient-lists.test.mjs", "scripts/community-handoff.test.mjs"],
+  },
+  {
     name: "Clinical integration contracts",
     command: "node",
     args: ["scripts/clinical-data-contracts.mjs"],

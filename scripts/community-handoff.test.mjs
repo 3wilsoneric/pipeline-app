@@ -16,7 +16,7 @@ test("email copy follows admission handoff sections without inventing example-cl
   const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "synthetic-delivery", ["Client data sheet.html"]);
   for (const label of ["Med room", "Allergies &amp; diet", "Billing team", "Recorded diet", "Recorded coverage", "Not recorded", "Client data sheet.html"]) assert.ok(email.html.includes(label), label);
   assert.equal(email.subject, `Meet the Client | ${summary.community || "New admission"}`);
-  assert.doesNotMatch(email.html, /30 days of meds|No Food Allergy|SSI application has not started|<script>/);
+  assert.doesNotMatch(email.html, /30 days of meds|No Food Allergy|SSI application has not started|<script>/i);
 });
 
 test("injection handoff preserves named dates and exposes missing details without calculating a due date", () => {
@@ -45,7 +45,7 @@ test("safety handoff keeps history and current support distinct, preserves zero,
   const email = emailOwner.renderMeetClientEmail(summary, "Fixture", "fixture");
   assert.match(email.html, /Behavior &amp; safety/);
   assert.match(email.html, /&lt;script&gt;/);
-  assert.doesNotMatch(email.html, /<script>|High risk|Client is violent/);
+  assert.doesNotMatch(email.html, /<script>|High risk|Client is violent/i);
   const unknown = summaryOwner.buildMeetClientSummary(assessment, referral);
   assert.match(unknown.safetyNotes.find(({ label }) => label === "Assault history reported").value, /Not recorded; confirm/);
   const noHistory = summaryOwner.buildMeetClientSummary({ ...recorded, assault_history: "no", physical_altercations: "no" }, referral);
@@ -78,7 +78,7 @@ test("data sheet contains canonical chart sections, recorded version, unsigned s
   assert.ok(html.includes("Version 4"));
   assert.ok(html.includes("Referral version 3"));
   assert.ok(html.includes("&lt;script&gt;"));
-  assert.doesNotMatch(html, /<script>|<iframe|https?:\/\//);
+  assert.doesNotMatch(html, /<script>|<iframe|https?:\/\//i);
   const draft = sheetOwner.renderClientDataSheet(null, referral);
   assert.ok(draft.includes("Working chart - not signed"));
   assert.ok(draft.includes("Assessment not yet recorded"));
