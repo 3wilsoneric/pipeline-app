@@ -317,6 +317,7 @@ for (const width of [1440, 390]) {
     await expect(secondary).toHaveValue("Final answer before signing");
     if (width < 640) await expect(secondary).toBeInViewport();
     await openAssessmentChart(page);
+    await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();

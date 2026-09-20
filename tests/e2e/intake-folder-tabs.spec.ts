@@ -33,7 +33,8 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
     await expect(page.getByRole("heading", { name: "Document suggestions", exact: true })).toHaveCount(0);
     await documentsToggle.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("region", { name: "Extraction review", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Extraction review", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("initial-packet-input")).toHaveCount(1);
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
     await expect(folder.locator(":scope > strong")).toHaveCount(0);

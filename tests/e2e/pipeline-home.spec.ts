@@ -28,8 +28,12 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Workflow summary" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
@@ -287,7 +291,9 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
     await expect(page.getByText("Broken recent", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
   });
 
   test("searches site destinations and the enhanced client directory while typing", async ({ page }) => {
@@ -334,7 +340,9 @@ test.describe("Pipeline home", () => {
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
@@ -354,8 +362,12 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.getByRole("dialog", { name: "Search Pipeline" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
