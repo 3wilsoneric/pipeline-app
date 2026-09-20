@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import type { ExtractedField, PacketStatus } from "@/lib/extraction/contracts";
+import { evidenceLink } from "@/lib/extraction/evidence-link";
 
 type PacketExtractionReviewProps = {
   fields: ExtractedField[];
@@ -198,6 +199,7 @@ export default function PacketExtractionReview({
       <div className="divide-y divide-[#e2e7e4]">
         {fields.map((field) => {
           const value = finalFieldValue(field);
+          const sourceUrl = evidenceLink(field.evidence_url);
           const editing = editingFieldKey === field.field_key;
           const busy = bulkBusy || busyFieldKey === field.field_key;
           const confirmed = field.review_status === "accepted" || field.review_status === "edited";
@@ -274,7 +276,7 @@ export default function PacketExtractionReview({
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#737373]">
                   <span>{confidence}% confidence</span>
                   {field.source_page_no ? <span>Page {field.source_page_no}</span> : null}
-                  {field.evidence_url ? <a href={field.evidence_url} target="_blank" rel="noreferrer" className="underline text-[#0c705f]">View source</a> : null}
+                  {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer" className="underline text-[#0c705f]">View source</a> : null}
                   {field.is_conflict ? (
                     <span className="inline-flex items-center gap-1 font-black text-[#595959]">
                       <AlertTriangle size={11} /> Differing values

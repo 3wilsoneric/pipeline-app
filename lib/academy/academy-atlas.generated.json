@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9cfc1f2a5173b4bb",
-  "fingerprint": "9cfc1f2a5173b4bb8cb71e0b840479ee1ff15c120a30d6d7bc983bc13b72c930",
+  "generatedAt": "source-fingerprint:2f2fc9bd1b9c62e9",
+  "fingerprint": "2f2fc9bd1b9c62e98a0dc6e287dd44b0bacfdec837df9933992f4ab714ee605a",
   "totals": {
-    "files": 1235,
-    "lines": 345358,
-    "coveredFiles": 1235
+    "files": 1237,
+    "lines": 345404,
+    "coveredFiles": 1237
   },
   "entries": [
     {
@@ -2435,7 +2435,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 360,
+      "lines": 362,
       "moduleIds": [
         "pre-assessment-workflow",
         "provenance-review"
@@ -6269,7 +6269,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 113,
+      "lines": 119,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -7863,6 +7863,19 @@
       "runtime": "next-server",
       "risk": "critical",
       "lines": 40,
+      "moduleIds": [
+        "extraction-worker",
+        "provenance-review",
+        "upload-storage"
+      ]
+    },
+    {
+      "path": "lib/extraction/evidence-link.ts",
+      "subsystem": "Document extraction",
+      "kind": "typescript-module",
+      "runtime": "next-server",
+      "risk": "critical",
+      "lines": 14,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -11714,6 +11727,18 @@
       ]
     },
     {
+      "path": "scripts/evidence-link.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 19,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/extraction-beta.test.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -12523,7 +12548,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 345,
+      "lines": 350,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
