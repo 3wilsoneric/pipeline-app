@@ -249,8 +249,16 @@ is stubbed or bypassed. It emits a distinguishable JSON report. A two-user,
 30-second real-browser smoke passed including SQL/audit reconciliation; invalid
 database targeting and an incorrect-value assertion were separately verified to
 fail. Native HTTP diagnostics now capture socket reuse and idle age on failures.
-The new 100-user standalone diagnostic retains the original keep-alive policy
-and zero retries. No sustained capacity/endurance pass is claimed yet.
+The 180-second standalone 100-user diagnostic retained the original keep-alive
+policy and zero retries. It passed 9,306 acknowledged saves, all SQL/audit checks,
+all actors and all three backends, with zero captured failures. Shard save p95
+was 274 / 280 / 248 / 246 ms; Calendar-and-back p95 was 781 / 820 / 631 / 665 ms.
+Runner RSS ended around 662–781 MB rather than approximately 980 MB in the
+instrumented Test-runner profile; longer observation is still required to
+separate bounded Playwright request-object caching from continued growth.
+The intermittent reset is not proved fixed by this short pass. A 20-minute peak
+with the same `6d36b01` harness is now running with socket-error and FIN/RST-header
+diagnostics. No sustained capacity/endurance pass is claimed yet.
 
 Use only loopback PostgreSQL named `pipeline_capacity_*` and unchanged canonical
 migrations. Never deploy the synthetic build or point this harness at production.
