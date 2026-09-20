@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:2f2fc9bd1b9c62e9",
-  "fingerprint": "2f2fc9bd1b9c62e98a0dc6e287dd44b0bacfdec837df9933992f4ab714ee605a",
+  "generatedAt": "source-fingerprint:8c01bb44232e771b",
+  "fingerprint": "8c01bb44232e771b76900fad1dd9c55d4b1cabd99b023f5fa15232045b7126ca",
   "totals": {
     "files": 1237,
-    "lines": 345404,
+    "lines": 345414,
     "coveredFiles": 1237
   },
   "entries": [
@@ -2435,7 +2435,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 362,
+      "lines": 364,
       "moduleIds": [
         "pre-assessment-workflow",
         "provenance-review"
@@ -2819,7 +2819,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4553,
+      "lines": 4554,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -6269,7 +6269,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 119,
+      "lines": 121,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -7875,7 +7875,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 14,
+      "lines": 13,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -11732,7 +11732,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 19,
+      "lines": 25,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

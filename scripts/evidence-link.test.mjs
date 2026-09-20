@@ -4,15 +4,21 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const { evidenceLink } = loadTypeScriptModule(process.cwd(), "lib/extraction/evidence-link.ts");
 
-test("source links preserve ordinary evidence paths and HTTP URLs", () => {
-  for (const value of ["/api/packets/7/evidence/name?page=2#source", "https://example.test/source.pdf", "http://localhost:3216/api/evidence/7"]) {
-    assert.equal(evidenceLink(value), value);
-  }
-  assert.equal(evidenceLink("//example.test/source.pdf"), "https://example.test/source.pdf");
+test("source links use the authenticated packet evidence route", () => {
+  assert.equal(evidenceLink("packet-7", "demographics.date_of_birth"), "/api/packets/packet-7/evidence/demographics.date_of_birth");
+  assert.equal(evidenceLink("packet-7", "name/page?part#source"), "/api/packets/packet-7/evidence/name%2Fpage%3Fpart%23source");
 });
 
-test("source links reject executable protocols including mixed case and embedded controls", () => {
-  for (const value of [undefined, "", " ", "javascript:alert(1)", "JaVaScRiPt:alert(1)", "java\nscript:alert(1)", "\tjavascript:alert(1)", "data:text/html,<script>alert(1)</script>", "vbscript:msgbox(1)", "file:///private/source.pdf", "workbook://source", "https://["]) {
-    assert.equal(evidenceLink(value), null, String(value));
+test("document-controlled identifiers cannot supply a protocol or escape the route", () => {
+  for (const value of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "java\nscript:alert(1)", "data:text/html,<script>alert(1)</script>", "https://elsewhere.test/", "//elsewhere.test/", "../other?x#y"]) {
+    const path = evidenceLink(value, value);
+    assert.equal(path, `/api/packets/${encodeURIComponent(value)}/evidence/${encodeURIComponent(value)}`);
+    assert.equal(new URL(path, "https://pipeline.test").origin, "https://pipeline.test");
   }
+  assert.equal(evidenceLink(undefined, "name"), null);
+  assert.equal(evidenceLink("", "name"), null);
+  assert.equal(evidenceLink("packet-7", ""), null);
+  assert.equal(evidenceLink("..", "name"), null);
+  assert.equal(evidenceLink("packet-7", "."), null);
+  assert.equal(evidenceLink("packet-7", "\ud800"), null);
 });
