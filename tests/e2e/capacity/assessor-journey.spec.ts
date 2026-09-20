@@ -23,7 +23,8 @@ for (const width of [1440, 834, 390]) test(`intake through signed assessment and
     const id = new URL(page.url()).searchParams.get('referralId')!;
     expect((await (await context.request.get(`/api/referrals/${id}/assessments`)).json()).assessments).toHaveLength(0);
     const stages = page.getByRole('navigation', { name: 'Workspace stages' });
-    await stages.getByRole('button', { name: /Assessment$/ }).click();
+    if (width < 640) await stages.getByRole('combobox', { name: 'Workspace view', exact: true }).selectOption({ label: 'Assessment' });
+    else await stages.getByRole('button', { name: /Assessment$/ }).click();
     await expect(page.locator('[data-assessment-view]')).toBeVisible();
     await expect.poll(async () => (await (await context.request.get(`/api/referrals/${id}/assessments`)).json()).assessments.length).toBe(1);
     const list = (await (await context.request.get(`/api/referrals/${id}/assessments`)).json()).assessments;
@@ -44,7 +45,7 @@ for (const width of [1440, 834, 390]) test(`intake through signed assessment and
     await decision.getByLabel('Admission date', { exact: true }).fill('2026-10-01');
     await decision.getByRole('button', { name: 'Continue to finish & send', exact: true }).click();
     await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').getByRole('heading', { name: 'Meet the Client', exact: true })).toBeVisible();
-    await expect(page.getByRole('status')).toContainText('Preview only · email delivery is not connected.');
+    await expect(page.getByRole('status').filter({ hasText: 'Preview only · email delivery is not connected.' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Send email & packet', exact: true })).toBeDisabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`handoff-${width}.png`), fullPage: true });
@@ -57,7 +58,7 @@ for (const width of [1440, 834, 390]) test(`intake through signed assessment and
     } });
     expect(blockedSend.status()).toBe(503);
     expect(await blockedSend.text()).toContain('not configured');
-    await page.locator('footer[aria-label="Handoff actions"]').getByRole('button', { name: 'Done', exact: true }).click();
+    await page.locator('footer[aria-label="Handoff actions"]').getByRole('button', { name: 'Close workspace', exact: true }).click();
     await expect(page).not.toHaveURL(/screen=packet/);
     const saved = (await (await context.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(saved.signed_at).toBeTruthy();

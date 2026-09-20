@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 
 export async function openAssessmentChart(page: Page) {
+  const stagePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
+  if (await stagePicker.isVisible()) {
+    await stagePicker.selectOption({ label: "Chart" });
+    return;
+  }
   const workspace = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   if (await workspace.isVisible()) {
     await workspace.getByRole("button", { name: /Chart$/ }).click();
@@ -16,6 +21,11 @@ export async function openAssessmentChart(page: Page) {
 }
 
 export async function returnToAssessmentQuestions(page: Page) {
+  const stagePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
+  if (await stagePicker.isVisible()) {
+    await stagePicker.selectOption({ label: "Assessment" });
+    return;
+  }
   const workspace = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   if (await workspace.isVisible()) {
     await workspace.getByRole("button", { name: /Assessment$/ }).click();

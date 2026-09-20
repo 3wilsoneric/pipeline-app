@@ -43,7 +43,7 @@ test('assigned referral opens from Home, schedules, and resumes unfinished answe
     await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
     await expect(page.getByRole('button', { name: 'Edit Referrer contact', exact: true })).toContainText('Synthetic contact; interview details unfinished');
     await page.goto('/');
-    await page.getByRole('region', { name: 'Continue working', exact: true }).getByRole('button', { name: new RegExp(name) }).click();
+    await page.locator('[data-home-module="current-work"]').getByRole('button', { name: new RegExp(name) }).click();
     await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
     await page.reload();
     await expect(page.getByRole('button', { name: 'Edit Referrer contact', exact: true })).toContainText('Synthetic contact; interview details unfinished');
