@@ -260,6 +260,40 @@ The intermittent reset is not proved fixed by this short pass. A 20-minute peak
 with the same `6d36b01` harness is now running with socket-error and FIN/RST-header
 diagnostics. No sustained capacity/endurance pass is claimed yet.
 
+### Standalone peak and captured idle-connection race
+
+The 20-minute standalone peak ran from `2026-09-20T00:31:39.824Z` and **failed**
+one actor on browser generator 2. All 66,445 acknowledged writes and final values
+passed SQL/audit reconciliation before that failure was reported. Three shards
+passed; the affected shard lost steady progress from actor 49. No captured
+browser 429/5xx/page exceptions occurred. Shard save p95 was 214 / 216 / 224 /
+226 ms and Calendar-and-back p95 was 604 / 652 / 564 / 576 ms. The failed run
+does not certify sustained progress by all 100 users.
+
+The new diagnostics identify the specific failing verification connection:
+
+- At epoch-ms `1789864405412`, the Node verification request reused local socket
+  `48148` to backend `4178`, idle for 5,968 ms. It raised `ECONNRESET` after 16 ms.
+- Browser-generator TCP capture shows a server FIN to that exact socket at
+  epoch-seconds `1789864405.412606`; application-host capture shows backend
+  `4178` issuing a reset at `1789864405.412198`.
+- This is the verification client's reused idle connection racing the server's
+  closure, after a successful browser write. It is not evidence of a lost write.
+  It does not retroactively prove the cause of every older uninstrumented reset.
+
+Runner RSS reached a plateau rather than the Test reporter's unbounded action
+history growth: last full five-minute medians were approximately 865 / 703 /
+732 / 761 MB. Sampled application-page heaps ended around 11–19 MB. The app
+service had zero restarts, a 1,979,412,480-byte aggregate memory peak and
+1,253,347,328 bytes after the run. Longer endurance remains unqualified.
+
+A distinctly labeled 180-second `freshprobe100` control is now running. It sends
+`Connection: close` on the independent cross-replica verification GET only,
+with zero retries. Actual browser connections, UI actions, actors, think times,
+field checks and SQL/audit obligations are unchanged. Only if it passes may one
+corrected peak, then one two-hour soak proceed. Prior failed profiles stay failed;
+the connection-policy change must remain explicit in all reported results.
+
 Use only loopback PostgreSQL named `pipeline_capacity_*` and unchanged canonical
 migrations. Never deploy the synthetic build or point this harness at production.
 
