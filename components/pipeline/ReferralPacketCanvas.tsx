@@ -2361,6 +2361,7 @@ export default function ReferralPacketCanvas({
     referralDocumentAutofillEnabled && (loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length) ? (
               <PacketExtractionReview
                 fields={referralContextPacketFields}
+                packetId={loadedReferral?.packetId}
                 fileName={loadedReferral?.documentName || "the uploaded packet"}
                 status={extraction?.status}
                 hasPacket={Boolean(loadedReferral?.packetId)}

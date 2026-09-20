@@ -17,6 +17,7 @@ import { evidenceLink } from "@/lib/extraction/evidence-link";
 
 type PacketExtractionReviewProps = {
   fields: ExtractedField[];
+  packetId?: string;
   fileName: string;
   status?: PacketStatus | "unavailable";
   hasPacket?: boolean;
@@ -59,6 +60,7 @@ const knownLabels: Record<string, string> = {
 
 export default function PacketExtractionReview({
   fields,
+  packetId,
   fileName,
   status,
   hasPacket = true,
@@ -199,7 +201,7 @@ export default function PacketExtractionReview({
       <div className="divide-y divide-[#e2e7e4]">
         {fields.map((field) => {
           const value = finalFieldValue(field);
-          const sourceUrl = evidenceLink(field.evidence_url);
+          const sourceUrl = field.evidence_url ? evidenceLink(packetId, field.field_key) : null;
           const editing = editingFieldKey === field.field_key;
           const busy = bulkBusy || busyFieldKey === field.field_key;
           const confirmed = field.review_status === "accepted" || field.review_status === "edited";
