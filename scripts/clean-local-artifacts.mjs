@@ -20,16 +20,22 @@ export async function planArtifactCleanup(root, { now = Date.now(), active = fal
     const stats = await lstat(target);
     let reason = entry.isSymbolicLink() ? "symbolic link" : active ? "active or unverified runtime" : "";
     if (!reason && now - stats.mtimeMs < minimumAgeMs) reason = "less than seven days old";
-    for (const lock of ["lock", "dev/lock"]) {
-      if (!stats.isDirectory()) break;
-      try { await lstat(path.join(target, lock)); reason = "build lock present"; } catch (error) {
-        if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
-      }
-    }
+    if (await artifactHasBuildLock(target, stats)) reason = "build lock present";
     if (reason) skipped.push({ artifact: entry.name, reason });
     else candidates.push(entry.name);
   }
   return { candidates: candidates.sort(), skipped };
+}
+
+async function artifactHasBuildLock(target, stats) {
+  if (!stats.isDirectory()) return false;
+  let locked = false;
+  for (const lock of ["lock", "dev/lock"]) {
+    try { await lstat(path.join(target, lock)); locked = true; } catch (error) {
+      if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
+    }
+  }
+  return locked;
 }
 
 function runtimeMayBeActive(root) {

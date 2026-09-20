@@ -51,6 +51,14 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
     setSelection([]);
     trigger.current?.dispatchEvent(new CustomEvent("pipeline:guide-complete", { bubbles: true }));
   };
+  const renderFileStatus = () => <>
+    {filesLoading ? <p role="status" className="my-3 text-sm text-[#52655d]">{files.length ? "Refreshing files…" : "Loading files…"}</p> : null}
+    {filesError ? <div role="alert" className="my-3 rounded-lg border border-[#c8d5ce] bg-[#f8faf9] p-4 text-sm text-[#253b34]">
+      <p>{filesError}{files.length ? " The list below may be out of date." : ""}</p>
+      <button type="button" onClick={onRetryFiles} disabled={filesLoading} className="mt-2 min-h-11 rounded border border-[#adbbb3] bg-white px-4 font-semibold text-[#08735e] disabled:opacity-60">Retry file list</button>
+    </div> : null}
+    {!filesLoading && !filesError && !files.length && !queued.length ? <p className="my-4 text-sm text-[#52655d]">No files added yet.</p> : null}
+  </>;
   const content = <>
     {!readOnly ? <>
       <button ref={trigger} type="button" data-guide-target="initial-packet-upload" className={styles.dropzone} onClick={() => input.current?.click()}>
@@ -63,12 +71,7 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
     </> : null}
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     <QueuedDocuments files={queued} onRemove={onRemove} disabled={readOnly || uploading} />
-    {filesLoading ? <p role="status" className="my-3 text-sm text-[#52655d]">{files.length ? "Refreshing files…" : "Loading files…"}</p> : null}
-    {filesError ? <div role="alert" className="my-3 rounded-lg border border-[#c8d5ce] bg-[#f8faf9] p-4 text-sm text-[#253b34]">
-      <p>{filesError}{files.length ? " The list below may be out of date." : ""}</p>
-      <button type="button" onClick={onRetryFiles} disabled={filesLoading} className="mt-2 min-h-11 rounded border border-[#adbbb3] bg-white px-4 font-semibold text-[#08735e] disabled:opacity-60">Retry file list</button>
-    </div> : null}
-    {!filesLoading && !filesError && !files.length && !queued.length ? <p className="my-4 text-sm text-[#52655d]">No files added yet.</p> : null}
+    {renderFileStatus()}
     <UploadedDocumentList files={files} readOnly={readOnly} />
     {children}
   </>;

@@ -109,7 +109,7 @@ export function mergePendingDocumentNames(
 
 export function hasPendingDocumentUploads(
   pendingDocuments: Record<string, File>,
-  additionalFiles: readonly File[],
+  additionalFiles: readonly unknown[],
 ) {
   return Object.keys(pendingDocuments).length > 0 || additionalFiles.length > 0;
 }
