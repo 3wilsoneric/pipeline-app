@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:38e842de2ccd5274",
-  "fingerprint": "38e842de2ccd527444d18c8752469a5e919320809b369c4c0fd5c0ab814b1821",
+  "generatedAt": "source-fingerprint:512b9d08c4acbac2",
+  "fingerprint": "512b9d08c4acbac25297226b20ed893c277c36ac908a8a9b91b64243a1dfac9f",
   "totals": {
     "files": 1235,
-    "lines": 345297,
+    "lines": 345310,
     "coveredFiles": 1235
   },
   "entries": [
@@ -6269,7 +6269,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 97,
+      "lines": 99,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -13772,7 +13772,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 227,
+      "lines": 236,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14397,7 +14397,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 526,
+      "lines": 527,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14829,7 +14829,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 146,
+      "lines": 147,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

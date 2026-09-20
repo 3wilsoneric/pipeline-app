@@ -61,13 +61,17 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       const gap = width >= 1024 ? "0px" : "24px";
       await expect(grid).toHaveCSS("column-gap", gap);
       await expect(grid).toHaveCSS("row-gap", gap);
-      const firstBounds = await cards.nth(0).boundingBox();
-      const nextBounds = await cards.nth(1).boundingBox();
       await expect.poll(() => grid.evaluate((element) => {
         const first = element.querySelector('[role="button"], button')!;
         return Math.abs(first.getBoundingClientRect().width - element.getBoundingClientRect().width);
       })).toBeLessThan(0.1);
-      expect(nextBounds!.x).toBe(firstBounds!.x);
+      await expect.poll(async () => {
+        const first = (await cards.nth(0).boundingBox())!;
+        const next = (await cards.nth(1).boundingBox())!;
+        return next.x - first.x;
+      }).toBe(0);
+      const firstBounds = await cards.nth(0).boundingBox();
+      const nextBounds = await cards.nth(1).boundingBox();
       if (width >= 1024) await expect.poll(async () => {
         const first = (await cards.nth(0).boundingBox())!;
         const next = (await cards.nth(1).boundingBox())!;
@@ -188,7 +192,12 @@ test("client view switches retain loaded results, filters, sorting and the displ
   await page.getByLabel("Sort clients", { exact: true }).selectOption("recent_admission");
   await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue("any");
   await expect(page.getByLabel("Sort clients", { exact: true })).toHaveValue("recent_admission");
+  const searchLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === "/api/profiles/directory" && url.searchParams.get("q") === "Avery Example";
+  });
   await page.getByRole("textbox", { name: "Search this cabinet", exact: true }).fill("Avery Example");
+  await searchLoaded;
   await expect(cards).toHaveCount(1);
   await expect(cards).toHaveAccessibleName("Open profile for Avery Example");
   const requestsAfterSearch = directoryRequests;

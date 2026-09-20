@@ -39,6 +39,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         }
 
         await page.goto("/?screen=calendar");
+        await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
         const collapsedContent = (await content.boundingBox())!;
         const toggle = rail.locator("[data-navigation-toggle]");
         const toggleBounds = (await toggle.boundingBox())!;
