@@ -1,5 +1,7 @@
 # Pipeline Refactoring Playbook
 
+> **Policy update — 2026-09-20:** [AGENTS.md](../AGENTS.md#working-policy--owner-revision-2026-09-20) is the current working policy. Mandatory TARS governance is suspended by the owner. The lanes, start gates, and certification sequences below describe the historical controlled program; they are not prerequisites for ordinary authorized work. Do not restart that program or require passing checks before repairing those checks. Required release protections and behavior/data safety remain in force. Use the historical procedure only for explicitly requested program certification.
+
 ## Purpose
 
 This is the repository-specific companion to the AI-generated-code refactoring syllabus. The goal is to reduce structural risk without redesigning the product, changing the admissions workflow, weakening auditability, or rewriting working code merely to make it look cleaner.

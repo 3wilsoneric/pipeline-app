@@ -23,7 +23,8 @@ const postgresPatterns = [
 ];
 
 export function classifyChangeImpact(files) {
-  const normalized = [...new Set(files.map((file) => file.trim()).filter(Boolean))];
+  const normalized = [...new Set((files ?? []).map((file) => file.trim()).filter(Boolean))];
+  if (normalized.length === 0) return { browser: true, postgres: true, files: normalized };
   return {
     browser: normalized.some((file) => browserPatterns.some((pattern) => pattern.test(file))),
     postgres: normalized.some((file) => postgresPatterns.some((pattern) => pattern.test(file))),
@@ -33,9 +34,10 @@ export function classifyChangeImpact(files) {
 
 function changedFiles(baseSha, headSha) {
   if (!baseSha || /^0+$/.test(baseSha) || !headSha || baseSha === headSha) return null;
-  return execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMRTUXB", baseSha, headSha], {
+  // Treat renames as delete/add so both the old and new ownership paths count.
+  return execFileSync("git", ["diff", "--no-renames", "--name-only", "-z", "--diff-filter=ACDMRTUXB", baseSha, headSha], {
     encoding: "utf8",
-  }).split("\n");
+  }).split("\0");
 }
 
 function main() {
@@ -43,9 +45,7 @@ function main() {
   const files = explicitFiles
     ? explicitFiles.slice("--files=".length).split(",")
     : changedFiles(process.env.CI_BASE_SHA, process.env.CI_HEAD_SHA);
-  const result = files === null
-    ? { browser: true, postgres: true, files: [] }
-    : classifyChangeImpact(files);
+  const result = classifyChangeImpact(files);
 
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(process.env.GITHUB_OUTPUT, `browser=${result.browser}\npostgres=${result.postgres}\n`);

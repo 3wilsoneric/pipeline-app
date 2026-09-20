@@ -17,7 +17,7 @@ import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from 
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
-import { isSensitiveReferralActivityField } from "@/lib/pipeline/referral-activity-presentation";
+import { referralAuditValues } from "@/lib/pipeline/referral-activity-presentation";
 import { isUnassignedOwner, normalizeOwnerName, normalizeReferralOwners } from "@/lib/pipeline/referral-ownership";
 import { referralReceivedDate, type ReferralSort } from "@/lib/pipeline/referral-sort";
 import { decodeReferralSortCursor, encodeReferralSortCursor } from "@/lib/pipeline/referral-sort-cursor";
@@ -2432,16 +2432,6 @@ function appendLocalReferralAudit(
     to_version: version,
     created_at: createdAt,
   }, ...state.auditEvents].slice(0, 100_000);
-}
-
-function referralAuditValues(referral: Referral, fields: string[]): JSONValue {
-  const values = Object.fromEntries(fields.map((field) => [
-    field,
-    isSensitiveReferralActivityField(field)
-      ? "[masked]"
-      : (referral as unknown as Record<string, unknown>)[field] ?? null,
-  ]));
-  return JSON.parse(JSON.stringify(values)) as JSONValue;
 }
 
 async function syncPostgresOpenAssessmentAssignments(

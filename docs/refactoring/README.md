@@ -1,10 +1,10 @@
 # Refactoring Workspace
 
-Current mode: `complete`
-Approval mode: `owner_fast_lane`
-Completed slices: `12 of 12`
+> **Current working policy — 2026-09-20:** The owner has suspended mandatory TARS governance. Follow [AGENTS.md](../../AGENTS.md#working-policy--owner-revision-2026-09-20) for new work. The lifecycle summaries and records below describe the historical program, not the authorization state of current product work. They must not trigger a restart, registry ceremony, or repeated approval request. Preserve these records; their historical claims are not fresh verification of today's application.
 
-The bounded Pipeline refactor program is complete. Its records preserve the exact scope, evidence, rollback, and candidate commits for the twelve completed slices. Completion does not authorize another refactor program and does not claim that the application is bug-free.
+Registry snapshot: mode `active`, approval mode `owner_fast_lane`; all `13 of 13` registered slices are `complete`, with none in progress. The lingering `active` value is not authorization to start or restart work. See the current working policy above.
+
+The registered slices are complete. Their records preserve scope, evidence, rollback, and candidate commits. The twelve-slice completion record below predates the thirteenth registered slice; it is historical evidence, not today's registry summary. Completion does not authorize another refactor program and does not claim that the application is bug-free.
 
 ## Single source of truth
 
@@ -38,7 +38,7 @@ These files contain setup candidates, not universal truth. In the standard lane 
 
 ## Completion record
 
-All twelve registered slices are `complete`; every global and slice evidence item is either `satisfied` or explicitly owner-approved `not_applicable`. The completion record at `669fc45b82e7834a5a1f7b930cbad7090f27be46` contains every slice-specific assurance record and is the first deployed cumulative commit containing the closed program. Later enterprise-product work is deliberately outside this refactor record.
+At the original twelve-slice completion, all twelve slices were recorded as `complete`, with every global and slice evidence item either `satisfied` or explicitly owner-approved `not_applicable`. The completion record at `669fc45b82e7834a5a1f7b930cbad7090f27be46` contains those slice-specific assurance records and is the first deployed cumulative commit containing that closed program. It does not describe all subsequent work or prove today's application behavior.
 
 The closed program used `owner_fast_lane`, so independent review and blind guidance comparison remained advisory. Machine gates, bounded paths, behavior preservation, data integrity, critical/high-finding prohibition, and rollback or recovery evidence were retained. Future product work is not a continuation of these slices and must not rewrite their evidence.
 

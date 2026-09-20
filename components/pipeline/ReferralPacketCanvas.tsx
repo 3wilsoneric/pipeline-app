@@ -128,6 +128,7 @@ import {
   captureReferralSaveSnapshot,
   currentDraftValues,
   draftKeySignature,
+  hasPendingDocumentUploads,
   mergePendingDocumentNames,
   normalizeTags,
   reconcileSavedDirtyKeys,
@@ -1346,7 +1347,7 @@ export default function ReferralPacketCanvas({
     delete nextPendingDocuments[requirementId];
     pendingDocumentsRef.current = nextPendingDocuments;
     setPendingDocuments(nextPendingDocuments);
-    if (Object.keys(nextPendingDocuments).length > 0) return;
+    if (hasPendingDocumentUploads(nextPendingDocuments, additionalFilesRef.current)) return;
     const nextDirtyKeys = new Set(dirtyKeysRef.current);
     nextDirtyKeys.delete("documents");
     dirtyKeysRef.current = nextDirtyKeys;
@@ -1740,7 +1741,7 @@ export default function ReferralPacketCanvas({
       dirtyKeysRef.current,
       snapshot,
       currentDraftValues(fieldsRef.current, conservedRef.current, tagsInputRef.current, documentsRef.current, initialPacketRef.current),
-      Object.keys(pendingDocumentsRef.current).length === 0,
+      !hasPendingDocumentUploads(pendingDocumentsRef.current, additionalFilesRef.current),
     );
     dirtyKeysRef.current = remainingDirtyKeys;
     setDirtyKeys(remainingDirtyKeys);

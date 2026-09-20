@@ -1,5 +1,7 @@
 # Pipeline Refactor Guidance Evaluation Protocol
 
+> **Policy update — 2026-09-20:** This is an optional, historical program-evaluation protocol. [AGENTS.md](../../AGENTS.md#working-policy--owner-revision-2026-09-20) supersedes its mandatory start/adoption requirements for current work. Run this protocol only when guidance evaluation or historical program certification is explicitly requested; updating the working policy does not require launching another evaluation cycle.
+
 Status: available evaluation harness. It evaluates the refactor process; it does not authorize implementation and does not certify application correctness.
 
 ## Purpose

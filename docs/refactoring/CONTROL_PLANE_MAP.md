@@ -1,6 +1,6 @@
 # Pipeline Control-Plane Map
 
-Status: setup draft requiring owner validation before refactoring begins.
+Status: historical ownership map, not a current start gate. Follow [AGENTS.md](../../AGENTS.md#working-policy--owner-revision-2026-09-20). Trace current code and owner-approved product behavior before using the domain descriptions below; historical scheduling, signing, and access restrictions may have been superseded and must not be restored as part of a refactor.
 
 `canonical-responsibilities.json`, `architecture-comprehension-probes.json`, and `proof-obligations.json` are the machine-readable companions to this narrative. They remain agent-drafted candidates until the relevant human owner validates them; this document alone is not start evidence.
 
