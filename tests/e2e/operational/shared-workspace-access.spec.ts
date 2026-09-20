@@ -68,7 +68,8 @@ test.describe("shared workspace editing", () => {
         expect(workflow.decision.decidedByRole).toBe(pipelineActors[actor].expectedRoles[0]);
         expect(workflow.capabilities.can_update).toBe(true);
         expect(workflow.capabilities.can_email).toBe(true);
-        expect((await api.get(`/api/operations/reports?report_id=assessment_completion&month=${new Date().toISOString().slice(0, 7)}`)).status()).toBe(200);
+        expect((await api.get(`/api/operations/reports?report_id=assessment_completion&month=${new Date().toISOString().slice(0, 7)}`)).status())
+          .toBe(actor === "admin" || actor === "assessmentCoordinator" ? 200 : 403);
         const mine = await (await api.get("/api/referrals?scope=mine&limit=100")).json();
         const team = await (await api.get("/api/referrals?scope=team&limit=100")).json();
         expect(team.referrals.some((item: { id: number }) => item.id === referral.id)).toBe(true);
@@ -86,6 +87,7 @@ test.describe("shared workspace editing", () => {
       await owner.get("/api/members");
       const referral = await createOperationalReferral(owner, "assessorA", { documentName: "", dob: "" });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
       await expect(phone).toBeEnabled();
       await phone.fill("555-0197");
@@ -99,16 +101,18 @@ test.describe("shared workspace editing", () => {
       const files = (await (await api.get(`/api/files?referral_id=${referral.id}`)).json()).files;
       const deleted = await api.delete(`/api/files/${files[0].id}`, { data: { confirmed: true } });
       expect(deleted.status(), await deleted.text()).toBe(200);
-      await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
-      const editor = page.locator('[data-assessment-view="chart"]');
+      await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
+      const editor = page.locator("[data-assessment-view]");
       await expect(editor).toBeVisible();
-      await editor.getByRole("searchbox", { name: "Find assessment question" }).fill("Prior 5150");
-      await editor.getByRole("navigation", { name: "Matching assessment questions" }).getByRole("button", { name: /Prior 5150/ }).click();
+      await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
       const answer = editor.getByRole("textbox", { name: /Prior 5150/ });
       await expect(answer).toBeEnabled();
       await answer.fill("A teammate can document this answer.");
-      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
+      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
       await expect(editor).toHaveCount(0);
+      const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
+      expect(records).toHaveLength(1);
+      expect(records[0].prior_5150_5250_holds).toBe("A teammate can document this answer.");
     } finally { await context.close(); await owner.dispose(); await api.dispose(); }
   });
 

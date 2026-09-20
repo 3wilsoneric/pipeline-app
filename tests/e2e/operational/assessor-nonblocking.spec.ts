@@ -19,13 +19,14 @@ test.describe("independent assessor workflow steps", () => {
       const referral = (await response.json()).referral;
       expect(referral.dob).toBe("");
       expect(referral.documentName).toBe("");
-      await page.getByRole("region", { name: "Intake completion", exact: true }).getByRole("button", { name: "Open questionnaire", exact: true }).click();
-      const editor = page.locator('[data-assessment-view="chart"]');
+      const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
+      await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+      const editor = page.locator('[data-assessment-view]');
       await expect(editor).toBeVisible();
-      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
-      await expect(editor).toHaveCount(0);
-      await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "01 Intake", exact: true }).click();
-      await expect(page.getByRole("region", { name: "Intake completion", exact: true })).toBeVisible();
+      await stages.getByRole("button", { name: "Chart", exact: true }).click();
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
+      await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toBeEditable();
+      await expect(page.getByRole("textbox", { name: "Client phone:", exact: true })).toBeEditable();
     } finally { await context.close(); }
   });
 
@@ -38,9 +39,9 @@ test.describe("independent assessor workflow steps", () => {
       const referral = await incompleteReferral(assessor);
       const existing = existingDraft ? await createOperationalAssessment(assessor, referral.id) : null;
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-      await page.getByRole("combobox", { name: "Decision", exact: true }).selectOption("accepted");
+      await page.getByRole("radio", { name: "Accept", exact: true }).check();
       page.once("dialog", (dialog) => dialog.accept());
-      await page.getByRole("button", { name: "Record final decision", exact: true }).click();
+      await page.getByRole("button", { name: "Record decision", exact: true }).click();
       await expect.poll(async () => (await workflow(admin, referral.id)).decision?.outcome).toBe("accepted");
       const accepted = await workflow(admin, referral.id);
       expect(accepted.context.assessmentExists).toBe(existingDraft);
@@ -87,16 +88,16 @@ test.describe("independent assessor workflow steps", () => {
     } finally { await context.close(); await assessor.dispose(); await admin.dispose(); }
   });
 
-  test("unsigned recommendation, later signing, and submitted review are separate durable actions", async ({ browser, baseURL }) => {
+  test("recommendation and signing are separate durable actions; unsent answers remain editable", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const assessor = await actorApiContext("assessorA", url);
     const { page, context } = await actorPage(browser, "assessorA", url);
     try {
       const referral = await incompleteReferral(assessor);
       const draft = await createOperationalAssessment(assessor, referral.id);
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-      await page.getByRole("radio", { name: "Accept", exact: true }).check();
-      await page.getByRole("button", { name: "Save recommendation", exact: true }).click();
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+      await page.locator('summary[aria-label="Assessment details"]').click();
+      await page.getByRole("combobox", { name: "Placement recommendation", exact: true }).selectOption("accept");
       await expect.poll(async () => (await workflow(assessor, referral.id)).recommendation?.outcome).toBe("accept");
       const recommended = await workflow(assessor, referral.id);
       expect(recommended.review).toBeNull();
@@ -113,16 +114,20 @@ test.describe("independent assessor workflow steps", () => {
       expect((await sign.json()).assessment.signed_at).toBeTruthy();
       expect((await workflow(assessor, referral.id)).review).toBeNull();
       await page.reload();
-      await page.getByRole("button", { name: "Finish assessment", exact: true }).click();
-      await expect.poll(async () => (await workflow(assessor, referral.id)).review?.status).toBe("submitted");
-      const submitted = await workflow(assessor, referral.id);
-      expect(submitted.decision).toBeNull();
-      expect(submitted.recommendation.recommendationId).toBe(recommended.recommendation.recommendationId);
-      expect(submitted.recommendation.version).toBe(recommended.recommendation.version + 1);
-      const frozen = await assessor.patch(`/api/assessments/${draft.assessment_id}`, { data: {
-        if_match: (await sign.json()).assessment.version, patch: { data: { prior_5150_5250_holds: "Must not alter a signed record" } },
+      await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
+      const afterSign = await workflow(assessor, referral.id);
+      expect(afterSign.decision).toBeNull();
+      expect(afterSign.review).toBeNull();
+      expect(afterSign.recommendation).toEqual(recommended.recommendation);
+      const correction = await assessor.patch(`/api/assessments/${draft.assessment_id}`, { data: {
+        if_match: (await sign.json()).assessment.version, client_mutation_id: randomUUID(), patch: { data: { prior_5150_5250_holds: "Correction before sending remains editable and audited." } },
       } });
-      expect(frozen.ok()).toBe(false);
+      expect(correction.status(), await correction.text()).toBe(200);
+      expect((await correction.json()).assessment.prior_5150_5250_holds).toBe("Correction before sending remains editable and audited.");
+      expect((await correction.json()).assessment.version).toBe((await sign.json()).assessment.version + 1);
+      const activity = await (await assessor.get(`/api/referrals/${referral.id}/activity`)).text();
+      expect(activity).toContain("assessment_updated");
+      expect(activity).not.toMatch(/assessment_review_submitted|meet_client_email_sent/);
     } finally { await context.close(); await assessor.dispose(); }
   });
 });

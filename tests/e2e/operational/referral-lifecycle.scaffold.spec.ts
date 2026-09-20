@@ -40,6 +40,7 @@ test.describe("operational referral lifecycle scaffold", () => {
               filename: "operator-packet.pdf",
               content_type: "application/pdf",
               size: 1024,
+              sha256: "a".repeat(64),
             },
           ],
         },

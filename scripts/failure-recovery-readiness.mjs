@@ -14,7 +14,7 @@ const collaborationLoad = read("scripts/collaboration-load-smoke.mjs");
 
 const checks = [
   ["browser API calls have bounded timeouts and caller cancellation", authenticatedFetch.includes("defaultTimeoutMs") && authenticatedFetch.includes("controller.abort()") && authenticatedFetch.includes("Request cancelled.")],
-  ["transient retries are bounded and honor retry-after", authenticatedFetch.includes('attempts = method === "GET" ? 2 : 1') && authenticatedFetch.includes("isTransientStatus") && authenticatedFetch.includes('headers.get("retry-after")')],
+  ["transient reads and explicit unstarted writes have bounded retries and honor retry-after", authenticatedFetch.includes('attempts = method === "GET" ? 2 : 3') && authenticatedFetch.includes("isTransientStatus") && authenticatedFetch.includes('response?.status === 429') && authenticatedFetch.includes('response.headers.get("x-pipeline-capacity-class")') && authenticatedFetch.includes('typeof init.body === "string"') && authenticatedFetch.includes('headers.get("retry-after")')],
   ["expired sessions trigger reauthentication without retrying forbidden writes", authenticatedFetch.includes("response.status === 401") && authenticatedFetch.includes("beginReauthentication")],
   ["oversized browser responses fail before parsing", authenticatedFetch.includes("maxResponseBytes") && authenticatedFetch.includes("Pipeline response was too large")],
   ["unexpected API failures return generic responses", apiLogging.includes('error: "Internal server error"') && !apiLogging.includes("error.message")],

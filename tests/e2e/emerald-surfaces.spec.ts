@@ -51,7 +51,7 @@ for (const width of [1440, 1024, 437, 390]) {
     await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
     await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", "0px");
     const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, "::before").backgroundColor));
-    expect(new Set(stageColors).size).toBe(4);
+    expect(new Set(stageColors).size).toBe(3);
     const dockets = await page.locator('[data-board-stage]').evaluateAll((elements) => elements.map((element) => ({
       paper: getComputedStyle(element).backgroundColor,
       index: getComputedStyle(element.firstElementChild!, "::before").content,
@@ -59,8 +59,8 @@ for (const width of [1440, 1024, 437, 390]) {
       edgePointerEvents: getComputedStyle(element, "::after").pointerEvents,
       backdropFilter: getComputedStyle(element).backdropFilter,
     })));
-    expect(new Set(dockets.map((docket) => docket.paper)).size).toBe(4);
-    expect(dockets.map((docket) => docket.index)).toEqual(['"01"', '"02"', '"03"', '"04"']);
+    expect(new Set(dockets.map((docket) => docket.paper)).size).toBe(3);
+    expect(dockets.map((docket) => docket.index)).toEqual(['"01"', '"02"', '"03"']);
     for (const docket of dockets) {
       expect(docket.tabPointerEvents).toBe("none");
       expect(docket.edgePointerEvents).toBe("none");
@@ -92,7 +92,7 @@ for (const width of [1440, 1024, 437, 390]) {
     })).toBeLessThanOrEqual(3);
     if (width >= 1024) {
       const columns = await page.locator('[data-current-work-board]').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
-      expect(columns).toBe(width < 1280 ? 2 : 4);
+      expect(columns).toBe(width < 1280 ? 2 : 3);
     }
     const stageHeader = page.locator('[data-board-stage="received"] > div:first-child');
     await expect(stageHeader).toHaveCSS("background-image", "none");
@@ -110,7 +110,7 @@ for (const width of [1440, 1024, 437, 390]) {
     await expect(page.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
     await expect(page.locator("[data-board-card]")).toHaveCount(5);
     if (width < 1024) {
-      for (const stage of ["in_progress", "decision", "admitted", "received"]) {
+      for (const stage of ["in_progress", "decision", "received"]) {
         await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(stage);
         await expect(page.locator('[data-board-stage]:visible')).toHaveCount(1);
         await expect(page.locator(`[data-board-stage="${stage}"]`)).toBeVisible();
@@ -119,42 +119,47 @@ for (const width of [1440, 1024, 437, 390]) {
     }
 
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1");
-    const assessment = page.locator('[data-assessment-view="chart"]');
+    const assessment = page.locator('[data-assessment-view="assessment"]');
     await expect(assessment).toBeVisible();
-    await expect(assessment.locator("main")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    const presentation = width < 640
+      ? { background: "rgb(247, 250, 244)", fontSize: "16px", button: "rgb(8, 119, 90)" }
+      : { background: "rgb(255, 255, 255)", fontSize: "17px", button: "rgb(0, 126, 96)" };
+    await expect(assessment.locator("main")).toHaveCSS("background-color", presentation.background);
     await expect(assessment).toHaveCSS("backdrop-filter", "none");
     const actions = assessment.locator('footer[aria-label="Assessment actions"]');
-    const buttonStyles = await actions.locator("button").evaluateAll((buttons) => buttons.filter((button) => button.getBoundingClientRect().width > 0).map((button) => {
-      const style = getComputedStyle(button);
-      return [style.height, style.borderRadius, style.fontSize, style.fontWeight, style.borderTopWidth].join("/");
-    }));
-    expect(new Set(buttonStyles).size).toBe(1);
+    const buttonHeights = await actions.locator("button").evaluateAll((buttons) => buttons.filter((button) => button.getBoundingClientRect().width > 0).map((button) => button.getBoundingClientRect().height));
+    expect(buttonHeights.length).toBeGreaterThan(0);
+    for (const height of buttonHeights) expect(height).toBeGreaterThanOrEqual(44);
+    if (width < 640) {
+      await assessment.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+      const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
+      await sections.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Secondary diagnosis");
+      await sections.getByRole("button", { name: /^Secondary diagnosis/ }).click();
+    }
     const secondary = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
-    await expect(secondary).toHaveCSS("font-size", "16px");
+    await expect(secondary).toHaveCSS("font-size", presentation.fontSize);
     await secondary.fill("Synthetic referral history prepared for the interview.");
     await secondary.press("Tab");
-    await expect(assessment.getByRole("complementary", { name: "Captured assessment answers" })).toHaveCSS("background-image", /linear-gradient/);
+    if (width >= 640) await expect(assessment.getByRole("complementary", { name: "Current information" })).toHaveCSS("background-image", /linear-gradient/);
     await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCount(0);
-    await expect(assessment.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("diagnosis_clinical");
+    if (width >= 640) await expect(assessment.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("diagnosis_clinical");
     if (width >= 960) {
-      const reference = await assessment.getByRole("complementary", { name: "Captured assessment answers" }).boundingBox();
+      const reference = await assessment.getByRole("complementary", { name: "Current information" }).boundingBox();
       const editor = await assessment.locator('[data-assessment-question-editor]').boundingBox();
       expect(reference!.x + reference!.width).toBeLessThan(editor!.x);
       expect(Math.abs(reference!.y - editor!.y)).toBeLessThan(2);
     }
     expect(await assessment.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`assessment-${width}.png`) });
-    await assessment.getByRole("button", { name: "Begin assessment", exact: true }).click();
-    const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-    await expect(begin).toBeVisible();
-    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
-    await expect(begin).toHaveCount(0);
-    await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCSS("background-color", "rgb(0, 126, 96)");
+    // Embedded practice is editable without recording a clinical start event.
+    await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await expect(secondary).toHaveValue("Synthetic referral history prepared for the interview.");
     await assessment.locator("main").evaluate((element) => { element.scrollTop = element.scrollHeight; });
-    await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
-    await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toHaveCSS("background-color", "rgb(0, 126, 96)");
-    await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
+    const next = assessment.getByRole("button", { name: "Next section", exact: true });
+    await expect(next).toBeInViewport();
+    await expect(next).toHaveCSS("background-color", presentation.button);
+    await next.click();
+    await expect(actions).toBeInViewport();
     expect(errors).toEqual([]);
   });
 }
@@ -239,7 +244,7 @@ test("board folders fan halfway on hover and keyboard focus without fetching or 
   const scheduled = page.getByRole("button", { name: "Open Morgan Chen", exact: true });
   await scheduled.locator('[data-folder-name]').click();
   await expect(page).toHaveURL(/referralId=910103/);
-  expect(pipelineWorkspaceLocationFromSearchParams(new URL(page.url()).searchParams)).toEqual({ view: "assessment", assessmentSection: "identity" });
+  expect(pipelineWorkspaceLocationFromSearchParams(new URL(page.url()).searchParams)).toEqual({ view: "assessment" });
 });
 
 test("hovering a lower folder keeps the intended client under the pointer", async ({ page }) => {
@@ -312,12 +317,12 @@ for (const width of [1440, 390]) {
     } });
     expect(created.status()).toBe(201);
     const { referral } = await created.json() as { referral: { id: number; name: string } };
-    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=name`);
     const folder = page.getByTestId("intake-client-folder");
     await expect(folder).toBeVisible();
     await expect(page.getByTestId("workspace-identity-title")).toHaveText(referral.name);
     await expect(folder.locator(":scope > strong")).toHaveCount(0);
-    await expect(folder.locator(":scope > div")).toHaveCSS("background-color", "rgb(237, 228, 208)");
+    await expect(folder).toHaveCSS("--folder-fill", "#eeeee7");
     await expect(folder.getByRole("article", { name: "Referral intake chart", exact: true })).toBeVisible();
     await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
     await page.getByTestId("document-checklist-toggle").click();
@@ -333,13 +338,18 @@ for (const width of [1440, 390]) {
     expect(await folder.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.getByTestId("workspace-identity-title").scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`intake-folder-${width}.png`) });
-    const questionnaire = page.getByRole("button", { name: "Open questionnaire", exact: true });
+    const questionnaire = width < 640 ? page.getByRole("combobox", { name: "Workspace view", exact: true }) : page.getByRole("button", { name: "Assessment", exact: true });
     await questionnaire.scrollIntoViewIfNeeded();
     await expect(questionnaire).toBeInViewport();
     await folder.locator('[data-workspace-field="dob"] input').fill("1972-05-08");
-    await questionnaire.click();
-    await expect(page.getByTestId("preparation-client-folder")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Referral preparation", exact: true })).toBeVisible();
-    await expect(page.locator("#assessment-date_of_birth")).toHaveValue("1972-05-08");
+    await folder.locator('[data-workspace-field="dob"] input').blur();
+    if (width < 640) await questionnaire.selectOption({ label: "Assessment" });
+    else await questionnaire.click();
+    await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
+    await expect(page.locator("[data-assessment-view]")).toBeVisible();
+    if (width < 640) {
+      await page.getByRole("button", { name: "Client info", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "Client information" })).toContainText("1972");
+    } else await expect(page.getByRole("button", { name: "Edit Date of birth", exact: true })).toContainText("1972");
   });
 }

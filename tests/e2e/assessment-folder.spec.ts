@@ -18,13 +18,15 @@ async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared d
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
   const folder = page.getByTestId("assessment-client-folder");
   await expect(folder).toBeVisible();
-  await expect(page.getByRole("complementary", { name: "App navigation", exact: true })).toBeVisible();
+  await expect(page.viewportSize()!.width < 640
+    ? page.getByRole("button", { name: /^Open page menu/ })
+    : page.getByRole("complementary", { name: "App navigation", exact: true })).toBeVisible();
   return { referral, assessment, folder };
 }
 
 async function editDiagnosis(page: Page, width: number) {
   if (width < 640) {
-    await page.getByRole("button", { name: "Current info", exact: true }).click();
+    await page.getByRole("button", { name: "Client info", exact: true }).click();
     await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
   } else {
     if (width < 760) await page.getByRole("button", { name: /^Current information/ }).click();
@@ -33,13 +35,32 @@ async function editDiagnosis(page: Page, width: number) {
   return page.locator("#assessment-secondary_diagnoses");
 }
 
+function workspaceReturn(page: Page) {
+  return page.viewportSize()!.width < 640
+    ? page.getByRole("button", { name: "Back to previous page", exact: true })
+    : page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true });
+}
+
+async function openStage(page: Page, label: string) {
+  const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
+  if (page.viewportSize()!.width < 640) {
+    const picker = stages.getByRole("combobox", { name: "Workspace view", exact: true });
+    await picker.selectOption({ label });
+    await expect(picker.locator("option:checked")).toHaveText(label);
+  } else {
+    const button = stages.getByRole("button", { name: label, exact: true });
+    await button.click();
+    await expect(button).toHaveAttribute("aria-current", "page");
+  }
+}
+
 for (const width of [1440, 834, 390]) {
   test(`folder does not resize or toggle full screen between stages at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     const { assessment } = await openFolder(page);
     const header = page.getByTestId("workspace-folder-header");
     const bounds = (await header.boundingBox())!;
-    const navigation = page.locator("[data-assessment-app-navigation]");
+    const navigation = page.locator(width < 640 ? "[data-phone-header]" : "[data-assessment-app-navigation]");
     // Catch even a transient expand/collapse, not just the final settled layout.
     await navigation.evaluate((el) => {
       el.setAttribute("data-layout-transitions", "");
@@ -49,17 +70,15 @@ for (const width of [1440, 834, 390]) {
     });
     const answer = "Synthetic answer saved before opening Decision";
     await (await editDiagnosis(page, width)).fill(answer);
-    const pages = header.getByRole("navigation", { name: "Workspace stages" });
     for (const label of ["Decision", "Chart", "Assessment", "Chart", "Decision", "Chart", "Assessment"]) {
-      await pages.getByRole("button", { name: new RegExp(`${label}$`) }).click();
-      await expect(pages.getByRole("button", { name: new RegExp(`${label}$`) })).toHaveAttribute("aria-current", "page");
+      await openStage(page, label);
       if (label === "Decision") {
         await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
         await expect(page.getByTestId("workspace-chart-folder")).toBeVisible();
       }
       if (label === "Chart") await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toBeVisible();
       if (label === "Assessment") await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-      await expect(navigation).toHaveAttribute("data-assessment-app-navigation", "standard");
+      await expect(navigation).toHaveAttribute(width < 640 ? "data-phone-header" : "data-assessment-app-navigation", width < 640 ? "true" : "standard");
       await expect(navigation).toHaveAttribute("data-layout-transitions", "");
       const current = (await header.boundingBox())!;
       for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(current[key] - bounds[key])).toBeLessThan(1);
@@ -67,13 +86,21 @@ for (const width of [1440, 834, 390]) {
       if (label === "Decision") await page.screenshot({ path: info.outputPath(`stable-decision-${width}.png`) });
     }
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual([answer]);
-    await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Collapse navigation", exact: true })).toHaveAttribute("aria-expanded", "true");
-    await page.getByRole("button", { name: "Collapse navigation", exact: true }).press("Escape");
-    await expect(page.getByRole("button", { name: "Expand navigation", exact: true })).toHaveAttribute("aria-expanded", "false");
-    await header.getByRole("button", { name: "Workspaces", exact: true }).click();
+    if (width < 640) {
+      await page.getByRole("button", { name: /^Open page menu/ }).click();
+      const menu = page.getByRole("dialog", { name: "Pipeline pages", exact: true });
+      await expect(menu).toBeVisible();
+      await menu.press("Escape");
+      await expect(menu).not.toBeVisible();
+    } else {
+      await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Collapse navigation", exact: true })).toHaveAttribute("aria-expanded", "true");
+      await page.getByRole("button", { name: "Collapse navigation", exact: true }).press("Escape");
+      await expect(page.getByRole("button", { name: "Expand navigation", exact: true })).toHaveAttribute("aria-expanded", "false");
+    }
+    await workspaceReturn(page).click();
     await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
-    await expect(navigation).toHaveAttribute("data-assessment-app-navigation", "standard");
+    await expect(navigation).toHaveAttribute(width < 640 ? "data-phone-header" : "data-assessment-app-navigation", width < 640 ? "true" : "standard");
   });
 }
 
@@ -125,7 +152,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     const { referral, assessment, folder } = await openFolder(page);
     const header = page.getByTestId("workspace-folder-header");
-    const back = header.getByRole("button", { name: "Workspaces", exact: true });
+    const back = workspaceReturn(page);
     await expect(header.getByRole("heading", { name: referral.name, exact: true })).toBeVisible();
     await expect(back).toBeInViewport();
     expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -133,7 +160,8 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     await expect(folder).toHaveCSS("background-image", "none");
     const titleBox = (await header.getByRole("heading").boundingBox())!;
     const backBox = (await back.boundingBox())!;
-    expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(backBox.x);
+    if (width >= 640) expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(backBox.x);
+    else expect(backBox.y + backBox.height).toBeLessThanOrEqual(titleBox.y);
     expect(backBox.height).toBeGreaterThanOrEqual(44);
     expect(backBox.x + backBox.width).toBeLessThanOrEqual(width);
     await expect(folder.getByRole("button", { name: /^(Workspace|Referral|Close assessment)$/ })).toHaveCount(0);
@@ -141,17 +169,23 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     await expect(page.getByRole("navigation", { name: "Client file pages" })).toHaveCount(0);
     await expect(page.getByTestId("workspace-identity-title")).toHaveCount(1);
     const pages = header.getByRole("navigation", { name: "Workspace stages" });
-    await expect(pages.getByRole("button")).toHaveText(["01Chart", "02Assessment", "03Decision"]);
-    await expect(pages.getByRole("button", { name: /Assessment$/ })).toHaveAttribute("aria-current", "page");
+    if (width < 640) {
+      const picker = pages.getByRole("combobox", { name: "Workspace view", exact: true });
+      await expect(picker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
+      await expect(picker.locator("optgroup option")).toHaveText(["Files", "Activity"]);
+      await expect(picker.locator("option:checked")).toHaveText("Assessment");
+    } else {
+      await expect(pages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
+      await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+    }
     if (width < 640) {
       await folder.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: "Next", exact: true }).click();
       await expect(folder.getByRole("textbox", { name: "Current symptoms", exact: true })).toBeVisible();
     }
     await header.evaluate((el) => el.setAttribute("data-continuity-check", "same-folder"));
-    await pages.getByRole("button", { name: /Chart$/ }).click();
+    await openStage(page, "Chart");
     await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toBeVisible();
-    await expect(pages.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
-    await pages.getByRole("button", { name: /Assessment$/ }).click();
+    await openStage(page, "Assessment");
     await expect(header).toHaveAttribute("data-continuity-check", "same-folder");
     if (width < 640) await expect(folder.getByRole("textbox", { name: "Current symptoms", exact: true })).toBeVisible();
 
@@ -159,8 +193,9 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
       await expect(folder.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
     } else {
       expect((await header.boundingBox())!.height).toBeLessThanOrEqual(110);
-      const menu = (await page.locator("#pipeline-app-navigation").boundingBox())!;
-      expect(menu.x + menu.width).toBeLessThanOrEqual(titleBox.x);
+      const menu = page.getByRole("button", { name: /^Open page menu/ });
+      await expect(menu).toBeInViewport();
+      expect((await menu.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
     await page.screenshot({ path: info.outputPath(`assessment-folder-${width}.png`) });
     const field = await editDiagnosis(page, width);
@@ -189,7 +224,7 @@ for (const width of [1440, 390]) {
       IDBDatabase.prototype.transaction = () => { throw new DOMException("Synthetic storage unavailable", "QuotaExceededError"); };
     });
     await field.fill("Synthetic answer retained after failed save");
-    const back = page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true });
+    const back = workspaceReturn(page);
     await back.click();
     await expect(folder.getByRole("alert")).toBeVisible();
     await expect(folder).toBeVisible();

@@ -63,6 +63,7 @@ const result = {
     client_profile_return_ms: journeyWorst(runs, "profile_to_clients"),
     localized_interaction_ms: round(Math.max(...runs.flatMap((run) => run.warm_journeys.filter((journey) => journey.kind !== "navigation").map((journey) => journey.duration_ms)))),
     journey_worst_ms: Object.fromEntries(journeyNames.map((name) => [name, journeyWorst(runs, name)])),
+    automation_journey_worst_ms: Object.fromEntries(journeyNames.map((name) => [name, round(Math.max(...runs.flatMap((run) => run.warm_journeys.filter((journey) => journey.name === name).map((journey) => journey.automation_duration_ms))))])),
     ordinary_api_p95_ms: round(Math.max(...runs.map((run) => run.api.ordinary.p95_ms))),
     heavy_api_p95_ms: round(Math.max(...runs.map((run) => run.api.heavy.p95_ms))),
   },
@@ -199,12 +200,13 @@ async function runScorecard(baseUrl) {
   let stderr = "";
   child.stdout.on("data", (chunk) => { stdout += String(chunk); });
   child.stderr.on("data", (chunk) => { stderr += String(chunk); });
-  const exitCode = await new Promise((resolve) => child.once("exit", resolve));
+  // The process can exit before its piped JSON has finished draining.
+  const exitCode = await new Promise((resolve) => child.once("close", resolve));
   let parsed;
   try {
     parsed = JSON.parse(stdout);
-  } catch {
-    throw new Error(`The performance scorecard did not return valid JSON. ${stderr}`);
+  } catch (error) {
+    throw new Error(`The performance scorecard did not return valid JSON (${stdout.length} characters, exit ${exitCode}): ${error.message}. ${stderr}`);
   }
   if (exitCode !== 0 && parsed.ok) {
     throw new Error(`The performance scorecard exited with ${exitCode} despite reporting success. ${stderr}`);

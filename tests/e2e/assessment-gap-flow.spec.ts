@@ -77,9 +77,9 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(page).toHaveURL(/assessmentSection=functional_adl/);
     await expect(questions.locator('[data-working-field="ambulatory"]')).toHaveCount(0);
     if (width < 640) {
-      await folder.getByRole("button", { name: "Current info", exact: true }).click();
-      const reference = page.getByRole("dialog", { name: "Current information", exact: true });
-      await expect(reference.getByRole("combobox")).toHaveCount(0);
+      await folder.getByRole("button", { name: "Client info", exact: true }).click();
+      const reference = page.getByRole("dialog", { name: "Client information", exact: true });
+      await expect(reference.getByRole("combobox", { name: "Reference information", exact: true })).toHaveValue("section");
       await expect(reference).not.toContainText("Synthetic interview gap completed");
       await reference.getByRole("button", { name: "Review Ambulatory", exact: true }).click();
       await questions.getByRole("group", { name: "Ambulatory", exact: true }).getByRole("button", { name: "No", exact: true }).click();
@@ -93,7 +93,7 @@ for (const width of [1440, 768, 390, 320]) {
       await next.click();
       await expect(page).toHaveURL(/assessmentSection=prior_history/);
       await page.getByLabel("Assessment section", { exact: true }).selectOption("provenance_qc");
-      await footer.getByRole("button", { name: "Review chart", exact: true }).click();
+      await footer.getByRole("button", { name: "Review & sign", exact: true }).click();
       await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic interview gap completed");
       await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
       await returnToAssessmentQuestions(page);

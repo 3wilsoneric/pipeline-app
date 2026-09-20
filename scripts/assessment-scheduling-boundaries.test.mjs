@@ -25,8 +25,8 @@ function fixture(options = {}) {
     conflicts = [{ assessment_id: "synthetic-overlap" }];
   }
   const dependencies = {
-    "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
-      assert.deepEqual(Array.from(roles), ["admin", "assessment_coordinator", "reviewer"]);
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles = ["admin", "assessment_coordinator", "reviewer", "viewer"]) => {
+      if (options.unauthenticated) return { ok: false, response: jsonError("Unauthorized", 401) };
       return roles.some((role) => user.roles.includes(role)) ? { ok: true, user } : { ok: false, response: jsonError("Forbidden", 403) };
     } },
     "@/lib/auth/assessor-session-policy": { pipelineAuditActor: () => ({ id: user.id, name: user.name }) },
@@ -105,11 +105,12 @@ test("saving a no-packet appointment flows directly into the real start route", 
   assert.deepEqual(current.calls.patches[1], ["synthetic-assessment", { mark_started: true }, { id: assessor.id, name: assessor.name }, { expectedVersion: 8, mutationId: "synthetic-start" }]);
 });
 
-test("role, referral visibility, assignee and same-origin boundaries still deny scheduling", async () => {
+test("authentication, restricted access, referral visibility and same-origin boundaries still deny scheduling", async () => {
   for (const [options, status] of [
-    [{ user: { ...assessor, roles: ["viewer"] } }, 403],
+    [{ unauthenticated: true }, 401],
+    [{ user: { ...assessor, roles: ["unknown"] } }, 403],
+    [{ user: { ...assessor, accessScope: "note_lab" } }, 403],
     [{ inaccessible: true }, 404],
-    [{ assessment: { assessor_id: "someone-else" } }, 403],
   ]) {
     const current = fixture(options);
     assert.equal((await current.post("schedule", command)).status, status);
@@ -118,6 +119,15 @@ test("role, referral visibility, assignee and same-origin boundaries still deny 
   const current = fixture();
   assert.equal((await current.post("schedule", command, "https://other.invalid")).status, 403);
   assert.equal(current.calls.access.length, 0);
+});
+
+test("all Pipeline staff may save scheduling regardless of assignment", async () => {
+  for (const role of ["admin", "assessment_coordinator", "reviewer", "viewer"]) {
+    const current = fixture({ user: { ...assessor, roles: [role] }, assessment: { assessor_id: "someone-else" } });
+    const response = await current.post("schedule", command);
+    assert.equal(response.status, 200, JSON.stringify(await response.clone().json()));
+    assert.equal(current.calls.patches.length, 1);
+  }
 });
 
 test("assignment, profile identity and contact scheduling gaps are advisory", async () => {
@@ -157,15 +167,13 @@ test("schedule and optimistic-version validation still reject malformed or stale
 test("slot conflicts remain visible as alerts while authorized scheduling continues", async () => {
   for (const user of [assessor, supervisor]) {
     const current = fixture({ user, slotConflict: true });
-    const response = await current.post("schedule", { ...command, allow_conflict: true });
+    const response = await current.post("schedule", command);
     const result = await response.json();
     assert.equal(response.status, 200, JSON.stringify(result));
-    assert.equal(current.calls.patches[0][3].allowScheduleConflict, user === supervisor);
+    assert.equal(current.calls.patches[0][3].allowScheduleConflict, false);
     assert.equal(result.assessment.schedule_status, "scheduled");
-    if (user === assessor) {
-      assert.equal(current.calls.patches.length, 2);
-      assert.equal(current.calls.patches[1][3].allowScheduleConflict, true);
-      assert.deepEqual(result.warnings, ["This assessor has another assessment during that time. The appointment was saved with an overlap alert."]);
-    }
+    assert.equal(current.calls.patches.length, 2);
+    assert.equal(current.calls.patches[1][3].allowScheduleConflict, true);
+    assert.deepEqual(result.warnings, ["This assessor has another assessment during that time. The appointment was saved with an overlap alert."]);
   }
 });

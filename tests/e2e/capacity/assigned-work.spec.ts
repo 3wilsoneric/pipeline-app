@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+import { createOperationalReferral } from '../support/operational-api';
+import { operationalHeadersForActor, type PipelineActor } from '../support/pipeline-actors';
+
+test('assigned referral opens from Home, schedules, and resumes unfinished answers from Calendar and Home', async ({ browser, baseURL }, info) => {
+  test.skip(info.config.metadata.pipelineCapacityRehearsal !== true, 'Synthetic capacity environment only');
+  if (baseURL !== 'http://127.0.0.1:4177') throw Error('Loopback rehearsal only');
+  const actor = (index: number, supervisor = false): PipelineActor => ({ id: `assigned-${randomUUID()}`, name: `Synthetic Staff ${index}`, email: `capacity-${index}@pipeline.local`, roleClaim: supervisor ? 'Pipeline.AssessmentCoordinator' : 'Pipeline.Reviewer', expectedRoles: supervisor ? ['assessment_coordinator', 'reviewer', 'viewer'] : ['reviewer', 'viewer'] });
+  const supervisor = actor(80, true);
+  const assessor = actor(81);
+  const owner = await browser.newContext({ baseURL, extraHTTPHeaders: operationalHeadersForActor(supervisor, baseURL) });
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders: operationalHeadersForActor(assessor, baseURL), viewport: { width: 1440, height: 950 } });
+  const page = await context.newPage();
+  try {
+    expect((await context.request.get('/api/members')).ok()).toBe(true);
+    expect((await context.request.put('/api/me/home-layout', { data: { layout: { schema: 3, module_ids: ['current-work', 'new-assignments', 'recent-work'], locked: true } } })).ok()).toBe(true);
+    const referral = await createOperationalReferral(owner.request, supervisor, { name: `Synthetic ${randomUUID().replace(/[^a-z]/g, '')}`, documentName: '', documentStatus: 'Missing', phone: '', email: '' }, { assigneeId: assessor.id });
+    const name = referral.name!;
+    await page.goto('/');
+    await page.getByRole('region', { name: 'Since your last visit', exact: true }).getByRole('button', { name: new RegExp(name) }).click();
+    await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
+    await page.getByRole('navigation', { name: 'Workspace stages' }).getByRole('button', { name: /Assessment$/ }).click();
+    const contact = page.getByRole('textbox', { name: 'Referrer contact', exact: true });
+    await contact.fill('Synthetic contact; interview details unfinished'); await contact.blur();
+    const assessments = async () => (await (await context.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
+    await expect.poll(async () => (await assessments())[0]?.referrer_contact).toBe('Synthetic contact; interview details unfinished');
+    const id = (await assessments())[0].assessment_id;
+    await page.locator('summary[aria-label="Assessment details"]').click();
+    await page.getByRole('group', { name: 'Assessment details', exact: true }).getByRole('button', { name: 'Schedule assessment', exact: true }).click();
+    const schedule = page.getByRole('dialog', { name: 'Schedule assessment', exact: true });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    await schedule.getByLabel('Assessment date and time').fill(`${today}T14:00`);
+    await schedule.getByLabel('Assessment method').selectOption('phone');
+    await schedule.getByLabel('Phone number to call').fill('555-0100');
+    await schedule.getByRole('button', { name: 'Schedule assessment', exact: true }).click();
+    await expect(schedule).toHaveCount(0);
+    await page.goto('/?screen=calendar');
+    await page.locator('button[title]').filter({ hasText: name }).first().click();
+    const item = page.getByRole('dialog', { name: 'Calendar item', exact: true });
+    await expect(item).toContainText('555-0100');
+    await item.getByRole('button', { name: 'Open assessment', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
+    await expect(page.getByRole('button', { name: 'Edit Referrer contact', exact: true })).toContainText('Synthetic contact; interview details unfinished');
+    await page.goto('/');
+    await page.locator('[data-home-module="current-work"]').getByRole('button', { name: new RegExp(name) }).click();
+    await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Edit Referrer contact', exact: true })).toContainText('Synthetic contact; interview details unfinished');
+    const saved = await assessments();
+    expect(saved).toHaveLength(1);
+    expect(saved[0].assessment_id).toBe(id);
+    expect(saved[0].signed_at).toBeNull();
+    expect(saved[0].scheduled_location).toBe('555-0100');
+  } finally { await context.close(); await owner.close(); }
+});

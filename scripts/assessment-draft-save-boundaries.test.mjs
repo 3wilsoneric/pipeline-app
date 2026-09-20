@@ -2,6 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { clean, loadEntry } from "./contact-import-fixtures.mjs";
 
+test("answer rebase protects same-field edits and finalization without blocking unrelated answers", () => {
+  const state = loadEntry("components/pipeline/assessment-workspace-state.ts", {
+    "@/lib/auth/authenticated-fetch": { PipelineApiError: class extends Error {} },
+  });
+  const base = { assessment_id: "synthetic", version: 1, referrer_contact: null, assessment_date: null };
+  const latest = { ...base, version: 2, assessment_date: "2026-09-19" };
+  assert.equal(state.canRebaseAssessmentAnswers(base, latest, { referrer_contact: "Synthetic contact" }), true);
+  assert.equal(state.canRebaseAssessmentAnswers(base, latest, { assessment_date: "2026-09-18" }), false);
+  assert.equal(state.canRebaseAssessmentAnswers(base, latest, { assessment_date: "2026-09-19" }), true);
+  assert.equal(state.canRebaseAssessmentAnswers(base, latest, { resident_name: "New name" }), false);
+  assert.equal(state.canRebaseAssessmentAnswers(base, { ...latest, assessment_id: "other" }, { referrer_contact: "Contact" }), false);
+  assert.equal(state.canRebaseAssessmentAnswers(base, { ...latest, signed_at: "2026-09-19T00:59:00Z", meet_client_sent_at: "2026-09-19T01:00:00Z" }, { referrer_contact: "Contact" }), false);
+  assert.equal(state.canRebaseAssessmentAnswers(base, { ...latest, signed_at: "2026-09-19T00:59:00Z" }, { referrer_contact: "Contact" }), true);
+  const remote = { conflicts: [{ field: "referrer_contact", section: "client_referral" }] };
+  assert.equal(state.hasSectionConflict(remote, "client_referral", { assessment_date: "2026-09-19" }), false);
+  assert.equal(state.hasSectionConflict(remote, "client_referral", { referrer_contact: "Contact" }), true);
+});
+
 const assessor = { id: "synthetic-assessor", name: "Synthetic Assessor", roles: ["reviewer"] };
 const error = (message, status = 400) => Response.json({ error: message }, { status });
 const command = { if_match: 7, client_mutation_id: "synthetic-answer-save", patch: { data: { assessment_notes: "Partial interview notes" } } };

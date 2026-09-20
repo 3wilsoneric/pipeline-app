@@ -16,55 +16,44 @@ test.describe("assessment editing entry and return paths", () => {
   test.setTimeout(60_000);
 
   for (const actor of ["assessorA", "assessmentCoordinator"] as const) {
-    test(`${actor} begins a future appointment in HIMS and resumes the same section and answers`, async ({ browser, baseURL }) => {
+    test(`${actor} edits before a future appointment, records its start and resumes the same answers`, async ({ browser, baseURL }) => {
       const url = requireOperationalBaseURL(baseURL);
-      const api = await actorApiContext("assessorA", url);
+      const api = await actorApiContext(actor, url);
       const { page, context } = await actorPage(browser, actor, url);
       try {
-        const { referral, assessment } = await scheduledAssessment(api);
+        const { referral, assessment } = await scheduledAssessment(api, pipelineActors[actor].id);
         await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
-        const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-        await expect(begin).toBeVisible();
-        await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
-        const guided = page.locator('[data-guided-assessment="true"]');
-        await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
-        await expect(guided.getByRole("button", { name: "Guided interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+        const full = page.locator("[data-assessment-view]");
+        await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
+        await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
+        await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
+        expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeFalsy();
+        await full.locator('summary[aria-label="Assessment details"]').click();
+        await full.getByRole("button", { name: "Begin assessment", exact: true }).click();
+        await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Record start", exact: true }).click();
         const started = await readAssessment(api, assessment.assessment_id);
         expect(Date.parse(started.started_at!)).toBeLessThan(Date.parse(started.scheduled_start_at!));
 
-        await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
-        const full = page.locator('[data-assessment-view="chart"]');
-        await expect(full.getByRole("button", { name: "Full assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
         const answer = "Synthetic history entered immediately before closing the assessment.";
         await full.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
-        await full.getByRole("button", { name: "Back to referral", exact: true }).click();
-        await expect(full).toHaveCount(0);
+        const stages = page.getByRole("navigation", { name: "Workspace stages" });
+        await stages.getByRole("button", { name: "Chart", exact: true }).click();
+        await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
         expect((await readAssessment(api, assessment.assessment_id)).prior_5150_5250_holds).toBe(answer);
         // Reopen without leaving the workspace, not just via a saved Home link.
-        await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
-        await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
-        await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
+        await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+        await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
+        await full.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true }).click();
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
-        await full.getByRole("button", { name: "Guided interview", exact: true }).click();
-        await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
-        await guided.getByRole("button", { name: "Back to referral", exact: true }).click();
-        await expect(guided).toHaveCount(0);
-        await expect(page.getByRole("button", { name: "Resume assessment", exact: true })).toBeVisible();
-        await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
-        await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
-
-        await guided.getByRole("button", { name: "Workspace", exact: true }).click();
-        const stages = page.getByRole("navigation", { name: "Workspace stages" });
-        await expect(stages.getByRole("button", { name: /Intake/ })).toHaveAttribute("aria-current", "page");
-        await stages.getByRole("button", { name: /Assessment/ }).click();
-        await expect(guided).toBeVisible();
-        await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
-        await full.getByRole("button", { name: "Back to referral", exact: true }).click();
+        await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
+        await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
         await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
-        await page.getByRole("button", { name: "Open current work", exact: true }).click();
+        await page.locator('[data-home-module="current-work"]').getByRole("button", { name: "Open current work", exact: true }).click();
         const board = page.getByRole("dialog", { name: "Current work", exact: true });
         await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
-        await expect(guided).toBeVisible();
+        await expect(full).toBeVisible();
+        await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
+        await expect(full.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true })).toContainText(answer);
         const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
         expect(records).toHaveLength(1);
         expect(records[0].assessment_id).toBe(assessment.assessment_id);
@@ -77,7 +66,7 @@ test.describe("assessment editing entry and return paths", () => {
   }
 
   for (const status of ["cancelled", "no_show"] as const) {
-    test(`${status} returns to scheduling, then opens the same assessment after rescheduling`, async ({ browser, baseURL }) => {
+    test(`${status} remains editable and rescheduling preserves the same assessment`, async ({ browser, baseURL }) => {
       const url = requireOperationalBaseURL(baseURL);
       const api = await actorApiContext("assessorA", url);
       const { page, context } = await actorPage(browser, "assessorA", url);
@@ -88,17 +77,21 @@ test.describe("assessment editing entry and return paths", () => {
           schedule: { status, start_at: assessment.scheduled_start_at, duration_minutes: 60, method: "record_review" },
         } });
         expect(cancelled.status(), await cancelled.text()).toBe(200);
-        await page.goto(workspacePath(referral.id));
-        const rail = page.getByRole("region", { name: "Intake completion", exact: true });
-        await expect(rail).toContainText("Not scheduled");
-        await rail.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+        await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
+        const full = page.locator("[data-assessment-view]");
+        await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
+        await full.locator('summary[aria-label="Assessment details"]').click();
+        await full.getByRole("button", { name: "Reschedule assessment", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
         await expect(schedule).toBeVisible();
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
         await schedule.getByRole("button", { name: "Save new time", exact: true }).click();
+        await expect(schedule).not.toBeVisible();
+        await full.locator('summary[aria-label="Assessment details"]').click();
+        await full.getByRole("button", { name: "Begin assessment", exact: true }).click();
         await page.getByRole("dialog", { name: "Begin assessment", exact: true })
-          .getByRole("button", { name: "Begin assessment", exact: true }).click();
-        await expect(page.locator('[data-guided-assessment="true"]')).toBeVisible();
+          .getByRole("button", { name: "Record start", exact: true }).click();
+        await expect(full).toBeVisible();
         const saved = await readAssessment(api, assessment.assessment_id);
         expect(saved.assessment_id).toBe(assessment.assessment_id);
         expect(saved.current_location).toBe("Synthetic placement");
@@ -110,28 +103,28 @@ test.describe("assessment editing entry and return paths", () => {
     });
   }
 
-  test("Calendar upcoming opens the scheduled referral, and a different assessor cannot start it", async ({ browser, baseURL }) => {
+  test("Calendar opens the scheduled referral and another authorized assessor can start it", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessorA", url);
     const other = await actorApiContext("assessorB", url);
     const { page, context } = await actorPage(browser, "assessorA", url);
     try {
       const { referral, assessment } = await scheduledAssessment(api);
-      const denied = await other.post(`/api/assessments/${assessment.assessment_id}/start`, { data: {
+      const started = await other.post(`/api/assessments/${assessment.assessment_id}/start`, { data: {
         if_match: assessment.version, client_mutation_id: randomUUID(),
       } });
-      expect(denied.status()).toBe(404);
-      expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeFalsy();
-      await page.clock.setFixedTime(new Date(Date.parse(assessment.scheduled_start_at!) - 60 * 60 * 1000));
+      expect(started.status()).toBe(200);
+      expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeTruthy();
+      // Keep the target in the displayed Pacific week, including Sunday just after midnight.
+      await page.clock.setFixedTime(new Date(assessment.scheduled_start_at!));
       await page.goto("/?screen=calendar");
-      await page.locator('button[title]').filter({ hasText: referral.name }).first().click();
+      await page.getByRole("region", { name: "Timed assessment week", exact: true })
+        .getByRole("button", { name: new RegExp(referral.name!) }).click();
       await page.getByRole("dialog", { name: "Calendar item", exact: true }).getByRole("button", { name: "Open assessment", exact: true }).click();
-      await page.getByRole("dialog", { name: "Begin assessment", exact: true })
-        .getByRole("button", { name: "Begin assessment", exact: true }).click();
-      await expect(page.locator('[data-guided-assessment="true"]')).toBeVisible();
+      await expect(page.locator("[data-assessment-view]")).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
       await page.reload();
-      await expect(page.locator('[data-guided-assessment="true"]')).toBeVisible();
+      await expect(page.locator("[data-assessment-view]")).toBeVisible();
     } finally {
       await context.close();
       await api.dispose();
@@ -139,7 +132,7 @@ test.describe("assessment editing entry and return paths", () => {
     }
   });
 
-  test("signed assessments stay read-only, while a new reassessment uses HIMS", async ({ browser, baseURL }) => {
+  test("signed but unsent assessments stay editable and a new assessment does not overwrite the signed record", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessorA", url);
     const { page, context } = await actorPage(browser, "assessorA", url);
@@ -149,11 +142,10 @@ test.describe("assessment editing entry and return paths", () => {
       const complete = await completeOperationalAssessment(api, started);
       const signed = await signOperationalAssessment(api, complete);
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
-      const full = page.locator('[data-assessment-view="chart"]');
+      const full = page.locator("[data-assessment-view]");
       await expect(full).toBeVisible();
-      await expect(page.locator('[data-guided-assessment="true"]')).toHaveCount(0);
-      await expect(full.getByRole("button", { name: "Guided interview", exact: true })).toHaveCount(0);
-      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).not.toBeEditable();
+      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
+      await expect(full.getByRole("button", { name: "Add note", exact: true })).toHaveCount(0);
       const next = await api.post(`/api/referrals/${referral.id}/assessments`, { data: {
         client_mutation_id: randomUUID(), data: { current_location: "Synthetic reassessment placement" },
       } });
@@ -165,9 +157,8 @@ test.describe("assessment editing entry and return paths", () => {
       } });
       expect(scheduled.status(), await scheduled.text()).toBe(200);
       await page.reload();
-      await page.getByRole("dialog", { name: "Begin assessment", exact: true })
-        .getByRole("button", { name: "Begin assessment", exact: true }).click();
-      await expect(page.locator('[data-guided-assessment="true"]')).toBeVisible();
+      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
+      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("");
       expect((await readAssessment(api, signed.assessment_id)).version).toBe(signed.version);
       expect(nextDraft.assessment_id).not.toBe(signed.assessment_id);
     } finally {
@@ -176,28 +167,28 @@ test.describe("assessment editing entry and return paths", () => {
     }
   });
 
-  test("legacy process-tester interview links open HIMS and can exit to the full assessment", async ({ browser, baseURL }) => {
+  test("legacy process-tester links retain their section across desktop and phone assessment layouts", async ({ browser, baseURL }) => {
     const { page, context } = await actorPage(browser, "admin", requireOperationalBaseURL(baseURL));
     try {
       await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=prior_history");
-      const guided = page.locator('[data-guided-assessment="true"]');
-      await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
-      await guided.getByRole("button", { name: "Full assessment", exact: true }).click();
-      const full = page.locator('[data-assessment-view="chart"]');
+      const full = page.locator("[data-assessment-view]");
       await expect(full).toBeVisible();
-      await full.getByRole("button", { name: "Guided interview", exact: true }).click();
-      await expect(guided).toHaveAttribute("data-screen-section", "prior_history");
+      await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(full.getByRole("button", { name: "Choose questionnaire section", exact: true })).toContainText("Recent care and history");
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
     } finally {
       await context.close();
     }
   });
 });
 
-async function scheduledAssessment(api: APIRequestContext) {
+async function scheduledAssessment(api: APIRequestContext, assigneeId = pipelineActors.assessorA.id) {
   await api.get("/api/auth/me");
   const token = Array.from(randomUUID(), (letter) => String.fromCharCode(97 + letter.charCodeAt(0) % 26)).join("");
   const created = await api.post("/api/referrals", { data: {
-    client_mutation_id: randomUUID(), assignee_id: pipelineActors.assessorA.id,
+    client_mutation_id: randomUUID(), assignee_id: assigneeId,
     referral: syntheticReferralInput("assessorA", {
       name: `Entry ${token}`, phone: "555-0101", email: "entry@example.invalid",
     }),

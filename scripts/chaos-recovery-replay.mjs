@@ -2,6 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { spawnSync } from "node:child_process";
 
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
@@ -24,7 +25,6 @@ const documentAssets = read("lib/extraction/document-assets.ts");
 const worker = read("lib/extraction/processing-worker.ts");
 const packetUpload = read("lib/pipeline/referral-packet-upload.ts");
 const referralHome = read("components/pipeline/ReferralHome.tsx");
-const browserFetch = read("lib/auth/authenticated-fetch.ts");
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
 
@@ -67,8 +67,10 @@ check("partial and oversized Alamo responses fail before use", clinical.includes
 check("Blob loss returns a safe preview failure", documentAssets.includes("asset_storage_unavailable")
   && documentAssets.includes("asset_storage_failed")
   && !documentAssets.includes("throw new Error(await upstream.text())"));
-check("interrupted packet uploads remain retryable and never auto-retry mutations", packetUpload.includes("Retry the upload.")
-  && browserFetch.includes('const attempts = method === "GET" ? 2 : 1')
+const retryContracts = spawnSync(process.execPath, ["--test", "scripts/governor-write-retry.test.mjs"], { encoding: "utf8" });
+if (retryContracts.status !== 0) console.error(retryContracts.stdout, retryContracts.stderr);
+check("only known pre-handler capacity rejections retry writes; ambiguous failures are never replayed", retryContracts.status === 0);
+check("interrupted packet uploads remain retryable and completion follows reservation", packetUpload.includes("Retry the upload.")
   && packetUpload.indexOf("/api/uploads/complete") > packetUpload.indexOf("/api/uploads/create-url"));
 check("failed queue refresh preserves the last successful snapshot", referralHome.includes("successfulReferralRequest.current !== requestKey")
   && referralHome.includes("if (await loadReferrals(controller.signal, true)) referralRevision.current = payload.sequence")

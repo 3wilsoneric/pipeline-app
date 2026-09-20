@@ -17,10 +17,11 @@ test.describe("assessment preparation", () => {
       try {
         const referral = await createReferral(api);
         await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
-        await page.getByRole("region", { name: "Intake completion", exact: true }).getByRole("button", { name: "Open questionnaire", exact: true }).click();
-        const editor = page.locator('[data-assessment-view="chart"]');
+        const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
+        await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+        const editor = page.locator("[data-assessment-view]");
         await expect(editor).toBeVisible();
-        await expect(editor.locator("[data-assessment-client-header]")).toContainText("Questionnaire");
+        await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
         await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toHaveCount(0);
         const list = await api.get(`/api/referrals/${referral.id}/assessments`);
         const records = (await list.json()).assessments as PipelineAssessmentRecord[];
@@ -31,25 +32,26 @@ test.describe("assessment preparation", () => {
         expect(records[0].started_at).toBeNull();
         expect(records[0].scheduled_start_at ?? null).toBeNull();
 
-        const search = editor.getByRole("searchbox", { name: "Find assessment question" });
         const findHistory = async () => {
-          await search.fill("Prior 5150");
-          await editor.getByRole("navigation", { name: "Matching assessment questions" }).getByRole("button", { name: /Prior 5150/ }).click();
+          await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
+          const recorded = editor.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true });
+          if (await recorded.isVisible()) await recorded.click();
         };
         await findHistory();
         const field = editor.getByRole("textbox", { name: /Prior 5150/ });
         const answer = "Synthetic discharge summary describes one prior hold, with the date still to confirm.";
         await field.fill(answer);
-        await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
-        await expect(editor).toHaveCount(0);
+        await stages.getByRole("button", { name: "Chart", exact: true }).click();
+        await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
         await expect.poll(async () => (await readAssessment(api, id)).prior_5150_5250_holds).toBe(answer);
         expect((await readAssessment(api, id)).started_at).toBeNull();
-        await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
+        await stages.getByRole("button", { name: "Assessment", exact: true }).click();
         await findHistory();
         await expect(field).toHaveValue(answer);
 
         const scheduledAnswer = `${answer} Prepared before scheduling.`;
         await field.fill(scheduledAnswer);
+        await editor.locator('summary[aria-label="Assessment details"]').click();
         await editor.getByRole("button", { name: "Schedule assessment", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
         const future = new Date(Date.now() + (30 + referral.id) * 86_400_000).toISOString().slice(0, 16);
@@ -65,14 +67,15 @@ test.describe("assessment preparation", () => {
 
         const finalAnswer = `${scheduledAnswer} Last edit immediately before starting.`;
         await field.fill(finalAnswer);
+        await editor.locator('summary[aria-label="Assessment details"]').click();
         await editor.getByRole("button", { name: "Begin assessment", exact: true }).click();
         const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
         await page.route(`**/api/assessments/${id}/start`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic start failure. Retry without losing preparation." } }));
-        await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+        await begin.getByRole("button", { name: "Record start", exact: true }).click();
         await expect(begin.getByRole("alert")).toContainText("Synthetic start failure");
         expect((await readAssessment(api, id)).started_at).toBeNull();
         await page.unroute(`**/api/assessments/${id}/start`);
-        await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+        await begin.getByRole("button", { name: "Record start", exact: true }).click();
         await expect(begin).toHaveCount(0);
         await expect(field).toHaveValue(finalAnswer);
         const started = await readAssessment(api, id);

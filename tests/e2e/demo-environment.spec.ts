@@ -1,570 +1,112 @@
-import { expect, test, type Locator } from "@playwright/test";
-import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
+import { expect, test, type Page } from "@playwright/test";
 
-test.describe("Pipeline Demo Environment", () => {
-  test.beforeEach(async ({ page }) => {
-    // Rehearsals use synthetic data, not a delegated clinical roster.
-    await page.route("**/api/profiles/directory**", (route) => route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ...clientDirectoryFixture, clients: [], total: 0, next_cursor: null }),
-    }));
+// bb5e18a retired the presentation pages. Test the current Help practice owners.
+const practice = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1";
+function watchWorkflowWrites(page: Page) {
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (request.method() !== "GET" && /^\/api\/(?:referrals|assessments|demo|me\/referral-drafts)(?:\/|$)/.test(path)) writes.push(`${request.method()} ${path}`);
   });
+  return writes;
+}
 
-  test("keeps practice scoped when leaving the Learning Center", async ({ page }) => {
-    test.setTimeout(60_000);
-    await page.addInitScript(() => sessionStorage.setItem("pipeline-demo-session", "active"));
-    await mockTrainingProgress(page);
-    const banner = page.locator('[data-pipeline-demo-banner="true"]');
-
-    await page.goto("/training");
-    await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
-    await expect(banner).toHaveCount(0);
-    await page.goto("/training/demo?view=tester");
-    await expect(banner).toHaveCount(0);
-    await page.getByRole("button", { name: "Open review" }).click();
-    const interview = page.getByRole("dialog", { name: "Assessment interview" });
-    await expect(interview).toBeVisible();
-    await expect(banner).toContainText("Practice workspace");
-    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await interview.getByRole("button", { name: "Full assessment", exact: true }).click();
-    await interview.getByRole("button", { name: "Back to referral", exact: true }).click();
-    await page.getByRole("button", { name: "Open referrals", exact: true }).click();
-    await expect(page).toHaveURL(/view=referrals/);
-    await expect(banner).toHaveCount(0);
-    await expect(page).not.toHaveURL(/demo=|trainingAssessment=|trainingIntake=/);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(banner).toHaveCount(0);
-    await page.getByRole("button", { name: "Open reports", exact: true }).click();
-    await expect(page).toHaveURL(/screen=operations/);
-    await expect(banner).toHaveCount(0);
-    await page.goBack();
-    await expect(banner).toHaveCount(0);
-  });
-
-  test("runs a complete hybrid medication section", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
-    const response = await page.goto("/training/assessment-preview");
-    expect(response?.status()).toBe(200);
-
-    const preview = page.getByRole("dialog", { name: "Focused assessment preview" });
-    await expect(preview).toBeVisible();
-    await expect(preview.getByRole("heading", { name: "Is the client taking medication as prescribed?" })).toBeVisible();
-    await expect(preview.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
-    await expect(preview.getByRole("heading", { name: "Record the refusals" })).toBeVisible();
-    await expect(preview.getByLabel("Most recent refusal")).toHaveValue("2026-09-02");
-    await expect(preview.getByLabel("Medication refused")).toHaveValue("Synthetic medication A");
-    await expect(preview.getByRole("spinbutton", { name: "Refusals in the last 30 days" })).toHaveValue("2");
-
-    await preview.getByRole("radio", { name: "Yes" }).click();
-    await expect(preview.getByRole("heading", { name: "Record the refusals" })).toHaveCount(0);
-    await preview.getByRole("radio", { name: "No" }).click();
-    await preview.getByRole("button", { name: "Continue" }).click();
-    await expect(preview.getByRole("heading", { name: "What medications is the client currently taking?" })).toBeVisible();
-    await expect(preview.getByRole("textbox", { name: "Medications at intake" })).toHaveValue(/Synthetic medication A/);
-    await expect(preview.getByRole("radio", { name: "Oral only" })).toHaveAttribute("aria-checked", "true");
-
-    await preview.getByRole("button", { name: "Continue" }).click();
-    await expect(preview.getByRole("heading", { name: "Does the client receive IM injections?" })).toBeVisible();
-    await expect(preview.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
-
-    await preview.getByRole("button", { name: "Continue" }).click();
-    await expect(preview.getByRole("heading", { name: "Review the Medication section" })).toBeVisible();
-    await expect(preview.getByText("No · 2 refusals in the last 30 days")).toBeVisible();
-    await expect(preview.getByText("2 listed · Oral only")).toBeVisible();
-
-    await preview.getByRole("button", { name: "Back" }).click();
-    await expect(preview.getByRole("heading", { name: "Does the client receive IM injections?" })).toBeVisible();
-
-    const bounds = await preview.boundingBox();
-    expect(bounds).toMatchObject({ x: 0, y: 0, width: 1280, height: 800 });
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await expect(preview.getByRole("button", { name: "Continue" })).toBeVisible();
-    expect(await preview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-  });
-
-  test("opens a real synthetic assessment rehearsal", async ({ page }) => {
-    test.setTimeout(60_000);
-    const errors = watchBrowserErrors(page);
-    const response = await openAdminPresentation(page);
-    expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "Find your referral" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Pipeline training" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
-    await closePresentation(page);
-    await page.getByRole("tab", { name: "Practice cases" }).click();
-
-    const scenario = page.getByRole("article").filter({
-      has: page.getByRole("heading", { name: "Assessment interview" }),
-    });
-    const newAttempt = scenario.getByRole("button", { name: /^(Start|New attempt)$/ });
-    await expect(newAttempt).toBeEnabled();
-    await newAttempt.click();
-
-    await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment/);
-    await expect(page.locator('[data-pipeline-demo-banner="true"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: /02 Assessment/ })).toHaveAttribute("aria-current", "page");
-    const interview = page.getByRole("dialog", { name: "Assessment interview" });
-    await expect(interview).toBeVisible();
-    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await expect(interview).toHaveAttribute("data-total-questions", "127");
-    await expect(interview.getByRole("textbox", { name: "Resident name" })).toBeEditable();
-    const desktopNextBounds = await interview.getByRole("button", { name: "Next", exact: true }).boundingBox();
-    expect(desktopNextBounds).not.toBeNull();
-    expect((desktopNextBounds?.x ?? 0) + (desktopNextBounds?.width ?? 0)).toBeGreaterThan(1_390);
-    await interview.getByRole("button", { name: "Next", exact: true }).click();
-    const desktopBackBounds = await interview.getByRole("button", { name: "Back", exact: true }).boundingBox();
-    expect(desktopBackBounds?.x ?? 100).toBeLessThan(60);
-    await interview.getByRole("button", { name: "Back", exact: true }).click();
-    await interview.getByRole("textbox", { name: "Resident name" }).fill("TR-1008");
-    await interview.getByRole("button", { name: "Full assessment" }).click();
-    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
-    await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("TR-1008");
-    await interview.getByRole("button", { name: /Clinical 0\/6/ }).click();
-    await expect(interview.getByRole("heading", { name: "Current presentation" })).toBeVisible();
-    await expect(interview.getByRole("textbox", { name: "Current symptoms" })).toBeEditable();
-    await interview.getByText("Language Lab", { exact: true }).first().click();
-    await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
-
-    await interview.getByRole("button", { name: "Guided interview" }).click();
-    await page.setViewportSize({ width: 390, height: 844 });
-    expect(await interview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    await expect(interview.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
-    const screenCount = Number(await interview.getAttribute("data-visible-screens"));
-    expect(screenCount).toBeGreaterThan(20);
-    expect(screenCount).toBeLessThan(50);
-    for (let index = 0; index < screenCount; index += 1) {
-      const next = interview.getByRole("button", { name: "Next", exact: true });
-      if (await next.count() === 0) break;
-      await next.click();
+for (const width of [320, 390, 834, 1440]) {
+  test(`synthetic assessment edits and Language Lab remain isolated and usable at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    const writes = watchWorkflowWrites(page);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(practice);
+    const assessment = page.locator('[data-assessment-view="assessment"]');
+    await expect(assessment).toBeVisible();
+    const answer = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    await expect(answer).toBeEditable();
+    const text = "Synthetic interview finding\nAdditional documented history";
+    await answer.fill(text);
+    await answer.blur();
+    await expect(answer).toHaveValue(text);
+    const guidance = assessment.locator('summary[aria-label="Language Lab for Secondary diagnosis"]');
+    await guidance.click();
+    await expect(guidance.locator("..")).toContainText("One diagnosis per line");
+    expect(await assessment.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width < 640) {
+      await expect(page.getByRole("button", { name: "Choose questionnaire section", exact: true })).toBeInViewport();
+      await expect(page.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /^Next/ })).toBeInViewport();
+    } else {
+      const sections = assessment.getByRole("combobox", { name: "Assessment section", exact: true });
+      await expect(sections.locator("option")).toHaveCount(12);
+      await sections.selectOption("functional_adl");
+      await sections.selectOption("diagnosis_clinical");
+      await assessment.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+      await expect(answer).toHaveValue(text);
     }
-    await interview.getByRole("button", { name: "Done", exact: true }).click();
-    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
-    await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
-    await expect.poll(() => errors).toEqual([]);
-  });
-
-  test("lets an admin open workflow stages without creating a record", async ({ page }) => {
-    test.setTimeout(60_000);
-    const writes: string[] = [];
-    page.on("request", (request) => {
-      if (request.method() !== "GET") writes.push(`${request.method()} ${request.url()}`);
-    });
-
-    const response = await page.goto("/training/demo?view=tester");
-    expect(response?.status()).toBe(200);
-    const testerTab = page.getByRole("tab", { name: "Process tester" });
-    await expect(testerTab).toHaveAttribute("aria-selected", "true");
-    const tester = page.locator('[data-process-tester="true"]');
-    await expect(tester.getByRole("heading", { name: "Process tester" })).toBeVisible();
-    await expect(tester.getByRole("button", { name: "Open intake" })).toBeVisible();
-    await expect(tester.getByRole("button", { name: "Open scheduling" })).toBeVisible();
-    await expect(tester.getByRole("button", { name: "Open assessment" })).toBeVisible();
-    await expect(tester.getByRole("button", { name: "Open review" })).toBeVisible();
-    await expect(tester.getByRole("button", { name: "Open decision" })).toBeVisible();
-
-    await tester.getByRole("button", { name: "Open assessment" }).click();
-    const firstPracticeId = new URL(page.url()).searchParams.get("draftId");
-    expect(firstPracticeId).toBeTruthy();
-    await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=identity/);
-    const interview = page.getByRole("dialog", { name: "Assessment interview" });
-    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await expect(interview).toHaveAttribute("data-total-questions", "127");
-    await expect(interview).toHaveAttribute("data-screen-index", "0");
-    while (Number(await interview.getAttribute("data-screen-index")) > 0) {
-      await interview.getByRole("button", { name: "Back", exact: true }).click();
-    }
-    await interview.getByRole("textbox", { name: "Resident name" }).fill("Tester Guided Person");
-    await interview.getByRole("button", { name: "Full assessment" }).click();
-    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
-    await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("Tester Guided Person");
-    const closeAssessment = interview.getByRole("button", { name: "Back to referral", exact: true });
-    await expect(closeAssessment).toBeInViewport();
-    expect((await closeAssessment.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    await interview.getByRole("button", { name: "Guided interview", exact: true }).click();
-    await page.setViewportSize({ width: 390, height: 844 });
-    expect(await interview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    const screenCount = Number(await interview.getAttribute("data-visible-screens"));
-    for (let index = 0; index < screenCount; index += 1) {
-      const next = interview.getByRole("button", { name: "Next", exact: true });
-      if (await next.count() === 0) break;
-      await next.click();
-    }
-    await interview.getByRole("button", { name: "Done", exact: true }).click();
-    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
-    await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
-    await expect(closeAssessment).toBeInViewport();
-    const returnBounds = (await closeAssessment.boundingBox())!;
-    expect(returnBounds.x + returnBounds.width).toBeLessThanOrEqual(390);
-
-    await page.goto("/training/demo?view=tester");
-    await tester.getByRole("button", { name: "Open assessment" }).click();
-    expect(new URL(page.url()).searchParams.get("draftId")).not.toBe(firstPracticeId);
-    await expect(interview).toHaveAttribute("data-screen-index", "0");
-    await expect(interview.getByRole("textbox", { name: "Resident name" })).toHaveValue("Taylor Rivera");
-    await page.goto("/training/demo?view=tester");
-    await tester.getByRole("button", { name: "Open review" }).click();
-    await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=provenance_qc/);
-    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await interview.getByRole("button", { name: "Full assessment", exact: true }).click();
-    await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`practice-${width}.png`) });
     expect(writes).toEqual([]);
+    expect(errors).toEqual([]);
   });
+}
 
-  test("keeps referral intake practice out of production storage", async ({ page }) => {
-    const workflowWrites: string[] = [];
-    page.on("request", (request) => {
-      const url = new URL(request.url());
-      if (request.method() !== "GET" && (/^\/api\/referrals(?:\/|$)/.test(url.pathname) || url.pathname.startsWith("/api/me/referral-drafts/"))) {
-        workflowWrites.push(`${request.method()} ${url.pathname}`);
-      }
-    });
-
-    await page.goto(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&trainingIntake=1&demo=1`);
-    await page.locator('[data-workspace-field="name"] input').fill("Synthetic Intake Test");
-    await page.getByRole("button", { name: "Create referral", exact: true }).click();
-    await expect(page.getByTestId("workspace-save-status")).toContainText("Practice changes saved in this tab");
-    await page.waitForTimeout(500);
-    expect(workflowWrites).toEqual([]);
-  });
-
-  test("finishes the workshop at the signed-in user's own referrals", async ({ page }) => {
-    const writes: string[] = [];
-    page.on("request", (request) => {
-      if (request.method() !== "GET" && /\/api\/(?:demo|referrals|assessments)(?:\/|$)/.test(new URL(request.url()).pathname)) writes.push(request.url());
-    });
-    await page.goto("/training/demo?journey=1");
-    await expect(page.getByRole("tablist", { name: "Demo Center sections" })).toHaveCount(0);
-    const slideSelect = page.getByRole("combobox", { name: "Jump to slide" });
-    await slideSelect.selectOption(String(await slideSelect.locator("option").count() - 1));
-    await page.getByRole("button", { name: "Open your referrals", exact: true }).click();
-    await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeVisible();
-    expect(writes).toEqual([]);
-  });
-
-  test("defers practice data until the practice surface is opened", async ({ page }) => {
-    const referralRequests: string[] = [];
-    page.on("request", (request) => {
-      const url = new URL(request.url());
-      if (request.method() === "GET" && url.pathname.endsWith("/api/referrals") && url.searchParams.get("tag") === "pipeline-demo") {
-        referralRequests.push(url.toString());
-      }
-    });
-
-    await openAdminPresentation(page);
-    await expect(page.getByRole("heading", { name: "Find your referral" })).toBeVisible();
-    expect(referralRequests).toEqual([]);
-
-    await closePresentation(page);
-    await expect.poll(() => referralRequests.length).toBe(1);
-  });
-
-  test("uses the full viewport for the presentation and the full application body for demo pages", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await openAdminPresentation(page);
-    const center = page.locator('[data-demo-center="true"]');
-    const presentation = page.locator('[data-demo-surface="presentation"]');
-    await expect(presentation).toBeVisible();
-
-    await expectPresentationToFillViewport(presentation, page);
-    expect(await center.evaluate((element) => element.scrollHeight)).toBe(await center.evaluate((element) => element.clientHeight));
-
-    await closePresentation(page);
-    const practice = page.locator('[data-demo-surface="practice"]');
-    await expect(practice).toBeVisible();
-    await expectDemoSurfaceToFillBody(practice, center);
-  });
-
-  test("matches Language Lab across the presentation and both assessment views", async ({ page }) => {
-    const workflowWrites: string[] = [];
-    page.on("request", (request) => {
-      const url = new URL(request.url());
-      if (request.method() !== "GET" && /^\/api\/(?:referrals|assessments)(?:\/|$)/.test(url.pathname)) {
-        workflowWrites.push(`${request.method()} ${url.pathname}`);
-      }
-    });
-    await mockTrainingProgress(page);
-    await openAdminPresentation(page);
-
-    const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
-    await slideNavigation.getByRole("combobox", { name: "Jump to slide" }).selectOption("6");
-    await expect(page.getByRole("img", { name: /Language Lab expanded beneath the Prior placements answer/ })).toBeVisible();
-    await page.setViewportSize({ width: 390, height: 844 });
-    expect(await page.getByRole("article", { name: "Presentation slide 7" }).evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    await page.goto("/training");
-    await page.getByRole("button", { name: "Open Finish an assessment", exact: true }).click();
-    await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^03 Section 3 of 12/ }).click();
-    await page.getByRole("button", { name: "Open guided tooltip for Enter an answer", exact: true }).click();
-
-    await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=prior_history/);
-    const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
-    const interview = page.getByRole("dialog", { name: "Assessment interview" });
-    await expect(coach.getByRole("heading", { name: "Enter an answer" })).toBeVisible();
-    for (let index = 0; index < 8 && await interview.locator('[data-guide-target~="assessment-answer"]:visible').count() === 0; index += 1) {
-      await interview.getByRole("button", { name: "Next", exact: true }).click();
-    }
-    await interview.locator('[data-guide-target~="assessment-answer"]:visible').first().fill("Client reports one crisis visit last month; packet review is pending.");
-    await expect(coach.getByRole("heading", { name: "Open Language Lab" })).toBeVisible();
-    await interview.locator('[data-guide-target~="assessment-answer-help"]:visible').first().click();
-    await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
-    await coach.getByRole("button", { name: "Pause tutorial" }).click();
-    await interview.getByRole("button", { name: "Full assessment" }).click();
-    const chartLab = interview.locator("details").filter({ has: page.getByLabel("Language Lab for Prior placements", { exact: true }) });
-    await chartLab.locator("summary").click();
-    await expect(chartLab.getByText("Use this order", { exact: true })).toBeVisible();
-    await expect(chartLab.getByText("Example format", { exact: true })).toBeVisible();
-    const expectedGuide = await chartLab.innerText();
-
-    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=guided&assessmentSection=prior_history&demo=1");
-    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    for (let index = 0; index < 12 && await interview.getByRole("textbox", { name: "Prior placements", exact: true }).count() === 0; index += 1) {
-      await interview.getByRole("button", { name: "Next", exact: true }).click();
-    }
-    const guidedLab = interview.locator("details").filter({ has: page.getByLabel("Language Lab for Prior placements", { exact: true }) });
-    await guidedLab.locator("summary").click();
-    await expect(guidedLab).toHaveText(expectedGuide, { useInnerText: true });
-    expect(await guidedLab.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    expect(workflowWrites).toEqual([]);
-  });
-
-  test("starts an intake guide from separate Quick help", async ({ page }) => {
-    await openAdminPresentation(page);
-    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("2");
-    await startQuickHelp(page, "Create a referral");
-
-    await expect(page).toHaveURL(/view=referrals.*screen=packet.*draftId=/);
-    await expect(page.getByRole("dialog", { name: "Create a referral guided tutorial" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
-    await expect(page.getByRole("group", { name: "Upload initial referral document" })).toBeVisible();
-  });
-
-  test("navigates the interview walkthrough through every real assessment section", async ({ page }) => {
-    const errors = watchBrowserErrors(page);
-    await mockTrainingProgress(page);
-    await openAdminPresentation(page);
-    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("5");
-    await startQuickHelp(page, "Finish an assessment");
-
-    await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment.*trainingAssessment=guided/);
-    const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
-    await expect(coach).toBeVisible();
-    await expect(coach.getByRole("button", { name: "Open page" })).toHaveCount(0);
-    await expect(coach.getByText("Do this", { exact: true })).toHaveCount(0);
-    await expect(coach.getByText("Done when", { exact: true })).toHaveCount(0);
-    await expect(coach.getByText("Why this matters", { exact: true })).toHaveCount(0);
-    await expect(coach.getByText("Review these questions, then continue. Use Next for more questions in this section.", { exact: true })).toBeVisible();
-    const interview = page.getByRole("dialog", { name: "Assessment interview" });
-    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
-    await expect(interview).toHaveAttribute("data-total-questions", "127");
-
-    const confirmSection = async (section: string, routeSection: string) => {
-      await expect(page).toHaveURL(new RegExp(`assessmentSection=${routeSection}`));
-      await expect(coach.getByRole("heading", { name: section, exact: true })).toBeVisible();
-      await expect(interview).toHaveAttribute("data-screen-section", routeSection);
-      await expect(interview.locator("main[data-guide-target]")).toBeVisible();
-      await coach.getByRole("button", { name: "Continue", exact: true }).click();
-    };
-
-    await confirmSection("Client & referral", "identity");
-    await confirmSection("Placement", "prior_placement");
-    await confirmSection("History", "prior_history");
-
-    await expect(coach.getByRole("heading", { name: "Enter an answer" })).toBeVisible();
-    for (let index = 0; index < 8 && await interview.locator('[data-guide-target~="assessment-answer"]:visible').count() === 0; index += 1) {
-      await interview.getByRole("button", { name: "Next", exact: true }).click();
-    }
-    await interview.locator('[data-guide-target~="assessment-answer"]:visible').first().fill("Synthetic history reviewed with the client.");
-    await expect(coach.getByRole("heading", { name: "Open Language Lab" })).toBeVisible();
-    await interview.locator('[data-guide-target~="assessment-answer-help"]:visible').first().click();
-    await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
-    await coach.getByRole("button", { name: "Continue" }).click();
-
-    await confirmSection("Clinical", "diagnosis_clinical");
-    await confirmSection("Function", "functional_adl");
-    await confirmSection("Medication", "medication");
-    await confirmSection("Substance use", "substance_use");
-    await confirmSection("Behavior & safety", "behavioral_risk");
-    await confirmSection("Physical health", "physical_health");
-    await confirmSection("Legal", "legal_conservatorship");
-    await confirmSection("Support & goals", "social_support");
-    await confirmSection("Review", "provenance_qc");
-    await expect(coach.getByRole("heading", { name: "Check saved" })).toBeVisible();
-    await expect(coach).toContainText("Wait for Practice changes saved locally.");
-    await coach.getByRole("button", { name: "Continue", exact: true }).click();
-    await expect(coach.getByRole("heading", { name: "Review the full assessment" })).toBeVisible();
-    await expect(coach).toContainText("Do not sign a practice record.");
-    await interview.getByRole("button", { name: "Full assessment" }).click();
-    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
-    await expect.poll(() => errors).toEqual([]);
-  });
-
-  test("moves directly from a saved schedule into the assessment", async ({ page }) => {
-    const errors = watchBrowserErrors(page);
-    await mockTrainingProgress(page);
-    await openAdminPresentation(page);
-    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("4");
-    await startQuickHelp(page, "Schedule an assessment");
-
-    const coach = page.getByRole("dialog", { name: "Schedule an assessment guided tutorial" });
-    const schedule = page.getByRole("dialog", { name: "Schedule assessment" });
-    await expect(coach.getByRole("heading", { name: "Set the appointment" })).toBeVisible();
-    const appointment = schedule.getByLabel("Assessment date and time");
-    await appointment.fill(futureLocalDateTime());
-    await appointment.blur();
-    await expect(coach.getByRole("heading", { name: "Choose the interview method" })).toBeVisible();
-    await schedule.getByLabel("Assessment method").selectOption("zoom");
-    await expect(coach.getByRole("heading", { name: "Save the schedule" })).toBeVisible();
-    await schedule.getByLabel("Zoom meeting link").fill("https://example.invalid/pipeline-training");
-    await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-
-    await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=identity/);
-    await expect(page.getByRole("dialog", { name: "Begin assessment" })).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
-    await expect(coach.getByRole("heading", { name: "Open the assessment" })).toBeVisible();
-    await expect(page.getByRole("dialog", { name: "Assessment interview" })).toHaveAttribute("data-guided-assessment", "true");
-    await expect.poll(() => errors).toEqual([]);
-  });
-
-  test("keeps the presentation and practice cases usable on a narrow screen", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await openAdminPresentation(page);
-    await expect(page.getByRole("heading", { name: "Find your referral" })).toBeVisible();
-    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("2");
-    await expect(page.getByRole("img", { name: /Intake screen with the referral packet area highlighted/ })).toBeVisible();
-    await closePresentation(page);
-    await expect(page.locator('[data-demo-surface="practice"]')).toBeVisible();
-    const center = page.locator('[data-demo-center="true"]');
-    expect(await center.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    for (const tab of ["Presentation", "Practice cases", "Submittal & acceptance", "Process tester"]) {
-      await expect(page.getByRole("tab", { name: tab })).toBeInViewport();
-    }
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  });
-
-  test("keeps every training surface usable at tablet size", async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 });
-    await openAdminPresentation(page);
-    const center = page.locator('[data-demo-center="true"]');
-    await expectPresentationToFillViewport(page.locator('[data-demo-surface="presentation"]'), page);
-    await closePresentation(page);
-
-    for (const tab of ["Practice cases", "Submittal & acceptance"]) {
-      await page.getByRole("tab", { name: tab }).click();
-      await expect(page.getByRole("tab", { name: tab })).toHaveAttribute("aria-selected", "true");
-      expect(await center.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    }
-
-    await page.getByRole("tab", { name: "Practice cases" }).click();
-    await expect(page.locator('[data-demo-surface="practice"]')).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  });
-
-  test("rehearses assessor submittal and supervisor acceptance without changing data", async ({ page }) => {
-    const requests: string[] = [];
-    page.on("request", (request) => {
-      if (request.method() !== "GET") requests.push(`${request.method()} ${request.url()}`);
-    });
-
-    await openAdminPresentation(page);
-    await closePresentation(page);
-    const decisionTab = page.getByRole("tab", { name: "Submittal & acceptance" });
-    await expect(decisionTab).toBeVisible();
-    await page.waitForLoadState("networkidle");
-    await decisionTab.click();
-    await expect(decisionTab).toHaveAttribute("aria-selected", "true");
-    const rehearsal = page.locator('[data-submittal-acceptance-demo="true"]');
-    await expect(rehearsal).toBeVisible();
-    await rehearsal.getByRole("button", { name: "Submit for supervisor review" }).click();
-    await expect(rehearsal.getByText("Awaiting supervisor review", { exact: true })).toBeVisible();
-    await rehearsal.getByRole("button", { name: "Record accepted decision" }).click();
-    await expect(rehearsal.getByRole("button", { name: "Accepted decision recorded" })).toBeVisible();
-    expect(requests).toEqual([]);
-  });
+test("leaving practice removes its scope without converting practice answers into live records", async ({ page }) => {
+  const writes = watchWorkflowWrites(page);
+  await page.goto(practice);
+  await expect(page.locator('[data-assessment-view="assessment"]')).toBeVisible();
+  await page.getByRole("textbox", { name: "Secondary diagnosis", exact: true }).fill("Synthetic practice only");
+  await page.getByRole("button", { name: "Open referrals", exact: true }).click();
+  await expect(page).toHaveURL(/view=referrals/);
+  await expect(page).not.toHaveURL(/demo=|trainingAssessment=|trainingIntake=/);
+  await expect(page.locator('[data-pipeline-demo-banner="true"]')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
+  expect(writes).toEqual([]);
 });
 
-async function expectDemoSurfaceToFillBody(surface: Locator, center: Locator) {
-  const [centerBox, surfaceBox] = await Promise.all([center.boundingBox(), surface.boundingBox()]);
-  expect(centerBox).not.toBeNull();
-  expect(surfaceBox).not.toBeNull();
-  if (!centerBox || !surfaceBox) throw new Error("The demo surface must have measurable bounds.");
-  expect(Math.abs(surfaceBox.x - centerBox.x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(surfaceBox.width - centerBox.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs((surfaceBox.y + surfaceBox.height) - (centerBox.y + centerBox.height))).toBeLessThanOrEqual(1);
-}
+test("referral intake practice saves locally without creating or updating a live referral", async ({ page }) => {
+  const writes = watchWorkflowWrites(page);
+  await page.goto(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&trainingIntake=1&demo=1`);
+  await page.locator('[data-workspace-field="name"] input').fill("Synthetic Intake Test");
+  await page.getByRole("button", { name: "Create referral", exact: true }).click();
+  await expect(page.getByTestId("workspace-save-status")).toContainText("Practice changes saved in this tab");
+  await expect(page).not.toHaveURL(/referralId=/);
+  expect(writes).toEqual([]);
+});
 
-async function expectPresentationToFillViewport(surface: Locator, page: import("@playwright/test").Page) {
-  await expect(surface).toBeVisible();
-  const [box, viewport] = await Promise.all([surface.boundingBox(), page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))]);
-  expect(box).not.toBeNull();
-  if (!box) throw new Error("The presentation must have measurable bounds.");
-  expect(Math.abs(box.x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(box.y)).toBeLessThanOrEqual(1);
-  expect(Math.abs(box.width - viewport.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(box.height - viewport.height)).toBeLessThanOrEqual(1);
-}
+test("Help scheduling records a synthetic appointment and opens the same practice assessment", async ({ page }) => {
+  const writes = watchWorkflowWrites(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+  await page.getByRole("dialog", { name: "Guided tutorial library" }).getByRole("button", { name: /^Schedule an assessment/ }).click();
+  const coach = page.getByRole("dialog", { name: "Schedule an assessment guided tutorial", exact: true });
+  const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+  await expect(coach.getByRole("heading", { name: "Set the appointment" })).toBeVisible();
+  const date = schedule.getByLabel("Assessment date and time");
+  await date.fill("2027-10-14T09:30");
+  await date.blur();
+  await schedule.getByLabel("Assessment method").selectOption("zoom");
+  await schedule.getByLabel("Zoom meeting link").fill("https://example.invalid/pipeline-practice");
+  await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+  await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=identity/);
+  await expect(schedule).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-assessment-view="assessment"]')).toBeVisible();
+  await expect(coach.getByRole("heading", { name: "Open the assessment" })).toBeVisible();
+  expect(writes).toEqual([]);
+});
 
-async function openAdminPresentation(page: import("@playwright/test").Page) {
-  const response = await page.goto("/training/demo?view=tester");
-  await page.getByRole("tab", { name: "Presentation", exact: true }).click();
-  return response;
-}
-
-async function startQuickHelp(page: import("@playwright/test").Page, title: string) {
-  await page.goto("/training");
-  await page.getByRole("button", { name: `Open ${title}`, exact: true }).click();
-  await page.getByRole("button", { name: `Start guided walkthrough: ${title}`, exact: true }).click();
-  if (title === "Create a referral") await page.getByRole("button", { name: "Create new referral", exact: true }).click();
-}
-
-async function closePresentation(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "Close presentation" }).click();
-  await expect(page.getByRole("tab", { name: "Practice cases" })).toHaveAttribute("aria-selected", "true");
-}
-
-function watchBrowserErrors(page: import("@playwright/test").Page) {
-  const errors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() !== "error" || message.text().includes("/_next/webpack-hmr")) return;
-    const sourceUrl = message.location().url;
-    errors.push(sourceUrl ? `${message.text()} (${sourceUrl})` : message.text());
-  });
-  page.on("pageerror", (error) => errors.push(error.message));
-  return errors;
-}
-
-function futureLocalDateTime() {
-  const date = new Date(Date.now() + 24 * 60 * 60 * 1_000);
-  date.setMinutes(0, 0, 0);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
-async function mockTrainingProgress(page: import("@playwright/test").Page) {
-  let revision = 0;
-  let progress = {
-    version: 2,
-    curriculumVersion: "e2e",
-    role: "admin",
-    completedActivityIds: [],
-    activeModuleId: "pipeline-purpose",
-    activeActivityId: "overview",
-    evidence: {},
-    confidence: {},
-    scenarioResults: {},
-    tutorialResults: {},
-  };
-  await page.route("**/api/training/progress", async (route) => {
-    if (route.request().method() === "PUT") {
-      const body = route.request().postDataJSON() as { progress?: typeof progress };
-      if (body.progress) progress = body.progress;
-      revision += 1;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ revision, progress, updatedAt: null, persistence: "browser" }),
-    });
-  });
-}
+test("all twelve assessment sections are reachable without filling or signing anything", async ({ page }) => {
+  const writes = watchWorkflowWrites(page);
+  await page.goto(practice);
+  const sections = page.getByRole("combobox", { name: "Assessment section", exact: true });
+  const keys = ["identity", "diagnosis_clinical", "prior_placement", "prior_history", "functional_adl", "medication", "substance_use", "behavioral_risk", "physical_health", "legal_conservatorship", "social_support", "provenance_qc"];
+  await expect(sections.locator("option")).toHaveCount(12);
+  const values = await sections.locator("option").evaluateAll((elements) => elements.map((element) => (element as HTMLOptionElement).value));
+  expect(new Set(values).size).toBe(12);
+  expect(values).toEqual(expect.arrayContaining(keys));
+  for (const key of keys) {
+    await sections.selectOption(key);
+    await expect(sections).toHaveValue(key);
+    await expect(page.locator('[data-assessment-question-editor]')).toBeVisible();
+  }
+  expect(writes).toEqual([]);
+});

@@ -44,6 +44,8 @@ for (const outcome of ['ready', 'unavailable'] as const) {
     await page.getByTestId('initial-packet-input').setInputFiles({ name:'synthetic-beta.pdf', mimeType:'application/pdf', buffer:Buffer.from(`synthetic-beta-${randomUUID()}`) });
     await page.getByRole('button', { name:'Create referral', exact:true }).click();
     await expect.poll(()=>new URL(page.url()).searchParams.get('referralId')).not.toBeNull();
+    await page.getByRole('button', { name:'Edit referral details', exact:true }).click();
+    await documents.click();
     await expect(beta).toContainText('background');
     const referralId=new URL(page.url()).searchParams.get('referralId');
     const dob=page.getByLabel('Date of birth', { exact:true });
@@ -62,9 +64,10 @@ for (const outcome of ['ready', 'unavailable'] as const) {
       await expect(beta).toContainText('Suggestions are unavailable',{timeout:15000});
       await expect(dob).toHaveValue('1984-06-12');
     }
-    await page.getByRole('button',{name:'02 Questionnaire'}).click();
+    await page.getByRole('button',{name:'Assessment', exact:true}).click();
     await expect(page.getByRole('region',{name:'Intake',exact:true})).toHaveCount(0);
-    await page.getByRole('button',{name:'01 Intake'}).click();
+    await page.getByRole('button',{name:'Chart', exact:true}).click();
+    await page.getByRole('button',{name:'Edit referral details', exact:true}).click();
     await expect(dob).toHaveValue(outcome==='ready'?'1984-06-13':'1984-06-12');
   });
 }

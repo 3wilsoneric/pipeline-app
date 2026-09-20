@@ -18,11 +18,21 @@ function build(id, referrals, items = new Map(), filters = {}, residents = []) {
   return reports.buildClientDataReport({ id, label: id, filters: [], cadence: "Current", audience: "Supervisors", description: "" }, { report_id: id, month: "", community: "", county: "", owner: "", client_scope: "all", care_topic: "primary_diagnosis", ...filters }, referrals, items, residents);
 }
 
-test("every approved Pipeline role can use reports", () => {
+test("Reports are restricted to the named supervisors without restricting shared workspace operations", () => {
   for (const role of ["admin", "assessment_coordinator", "reviewer", "viewer"]) {
-    assert.equal(access.canAccessOperationsReports({ email: "approved@pipeline.local", roles: [role] }), true);
     assert.equal(access.canAccessSupervisorOperations([role]), true);
+    assert.equal(access.canAccessOperationsReports({ id: "other", email: "other@example.test", roles: [role] }), false);
+    assert.equal(access.canAccessOperationsReports({ id: "local", email: "approved@pipeline.local", roles: [role] }), ["admin", "assessment_coordinator"].includes(role));
   }
+  for (const email of ["ericwilsonalamo@outlook.com", "andrew@aaahealthservices.com", "sandeep@aaahealthservices.com"]) {
+    for (const role of ["admin", "assessment_coordinator"]) {
+      assert.equal(access.canAccessOperationsReports({ email: ` ${email.toUpperCase()} `, roles: [role] }), true);
+    }
+    assert.equal(access.canAccessOperationsReports({ email, roles: ["viewer"] }), false);
+    assert.equal(access.canAccessOperationsReports({ email, roles: ["admin"], accessScope: "note_lab" }), false);
+  }
+  assert.equal(access.canAccessOperationsReports({ email: "sandeep@aaahealthservices.com.attacker.test", roles: ["admin"] }), false);
+  assert.equal(access.canAccessOperationsReports({ roles: ["admin"] }), false);
   assert.equal(access.canAccessOperationsReports(null), false);
   assert.equal(access.canAccessOperationsReports({ roles: [] }), false);
 });
@@ -41,7 +51,7 @@ test("both report routes require Pipeline authentication before reading data or 
   const route = loadEntry("app/api/operations/reports/route.ts", {
     "@/lib/auth/pipeline-auth": { requirePipelineUser: (_request, roles) => {
       authenticationCalls++;
-      assert.deepEqual(Array.from(roles), ["admin", "assessment_coordinator", "reviewer", "viewer"]);
+      assert.deepEqual(Array.from(roles), ["admin", "assessment_coordinator"]);
       return { ok: false, response: Response.json({ error: "Insufficient role" }, { status: 403 }) };
     } },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _path, work) => work() },
@@ -65,6 +75,53 @@ test("report routes reject Note Lab-only scope before touching report stores", a
   });
   assert.equal((await route.GET(new Request("http://localhost/api/operations/reports"))).status, 403);
   assert.equal((await route.POST(new Request("http://localhost/api/operations/reports", { method: "POST" }))).status, 403);
+});
+
+test("every Reports data entry point checks the named account before any store access", async () => {
+  const identities = [
+    ...["ericwilsonalamo@outlook.com", "andrew@aaahealthservices.com", "sandeep@aaahealthservices.com"].map(email => ({ email, roles: ["admin"], allowed: true })),
+    { email: "other@example.test", roles: ["admin"], allowed: false },
+    { email: "andrew@aaahealthservices.com", roles: ["viewer"], allowed: false },
+    { email: "andrew@aaahealthservices.com", roles: ["admin"], accessScope: "note_lab", allowed: false },
+  ];
+  for (const { allowed, ...identity } of identities) {
+    let reads = 0;
+    let exports = 0;
+    const user = { id: "account-test", name: "Synthetic account", ...identity };
+    const guard = () => assert.equal(allowed, true, "Denied account reached a data store");
+    const overrides = {
+      "@/lib/auth/pipeline-auth": { requirePipelineUser: (_request, roles) => {
+        assert.deepEqual(Array.from(roles), ["admin", "assessment_coordinator"]);
+        return { ok: true, user };
+      } },
+      "@/lib/observability/api-logging": { withApiLogging: (_request, _path, work) => work() },
+      "@/lib/auth/request-security": { requireSameOriginMutation: () => null },
+      "@/lib/pipeline/referral-store": { requireReferralStore: () => { guard(); return { ok: true }; } },
+      "@/lib/assessment/assessment-store": {},
+      "@/lib/pipeline/operations-reporting": {
+        ReportAccessError: class extends Error {},
+        getOperationsReport: () => { guard(); reads++; return { rows: [] }; },
+        recordOperationsReportExport: () => { guard(); exports++; },
+        operationsReportCsv: () => "Name\n",
+      },
+      "@/lib/pipeline/operations-snapshot": {
+        getOperationsDashboardSnapshot: () => { guard(); reads++; return { snapshot: {}, supervisorQueue: [] }; },
+        getWorkAssessmentGraphSnapshot: () => { guard(); reads++; return { nodes: [] }; },
+      },
+    };
+    for (const endpoint of ["reports", "dashboard", "work-assessment-graph"]) {
+      const route = loadEntry(`app/api/operations/${endpoint}/route.ts`, overrides);
+      const url = `http://localhost/api/operations/${endpoint}`;
+      assert.equal((await route.GET(new Request(url))).status, allowed ? 200 : 403, `${identity.email} ${endpoint}`);
+      if (endpoint === "reports") {
+        const result = await route.POST(new Request(url, { method: "POST", body: JSON.stringify({ report_id: "active_referrals", month: "2026-09" }) }));
+        assert.equal(result.status, allowed ? 200 : 403);
+        if (allowed) assert.match(result.headers.get("Content-Type"), /text\/csv/);
+      }
+    }
+    assert.equal(reads, allowed ? 4 : 0);
+    assert.equal(exports, allowed ? 1 : 0);
+  }
 });
 
 test("community totals deduplicate stable client identities, never names", () => {

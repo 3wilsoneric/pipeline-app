@@ -302,13 +302,9 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const updateAppointmentStatus = async (event: PipelineCalendarEvent, status: "cancelled" | "no_show" | "completed") => {
     if (!confirmLeaveDetails()) return;
     if (!event.assessmentId) return;
-    const confirmation = status === "completed"
-      ? "Record that this interview happened? Documentation stays editable. This does not sign, submit, or send the assessment."
-      : status === "no_show"
-      ? "Mark this assessment as a no-show? It will return to the scheduling queue."
-      : "Cancel this assessment appointment? It will return to the scheduling queue.";
-    if (!window.confirm(confirmation)) return;
-    setMutationState({ busy: true, error: "", message: status === "completed" ? "Recording interview..." : status === "no_show" ? "Recording no-show..." : "Cancelling appointment...", canOverride: false });
+    const copy = calendarOutcomeCopy(status);
+    if (!window.confirm(copy.confirmation)) return;
+    setMutationState({ busy: true, error: "", message: copy.pending, canOverride: false });
     try {
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(`/api/assessments/${encodeURIComponent(event.assessmentId)}`, { cache: "no-store" });
       const assessment = payload.assessment;
@@ -320,17 +316,11 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         body: JSON.stringify({
           if_match: assessment.version,
           client_mutation_id: mutationId(`calendar-${status}`),
-          schedule: {
-            status,
-            start_at: assessment.scheduled_start_at ?? null,
-            duration_minutes: assessment.scheduled_duration_minutes ?? null,
-            method: assessment.scheduled_method ?? null,
-            location: assessment.scheduled_location ?? null,
-          },
+          schedule: calendarOutcomeSchedule(assessment, status),
         }),
       });
       setSelected(null);
-      refreshCalendar(status === "completed" ? "Interview recorded. Continue documentation whenever you are ready." : status === "no_show" ? "No-show recorded" : "Appointment cancelled");
+      refreshCalendar(copy.saved);
     } catch (reason) {
       setMutationState({ busy: false, error: reason instanceof Error ? reason.message : "The appointment could not be updated.", message: "", canOverride: false });
     }
@@ -340,6 +330,71 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     scheduleAssessmentRef.current = null;
     setScheduleTarget(null);
   };
+
+  const renderCalendarEntries = () => (
+    <div data-testid="calendar-sheet" role="region" aria-label="Calendar entries" className={calendarStyles.paper}>
+        <CalendarNotices error={error} mutationError={mutationState.error} scheduleOpen={Boolean(scheduleTarget)} onRetry={() => setRefreshToken((value) => value + 1)} />
+        <CalendarContinuing events={continuing}
+          onOpen={(event) => setSelected({ type: "event", event })}
+          onContinue={(event) => void openAssessment(event)}
+        />
+        {selectedDate ? <CalendarDateDetails date={selectedDate} loading={loading || !snapshot} error={error}
+          events={appointments.filter((event) => event.date === selectedDate)} scope={scope}
+          onOpen={(event) => setSelected({ type: "event", event })}
+          onAssessment={(event) => void openAssessment(event)}
+          onClose={() => setSelectedDate(null)}
+        /> : null}
+        <CalendarViews
+          loading={loading || !navigationReady || (!snapshot && !error)}
+          view={view}
+          anchor={anchor}
+          scope={scope}
+          owner={owner}
+          mySchedule={mySchedule}
+          range={range}
+          events={appointments}
+          unscheduled={unscheduled}
+          assessors={snapshot?.assessors ?? []}
+          eventsByDate={eventsByDate}
+          conflicts={conflicts}
+          hasFilters={hasFilters}
+          onOpen={(event) => setSelected({ type: "event", event })}
+          onAssessment={(event) => void openAssessment(event)}
+          onFocusOwner={setOwner}
+          onDate={(date) => {
+            if (date < range.from || date > range.to) setAnchor(date);
+            setSelectedDate(date);
+          }}
+        />
+        {!loading ? <CalendarFollowUps events={followUps} onOpen={(event) => setSelected({ type: "event", event })} /> : null}
+        </div>
+  );
+
+  const renderSchedulingQueue = () => (
+    queueOpen ? (
+        <CalendarPortal><SchedulingQueue
+          items={unscheduled}
+          total={snapshot?.unscheduledTotal ?? unscheduled.length}
+          hasMore={snapshot?.unscheduledHasMore ?? false}
+          search={queueSearch}
+          loading={refreshing}
+          onSearch={(value) => {
+            setQueueSearch(value);
+            setQueueLimit(24);
+          }}
+          onClose={() => setQueueOpen(false)}
+          onLoadMore={() => setQueueLimit((value) => Math.min(200, value + 24))}
+          onOpenWorkspace={(item) => openWorkspace(item, {
+            view: "intake",
+            intakeField: item.nextAction === "assign" ? "owner" : item.nextAction === "complete_contact" ? "phone" : "name",
+          })}
+          onSchedule={(item) => {
+            setQueueOpen(false);
+            beginScheduling(scheduleTargetFromUnscheduled(item));
+          }}
+        /></CalendarPortal>
+      ) : null
+  );
 
   return (
     <main ref={calendarElement} tabIndex={0} aria-label="Calendar" onScroll={(event) => { const saved = calendarNavigation.get(navigationKey); if (saved && restoreScroll.current === null) saved.scrollTop = event.currentTarget.scrollTop; }} data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className={calendarStyles.desktop}>
@@ -376,66 +431,9 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           onOpenQueue={() => setQueueOpen(true)}
           onRefresh={() => setRefreshToken((value) => value + 1)}
         />
-        <div data-testid="calendar-sheet" role="region" aria-label="Calendar entries" className={calendarStyles.paper}>
-        <CalendarNotices error={error} mutationError={mutationState.error} scheduleOpen={Boolean(scheduleTarget)} onRetry={() => setRefreshToken((value) => value + 1)} />
-        <CalendarContinuing events={continuing}
-          onOpen={(event) => setSelected({ type: "event", event })}
-          onContinue={(event) => void openAssessment(event)}
-        />
-        {selectedDate ? <CalendarDateDetails date={selectedDate} loading={loading || !snapshot} error={error}
-          events={appointments.filter((event) => event.date === selectedDate)} scope={scope}
-          onOpen={(event) => setSelected({ type: "event", event })}
-          onAssessment={(event) => void openAssessment(event)}
-          onClose={() => setSelectedDate(null)}
-        /> : null}
-        <CalendarViews
-          loading={loading || !navigationReady || (!snapshot && !error)}
-          view={view}
-          anchor={anchor}
-          scope={scope}
-          owner={owner}
-          mySchedule={mySchedule}
-          range={range}
-          events={appointments}
-          unscheduled={unscheduled}
-          assessors={snapshot?.assessors ?? []}
-          eventsByDate={eventsByDate}
-          conflicts={conflicts}
-          hasFilters={hasFilters}
-          onOpen={(event) => setSelected({ type: "event", event })}
-          onAssessment={(event) => void openAssessment(event)}
-          onFocusOwner={setOwner}
-          onDate={(date) => {
-            if (date < range.from || date > range.to) setAnchor(date);
-            setSelectedDate(date);
-          }}
-        />
-        {!loading ? <CalendarFollowUps events={followUps} onOpen={(event) => setSelected({ type: "event", event })} /> : null}
-        </div>
+        {renderCalendarEntries()}
       </div>
-      {queueOpen ? (
-        <CalendarPortal><SchedulingQueue
-          items={unscheduled}
-          total={snapshot?.unscheduledTotal ?? unscheduled.length}
-          hasMore={snapshot?.unscheduledHasMore ?? false}
-          search={queueSearch}
-          loading={refreshing}
-          onSearch={(value) => {
-            setQueueSearch(value);
-            setQueueLimit(24);
-          }}
-          onClose={() => setQueueOpen(false)}
-          onLoadMore={() => setQueueLimit((value) => Math.min(200, value + 24))}
-          onOpenWorkspace={(item) => openWorkspace(item, {
-            view: "intake",
-            intakeField: item.nextAction === "assign" ? "owner" : item.nextAction === "complete_contact" ? "phone" : "name",
-          })}
-          onSchedule={(item) => {
-            setQueueOpen(false);
-            beginScheduling(scheduleTargetFromUnscheduled(item));
-          }}
-        /></CalendarPortal>
-      ) : null}
+      {renderSchedulingQueue()}
       <CalendarPortal><CalendarOverlays
         selected={selected}
         scheduleTarget={scheduleTarget}
@@ -466,6 +464,29 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       /></CalendarPortal>
     </main>
   );
+}
+
+function calendarOutcomeCopy(status: "cancelled" | "no_show" | "completed") {
+  if (status === "completed") return {
+    confirmation: "Record that this interview happened? Documentation stays editable. This does not sign, submit, or send the assessment.",
+    pending: "Recording interview...", saved: "Interview recorded. Continue documentation whenever you are ready.",
+  };
+  if (status === "no_show") return {
+    confirmation: "Mark this assessment as a no-show? It will return to the scheduling queue.",
+    pending: "Recording no-show...", saved: "No-show recorded",
+  };
+  return {
+    confirmation: "Cancel this assessment appointment? It will return to the scheduling queue.",
+    pending: "Cancelling appointment...", saved: "Appointment cancelled",
+  };
+}
+
+function calendarOutcomeSchedule(assessment: PipelineAssessmentRecord, status: "cancelled" | "no_show" | "completed") {
+  return {
+    status, start_at: assessment.scheduled_start_at ?? null,
+    duration_minutes: assessment.scheduled_duration_minutes ?? null,
+    method: assessment.scheduled_method ?? null, location: assessment.scheduled_location ?? null,
+  };
 }
 
 // Navigation preferences only; client records remain in the authenticated data cache.

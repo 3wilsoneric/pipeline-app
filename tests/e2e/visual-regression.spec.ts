@@ -6,6 +6,7 @@ test.describe("Stable visual surfaces", () => {
   test.skip(process.env.PIPELINE_VISUAL_REGRESSION !== "true", "Visual baselines run in the isolated visual gate.");
 
   test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-09-20T12:00:00Z"));
     await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
     await page.route("**/api/profiles/directory**", (route) => route.fulfill({
       status: 200,
@@ -72,6 +73,7 @@ test.describe("Stable visual surfaces", () => {
   test("mobile new referral intake matches its baseline", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openStable(page, "/?view=referrals");
+    await page.getByRole("button", { name: /^Open page menu/ }).click();
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
     await settleStable(page);

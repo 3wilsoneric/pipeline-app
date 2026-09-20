@@ -50,6 +50,7 @@ for (const layout of ["cards", "list"] as const) {
     await fixtures(page);
     await probe(page, true);
     await page.goto("/?screen=profiles");
+    await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     if (layout === "list") await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
     const card = page.getByRole("button", { name: "Open profile for Avery Example", exact: true });
     const warm = page.waitForResponse((response) => response.url().endsWith("/api/profiles/transition-client"));
@@ -87,6 +88,7 @@ for (const fallback of ["reduce", "unsupported", "throws"] as const) {
       Object.defineProperty(document, "startViewTransition", { configurable: true, value: fallback === "unsupported" ? undefined : () => { throw new Error("Transition unavailable"); } });
     }, fallback);
     await page.goto("/?screen=profiles");
+    await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     await page.getByRole("button", { name: "Open profile for Avery Example", exact: true }).click();
     await expect(page.getByTestId("client-profile-folder")).toBeVisible();
     await expect(page).toHaveURL(/screen=profile&clientId=transition-client/);
@@ -106,6 +108,7 @@ test("slow chart reads and failures never hold the directory behind an animation
   });
   try {
     await page.goto("/?screen=profiles");
+    await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     await page.getByRole("button", { name: "Open profile for Avery Example", exact: true }).click();
     await expect(page).toHaveURL(/screen=profile&clientId=transition-client/);
     await expect(page.getByLabel("Loading admitted-client profile", { exact: true })).toBeVisible();
@@ -121,6 +124,7 @@ test("back navigation interrupts a running expansion cleanly", async ({ page }) 
   await fixtures(page);
   await probe(page, true);
   await page.goto("/?screen=profiles");
+    await page.getByRole("button", { name: /file cabinet$/ }).first().click();
   await page.getByRole("button", { name: "Open profile for Avery Example", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.chartTransitionProbe.ready)).toBe(true);
   await page.goBack();
@@ -134,6 +138,7 @@ test.describe("recorded motion preview", () => {
     await fixtures(page);
     await probe(page);
     await page.goto("/?screen=profiles");
+    await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     const card = page.getByRole("button", { name: "Open profile for Avery Example", exact: true });
     const warm = page.waitForResponse((response) => response.url().endsWith("/api/profiles/transition-client"));
     await card.hover();

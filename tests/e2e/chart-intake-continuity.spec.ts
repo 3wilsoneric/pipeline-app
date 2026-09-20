@@ -82,6 +82,7 @@ test("a chart creates a fresh intake for the same client and retry does not dupl
   expect(created.admissionDecision).toBeUndefined();
   expect(created.fieldSources?.currentMedications).toContain(`workspace #${source.id}`);
   await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceStage=intake`));
+  await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
   await expect(page.locator("#packet-page-1")).toBeVisible();
   await expect(page.locator(`input[value="${created.name}"]`)).toBeVisible();
   const mutation = (await createdRequest).postDataJSON();

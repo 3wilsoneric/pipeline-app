@@ -758,11 +758,7 @@ async function patchLocalAssessment(
     if (options.mutationId && state.patchMutations.get(options.mutationId) === assessmentId) {
       return { ok: true, assessment: current, revision: state.revision };
     }
-    const sectionVersions = normalizeAssessmentSectionVersions(current.section_versions);
-    if (options.section && options.expectedSectionVersion !== sectionVersions[options.section]) {
-      return { ok: false, conflict: true, assessment: current };
-    }
-    if (!options.section && options.expectedVersion !== undefined && options.expectedVersion !== current.version) {
+    if (hasAssessmentPatchVersionConflict(current, options)) {
       return { ok: false, conflict: true, assessment: current };
     }
     assertNoLocalScheduleConflict(current, patch, options, state.assessments);
@@ -782,6 +778,12 @@ async function patchLocalAssessment(
     await syncLocalReferralWorkflow(candidate, actor, prepared.action);
     return { ok: true, assessment: candidate, revision: state.revision, referral: nameSync?.referral, warnings: candidate.status === "complete" ? getAssessmentCompletionBlockers(candidate) : [] };
   });
+}
+
+function hasAssessmentPatchVersionConflict(current: PipelineAssessmentRecord, options: AssessmentPatchOptions) {
+  const versions = normalizeAssessmentSectionVersions(current.section_versions);
+  if (options.section) return options.expectedSectionVersion !== versions[options.section];
+  return options.expectedVersion !== undefined && options.expectedVersion !== current.version;
 }
 
 function assertNoLocalScheduleConflict(
@@ -1301,11 +1303,7 @@ async function patchPostgresAssessment(
     }
     const current = await getAssessmentInTransaction(tx, assessmentId, true);
     if (!current) return null;
-    const sectionVersions = normalizeAssessmentSectionVersions(current.section_versions);
-    if (options.section && options.expectedSectionVersion !== sectionVersions[options.section]) {
-      return { ok: false, conflict: true, assessment: current };
-    }
-    if (!options.section && options.expectedVersion !== undefined && options.expectedVersion !== current.version) {
+    if (hasAssessmentPatchVersionConflict(current, options)) {
       return { ok: false, conflict: true, assessment: current };
     }
     await assertNoPostgresScheduleConflict(tx, current, patch, options);
@@ -1547,33 +1545,9 @@ function prepareAssessmentImport(
     ...(current ?? {} as PipelineAssessmentRecord),
     ...merged.data,
     assessment_id: assessmentId,
-    revision_root_id: current?.revision_root_id ?? assessmentId,
-    revision_number: current?.revision_number ?? 1,
-    supersedes_assessment_id: current?.supersedes_assessment_id ?? null,
-    referral_id: input.referralId,
-    assessor_id: current?.assessor_id ?? input.assignedAssessor?.id ?? null,
-    canonical_client_id: preserveCanonicalClientId(
-      current?.canonical_client_id,
-      input.canonicalClientId,
-    ),
-    resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
-    status: current?.signed_at ? "complete" : "needs_review",
-    completed_at: current?.completed_at ?? null,
-    schedule_status: current?.schedule_status ?? "unscheduled",
-    started_at: current?.started_at ?? null,
-    signed_at: current?.signed_at ?? null,
-    signed_by: current?.signed_by ?? null,
-    signature_version: current?.signature_version ?? 1,
-    addenda: current?.addenda ?? [],
-    version: current ? current.version + 1 : 1,
-    section_versions: incrementAssessmentSectionVersions(
-      current?.section_versions ?? defaultAssessmentSectionVersions(),
-      assessmentSectionsForFields(changedFields),
-    ),
-    created_at: current?.created_at ?? now,
-    updated_at: now,
-    created_by: current?.created_by ?? input.actor,
-    updated_by: input.actor,
+    ...importedAssessmentIdentity(input, current, assessmentId),
+    ...importedAssessmentLifecycle(current),
+    ...importedAssessmentRevision(current, changedFields, input.actor, now),
     field_provenance: mergeProvenance(
       current?.field_provenance ?? {},
       merged.fieldProvenance,
@@ -1588,6 +1562,34 @@ function prepareAssessmentImport(
     assessment,
     changedFields,
     newUnmappedFields: merged.unmappedFields,
+  };
+}
+
+function importedAssessmentIdentity(input: AssessmentImportInput, current: PipelineAssessmentRecord | null, assessmentId: string) {
+  return {
+    revision_root_id: current?.revision_root_id ?? assessmentId,
+    revision_number: current?.revision_number ?? 1,
+    supersedes_assessment_id: current?.supersedes_assessment_id ?? null,
+    referral_id: input.referralId,
+    assessor_id: current?.assessor_id ?? input.assignedAssessor?.id ?? null,
+    canonical_client_id: preserveCanonicalClientId(
+      current?.canonical_client_id,
+      input.canonicalClientId,
+    ),
+    resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
+  };
+}
+
+function importedAssessmentLifecycle(current: PipelineAssessmentRecord | null): Pick<PipelineAssessmentRecord, "status" | "completed_at" | "schedule_status" | "started_at" | "signed_at" | "signed_by" | "signature_version" | "addenda"> {
+  return {
+    status: current?.signed_at ? "complete" : "needs_review",
+    completed_at: current?.completed_at ?? null,
+    schedule_status: current?.schedule_status ?? "unscheduled",
+    started_at: current?.started_at ?? null,
+    signed_at: current?.signed_at ?? null,
+    signed_by: current?.signed_by ?? null,
+    signature_version: current?.signature_version ?? 1,
+    addenda: current?.addenda ?? [],
   };
 }
 
@@ -1649,16 +1651,20 @@ function assessmentPatchAuditAction(
 ): AssessmentAuditAction {
   if (patch.signer) return "assessment_signed";
   if (patch.mark_started) return "assessment_started";
-  if (patch.schedule?.status === "cancelled") return "assessment_cancelled";
-  if (patch.schedule?.status === "no_show") return "assessment_no_show";
-  if (patch.schedule?.status === "completed") return "assessment_interview_completed";
-  if (patch.schedule?.status === "rescheduled") return "assessment_rescheduled";
-  if (patch.schedule) return "assessment_scheduled";
+  if (patch.schedule) return assessmentScheduleAuditAction(patch.schedule);
   if (nextStatus !== "complete" && current.status === "complete") return "assessment_reopened";
   if (nextStatus === "complete" && current.status !== "complete") return "assessment_completed";
   if (acceptedFieldCount > 0) return "extraction_confirmed";
   if (patch.assigned_assessor !== undefined) return "assessment_assigned";
   return "assessment_updated";
+}
+
+function assessmentScheduleAuditAction(schedule: AssessmentScheduleUpdate): AssessmentAuditAction {
+  if (schedule.status === "cancelled") return "assessment_cancelled";
+  if (schedule.status === "no_show") return "assessment_no_show";
+  if (schedule.status === "completed") return "assessment_interview_completed";
+  if (schedule.status === "rescheduled") return "assessment_rescheduled";
+  return "assessment_scheduled";
 }
 
 async function loadLocalAssessmentReferral(referralId: number) {
@@ -1906,6 +1912,29 @@ async function getAssessmentInTransaction(
   return hydrateAssessmentRows(rows, { provenance, unmapped, audits, addenda })[0];
 }
 
+function assessmentRowSchedule(row: AssessmentRow) {
+  return {
+    scheduled_start_at: row.scheduled_start_at ? isoTimestamp(row.scheduled_start_at) : null,
+    scheduled_duration_minutes: row.scheduled_duration_minutes === null ? null : Number(row.scheduled_duration_minutes),
+    scheduled_method: normalizeScheduleMethod(row.scheduled_method),
+    scheduled_location: row.scheduled_location,
+    schedule_status: row.schedule_status ?? "unscheduled",
+  };
+}
+
+function assessmentRowLifecycle(row: AssessmentRow) {
+  return {
+    completed_at: row.completed_at ? isoTimestamp(row.completed_at) : null,
+    ...assessmentRowSchedule(row),
+    started_at: row.started_at ? isoTimestamp(row.started_at) : null,
+    signed_at: row.signed_at ? isoTimestamp(row.signed_at) : null,
+    meet_client_sent_at: row.meet_client_sent_at ? isoTimestamp(row.meet_client_sent_at) : null,
+    meet_client_sent_version: row.meet_client_sent_version ?? null,
+    signed_by: row.signed_by && row.signed_by_name ? { id: row.signed_by, name: row.signed_by_name } : null,
+    signature_version: Number(row.signature_version ?? 1),
+  };
+}
+
 function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelations) {
   const indexed = indexAssessmentRelations(relations);
   return rows.map((row) => {
@@ -1955,22 +1984,7 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       canonical_client_id: row.canonical_client_id,
       resident_key: row.resident_key,
       status: row.status,
-      completed_at: row.completed_at ? isoTimestamp(row.completed_at) : null,
-      scheduled_start_at: row.scheduled_start_at ? isoTimestamp(row.scheduled_start_at) : null,
-      scheduled_duration_minutes: row.scheduled_duration_minutes === null
-        ? null
-        : Number(row.scheduled_duration_minutes),
-      scheduled_method: normalizeScheduleMethod(row.scheduled_method),
-      scheduled_location: row.scheduled_location,
-      schedule_status: row.schedule_status ?? "unscheduled",
-      started_at: row.started_at ? isoTimestamp(row.started_at) : null,
-      signed_at: row.signed_at ? isoTimestamp(row.signed_at) : null,
-      meet_client_sent_at: row.meet_client_sent_at ? isoTimestamp(row.meet_client_sent_at) : null,
-      meet_client_sent_version: row.meet_client_sent_version ?? null,
-      signed_by: row.signed_by && row.signed_by_name
-        ? { id: row.signed_by, name: row.signed_by_name }
-        : null,
-      signature_version: Number(row.signature_version ?? 1),
+      ...assessmentRowLifecycle(row),
       addenda,
       version: Number(row.version),
       section_versions: normalizeAssessmentSectionVersions(row.section_versions),
@@ -2495,4 +2509,18 @@ function clampPageSize(value: number | undefined) {
 
 function isMissingFile(error: unknown) {
   return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "ENOENT");
+}
+
+function importedAssessmentRevision(current: PipelineAssessmentRecord | null, changedFields: AssessmentToolFieldKey[], actor: PipelineAssessmentRecord["created_by"], now: string) {
+  return {
+    version: current ? current.version + 1 : 1,
+    section_versions: incrementAssessmentSectionVersions(
+      current?.section_versions ?? defaultAssessmentSectionVersions(),
+      assessmentSectionsForFields(changedFields),
+    ),
+    created_at: current?.created_at ?? now,
+    updated_at: now,
+    created_by: current?.created_by ?? actor,
+    updated_by: actor,
+  };
 }

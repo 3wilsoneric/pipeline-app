@@ -2,7 +2,7 @@
 
 Every approved, signed-in Pipeline user can work on any active referral, regardless of assignment or whether their current role is admin, assessment coordinator, assessor (`reviewer`), or viewer. The existing login and approved-access boundary remains. No account roles, invitations, or Entra configuration change in this release.
 
-Assignment identifies responsibility and drives an explicitly selected Mine filter. It does not authorize edits. Team views, client history, completion reports and workflow controls use the shared workspace policy. The canonical policy is `canEditWorkspace` in `lib/pipeline/referral-ownership.ts`; referral and assessment access helpers reuse it.
+Assignment identifies responsibility and drives an explicitly selected Mine filter. It does not authorize edits. Team views, client history and workflow controls use the shared workspace policy. The canonical policy is `canEditWorkspace` in `lib/pipeline/referral-ownership.ts`; referral and assessment access helpers reuse it. Reports are the owner-approved exception (September 20): Eric, Andrew and Sandeep retain Reports access through the named supervisor policy in `lib/pipeline/report-access.ts`. Other approved staff retain shared editing, but cannot read or export Reports.
 
 Approved teammates can create incomplete referrals, update intake and assignment, schedule/start/edit assessments, upload and manage documents, maintain contacts and identity links, record recommendations and admission decisions, sign, add attributed addenda, and explicitly prepare/send a packet. Acceptance, signature and packet delivery remain separate actions. No automatic email or signature is introduced.
 

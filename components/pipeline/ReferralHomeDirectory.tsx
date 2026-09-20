@@ -166,7 +166,7 @@ function WorkspaceDirectoryBody(props: ReferralHomeDirectoryProps) {
         {props.loadError && props.filter.kind !== "files" ? (
           <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#9aa7a0] bg-[#f7faf9] px-4 py-3 text-[12px] font-semibold text-[#59645e]" role="alert">
             <span>{props.loadError}</span>
-            <button type="button" onClick={props.onRetry} className="flex h-8 items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#9aa7a0]">
+            <button type="button" onClick={props.onRetry} className="flex h-8 items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#52645b]">
               <RefreshCw size={13} /> Retry
             </button>
           </div>

@@ -303,20 +303,7 @@ async function getPostgresAssessmentCalendar(
     );
     const assessor = activeCalendarOwner(activeAssessorIds, row.assessor_id, row.assessor_name);
     const owner = assessor.id ? assessor : referralOwner;
-    const assessment = {
-      assessment_id: row.assessment_id,
-      version: Number(row.version),
-      scheduled_start_at: row.scheduled_start_at ? toIso(row.scheduled_start_at) : null,
-      started_at: row.started_at ? toIso(row.started_at) : null,
-      scheduled_duration_minutes: row.scheduled_duration_minutes === null ? null : Number(row.scheduled_duration_minutes),
-      scheduled_method: normalizeScheduleMethod(row.scheduled_method),
-      scheduled_location: row.scheduled_location,
-      schedule_status: row.schedule_status,
-      assessor_id: owner.id ?? null,
-      assessor: owner.name,
-      status: row.status,
-      referral_id: Number(row.referral_id),
-    };
+    const assessment = calendarAssessmentFromRow(row, owner);
     const referral = {
       id: Number(row.referral_id),
       name: clientName,
@@ -546,4 +533,21 @@ function compareCalendarEvents(left: PipelineCalendarEvent, right: PipelineCalen
 function toIso(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+function calendarAssessmentFromRow(row: AssessmentCalendarRow, owner: ReturnType<typeof activeCalendarOwner>) {
+    return {
+      assessment_id: row.assessment_id,
+      version: Number(row.version),
+      scheduled_start_at: row.scheduled_start_at ? toIso(row.scheduled_start_at) : null,
+      started_at: row.started_at ? toIso(row.started_at) : null,
+      scheduled_duration_minutes: row.scheduled_duration_minutes === null ? null : Number(row.scheduled_duration_minutes),
+      scheduled_method: normalizeScheduleMethod(row.scheduled_method),
+      scheduled_location: row.scheduled_location,
+      schedule_status: row.schedule_status,
+      assessor_id: owner.id ?? null,
+      assessor: owner.name,
+      status: row.status,
+      referral_id: Number(row.referral_id),
+    };
 }

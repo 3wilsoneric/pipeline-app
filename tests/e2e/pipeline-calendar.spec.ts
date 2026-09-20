@@ -187,6 +187,7 @@ test.describe("Pipeline calendar characterization", () => {
     });
 
     await page.goto("/?screen=calendar");
+    await expect(page.getByRole("main", { name: "Calendar", exact: true })).toHaveAttribute("aria-busy", "false");
     await page.getByRole("button", { name: "Show calendar filters" }).click();
     await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
     await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();

@@ -5,8 +5,9 @@ import { createOperationalReferral, createOperationalAssessment } from "./suppor
 for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
   test(`${name} phone pages, dates, saving and exact-question resume`, async ({ baseURL }, info) => {
     const browser = await engine.launch();
+    const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     try {
-      const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+      const page = await context.newPage();
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Phone ${randomUUID()}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
@@ -101,7 +102,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       const records = await read();
       expect(records).toHaveLength(1);
       expect(records[0].signed_at).toBeNull();
-    } finally { await browser.close(); }
+    } finally { await context.close(); await browser.close(); }
   });
 }
 

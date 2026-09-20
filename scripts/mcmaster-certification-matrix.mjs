@@ -25,7 +25,7 @@ const evidence = [
   item("interaction.search.progressive", "Local search renders without waiting for governed client search", "tests/e2e/pipeline-home.spec.ts", "shows local search results before governed client search completes"),
   item("interaction.history", "Back and forward restore the same work surface", "tests/e2e/performance-navigation.spec.ts", "await page.goBack()"),
   item("interaction.home-no-recents", "Home omits the redundant recents panel after canonical client search", "tests/e2e/pipeline-home.spec.ts", "opens a canonical client from search without adding a Home recents panel"),
-  item("interaction.filters", "Stacked client filters are verified", "tests/e2e/pipeline-home.spec.ts", "stacks client community, admission-date, and profile-data filters"),
+  item("interaction.filters", "Community grouping and client search are verified", "tests/e2e/pipeline-home.spec.ts", "keeps current clients grouped by community while searching without obsolete admission filters"),
   item("interaction.rapid-nav", "Rapid navigation cannot reveal stale work surfaces", "tests/e2e/pipeline-smoke.spec.ts", "keeps rapid header navigation deterministic"),
   item("interaction.guides", "Guide open, step, pause, resume, end, and close actions are timed", "scripts/pipeline-performance-scorecard.mjs", ["guide_library_open", "guide_walkthrough_start", "guide_resume", "guide_end"]),
   item("interaction.learning", "Learning Center navigation and first actions are timed", "scripts/pipeline-performance-scorecard.mjs", ["referrals_to_learning_center", "learning_workflow_open", "learning_task_open"]),

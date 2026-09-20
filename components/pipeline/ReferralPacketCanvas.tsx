@@ -120,6 +120,7 @@ import {
 import {
   buildReferralCanvasCreateInput,
   buildReferralCanvasPatch,
+  canRebaseReferralCanvasPatch,
   isPersistedCanvasFieldKey,
   persistedCanvasFieldKeys,
   referralCanvasValue,
@@ -819,14 +820,16 @@ export default function ReferralPacketCanvas({
     draftBaseValuesRef.current = {};
   };
 
-  const rebaseDraftTracking = (latest: Referral, activeDirtyKeys: ReadonlySet<DirtyDraftKey>) => {
+  const rebaseDraftTracking = (latest: Referral, activeDirtyKeys: ReadonlySet<DirtyDraftKey>, savedKeys?: ReadonlySet<DirtyDraftKey>) => {
     if (activeDirtyKeys.size === 0) {
       clearDraftTracking();
       return;
     }
     draftBaseVersionRef.current = latest.version;
     draftBaseValuesRef.current = Object.fromEntries(
-      [...activeDirtyKeys].map((key) => [key, referralBaseDraftValue(latest, key)]),
+      [...activeDirtyKeys].map((key) => [key, savedKeys && !savedKeys.has(key)
+        ? draftBaseValuesRef.current[key] ?? referralBaseDraftValue(latest, key)
+        : referralBaseDraftValue(latest, key)]),
     );
   };
 
@@ -1109,11 +1112,15 @@ export default function ReferralPacketCanvas({
     if (!dirty.has("tags")) setTagsInput(workspaceTagsInput(latest.tags));
     if (!dirty.has("documents")) setDocuments(documentsFromReferral(latest));
     if (!dirty.has("initialPacket")) setInitialPacket(null);
-    setRemoteChange({
+    setRemoteChange((previous) => ({
       referral: latest,
       updatedBy: updatedBy?.trim() || latest.updatedBy?.name || "Another user",
-      conflicts,
-    });
+      // A later unrelated update cannot resolve a conflict on the user's behalf.
+      conflicts: [...conflicts, ...(previous?.conflicts ?? []).filter((conflict) =>
+        dirty.has(conflict.key) && !conflicts.some((next) => next.key === conflict.key)
+        && draftKeySignature(conflict.key, currentDraftValues(fieldsRef.current, conservedRef.current, tagsInputRef.current, documentsRef.current, initialPacketRef.current)) !== referralBaseDraftValue(latest, conflict.key)
+      ).map((conflict) => ({ ...conflict, remoteValue: remoteDisplayValue(latest, conflict.key) }))],
+    }));
     if (dirty.size === 0) setSavedAt(`Updated by ${updatedBy?.trim() || latest.updatedBy?.name || "another user"}`);
   };
 
@@ -1454,54 +1461,49 @@ export default function ReferralPacketCanvas({
   ) => {
     const { values, ownerId, handoffReason } = captured;
     const tags = normalizeTags(values.tagsInput);
-    const admissionRequirements = createDefaultAdmissionRequirements(
-      current.requirements ?? [],
-      getEvidenceByType(values.documents),
-      new Date().toISOString(),
-      values.fields.owner.value.trim() || "Unassigned",
-      ownerId || undefined,
-      {
-        date_of_birth: values.fields.dob.value,
-        community: pipelineCommunities.includes(values.fields.community.value.trim() as PipelineCommunity)
-          ? values.fields.community.value.trim()
-          : current.community,
-        referral_source: values.fields.referent.value,
-      },
-    );
-    const patch = buildCanvasPatch({
-      keys,
-      fields: values.fields,
-      conserved: values.conserved,
-      tags,
-      requirements: admissionRequirements,
-      existingFieldSources: current.fieldSources,
-      packet,
-    });
-    if (Object.keys(patch).length === 0) return current;
-    const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
-    const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
-    const ownerTouched = keys.has("owner");
-    const mutationKey = JSON.stringify([current.id, current.version, patch, ownerId, handoffReason]);
-    const clientMutationId = patchMutationIdsRef.current.get(mutationKey) ?? createMutationId();
-    patchMutationIdsRef.current.set(mutationKey, clientMutationId);
-    const payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${current.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        if_match: current.version,
-        if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),
-        client_mutation_id: clientMutationId,
-        patch,
-        ...(ownerTouched ? { assignee_id: ownerId || undefined } : {}),
-        ...(ownerTouched && handoffReason ? { handoff_reason: handoffReason } : {}),
-      }),
-    });
-    if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral.");
-    loadedReferralRef.current = payload.referral;
-    setLoadedReferral(payload.referral);
-    patchMutationIdsRef.current.delete(mutationKey);
-    if (ownerTouched) acceptSavedOwner(payload.referral, ownerId);
-    return payload.referral;
+    const admissionRequirements = canvasAdmissionRequirements(current, values, ownerId);
+    // Bound contention retries; a sustained collision remains an unsaved draft.
+    for (let attempt = 0; ; attempt += 1) {
+      const patch = buildCanvasPatch({
+        keys,
+        fields: values.fields,
+        conserved: values.conserved,
+        tags,
+        requirements: admissionRequirements,
+        existingFieldSources: current.fieldSources,
+        packet,
+      });
+      if (Object.keys(patch).length === 0) return current;
+      const ownerTouched = keys.has("owner");
+      const mutationKey = canvasMutationKey(current.id, keys, values, packet?.hash, ownerId, handoffReason);
+      const clientMutationId = patchMutationIdsRef.current.get(mutationKey) ?? createMutationId();
+      patchMutationIdsRef.current.set(mutationKey, clientMutationId);
+      let payload: { referral?: Referral; error?: string };
+      try {
+        payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${current.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: canvasMutationBody(current, patch, clientMutationId, ownerTouched, ownerId, handoffReason),
+        });
+      } catch (error) {
+        const latest = error instanceof PipelineApiError && error.status === 409 ? getConflictReferral(error.payload) : null;
+        if (!latest || attempt >= 3 || !canRebaseReferralCanvasPatch(current, latest, patch)) throw error;
+        // The 409 confirms this mutation was not applied. A new version gets a new
+        // mutation ID; an uncertain network response keeps its original ID.
+        patchMutationIdsRef.current.delete(mutationKey);
+        current = latest;
+        continue;
+      }
+      if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral.");
+      const saved = payload.referral;
+      loadedReferralRef.current = saved;
+      setLoadedReferral(saved);
+      setFields((fields) => mergeRemoteReferralFields(fields, saved, dirtyKeysRef.current));
+      setSaveError("");
+      patchMutationIdsRef.current.delete(mutationKey);
+      if (ownerTouched) acceptSavedOwner(saved, ownerId);
+      return saved;
+    }
   };
 
   const acceptSavedOwner = (saved: Referral, sentOwnerId: string) => {
@@ -1727,7 +1729,8 @@ export default function ReferralPacketCanvas({
     );
     dirtyKeysRef.current = remainingDirtyKeys;
     setDirtyKeys(remainingDirtyKeys);
-    rebaseDraftTracking(savedReferral, remainingDirtyKeys);
+    setFields((current) => mergeRemoteReferralFields(current, savedReferral, remainingDirtyKeys));
+    rebaseDraftTracking(savedReferral, remainingDirtyKeys, snapshot.dirtyKeys);
     if (remainingDirtyKeys.size === 0) await clearSessionDraft(savedReferral.id);
     setRecoveredDraftAt("");
     setRecoveredPacketName("");
@@ -2186,28 +2189,86 @@ export default function ReferralPacketCanvas({
     }
   };
 
-  return (
-    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className={`relative h-full overflow-y-auto pipeline-page-surface text-[#111111] ${phone ? workspaceFolderStyles.phoneWorkspace : ""}`}>
-      {draftRecoveryLoading ? (
-        <div className="absolute inset-0 z-50 flex items-start justify-center bg-white/85 pt-24" role="status" aria-live="polite">
-          <div className="border-l-2 border-[#0f8b73] bg-white px-4 py-3 text-[12px] font-black text-[#174f43] shadow-sm">
-            Restoring saved work...
-          </div>
-        </div>
-      ) : null}
-      <div
-        data-testid="packet-workspace"
-        inert={draftRecoveryLoading}
-        aria-busy={draftRecoveryLoading}
-        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""}`}
-      >
-        <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined}>
-          <div className={workspaceFolderStyles.tabRow}>
-            <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
-              <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
-            </h1>
-            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === 1 && loadedReferral ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
+  const renderRestoredEdits = () => (
+    recoveredDraftAt ? (
+          <section aria-label="Restored edits" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-l-2 border-[#0f8b73] bg-[#effaf5] px-4 py-3" aria-live="polite">
+            <div>
+              <div className="text-[12px] font-black text-[#174f43]">
+                Unfinished edits restored
+              </div>
+              <div className="mt-1 text-[11px] text-[#3c665d]">
+                {hasReferral
+                  ? "These edits are back in the form, but aren't saved to the chart yet."
+                  : "Continue intake, then choose Create referral when you're ready."}
+                {recoveredPacketName ? <span className="block">Re-select {recoveredPacketName} before uploading the packet.</span> : null}
+              </div>
+            </div>
+            <button type="button" onClick={discardRecoveredDraft} className="h-8 border border-[#0f8b73] px-3 text-[10px] font-black text-[#174f43] hover:bg-white">
+              Discard unsaved edits
+            </button>
+          </section>
+        ) : null
+  );
 
+  const renderWorkspaceConflicts = () => (
+    remoteChange && remoteChange.conflicts.length > 0 ? (
+          <section aria-label="Remote changes" className="mb-3 border border-[#d5b75b] bg-[#fffbe8] px-4 py-3" aria-live="assertive">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[12px] font-black text-[#4e451d]">{remoteChange.updatedBy} updated this referral.</div>
+                <div className="mt-1 text-[11px] leading-5 text-[#6a6031]">
+                  Choose which value to keep for the fields changed in both sessions.
+                </div>
+              </div>
+            </div>
+            {remoteChange.conflicts.length > 0 ? (
+              <div className="mt-3 divide-y divide-[#dfd39c] border-y border-[#dfd39c]">
+                {remoteChange.conflicts.map((conflict) => (
+                  <div key={conflict.key} className="grid gap-3 py-3 md:grid-cols-[150px_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center">
+                    <div className="text-[11px] font-black text-[#111111]">{conflict.label}</div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">Your draft</div>
+                      <div className="mt-1 break-words text-[11px] text-[#303638]">{conflict.localValue || "Empty"}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">Latest saved</div>
+                      <div className="mt-1 break-words text-[11px] text-[#303638]">{conflict.remoteValue || "Empty"}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => resolveRemoteConflict(conflict, false)} className="h-8 border border-[#111111] px-3 text-[10px] font-black hover:bg-white">Keep mine</button>
+                      <button type="button" onClick={() => resolveRemoteConflict(conflict, true)} className="h-8 bg-[#111111] px-3 text-[10px] font-black text-white hover:bg-[#0f8b73]">Use latest</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null
+  );
+
+  const renderExtractionConflict = () => (
+    extractionConflict ? (
+          <section aria-label="Extracted field conflict" className="mb-3 border border-[#d4a39d] bg-[#f7faf9] px-4 py-3" aria-live="assertive">
+            <div className="text-[12px] font-black text-[#7c3229]">This extracted field was reviewed in another session.</div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div><span className="text-[9px] font-black uppercase text-[#737373]">Your value</span><div className="mt-1 text-[11px]">{extractionConflict.attemptedValue || "Empty"}</div></div>
+              <div><span className="text-[9px] font-black uppercase text-[#737373]">Latest saved</span><div className="mt-1 text-[11px]">{extractionConflict.latestValue || "Empty"}</div></div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setExtractionConflict(null)} className="h-8 border border-[#7c3229] px-3 text-[10px] font-black text-[#7c3229]">Use latest</button>
+              <button
+                type="button"
+                onClick={() => void reviewExtractedField(extractionConflict.field, "edit", extractionConflict.attemptedValue).catch(() => undefined)}
+                className="h-8 bg-[#7c3229] px-3 text-[10px] font-black text-white"
+              >
+                Apply mine
+              </button>
+            </div>
+          </section>
+        ) : null
+  );
+
+  const renderWorkspaceActions = () => (
             <div className={workspaceFolderStyles.actions}>
               {remoteChange && remoteChange.conflicts.length === 0 ? (
                 <span role="status" data-testid="workspace-sync-status" className={workspaceFolderStyles.syncStatus} title={`Changes from ${remoteChange.updatedBy} were merged into your open draft.`}>
@@ -2272,6 +2333,17 @@ export default function ReferralPacketCanvas({
                 </button>
               ) : null}
             </div>
+  );
+
+  const renderWorkspaceHeader = () => (
+    <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined}>
+          <div className={workspaceFolderStyles.tabRow}>
+            <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
+              <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
+            </h1>
+            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === 1 && loadedReferral ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
+
+            {renderWorkspaceActions()}
           </div>
           {editingControlsVisible && displayedPage !== 2 ? (
             <WorkspaceSaveStatus
@@ -2286,102 +2358,10 @@ export default function ReferralPacketCanvas({
             />
           ) : null}
         </div>
+  );
 
-        {recoveredDraftAt ? (
-          <section aria-label="Restored edits" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-l-2 border-[#0f8b73] bg-[#effaf5] px-4 py-3" aria-live="polite">
-            <div>
-              <div className="text-[12px] font-black text-[#174f43]">
-                Unfinished edits restored
-              </div>
-              <div className="mt-1 text-[11px] text-[#3c665d]">
-                {hasReferral
-                  ? "These edits are back in the form, but aren't saved to the chart yet."
-                  : "Continue intake, then choose Create referral when you're ready."}
-                {recoveredPacketName ? <span className="block">Re-select {recoveredPacketName} before uploading the packet.</span> : null}
-              </div>
-            </div>
-            <button type="button" onClick={discardRecoveredDraft} className="h-8 border border-[#0f8b73] px-3 text-[10px] font-black text-[#174f43] hover:bg-white">
-              Discard unsaved edits
-            </button>
-          </section>
-        ) : null}
-
-        {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
-
-        {presence.length > 0 ? (
-          <div className="mb-3 flex flex-wrap items-center gap-2 border border-[#cfe4da] bg-[#f7fbf9] px-3 py-2" aria-live="polite" aria-label="People editing this workspace">
-            {presence.map((item) => (
-              <span key={item.lease_id} className="inline-flex items-center gap-2 rounded-full border border-[#c7ded4] bg-white px-2.5 py-1 text-[10px] font-bold text-[#315e50]">
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#20a464]" />
-                {item.actor_name} is editing {presenceSectionLabel(item.section)}
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        {remoteChange && remoteChange.conflicts.length > 0 ? (
-          <section aria-label="Remote changes" className="mb-3 border border-[#d5b75b] bg-[#fffbe8] px-4 py-3" aria-live="assertive">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-[12px] font-black text-[#4e451d]">{remoteChange.updatedBy} updated this referral.</div>
-                <div className="mt-1 text-[11px] leading-5 text-[#6a6031]">
-                  Choose which value to keep for the fields changed in both sessions.
-                </div>
-              </div>
-            </div>
-            {remoteChange.conflicts.length > 0 ? (
-              <div className="mt-3 divide-y divide-[#dfd39c] border-y border-[#dfd39c]">
-                {remoteChange.conflicts.map((conflict) => (
-                  <div key={conflict.key} className="grid gap-3 py-3 md:grid-cols-[150px_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center">
-                    <div className="text-[11px] font-black text-[#111111]">{conflict.label}</div>
-                    <div className="min-w-0">
-                      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">Your draft</div>
-                      <div className="mt-1 break-words text-[11px] text-[#303638]">{conflict.localValue || "Empty"}</div>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">Latest saved</div>
-                      <div className="mt-1 break-words text-[11px] text-[#303638]">{conflict.remoteValue || "Empty"}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => resolveRemoteConflict(conflict, false)} className="h-8 border border-[#111111] px-3 text-[10px] font-black hover:bg-white">Keep mine</button>
-                      <button type="button" onClick={() => resolveRemoteConflict(conflict, true)} className="h-8 bg-[#111111] px-3 text-[10px] font-black text-white hover:bg-[#0f8b73]">Use latest</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-
-        {extractionConflict ? (
-          <section aria-label="Extracted field conflict" className="mb-3 border border-[#d4a39d] bg-[#f7faf9] px-4 py-3" aria-live="assertive">
-            <div className="text-[12px] font-black text-[#7c3229]">This extracted field was reviewed in another session.</div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div><span className="text-[9px] font-black uppercase text-[#737373]">Your value</span><div className="mt-1 text-[11px]">{extractionConflict.attemptedValue || "Empty"}</div></div>
-              <div><span className="text-[9px] font-black uppercase text-[#737373]">Latest saved</span><div className="mt-1 text-[11px]">{extractionConflict.latestValue || "Empty"}</div></div>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => setExtractionConflict(null)} className="h-8 border border-[#7c3229] px-3 text-[10px] font-black text-[#7c3229]">Use latest</button>
-              <button
-                type="button"
-                onClick={() => void reviewExtractedField(extractionConflict.field, "edit", extractionConflict.attemptedValue).catch(() => undefined)}
-                className="h-8 bg-[#7c3229] px-3 text-[10px] font-black text-white"
-              >
-                Apply mine
-              </button>
-            </div>
-          </section>
-        ) : null}
-
-        <div key={readingAssessment ? "assessment-chart" : displayedPage} className={readingAssessment ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}>
-          {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
-            <PacketPage id="transferred-chart" title="Chart" flush>
-              <WorkspaceChartFolder>
-              <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} />
-              </WorkspaceChartFolder>
-            </PacketPage>
-          ) : displayedPage === 1 ? (
-          <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
+  const renderIntakePage = () => (
+    <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
             <IntakeEditScope readOnly={permissionReadOnly}>
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
@@ -2415,6 +2395,7 @@ export default function ReferralPacketCanvas({
             {loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length ? (
               <PacketExtractionReview
                 fields={referralContextPacketFields}
+                packetId={loadedReferral?.packetId}
                 fileName={loadedReferral?.documentName || "the uploaded packet"}
                 status={extraction?.status}
                 hasPacket={Boolean(loadedReferral?.packetId)}
@@ -2577,6 +2558,53 @@ export default function ReferralPacketCanvas({
             </div>
             </IntakeEditScope>
           </PacketPage>
+  );
+
+  return (
+    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className={`relative h-full overflow-y-auto pipeline-page-surface text-[#111111] ${phone ? workspaceFolderStyles.phoneWorkspace : ""}`}>
+      {draftRecoveryLoading ? (
+        <div className="absolute inset-0 z-50 flex items-start justify-center bg-white/85 pt-24" role="status" aria-live="polite">
+          <div className="border-l-2 border-[#0f8b73] bg-white px-4 py-3 text-[12px] font-black text-[#174f43] shadow-sm">
+            Restoring saved work...
+          </div>
+        </div>
+      ) : null}
+      <div
+        data-testid="packet-workspace"
+        inert={draftRecoveryLoading}
+        aria-busy={draftRecoveryLoading}
+        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""}`}
+      >
+        {renderWorkspaceHeader()}
+
+        {renderRestoredEdits()}
+
+        {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
+
+        {presence.length > 0 ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2 border border-[#cfe4da] bg-[#f7fbf9] px-3 py-2" aria-live="polite" aria-label="People editing this workspace">
+            {presence.map((item) => (
+              <span key={item.lease_id} className="inline-flex items-center gap-2 rounded-full border border-[#c7ded4] bg-white px-2.5 py-1 text-[10px] font-bold text-[#315e50]">
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#20a464]" />
+                {item.actor_name} is editing {presenceSectionLabel(item.section)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {renderWorkspaceConflicts()}
+
+        {renderExtractionConflict()}
+
+        <div key={readingAssessment ? "assessment-chart" : displayedPage} className={readingAssessment ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}>
+          {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
+            <PacketPage id="transferred-chart" title="Chart" flush>
+              <WorkspaceChartFolder>
+              <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} />
+              </WorkspaceChartFolder>
+            </PacketPage>
+          ) : displayedPage === 1 ? (
+          renderIntakePage()
           ) : displayedPage === "files" ? (
             <WorkspaceFilesPage
               presentation={workspacePresentation}
@@ -3030,6 +3058,18 @@ function IntakeDocumentChecklist({
   )).length;
   const hasInitialPacket = Boolean(initialPacket || (recordedName && recordedStatus !== "Missing"));
 
+  const renderUploadStatus = () => (
+          <div className="flex shrink-0 items-center gap-3">
+            <span className={`text-[10px] font-black ${hasInitialPacket && !initialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
+              {dragActive ? "Release to add files" : initialPacket ? "Packet selected" : hasInitialPacket ? "Packet added" : "Packet needed"}
+            </span>
+            <span className={`hidden text-[10px] font-black sm:inline ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#66716b]"}`}>
+              {capturedDocuments} / {documentItems.length} files
+            </span>
+            <span className="flex h-6 w-6 items-center justify-center rounded border border-[#c4cec8] bg-white text-[#386453]"><ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180" /></span>
+          </div>
+  );
+
   return (
     <section aria-label="Document checklist" className={`mb-6 rounded transition-colors ${dragActive ? "outline-2 outline-offset-2 outline-[#0f8b73]" : ""}`}
       data-file-drag-active={dragActive || undefined}
@@ -3083,15 +3123,7 @@ function IntakeDocumentChecklist({
             <h2 className="text-[14px] font-black text-[#111111]">Documents</h2>
             <span className="rounded border border-[#cfd8d3] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#595959]">Beta</span>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className={`text-[10px] font-black ${hasInitialPacket && !initialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
-              {dragActive ? "Release to add files" : initialPacket ? "Packet selected" : hasInitialPacket ? "Packet added" : "Packet needed"}
-            </span>
-            <span className={`hidden text-[10px] font-black sm:inline ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
-              {capturedDocuments} / {documentItems.length} files
-            </span>
-            <span className="flex h-6 w-6 items-center justify-center rounded border border-[#c4cec8] bg-white text-[#386453]"><ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180" /></span>
-          </div>
+          {renderUploadStatus()}
         </summary>
 
         <div className="px-1 pb-4 pt-4">
@@ -3810,6 +3842,37 @@ function referralDraftValue(referral: Referral, key: PersistedFieldKey) {
   return referralCanvasValue(referral, key);
 }
 
+function canvasAdmissionRequirements(current: Referral, values: DraftValueSnapshot, ownerId: string) {
+  return createDefaultAdmissionRequirements(
+    current.requirements ?? [], getEvidenceByType(values.documents), new Date().toISOString(),
+    values.fields.owner.value.trim() || "Unassigned", ownerId || undefined,
+    {
+      date_of_birth: values.fields.dob.value,
+      community: pipelineCommunities.includes(values.fields.community.value.trim() as PipelineCommunity)
+        ? values.fields.community.value.trim() : current.community,
+      referral_source: values.fields.referent.value,
+    },
+  );
+}
+
+function canvasMutationKey(id: number, keys: ReadonlySet<DirtyDraftKey>, values: DraftValueSnapshot, packetHash: string | undefined, ownerId: string, handoffReason: string) {
+  const ownerTouched = keys.has("owner");
+  return JSON.stringify([id, [...keys].sort().map((key) => [key, draftKeySignature(key, values)]),
+    packetHash, ownerTouched ? ownerId : null, ownerTouched ? handoffReason : null]);
+}
+
+function canvasMutationBody(current: Referral, patch: ReturnType<typeof buildCanvasPatch>, clientMutationId: string, ownerTouched: boolean, ownerId: string, handoffReason: string) {
+  const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
+  const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
+  return JSON.stringify({
+    if_match: current.version,
+    if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),
+    client_mutation_id: clientMutationId, patch,
+    ...(ownerTouched ? { assignee_id: ownerId || undefined } : {}),
+    ...(ownerTouched && handoffReason ? { handoff_reason: handoffReason } : {}),
+  });
+}
+
 function fieldsFromReferral(current: Record<FieldKey, PacketField>, referral: Referral) {
   return Object.fromEntries(persistedFieldKeys.map((key) => [key, {
     ...current[key],
@@ -3835,7 +3898,7 @@ function mergeRemoteReferralFields(
   return next;
 }
 
-function buildRemoteFieldConflicts(input: {
+type RemoteFieldConflictInput = {
   base: Referral;
   latest: Referral;
   dirty: ReadonlySet<DirtyDraftKey>;
@@ -3844,18 +3907,32 @@ function buildRemoteFieldConflicts(input: {
   tags: string;
   documents: Record<string, string>;
   initialPacket: File | null;
-}) {
+};
+
+function buildRemoteFieldConflicts(input: RemoteFieldConflictInput) {
+  return [...buildPersistedFieldConflicts(input), ...buildRemoteMetadataConflicts(input)];
+}
+
+function buildPersistedFieldConflicts(input: RemoteFieldConflictInput) {
   const conflicts: RemoteFieldConflict[] = [];
   for (const key of persistedFieldKeys) {
     if (!input.dirty.has(key)) continue;
     const baseValue = referralDraftValue(input.base, key);
     const remoteValue = referralDraftValue(input.latest, key);
     const localValue = input.fields[key].value;
-    if (baseValue !== remoteValue && localValue !== remoteValue) {
+    const baseSource = input.base.fieldSources?.[key] ?? "";
+    const remoteSource = input.latest.fieldSources?.[key] ?? "";
+    const localSource = input.fields[key].sourceFile ?? "";
+    if ((baseValue !== remoteValue || baseSource !== remoteSource)
+      && (localValue !== remoteValue || localSource !== remoteSource)) {
       conflicts.push({ key, label: input.fields[key].label, localValue, remoteValue });
     }
   }
+  return conflicts;
+}
 
+function buildRemoteMetadataConflicts(input: RemoteFieldConflictInput) {
+  const conflicts: RemoteFieldConflict[] = [];
   if (input.dirty.has("tags")) {
     const baseValue = (input.base.tags ?? []).join(", ");
     const remoteValue = (input.latest.tags ?? []).join(", ");
@@ -3865,20 +3942,11 @@ function buildRemoteFieldConflicts(input: {
     }
   }
 
-  if (input.dirty.has("conserved")) {
-    const baseValue = input.base.conserved ?? "";
-    const remoteValue = input.latest.conserved ?? "";
-    const localValue = conservedLabel(input.conserved);
-    if (baseValue !== remoteValue && input.conserved !== remoteValue) {
-      conflicts.push({
-        key: "conserved",
-        label: "Conserved",
-        localValue,
-        remoteValue: conservedLabel(remoteValue),
-      });
-    }
-  }
+  return [...conflicts, ...buildConservedConflicts(input), ...buildRemoteFileConflicts(input)];
+}
 
+function buildRemoteFileConflicts(input: RemoteFieldConflictInput) {
+  const conflicts: RemoteFieldConflict[] = [];
   if (input.dirty.has("documents")) {
     const baseValue = documentNames(documentsFromReferral(input.base));
     const remoteValue = documentNames(documentsFromReferral(input.latest));
@@ -4167,7 +4235,7 @@ function applyRecoveryDraft(draft: CanvasSessionDraft, setters: DraftRestoreSett
 }
 
 function buildRecoveredDraftConflicts(draft: CanvasSessionDraft, latest: Referral) {
-  if (!draft.baseVersion || draft.baseVersion === latest.version) return [];
+  if (!draft.baseVersion) return [];
   const conflicts: RemoteFieldConflict[] = [];
   for (const key of draft.dirtyKeys) {
     if (key === "initialPacket") continue;
@@ -4463,4 +4531,23 @@ function isRetryableIntakeSave(error: unknown) {
 
 function intakeSaveFailureStatus(error: unknown) {
   return isRetryableIntakeSave(error) ? "Not synced · retry Save" : "Pending · you can keep navigating";
+}
+
+function buildConservedConflicts(input: RemoteFieldConflictInput) {
+  const conflicts: RemoteFieldConflict[] = [];
+  if (input.dirty.has("conserved")) {
+    const baseValue = input.base.conserved ?? "";
+    const remoteValue = input.latest.conserved ?? "";
+    const localValue = conservedLabel(input.conserved);
+    if (baseValue !== remoteValue && input.conserved !== remoteValue) {
+      conflicts.push({
+        key: "conserved",
+        label: "Conserved",
+        localValue,
+        remoteValue: conservedLabel(remoteValue),
+      });
+    }
+  }
+
+  return conflicts;
 }

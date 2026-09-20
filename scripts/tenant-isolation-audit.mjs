@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readdirSync, readFileSync } from "node:fs";
+import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const migrations = readdirSync("database/migrations")
   .filter((name) => name.endsWith(".sql"))
@@ -12,6 +13,8 @@ const referralAccess = readFileSync("lib/pipeline/referral-access.ts", "utf8");
 const assessmentAccess = readFileSync("lib/assessment/assessment-access.ts", "utf8");
 const infrastructure = readFileSync("infra/azure/main.bicep", "utf8");
 const strict = process.argv.includes("--require-shared-multitenancy");
+const assessmentPolicy = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-access.ts");
+const deniedAssessmentActors = [null, { roles: [] }, { roles: ["outsider"] }, { roles: ["admin"], accessScope: "note_lab" }];
 
 const sharedDatabaseChecks = {
   tenant_key_on_core_schema: /\b(?:tenant|organization)_id\b/i.test(migrations),
@@ -24,7 +27,9 @@ const sharedDatabaseReady = Object.values(sharedDatabaseChecks).every(Boolean);
 const currentModeChecks = {
   entra_issuer_is_tenant_bound: authentication.includes("PIPELINE_ENTRA_TENANT_ID") && authentication.includes("issuer"),
   referral_role_and_assignment_checks_exist: referralAccess.includes("canAccessReferral") && referralAccess.includes("scopeReferralListOptions"),
-  assessment_role_and_assignment_checks_exist: assessmentAccess.includes("canWorkAssessment") && assessmentAccess.includes("isAssessmentSupervisor"),
+  assessment_approved_staff_boundary_exists: ["admin", "assessment_coordinator", "reviewer", "viewer"].every((role) =>
+    assessmentPolicy.canWorkAssessment({ roles: [role], accessScope: "pipeline" }, "another-assessor"))
+    && deniedAssessmentActors.every((actor) => !assessmentPolicy.canWorkAssessment(actor, null)),
   infrastructure_is_one_deployment_boundary: infrastructure.includes("param environment string") && !sharedDatabaseChecks.tenant_key_on_core_schema,
 };
 const currentSingleCompanyModeSafe = Object.values(currentModeChecks).every(Boolean);

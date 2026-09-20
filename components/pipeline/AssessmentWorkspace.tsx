@@ -49,7 +49,6 @@ import {
   setAssessmentUnableReason,
 } from "@/lib/assessment/assessment-interview-schema";
 import {
-  fieldsForAssessmentSection,
   normalizeAssessmentSectionVersions,
 } from "@/lib/assessment/assessment-sections";
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
@@ -81,6 +80,7 @@ import {
   canCreateAssessment,
   canEditAssessment,
   canSaveAssessmentSection,
+  canRebaseAssessmentAnswers,
   canSuperviseAssessment,
   dirtyAssessmentSections,
   editableSectionData,
@@ -317,6 +317,7 @@ export default function AssessmentWorkspace({
   const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
   const [networkOnline, setNetworkOnline] = useState(true);
   const [pendingOfflineSaves, setPendingOfflineSaves] = useState(0);
+  const [offlineReturnToSync, setOfflineReturnToSync] = useState<string | null>(null);
   const selectedRef = useRef<PipelineAssessmentRecord | null>(null);
   const draftRef = useRef<AssessmentToolData>(draft);
   const baseDataRef = useRef<AssessmentToolData>(draft);
@@ -328,7 +329,8 @@ export default function AssessmentWorkspace({
   const localRecoveryQueueRef = useRef<Promise<void>>(Promise.resolve());
   const offlineSyncRef = useRef(false);
   const closingRef = useRef(false);
-  const initializedAssessmentIdRef = useRef("");
+  const initializedAssessmentIdRef = useRef<{ id: string; principal: string } | null>(null);
+  const touchedFieldsRef = useRef(new Set<AssessmentToolFieldKey>());
   const focusedAssessmentIdRef = useRef("");
   const preparationRequestedRef = useRef(false);
   const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string } | null>(null);
@@ -431,71 +433,73 @@ export default function AssessmentWorkspace({
     setRemoteChange(null);
   }, []);
 
-  const loadRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord, currentData: AssessmentToolData) => {
-    let recovered: PipelineAssessmentDraft | null = null;
-    let recoveredVersion = 0;
-    if (offlinePrincipal) {
-      try {
-        recovered = await loadOfflineAssessmentDraft(offlinePrincipal, assessment.assessment_id);
-        const workingSet = await loadOfflineAssessmentWorkingSet(offlinePrincipal, assessment.assessment_id);
-        if (workingSet?.draft && (!recovered || Date.parse(workingSet.draft.savedAt) >= Date.parse(recovered.savedAt))) {
-          recovered = workingSet.draft;
+  const loadRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
+    const mergeRecoveryAnswers = (recovered: PipelineAssessmentDraft, currentData: AssessmentToolData) => {
+      const merged = pickAssessmentToolData(draftRef.current);
+      const recoveredBase = pickAssessmentToolData(baseDataRef.current);
+      const conflicts: AssessmentFieldConflict[] = [...(remoteChangeRef.current?.conflicts ?? [])];
+      for (const definition of assessmentToolFieldDefinitions) {
+        const field = definition.key;
+        if (touchedFieldsRef.current.has(field)) continue;
+        const localChanged = !sameAssessmentValue(recovered.data[field], recovered.baseData[field]);
+        if (!localChanged) continue;
+        const previousConflict = conflicts.findIndex((conflict) => conflict.field === field);
+        if (previousConflict >= 0) conflicts.splice(previousConflict, 1);
+        const remoteChanged = !sameAssessmentValue(currentData[field], recovered.baseData[field]);
+        merged[field] = recovered.data[field] as never;
+        if (remoteChanged && !sameAssessmentValue(recovered.data[field], currentData[field])) {
+          recoveredBase[field] = recovered.baseData[field] as never;
+          conflicts.push({
+            field,
+            localValue: recovered.data[field],
+            remoteValue: currentData[field],
+            section: definition.section,
+          });
         }
-      } catch {
-        // Server recovery remains available when encrypted browser storage is unavailable.
       }
-    }
-    if (usesServerUserWorkspaceState()) {
-      try {
-        const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
-          `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
-          { cache: "no-store" },
-        );
-        if (payload.draft && (!recovered || Date.parse(payload.draft.savedAt) >= Date.parse(recovered.savedAt))) {
-          recovered = payload.draft;
-        }
-        recoveredVersion = payload.version;
-      } catch {
-        // Browser recovery remains available during a transient server-state outage.
+      return { merged, recoveredBase, conflicts };
+    };
+
+    const restoreRecoveryPosition = (recovered: PipelineAssessmentDraft) => {
+      // Reading position is useful even when every answer already reached the server.
+      if (touchedFieldsRef.current.size === 0 && (!initialSection || initialSection === recovered.activeSection)) {
+        if (recovered.activeSection) setActiveSection(recovered.activeSection);
+        if (recovered.activeQuestion) setWorkingTarget({ field: recovered.activeQuestion });
       }
-    }
+    };
+    const applyRecoveryAnswers = (recovered: PipelineAssessmentDraft, assessment: PipelineAssessmentRecord) => {
+      restoreRecoveryPosition(recovered);
+      if (recovered.dirtySections.length === 0) return;
+
+      // Recovery may finish after the assessor has already typed or saved. Only
+      // restore untouched fields; a late read must never erase newer input.
+      const currentData = pickAssessmentToolData(assessment);
+      const { merged, recoveredBase, conflicts } = mergeRecoveryAnswers(recovered, currentData);
+      // Keep the pre-conflict comparison value until the assessor chooses an
+      // answer. Otherwise the next persisted draft loses the conflict on reopen.
+      baseDataRef.current = recoveredBase;
+      draftRef.current = merged;
+      setDraft(merged);
+      const recoveredDirty = dirtyAssessmentSections(merged, currentData);
+      dirtySectionsRef.current = recoveredDirty;
+      setDirtySections(recoveredDirty);
+      if (touchedFieldsRef.current.size === 0) setActiveSection((current) => initialSection ?? recovered.activeSection ?? current);
+      const change = conflicts.length > 0 ? { assessment, conflicts } : null;
+      remoteChangeRef.current = change;
+      setRemoteChange(change);
+      setMessage(conflicts.length > 0
+        ? "Restored answers · review conflicting changes"
+        : recoveredDirty.size > 0 ? "Restored answers · not yet saved" : "All changes saved");
+    };
+    const initialization = initializedAssessmentIdRef.current;
+    const { recovered, recoveredVersion } = await readAssessmentRecovery(assessment.assessment_id, offlinePrincipal);
+    if (initializedAssessmentIdRef.current !== initialization || selectedRef.current?.assessment_id !== assessment.assessment_id) return;
     draftVersionRef.current = recoveredVersion;
     if (!recovered || recovered.assessmentId !== assessment.assessment_id) return;
-    // Reading position is useful even when every answer already reached the server.
-    if (!initialSection || initialSection === recovered.activeSection) {
-      if (recovered.activeSection) setActiveSection(recovered.activeSection);
-      if (recovered.activeQuestion) setWorkingTarget({ field: recovered.activeQuestion });
+    applyRecoveryAnswers(recovered, selectedRef.current);
+    if (offlinePrincipal && new URL(window.location.href).searchParams.get("syncOfflineAssessment") === assessment.assessment_id) {
+      setOfflineReturnToSync(assessment.assessment_id);
     }
-    if (recovered.dirtySections.length === 0) return;
-
-    const merged = pickAssessmentToolData(currentData);
-    const conflicts: AssessmentFieldConflict[] = [];
-    for (const definition of assessmentToolFieldDefinitions) {
-      const field = definition.key;
-      const localChanged = !sameAssessmentValue(recovered.data[field], recovered.baseData[field]);
-      if (!localChanged) continue;
-      const remoteChanged = !sameAssessmentValue(currentData[field], recovered.baseData[field]);
-      merged[field] = recovered.data[field] as never;
-      if (remoteChanged && !sameAssessmentValue(recovered.data[field], currentData[field])) {
-        conflicts.push({
-          field,
-          localValue: recovered.data[field],
-          remoteValue: currentData[field],
-          section: definition.section,
-        });
-      }
-    }
-    baseDataRef.current = currentData;
-    draftRef.current = merged;
-    setDraft(merged);
-    const recoveredDirty = dirtyAssessmentSections(merged, currentData);
-    dirtySectionsRef.current = recoveredDirty;
-    setDirtySections(recoveredDirty);
-    setActiveSection((current) => initialSection ?? recovered.activeSection ?? current);
-    setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
-    setMessage(conflicts.length > 0
-      ? "Restored answers · review conflicting changes"
-      : recoveredDirty.size > 0 ? "Restored answers · not yet saved" : "All changes saved");
   }, [initialSection, offlinePrincipal]);
 
   const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord) => {
@@ -665,15 +669,24 @@ export default function AssessmentWorkspace({
 
   useEffect(() => {
     if (!selected) return;
-    const initializationKey = `${selected.assessment_id}:${offlinePrincipal || "server"}`;
-    if (initializedAssessmentIdRef.current === initializationKey) return;
-    initializedAssessmentIdRef.current = initializationKey;
+    const previous = initializedAssessmentIdRef.current;
+    if (previous?.id === selected.assessment_id && previous.principal === offlinePrincipal) return;
+    const attachingPrincipal = previous?.id === selected.assessment_id && !previous.principal && Boolean(offlinePrincipal);
+    initializedAssessmentIdRef.current = { id: selected.assessment_id, principal: offlinePrincipal };
     const data = pickAssessmentToolData(selected);
-    selectedRef.current = selected;
-    baseDataRef.current = data;
-    setDraft(data);
-    setDirtySections(new Set());
-    setRemoteChange(null);
+    // Resolving the signed-in identity enables encrypted recovery; it does not
+    // open a different assessment or authorize resetting work already entered.
+    if (!attachingPrincipal) {
+      touchedFieldsRef.current.clear();
+      selectedRef.current = selected;
+      baseDataRef.current = data;
+      draftRef.current = data;
+      setDraft(data);
+      dirtySectionsRef.current = new Set();
+      setDirtySections(dirtySectionsRef.current);
+      remoteChangeRef.current = null;
+      setRemoteChange(null);
+    }
     setScheduleStart(isoToOperationalInput(selected.scheduled_start_at));
     setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
     setScheduleMethod(normalizeScheduleMethod(selected.scheduled_method));
@@ -854,14 +867,17 @@ export default function AssessmentWorkspace({
     const local = draftRef.current;
     const latestData = pickAssessmentToolData(latest);
     const merged = pickAssessmentToolData(latestData);
+    const nextBase = pickAssessmentToolData(latestData);
     const conflicts: AssessmentFieldConflict[] = [];
 
     for (const definition of assessmentToolFieldDefinitions) {
       const field = definition.key;
       const localChanged = !sameAssessmentValue(local[field], base[field]);
       const remoteChanged = !sameAssessmentValue(latestData[field], base[field]);
-      if (localChanged && remoteChanged && !sameAssessmentValue(local[field], latestData[field])) {
+      const unresolved = remoteChangeRef.current?.conflicts.some((conflict) => conflict.field === field);
+      if (localChanged && (remoteChanged || unresolved) && !sameAssessmentValue(local[field], latestData[field])) {
         merged[field] = local[field] as never;
+        nextBase[field] = base[field] as never;
         conflicts.push({ field, localValue: local[field], remoteValue: latestData[field], section: definition.section });
       } else if (localChanged) {
         merged[field] = local[field] as never;
@@ -869,58 +885,87 @@ export default function AssessmentWorkspace({
     }
 
     selectedRef.current = latest;
-    baseDataRef.current = latestData;
+    baseDataRef.current = nextBase;
     draftRef.current = merged;
     setDraft(merged);
     setAssessments((items) => [latest, ...items.filter((item) => item.assessment_id !== latest.assessment_id)]);
     const nextDirty = dirtyAssessmentSections(merged, latestData);
     dirtySectionsRef.current = nextDirty;
     setDirtySections(nextDirty);
-    setRemoteChange(conflicts.length > 0 || announce ? { assessment: latest, conflicts } : null);
+    const change = conflicts.length > 0 || announce ? { assessment: latest, conflicts } : null;
+    remoteChangeRef.current = change;
+    setRemoteChange(change);
     if (announce) {
       setMessage(remoteAssessmentMessage(conflicts.length, latest.updated_by.name));
     }
   }, []);
 
   const saveSectionNow = useCallback(async (section: AssessmentToolSection, captured?: Partial<AssessmentToolData>) => {
-    const current = selectedRef.current;
-    if (!canSaveAssessmentSection(current, dirtySectionsRef.current, section, Boolean(captured))) return;
-    if (hasSectionConflict(remoteChangeRef.current, section)) {
+    const initial = selectedRef.current;
+    if (!canSaveAssessmentSection(initial, dirtySectionsRef.current, section, Boolean(captured))) return;
+    let current = initial;
+    const sentData = captured ?? Object.fromEntries(Object.entries(editableSectionData(draftRef.current, section))
+      .filter(([field, value]) => !sameAssessmentValue(baseDataRef.current[field as AssessmentToolFieldKey], value))) as Partial<AssessmentToolData>;
+    if (hasSectionConflict(remoteChangeRef.current, section, sentData)) {
       throw new Error(`Resolve the ${sectionLabels[section]} conflict before saving.`);
     }
 
-    const sentData = captured ?? editableSectionData(draftRef.current, section);
     if (Object.entries(sentData).every(([field, value]) => sameAssessmentValue(current[field as AssessmentToolFieldKey], value))) return;
     setMessage("Saving changes...");
-    const requestBody = JSON.stringify({
-      section,
-      if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
-      ...(sentData.resident_name !== undefined && sentData.resident_name !== current.resident_name
-        ? { if_match_referral_name: referral?.name ?? current.resident_name }
-        : {}),
-      client_mutation_id: mutationId(`assessment-${section}`),
-      patch: { data: sentData },
-    });
-    try {
-      const payload = trainingAssessmentMode ? { assessment: updateTrainingAssessment(current, sentData), referral: undefined } : await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; referral?: Referral }>(
-        `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
-        {
-          method: "PATCH",
-          body: requestBody,
-        },
-      );
-      const saved = payload.assessment;
+    let requestBody = "";
+    const sectionRequestBody = () => {
+      return JSON.stringify({
+          section,
+          if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
+          ...(sentData.resident_name !== undefined && sentData.resident_name !== current.resident_name
+            ? { if_match_referral_name: referral?.name ?? current.resident_name }
+            : {}),
+          client_mutation_id: mutationId(`assessment-${section}`),
+          patch: { data: sentData },
+        });
+    };
+    const persistSectionAnswers = async () => {
+      let payload: { assessment: PipelineAssessmentRecord; referral?: Referral };
+      for (let attempt = 0; ; attempt += 1) {
+        requestBody = sectionRequestBody();
+        try {
+          payload = trainingAssessmentMode ? { assessment: updateTrainingAssessment(current, sentData), referral: undefined } : await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; referral?: Referral }>(
+            `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+            { method: "PATCH", body: requestBody },
+          );
+          break;
+        } catch (error) {
+          const latest = error instanceof PipelineApiError && error.status === 409 ? assessmentFromConflict(error.payload) : null;
+          if (!latest || attempt >= 3 || !canRebaseAssessmentAnswers(current, latest, sentData)) throw error;
+          current = latest;
+        }
+      }
+      return payload;
+    };
+    const reconcileSavedAnswers = (saved: PipelineAssessmentRecord) => {
       const savedData = pickAssessmentToolData(saved);
       const local = draftRef.current;
       const nextDraft = pickAssessmentToolData(local);
-      for (const field of fieldsForAssessmentSection(section)) {
+      for (const { key: field } of assessmentToolFieldDefinitions) {
         const sentValue = sentData[field];
-        if (sentValue !== undefined && sameAssessmentValue(local[field], sentValue)) {
+        if ((sentValue !== undefined && sameAssessmentValue(local[field], sentValue))
+          || sameAssessmentValue(local[field], baseDataRef.current[field])) {
           nextDraft[field] = savedData[field] as never;
         }
       }
+      const nextBase = pickAssessmentToolData(savedData);
+      for (const conflict of remoteChangeRef.current?.conflicts ?? []) {
+        if (!Object.hasOwn(sentData, conflict.field) && !sameAssessmentValue(nextDraft[conflict.field], savedData[conflict.field])) {
+          nextBase[conflict.field] = baseDataRef.current[conflict.field] as never;
+        }
+      }
+      return { savedData, nextDraft, nextBase };
+    };
+    const acceptSavedSection = (payload: { assessment: PipelineAssessmentRecord; referral?: Referral }) => {
+      const saved = payload.assessment;
+      const { savedData, nextDraft, nextBase } = reconcileSavedAnswers(saved);
       selectedRef.current = saved;
-      baseDataRef.current = savedData;
+      baseDataRef.current = nextBase;
       draftRef.current = nextDraft;
       setDraft(nextDraft);
       setAssessments((items) => [saved, ...items.filter((item) => item.assessment_id !== saved.assessment_id)]);
@@ -931,6 +976,9 @@ export default function AssessmentWorkspace({
       setError("");
       if (nextDirty.size === 0 && !trainingAssessmentMode) void clearRecoveryDraft(saved.assessment_id);
       if (payload.referral) void Promise.resolve(onAssessmentSaved?.(saved, payload.referral)).catch(() => undefined);
+    };
+    try {
+      acceptSavedSection(await persistSectionAnswers());
     } catch (saveError) {
       if (isOfflineAssessmentSave(saveError, offlinePrincipal)) {
         await queueOfflineAssessmentMutation(offlinePrincipal, {
@@ -962,11 +1010,17 @@ export default function AssessmentWorkspace({
 
   const syncOfflineChanges = useCallback(async () => {
     if (!offlinePrincipal || !window.navigator.onLine || offlineSyncRef.current) return;
+    const initialization = initializedAssessmentIdRef.current;
+    const isCurrentSync = () => initialization !== null
+      && initializedAssessmentIdRef.current === initialization
+      && selectedRef.current?.assessment_id === initialization.id
+      && initialization.principal === offlinePrincipal;
     offlineSyncRef.current = true;
     try {
       const result = await flushOfflineAssessmentMutations(offlinePrincipal, async (mutation) => {
         const next = saveQueueRef.current.then(async () => {
           const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(mutation.url, { method: mutation.method, body: mutation.body });
+          if (!isCurrentSync()) return;
           const current = selectedRef.current;
           const saved = payload.assessment;
           if (!current || current.assessment_id !== saved.assessment_id || saved.version <= current.version) return;
@@ -984,25 +1038,32 @@ export default function AssessmentWorkspace({
         saveQueueRef.current = next.catch(() => undefined);
         await next;
       });
+      if (!isCurrentSync()) return;
       setPendingOfflineSaves(result.remaining);
-      const current = selectedRef.current;
-      if (current && result.completed + result.conflicts > 0) {
-        try {
-          const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-            `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
-            { cache: "no-store" },
-          );
-          receiveRemoteAssessment(payload.assessment, false);
-          if (result.conflicts > 0) {
-            setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
-          } else {
-            setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : "Offline changes synced");
-            if (result.remaining + dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+      const reconcileOfflineResult = async () => {
+        const current = selectedRef.current;
+        if (current && result.completed + result.conflicts > 0) {
+          try {
+            const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+              `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+              { cache: "no-store" },
+            );
+            // A -> B -> A and principal switches are new sessions too. Never use
+            // the newly open assessment's clean refs to discard the old draft.
+            if (!isCurrentSync()) return;
+            receiveRemoteAssessment(payload.assessment, false);
+            if (result.conflicts > 0) {
+              setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
+            } else {
+              setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : "Offline changes synced");
+              if (result.remaining + dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+            }
+          } catch {
+            // The normal active-assessment poll will reconcile the saved version.
           }
-        } catch {
-          // The normal active-assessment poll will reconcile the saved version.
         }
-      }
+      };
+      await reconcileOfflineResult();
     } finally {
       offlineSyncRef.current = false;
     }
@@ -1034,16 +1095,33 @@ export default function AssessmentWorkspace({
     };
   }, [offlinePrincipal, syncOfflineChanges]);
 
-  const queueSectionSave = useCallback((section: AssessmentToolSection, captured?: Partial<AssessmentToolData>) => {
-    const next = saveQueueRef.current.then(() => saveSectionNow(section, captured));
+  const queueSectionSave = useCallback((section: AssessmentToolSection, captured?: Partial<AssessmentToolData>, expectedAssessmentId?: string) => {
+    const next = saveQueueRef.current.then(() => {
+      if (expectedAssessmentId && selectedRef.current?.assessment_id !== expectedAssessmentId) return;
+      return saveSectionNow(section, captured);
+    });
     saveQueueRef.current = next.catch(() => undefined);
     return next;
   }, [saveSectionNow]);
 
-  const flushDirtySections = useCallback(async () => {
-    for (const section of [...dirtySectionsRef.current]) await queueSectionSave(section);
+  const flushDirtySections = useCallback(async (expectedAssessmentId?: string) => {
+    for (const section of [...dirtySectionsRef.current]) await queueSectionSave(section, undefined, expectedAssessmentId);
     await saveQueueRef.current;
   }, [queueSectionSave]);
+
+  useEffect(() => {
+    if (!offlineReturnToSync || selectedRef.current?.assessment_id !== offlineReturnToSync) return;
+    setOfflineReturnToSync(null);
+    // Only the offline screen's explicit Return and sync action commits recovery.
+    // Ordinary recovered drafts and conflicting fields retain their current behavior.
+    void flushDirtySections(offlineReturnToSync).then(() => {
+      if (selectedRef.current?.assessment_id !== offlineReturnToSync || dirtySectionsRef.current.size > 0) return;
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("syncOfflineAssessment") !== offlineReturnToSync) return;
+      url.searchParams.delete("syncOfflineAssessment");
+      window.history.replaceState(window.history.state, "", url);
+    }).catch(() => undefined); // Canonical saving retains the draft and its error/conflict feedback.
+  }, [flushDirtySections, offlineReturnToSync]);
 
   const saveBeforeExit = async () => {
     const current = selectedRef.current;
@@ -1057,7 +1135,11 @@ export default function AssessmentWorkspace({
     });
     // A confirmed recovery copy or canonical save releases navigation; a failed
     // request never becomes a saved or signed record.
-    await Promise.any([persistRecoveryDraft(current), canonical]);
+    try {
+      await Promise.any([persistRecoveryDraft(current), canonical]);
+    } catch (cause) {
+      throw new Error("Your last changes could not be saved. Keep this assessment open and try again.", { cause });
+    }
   };
 
   usePersonaSwitchSave(async () => {
@@ -1129,7 +1211,10 @@ export default function AssessmentWorkspace({
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
   });
 
-  useEffect(() => () => saveOnUnmount(), []);
+  useEffect(() => () => {
+    initializedAssessmentIdRef.current = null;
+    saveOnUnmount();
+  }, []);
 
   const reviewExtractedField = async (
     field: AssessmentToolFieldKey,
@@ -1322,6 +1407,7 @@ export default function AssessmentWorkspace({
   };
 
   const updateField = (key: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => {
+    touchedFieldsRef.current.add(key);
     const next = setAssessmentValue(draftRef.current, key, value);
     draftRef.current = next;
     setDraft(next);
@@ -1335,6 +1421,7 @@ export default function AssessmentWorkspace({
     const change = remoteChangeRef.current;
     const conflict = change?.conflicts.find((item) => item.field === field);
     if (!change || !conflict) return;
+    touchedFieldsRef.current.add(field);
     const nextDraft = pickAssessmentToolData(draftRef.current);
     const nextBase = pickAssessmentToolData(baseDataRef.current);
     if (useLatest) nextDraft[field] = conflict.remoteValue as never;
@@ -1504,17 +1591,118 @@ export default function AssessmentWorkspace({
     );
   }
 
-  const assessmentDetails = showSecondaryActions ? <>
+  const renderScheduleDetail = () => (!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button> : null);
+  const renderAssessmentDetails = () => showSecondaryActions ? <>
     {!preparing && !selected.signed_at ? recommendationControl?.(selected.assessment_id, setIsRecommendationSaving) : null}
-    {!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button> : null}
+    {renderScheduleDetail()}
     {assessmentReadyToBegin(selected) && canEditClinical ? <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} disabled={isBusy || isClosing}><Play size={15} />Begin assessment</button> : null}
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
   </> : null;
+  const assessmentDetails = renderAssessmentDetails();
   const nextConversationSection = () => {
     setWorkingTarget(null);
     if (nextSection) setActiveSection(nextSection.key);
     else void reviewChart();
   };
+
+  const renderSignatureHistory = () => (
+    selected.signed_at ? (
+        <div className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
+          Signed by <strong>{selected.signed_by?.name ?? selected.assessor ?? "Assigned assessor"}</strong> on {new Date(selected.signed_at).toLocaleString()}.
+          {!isAssessmentFinalized(selected) ? " You can still edit until Meet the Client is sent." : " Meet the Client sent. Use Add note for later information."}
+          {(selected.addenda ?? []).length > 0 ? (
+            <div className="mt-3 divide-y divide-[#e5e5e5] border-y border-[#e5e5e5]">
+              {(selected.addenda ?? []).map((addendum) => <div key={addendum.addendum_id} className="py-3"><div className="font-black text-[#111111]">{addendum.reason_code}</div><div className="mt-1 whitespace-pre-wrap leading-5">{addendum.note}</div><div className="mt-1 text-[9px] text-[#737373]">{addendum.authored_by_name} · {new Date(addendum.created_at).toLocaleString()}</div></div>)}
+            </div>
+          ) : null}
+        </div>
+      ) : null
+  );
+
+  const saveIndicatorColor = () => error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]";
+  const renderSaveStatus = () => (
+    <div className={workingStyles.footerUtilities}>
+          <span data-guide-target="assessment-save-status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
+            {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
+            <span>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
+          </span>
+          {embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
+        </div>
+  );
+
+  const renderSignedAction = () => (onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>);
+  const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
+
+  const renderPrimaryAssessmentActions = () => (
+    <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">
+          {selected.signed_at ? (
+            renderSignedAction()
+          ) : preparing ? (
+            <button type="button" onClick={() => setNotebookView("assessment")}>{selected.started_at ? "Return to assessment" : "Open assessment"}<ChevronRight size={14} /></button>
+          ) : canEditClinical ? (
+            renderSignAction()
+          ) : !selected.started_at && canSupervise ? (
+            <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
+          ) : null}
+        </div>
+  );
+
+  const renderRemoteChanges = () => (
+    remoteChange ? (
+            <div className={`border-b px-5 py-3 ${remoteChange.conflicts.length > 0 ? "border-[#d9b56c] bg-[#fff8e9]" : "border-[#a9d2c3] bg-[#f2faf7]"}`}>
+          <div className="flex items-center gap-2 text-[11px] font-black text-[#333333]">
+            <RefreshCw size={13} className="text-[#0f8b73]" />
+            {remoteChange.conflicts.length > 0
+              ? `${remoteChange.assessment.updated_by.name} changed fields you were editing.`
+              : `Latest changes from ${remoteChange.assessment.updated_by.name} were merged.`}
+          </div>
+          {remoteChange.conflicts.length > 0 ? (
+            <div className="mt-3 grid gap-2">
+              {remoteChange.conflicts.map((conflict) => {
+                const definition = assessmentToolFieldDefinitions.find((item) => item.key === conflict.field);
+                return (
+                  <div key={conflict.field} className="grid gap-2 border-t border-[#e5cf9d] pt-2 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center">
+                    <div className="text-[11px] font-black">{definition?.label ?? conflict.field}</div>
+                    <div className="min-w-0 text-[10px] text-[#595959]">
+                      <span className="font-semibold">Yours:</span> {displayAssessmentValue(conflict.localValue)}
+                      <span className="mx-2 text-[#9a6115]">|</span>
+                      <span className="font-semibold">Latest:</span> {displayAssessmentValue(conflict.remoteValue)}
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, false)} className="h-8 border border-[#9a6115] px-3 text-[10px] font-black text-[#7a4c0d] hover:bg-white">Keep mine</button>
+                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-[#111111] px-3 text-[10px] font-black text-white hover:bg-[#0f8b73]">Use latest</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+            </div>
+          ) : null
+  );
+
+  const renderChartReviewToolbar = () => (assessmentReview ? <div className={workingStyles.chartReviewToolbar}>
+              <div className={workingStyles.reviewHeading}><h3>Review &amp; sign</h3><p>Signing does not send the packet.</p></div>
+              <button type="button" onClick={() => { setNotebookView("assessment"); onOpenAssessment?.(); }}><ChevronLeft size={16} aria-hidden="true" />Back to questions</button>
+            </div> : !embeddedFolder ? <div className={workingStyles.chartReviewToolbar}>
+              {phoneInterview ? <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button> : null}
+              <span>{selected.signed_at && dirtySections.size === 0 ? "Assessment signed" : "Chart in progress"}</span>
+            </div> : null);
+
+  const renderChartReview = () => (
+    <section aria-label="Assessment chart review" className={workingStyles.chartReview}>
+            {renderChartReviewToolbar()}
+            {conversationSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>Assessment has {conversationSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items.</p> : null}
+            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField}
+              onEditAssessmentField={!isBusy && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
+                setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
+                setWorkingTarget({ field });
+                setNotebookView("assessment");
+                onOpenAssessment?.();
+              } : undefined}
+              assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)} />
+          </section>
+  );
 
   return (
     <AssessmentFileSurface
@@ -1562,17 +1750,7 @@ export default function AssessmentWorkspace({
         </div>
       ) : null}
 
-      {selected.signed_at ? (
-        <div className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
-          Signed by <strong>{selected.signed_by?.name ?? selected.assessor ?? "Assigned assessor"}</strong> on {new Date(selected.signed_at).toLocaleString()}.
-          {!isAssessmentFinalized(selected) ? " You can still edit until Meet the Client is sent." : " Meet the Client sent. Use Add note for later information."}
-          {(selected.addenda ?? []).length > 0 ? (
-            <div className="mt-3 divide-y divide-[#e5e5e5] border-y border-[#e5e5e5]">
-              {(selected.addenda ?? []).map((addendum) => <div key={addendum.addendum_id} className="py-3"><div className="font-black text-[#111111]">{addendum.reason_code}</div><div className="mt-1 whitespace-pre-wrap leading-5">{addendum.note}</div><div className="mt-1 text-[9px] text-[#737373]">{addendum.authored_by_name} · {new Date(addendum.created_at).toLocaleString()}</div></div>)}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      {renderSignatureHistory()}
 
       <div className="flex min-h-0 flex-1">
         {preparing && !phoneInterview ? <aside aria-label="Preparation navigation" className="order-last hidden w-[280px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#f7faf4] px-5 py-5 lg:block">
@@ -1598,56 +1776,9 @@ export default function AssessmentWorkspace({
             </div>
           ) : null}
 
-          {remoteChange ? (
-            <div className={`border-b px-5 py-3 ${remoteChange.conflicts.length > 0 ? "border-[#d9b56c] bg-[#fff8e9]" : "border-[#a9d2c3] bg-[#f2faf7]"}`}>
-          <div className="flex items-center gap-2 text-[11px] font-black text-[#333333]">
-            <RefreshCw size={13} className="text-[#0f8b73]" />
-            {remoteChange.conflicts.length > 0
-              ? `${remoteChange.assessment.updated_by.name} changed fields you were editing.`
-              : `Latest changes from ${remoteChange.assessment.updated_by.name} were merged.`}
-          </div>
-          {remoteChange.conflicts.length > 0 ? (
-            <div className="mt-3 grid gap-2">
-              {remoteChange.conflicts.map((conflict) => {
-                const definition = assessmentToolFieldDefinitions.find((item) => item.key === conflict.field);
-                return (
-                  <div key={conflict.field} className="grid gap-2 border-t border-[#e5cf9d] pt-2 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center">
-                    <div className="text-[11px] font-black">{definition?.label ?? conflict.field}</div>
-                    <div className="min-w-0 text-[10px] text-[#595959]">
-                      <span className="font-semibold">Yours:</span> {displayAssessmentValue(conflict.localValue)}
-                      <span className="mx-2 text-[#9a6115]">|</span>
-                      <span className="font-semibold">Latest:</span> {displayAssessmentValue(conflict.remoteValue)}
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, false)} className="h-8 border border-[#9a6115] px-3 text-[10px] font-black text-[#7a4c0d] hover:bg-white">Keep mine</button>
-                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-[#111111] px-3 text-[10px] font-black text-white hover:bg-[#0f8b73]">Use latest</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-            </div>
-          ) : null}
+          {renderRemoteChanges()}
 
-          {reviewingChart ? <section aria-label="Assessment chart review" className={workingStyles.chartReview}>
-            {assessmentReview ? <div className={workingStyles.chartReviewToolbar}>
-              <div className={workingStyles.reviewHeading}><h3>Review &amp; sign</h3><p>Signing does not send the packet.</p></div>
-              <button type="button" onClick={() => { setNotebookView("assessment"); onOpenAssessment?.(); }}><ChevronLeft size={16} aria-hidden="true" />Back to questions</button>
-            </div> : !embeddedFolder ? <div className={workingStyles.chartReviewToolbar}>
-              {phoneInterview ? <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button> : null}
-              <span>{selected.signed_at && dirtySections.size === 0 ? "Assessment signed" : "Chart in progress"}</span>
-            </div> : null}
-            {conversationSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>Assessment has {conversationSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items.</p> : null}
-            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField}
-              onEditAssessmentField={!isBusy && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
-                setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
-                setWorkingTarget({ field });
-                setNotebookView("assessment");
-                onOpenAssessment?.();
-              } : undefined}
-              assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)} />
-          </section> : <div data-assessment-question-content className={!preparing && !phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
+          {reviewingChart ? renderChartReview() : <div data-assessment-question-content className={!preparing && !phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
             <div className={preparing && !phoneInterview ? "mb-3" : "sr-only"}>
               <h3 className="text-[21px] font-bold text-[#213629]">{preparing ? preparationGroup.label : sectionDefinition.label}</h3>
                 {preparing ? <p className="mt-2 text-[12px] leading-5 text-[#657167]">Use documented information; leave unknowns unanswered. These are the same answers used in the assessment.</p> : null}
@@ -1714,34 +1845,53 @@ export default function AssessmentWorkspace({
       </div>
 
       <footer aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneInterview ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
-        <div className={workingStyles.footerUtilities}>
-          <span data-guide-target="assessment-save-status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]"}`}>
-            {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
-            <span>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
-          </span>
-          {embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
-        </div>
+        {renderSaveStatus()}
         {!preparing && !reviewingChart && !phoneInterview ? <nav aria-label="Assessment section steps" className={workingStyles.sectionSteps}>
           <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isBusy || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" />Previous</button>
           <span className={workingStyles.stepPosition} aria-label={`Section ${activeSectionIndex + 1} of ${conversationSections.length}`}><strong>{activeSectionIndex + 1}</strong> of {conversationSections.length}</span>
           <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing} title={nextSection ? `Next: ${nextSection.label}` : "Review the chart before signing"}>{nextSection ? "Next section" : "Review & sign"}<ChevronRight size={16} aria-hidden="true" /></button></div>
         </nav> : (preparing || reviewingChart || selected.signed_at) ? <div>
-        <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">
-          {selected.signed_at ? (
-            onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>
-          ) : preparing ? (
-            <button type="button" onClick={() => setNotebookView("assessment")}>{selected.started_at ? "Return to assessment" : "Open assessment"}<ChevronRight size={14} /></button>
-          ) : canEditClinical ? (
-            <button type="button" data-guide-target="assessment-sign" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>
-          ) : !selected.started_at && canSupervise ? (
-            <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
-          ) : null}
-        </div>
+        {renderPrimaryAssessmentActions()}
         </div> : null}
       </footer>
 
     </AssessmentFileSurface>
   );
+}
+
+function newestRecoveryDraft(current: PipelineAssessmentDraft | null, candidate: PipelineAssessmentDraft | null | undefined) {
+  return candidate && (!current || Date.parse(candidate.savedAt) >= Date.parse(current.savedAt)) ? candidate : current;
+}
+
+async function readBrowserAssessmentRecovery(assessmentId: string, principal: string | null) {
+  let recovered: PipelineAssessmentDraft | null = null;
+  if (principal) {
+    try {
+      recovered = await loadOfflineAssessmentDraft(principal, assessmentId);
+      const workingSet = await loadOfflineAssessmentWorkingSet(principal, assessmentId);
+      recovered = newestRecoveryDraft(recovered, workingSet?.draft);
+    } catch {
+      // Server recovery remains available when encrypted browser storage is unavailable.
+    }
+  }
+  return recovered;
+}
+
+async function readAssessmentRecovery(assessmentId: string, principal: string | null) {
+  let recovered = await readBrowserAssessmentRecovery(assessmentId, principal);
+  let recoveredVersion = 0;
+  if (usesServerUserWorkspaceState()) {
+    try {
+      const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
+        `/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, { cache: "no-store" },
+      );
+      recovered = newestRecoveryDraft(recovered, payload.draft);
+      recoveredVersion = payload.version;
+    } catch {
+      // Browser recovery remains available during a transient server-state outage.
+    }
+  }
+  return { recovered, recoveredVersion };
 }
 
 function AssessmentEmpty({ title, detail, action, error }: { title: string; detail: string; action?: React.ReactNode; error?: string }) {

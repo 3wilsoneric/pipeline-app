@@ -214,6 +214,7 @@ test.describe("desktop feature enabled", () => {
         documentStatus: "Missing",
       },
     });
+    await page.getByRole("button", { name: "Edit referral details" }).click();
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "desktop-recovery-face-sheet.pdf",
       mimeType: "application/pdf",
@@ -456,22 +457,17 @@ test.describe("desktop feature enabled", () => {
     expect(scheduleResponse.ok(), JSON.stringify(schedulePayload)).toBeTruthy();
 
     await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment`);
-    const assessmentDialog = page.getByRole("dialog", { name: "Assessment interview" });
-    await expect(assessmentDialog).toBeVisible({ timeout: 15_000 });
-    const beginDialog = page.getByRole("dialog", { name: "Begin assessment" });
-    await expect(beginDialog).toBeVisible();
-    const begin = beginDialog.getByRole("button", { name: "Begin assessment", exact: true });
-    await begin.click();
-    await expect(beginDialog).toBeHidden();
-    await expect(assessmentDialog).toHaveAttribute("data-guided-assessment", "true");
-    await assessmentDialog.getByRole("button", { name: "Full assessment" }).click();
-    const location = page.getByRole("textbox", { name: "Current location *", exact: true });
+    const assessmentWorkspace = page.locator('[data-assessment-view="assessment"]');
+    await expect(assessmentWorkspace).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("dialog", { name: "Begin assessment" })).toHaveCount(0);
+    const location = page.getByRole("textbox", { name: "Current location", exact: true });
     await expect(location).toBeVisible();
 
     const offlineValue = `Offline location ${token}`;
     await context.setOffline(true);
     try {
       await location.fill(offlineValue);
+      await location.blur();
       await expect(page.getByText("Offline · 1 queued", { exact: true })).toBeVisible({ timeout: 10_000 });
       const encrypted = await page.evaluate(async (plaintext) => {
         const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -514,6 +510,7 @@ test.describe("desktop feature enabled", () => {
     await context.setOffline(true);
     try {
       await location.fill(localCollisionValue);
+      await location.blur();
       await expect(page.getByText("Offline · 1 queued", { exact: true })).toBeVisible({ timeout: 10_000 });
       const remoteWrite = await outsideSession.patch(`/api/assessments/${assessmentPayload.assessment.assessment_id}`, {
         data: {
@@ -585,12 +582,13 @@ test.describe("desktop feature enabled", () => {
     }
 
     await page.getByRole("button", { name: "Return to Pipeline and sync" }).click();
-    await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible({ timeout: 15_000 });
+    await expect(assessmentWorkspace).toBeVisible({ timeout: 15_000 });
     await expect.poll(async () => {
       const response = await page.request.get(`/api/assessments/${assessmentPayload.assessment.assessment_id}`);
       const payload = await response.json() as { assessment?: { time_at_current_location?: string } };
       return payload.assessment?.time_at_current_location ?? "";
     }, { timeout: 20_000 }).toBe(coldStartValue);
+    await expect(page).not.toHaveURL(/syncOfflineAssessment=/);
   });
 });
 

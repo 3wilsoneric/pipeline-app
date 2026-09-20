@@ -5,7 +5,7 @@ import ts from "typescript";
 
 import type { OfflineAssessmentMutation, OfflineSyncResult } from "@/lib/offline/offline-assessment-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { assessmentInterviewSections } from "@/lib/assessment/assessment-interview-schema";
+import { assessmentConversationSections } from "@/components/pipeline/assessment-working-view";
 import {
   actorApiContext,
   actorPage,
@@ -211,6 +211,8 @@ test.describe("workflow interaction and durable feedback", () => {
       expect(id).not.toBeNull();
       await expect(page.getByTestId("workspace-save-status")).toContainText("Workspace created");
       await expect(page.getByTestId("workspace-save-status")).toContainText("Uploading");
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
+      await page.getByTestId("document-checklist-toggle").click();
       await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("Packet selected");
       await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("creation-upload-pending.png") });
@@ -237,6 +239,7 @@ test.describe("workflow interaction and durable feedback", () => {
       const first = await createReferral(api, uniqueName(), pipelineActors.assessorA.id);
       const second = await createReferral(api, uniqueName(), pipelineActors.assessorA.id);
       await page.goto(workspacePath(first.id));
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(first.name);
       let held = false;
       let delivered = false;
@@ -250,11 +253,13 @@ test.describe("workflow interaction and durable feedback", () => {
       });
       const revisedName = uniqueName();
       await page.getByRole("textbox", { name: "NAME", exact: true }).fill(revisedName);
+      await page.getByRole("textbox", { name: "NAME", exact: true }).blur();
       await expect.poll(() => held).toBe(true);
       await page.evaluate((path) => {
         window.history.pushState({}, "", path);
         window.dispatchEvent(new PopStateEvent("popstate"));
       }, workspacePath(second.id));
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(second.name);
       release();
       await expect.poll(() => delivered).toBe(true);
@@ -263,6 +268,7 @@ test.describe("workflow interaction and durable feedback", () => {
       expect((await (await api.get(`/api/referrals/${first.id}`)).json()).referral.name).toBe(revisedName);
       expect((await (await api.get(`/api/referrals/${second.id}`)).json()).referral.name).toBe(second.name);
       await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("555-0123");
+      await page.getByRole("textbox", { name: "Client phone:", exact: true }).blur();
       await expect.poll(async () => (await (await api.get(`/api/referrals/${second.id}`)).json()).referral.phone).toBe("555-0123");
       expect((await (await api.get(`/api/referrals/${first.id}`)).json()).referral.phone).toBe(first.phone);
     } finally {
@@ -272,7 +278,7 @@ test.describe("workflow interaction and durable feedback", () => {
     }
   });
 
-  test("saves the last answer before a quick close and resumes from stage cards and the directory", async ({ browser, baseURL }) => {
+  test("keeps a durable last answer during a slow save and resumes from the personal board and directory", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessorA", url);
     const { page, context } = await actorPage(browser, "assessorA", url);
@@ -282,10 +288,9 @@ test.describe("workflow interaction and durable feedback", () => {
       const referral = await createReferral(api, uniqueName(), pipelineActors.assessorA.id);
       const assessmentId = await startAssessment(api, referral.id);
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
-      const guided = page.locator('[data-guided-assessment="true"]');
-      await expect(guided).toBeVisible();
-      await guided.getByRole("button", { name: "Full assessment" }).click();
-      const chart = page.locator('[data-assessment-view="chart"]');
+      const chart = page.locator('[data-assessment-view]');
+      await expect(chart).toBeVisible();
+      const exit = page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true });
       const answer = "Synthetic final answer, entered immediately before closing.";
       let saving = false;
       await page.route(`**/api/assessments/${assessmentId}`, async (route) => {
@@ -296,28 +301,30 @@ test.describe("workflow interaction and durable feedback", () => {
         await route.continue();
       });
       await chart.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
-      await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
+      await exit.click();
       await expect.poll(() => saving).toBe(true);
-      await expect(chart).toBeVisible();
-      await expect(chart.getByRole("button", { name: "Back to referral", exact: true })).toBeDisabled();
-      await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).not.toBeEditable();
-      release();
+      // A durable recovery copy releases navigation before the canonical write completes.
       await expect(chart).toHaveCount(0);
+      const recovery = await api.get(`/api/me/assessment-drafts/${assessmentId}`);
+      expect(recovery.status()).toBe(200);
+      expect((await recovery.json()).draft.data.prior_5150_5250_holds).toBe(answer);
+      release();
       await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
-      expect((await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_5150_5250_holds).toBe(answer);
+      await expect.poll(async () => (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_5150_5250_holds).toBe(answer);
       await page.getByRole("button", { name: "Open current work", exact: true }).click();
       const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
-      await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
+      // Stacked folders expose their name tab; the next folder intentionally covers part of the body.
+      await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).getByText(referral.name, { exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
-      await expect(guided).toBeVisible();
-      await guided.getByRole("button", { name: "Full assessment" }).click();
+      await expect(chart).toBeVisible();
+      await chart.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true }).click();
       await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
-      await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
+      await exit.click();
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
-      await page.getByRole("searchbox", { name: "Search my workspaces" }).fill(referral.name);
+      await page.getByRole("searchbox", { name: "Search all workspaces", exact: true }).fill(referral.name);
       await page.getByRole("button", { name: new RegExp(referral.name) }).first().click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
-      await expect(guided).toBeVisible();
+      await expect(chart).toBeVisible();
     } finally {
       release();
       await context.close();
@@ -333,18 +340,22 @@ test.describe("workflow interaction and durable feedback", () => {
       const referral = await createReferral(api, uniqueName(), pipelineActors.assessorA.id);
       const assessmentId = await startAssessment(api, referral.id);
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
-      await page.getByRole("button", { name: "Full assessment" }).click();
-      const chart = page.locator('[data-assessment-view="chart"]');
+      const chart = page.locator('[data-assessment-view]');
+      await expect(chart).toBeVisible();
       await page.route(`**/api/assessments/${assessmentId}`, (route) => route.request().method() === "PATCH"
         ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic save unavailable" }) })
         : route.continue());
+      await page.route(`**/api/me/assessment-drafts/${assessmentId}`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic recovery unavailable" } }));
+      await page.evaluate(() => {
+        IDBDatabase.prototype.transaction = () => { throw new DOMException("Synthetic storage unavailable", "QuotaExceededError"); };
+      });
       await chart.getByRole("textbox", { name: /Prior 5150/ }).fill("Synthetic unsaved answer must remain visible.");
-      await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
+      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
       await expect(chart).toBeVisible();
-      await expect(chart.getByRole("alert")).toContainText("Synthetic save unavailable");
+      await expect(chart.getByRole("alert")).toContainText(/save|saved|unavailable/i);
       await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Synthetic unsaved answer must remain visible.");
       await page.unroute(`**/api/assessments/${assessmentId}`);
-      await chart.getByRole("button", { name: "Back to referral", exact: true }).click();
+      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
       await expect(chart).toHaveCount(0);
     } finally {
       await context.close();
@@ -370,6 +381,8 @@ test.describe("workflow interaction and durable feedback", () => {
       expect(created.status()).toBe(201);
       const assessmentId = (await created.json()).assessment.assessment_id;
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment`);
+      await page.locator('summary[aria-label="Assessment details"]').click();
+      await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
       const scheduling = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
       await expect(scheduling).toBeVisible();
       await scheduling.getByRole("combobox", { name: "Assessment method" }).selectOption("zoom");
@@ -380,23 +393,28 @@ test.describe("workflow interaction and durable feedback", () => {
       expect((await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.scheduled_start_at).toBeFalsy();
       await scheduling.getByLabel("Assessment date and time").fill("2026-09-18T10:30");
       await scheduling.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-      await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toBeVisible();
+      await expect(scheduling).toHaveCount(0);
       const scheduled = (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment;
       expect(scheduled.scheduled_start_at).toBe("2026-09-18T17:30:00.000Z");
       expect(scheduled.scheduled_method).toBe("zoom");
-      await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
-      const guided = page.locator('[data-guided-assessment="true"]');
-      await expect(guided).toBeVisible();
+      await page.locator('summary[aria-label="Assessment details"]').click();
+      await page.getByRole("button", { name: "Begin assessment", exact: true }).click();
+      await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Record start", exact: true }).click();
+      const editor = page.locator('[data-assessment-view]');
+      const sectionSelect = editor.getByRole("combobox", { name: "Assessment section", exact: true });
+      const sectionBody = editor.locator('[data-assessment-working-section]');
+      await expect(editor).toBeVisible();
       const visited: string[] = [];
-      for (let index = 0; index < 60; index += 1) {
-        const section = (await guided.getAttribute("data-screen-section"))!;
-        if (!visited.includes(section)) visited.push(section);
-        if (section === "physical_health") break;
-        await guided.getByRole("button", { name: "Next", exact: true }).click();
+      for (const section of assessmentConversationSections) {
+        await sectionSelect.selectOption(section.key);
+        await expect(sectionBody).toHaveAttribute("data-assessment-section", section.key);
+        visited.push(section.key);
       }
-      await expect(guided).toHaveAttribute("data-screen-section", "physical_health");
-      const title = await guided.getByRole("heading", { level: 1 }).innerText();
-      const screenCount = Number(await guided.getAttribute("data-visible-screens"));
+      expect(visited).toEqual(assessmentConversationSections.map((section) => section.key));
+      await sectionSelect.selectOption("substance_use");
+      await expect(editor.locator('[data-working-field="use_pattern"]')).toHaveCount(0);
+      await sectionSelect.selectOption("physical_health");
+      const questionCount = await sectionBody.locator('[data-working-field]').count();
       const latest = (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment;
       const changed = await api.patch(`/api/assessments/${assessmentId}`, { data: {
         section: "substance_use", if_match_section: latest.section_versions.substance_use,
@@ -404,27 +422,20 @@ test.describe("workflow interaction and durable feedback", () => {
       } });
       expect(changed.status()).toBe(200);
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-      await expect.poll(async () => Number(await guided.getAttribute("data-visible-screens"))).toBeGreaterThan(screenCount);
-      await expect(guided).toHaveAttribute("data-screen-section", "physical_health");
-      await expect(guided.getByRole("heading", { level: 1 })).toHaveText(title);
+      await expect(editor.getByText(/Latest changes from .* were merged/)).toBeVisible();
+      await expect(sectionBody).toHaveAttribute("data-assessment-section", "physical_health");
+      await expect(sectionBody.locator('[data-working-field]')).toHaveCount(questionCount);
+      await sectionSelect.selectOption("substance_use");
+      await expect(editor.locator('[data-working-field="use_pattern"]')).toBeVisible();
+      // Traverse the same questionnaire backwards; remote conditional fields do not reset its position.
+      for (const section of [...assessmentConversationSections].reverse()) {
+        await sectionSelect.selectOption(section.key);
+        await expect(sectionBody).toHaveAttribute("data-assessment-section", section.key);
+      }
       await page.setViewportSize({ width: 390, height: 844 });
       const status = page.locator('[data-guide-target="assessment-save-status"]:visible');
       await expect(status).toBeVisible();
-      for (let index = 0; index < 60; index += 1) {
-        const section = (await guided.getAttribute("data-screen-section"))!;
-        if (!visited.includes(section)) visited.push(section);
-        const done = guided.getByRole("button", { name: "Done", exact: true });
-        if (await done.count()) { await done.click(); break; }
-        await guided.getByRole("button", { name: "Next", exact: true }).click();
-      }
-      expect(visited).toEqual(assessmentInterviewSections.map((section) => section.key));
-      await expect(page.locator('[data-assessment-view="chart"]')).toBeVisible();
-      await expect(status).toBeVisible();
-      const sectionSelect = page.getByRole("combobox", { name: "Assessment section", exact: true });
-      for (const section of [...assessmentInterviewSections].reverse()) {
-        await sectionSelect.selectOption(section.key);
-        await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true }).getByRole("heading", { name: section.label, exact: true })).toBeVisible();
-      }
+      await expect(editor.locator('[data-phone-interview]')).toBeVisible();
       const allAssessments = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
       expect(allAssessments).toHaveLength(1);
       expect(allAssessments[0].assessment_id).toBe(assessmentId);
@@ -432,7 +443,9 @@ test.describe("workflow interaction and durable feedback", () => {
         await page.setViewportSize({ width, height: 900 });
         await expect(page.locator('[data-guide-target="assessment-save-status"]')).toHaveCount(1);
         await expect(status).toBeVisible();
-        const close = page.getByRole("button", { name: "Back to referral", exact: true });
+        const close = width < 640
+          ? page.getByRole("button", { name: "Back to previous page", exact: true })
+          : page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true });
         await expect(close).toBeVisible();
         const bounds = await close.boundingBox();
         expect(bounds!.x).toBeGreaterThanOrEqual(0);

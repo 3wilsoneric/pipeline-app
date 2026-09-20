@@ -1,18 +1,24 @@
-import { chromium, expect, test, webkit } from "@playwright/test";
+import { chromium, expect, test, webkit, type Page } from "@playwright/test";
 
 for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
   // Phone navigation has its own menu/return/save contract in phone-app.spec.ts.
   for (const width of [1440, 834]) {
-    test(`${engine} persistent sidebar works across pages at ${width}px`, async ({ baseURL }, info) => {
-      const browser = await browserType.launch();
-      try {
-        const height = width === 437 ? 536 : 900;
-        const page = await browser.newPage({ baseURL, viewport: { width, height }, hasTouch: width < 960, deviceScaleFactor: width < 960 ? 3 : 2 });
-        await page.emulateMedia({ reducedMotion: "reduce" });
-        const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
-        const panel = page.locator("#pipeline-app-navigation");
-        const content = page.locator(".pipeline-surfaces > div > main");
-        for (const path of ["/", "/?screen=calendar", "/?screen=profiles", "/?screen=operations", "/?view=referrals&screen=packet", "/settings", "/training"]) {
+    const sidebarTest = test.extend<{ sidebarPage: Page }>({
+      sidebarPage: async ({ baseURL }, use) => {
+        const browser = await browserType.launch();
+        const context = await browser.newContext({ baseURL, viewport: { width, height: 900 }, hasTouch: width < 960, deviceScaleFactor: width < 960 ? 3 : 2, reducedMotion: "reduce" });
+        try { await use(await context.newPage()); }
+        finally { await context.close(); await browser.close(); }
+      },
+    });
+    sidebarTest.describe(`${engine} sidebar at ${width}px`, () => {
+      // Separate destinations from pin/keyboard behavior so each bounded journey
+      // retains the normal timeout and uses Playwright-owned browser cleanup.
+      for (const path of ["/", "/?screen=calendar", "/?screen=profiles", "/?screen=operations", "/?view=referrals&screen=packet", "/settings", "/training"]) {
+        sidebarTest(`layout and hover on ${path}`, async ({ sidebarPage: page }) => {
+          const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
+          const panel = page.locator("#pipeline-app-navigation");
+          const content = page.locator(".pipeline-surfaces > div > main");
           await page.goto(path);
           await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
           await expect(rail).toBeVisible();
@@ -36,9 +42,15 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
             await page.mouse.move(width - 10, 300);
           }
           await expect(rail).toHaveAttribute("data-sidebar-expanded", "false");
-        }
+        });
+      }
 
+      sidebarTest("pinning, branding, keyboard and profile navigation", async ({ sidebarPage: page }, info) => {
+        const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
+        const panel = page.locator("#pipeline-app-navigation");
+        const content = page.locator(".pipeline-surfaces > div > main");
         await page.goto("/?screen=calendar");
+        await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
         const collapsedContent = (await content.boundingBox())!;
         const toggle = rail.locator("[data-navigation-toggle]");
         const toggleBounds = (await toggle.boundingBox())!;
@@ -107,7 +119,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         await expect(profile).toBeHidden();
         await expect(rail).toBeVisible();
         await page.screenshot({ path: info.outputPath(`sidebar-collapsed-${width}.png`) });
-      } finally { await browser.close(); }
+      });
     });
   }
 }

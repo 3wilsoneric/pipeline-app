@@ -88,7 +88,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   }, [load]);
 
   const emailMeetClient = async () => {
-    if (!payload?.email.ready || payload.email.example_only || payload.email.sent_at || acceptedReferralId === referralId || !confirmed || sendInFlight.current) return;
+    if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
     const recipientList = recipients.split(/[;,\n]/).map((value) => value.trim()).filter(Boolean);
     const requestKey = JSON.stringify([
       payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
@@ -131,7 +131,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   if (unavailable) return unavailable;
   const readyPayload = payload!;
   const sent = Boolean(readyPayload.email.sent_at) || acceptedReferralId === referralId;
-  const deliveryStatus = sent ? "Sent" : sending ? "Sending" : !readyPayload.email.example_only && readyPayload.email.ready && confirmed && recipients.trim() ? "Ready to send" : "Preview";
+  const deliveryStatus = meetClientDeliveryStatus(readyPayload.email, sent, sending, confirmed, recipients);
   const refresh = <button type="button" onClick={() => void load()} disabled={loading || sending} className={styles.textButton}>
     <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
   </button>;
@@ -149,6 +149,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     </section>
   );
 
+
   return (
     <div className="mx-auto w-full max-w-[1240px]">
       <div className={styles.chartActions}>
@@ -158,6 +159,16 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       <AssessmentRecord report={readyPayload.report!} embedded={embedded} />
     </div>
   );
+}
+
+function canStartMeetClientSend(payload: ChartPayload | null, alreadyAccepted: boolean, confirmed: boolean, inFlight: boolean): payload is ChartPayload {
+  return Boolean(payload?.email.ready && !payload.email.example_only && !payload.email.sent_at && !alreadyAccepted && confirmed && !inFlight);
+}
+
+function meetClientDeliveryStatus(email: ChartPayload["email"], sent: boolean, sending: boolean, confirmed: boolean, recipients: string) {
+  if (sent) return "Sent";
+  if (sending) return "Sending";
+  return !email.example_only && email.ready && confirmed && recipients.trim() ? "Ready to send" : "Preview";
 }
 
 function chartUnavailableState(
@@ -262,15 +273,9 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
 }) {
-  const status = sent ? "Microsoft 365 accepted this handoff for sending. This is not a delivery or read receipt."
-    : email.example_only ? "Example only · no email will be sent." : !email.configured ? "Preview only · email delivery is not connected."
-    : !email.eligible ? "Preview ready · record acceptance before sending."
-    : !email.preview ? "Your summary will appear when an assessment is signed."
-    : !email.ready ? "Preview ready · review the items below before sending."
-    : "Review the recipients and packet, then send when ready.";
-  return (
-    <div className={styles.composer} data-guide-target="chart-email-handoff">
-      {email.example_only ? <div role="note" className={styles.notice}><strong>Example only. No email will be sent.</strong> This previews the client handoff. Live delivery will be enabled separately.</div> : sent ? null : <div className={styles.toolbar}>
+  const status = meetClientPreviewStatus(email, sent);
+  const renderSendToolbar = () => (
+    email.example_only ? <div role="note" className={styles.notice}><strong>Example only. No email will be sent.</strong> This previews the client handoff. Live delivery will be enabled separately.</div> : sent ? null : <div className={styles.toolbar}>
         {email.can_send ? <label className={styles.confirmation}>
           <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={sending} aria-label="I verified that each recipient is authorized to receive this summary and the attached files." />
           <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></span>
@@ -279,15 +284,11 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
           disabled={sending || !email.ready || !confirmed || !recipients.trim()}>
           <Send size={16} />{sending ? "Sending…" : "Send email & packet"}
         </button>
-      </div>}
-      <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
-      {!email.example_only ? <div className={styles.addressRow}>
-        <label htmlFor="meet-client-recipients">To</label>
-        <textarea id="meet-client-recipients" aria-label="Authorized recipients" value={recipients} onChange={(event) => onRecipients(event.target.value)}
-          disabled={!email.can_send || sending || sent} rows={1} placeholder="Add authorized recipients" spellCheck={false} autoComplete="off" />
-      </div> : null}
-      <div className={styles.addressRow}><span>Subject</span><span className={styles.subject}>{email.preview?.subject || "Meet the Client"}</span></div>
-      <section className={styles.attachments} aria-label="Referral packet attachments">
+      </div>
+  );
+
+  const renderPacketAttachments = () => (
+    <section className={styles.attachments} aria-label="Referral packet attachments">
         <div className={styles.attachmentHeading}>
           <span><Paperclip size={15} />{email.admission_packet.files.length} attachment{email.admission_packet.files.length === 1 ? "" : "s"} · {formatBytes(email.admission_packet.total_bytes)}</span>
           {onOpenFiles ? <button type="button" className={styles.textButton} onClick={onOpenFiles}>Manage files</button> : null}
@@ -300,13 +301,9 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
           </li>)}
         </ul> : <p className={styles.emptyAttachments}>No packet files yet. Add them in Files whenever you’re ready.</p>}
       </section>
-      <div className={styles.messageBody}>
-        {email.preview ? <iframe title="Meet the Client email preview" srcDoc={email.preview.html} sandbox="" referrerPolicy="no-referrer" className={styles.emailFrame} />
-          : <div className={styles.emptyPreview}><Mail size={30} /><h3>Your email preview will appear here</h3><p>You can review files and recipients now. Sign an assessment to fill in the client summary.</p>{onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Open assessment</button> : null}</div>}
-      </div>
-      <footer className={styles.footer}>
-        <p role="status">{status}</p>
-        <details className={styles.deliveryDetails}>
+  );
+  const renderDeliveryDetails = () => (
+    <details className={styles.deliveryDetails}>
           <summary>Delivery details</summary>
           {email.blockers.length ? <ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
           <p>Approved recipient domains: {email.allowed_recipient_domains.join(", ") || "Not connected yet"}.</p>
@@ -315,9 +312,38 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
             {onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Review assessment</button> : null}
           </div>
         </details>
+  );
+
+  return (
+    <div className={styles.composer} data-guide-target="chart-email-handoff">
+      {renderSendToolbar()}
+      <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
+      {!email.example_only ? <div className={styles.addressRow}>
+        <label htmlFor="meet-client-recipients">To</label>
+        <textarea id="meet-client-recipients" aria-label="Authorized recipients" value={recipients} onChange={(event) => onRecipients(event.target.value)}
+          disabled={!email.can_send || sending || sent} rows={1} placeholder="Add authorized recipients" spellCheck={false} autoComplete="off" />
+      </div> : null}
+      <div className={styles.addressRow}><span>Subject</span><span className={styles.subject}>{email.preview?.subject || "Meet the Client"}</span></div>
+      {renderPacketAttachments()}
+      <div className={styles.messageBody}>
+        {email.preview ? <iframe title="Meet the Client email preview" srcDoc={email.preview.html} sandbox="" referrerPolicy="no-referrer" className={styles.emailFrame} />
+          : <div className={styles.emptyPreview}><Mail size={30} /><h3>Your email preview will appear here</h3><p>You can review files and recipients now. Sign an assessment to fill in the client summary.</p>{onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Open assessment</button> : null}</div>}
+      </div>
+      <footer className={styles.footer}>
+        <p role="status">{status}</p>
+        {renderDeliveryDetails()}
       </footer>
     </div>
   );
+}
+
+function meetClientPreviewStatus(email: ChartPayload["email"], sent: boolean) {
+  return sent ? "Microsoft 365 accepted this handoff for sending. This is not a delivery or read receipt."
+    : email.example_only ? "Example only · no email will be sent." : !email.configured ? "Preview only · email delivery is not connected."
+    : !email.eligible ? "Preview ready · record acceptance before sending."
+    : !email.preview ? "Your summary will appear when an assessment is signed."
+    : !email.ready ? "Preview ready · review the items below before sending."
+    : "Review the recipients and packet, then send when ready.";
 }
 
 function EmptyState({ text, onRetry }: { text: string; onRetry?: () => void }) {

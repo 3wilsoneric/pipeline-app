@@ -78,9 +78,13 @@ export function validateAssessmentPatchRequest(value: unknown): AssessmentValida
   const mutationResult = validateMutationId(value.client_mutation_id);
   if (!mutationResult.ok) return mutationResult;
 
-  if (value.if_match_referral_name !== undefined && !isBoundedString(value.if_match_referral_name, 512)) {
+  if (!validReferralNamePrecondition(value.if_match_referral_name)) {
     return invalid("if_match_referral_name is invalid.");
   }
+  return validatedAssessmentPatch(value, section, mutationResult.value);
+}
+
+function validatedAssessmentPatch(value: Record<string, unknown>, section: AssessmentToolSection | undefined, mutationId: string | undefined): AssessmentValidationResult<AssessmentPatchRequest> {
   return {
     ok: true,
     value: {
@@ -89,7 +93,7 @@ export function validateAssessmentPatchRequest(value: unknown): AssessmentValida
       ...(value.if_match_section !== undefined ? { if_match_section: value.if_match_section as number } : {}),
       ...(section ? { section } : {}),
       ...(value.assessor_id !== undefined ? { assessor_id: value.assessor_id as string | null } : {}),
-      ...(mutationResult.value ? { client_mutation_id: mutationResult.value } : {}),
+      ...(mutationId ? { client_mutation_id: mutationId } : {}),
       patch: value.patch as AssessmentPatchInput,
     },
   };
@@ -302,4 +306,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function invalid(message: string, status?: number): ValidationFailure {
   return { ok: false, message, ...(status ? { status } : {}) };
+}
+
+function validReferralNamePrecondition(value: unknown) {
+  return value === undefined || isBoundedString(value, 512);
 }

@@ -15,6 +15,7 @@ test("God mode opens another account with its real permissions", async ({ page }
   await expect(page.getByRole("button", { name: "Exit God mode for Jazmine Saldana" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open profile menu for Jazmine Saldana" })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 568 });
+  await page.getByRole("button", { name: /^Open page menu/ }).click();
   await expect(page.getByRole("button", { name: "Exit God mode for Jazmine Saldana" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
 
@@ -44,16 +45,19 @@ test("God mode opens another account with its real permissions", async ({ page }
   expect(signatureAccess.status, signatureAccess.body).toBe(404);
 
   const decisionAccess = await page.evaluate(async () => {
-    const response = await fetch("/api/referrals/1/decision", {
+    const response = await fetch("/api/referrals/999999999/decision", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: "{}",
     });
     return response.status;
   });
-  expect(decisionAccess).toBe(403);
+  // Shared staff may record decisions; a nonexistent referral still returns no data.
+  expect(decisionAccess).toBe(404);
+  expect((await page.request.get("/api/operations/reports?report_id=assessment_completion")).status()).toBe(403);
 
   await page.getByRole("button", { name: "Exit God mode for Jazmine Saldana" }).click();
+  await page.getByRole("button", { name: /^Open page menu/ }).click();
   await expect(page.getByRole("button", { name: "Open profile menu for Playwright QA" })).toBeVisible();
 
   const restoredIdentity = await page.request.get("/api/auth/me");

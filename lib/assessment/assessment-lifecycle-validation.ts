@@ -87,7 +87,7 @@ export function getReferralWorkflowStatusAfterAssessment(
   // clinical content ready for review without inventing either timestamp.
   if (assessment.status === "complete") return "assessment_ready_to_sign";
   if (assessment.schedule_status === "completed") {
-    return getAssessmentCompletionBlockers(assessment).length === 0 ? "assessment_ready_to_sign" : "assessment_in_progress";
+    return assessmentReviewStatus(assessment);
   }
   if (!assessment.started_at) {
     if (assessment.schedule_status === "scheduled" || assessment.schedule_status === "rescheduled") {
@@ -95,8 +95,11 @@ export function getReferralWorkflowStatusAfterAssessment(
     }
     return "ready_to_schedule";
   }
-  if (getAssessmentCompletionBlockers(assessment).length === 0) return "assessment_ready_to_sign";
-  return "assessment_in_progress";
+  return assessmentReviewStatus(assessment);
+}
+
+function assessmentReviewStatus(assessment: PipelineAssessmentRecord): ReferralWorkflowStatus {
+  return getAssessmentCompletionBlockers(assessment).length === 0 ? "assessment_ready_to_sign" : "assessment_in_progress";
 }
 
 export function validateAssessmentLifecycleCommand(value: unknown): Result<AssessmentLifecycleCommand> {

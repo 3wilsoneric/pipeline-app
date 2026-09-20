@@ -102,7 +102,7 @@ test("assessment navigation retains the section through Files and Activity, and 
   for (const surface of ["Workspace files", "Workspace activity"]) {
     await page.getByRole("button", { name: surface, exact: true }).click();
     await expect(section).toBeHidden();
-    await page.getByRole("button", { name: "02 Assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Assessment", exact: true }).click();
     await expect(section).toHaveValue("prior_history");
   }
   await page.getByRole("button", { name: "Next section", exact: true }).click();
@@ -123,9 +123,9 @@ test("assessment navigation retains the section through Files and Activity, and 
 test("phone Current info preserves question focus and lets the user choose when to edit", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1");
-  const assessment = page.getByRole("region", { name: "Guided assessment", exact: true });
-  await assessment.getByRole("button", { name: "Current info", exact: true }).click();
-  await page.getByRole("dialog", { name: "Current information", exact: true }).getByRole("button", { name: "Review Current symptoms", exact: true }).click();
+  const assessment = page.locator("[data-phone-interview]");
+  await assessment.getByRole("button", { name: "Client info", exact: true }).click();
+  await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Current symptoms", exact: true }).click();
   const answer = assessment.getByRole("textbox", { name: "Current symptoms", exact: false });
   // Keep the current phone behavior: focus the question context, not a textbox
   // that would summon the on-screen keyboard merely to review an answer.

@@ -52,7 +52,7 @@ for (const width of [1440, 768]) {
     await expect(page.getByRole("button", { name: "Open assessment", exact: true })).toHaveCount(0);
     await expect(folder.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await section(page, "identity");
-    const reference = folder.getByRole("complementary", { name: "Captured assessment answers" });
+    const reference = folder.getByRole("complementary", { name: "Current information" });
     await expect(reference).toContainText(referral.name!);
     await page.locator("#assessment-current_location").fill("Synthetic referring facility");
     await section(page, "diagnosis_clinical");
@@ -62,7 +62,7 @@ for (const width of [1440, 768]) {
     await folder.getByRole("group", { name: "Ambulatory", exact: true }).getByRole("button", { name: "No", exact: true }).click();
     await page.locator("#assessment-mobility").fill("Uses a walker according to the referral.");
     // Leave the focused field without waiting for the autosave timer.
-    await openPage(page, "Intake");
+    await openPage(page, "Chart");
     await openPage(page, "Assessment");
     await section(page, "functional_adl");
     await expect(reference).toContainText("Uses a walker according to the referral.");
@@ -107,14 +107,14 @@ for (const width of [1440, 768]) {
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     const { assessments } = await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json();
     expect(assessments).toHaveLength(1);
-    for (const destination of ["Files", "Activity", "Intake"]) {
+    for (const destination of ["Files", "Activity", "Chart"]) {
       await section(page, "identity");
       if (destination !== "Files") await page.getByRole("button", { name: "Edit Current location", exact: true }).click();
       const value = `Last answer before ${destination}`;
       await page.locator("#assessment-current_location").fill(value);
-      if (destination === "Intake") await openPage(page, destination);
+      if (destination === "Chart") await openPage(page, destination);
       else await page.getByRole("button", { name: `Workspace ${destination.toLowerCase()}`, exact: true }).click();
-      await expect(page.getByTestId("assessment-client-folder")).toHaveCount(0);
+      await expect(page.locator("[data-assessment-working-section]")).toHaveCount(0);
       await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessments[0].assessment_id}`)).json()).assessment.current_location).toBe(value);
       await openPage(page, "Assessment");
     }
@@ -165,7 +165,7 @@ test("signed answers stay editable until sent, then become read only", async ({ 
     await route.fulfill({ response, json: body });
   });
   await page.reload();
-  await expect(page.getByRole("complementary", { name: "Captured assessment answers" })).toContainText("Corrected before sending");
+  await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Corrected before sending");
   await expect(page.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: "Bipolar disorder", exact: true })).toBeDisabled();
   expect((await read()).secondary_diagnoses).toEqual(["Corrected before sending"]);
@@ -187,7 +187,7 @@ test("queued answers stay visible across chart review and sync after recovery", 
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).not.toHaveText("All changes saved");
   expect((await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).not.toBe("Unsaved but retained referral notes");
   await returnToAssessmentQuestions(page);
-  await expect(page.getByRole("complementary", { name: "Captured assessment answers" })).toContainText("Unsaved but retained referral notes");
+  await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Unsaved but retained referral notes");
   await page.unroute(endpoint);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).toBe("Unsaved but retained referral notes");

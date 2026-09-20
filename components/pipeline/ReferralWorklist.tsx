@@ -165,7 +165,7 @@ function CompactReferralRow({
         {isClientChartWorkspace(referral) ? <span className="text-[11px] text-[#737373]">{workspaceFileCount(referral)} files</span> : <span>
           <span className="flex items-center justify-between gap-3 text-[10px]">
             <span className="font-black text-[#111111]">Data capture</span>
-            <span className="text-[#737373]">{progress.overall.percent}% · {progress.overall.complete}/{progress.overall.total}</span>
+            <span className="text-[#66716b]">{progress.overall.percent}% · {progress.overall.complete}/{progress.overall.total}</span>
           </span>
           <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
             <span data-workspace-progress className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
@@ -178,7 +178,7 @@ function CompactReferralRow({
 
       <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#ececec] pt-2.5 text-[10px]">
         <span className="truncate font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
-        <span className="shrink-0 text-[#737373]">{workspaceDateLabel(referral)}</span>
+        <span className="shrink-0 text-[#66716b]">{workspaceDateLabel(referral)}</span>
       </span>
     </button>
   );

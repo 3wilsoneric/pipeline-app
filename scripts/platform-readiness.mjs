@@ -152,6 +152,11 @@ const checks = [
     args: ["--test", "scripts/referral-upload-idempotency.test.mjs"],
   },
   {
+    name: "Extraction evidence link safety",
+    command: "node",
+    args: ["--test", "scripts/evidence-link.test.mjs"],
+  },
+  {
     name: "Clinical integration contracts",
     command: "node",
     args: ["scripts/clinical-data-contracts.mjs"],

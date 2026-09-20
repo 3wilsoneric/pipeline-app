@@ -22,6 +22,7 @@ test.describe("referral intake usability", () => {
       } });
       expect(contact.ok(), await contact.text()).toBe(true);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       // Native date inputs are not textboxes in every browser's accessibility tree.
       const dob = page.locator('input[aria-label="Date of birth"]');
       await expect(dob).toBeVisible();
@@ -37,6 +38,7 @@ test.describe("referral intake usability", () => {
       await expect(page.getByRole("option", { name: new RegExp(organization) })).toBeVisible();
       await source.press("ArrowDown");
       await source.press("Enter");
+      await source.blur();
       await expect(source).toHaveValue(organization);
       await expect(page.getByLabel("Client phone:", { exact: true })).toHaveValue("");
       await expect(page.getByLabel("Client email:", { exact: true })).toHaveValue("");
@@ -55,6 +57,7 @@ test.describe("referral intake usability", () => {
         await page.screenshot({ path: `/tmp/pipeline-intake-${width}.png` });
       }
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
+      await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       const received = page.locator('input[aria-label="Referral received:"]');
       const today = await page.evaluate(() => {
         const now = new Date();
@@ -71,10 +74,11 @@ test.describe("referral intake usability", () => {
     }
   });
 
-  test("upload previews and imports a directory once, suggests uploaded facilities, and denies assessor import", async ({ browser, baseURL }) => {
+  test("directory import deduplicates, stays shared with approved assessors, and denies unapproved users", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("admin", url);
     const assessor = await actorApiContext("assessorA", url);
+    const outsider = await actorApiContext("outsider", url);
     const { context, page } = await actorPage(browser, "admin", url);
     const stamp = randomUUID().slice(0, 8);
     const organization = `Directory Facility ${stamp}`;
@@ -102,18 +106,22 @@ test.describe("referral intake usability", () => {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: "/tmp/pipeline-directory-390.png" });
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
+      await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       const source = page.getByRole("combobox", { name: "Referral facility / source", exact: true });
       await source.fill(organization.slice(0, -2));
       await page.getByRole("option", { name: new RegExp(organization) }).click();
       await expect(source).toHaveValue(organization);
       await expect(page.getByLabel("Client phone:", { exact: true })).toHaveValue("");
-      expect((await assessor.get("/api/contacts?q=Directory")).status()).toBe(403);
-      expect((await assessor.post("/api/contacts/import?mode=preview", { headers: { "Content-Type": "text/csv" }, data: csv })).status()).toBe(403);
+      expect((await assessor.get("/api/contacts?q=Directory")).status()).toBe(200);
+      expect((await assessor.post("/api/contacts/import?mode=preview", { headers: { "Content-Type": "text/csv" }, data: csv })).status()).toBe(200);
+      expect((await outsider.get("/api/contacts?q=Directory")).status()).toBe(403);
+      expect((await outsider.post("/api/contacts/import?mode=preview", { headers: { "Content-Type": "text/csv" }, data: csv })).status()).toBe(403);
       expect((await api.post("/api/contacts/import?mode=commit", { headers: { "Content-Type": "text/csv", "x-client-mutation-id": randomUUID(), Origin: "https://untrusted.example.invalid" }, data: csv })).status()).toBe(403);
     } finally {
       await context.close();
       await api.dispose();
       await assessor.dispose();
+      await outsider.dispose();
     }
   });
 });

@@ -30,10 +30,10 @@ for (const width of [1440, 390]) {
     const footer = page.locator('footer[aria-label="Assessment actions"]');
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     const more = page.locator('summary[aria-label="Assessment details"]');
-    if (width < 640) await more.click();
+    await more.click();
     const recommendation = page.getByRole("combobox", { name: "Placement recommendation" });
     await expect(recommendation).toBeEnabled();
-    await expect(recommendation.locator("option")).toHaveText(["Placement recommendation", "Accept", "Deny", "Under review"]);
+    await expect(recommendation.locator("option")).toHaveText(["Select recommendation", "Accept", "Deny", "Under review"]);
     for (const [label, outcome] of [["Accept", "accept"], ["Under review", "needs_more_information"], ["Deny", "decline"]]) {
       await recommendation.selectOption({ label });
       await expect.poll(async () => (await read()).recommendation?.outcome).toBe(outcome);
@@ -65,18 +65,18 @@ for (const width of [1440, 390]) {
     expect(saved.meet_client_sent_at).toBeFalsy();
     await page.reload();
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-    if (width < 640) await more.click();
+    await more.click();
     await expect(recommendation).toHaveValue("needs_more_information");
     let release = () => {};
     const gate = new Promise<void>((resolve) => { release = resolve; });
     await page.route(`**/api/referrals/${referral.id}/recommendation`, async (route) => { await gate; await route.continue(); });
     try {
       await recommendation.selectOption("accept");
-      if (width < 640) await more.click();
+      await more.click();
       await openAssessmentChart(page);
-      await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeDisabled();
+      await expect(footer.getByRole("button", { name: "Saving recommendation...", exact: true })).toBeDisabled();
     } finally { release(); }
-    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
+    await expect(footer.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeEnabled();
     await expect.poll(async () => (await read()).recommendation?.outcome).toBe("accept");
     expect((await read()).review).toBeNull();
   });

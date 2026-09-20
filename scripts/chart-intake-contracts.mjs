@@ -71,14 +71,17 @@ const contactPatch = persistence.buildReferralCanvasPatch({ keys: new Set(["phon
 assert.equal(Object.hasOwn(contactPatch, "note"), false, "editing intake does not clear the stored summary");
 
 let user = { id: "assessor-a", name: "Assessor A", roles: ["reviewer"] };
+let authenticated = true;
 let originAllowed = true;
 let accessAllowed = true;
 let profileReads = 0;
 const writes = [];
 const require = createRequire(import.meta.url);
 const stubs = {
-  "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => user.roles.some((role) => roles.includes(role))
-    ? { ok: true, user } : { ok: false, response: Response.json({ error: "Forbidden" }, { status: 403 }) } },
+  "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles = ["admin", "assessment_coordinator", "reviewer", "viewer"]) => !authenticated
+    ? { ok: false, response: Response.json({ error: "Unauthorized" }, { status: 401 }) }
+    : user.roles.some((role) => roles.includes(role))
+      ? { ok: true, user } : { ok: false, response: Response.json({ error: "Forbidden" }, { status: 403 }) } },
   "@/lib/auth/assessor-session-policy": { pipelineAuditActor: (value) => ({ id: value.id, name: value.name }) },
   "@/lib/auth/request-security": { requireSameOriginMutation: () => originAllowed ? null : Response.json({}, { status: 403 }) },
   "@/lib/extraction/contracts": { readJsonBody: async (request) => ({ ok: true, value: await request.json() }), jsonError: (error, status = 400) => Response.json({ error }, { status }) },
@@ -100,7 +103,10 @@ vm.runInNewContext(ts.transpileModule(readFileSync(filename, "utf8"), { compiler
   { module: routeModule, exports: routeModule.exports, require: (id) => stubs[id] ?? require(id), Request, Response, Date, Number, Object, JSON });
 const requestBody = { client_mutation_id: "65f07840-d28a-478d-a892-0b73591a0f99", clientId: "different-person", referral: { name: "Injected", stage: "Accepted / Admitted" } };
 const post = (body = requestBody, id = "71") => routeModule.exports.POST(new Request("https://pipeline.invalid/api/referrals/71/new-intake", { method: "POST", body: JSON.stringify(body) }), { params: Promise.resolve({ referralId: id }) });
-for (const roles of [["viewer"], []]) {
+authenticated = false;
+assert.equal((await post()).status, 401);
+authenticated = true;
+for (const roles of [["unknown"], []]) {
   user = { ...user, roles };
   assert.equal((await post()).status, 403);
 }
@@ -128,7 +134,9 @@ user = { id: "admin", name: "Admin", roles: ["admin"] };
 assert.equal((await post()).status, 201);
 assert.equal(writes[1][0].owner, "Unassigned");
 assert.notEqual(writes[1][1], assessorKey, "idempotency must be actor-bound");
+user = { id: "viewer", name: "Pipeline Staff", roles: ["viewer"] };
+assert.equal((await post()).status, 201, "existing all-staff policy permits a new intake");
 profile.pipeline.connection.status = "unavailable";
 assert.equal((await post()).status, 503);
-assert.equal(writes.length, 2);
+assert.equal(writes.length, 3);
 console.log("Chart/intake contracts passed: field mapping, source preservation, clean episode, protected provenance, role/access/origin checks, actor-bound retry keys, client-id injection and incomplete-chart refusal.");

@@ -41,56 +41,59 @@ export async function GET(
     ]);
     if (!snapshot) return jsonError("Referral not found.", 404);
 
-    const assessment = selectSignedAssessment(
-      assessmentList.assessments,
-      snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,
-    );
-    const report = assessment ? buildAssessmentSummaryReport(assessment, snapshot.referral) : null;
-    const mail = getGraphMailReadiness();
-    const admissionPacket = await loadAdmissionPacketInventory(
-      snapshot.referral,
-      mail.largeAttachmentDeliveryConfigured,
-    );
-    const emailBlockers = meetClientEmailBlockers(
-      report,
-      snapshot.decision?.outcome,
-      mail.configured,
-      admissionPacket.blockers,
-    );
-    const exampleOnly = getPipelineDemoEnvironment().writable;
-    const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
+    const respondWithAdmissionSummary = async () => {
+      const assessment = selectSignedAssessment(
+        assessmentList.assessments,
+        snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,
+      );
+      const report = assessment ? buildAssessmentSummaryReport(assessment, snapshot.referral) : null;
+      const mail = getGraphMailReadiness();
+      const admissionPacket = await loadAdmissionPacketInventory(
+        snapshot.referral,
+        mail.largeAttachmentDeliveryConfigured,
+      );
+      const emailBlockers = meetClientEmailBlockers(
+        report,
+        snapshot.decision?.outcome,
+        mail.configured,
+        admissionPacket.blockers,
+      );
+      const exampleOnly = getPipelineDemoEnvironment().writable;
+      const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
 
-    return Response.json({
-      referral: snapshot.referral,
-      report,
-      email: {
-        example_only: exampleOnly,
-        configured: mail.configured,
-        sender: mail.sender,
-        preview: report ? renderMeetClientEmail(
-          report.meetClient, auth.user.name, "Preview — assigned when sent",
-          admissionPacket.files.map((file) => file.name),
-        ) : null,
-        allowed_recipient_domains: mail.allowedRecipientDomains,
-        eligible: snapshot.decision?.outcome === "accepted",
-        can_send: canSend,
-        ready: canSend && emailBlockers.length === 0,
-        sent_at: assessment?.meet_client_sent_at ?? null,
-        blockers: emailBlockers,
-        admission_packet: {
-          files: admissionPacket.files.map((file) => ({
-            document_id: file.documentId,
-            name: file.name,
-            category: file.category,
-            byte_size: file.byteSize,
-            ready: file.ready,
-          })),
-          total_bytes: admissionPacket.totalBytes,
-          ready: admissionPacket.ready,
-          delivery_mode: admissionPacket.deliveryMode,
+      return Response.json({
+        referral: snapshot.referral,
+        report,
+        email: {
+          example_only: exampleOnly,
+          configured: mail.configured,
+          sender: mail.sender,
+          preview: report ? renderMeetClientEmail(
+            report.meetClient, auth.user.name, "Preview — assigned when sent",
+            admissionPacket.files.map((file) => file.name),
+          ) : null,
+          allowed_recipient_domains: mail.allowedRecipientDomains,
+          eligible: snapshot.decision?.outcome === "accepted",
+          can_send: canSend,
+          ready: canSend && emailBlockers.length === 0,
+          sent_at: assessment?.meet_client_sent_at ?? null,
+          blockers: emailBlockers,
+          admission_packet: {
+            files: admissionPacket.files.map((file) => ({
+              document_id: file.documentId,
+              name: file.name,
+              category: file.category,
+              byte_size: file.byteSize,
+              ready: file.ready,
+            })),
+            total_bytes: admissionPacket.totalBytes,
+            ready: admissionPacket.ready,
+            delivery_mode: admissionPacket.deliveryMode,
+          },
         },
-      },
-    }, { headers: privateHeaders() });
+      }, { headers: privateHeaders() });
+    };
+    return respondWithAdmissionSummary();
   });
 }
 

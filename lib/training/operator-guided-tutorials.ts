@@ -346,7 +346,7 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "assessment-save-status": "components/pipeline/AssessmentWorkspace.tsx",
   "chart-stage": "components/pipeline/ReferralPacketCanvas.tsx",
   "chart-complete-record": "components/pipeline/AssessmentChartWorkspace.tsx",
-  "chart-meet-client-tab": "components/pipeline/AssessmentChartWorkspace.tsx",
+  "chart-meet-client-tab": "components/pipeline/ReferralPacketCanvas.tsx",
   "chart-email-handoff": "components/pipeline/AssessmentChartWorkspace.tsx",
   "operations-report-select": "components/pipeline/OperationsDashboard.tsx",
   "operations-summary": "components/pipeline/OperationsDashboard.tsx",

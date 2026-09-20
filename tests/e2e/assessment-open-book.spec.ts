@@ -23,12 +23,12 @@ for (const width of [1440, 1024, 768, 640]) {
   test(`open book keeps existing answers readable and unfinished questions stable at ${width}px`, async ({ page }, testInfo) => {
     await openPractice(page, width);
     const book = page.locator("[data-assessment-working-section]");
-    const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
+    const reference = page.getByRole("complementary", { name: "Current information" });
     const editor = page.locator("[data-assessment-question-editor]");
     const secondary = editor.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
-    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
-    await reference.getByRole("combobox", { name: "Reference information" }).selectOption("all");
-    await expect(reference).toContainText("Taylor Rivera");
+    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
+    await expect(reference.getByRole("combobox")).toHaveCount(0);
+    await expect(reference).not.toContainText("Taylor Rivera");
     await expect(reference).toContainText("During the practice interview");
     await expect(editor.locator('[data-working-field="current_symptoms"]')).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Remaining assessment questions" })).toHaveCount(0);
@@ -40,7 +40,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await chooseSection(page, "prior_history");
     await chooseSection(page, "diagnosis_clinical");
     await expect(secondary).toHaveCount(0);
-    await expect(editor).toContainText("This section is recorded");
+    await expect(editor).toContainText("This section is complete");
     await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     await expect(secondary).toBeFocused();
     await expect(secondary).toHaveValue("Synthetic prepared diagnosis");
@@ -49,7 +49,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await chooseSection(page, "diagnosis_clinical");
     await expect(secondary).toBeVisible();
     await chooseSection(page, "functional_adl");
-    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
+    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
     await reference.getByRole("button", { name: "Edit Ambulatory", exact: true }).click();
     await editor.getByRole("group", { name: "Ambulatory", exact: true }).getByRole("button", { name: "No", exact: true }).click();
     const mobility = editor.locator("#assessment-mobility");
@@ -67,17 +67,20 @@ for (const width of [1440, 1024, 768, 640]) {
       const right = (await editor.boundingBox())!;
       expect(left.x + left.width).toBeLessThan(right.x);
       expect(left.width).toBeGreaterThan(width * 0.3);
-      expect(Math.abs(left.y - right.y)).toBeLessThan(2);
-      expect(Math.abs(left.height - right.height)).toBeLessThan(2);
-      const footer = (await page.locator('footer[aria-label="Assessment actions"]').boundingBox())!;
-      expect(Math.abs(left.y + left.height - footer.y)).toBeLessThan(2);
-      await expect(reference.getByRole("button", { name: /^Captured answers/ })).toHaveCount(0);
+      // The shared page owns scrolling; the reading pane must not clip its last answer.
+      const lastAnswer = reference.getByRole("button").last();
+      await lastAnswer.scrollIntoViewIfNeeded();
+      await expect(lastAnswer).toBeInViewport();
+      await expect(reference.locator("[data-assessment-reference-page]")).toHaveCSS("overflow-y", "visible");
+      expect(await editor.evaluate((element) => element.scrollTop)).toBe(0);
+      await expect(page.locator('footer[aria-label="Assessment actions"]')).toBeInViewport();
+      await expect(reference.getByRole("button", { name: /^Current information/ })).toHaveCount(0);
     }
     expect(await book.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await chooseSection(page, "prior_history");
-    if (width < 760) await reference.getByRole("button", { name: /^Captured answers/ }).click();
-    await reference.getByRole("combobox", { name: "Reference information" }).selectOption("prior_history");
-    await page.screenshot({ path: testInfo.outputPath(`open-book-${width}.png`) });
+    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
+    await expect(reference.getByRole("button", { name: "Edit Prior placements", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`open-book-${width}.png`), animations: "disabled" });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
@@ -88,72 +91,79 @@ for (const width of [1440, 1024, 768, 640]) {
   });
 }
 
-test("reading pane keeps its place while questions scroll and sections change", async ({ page }, testInfo) => {
+test("reading pane and questions share page scrolling and section changes return to the top", async ({ page }, testInfo) => {
   await openPractice(page, 1024);
-  // History now fits at full height; use a short screen to exercise independent scrolling.
+  // The approved layout uses one scroll owner, not two nested reading panes.
   await page.setViewportSize({ width: 1024, height: 640 });
-  const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
-  await reference.getByRole("combobox", { name: "Reference information" }).selectOption("all");
+  const reference = page.getByRole("complementary", { name: "Current information" });
+  const canvas = page.locator('[data-guide-target="packet-workspace"]');
   const readingPage = page.locator("[data-assessment-reference-page]");
   const questions = page.locator("[data-assessment-question-page]");
   const symptoms = reference.getByRole("button", { name: "Edit Current symptoms", exact: true });
   await symptoms.scrollIntoViewIfNeeded();
   const original = await symptoms.locator("span").nth(1).textContent();
-  await expect(symptoms.locator("span").nth(1)).toHaveCSS("font-size", "18px");
+  await expect(symptoms.locator("span").nth(1)).toHaveCSS("font-size", "19px");
   await expect(symptoms.locator("span").nth(1)).toHaveCSS("white-space", "pre-wrap");
-  const readingPosition = await readingPage.evaluate((el) => el.scrollTop);
-  expect(readingPosition).toBeGreaterThan(100);
+  await canvas.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  expect(await canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  expect(await readingPage.evaluate((el) => el.scrollTop)).toBe(0);
+  expect(await questions.evaluate((el) => el.scrollTop)).toBe(0);
   await chooseSection(page, "prior_history");
-  await questions.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-  expect(await questions.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
-  expect(await readingPage.evaluate((el) => el.scrollTop)).toBe(readingPosition);
+  await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBe(0);
+  await expect(reference.getByRole("button", { name: "Edit Prior placements", exact: true })).toBeVisible();
   await chooseSection(page, "medication");
   await expect.poll(() => questions.evaluate((el) => el.scrollTop)).toBe(0);
-  expect(await readingPage.evaluate((el) => el.scrollTop)).toBe(readingPosition);
+  await expect(reference).not.toContainText(original!);
+  await chooseSection(page, "diagnosis_clinical");
   await symptoms.click();
   const field = page.locator("#assessment-current_symptoms");
   await expect(field).toBeFocused();
   await expect(field).toHaveValue(original!);
   await expect(field).toHaveCSS("font-size", "17px");
-  expect(await readingPage.evaluate((el) => el.scrollTop)).toBe(readingPosition);
+  expect(await readingPage.evaluate((el) => el.scrollTop)).toBe(0);
   await field.fill(original + "\nFollow-up documented during the interview.");
   await field.press("Tab");
   await expect(symptoms).toContainText("Follow-up documented during the interview.");
-  await reference.getByRole("combobox", { name: "Reference information" }).selectOption("prior_history");
+  await chooseSection(page, "prior_history");
   await expect.poll(() => readingPage.evaluate((el) => el.scrollTop)).toBe(0);
   await page.screenshot({ path: testInfo.outputPath("reading-desk-1024.png") });
 });
 
-test("top menu reveals on hover and keyboard focus; question search jumps to captured answers", async ({ page }) => {
+test("sidebar expands on hover and keyboard focus; phone search jumps to captured answers", async ({ page }) => {
   await openPractice(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const appMenu = page.locator("#pipeline-app-navigation");
-  const reveal = page.getByRole("button", { name: "Show app navigation" });
+  const appMenu = page.getByRole("complementary", { name: "App navigation", exact: true });
   await page.mouse.move(700, 500);
-  await expect(appMenu).toHaveCSS("opacity", "0");
-  await page.locator("[data-assessment-nav-edge]").hover({ position: { x: 500, y: 2 } });
-  await expect(appMenu).toHaveCSS("opacity", "1");
+  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
+  await page.getByRole("button", { name: "Pipeline home", exact: true }).hover();
+  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "true");
   await page.mouse.move(700, 500);
-  await expect(appMenu).toHaveCSS("opacity", "0");
-  await reveal.focus();
-  await expect(appMenu).toHaveCSS("opacity", "1");
+  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
+  await page.getByRole("button", { name: "Expand navigation", exact: true }).focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "true");
   await page.keyboard.press("Escape");
-  await expect(appMenu).toHaveCSS("opacity", "0");
-  const search = page.locator('summary[aria-label="Find assessment question"]');
+  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const search = page.getByRole("button", { name: "Choose questionnaire section", exact: true });
   await search.click();
-  const input = page.getByRole("searchbox", { name: "Find assessment question" });
-  await expect(input).toBeFocused();
+  const input = page.getByRole("searchbox", { name: "Find a question", exact: true });
+  await expect(input).toBeVisible();
   await input.fill("current symptoms");
-  await page.locator('[aria-label="Matching assessment questions"]').getByRole("button", { name: /Current symptoms/ }).click();
+  await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /Current symptoms/ }).click();
+  await expect(page.locator("#assessment-current_symptoms")).toBeInViewport();
+  await page.locator("#assessment-current_symptoms").click();
   await expect(page.locator("#assessment-current_symptoms")).toBeFocused();
   await expect(page.locator("#assessment-current_symptoms")).toContainText("During the practice interview");
   await search.focus();
   await page.keyboard.press("Enter");
   await input.fill("nonexistent question");
-  await expect(page.getByRole("status").filter({ hasText: "No matching questions." })).toBeVisible();
+  await expect(page.getByText("No matching questions.", { exact: true })).toBeVisible();
+  // Chromium's native search input consumes the first Escape to clear its query.
+  await input.fill("");
   await page.keyboard.press("Escape");
   await expect(input).toBeHidden();
-  await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toBeVisible();
+  await expect(page.locator("[data-assessment-view]")).toBeVisible();
 });
 
 test("rapid section choices retain the latest destination", async ({ page }) => {
@@ -173,7 +183,7 @@ test("browser Back and Forward restore the assessment section without bouncing",
   const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
   await chooseSection(page, "prior_history");
   await expect(page).toHaveURL(/assessmentSection=prior_history/);
-  await page.getByRole("button", { name: "Show app navigation" }).click();
+  await page.getByRole("button", { name: "Expand navigation" }).click();
   await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
   await expect(page.locator("[data-assessment-working-section]")).toHaveCount(0);
   await page.goBack();
@@ -230,7 +240,7 @@ test("unfinished view preserves pending source verification and missing reasons"
   await expect(field.getByRole("button", { name: "Use", exact: true })).toBeVisible();
   await expect(field.getByRole("button", { name: "Reject", exact: true })).toBeVisible();
   await expect(editor.locator('[data-working-field="current_symptoms"]')).toBeVisible();
-  const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
+  const reference = page.getByRole("complementary", { name: "Current information" });
   await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
   await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toContainText("Reason missing");
   await page.unrouteAll({ behavior: "wait" });
@@ -263,7 +273,7 @@ test("an existing signed chart stays available during a later reassessment", asy
   expect(next.status()).toBe(201);
   expect((await next.json()).assessment.signed_at).toBeNull();
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
-  await expect(page.locator("#packet-charts")).toBeVisible();
+  await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart/ })).toBeVisible();
 });
 
@@ -272,22 +282,23 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 950 });
     const { referral, assessment } = await createAssessment(page);
     const root = `/?view=referrals&screen=packet&referralId=${referral.id}`;
-    const chart = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart/ });
-    await page.goto(root + "&workspaceStage=intake");
+    const chart = width < 640 ? page.getByRole("combobox", { name: "Workspace view", exact: true }).getByRole("option", { name: "Chart", exact: true }) : page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart/ });
+    await page.goto(root);
+    await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(page.locator("#packet-page-1")).toBeVisible();
     await expect(chart).toHaveCount(1);
     await page.goto(root + "&workspaceStage=chart");
-    await expect(page.locator("#packet-charts")).toBeVisible();
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
     await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
-    const reference = page.getByRole("complementary", { name: "Captured assessment answers" });
+    const reference = page.getByRole("complementary", { name: "Current information" });
     if (width < 640) {
       await page.getByRole("button", { name: "Client info", exact: true }).click();
       await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
     } else await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     const secondary = page.locator("#assessment-secondary_diagnoses");
     await secondary.fill("Final answer before immediate exit");
-    await page.getByTestId("assessment-client-folder").getByRole("button", { name: "Workspaces", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Assessment interview", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: width < 640 ? "Back to previous page" : "Workspaces", exact: true }).click();
+    await expect(page.locator("[data-assessment-view]")).toHaveCount(0);
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Final answer before immediate exit"]);
     await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
     if (width < 640) {
@@ -307,14 +318,14 @@ for (const width of [1440, 390]) {
     if (width < 640) await expect(secondary).toBeInViewport();
     await openAssessmentChart(page);
     page.once("dialog", (dialog) => dialog.accept());
-    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
     await expect(chart).toHaveCount(1);
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(saved.signed_at).toBeTruthy();
     expect(saved.secondary_diagnoses).toEqual(["Final answer before signing"]);
     await page.goto(root + "&workspaceStage=chart");
-    await expect(page.locator("#packet-charts")).toBeVisible();
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
     await expect(chart).toHaveCount(1);
   });
 }

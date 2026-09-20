@@ -13,9 +13,11 @@ import {
 } from "lucide-react";
 
 import type { ExtractedField, PacketStatus } from "@/lib/extraction/contracts";
+import { evidenceLink } from "@/lib/extraction/evidence-link";
 
 type PacketExtractionReviewProps = {
   fields: ExtractedField[];
+  packetId?: string;
   fileName: string;
   status?: PacketStatus | "unavailable";
   hasPacket?: boolean;
@@ -58,6 +60,7 @@ const knownLabels: Record<string, string> = {
 
 export default function PacketExtractionReview({
   fields,
+  packetId,
   fileName,
   status,
   hasPacket = true,
@@ -86,26 +89,7 @@ export default function PacketExtractionReview({
   ));
   const reviewComplete = pending === 0 && conflicts === 0;
 
-  return (
-    <section aria-label="Extraction review" className="mb-3 border-y border-[#cfd8d3] bg-white">
-      <div className={`flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 ${expanded ? "border-b border-[#dbe2de]" : ""}`}>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#eff8f4] text-[#0f8b73]">
-            <FileSearch size={16} />
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-[12px] font-black uppercase tracking-[0.1em] text-[#111111]">
-                Extracted values
-              </h3>
-              {developmentOnly ? (
-                <span className="border border-[#c9973b] bg-[#fff5df] px-2 py-0.5 text-[9px] font-black uppercase text-[#8a5b0d]">
-                  Development data
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-0.5 truncate text-[11px] text-[#595959]">
-              {fields.length
+  const suggestionSummary = () => fields.length
                 ? `${fields.length} suggestions from ${fileName}. Optional—check the source before using a value.`
                 : !hasPacket
                   ? "Add a face sheet or referral packet to get suggestions. You can keep working without them."
@@ -115,37 +99,10 @@ export default function PacketExtractionReview({
                       ? "No intake suggestions found. Your file is saved and you can keep working."
                       : status === "received"
                         ? "Your file is saved. Continue entering details normally."
-                        : "Reading the referral packet in the background. You can keep working."}
-            </p>
-          </div>
-        </div>
-        {fields.length > 0 ? <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.06em]">
-          <span className="text-[#595959]">{pending} suggestions</span>
-          {conflicts > 0 ? <span className="text-[#595959]">{conflicts} differing values</span> : null}
-          <button
-            type="button"
-            aria-expanded={expanded}
-            onClick={() => setExpanded((value) => !value)}
-            className="flex h-8 items-center gap-1.5 px-2 text-[10px] font-black text-[#0c705f] hover:bg-[#eff8f4]"
-          >
-            {expanded ? "Hide fields" : "Review fields"}
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-        </div> : null}
-      </div>
+                        : "Reading the referral packet in the background. You can keep working.";
 
-      {expanded && fields.length > 0 ? (
-        <>
-      <div className="grid gap-px border-b border-[#dbe2de] bg-[#dbe2de] sm:grid-cols-3" aria-label="Packet ingestion progress">
-        <IngestionStep number="1" label="Upload" value="Original saved" complete />
-        <IngestionStep number="2" label="Extract" value={`${fields.length} values found`} complete />
-        <IngestionStep number="3" label="Human review" value={`${reviewed} of ${fields.length} confirmed`} complete={pending === 0 && conflicts === 0} />
-      </div>
-      <div className="h-1.5 bg-[#e7ece9]" aria-hidden="true">
-        <div className="h-full bg-[#0f8b73] transition-[width]" style={{ width: `${reviewPercent}%` }} />
-      </div>
-
-      {confirmingBulk ? (
+  const renderBulkConfirmation = () => (
+    confirmingBulk ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dbe2de] bg-[#fffaf0] px-4 py-3">
           <div>
             <div className="text-[11px] font-black text-[#111111]">Confirm {safePendingFields.length} high-confidence values?</div>
@@ -176,7 +133,59 @@ export default function PacketExtractionReview({
             Confirm {safePendingFields.length} high-confidence values
           </button>
         </div>
-      ) : null}
+      ) : null
+  );
+
+  return (
+    <section aria-label="Extraction review" className="mb-3 border-y border-[#cfd8d3] bg-white">
+      <div className={`flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 ${expanded ? "border-b border-[#dbe2de]" : ""}`}>
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#eff8f4] text-[#0f8b73]">
+            <FileSearch size={16} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-[12px] font-black uppercase tracking-[0.1em] text-[#111111]">
+                Extracted values
+              </h3>
+              {developmentOnly ? (
+                <span className="border border-[#c9973b] bg-[#fff5df] px-2 py-0.5 text-[9px] font-black uppercase text-[#8a5b0d]">
+                  Development data
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-0.5 truncate text-[11px] text-[#595959]">
+              {suggestionSummary()}
+            </p>
+          </div>
+        </div>
+        {fields.length > 0 ? <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.06em]">
+          <span className="text-[#595959]">{pending} suggestions</span>
+          {conflicts > 0 ? <span className="text-[#595959]">{conflicts} differing values</span> : null}
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+            className="flex h-8 items-center gap-1.5 px-2 text-[10px] font-black text-[#0c705f] hover:bg-[#eff8f4]"
+          >
+            {expanded ? "Hide fields" : "Review fields"}
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+        </div> : null}
+      </div>
+
+      {expanded && fields.length > 0 ? (
+        <>
+      <div className="grid gap-px border-b border-[#dbe2de] bg-[#dbe2de] sm:grid-cols-3" aria-label="Packet ingestion progress">
+        <IngestionStep number="1" label="Upload" value="Original saved" complete />
+        <IngestionStep number="2" label="Extract" value={`${fields.length} values found`} complete />
+        <IngestionStep number="3" label="Human review" value={`${reviewed} of ${fields.length} confirmed`} complete={pending === 0 && conflicts === 0} />
+      </div>
+      <div className="h-1.5 bg-[#e7ece9]" aria-hidden="true">
+        <div className="h-full bg-[#0f8b73] transition-[width]" style={{ width: `${reviewPercent}%` }} />
+      </div>
+
+      {renderBulkConfirmation()}
 
       {reviewComplete ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#b8dacf] bg-[#eff8f4] px-4 py-3">
@@ -192,45 +201,14 @@ export default function PacketExtractionReview({
       <div className="divide-y divide-[#e2e7e4]">
         {fields.map((field) => {
           const value = finalFieldValue(field);
+          const sourceUrl = field.evidence_url ? evidenceLink(packetId, field.field_key) : null;
           const editing = editingFieldKey === field.field_key;
           const busy = bulkBusy || busyFieldKey === field.field_key;
           const confirmed = field.review_status === "accepted" || field.review_status === "edited";
           const confidence = Math.round(field.confidence * 100);
 
-          return (
-            <div key={field.field_key} className="grid gap-2 px-4 py-3 md:grid-cols-[190px_minmax(0,1fr)_auto] md:items-center">
-              <div>
-                <div className="text-[11px] font-black text-[#111111]">{fieldLabel(field.field_key)}</div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#737373]">
-                  <span>{confidence}% confidence</span>
-                  {field.source_page_no ? <span>Page {field.source_page_no}</span> : null}
-                  {field.evidence_url ? <a href={field.evidence_url} target="_blank" rel="noreferrer" className="underline text-[#0c705f]">View source</a> : null}
-                  {field.is_conflict ? (
-                    <span className="inline-flex items-center gap-1 font-black text-[#595959]">
-                      <AlertTriangle size={11} /> Differing values
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              {editing ? (
-                <input
-                  autoFocus
-                  aria-label={`Correct ${fieldLabel(field.field_key)}`}
-                  value={editValue}
-                  onChange={(event) => setEditValue(event.target.value)}
-                  className="h-9 w-full scroll-mt-[150px] border border-[#0f8b73] bg-white px-3 text-[12px] font-semibold text-[#111111] outline-none"
-                />
-              ) : (
-                <div className={`min-w-0 text-[12px] font-semibold ${value ? "text-[#303638]" : "text-[#9a6a18]"}`}>
-                  <span className="block whitespace-pre-wrap break-words">{value || "No value found"}</span>
-                  <span className={`mt-0.5 block text-[9px] font-black uppercase tracking-[0.06em] ${confirmed ? "text-[#0f8b73]" : "text-[#8a5b0d]"}`}>
-                    {reviewLabel(field.review_status)}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2">
+          const renderFieldActions = () => (
+            <div className="flex items-center justify-end gap-2">
                 {editing ? (
                   <>
                     <button
@@ -291,6 +269,42 @@ export default function PacketExtractionReview({
                   </>
                 )}
               </div>
+          );
+
+          return (
+            <div key={field.field_key} className="grid gap-2 px-4 py-3 md:grid-cols-[190px_minmax(0,1fr)_auto] md:items-center">
+              <div>
+                <div className="text-[11px] font-black text-[#111111]">{fieldLabel(field.field_key)}</div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#737373]">
+                  <span>{confidence}% confidence</span>
+                  {field.source_page_no ? <span>Page {field.source_page_no}</span> : null}
+                  {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer" className="underline text-[#0c705f]">View source</a> : null}
+                  {field.is_conflict ? (
+                    <span className="inline-flex items-center gap-1 font-black text-[#595959]">
+                      <AlertTriangle size={11} /> Differing values
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              {editing ? (
+                <input
+                  autoFocus
+                  aria-label={`Correct ${fieldLabel(field.field_key)}`}
+                  value={editValue}
+                  onChange={(event) => setEditValue(event.target.value)}
+                  className="h-9 w-full scroll-mt-[150px] border border-[#0f8b73] bg-white px-3 text-[12px] font-semibold text-[#111111] outline-none"
+                />
+              ) : (
+                <div className={`min-w-0 text-[12px] font-semibold ${value ? "text-[#303638]" : "text-[#9a6a18]"}`}>
+                  <span className="block whitespace-pre-wrap break-words">{value || "No value found"}</span>
+                  <span className={`mt-0.5 block text-[9px] font-black uppercase tracking-[0.06em] ${confirmed ? "text-[#0f8b73]" : "text-[#8a5b0d]"}`}>
+                    {reviewLabel(field.review_status)}
+                  </span>
+                </div>
+              )}
+
+              {renderFieldActions()}
             </div>
           );
         })}

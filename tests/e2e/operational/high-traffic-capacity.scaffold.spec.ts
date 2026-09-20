@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 
 import {
+  actorApiContext,
   operationalHeadersForActor,
   operationalLoadActors,
   requireOperationalBaseURL,
@@ -73,6 +74,8 @@ test.describe("high-assurance 10x traffic scaffold", () => {
           actor: index,
           routePath,
           status: response.status(),
+          expectedStatus: routePath.startsWith("/api/operations/dashboard")
+            && !actor.expectedRoles.some((role) => role === "admin" || role === "assessment_coordinator") ? 403 : 200,
           headers: response.headers(),
           bytes: body.byteLength,
         };
@@ -84,7 +87,7 @@ test.describe("high-assurance 10x traffic scaffold", () => {
     const failures = responses.filter((response) => response.status >= 500 || response.status === 0);
     expect(failures).toEqual([]);
     for (const response of responses) {
-      expect(response.status, response.routePath).toBeLessThan(400);
+      expect(response.status, response.routePath).toBe(response.expectedStatus);
       expect(response.headers["x-request-id"], response.routePath).toMatch(/^[0-9a-f-]{36}$/i);
       expect(response.headers["cache-control"], response.routePath).toContain("no-store");
       expect(response.bytes, response.routePath).toBeLessThan(750_000);
@@ -120,14 +123,19 @@ test.describe("high-assurance 10x traffic scaffold", () => {
 
       const admin = requiredContext(contextByActor, scenario.operationsLeads[0]?.id);
       const dashboardBaseline = await readDashboardSnapshot(admin, scenario.months[0]);
-      const viewer = requiredContext(contextByActor, scenario.executiveViewers[0]?.id);
-      const viewerCreateAttempt = await viewer.post("/api/referrals", {
-        data: {
-          client_mutation_id: `${scenario.version}-viewer-mutation-denial`,
-          referral: productDemoCaseInput(requiredCase(scenario.cases, 0)),
-        },
-      });
-      expect(viewerCreateAttempt.status()).toBe(403);
+      // All approved staff may edit; an unaffiliated identity must still be denied.
+      const outsider = await actorApiContext("outsider", url);
+      let outsiderMutationStatus: number;
+      try {
+        const outsiderCreateAttempt = await outsider.post("/api/referrals", {
+          data: {
+            client_mutation_id: `${scenario.version}-outsider-mutation-denial`,
+            referral: productDemoCaseInput(requiredCase(scenario.cases, 0)),
+          },
+        });
+        outsiderMutationStatus = outsiderCreateAttempt.status();
+        expect(outsiderMutationStatus).toBe(403);
+      } finally { await outsider.dispose(); }
 
       const created = await runWithConcurrency(scenario.cases, 20, async (item) => {
         const context = requiredContext(contextByActor, item.creator.id);
@@ -234,7 +242,7 @@ test.describe("high-assurance 10x traffic scaffold", () => {
           report_requests: reportResponses.length,
           report_p95_ms: p95Ms,
           report_max_ms: durations.at(-1) ?? 0,
-          viewer_mutation_status: viewerCreateAttempt.status(),
+          outsider_mutation_status: outsiderMutationStatus,
           ui_surfaces: uiEvidence,
           reconciliation,
         }, null, 2)),
@@ -296,7 +304,7 @@ test.describe("high-assurance 10x traffic scaffold", () => {
     }
   });
 
-  test("keeps assigned-assessor queues isolated under generated accounts", async ({ baseURL }) => {
+  test("keeps mine queues scoped while allowing shared staff access under generated accounts", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const assessorA = syntheticPipelineActor("reviewer", 801);
     const assessorB = syntheticPipelineActor("reviewer", 802);
@@ -315,7 +323,20 @@ test.describe("high-assurance 10x traffic scaffold", () => {
       expect(ownRead.status()).toBe(200);
 
       const otherRead = await assessorBContext.get(`/api/referrals/${created.id}`);
-      expect(otherRead.status()).toBe(404);
+      expect(otherRead.status()).toBe(200);
+      for (const [context, expectedIds] of [
+        [assessorAContext, [created.id]],
+        [assessorBContext, []],
+      ] as const) {
+        const mine = await context.get("/api/referrals?scope=mine&limit=100");
+        expect(mine.status()).toBe(200);
+        const body = await mine.json();
+        expect(body.referrals.map((referral: { id: number }) => referral.id)).toEqual(expectedIds);
+      }
+      const outsider = await actorApiContext("outsider", url);
+      try {
+        expect((await outsider.get(`/api/referrals/${created.id}`)).status()).toBe(403);
+      } finally { await outsider.dispose(); }
     } finally {
       await Promise.all([
         assessorAContext.dispose(),

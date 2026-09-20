@@ -89,7 +89,7 @@ test("real reports show resident data, contextual controls, drilldown, client li
 
 test("sources and chart completeness include existing workspaces without inventing activity", async ({ page }, testInfo) => {
   const created = await page.request.post("/api/referrals", { data: { client_mutation_id: randomUUID(), referral: {
-    name: "Sample Report Client", date: "2026-09-10", createdAt: "2026-09-10T12:00:00Z", stage: "New", community: "San Pablo", county: "Contra Costa County", source: "Sample Referral Hospital", priority: "standard", documentName: "", documentStatus: "Missing", owner: "Unassigned", note: "", dob: "1980-04-12", phone: "", email: "", payer: "", requirements: [],
+    name: "Clara Rivera", date: "2026-09-10", createdAt: "2026-09-10T12:00:00Z", stage: "New", community: "San Pablo", county: "Contra Costa County", source: "Sample Referral Hospital", priority: "standard", documentName: "", documentStatus: "Missing", owner: "Unassigned", note: "", dob: "1980-04-12", phone: "", email: "", payer: "", requirements: [],
   } } });
   expect(created.status(), await created.text()).toBe(201);
   await page.goto("/?screen=operations");
@@ -98,10 +98,10 @@ test("sources and chart completeness include existing workspaces without inventi
   const results = page.getByRole("region", { name: "Report results", exact: true });
   await expect(results.getByRole("button", { name: "Show clients: Sample Referral Hospital" })).toBeVisible();
   await results.getByRole("button", { name: "Show clients: Sample Referral Hospital" }).click();
-  await expect(results).toContainText("Sample Client");
+  await expect(results).toContainText("Clara Rivera");
   await page.getByLabel("Report", { exact: true }).selectOption("chart_completeness");
   await expect(results.getByRole("columnheader", { name: "Chart gaps" })).toBeVisible();
-  await expect(results).toContainText("Sample Client");
+  await expect(results).toContainText("Clara Rivera");
   await expect(results).toContainText("Primary diagnosis");
   await expect(results).toContainText("Configured");
   await expect(results).toContainText("Face sheet");

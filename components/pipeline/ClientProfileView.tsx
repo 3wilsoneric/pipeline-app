@@ -246,8 +246,7 @@ function ResidentProfile({
     delete summaryEditActions["Conserved status"];
   }
 
-  return (
-    <ClientChartContainer embedded={embedded} title={identity.title} onBack={onBack}>
+  const renderChartHeading = () => <>
         {!embedded ? <StartReferralFromChart sourceReferralId={sourceReferralId ?? profile.pipeline.referrals[0]?.id}
           allowed={profile.pipeline.permissions.can_create_identity_candidate} /> : null}
 
@@ -266,9 +265,10 @@ function ResidentProfile({
             editActions={summaryEditActions}
           />
         </div> : null}
+  </>;
 
-        <div className="mt-5 min-w-0 space-y-5">
-          {profile.pipeline.connection.status === "candidate" ? (
+  const renderIdentityConnection = () => (
+    <>{profile.pipeline.connection.status === "candidate" ? (
             <ProfileSection title="Identity review" detail="Confirm the client before records are joined">
               <IdentityReviewControls
                 profile={profile}
@@ -283,7 +283,15 @@ function ResidentProfile({
             <ProfileSection title="Identity connection" detail="Create a review candidate before records are joined">
               <IdentitySuggestionControls profile={profile} onConnectionChanged={onConnectionChanged} />
             </ProfileSection>
-          ) : null}
+          ) : null}</>
+  );
+
+  return (
+    <ClientChartContainer embedded={embedded} title={identity.title} onBack={onBack}>
+        {renderChartHeading()}
+
+        <div className="mt-5 min-w-0 space-y-5">
+          {renderIdentityConnection()}
 
           <ClientAssessmentRecords assessments={assessmentRecords} editableAssessmentId={editableAssessmentId} onEditField={onEditAssessmentField} />
 

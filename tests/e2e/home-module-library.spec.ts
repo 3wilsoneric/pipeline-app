@@ -69,7 +69,7 @@ async function mockLayout(page: Page, moduleIds: string[] = defaults) {
 }
 
 for (const width of [1440, 390]) {
-  test(`keeps assigned work open without a Board heading or saved Home module at ${width}px`, async ({ page }, testInfo) => {
+  test(`keeps the Board open even without a saved Home module at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 950 });
     await mockLayout(page, []);
     let assigned = false;
@@ -101,7 +101,7 @@ for (const width of [1440, 390]) {
     const card = work.getByRole("button", { name: "Open Avery Assigned", exact: true });
     await expect(card).toBeVisible();
     await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
-    await expect(work.getByRole("heading", { name: "Board", exact: true })).toHaveCount(0);
+    await expect(work.getByRole("heading", { name: "Board", exact: true })).toBeVisible();
     await expect(work.getByText(/^(Team referrals|Assigned to you)$/)).toHaveCount(0);
     await expect(work.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
     await page.goto("/?editHome=1");
@@ -134,10 +134,10 @@ test("separates Home modules with light emerald surfaces and responsive spacing"
   }));
   for (const style of styles) {
     expect(style.backgroundColor).toMatch(/^rgba?\(255, 255, 255/);
-    expect(style.borderTopColor).toBe("rgb(206, 219, 215)");
+    expect(style.borderTopColor).toBe("rgb(189, 200, 193)");
     expect(style.borderTopWidth).toBe("1px");
   }
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(237, 243, 242)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -310,6 +310,8 @@ for (const width of [390, 834, 1440]) {
 test("moves Search with the pointer and Recent work with arrow keys", async ({ page }) => {
   await mockLayout(page, ["search", "recent-work", "current-work"]);
   await page.goto("/?editHome=1");
+  // The briefing adds the Board above these controls; measure only its settled layout.
+  await expect(page.locator('main[data-performance-ready="home"]')).toBeVisible();
   const handle = page.getByRole("button", { name: "Move Search", exact: true });
   await page.locator('[data-home-module="recent-work"]').scrollIntoViewIfNeeded();
   const start = await handle.boundingBox();

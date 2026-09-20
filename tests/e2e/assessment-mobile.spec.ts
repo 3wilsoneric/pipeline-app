@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createOperationalReferral } from "./support/operational-api";
 
 const practice = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1";
-const surface = (page: Page) => page.getByRole("dialog", { name: "Assessment interview", exact: true });
+const surface = (page: Page) => page.locator("[data-assessment-view]");
 
 test.describe("mobile assessment", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -15,6 +15,7 @@ test.describe("mobile assessment", () => {
     const header = page.locator("[data-pipeline-header]");
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });
+      await header.getByRole("button", { name: /^Open page menu/ }).tap();
       for (const label of ["Workspaces", "Calendar", "Clients", "Reports", "New"]) await expect(header.getByText(label, { exact: true })).toBeVisible();
       for (const control of await header.locator('[data-testid="primary-navigation"] button').all()) {
         const box = (await control.boundingBox())!;
@@ -22,10 +23,13 @@ test.describe("mobile assessment", () => {
         expect(box.height).toBeGreaterThanOrEqual(44);
       }
       expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      await header.getByRole("button", { name: "Close page menu", exact: true }).tap();
     }
+    await header.getByRole("button", { name: /^Open page menu/ }).tap();
     await header.getByRole("button", { name: "Open referrals", exact: true }).tap();
     await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath("phone-workspaces.png") });
+    await header.getByRole("button", { name: /^Open page menu/ }).tap();
     await header.getByRole("button", { name: /^Open profile menu for/ }).tap();
     await expect(page.getByRole("dialog", { name: "Profile settings", exact: true })).toBeInViewport();
     await page.screenshot({ path: info.outputPath("phone-navigation.png") });
@@ -37,16 +41,17 @@ test.describe("mobile assessment", () => {
     await expect(assessment).toBeVisible();
     for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
-      await expect(assessment.getByRole("button", { name: "Back to referral" })).toBeInViewport();
       const phone = size.width < 640 || size.height < 500 && size.width < 960;
+      const back = page.getByRole("button", { name: phone ? "Back to previous page" : "Pipeline home", exact: true });
+      await expect(back).toBeInViewport();
       if (phone) {
         await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeHidden();
         await expect(assessment.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /^Next/ })).toBeInViewport();
       } else await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      const controls = [page.getByRole("button", { name: "Show app navigation" }), assessment.getByRole("button", { name: "Back to referral" }), ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true }), assessment.locator('summary[aria-label="Find assessment question"]')])];
-      if (!phone && size.width < 760) controls.push(assessment.getByRole("button", { name: /^Captured answers/ }));
+      const controls = [page.getByRole("button", { name: phone ? /^Open page menu/ : "Expand navigation" }), back, ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true })])];
+      if (!phone && size.width < 760) controls.push(assessment.getByRole("button", { name: /^Current information/ }));
       for (const control of controls) {
         const box = (await control.boundingBox())!;
         expect(box.height).toBeGreaterThanOrEqual(44);
@@ -55,20 +60,20 @@ test.describe("mobile assessment", () => {
       const field = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
       await expect(field).toHaveCSS("font-size", phone ? "16px" : "17px");
       if (size.width >= 760 && !phone) {
-        const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
+        const reference = assessment.getByRole("complementary", { name: "Current information" });
         await expect(reference).toBeVisible();
         expect((await reference.boundingBox())!.x).toBeLessThan((await field.boundingBox())!.x);
       }
       await page.screenshot({ path: info.outputPath(`assessment-${size.width}x${size.height}.png`) });
     }
     await page.setViewportSize({ width: 768, height: 844 });
-    await page.getByRole("button", { name: "Show app navigation" }).tap();
+    await page.getByRole("button", { name: "Expand navigation" }).tap();
     await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeInViewport();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: "Show app navigation" })).toHaveAttribute("aria-expanded", "false");
-    const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
+    await expect(page.getByRole("button", { name: "Expand navigation" })).toHaveAttribute("aria-expanded", "false");
+    const reference = assessment.getByRole("complementary", { name: "Current information" });
     await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
-    await expect(reference.getByRole("combobox", { name: "Reference information" })).toBeVisible();
+    await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toBeVisible();
     const answer = assessment.getByRole("textbox", { name: "Current symptoms", exact: false });
     await expect(answer).toBeFocused();
     await expect(answer).toBeInViewport();
@@ -84,7 +89,7 @@ test.describe("mobile assessment", () => {
     await page.addScriptTag({ content: readFileSync(require.resolve("axe-core/axe.min.js"), "utf8") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: typeof import("axe-core") }).axe;
-      const result = await axe.run('[data-assessment-view="chart"]', { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] } });
+      const result = await axe.run('[data-assessment-view]', { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] } });
       return result.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? "")).map((violation) => ({ id: violation.id, targets: violation.nodes.map((node) => node.target) }));
     });
     expect(violations).toEqual([]);
@@ -196,7 +201,7 @@ test("WebKit iPad keeps the reading pane open while editing and rotating", async
     const page = await browser.newPage({ baseURL, viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true });
     await page.goto(practice);
     const assessment = surface(page);
-    const reference = assessment.getByRole("complementary", { name: "Captured assessment answers" });
+    const reference = assessment.getByRole("complementary", { name: "Current information" });
     const editor = assessment.locator("[data-assessment-question-editor]");
     await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
     const field = editor.getByRole("textbox", { name: "Current symptoms", exact: true });
@@ -206,11 +211,12 @@ test("WebKit iPad keeps the reading pane open while editing and rotating", async
     await expect(reference).toContainText("Synthetic tablet note, retained when rotating.");
     for (const size of [{ width: 768, height: 1024 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
-      await expect(reference.getByRole("combobox", { name: "Reference information" })).toBeInViewport();
+      await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toBeInViewport();
       const left = (await reference.boundingBox())!;
       const right = (await editor.boundingBox())!;
       expect(left.x + left.width).toBeLessThan(right.x);
-      expect(Math.abs(left.height - right.height)).toBeLessThan(2);
+      expect(await reference.evaluate((element) => element.scrollTop)).toBe(0);
+      expect(await editor.evaluate((element) => element.scrollTop)).toBe(0);
       await expect(field).toHaveValue("Synthetic tablet note, retained when rotating.");
       await expect(field).toHaveCSS("font-size", "17px");
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);

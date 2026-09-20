@@ -12,8 +12,10 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
       if (pathname === "/api/auth/session" && request.method() === "POST") sessionExchangeRequests += 1;
     });
 
-    await page.goto("/training");
-    await expect(page.getByRole("heading", { name: "Learning Center", exact: true })).toBeVisible();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Guided tutorial library", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Close guided tutorials", exact: true }).click();
     const initialDocumentRequests = documentRequests;
 
     await page.getByRole("button", { name: "Open referrals", exact: true }).click();

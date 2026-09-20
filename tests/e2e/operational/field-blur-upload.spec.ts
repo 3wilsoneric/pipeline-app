@@ -48,6 +48,7 @@ test.describe("field exit saves and single uploads", () => {
     try {
       const referral = await createReferral(api);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
       const email = page.getByRole("textbox", { name: "Client email:", exact: true });
       await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
@@ -91,11 +92,9 @@ test.describe("field exit saves and single uploads", () => {
     try {
       const referral = await createReferral(api);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
-      await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
-      const editor = page.locator('[data-assessment-view="chart"]');
-      const search = editor.getByRole("searchbox", { name: "Find assessment question" });
-      await search.fill("Prior 5150");
-      await editor.getByRole("navigation", { name: "Matching assessment questions" }).getByRole("button", { name: /Prior 5150/ }).click();
+      await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
+      const editor = page.locator('[data-assessment-view]');
+      await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
       const first = editor.getByRole("textbox", { name: /Prior 5150/ });
       const second = editor.getByRole("textbox", { name: /Crisis \/ ER utilization/ });
       const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
@@ -127,14 +126,13 @@ test.describe("field exit saves and single uploads", () => {
       await page.waitForTimeout(600);
       expect(writes).toHaveLength(2);
 
-      await search.fill("IM injections");
-      await editor.getByRole("navigation", { name: "Matching assessment questions" }).getByRole("button", { name: /^IM injections/ }).click();
+      await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("medication");
       const cell = editor.locator('[data-working-field="im_injections"]');
       await cell.getByRole("button", { name: /Unable/ }).click();
       await cell.getByRole("textbox").fill("Synthetic source unavailable");
       await page.waitForTimeout(900);
       expect(writes).toHaveLength(2);
-      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
+      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
       await expect(editor).toHaveCount(0);
       await expect.poll(async () => (await read()).im_injections).toBe("unable_to_assess");
       await expect.poll(async () => (await read()).unable_to_assess_reasons.im_injections).toBe("Synthetic source unavailable");
@@ -148,6 +146,7 @@ test.describe("field exit saves and single uploads", () => {
     try {
       const referral = await createReferral(api);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       const canvas = createCanvas(300, 120);
       const drawing = canvas.getContext("2d");
       drawing.fillStyle = "white"; drawing.fillRect(0, 0, 300, 120);
@@ -175,7 +174,7 @@ test.describe("field exit saves and single uploads", () => {
       await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
       await expect.poll(() => interrupted, { timeout: 20_000 }).toBe(true);
-      await expect(page.getByRole("button", { name: "Open questionnaire", exact: true })).toBeEnabled();
+      await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true })).toBeEnabled();
       const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
       await phone.fill("555-0199");
       await phone.blur();

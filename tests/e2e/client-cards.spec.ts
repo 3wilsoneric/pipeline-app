@@ -8,7 +8,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const summaryFields = { date_of_birth: "1985-01-02", age: 41, payor: "Example Plan", primary_diagnosis: "Documented diagnosis from the current census", physician: "Example Clinician", diet: "Regular", length_of_stay_days: 209 };
     const clients = [
       { ...clientDirectoryFixture.clients[0], ...summaryFields, profile_key: profileKey },
-      { ...clientDirectoryFixture.clients[0], ...summaryFields, primary_diagnosis: "Documented diagnosis ".repeat(12), physician: "Example clinician with a longer practice name", diet: "A documented diet description that wraps without truncating", profile_key: profileKey ? "current-card-long-name" : undefined, canonical_client_id: "card-long-name", display_name: "Christopher Montgomery-Worthington", current_community: "JC Wallace House", community_names: ["JC Wallace House"] },
+      { ...clientDirectoryFixture.clients[0], ...summaryFields, primary_diagnosis: "Documented diagnosis ".repeat(12), physician: "Example clinician with a longer practice name", diet: "A documented diet description that wraps without truncating", profile_key: profileKey ? "current-card-long-name" : undefined, canonical_client_id: "card-long-name", display_name: "Christopher Montgomery-Worthington" },
       { ...clientDirectoryFixture.clients[0], profile_key: profileKey ? "current-card-missing-fields" : undefined, canonical_client_id: "card-missing-fields", display_name: "Taylor Example", unit: null, admit_date: null, care_level: null },
     ];
     await page.route("**/api/profiles/**", (route) => route.fulfill({ json: unifiedProfileFixture }));
@@ -16,7 +16,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       ...clientDirectoryFixture, clients, total: clients.length, next_cursor: null,
     } }));
     await page.goto("/?screen=profiles");
-  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
+    await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     const card = page.getByRole("button", { name: "Open profile for Avery Example", exact: true });
     const tab = card.locator(":scope > strong");
     const body = card.locator(":scope > span");
@@ -30,7 +30,8 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 
     for (const width of [1920, 1440, 834, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await expect(card.locator("strong")).toHaveCSS("font-size", "16px");
+      await page.mouse.move(width - 1, 1);
+      await expect(card.locator("strong")).toHaveCSS("font-size", "18px");
       await expect(card.locator("strong")).toHaveCSS("font-weight", "700");
       await expect(card.getByText("Community", { exact: true })).toHaveCSS("font-size", "10px");
       await expect(card.getByText("Community", { exact: true })).toHaveCSS("font-weight", "700");
@@ -45,26 +46,42 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await expect(body).toHaveCSS("background-color", "rgb(232, 217, 184)");
       const tabBounds = await tab.boundingBox();
       const label = tab.locator(":scope > span");
-      await expect(label).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(label).toHaveCSS("background-image", "linear-gradient(rgb(255, 255, 255), rgb(255, 253, 248))");
       const labelBounds = await label.boundingBox();
       expect(labelBounds!.width).toBeLessThan(tabBounds!.width);
       expect(labelBounds!.height).toBeLessThan(tabBounds!.height);
       const bodyBounds = await body.boundingBox();
-      expect(tabBounds!.y + tabBounds!.height - bodyBounds!.y).toBe(1);
+      await expect.poll(async () => {
+        const top = (await tab.boundingBox())!;
+        const bottom = (await body.boundingBox())!;
+        return Math.abs(top.y + top.height - bottom.y - 1);
+      }).toBeLessThan(0.1);
       expect(tabBounds!.width).toBeLessThan(bodyBounds!.width);
       const grid = page.getByRole("list");
-      await expect(grid).toHaveCSS("column-gap", "24px");
-      await expect(grid).toHaveCSS("row-gap", "24px");
+      const gap = width >= 1024 ? "0px" : "24px";
+      await expect(grid).toHaveCSS("column-gap", gap);
+      await expect(grid).toHaveCSS("row-gap", gap);
+      await expect.poll(() => grid.evaluate((element) => {
+        const first = element.querySelector('[role="button"], button')!;
+        return Math.abs(first.getBoundingClientRect().width - element.getBoundingClientRect().width);
+      })).toBeLessThan(0.1);
+      await expect.poll(async () => {
+        const first = (await cards.nth(0).boundingBox())!;
+        const next = (await cards.nth(1).boundingBox())!;
+        return next.x - first.x;
+      }).toBe(0);
       const firstBounds = await cards.nth(0).boundingBox();
       const nextBounds = await cards.nth(1).boundingBox();
-      const gridBounds = await grid.boundingBox();
-      expect(firstBounds!.width).toBe(gridBounds!.width);
-      expect(nextBounds!.x).toBe(firstBounds!.x);
-      expect(nextBounds!.y - firstBounds!.y - firstBounds!.height).toBe(24);
+      if (width >= 1024) await expect.poll(async () => {
+        const first = (await cards.nth(0).boundingBox())!;
+        const next = (await cards.nth(1).boundingBox())!;
+        return Math.abs(next.y - first.y - 86);
+      }).toBeLessThan(0.1);
+      else expect(nextBounds!.y - firstBounds!.y - firstBounds!.height).toBe(24);
       const summary = body.locator(":scope > span > span").nth(1);
       expect(await summary.evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").length)).toBe(width >= 768 ? 4 : 2);
       await expect(summary.locator(":scope > span")).toHaveCount(12);
-      if (width === 1440) expect(firstBounds!.x).toBe(32);
+      if (width === 1440) expect(firstBounds!.width).toBeGreaterThan(width * 0.9);
       for (const bounds of await cards.evaluateAll((nodes) => nodes.map((node) => {
         const rect = node.getBoundingClientRect();
         return { left: rect.left, right: rect.right, width: node.clientWidth, contentWidth: node.scrollWidth };
@@ -82,8 +99,10 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     }
 
     await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(page.getByRole("complementary", { name: "App navigation" })).toBeVisible();
+    await expect(card).toHaveCSS("width", "1324px");
     const resting = await card.boundingBox();
-    await card.hover();
+    await tab.hover();
     await expect(body).toHaveCSS("border-color", "rgb(164, 147, 109)");
     expect(await card.boundingBox()).toEqual(resting);
     await page.mouse.down();
@@ -169,19 +188,21 @@ test("client view switches retain loaded results, filters, sorting and the displ
   await cardsToggle.click();
   await expect(cards).toHaveCount(105);
   expect(directoryRequests).toBe(requestsBeforeToggle);
-  await page.keyboard.press("Escape");
   await page.getByLabel("Filter profiles by admission date").selectOption("any");
   await page.getByLabel("Sort clients", { exact: true }).selectOption("recent_admission");
   await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue("any");
   await expect(page.getByLabel("Sort clients", { exact: true })).toHaveValue("recent_admission");
-  await page.getByRole("textbox", { name: "Search clients", exact: true }).fill("Avery Example");
-  await expect(page.getByRole("button", { name: /file cabinet$/ }).first()).toContainText("1 client");
-  await page.getByRole("button", { name: /file cabinet$/ }).first().click();
+  const searchLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === "/api/profiles/directory" && url.searchParams.get("q") === "Avery Example";
+  });
+  await page.getByRole("textbox", { name: "Search this cabinet", exact: true }).fill("Avery Example");
+  await searchLoaded;
   await expect(cards).toHaveCount(1);
   await expect(cards).toHaveAccessibleName("Open profile for Avery Example");
   const requestsAfterSearch = directoryRequests;
   await cardsToggle.click();
-  await expect(page.locator('input[aria-label="Search clients"]')).toHaveValue("Avery Example");
+  await expect(page.getByRole("textbox", { name: "Search this cabinet", exact: true })).toHaveValue("Avery Example");
   await expect(cards).toHaveCount(1);
   expect(directoryRequests).toBe(requestsAfterSearch);
   await listToggle.click();

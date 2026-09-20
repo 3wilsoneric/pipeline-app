@@ -58,3 +58,29 @@ test("requested admission remains packet evidence, never actual admission data",
   assert.equal(populated.admissionDate.value, "");
   assert.equal(packet[0].value, "2026-09-20");
 });
+
+test("a field save preserves everyone else's source evidence, including a source cleared remotely", () => {
+  const canvas = fields();
+  canvas.phone = { label: "Phone", value: "555-0101", sourceFile: "phone.pdf" };
+  canvas.email.sourceFile = "stale-email.pdf";
+  const patch = persistence.buildReferralCanvasPatch({ keys: new Set(["phone"]), fields: canvas, conserved: "", tags: [], requirements: [], existingFieldSources: { dob: "birth.pdf", admissionDate: "admitted.pdf" } });
+  assert.deepEqual(JSON.parse(JSON.stringify(patch)), { phone: "555-0101", fieldSources: { dob: "birth.pdf", admissionDate: "admitted.pdf", phone: "phone.pdf" } });
+  delete canvas.phone.sourceFile;
+  const cleared = persistence.buildReferralCanvasPatch({ keys: new Set(["phone"]), fields: canvas, conserved: "", tags: [], requirements: [], existingFieldSources: patch.fieldSources });
+  assert.deepEqual(JSON.parse(JSON.stringify(cleared.fieldSources)), { dob: "birth.pdf", admissionDate: "admitted.pdf" });
+});
+
+test("disjoint section collisions can rebase, but same-field and provenance conflicts cannot", () => {
+  const base = { id: 1, version: 1, phone: "", email: "", fieldSources: {} };
+  const patch = { phone: "555-0101", fieldSources: {} };
+  const can = (latest, edit = patch) => persistence.canRebaseReferralCanvasPatch(base, { ...base, version: 2, ...latest }, edit);
+  assert.equal(can({ email: "remote@example.invalid", fieldSources: { email: "email.pdf" } }), true);
+  assert.equal(can({ phone: "555-0102" }), false);
+  assert.equal(can({ phone: "555-0101" }), true);
+  assert.equal(can({ fieldSources: { phone: "verified-phone.pdf" } }), false);
+  assert.equal(can({ id: 2 }), false);
+  assert.equal(can({ version: 1 }), false);
+  assert.equal(can({}, { owner: "New owner" }), false);
+  assert.equal(can({}, { requirements: [] }), false);
+  assert.equal(can({}, { documentHash: "new-hash" }), false);
+});

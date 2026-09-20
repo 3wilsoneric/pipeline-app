@@ -21,6 +21,7 @@ test.describe("Referral-to-decision operating spine", () => {
 
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
     const referralId = Number(new URL(page.url()).searchParams.get("referralId"));
+    await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     const contacts = page.getByRole("region", { name: "Contact and coordination", exact: true });
     await expect(contacts).toBeVisible();
     await expect(contacts.getByText("Contact needed", { exact: true })).toBeVisible();
@@ -55,11 +56,12 @@ test.describe("Referral-to-decision operating spine", () => {
         if_match: createdAssessment!.version,
         client_mutation_id: crypto.randomUUID(),
         allow_conflict: true,
-        schedule: { status: "scheduled", start_at: scheduledStart, duration_minutes: 60, method: "zoom", location: "Synthetic Zoom room" },
+        schedule: { status: "scheduled", start_at: scheduledStart, duration_minutes: 60, method: "zoom", location: "https://example.invalid/synthetic-meeting" },
       },
     });
-    expect(blockedSchedule.status()).toBe(422);
-    await expect(blockedSchedule.json()).resolves.toMatchObject({ code: "assessment_not_ready_to_schedule" });
+    expect(blockedSchedule.status()).toBe(200);
+    const scheduledWithoutContact = (await blockedSchedule.json()).assessment;
+    expect(scheduledWithoutContact.scheduled_start_at).toBe(scheduledStart);
 
     await contacts.getByRole("button", { name: "Add new contact" }).click();
     await contacts.getByLabel("First name").fill("Jordan");
@@ -70,15 +72,15 @@ test.describe("Referral-to-decision operating spine", () => {
     await contacts.getByRole("button", { name: "Save and add" }).click();
 
     await expect(contacts.getByText("Jordan Coordinator", { exact: true })).toBeVisible();
-    await expect(contacts.getByText("Ready to schedule", { exact: true })).toBeVisible();
+    await expect(contacts.getByText("Contact needed", { exact: true })).toHaveCount(0);
     await expect(contacts.getByText("Scheduling", { exact: true })).toBeVisible();
 
     const scheduled = await page.request.post(`/api/assessments/${createdAssessment!.assessment_id}/schedule`, {
       data: {
-        if_match: createdAssessment!.version,
+        if_match: scheduledWithoutContact.version,
         client_mutation_id: crypto.randomUUID(),
         allow_conflict: true,
-        schedule: { status: "scheduled", start_at: scheduledStart, duration_minutes: 60, method: "zoom", location: "Synthetic Zoom room" },
+        schedule: { status: "scheduled", start_at: scheduledStart, duration_minutes: 60, method: "zoom", location: "https://example.invalid/synthetic-meeting" },
       },
     });
     const scheduledPayload = await scheduled.json() as { error?: string; blockers?: string[] };
@@ -88,14 +90,14 @@ test.describe("Referral-to-decision operating spine", () => {
     expect(saved.ok()).toBeTruthy();
     const savedPayload = await saved.json() as { contacts: Array<{ id: string; contact: { id: string; phone: string } }> };
     expect(savedPayload.contacts).toHaveLength(1);
-    expect(savedPayload.contacts[0].contact.phone).toBe("555-010-2026");
+    expect(savedPayload.contacts[0].contact.phone).toBe("(555) 010-2026");
 
     await contacts.getByRole("button", { name: "Edit Jordan Coordinator" }).click();
     await contacts.getByRole("textbox", { name: "Phone", exact: true }).fill("555-010-2027");
     await contacts.getByLabel("Connection to referral").selectOption("case_manager");
     await contacts.getByRole("button", { name: "Save contact" }).click();
     await expect(contacts.getByText("Case manager", { exact: true })).toBeVisible();
-    await expect(contacts.getByText(/555-010-2027/)).toBeVisible();
+    await expect(contacts.getByText("(555) 010-2027", { exact: true })).toBeVisible();
 
     page.once("dialog", (dialog) => dialog.accept());
     await contacts.getByRole("button", { name: "Remove Jordan Coordinator from referral" }).click();
@@ -108,7 +110,7 @@ test.describe("Referral-to-decision operating spine", () => {
     await savedResult.click();
     await expect(contacts.getByRole("button", { name: "Find saved contact" })).toBeVisible();
     await expect(contacts.getByText("Jordan Coordinator", { exact: true })).toBeVisible();
-    await expect(contacts.getByText("Ready to schedule", { exact: true })).toBeVisible();
+    await expect(contacts.getByText("Contact needed", { exact: true })).toHaveCount(0);
 
     await page.reload();
     await expect(page.getByRole("region", { name: "Contact and coordination" }).getByText("Jordan Coordinator", { exact: true })).toBeVisible();

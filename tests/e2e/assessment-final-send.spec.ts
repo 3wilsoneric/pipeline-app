@@ -18,7 +18,7 @@ test("signed answers remain editable and saved; Add note appears only after the 
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`;
   await page.goto(url);
-  const surface = page.getByRole("dialog", { name: "Assessment interview", exact: true });
+  const surface = page.locator("[data-assessment-view]");
   await expect(surface.getByRole("button", { name: "Add note", exact: true })).toHaveCount(0);
   const field = surface.getByRole("textbox", { name: "Current symptoms", exact: false });
   await expect(field).toBeEditable();
