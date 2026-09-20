@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import HomeDialog from "@/components/pipeline/HomeDialog";
+import HomeFocusDeck, { homeFocusModules } from "@/components/pipeline/HomeFocusDeck";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 import {
@@ -96,12 +97,14 @@ const definitionsById = Object.fromEntries(
 export default function HomeModuleDashboard({
   viewerId,
   modules,
+  counts = {},
   initialEditing = false,
   onFinishEditing,
   onSearchVisibilityChange,
 }: {
   viewerId: string;
   modules: Record<PipelineHomeModuleId, ReactNode>;
+  counts?: Partial<Record<PipelineHomeModuleId, number>>;
   initialEditing?: boolean;
   onFinishEditing?: () => void;
   onSearchVisibilityChange: (visible: boolean) => void;
@@ -129,6 +132,8 @@ export default function HomeModuleDashboard({
 
   const searchVisible = layout.module_ids.includes("search");
   const optionalModuleIds = layout.module_ids.filter((id) => id !== "current-work");
+  const focusModuleIds = homeFocusModules.filter((id) => id === "current-work" || layout.module_ids.includes(id));
+  const visibleOptionalIds = editing ? optionalModuleIds : optionalModuleIds.filter((id) => !focusModuleIds.some((focusId) => focusId === id));
   useEffect(() => onSearchVisibilityChange(searchVisible), [searchVisible, onSearchVisibilityChange]);
 
   const updateLayout = useCallback((next: PipelineHomeDashboardLayout, message: string) => {
@@ -214,14 +219,14 @@ export default function HomeModuleDashboard({
         </div>
       ) : <span className="sr-only" aria-live="polite">{saveStatus}</span>}
 
-      <div
+      {!editing ? modules["current-work"] ? <HomeFocusDeck modules={modules} moduleIds={focusModuleIds} counts={counts} /> : null : <div
         data-home-module="current-work"
         data-home-surface="true"
         className="mb-7 min-w-0 border border-[#d9d9d9] bg-white p-4 sm:p-5"
       >
         {modules["current-work"]}
-      </div>
-      {optionalModuleIds.length === 0 ? editing ? (
+      </div>}
+      {visibleOptionalIds.length === 0 ? editing ? (
         <div className="border border-dashed border-[#b8c9c3] bg-[#f7faf9] px-6 py-14 text-center">
           <LibraryBig size={24} className="mx-auto text-[#4b756a]" aria-hidden="true" />
           <h2 className="mt-3 text-[15px] font-black text-[#202723]">Build your Home</h2>
@@ -232,7 +237,7 @@ export default function HomeModuleDashboard({
         </div>
       ) : null : (
         <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-2" data-testid="home-module-grid">
-          {optionalModuleIds.map((moduleId, index) => {
+          {visibleOptionalIds.map((moduleId, index) => {
             if (!editing && modules[moduleId] === null) return null;
             const definition = definitionsById[moduleId];
             return (

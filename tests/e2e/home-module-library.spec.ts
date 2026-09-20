@@ -116,28 +116,16 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("separates Home modules with light emerald surfaces and responsive spacing", async ({ page }, testInfo) => {
+test("keeps optional Home modules below the focus deck on a warm responsive canvas", async ({ page }, testInfo) => {
   await mockLayout(page, completeModuleSet);
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
 
   await expect(page.locator('[data-home-surface="true"]')).toHaveCount(6);
-  await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", "0px");
-  const surfaces = page.locator('[data-home-surface="true"]:not([data-home-module="current-work"])');
-  const styles = await surfaces.evaluateAll((elements) => elements.map((element) => {
-    const style = getComputedStyle(element);
-    return {
-      backgroundColor: style.backgroundColor,
-      borderTopColor: style.borderTopColor,
-      borderTopWidth: style.borderTopWidth,
-    };
-  }));
-  for (const style of styles) {
-    expect(style.backgroundColor).toMatch(/^rgba?\(255, 255, 255/);
-    expect(style.borderTopColor).toBe("rgb(189, 200, 193)");
-    expect(style.borderTopWidth).toBe("1px");
-  }
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
+  await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", "1px");
+  await expect(page.getByTestId("home-focus-deck").locator("[inert][aria-hidden=true]")).toHaveCount(2);
+  await expect(page.getByTestId("home-module-grid").locator("[data-home-module]")).toHaveCount(3);
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(238, 238, 231)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
