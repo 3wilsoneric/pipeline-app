@@ -20,6 +20,7 @@ const fieldWritingSpec = loadTypeScriptModule(root, "lib/assessment/assessment-f
 const assessmentSummary = loadTypeScriptModule(root, "lib/assessment/assessment-summary.ts");
 const meetClientTemplate = loadTypeScriptModule(root, "lib/notifications/meet-client-email-template.ts");
 const attachmentPolicy = loadTypeScriptModule(root, "lib/notifications/meet-client-attachment-policy.ts");
+const documentAccess = loadTypeScriptModule(root, "lib/extraction/document-access-policy.ts");
 const memberEligibility = loadTypeScriptModule(root, "lib/pipeline/workspace-member-eligibility.ts");
 const workflowPanel = loadTypeScriptModule(root, "components/pipeline/referral-workflow-panel-model.ts");
 
@@ -546,7 +547,10 @@ check("admission packet selection is server-owned and referral-scoped", meetClie
   && meetClientAttachments.includes("referralId: referral.id")
   && meetClientAttachments.includes('excludedCategories = new Set<ReferralFile["category"]>(["Assessment"])')
   && !meetClientEmailRoute.includes("document_ids"));
-check("admission packet delivery is blocked unless every file is safety-scanned", meetClientAttachments.includes('status !== "clean"')
+check("owner-approved unscanned and clean attachments are available; unsafe and unknown states are blocked",
+  ["clean", "not_scanned"].every((status) => documentAccess.isDocumentContentAvailable(status))
+  && ["pending", "infected", "failed", "unknown", undefined].every((status) => !documentAccess.isDocumentContentAvailable(status))
+  && meetClientAttachments.includes("!isDocumentContentAvailable(status)")
   && meetClientAttachments.includes("files.some((file) => !file.ready)")
   && meetClientAttachments.includes("sourceSystem === \"pipeline\""));
 check("packet delivery supports direct and resumable Graph attachment paths", graphMail.includes("sendDirectMessage")
@@ -567,17 +571,25 @@ check("current workspaces expose Assessment and Chart while transferred charts s
     && referralPacketCanvas.includes('{ page: 3, label: "Chart" }')
     && referralPacketCanvas.includes('const importedWorkspaceSteps')
     && referralPacketCanvas.includes('{ page: 1, label: "Chart" }')
-    && referralPacketCanvas.includes('steps: usesSourceProfile || historicalReadOnly ? importedWorkspaceSteps : packetSteps')
+    && referralPacketCanvas.includes('steps: usesSourceProfile || historicalReadOnly ? importedWorkspaceSteps : referral ? savedWorkspaceSteps : packetSteps')
     && referralPacketCanvas.includes('readOnly: historicalReadOnly || permissionReadOnly')
     && referralPacketCanvas.includes('!canModifyReferral(referral, { ...viewer, id: viewer.id })')
-    && referralPacketCanvas.includes('steps.length === 1 && activePage === "workflow"')
+    && referralPacketCanvas.includes('activePage === "workflow" && !steps.some((step) => step.page === "workflow")')
     && referralPacketCanvas.includes('<TransferredWorkspaceChart')
     && referralPacketCanvas.includes('displayedPage === 3')
     && referralPacketCanvas.includes('usesSourceProfile'));
-check("the Chart workspace contains only the complete chart and Meet the Client outputs", assessmentChartWorkspace.includes('label="Complete chart"') && assessmentChartWorkspace.includes('label="Meet the Client"') && assessmentChartWorkspace.includes("<CompleteAssessmentChart") && assessmentChartWorkspace.includes("<MeetClientChart") && !assessmentChartWorkspace.includes("DecisionPanel") && !assessmentChartWorkspace.includes("overrideReason"));
-check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes("<AdmissionPacketSummary")
-  && assessmentChartWorkspace.includes("listed admission files")
-  && assessmentChartWorkspace.includes("Email summary + packet"));
+check("the Chart and email surfaces retain the signed record and server-generated handoff without embedding decision controls",
+  assessmentChartWorkspace.includes("<AssessmentRecord")
+    && assessmentChartWorkspace.includes("<CompleteAssessmentChart")
+    && assessmentChartWorkspace.includes("<MeetClientEmailPreview")
+    && assessmentChartWorkspace.includes('srcDoc={email.preview.html} sandbox=""')
+    && !assessmentChartWorkspace.includes("DecisionPanel")
+    && !assessmentChartWorkspace.includes("overrideReason"));
+check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')
+  && assessmentChartWorkspace.includes("email.admission_packet.files.map")
+  && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the attached files.")
+  && assessmentChartWorkspace.includes('disabled={sending || !email.ready || !confirmed || !recipients.trim()}')
+  && assessmentChartWorkspace.includes("Send email & packet"));
 check("the complete chart is generated only from a signed assessment", admissionSummaryRoute.includes("selectSignedAssessment") && read("lib/assessment/assessment-summary.ts").includes("return assessment?.signed_at ? assessment : null"));
 check("approved teammates can move a referral to trash", referralRoute.includes("requirePipelineUser(request)") && referralRoute.includes("requireMutableReferralAccess"));
 check("approved teammates can authorize intake without an initial packet", manualIntakeRoute.includes("requirePipelineUser(request)") && manualIntakeRoute.includes("requireMutableReferralAccess"));
@@ -617,13 +629,15 @@ check("review change requests and revision creation share one PostgreSQL transac
 check("review rollback delegates transaction ownership to the drill", !/^\s*(begin|commit)\s*;/im.test(reviewRollback));
 check("requirements cannot drift from the referral assignment", workItemRoute.includes("Change the referral assignment to change requirement ownership") && !workItemRoute.includes('"ownerId",'));
 check(
-  "assessment interview uses one focused schedule-then-begin shell with grouped responsive navigation",
-  assessmentWorkspace.includes('createPortal(')
-    && assessmentWorkspace.includes('aria-label="Assessment interview"')
-    && assessmentWorkspace.includes("assessmentNavigationGroups")
-    && /<AssessmentScheduleLayout\s+label="Schedule assessment"/.test(assessmentWorkspace)
-    && assessmentWorkspace.includes('role="dialog" aria-modal="true" aria-label={label}')
-    && assessmentWorkspace.includes('aria-label="Begin assessment"')
+  "assessment interview delegates its focused shell, grouped navigation, and explicit schedule/begin dialogs",
+  assessmentWorkspace.includes("<AssessmentFileSurface")
+    && read("components/pipeline/AssessmentPreparation.tsx").includes("createPortal(")
+    && read("components/pipeline/AssessmentPreparation.tsx").includes('aria-label="Assessment interview"')
+    && assessmentWorkspace.includes("<AssessmentWorkingNavigation")
+    && assessmentWorkspace.includes("<AssessmentSchedulingDialogs")
+    && /<AssessmentScheduleLayout\s+label="Schedule assessment"/.test(read("components/pipeline/AssessmentSchedulingDialogs.tsx"))
+    && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('role="dialog" aria-modal="true" aria-label={label}')
+    && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('aria-label="Begin assessment"')
     && !assessmentWorkspace.includes("assessmentWorkbookTemplatePath")
     && !assessmentWorkspace.includes('role="tablist" aria-label="Assessment sections"'),
 );

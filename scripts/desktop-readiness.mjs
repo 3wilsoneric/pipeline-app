@@ -35,7 +35,9 @@ check(
   "manifest is linked only behind the public flag and respects the application base path",
   layout.includes('isPipelineDesktopEnabled() ? toPipelinePath("/desktop-manifest.webmanifest") : undefined'),
 );
-check("worker registration is feature gated", runtime.includes("if (!isPipelineDesktopEnabled())") && runtime.includes("serviceWorker.register"));
+check("development or disabled desktop mode removes the runtime and returns before registration",
+  /if \(process\.env\.NODE_ENV === "development" \|\| !isPipelineDesktopEnabled\(\)\) \{\s*void removePipelineDesktopRuntime\(\);\s*return;\s*\}/.test(runtime)
+    && runtime.indexOf("serviceWorker.register") > runtime.indexOf("!isPipelineDesktopEnabled()"));
 check("worker scope follows the Pipeline application base path", runtime.includes("PIPELINE_SERVICE_WORKER_SCOPE") && config.includes('toPipelinePath("/")'));
 check("disabled runtime unregisters Pipeline worker", runtime.includes("registration.unregister()") && runtime.includes("PIPELINE_DESKTOP_CACHE_PREFIX"));
 check(

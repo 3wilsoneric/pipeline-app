@@ -58,6 +58,11 @@ const methods = [];
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
 
+check("awaited access helpers count only when their failure is immediately returned", resolvedFixture("const failure = await guard(request); if (failure) return failure;").includes("requirePipelineUser"));
+check("unused access helpers cannot satisfy the route policy", !resolvedFixture("return Response.json({});").includes("requirePipelineUser"));
+check("ignored access failures cannot satisfy the route policy", !resolvedFixture("const failure = await guard(request); return Response.json({});").includes("requirePipelineUser"));
+check("returning a different value cannot satisfy the route policy", !resolvedFixture("const failure = await guard(request); if (failure) return null;").includes("requirePipelineUser"));
+
 for (const absoluteFile of routeFiles) {
   const file = path.relative(root, absoluteFile).split(path.sep).join("/");
   const sourceText = readFileSync(absoluteFile, "utf8");
@@ -208,11 +213,22 @@ function resolvedFunctionText(statement, source, declarations) {
   const delegate = text.match(/return\s+(\w+)\(\s*request\b/)?.[1];
   const declaration = delegate ? declarations.get(delegate) : null;
   if (declaration) text += `\n${declaration.getText(source)}`;
+  // Only follow an awaited failure guard whose result immediately exits the
+  // handler. Merely declaring or calling an authorization helper is not proof.
+  for (const match of statement.getText(source).matchAll(/const\s+(\w+)\s*=\s*await\s+(\w+)\(request\);\s*if\s*\(\1\)\s*return\s+\1\s*;/g)) {
+    const guard = declarations.get(match[2]);
+    if (guard) text += `\n${guard.getText(source)}`;
+  }
   if (text.includes("documentMutationResponse(request,")
     && source.text.includes('import { documentMutationResponse } from "@/lib/pipeline/document-mutation-route"')) {
     text += `\n${readFileSync(path.join(root, "lib/pipeline/document-mutation-route.ts"), "utf8")}`;
   }
   return text;
+}
+
+function resolvedFixture(body) {
+  const source = ts.createSourceFile("fixture.ts", `export async function POST(request) { ${body} } async function guard(request) { return requirePipelineUser(request); }`, ts.ScriptTarget.Latest, true);
+  return resolvedFunctionText(source.statements[0], source, new Map([["guard", source.statements[1]]]));
 }
 
 function pipelineRoles(body) {
