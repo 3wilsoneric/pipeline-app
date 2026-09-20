@@ -7,22 +7,8 @@ import {
 } from "@/lib/assessment/assessment-interview-schema";
 import type { AssessmentToolData, AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
 
-// Presentation order only: retain canonical fields, conditions, and source checks.
-// Add cross-topic regrouping only when assessor feedback identifies a concrete gap.
-export const assessmentConversationSections = ([
-  ["identity", "Confirm the basics"],
-  ["diagnosis_clinical", "How things are now"],
-  ["functional_adl", "A usual day"],
-  ["physical_health", "Health and comfort"],
-  ["medication", "Medication"],
-  ["prior_placement", "Living situation"],
-  ["prior_history", "Recent care and history"],
-  ["substance_use", "Substance use and recovery"],
-  ["behavioral_risk", "Safety and support"],
-  ["legal_conservatorship", "Decisions and legal support"],
-  ["social_support", "What matters next"],
-  ["provenance_qc", "Anything else"],
-] as const).map(([key, label]) => ({ key, label }));
+import { assessmentConversationSections } from "@/lib/assessment/assessment-interview-schema";
+export { assessmentConversationSections };
 
 export function assessmentGapSections(data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[]) {
   return assessmentConversationSections.map((section) => {

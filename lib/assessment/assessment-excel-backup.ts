@@ -2,6 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { assessmentBackupVersion, assessmentWorkbookFields, assessmentWorkbookFingerprint, assessmentWorkbookLayout, workbookChunkLength, workbookReadOnlyFields } from "./assessment-workbook-contract";
 import { createEmptyAssessmentToolData, validateAssessmentToolData, type AssessmentToolData, type AssessmentToolFieldKey } from "./assessment-tool-schema";
 import { validateAssessmentPatchRequest } from "./assessment-validation";
+import { workbookFieldStatus } from "./assessment-workbook-presentation";
 
 export type WorkbookIdentity = { assessmentId: string; referralId: number; origin: string };
 export type AssessmentWorkbookCopy = WorkbookIdentity & { exportId: string; exportedAt: string; baseline: AssessmentToolData; answers: AssessmentToolData };
@@ -113,6 +114,7 @@ export async function exportAssessmentWorkbook(template: Uint8Array, identity: W
   const fingerprint = await assessmentWorkbookFingerprint();
   if (read("Pipeline_Data", "B1") !== assessmentBackupVersion || read("Pipeline_Data", "B2") !== fingerprint) throw new Error("The Excel template is out of date. Regenerate it before exporting.");
   const meta = { ...identity, exportId: crypto.randomUUID(), exportedAt: new Date().toISOString() };
+  const exportedLabel = `Exported ${new Date(meta.exportedAt).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}`;
   const paths = sheetPaths(archive);
   const metadata = xml(archive, paths.get("Pipeline_Data")!);
   setCell(metadata, "B3", JSON.stringify(meta));
@@ -125,13 +127,15 @@ export async function exportAssessmentWorkbook(template: Uint8Array, identity: W
   for (const section of assessmentWorkbookLayout) {
     const doc = xml(archive, paths.get(section.sheet)!);
     setCell(doc, "B2", data.resident_name || "Assessment");
-    setCell(doc, "C2", `Copy saved ${meta.exportedAt.replace("T", " ").slice(0, 19)} UTC`);
+    setCell(doc, "C2", exportedLabel);
     for (const field of section.fields) writeAnswer(doc, { ...field, sheet: section.sheet }, data);
+    if (section.key === "provenance_qc") updateChecklistCache(doc, 18, data);
     saveXml(archive, paths.get(section.sheet)!, doc);
   }
   const start = xml(archive, paths.get("Start Here")!);
   setCell(start, "B2", data.resident_name || "Assessment");
-  setCell(start, "B3", `Saved ${meta.exportedAt.replace("T", " ").slice(0, 19)} UTC. Includes current answers, even if not yet synced.`);
+  setCell(start, "B3", `${exportedLabel}. Includes this device's current answers; not a live backup.`);
+  updateChecklistCache(start, 16, data);
   saveXml(archive, paths.get("Start Here")!, start);
   return { bytes: zipSync(archive), ...meta };
 }
@@ -144,7 +148,28 @@ function writeAnswer(doc: Document, field: WorkbookField, data: AssessmentToolDa
     setCell(doc, `C${field.row + c}`, chunk);
     sizeAnswerRow(doc, field.row + c, chunk, c > 0);
   }
-  setCell(doc, `D${field.row}`, data.unable_to_assess_reasons[field.key] ?? "");
+  const reason = data.unable_to_assess_reasons[field.key] ?? "";
+  setCell(doc, `D${field.row}`, reason);
+  sizeAnswerRow(doc, field.row, reason, false, 24);
+  cacheFormulaResult(doc, `E${field.row}`, workbookFieldStatus(field, data));
+}
+
+// Excel recalculates these formulas while staff edit. Cache the same results on
+// export so file previews also show the correct state before Excel opens it.
+function cacheFormulaResult(doc: Document, address: string, value: string | number) {
+  const cell = elements(doc, "c").find((item) => item.getAttribute("r") === address);
+  if (!cell || !elements(cell, "f").length) return;
+  for (const old of elements(cell, "v")) old.remove();
+  cell.setAttribute("t", typeof value === "number" ? "n" : "str");
+  const result = doc.createElementNS(ns, "v"); result.textContent = String(value); cell.append(result);
+}
+
+function updateChecklistCache(doc: Document, firstRow: number, data: AssessmentToolData) {
+  assessmentWorkbookLayout.forEach((view, index) => {
+    const checks = view.fields.map((field) => workbookFieldStatus({ ...field, sheet: view.sheet }, data));
+    cacheFormulaResult(doc, `C${firstRow + index}`, checks.filter((status) => status === "Needs answer" || status === "Explain why").length);
+    cacheFormulaResult(doc, `D${firstRow + index}`, checks.filter((status) => status.startsWith("Review")).length);
+  });
 }
 
 function answerChunk(field: WorkbookField, raw: AssessmentToolData[AssessmentToolFieldKey], value: string, index: number) {
@@ -153,11 +178,11 @@ function answerChunk(field: WorkbookField, raw: AssessmentToolData[AssessmentToo
   return value.slice(index * workbookChunkLength, (index + 1) * workbookChunkLength);
 }
 
-function sizeAnswerRow(doc: Document, rowNumber: number, chunk: string | number, continuation: boolean) {
+function sizeAnswerRow(doc: Document, rowNumber: number, chunk: string | number, continuation: boolean, charactersPerLine = 49) {
   const row = elements(doc, "row").find((r) => r.getAttribute("r") === String(rowNumber));
   if (!row) return;
   if (continuation) row.setAttribute("hidden", chunk ? "0" : "1");
-  const lines = Math.max(String(chunk).split("\n").length, Math.ceil(String(chunk).length / 65));
+  const lines = String(chunk).split("\n").reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charactersPerLine)), 0);
   row.setAttribute("ht", String(Math.min(409, Math.max(Number(row.getAttribute("ht") ?? 60), lines * 16 + 12))));
 }
 

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Download, FileSpreadsheet, Upload, X } from "lucide-react";
 import { assessmentWorkbookChanges, exportAssessmentWorkbook, importAssessmentWorkbook, type AssessmentWorkbookCopy, type WorkbookChange } from "@/lib/assessment/assessment-excel-backup";
 import { assessmentWorkbookFingerprint, assessmentWorkbookTemplatePath } from "@/lib/assessment/assessment-workbook-contract";
+import { assessmentWorkbookPresentationVersion } from "@/lib/assessment/assessment-workbook-presentation";
 import { assessmentInterviewOptionLabel } from "@/lib/assessment/assessment-interview-schema";
 import type { AssessmentPatchInput, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import type { AssessmentToolData, AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
@@ -170,7 +171,7 @@ function format(value: unknown, field: AssessmentToolFieldKey): string {
 }
 
 async function loadTemplate() {
-  const url = `${toPipelinePath(assessmentWorkbookTemplatePath)}?schema=${await assessmentWorkbookFingerprint()}`;
+  const url = `${toPipelinePath(assessmentWorkbookTemplatePath)}?schema=${await assessmentWorkbookFingerprint()}&layout=${assessmentWorkbookPresentationVersion}`;
   const cache = typeof caches !== "undefined" ? await caches.open("pipeline-assessment-blank-workbook").catch(() => null) : null;
   try {
     const response = await fetch(url, { cache: "no-store" });

@@ -27,7 +27,7 @@ The generator uses the installed Codex artifact authoring runtime. Set `PIPELINE
 
 `npm run build` checks the generated workbook's fingerprint, complete field coverage, choices, and required workbook controls. A stale workbook blocks the build. A changed question, choice, validation rule, or mapping changes the fingerprint.
 
-The initial implementation deliberately rejects earlier questionnaire versions rather than guessing how to migrate clinical answers. Before a production questionnaire revision that affects outstanding working copies, add an explicit old-to-new field migration with round-trip and conflict fixtures, or arrange manual reconciliation. Changing labels alone also invalidates the current fingerprint.
+This workbook is still unreleased. There is one current layout and mapping, with no legacy workbook aliases or migration path. Fingerprint validation rejects a mismatched questionnaire rather than guessing how to map clinical answers. A future production schema change with outstanding working copies will require an explicit reconciliation policy before release; changing labels alone also invalidates the current fingerprint.
 
 ## Recovery And Privacy
 
@@ -86,3 +86,17 @@ On the combined integration base `3cbda08be3ac9f089f44c3169ca32bad599a52dc`, wit
 The final focused run passed 31 unit/callback checks and 15 browser checks, including iPad WebKit and the existing review-first import tests. Five isolated PostgreSQL checks passed: the four existing API/rollback cases plus private recovery metadata round-trip, principal separation, stale-version rejection, invalid-source rejection, and no change to the ten protected assessment tables. Recovery drafts now accept all sections from the canonical registry rather than a hard-coded eleven-section limit. The build, scoped ESLint, and whitespace check passed. A controlled callback test additionally verifies that a principal/session change while an offline sender waits prevents dispatch and retains the queued mutation.
 
 Repository-wide `certify:refactor` still stops at the complexity ratchet; it is not a passing certification. Compared with `8dd0fb0`, this change increases the existing recovery callback from 32 to 33, reduces the offline sender callback from 14 to 10 and the reconciliation callback from 16 to 15, and keeps new source helpers at 9 or below. No baseline or disposition was changed. Independent review of this latest diff and native Microsoft Excel open/edit/save/reimport remain outstanding. These checks support the bounded recovery behavior only, not production deployment approval.
+
+## Local Workbook Usability Pass, September 20, 2026
+
+The workbook now uses the app's conversation section names and order from the shared questionnaire owner. Choice rows are compact; narrative answers have more room. Questions and supporting guidance have separate font treatments. Technical metadata remains mapped but hidden from the working sheets. The final section includes a linked checklist rather than exposing metadata as an assessor task.
+
+The **Check** column recalculates as answers change: **Needs answer**, **Explain why**, **Not applicable**, or **Review previous answer/reason**. Both checklists count missing answers/reasons and retained details separately. A negative or unknown parent never deletes a previous detail. Nested follow-ups respect every parent condition, and the shared chart/import preview labels retained inactive details as previous answers. Checklist counts are answer checks, not clinical approval or signature readiness.
+
+The saved workbook's live formulas were recalculated in 460 states covering every conditional parent choice, blank parents, nested branches, retained answers, inability reasons and zero values. Both section totals matched canonical assessment behavior. Run this authoring-time check with the same bundled runtime as the generator:
+
+```sh
+node scripts/assessment-workbook-formula-contracts.mjs --render
+```
+
+The focused browser suite passed 25 tests across workbook import/export, conditional review, recovery/provenance, and referral handoff. After the final row-height correction for long inability explanations, 24 of 25 passed in the combined rerun; the late-recovery test timed out waiting for the import dialog button. Both unchanged recovery tests then passed in a focused rerun (7 seconds). That intermittent dialog timeout remains recorded, not dismissed as deployment clearance. A fresh export from the synthetic local **Workbook Morgan** assessment matched all 162 fields; dropping it back into the app correctly proposed no changes, and Cancel left the record untouched. The build, scoped lint, TypeScript, workbook coverage/freshness and whitespace checks passed. This is local development evidence, not a deployment or a native Excel certification. Native Excel is still unavailable here; the actual Excel open/edit/save cycle remains a release check. Repository-wide certification remains blocked by other complexity-ratchet findings; no baselines were changed.

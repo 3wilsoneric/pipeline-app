@@ -1,4 +1,4 @@
-import { assessmentInterviewFieldLabel, assessmentInterviewQuestions, assessmentInterviewSections } from "./assessment-interview-schema";
+import { assessmentConversationSections, assessmentInterviewFieldLabel, assessmentInterviewQuestions, assessmentInterviewSections } from "./assessment-interview-schema";
 import { assessmentToolFieldDefinitions, type AssessmentToolFieldKey } from "./assessment-tool-schema";
 
 export const assessmentWorkbookSchemaVersion = "PIPELINE_ASSESSMENT_WORKBOOK_V1";
@@ -25,7 +25,8 @@ export const workbookChunkLength = 30000;
 
 // One owner for the template, reader and writer. Extra cells prevent Excel's
 // 32,767-character limit from silently truncating long notes or lists.
-export const assessmentWorkbookLayout = assessmentInterviewSections.map((section, index) => {
+export const assessmentWorkbookLayout = assessmentConversationSections.map((view, index) => {
+  const section = assessmentInterviewSections.find((item) => item.key === view.key)!;
   let row = 6;
   const definitions = assessmentToolFieldDefinitions.filter((item) => item.section === section.key);
   const ordered = [...assessmentInterviewQuestions.map((q) => definitions.find((d) => d.key === q.field)).filter((d) => d !== undefined), ...definitions.filter((d) => !assessmentInterviewQuestions.some((q) => q.field === d.key))];
@@ -36,7 +37,7 @@ export const assessmentWorkbookLayout = assessmentInterviewSections.map((section
     row += chunks;
     return entry;
   });
-  return { ...section, sheet: `${String(index + 1).padStart(2, "0")} ${section.label.replace(/[&/]/g, "and").slice(0, 27)}`, fields, lastRow: row - 1 };
+  return { ...section, label: view.label, sheet: `${String(index + 1).padStart(2, "0")} ${view.label}`.slice(0, 31), fields, lastRow: row - 1 };
 });
 
 export const assessmentWorkbookFields = assessmentWorkbookLayout.flatMap((s) => s.fields.map((f) => ({ ...f, sheet: s.sheet })));

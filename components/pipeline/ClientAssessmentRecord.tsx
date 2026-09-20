@@ -22,7 +22,9 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
         const display = Array.isArray(value) ? value.map((item) => assessmentInterviewOptionLabel(field.key, item) ?? item).join("\n")
           : typeof value === "object" ? Object.entries(value).map(([key, reason]) => `${assessmentToolFieldDefinitions.find((item) => item.key === key)?.label ?? key}: ${reason}`).join("\n")
           : assessmentInterviewOptionLabel(field.key, String(value)) ?? String(value);
-        return display.trim() ? [{ label: field.label, value: display, onEdit: onEditField && editableFields.has(field.key) ? () => onEditField(field.key) : undefined }] : [];
+        const question = assessmentInterviewQuestions.find((item) => item.field === field.key);
+        const inactive = question && !isAssessmentQuestionVisible(question, assessment);
+        return display.trim() ? [{ label: inactive ? `${field.label} (previous answer)` : field.label, value: inactive ? `Not applicable to the current answers. Retained for review.\n${display}` : display, onEdit: onEditField && editableFields.has(field.key) ? () => onEditField(field.key) : undefined }] : [];
       });
       if (!facts.length) return null;
       return <section key={section.key} aria-label={section.label} className="border-b border-[#e0e5e2] px-5 py-5 sm:px-7 sm:py-6">

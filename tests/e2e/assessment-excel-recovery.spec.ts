@@ -4,6 +4,7 @@ import { createOperationalAssessment, createOperationalReferral } from "./suppor
 import { changeWorkbook } from "./support/workbook-runtime";
 import { pickAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
+const historySheet = assessmentWorkbookLayout.findIndex((section) => section.key === "prior_history") + 2;
 
 test.describe("workbook recovery integration boundaries", () => {
   test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Build with NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=true and run with PIPELINE_DESKTOP_E2E=true.");
@@ -35,7 +36,7 @@ test.describe("workbook recovery integration boundaries", () => {
     await input.blur();
     await expect.poll(async () => (await fixture.read()).prior_awol_failed_placements).toBe("Newer typed answer");
     const { dialog, bytes } = await downloadCopy(page);
-    const changed = changeWorkbook(bytes, [{ sheet: 4, cell: "C11", value: "Newer Excel answer" }]);
+    const changed = changeWorkbook(bytes, [{ sheet: historySheet, cell: "C11", value: "Newer Excel answer" }]);
     await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
     await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
     await expect(dialog).toHaveCount(0);
@@ -53,7 +54,7 @@ test.describe("workbook recovery integration boundaries", () => {
     await page.goto(first.href);
     const { dialog, bytes } = await downloadCopy(page);
     const location = assessmentWorkbookFields.find((field) => field.key === "current_location")!;
-    const changed = changeWorkbook(bytes, [{ sheet: assessmentWorkbookLayout.findIndex((section) => section.sheet === location.sheet) + 2, cell: `C${location.row}`, value: "Synthetic imported first location" }, { sheet: 4, cell: "C7", value: "First assessment Excel answer" }]);
+    const changed = changeWorkbook(bytes, [{ sheet: assessmentWorkbookLayout.findIndex((section) => section.sheet === location.sheet) + 2, cell: `C${location.row}`, value: "Synthetic imported first location" }, { sheet: historySheet, cell: "C7", value: "First assessment Excel answer" }]);
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
     let requestStarted = false;

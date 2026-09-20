@@ -5,6 +5,7 @@ import { createOperationalAssessment, createOperationalReferral } from "./suppor
 import { changeWorkbook } from "./support/workbook-runtime";
 import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
 import type { AssessmentWorkbookRestoreSource, PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
+const historySheet = assessmentWorkbookLayout.findIndex((section) => section.key === "prior_history") + 2;
 
 test.beforeEach(() => {
   test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires canonical and encrypted recovery drafts.");
@@ -14,7 +15,7 @@ test("Keep mine after offline conflict and reload retains the workbook source an
   const fixture = await createFixture(page, "Synthetic workbook conflict");
   await page.goto(fixture.href);
   const bytes = await downloadCopy(page);
-  const changed = changeWorkbook(bytes, [{ sheet: 4, cell: "C7", value: "Synthetic offline workbook answer" }]);
+  const changed = changeWorkbook(bytes, [{ sheet: historySheet, cell: "C7", value: "Synthetic offline workbook answer" }]);
   let source: AssessmentWorkbookRestoreSource | undefined;
   page.on("request", (request) => {
     if (request.method() === "PATCH" && request.url().endsWith(fixture.api)) source ??= request.postDataJSON()?.patch?.workbook_restore;
@@ -51,8 +52,8 @@ for (const manuallyReplace of [false, true]) {
     const location = assessmentWorkbookFields.find((field) => field.key === "current_location")!;
     const changed = changeWorkbook(bytes, [
       { sheet: assessmentWorkbookLayout.findIndex((section) => section.sheet === location.sheet) + 2, cell: `C${location.row}`, value: "Synthetic imported location" },
-      { sheet: 4, cell: "C7", value: "Synthetic imported AWOL answer" },
-      { sheet: 4, cell: "C11", value: "Synthetic imported crisis answer" },
+      { sheet: historySheet, cell: "C7", value: "Synthetic imported AWOL answer" },
+      { sheet: historySheet, cell: "C11", value: "Synthetic imported crisis answer" },
     ]);
     let source: AssessmentWorkbookRestoreSource | undefined;
     let firstSaved = false;

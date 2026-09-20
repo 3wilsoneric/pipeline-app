@@ -7,9 +7,55 @@ import { changeWorkbook, workbookRuntime } from "./support/workbook-runtime";
 import type * as Backup from "../../lib/assessment/assessment-excel-backup";
 import type * as Contract from "../../lib/assessment/assessment-workbook-contract";
 import type * as Schema from "../../lib/assessment/assessment-tool-schema";
+import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
+import { getAssessmentCompletionSummary } from "../../lib/assessment/assessment-completion";
 type Runtime = typeof Backup & typeof Contract & typeof Schema;
 declare global { interface Window { workbookTest: Runtime } }
 const templateFile = "public/templates/pipeline-assessment-workbook.xlsx";
+const historySheet = assessmentWorkbookLayout.findIndex((section) => section.key === "prior_history") + 2;
+
+test("conditional workbook restore labels retained details and drops inactive nested requirements without erasing answers", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic branch review", owner: "", tags: [] });
+  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {
+    arrest_history: "yes", arrest_in_last_two_years: "yes", arrest_last_two_years_details: "Synthetic earlier recorded detail",
+  } } });
+  expect(created.status(), await created.text()).toBe(201);
+  const { assessment } = await created.json();
+  const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=legal_conservatorship`);
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
+  const original = await fs.readFile((await (await downloading).path())!);
+  const field = assessmentWorkbookFields.find((item) => item.key === "arrest_history")!;
+  const changed = changeWorkbook(original, [{ sheet: assessmentWorkbookLayout.findIndex((s) => s.sheet === field.sheet) + 2, cell: `C${field.row}`, value: "No" }]);
+  await page.getByLabel("Choose workbook").setInputFiles({ name: "conditional-working-copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
+  const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
+  const preview = dialog.getByRole("region", { name: "Populated assessment preview" });
+  await expect(preview.getByText("Recent arrest details (previous answer)", { exact: true })).toBeVisible();
+  await expect(preview).toContainText("Not applicable to the current answers. Retained for review.");
+  expect((await read()).arrest_history).toBe("yes");
+  await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
+  await expect.poll(async () => (await read()).arrest_history).toBe("no");
+  const saved = await read();
+  expect(saved.arrest_last_two_years_details).toBe("Synthetic earlier recorded detail");
+  expect(getAssessmentCompletionSummary(saved).missing.flatMap((item) => item.fields)).not.toContain("arrest_last_two_years_details");
+  await page.reload();
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
+  const finalBytes = await fs.readFile((await (await downloaded).path())!);
+  await workbookRuntime(page);
+  const result = await page.evaluate(async ({ bytes, assessmentId, referralId }) => {
+    const w = window.workbookTest;
+    const copy = await w.importAssessmentWorkbook(new Uint8Array(bytes), { assessmentId, referralId, origin: location.origin });
+    const archive = w.openAssessmentWorkbook(new Uint8Array(bytes));
+    const field = w.assessmentWorkbookFields.find((f) => f.key === "arrest_last_two_years_details")!;
+    const index = w.assessmentWorkbookLayout.findIndex((s) => s.sheet === field.sheet) + 2;
+    const xml = new DOMParser().parseFromString(new TextDecoder().decode(archive[`xl/worksheets/sheet${index}.xml`]), "application/xml");
+    const status = Array.from(xml.getElementsByTagNameNS("*", "c")).find((cell) => cell.getAttribute("r") === `E${field.row}`);
+    return { parent: copy.answers.arrest_history, detail: copy.answers.arrest_last_two_years_details, check: status?.getElementsByTagNameNS("*", "v")[0]?.textContent };
+  }, { bytes: Array.from(finalBytes), assessmentId: assessment.assessment_id, referralId: referral.id });
+  expect(result).toEqual({ parent: "no", detail: "Synthetic earlier recorded detail", check: "Review previous answer" });
+});
 
 test("every canonical field round-trips exactly, including long answers and explicit reasons", async ({ page }, info) => {
   await page.goto("/"); await workbookRuntime(page);
@@ -28,6 +74,7 @@ test("every canonical field round-trips exactly, including long answers and expl
       data[field.key] = value as never;
     }
     data.medication_adherence = "unable_to_assess";
+    data.unable_to_assess_reasons.medication_adherence = "Synthetic explanation: client requested a break; verify with the source record. ".repeat(3).trim();
     data.assessment_notes = "N".repeat(50000);
     data.medications_at_intake = Array.from({ length: 200 }, (_, i) => `${i}:` + "M".repeat(1900));
     const id = { assessmentId: "synthetic_roundtrip", referralId: 7, origin: location.origin };
@@ -38,10 +85,16 @@ test("every canonical field round-trips exactly, including long answers and expl
     const mismatches = w.assessmentToolFieldDefinitions.filter((d) => JSON.stringify(imported.answers[d.key]) !== JSON.stringify(data[d.key])).map((d) => d.key);
     const again = await w.exportAssessmentWorkbook(new Uint8Array(template), id, imported.answers);
     const second = await w.importAssessmentWorkbook(again.bytes, id);
-    return { mismatches, count: w.assessmentToolFieldDefinitions.length, importMs, changes: w.assessmentWorkbookChanges(second, data), bytes: Array.from(exported.bytes) };
+    const reasonField = w.assessmentWorkbookFields.find((field) => field.key === "medication_adherence")!;
+    const sheetIndex = w.assessmentWorkbookLayout.findIndex((section) => section.sheet === reasonField.sheet) + 2;
+    const archive = w.openAssessmentWorkbook(exported.bytes);
+    const xml = new DOMParser().parseFromString(new TextDecoder().decode(archive[`xl/worksheets/sheet${sheetIndex}.xml`]), "application/xml");
+    const reasonRow = Array.from(xml.getElementsByTagNameNS("*", "row")).find((row) => row.getAttribute("r") === String(reasonField.row));
+    return { mismatches, count: w.assessmentToolFieldDefinitions.length, importMs, changes: w.assessmentWorkbookChanges(second, data), reasonHeight: Number(reasonRow?.getAttribute("ht")), bytes: Array.from(exported.bytes) };
   }, bytes);
   expect(result.mismatches).toEqual([]); expect(result.changes).toEqual([]); expect(result.count).toBeGreaterThan(159);
   expect(result.importMs).toBeLessThan(2000);
+  expect(result.reasonHeight).toBeGreaterThan(150);
   await info.attach("local-import-timing", { body: `${result.importMs.toFixed(1)} ms for all fields, including long notes/lists`, contentType: "text/plain" });
   await fs.writeFile(info.outputPath("synthetic-long-roundtrip.xlsx"), Buffer.from(result.bytes));
 });
@@ -92,8 +145,7 @@ test("download current unsynced answers, drop Excel changes, review conflicts an
     return { answer: copy.answers.prior_awol_failed_placements, elapsed: performance.now() };
   }, { bytes: Array.from(original), assessmentId: assessment.assessment_id, referralId: referral.id });
   expect(parsed.answer).toBe("Latest device answer");
-  // History is sheet 4; AWOL is C7, crisis utilization is C11.
-  const changed = changeWorkbook(original, [{ sheet: 4, cell: "C7", value: "Excel updated answer" }, { sheet: 4, cell: "C11", value: "Synthetic crisis detail" }]);
+  const changed = changeWorkbook(original, [{ sheet: historySheet, cell: "C7", value: "Excel updated answer" }, { sheet: historySheet, cell: "C11", value: "Synthetic crisis detail" }]);
   const transfer = await page.evaluateHandle((bytes) => { const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array(bytes)], "assessment.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })); return dt; }, Array.from(changed));
   await page.getByRole("region", { name: "Restore Excel workbook", exact: true }).dispatchEvent("drop", { dataTransfer: transfer });
   await expect(dialog.getByRole("heading", { name: "2 proposed changes" })).toBeVisible();
@@ -112,7 +164,7 @@ test("download current unsynced answers, drop Excel changes, review conflicts an
   await page.getByLabel("Choose workbook").setInputFiles({ name: "assessment.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: original });
   await expect(dialog.getByRole("heading", { name: "No new changes", exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  const conflicting = changeWorkbook(original, [{ sheet: 4, cell: "C7", value: "Older copy different answer" }, { sheet: 4, cell: "C6", value: "" }]);
+  const conflicting = changeWorkbook(original, [{ sheet: historySheet, cell: "C7", value: "Older copy different answer" }, { sheet: historySheet, cell: "C6", value: "" }]);
   await page.getByLabel("Choose workbook").setInputFiles({ name: "assessment.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: conflicting });
   await expect(dialog.getByRole("button", { name: "Commit changes", exact: true })).toBeDisabled();
   await dialog.getByLabel("Use workbook answer for Prior AWOL / failed placements", { exact: true }).check();
@@ -129,7 +181,7 @@ test("offline workbook restore never overwrites a concurrent server answer", asy
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
   const bytes = await fs.readFile((await (await downloading).path())!);
-  const changed = changeWorkbook(bytes, [{ sheet: 4, cell: "C7", value: "Offline Excel answer" }]);
+  const changed = changeWorkbook(bytes, [{ sheet: historySheet, cell: "C7", value: "Offline Excel answer" }]);
   await page.context().setOffline(true);
   await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
   await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
@@ -161,9 +213,9 @@ test("drop previews the populated chart, cancel is neutral, and commit replaces 
   const bytes = await fs.readFile((await (await downloading).path())!);
   const before = await read();
   const changed = changeWorkbook(bytes, [
-    { sheet: 4, cell: "C7", value: "One unplanned departure in 2024; returned the same day." },
-    { sheet: 4, cell: "C6", value: "" },
-    { sheet: 4, cell: "C11", value: "One emergency visit in June; follow-up completed." },
+    { sheet: historySheet, cell: "C7", value: "One unplanned departure in 2024; returned the same day." },
+    { sheet: historySheet, cell: "C6", value: "" },
+    { sheet: historySheet, cell: "C11", value: "One emergency visit in June; follow-up completed." },
   ]);
   const transfer = await page.evaluateHandle((bytes) => { const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array(bytes)], "working-copy.xlsx")); return dt; }, Array.from(changed));
   const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
@@ -287,7 +339,7 @@ test("iPad WebKit exports and restores Excel with usable tablet and phone contro
     const downloading = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download current assessment", exact: true }).tap();
     const bytes = await fs.readFile((await (await downloading).path())!);
-    const changed = changeWorkbook(bytes, [{ sheet: 4, cell: "C7", value: "Synthetic tablet update" }]);
+    const changed = changeWorkbook(bytes, [{ sheet: historySheet, cell: "C7", value: "Synthetic tablet update" }]);
     await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
     await expect(dialog.getByRole("button", { name: "Commit 1 change", exact: true })).toBeEnabled();
     await expect(dialog).toHaveCSS("opacity", "1");
