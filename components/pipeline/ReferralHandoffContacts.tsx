@@ -7,8 +7,8 @@ import type { HandoffRecipients } from "./useHandoffRecipients";
 import RecipientChipField from "./RecipientChipField";
 import styles from "./ReferralHandoffContacts.module.css";
 
-export default function ReferralHandoffContacts({ value, community, disabled = false, compact = false }: {
-  value: HandoffRecipients; community: string; disabled?: boolean; compact?: boolean;
+export default function ReferralHandoffContacts({ value, community, disabled = false, compact = false, composer = false }: {
+  value: HandoffRecipients; community: string; disabled?: boolean; compact?: boolean; composer?: boolean;
 }) {
   const [text, setText] = useState({ to: "", cc: "" });
   const [inputError, setInputError] = useState("");
@@ -23,10 +23,9 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
       setText((previous) => ({ ...previous, [lane]: "" })); setInputError("");
     } catch (failure) { setInputError((failure as Error).message); }
   };
-  return <details className={styles.section} open={!compact || undefined}>
-    <summary><span className={styles.icon}><Mail size={19} aria-hidden="true" /></span><span><strong>Handoff contacts</strong><small>{community === "Unassigned" || !community ? "Select a community" : community} <span aria-hidden="true">/</span> {count} recipients</small></span><span className={styles.summaryNote}>{compact ? "Review To / Cc" : "Admission packet & Meet the Client"}</span></summary>
+  const content =
     <div className={styles.content} aria-label="Handoff contacts">
-      <p className={styles.explanation}>Changes apply to this handoff only. Confirm recipients before sending.</p>
+      {!composer ? <p className={styles.explanation}>Changes apply to this handoff only. Confirm recipients before sending.</p> : null}
       {(["to", "cc"] as const).map((lane) => <RecipientChipField key={`${community}-${lane}`} compact label={lane === "to" ? "To" : "Cc"}
         recipients={value.fields[lane]} contacts={contacts} excluded={excluded} text={text[lane]} disabled={disabled || !value.editable}
         onText={(input) => setText((previous) => ({ ...previous, [lane]: input }))} onAdd={(input) => add(lane, input)}
@@ -34,7 +33,11 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
       {inputError ? <p role="alert" className={styles.error}>{inputError}</p> : null}
       {value.error ? <p role="alert" className={styles.error}>{value.error} <button type="button" onClick={() => { if (window.confirm("Reload the saved list? Any unsaved contact edits will be replaced.")) value.reload(); }}><RotateCcw size={14} /> Reload saved list</button></p> : null}
       <HandoffContactStatus value={value} />
-    </div>
+    </div>;
+  if (composer) return <div className={styles.composer}>{content}</div>;
+  return <details className={styles.section} open={!compact || undefined}>
+    <summary><span className={styles.icon}><Mail size={19} aria-hidden="true" /></span><span><strong>Handoff contacts</strong><small>{community === "Unassigned" || !community ? "Select a community" : community} <span aria-hidden="true">/</span> {count} recipients</small></span><span className={styles.summaryNote}>{compact ? "Review To / Cc" : "Admission packet & Meet the Client"}</span></summary>
+    {content}
   </details>;
 }
 

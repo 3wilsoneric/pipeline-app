@@ -20,11 +20,11 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     const steps = footer.getByRole("navigation", { name: "Assessment section steps" });
     if (width >= 640) {
       await expect(steps.getByRole("button", { name: "Previous section", exact: true })).toBeDisabled();
-      await expect(steps.locator('[aria-label="Section 1 of 12"]')).toHaveText("1 of 12");
+      await expect(steps.locator('[aria-label="Section 1 of 5"]')).toHaveText("1 of 5");
       await steps.getByRole("button", { name: "Next section", exact: true }).click();
-      await expect(steps.locator('[aria-label="Section 2 of 12"]')).toHaveText("2 of 12");
+      await expect(steps.locator('[aria-label="Section 2 of 5"]')).toHaveText("2 of 5");
       await steps.getByRole("button", { name: "Previous section", exact: true }).click();
-      await expect(steps.locator('[aria-label="Section 1 of 12"]')).toBeVisible();
+      await expect(steps.locator('[aria-label="Section 1 of 5"]')).toBeVisible();
       const navBounds = await steps.boundingBox();
       const detailsBounds = await details.boundingBox();
       expect(detailsBounds!.x + detailsBounds!.width).toBeLessThanOrEqual(navBounds!.x);
@@ -36,10 +36,9 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await page.screenshot({ path: info.outputPath(`assessment-footer-${width}.png`), animations: "disabled" });
     await details.click();
     const menu = footer.getByRole("group", { name: "Assessment details", exact: true });
-    await expect(menu.getByRole("combobox", { name: "Placement recommendation", exact: true })).toBeVisible();
+    await expect(menu.getByRole("combobox", { name: "Placement recommendation", exact: true })).toHaveCount(0);
     await expect(menu.getByRole("button", { name: "Schedule assessment", exact: true })).toBeVisible();
     for (const button of await menu.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    await expect(menu).toContainText("Not a final admission decision");
     const menuBounds = await menu.boundingBox();
     expect(menuBounds!.x).toBeGreaterThanOrEqual(0);
     expect(menuBounds!.x + menuBounds!.width).toBeLessThanOrEqual(width);
@@ -91,14 +90,16 @@ test("iPad WebKit keeps the details menu reachable without covering navigation",
     await expect(menu).toBeVisible();
     const bounds = (await menu.boundingBox())!;
     expect(bounds.y + bounds.height).toBeLessThanOrEqual((await footer.boundingBox())!.y + 1);
-    await menu.getByRole("button", { name: "Begin assessment", exact: true }).tap();
+    await page.keyboard.press("Escape");
+    const beginButton = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true });
+    await beginButton.tap();
     const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
     await expect(begin).toBeVisible();
-    await begin.getByRole("button", { name: "Not now", exact: true }).tap();
+    await begin.getByRole("button", { name: "Keep preparing", exact: true }).tap();
     await expect(begin).toBeHidden();
-    await expect(details).toBeFocused();
+    await expect(beginButton).toBeFocused();
     await footer.getByRole("button", { name: "Next section", exact: true }).tap();
-    await expect(footer.locator('[aria-label="Section 2 of 12"]')).toBeVisible();
+    await expect(footer.locator('[aria-label="Section 2 of 5"]')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await browser.close(); }
 });

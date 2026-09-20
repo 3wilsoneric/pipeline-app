@@ -409,7 +409,7 @@ test.describe("workflow interaction and durable feedback", () => {
       expect(scheduled.scheduled_method).toBe("zoom");
       await page.locator('summary[aria-label="Assessment details"]').click();
       await page.getByRole("button", { name: "Begin assessment", exact: true }).click();
-      await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Record start", exact: true }).click();
+      await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
       const editor = page.locator('[data-assessment-view]');
       const sectionSelect = editor.getByRole("combobox", { name: "Assessment section", exact: true });
       const sectionBody = editor.locator('[data-assessment-working-section]');

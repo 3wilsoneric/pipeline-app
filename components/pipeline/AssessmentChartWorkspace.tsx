@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, LoaderCircle, Mail, Paperclip, RefreshCw, Send } from "lucide-react";
+import { FileText, LoaderCircle, Mail, Paperclip, RefreshCw, Send, X } from "lucide-react";
 
 import type {
   AssessmentSummaryItem,
@@ -66,6 +66,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const recipients = emailDraft?.fields.to.map((contact) => contact.email) ?? [];
   const ccRecipients = emailDraft?.fields.cc.map((contact) => contact.email) ?? [];
   const [confirmed, setConfirmed] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [acceptedReferralId, setAcceptedReferralId] = useState<number | null>(null);
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
   const sendInFlight = useRef(false);
@@ -141,19 +142,25 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
   </button>;
 
-  if (emailPage) return (
+  const renderEmailPage = () => (
     <section className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
-        <div><h2>Meet the Client</h2><p>Review the handoff summary, recipients and admission packet. Only Send email &amp; packet sends this handoff.</p></div>
-        <div className={styles.headerActions}><span role="status" aria-label="Email delivery status" className={styles.deliveryStatus} data-sent={sent || undefined}>{deliveryStatus}</span>{headerActions}{readyPayload.email.example_only ? null : refresh}</div>
+        <div><h2>Meet the Client</h2><p>Review the handoff summary, then check the email before sending.</p></div>
+        <div className={styles.headerActions}><span role="status" aria-label="Email delivery status" className={styles.deliveryStatus} data-sent={sent || undefined}>{deliveryStatus}</span>{headerActions}
+          <button type="button" data-guide-target={composerOpen ? undefined : "chart-email-handoff"} className={styles.sendButton} onClick={(event) => { event.currentTarget.focus(); setConfirmed(false); setComposerOpen(true); }}><Mail size={18} aria-hidden="true" />{sent ? "View email" : "Preview email"}</button>
+        </div>
       </header>
-      <ChartStatusMessage error={error} message={message} />
-      <MeetClientEmailPreview email={readyPayload.email} emailDraft={emailDraft} referral={readyPayload.referral} confirmed={confirmed} sending={sending} sent={sent}
+      {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
+      <HandoffOverview payload={readyPayload} recipientCount={recipients.length + ccRecipients.length} sent={sent}
+        onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
+      {composerOpen ? <MeetClientComposeDialog sending={sending} onClose={() => { setComposerOpen(false); setConfirmed(false); }}>
+      <MeetClientEmailPreview email={readyPayload.email} emailDraft={emailDraft} referral={readyPayload.referral} confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
         onConfirmed={setConfirmed}
-        onSend={() => void emailMeetClient()} onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
+        onSend={() => void emailMeetClient()} />
+      </MeetClientComposeDialog> : null}
     </section>
   );
-
+  if (emailPage) return renderEmailPage();
 
   return (
     <div className="mx-auto w-full max-w-[1240px]">
@@ -164,6 +171,73 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       <AssessmentRecord report={readyPayload.report!} embedded={embedded} />
     </div>
   );
+}
+
+function HandoffOverview({ payload, recipientCount, sent, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+  payload: ChartPayload; recipientCount: number; sent: boolean;
+  onOpenFiles?: () => void; onOpenAssessment?: () => void; onOpenDecision?: () => void;
+}) {
+  const { referral, report, email } = payload;
+  const summary = report?.meetClient;
+  const renderReadiness = () => <aside className={styles.handoffReadiness} aria-label="Handoff readiness">
+      <p role="status">{meetClientPreviewStatus(email, sent, false)}</p>
+      <dl>
+        <div><dt>Assessment</dt><dd>{report?.signed ? `Signed by ${report.signedBy || report.assessor}` : "Not signed"}</dd></div>
+        <div><dt>Admission decision</dt><dd>{email.eligible ? "Accepted" : "Acceptance not recorded"}</dd></div>
+        <div><dt>Email recipients</dt><dd>{recipientCount} on the To / Cc list</dd></div>
+        <div><dt>Attachments</dt><dd>{email.admission_packet.files.length} total, including the chart when available</dd></div>
+      </dl>
+      <div className={styles.detailActions}>
+        {onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>{report?.signed ? "Review assessment" : "Review & sign assessment"}</button> : null}
+        {!email.eligible && onOpenDecision ? <button type="button" className={styles.textButton} onClick={onOpenDecision}>Open decision</button> : null}
+        {onOpenFiles ? <button type="button" className={styles.textButton} onClick={onOpenFiles}>Manage files</button> : null}
+      </div>
+      {email.blockers.length ? <details className={styles.deliveryDetails}><summary>What is needed to send</summary><ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></details> : null}
+    </aside>;
+  return <div className={styles.handoffOverview}>
+    <div className={styles.clientLine}>
+      <h3>{summary?.name || referral.name}</h3>
+      <dl><div><dt>Community</dt><dd>{summary?.community || referral.community}</dd></div><div><dt>Admission</dt><dd>{referral.admissionDate ? formatDate(referral.admissionDate) : "Date not recorded"}</dd></div></dl>
+    </div>
+    {renderReadiness()}
+    <HandoffClinicalSummary report={report} />
+  </div>;
+}
+
+function HandoffClinicalSummary({ report }: { report: AssessmentSummaryReport | null }) {
+  const summary = report?.meetClient;
+  return <div className={styles.handoffReading}>
+      {summary ? <>
+        <HandoffSection title="Medications & injections" items={summary.medicationNotes}>
+          {summary.medications.length ? <ul className={styles.medicationList}>{summary.medications.map((medication, index) => <li key={index}><ReadableChartText value={medication} /></li>)}</ul> : <p className={styles.missing}>Medication list not recorded. Confirm with the referring team.</p>}
+        </HandoffSection>
+        <HandoffSection title="Behavior & safety" items={summary.safetyNotes ?? []} />
+        <HandoffSection title="Arrival & admission" items={summary.admissionNotes ?? []} />
+        <HandoffSection title="Daily support & diet" items={Array.from(new Map([...summary.supportSnapshot, ...(summary.dietaryNotes ?? [])].map((item) => [item.label, item])).values())} />
+        <HandoffSection title="Billing & benefits" items={summary.billingNotes ?? []} />
+        {summary.bio.length ? <HandoffSection title="Getting to know the client" items={[]}><ul className={styles.medicationList}>{summary.bio.map((line, index) => <li key={index}><ReadableChartText value={line} /></li>)}</ul></HandoffSection> : null}
+        <p className={styles.sourceNote}>From signed assessment version {report!.assessmentVersion}. Corrections belong in the chart; the email uses the same record.</p>
+      </> : <div className={styles.unsignedSummary}><FileText size={28} aria-hidden="true" /><h3>Review the assessment first</h3><p>The clinical handoff is prepared from the signed assessment. You can inspect recipients and files in Preview email now; opening it does not send anything.</p></div>}
+    </div>;
+}
+
+function HandoffSection({ title, items, children }: { title: string; items: AssessmentSummaryItem[]; children?: React.ReactNode }) {
+  return <section className={styles.handoffSection} aria-label={title}><h3>{title}</h3>{children}<dl>{items.map((item, index) => <div key={`${item.label}-${index}`} data-handoff-field={item.label}><dt>{item.label}</dt><dd><ReadableChartText value={item.value} /></dd></div>)}</dl></section>;
+}
+
+function MeetClientComposeDialog({ sending, onClose, children }: { sending: boolean; onClose: () => void; children: React.ReactNode }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => { dialog?.close(); if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus(); };
+  }, []);
+  return <dialog ref={dialogRef} className={styles.composeDialog} aria-label="Meet the Client email" aria-busy={sending}
+    onCancel={(event) => { event.preventDefault(); if (!sending) onClose(); }}>
+    <header className={styles.dialogHeader}><div><Mail size={20} aria-hidden="true" /><h2>Meet the Client email</h2></div><button type="button" aria-label="Close email preview" onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
+    {children}
+  </dialog>;
 }
 
 function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRecipients: string[]) {
@@ -278,22 +352,22 @@ function ChartSourceFooter({ report }: { report: AssessmentSummaryReport }) {
   );
 }
 
-function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sending, sent, onConfirmed, onSend, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onConfirmed, onSend }: {
   email: ChartPayload["email"];
   emailDraft?: HandoffRecipients;
   referral: Referral;
   confirmed: boolean;
   sending: boolean;
   sent: boolean;
+  error: string;
+  message: string;
+  refresh: React.ReactNode;
   onConfirmed: (value: boolean) => void;
   onSend: () => void;
-  onOpenFiles?: () => void;
-  onOpenAssessment?: () => void;
-  onOpenDecision?: () => void;
 }) {
   const status = meetClientPreviewStatus(email, sent, sending);
   const renderSendToolbar = () => (
-    email.example_only || sent ? null : <div className={styles.toolbar}>
+    email.example_only || sent ? null : <footer className={styles.toolbar}>
         {email.can_send ? <label className={styles.confirmation}>
           <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={sending} aria-label="I verified that each recipient is authorized to receive this summary and the attached files." />
           <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></span>
@@ -302,14 +376,13 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
           disabled={!canSendHandoff(email, emailDraft, confirmed, sending)}>
           <Send size={16} />{sending ? "Sending…" : "Send email & packet"}
         </button>
-      </div>
+      </footer>
   );
 
   const renderPacketAttachments = () => (
     <section className={styles.attachments} aria-label="Referral packet attachments">
         <div className={styles.attachmentHeading}>
           <span><Paperclip size={15} />{email.admission_packet.files.length} attachment{email.admission_packet.files.length === 1 ? "" : "s"} · {formatBytes(email.admission_packet.total_bytes)}</span>
-          {onOpenFiles ? <button type="button" className={styles.textButton} onClick={onOpenFiles}>Manage files</button> : null}
         </div>
         {email.admission_packet.files.length ? <ul className={styles.attachmentList}>
           {email.admission_packet.files.map((file) => <li key={file.document_id}>
@@ -328,22 +401,12 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
         </details>
   );
 
-  const renderNextStep = () => (
-      <div className={styles.nextStep}>
-        <p role="status">{status}</p>
-        {!sent ? <div className={styles.detailActions}>
-          {onOpenAssessment ? <button type="button" className={styles.textButton} disabled={sending} onClick={onOpenAssessment}>{email.preview ? "Review assessment" : "Review & sign assessment"}</button> : null}
-          {!email.eligible && onOpenDecision ? <button type="button" className={styles.textButton} disabled={sending} onClick={onOpenDecision}>Open decision</button> : null}
-        </div> : null}
-      </div>
-  );
-
   return (
     <div className={styles.composer} data-guide-target="chart-email-handoff">
-      {renderNextStep()}
-      {renderSendToolbar()}
+      <div className={styles.composeScroll}>
+      <div className={styles.nextStep}><p role="status">{status}</p>{!email.example_only ? refresh : null}</div>
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
-      {emailDraft ? <div className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={!email.can_edit_recipients || sending || sent} /></div> : null}
+      {emailDraft ? <div className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} composer value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={!email.can_edit_recipients || sending || sent} /></div> : null}
       <div className={styles.addressRow}><span>Subject</span><span className={styles.subject}>{email.preview?.subject || "Meet the Client"}</span></div>
       {renderPacketAttachments()}
       <div className={styles.messageBody}>
@@ -353,6 +416,9 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
       <footer className={styles.footer}>
         {renderDeliveryDetails()}
       </footer>
+      </div>
+      <ChartStatusMessage error={error} message={message} />
+      {renderSendToolbar()}
     </div>
   );
 }

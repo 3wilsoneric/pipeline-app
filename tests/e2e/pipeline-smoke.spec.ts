@@ -2245,10 +2245,9 @@ test.describe("Referral home and packet canvas", () => {
     await expect(scheduleDialog).toHaveCount(0);
     const read = async () => (await (await page.request.get('/api/referrals/' + referralId + '/assessments')).json()).assessments;
     expect((await read())[0].started_at).toBeNull();
-    await page.locator('summary[aria-label="Assessment details"]').click();
     await page.getByRole("button", { name: "Begin assessment", exact: true }).click();
     const beginDialog = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-    await beginDialog.getByRole("button", { name: "Record start", exact: true }).click();
+    await beginDialog.getByRole("button", { name: "Begin assessment", exact: true }).click();
     await expect(beginDialog).toHaveCount(0);
     await section.selectOption("prior_history");
     await page.locator("#assessment-prior_placements").fill("Client reports one prior placement; dates and discharge reason are not yet verified.");

@@ -67,16 +67,18 @@ test.describe("assessment preparation", () => {
 
         const finalAnswer = `${scheduledAnswer} Last edit immediately before starting.`;
         await field.fill(finalAnswer);
-        await editor.locator('summary[aria-label="Assessment details"]').click();
         await editor.getByRole("button", { name: "Begin assessment", exact: true }).click();
         const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
         await page.route(`**/api/assessments/${id}/start`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic start failure. Retry without losing preparation." } }));
-        await begin.getByRole("button", { name: "Record start", exact: true }).click();
-        await expect(begin.getByRole("alert")).toContainText("Synthetic start failure");
+        await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+        await expect(begin).toHaveCount(0);
+        await expect(editor.getByRole("alert")).toContainText("Synthetic start failure");
         expect((await readAssessment(api, id)).started_at).toBeNull();
         await page.unroute(`**/api/assessments/${id}/start`);
-        await begin.getByRole("button", { name: "Record start", exact: true }).click();
+        await editor.getByRole("button", { name: "Retry start time", exact: true }).click();
+        await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
         await expect(begin).toHaveCount(0);
+        await findHistory();
         await expect(field).toHaveValue(finalAnswer);
         const started = await readAssessment(api, id);
         expect(started.started_at).toBeTruthy();

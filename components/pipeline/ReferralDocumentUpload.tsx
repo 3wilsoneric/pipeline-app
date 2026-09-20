@@ -11,11 +11,14 @@ import styles from "./ReferralDocumentUpload.module.css";
 
 type Selection = { file: File; category: DocumentCategory | "" | "workbook" };
 
-export default function ReferralDocumentUpload({ readOnly = false, collapsible = false, queued, files, onAdd, onRemove, uploading, onWorkbook, children }: {
+export default function ReferralDocumentUpload({ readOnly = false, collapsible = false, queued, files, filesLoading, filesError, onRetryFiles, onAdd, onRemove, uploading, onWorkbook, children }: {
   readOnly?: boolean;
   collapsible?: boolean;
   queued: LabeledReferralFile[];
   files: ReferralFile[];
+  filesLoading: boolean;
+  filesError: string;
+  onRetryFiles: () => void;
   onAdd: (files: LabeledReferralFile[]) => void;
   onRemove: (file: File) => void;
   uploading: boolean;
@@ -60,6 +63,12 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
     </> : null}
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     <QueuedDocuments files={queued} onRemove={onRemove} disabled={readOnly || uploading} />
+    {filesLoading ? <p role="status" className="my-3 text-sm text-[#52655d]">{files.length ? "Refreshing files…" : "Loading files…"}</p> : null}
+    {filesError ? <div role="alert" className="my-3 rounded-lg border border-[#c8d5ce] bg-[#f8faf9] p-4 text-sm text-[#253b34]">
+      <p>{filesError}{files.length ? " The list below may be out of date." : ""}</p>
+      <button type="button" onClick={onRetryFiles} disabled={filesLoading} className="mt-2 min-h-11 rounded border border-[#adbbb3] bg-white px-4 font-semibold text-[#08735e] disabled:opacity-60">Retry file list</button>
+    </div> : null}
+    {!filesLoading && !filesError && !files.length && !queued.length ? <p className="my-4 text-sm text-[#52655d]">No files added yet.</p> : null}
     <UploadedDocumentList files={files} readOnly={readOnly} />
     {children}
   </>;

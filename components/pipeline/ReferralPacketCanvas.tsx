@@ -396,6 +396,9 @@ export default function ReferralPacketCanvas({
   const [additionalFiles, setAdditionalFiles] = useState<LabeledReferralFile[]>([]);
   const [workbookImport, setWorkbookImport] = useState<File | null>(null);
   const [workspaceFiles, setWorkspaceFiles] = useState<ReferralFile[]>([]);
+  const [workspaceFilesLoading, setWorkspaceFilesLoading] = useState(Boolean(referral?.id));
+  const [workspaceFilesError, setWorkspaceFilesError] = useState("");
+  const [workspaceFilesRevision, setWorkspaceFilesRevision] = useState(0);
   const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Set<string>>(() => new Set());
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
   const [initialPacketCategory, setInitialPacketCategory] = useState<InitialDocumentCategory>("face_sheet");
@@ -536,29 +539,33 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     const referralId = loadedReferral?.id;
     if (!referralId) return;
-    let cancelled = false;
-    loadWorkspaceFileInventory(referralId)
-      .then((files) => { if (!cancelled) setWorkspaceFiles(files); })
-      .catch(() => undefined);
-    return () => { cancelled = true; };
-  }, [loadedReferral?.id, loadedReferral?.sectionVersions?.documents, loadedReferral?.sectionVersions?.workflow]);
+    const controller = new AbortController();
+    setWorkspaceFilesLoading(true);
+    setWorkspaceFilesError("");
+    loadWorkspaceFileInventory(referralId, controller.signal)
+      .then((files) => { if (!controller.signal.aborted) setWorkspaceFiles(files); })
+      .catch(() => {
+        if (!controller.signal.aborted) setWorkspaceFilesError("The file list could not be loaded. Your saved documents have not been removed.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setWorkspaceFilesLoading(false); });
+    return () => controller.abort();
+  }, [loadedReferral?.id, loadedReferral?.sectionVersions?.documents, loadedReferral?.sectionVersions?.workflow, workspaceFilesRevision]);
 
   useEffect(() => {
     const refreshDocuments = (event: Event) => {
       if ((event as CustomEvent).detail?.referralId !== loadedReferralRef.current?.id) return;
       const id = loadedReferralRef.current!.id;
-      void Promise.all([
-        loadWorkspaceFileInventory(id),
-        fetchPipelineJson<{ referral: Referral }>(`/api/referrals/${id}/canvas`, { cache: "no-store" }),
-      ]).then(([files, result]) => {
+      setWorkspaceFilesRevision((revision) => revision + 1);
+      void fetchPipelineJson<{ referral: Referral }>(`/api/referrals/${id}/canvas`, { cache: "no-store" }).then((result) => {
         if (loadedReferralRef.current?.id !== id) return;
-        setWorkspaceFiles(files);
         loadedReferralRef.current = result.referral;
         setLoadedReferral(result.referral);
         const next = mergePendingDocumentNames(documentsFromReferral(result.referral), pendingDocumentsRef.current);
         documentsRef.current = next;
         setDocuments(next);
-      }).catch(() => setSaveError("The file changed, but the refreshed file list could not load. Reload to see it."));
+      }).catch(() => {
+        if (loadedReferralRef.current?.id === id) setSaveError("The file changed, but the refreshed chart could not load. Reload to see it.");
+      });
     };
     window.addEventListener("pipeline:documents-changed", refreshDocuments);
     return () => window.removeEventListener("pipeline:documents-changed", refreshDocuments);
@@ -2400,6 +2407,9 @@ export default function ReferralPacketCanvas({
         ...additionalFiles,
       ]}
       files={workspaceFiles}
+      filesLoading={workspaceFilesLoading}
+      filesError={workspaceFilesError}
+      onRetryFiles={() => setWorkspaceFilesRevision((revision) => revision + 1)}
       onAdd={addLabeledFiles}
       onRemove={removeQueuedFile}
       uploading={isSaving || uploadingDocumentIds.size > 0}
@@ -2631,7 +2641,7 @@ export default function ReferralPacketCanvas({
           renderIntakePage()
           ) : displayedPage === "files" ? (
             <PacketPage id="packet-files" title={workspacePresentation.filesLabel}>
-              {renderDocumentUpload(false)}
+              <div className="max-sm:px-3">{renderDocumentUpload(false)}</div>
             </PacketPage>
           ) : displayedPage === "workflow" && loadedReferral ? (
             <PacketPage id="admission-workflow" title="Decision" flush>
@@ -3114,7 +3124,7 @@ function PacketPage({
   );
 }
 
-async function loadWorkspaceFileInventory(referralId: number) {
+async function loadWorkspaceFileInventory(referralId: number, signal: AbortSignal) {
   const files: ReferralFile[] = [];
   let cursor: string | null = null;
   do {
@@ -3124,7 +3134,7 @@ async function loadWorkspaceFileInventory(referralId: number) {
     } = await fetchPipelineJson<{
       files: ReferralFile[];
       next_cursor: string | null;
-    }>(`/api/files?referral_id=${referralId}&limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { cache: "no-store" });
+    }>(`/api/files?referral_id=${referralId}&limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { cache: "no-store", signal });
     files.push(...result.files);
     cursor = result.next_cursor;
     if (files.length >= 10_000 && cursor) throw new Error("This workspace has too many files to show at once.");

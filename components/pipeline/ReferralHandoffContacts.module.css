@@ -14,4 +14,10 @@
 .error { font-size: 14px; line-height: 1.6; color: #9b342f; }
 .error button { display: inline-flex; gap: 5px; align-items: center; min-height: 44px; text-decoration: underline; }
 .section :is(button,input,summary):focus-visible { outline: 2px solid #087d66; outline-offset: 3px; }
+.composer { margin: 0; border: 0; border-radius: 0; }
+.composer .content { padding: 0 0 8px; border: 0; }
+.composer ul[aria-label$="recipients"] { max-height: 112px; overflow-y: auto; padding: 3px; scrollbar-gutter: stable; }
+.composer [id$="-hint"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.composer .status { margin-top: 4px; }
+.composer label > span, .composer input::placeholder { color: #596e62; }
 @media(max-width:640px) { .summaryNote { display: none; } .section summary { padding: 12px; } .content { padding: 0 12px 12px; } }
