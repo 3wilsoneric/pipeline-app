@@ -1,3 +1,10 @@
+.workMode { display: flex; flex-shrink: 0; align-items: center; gap: 20px; padding: 10px 20px; border-bottom: 1px solid #dce4e0; background: #fff; }
+.modeChoices { display: inline-flex; flex-shrink: 0; padding: 3px; border: 1px solid #d3dfd9; border-radius: 8px; background: #f2f6f4; }
+.modeChoices button { min-height: 40px; padding: 8px 14px; border: 1px solid transparent; border-radius: 5px; color: #52675d; font-size: 14px; font-weight: 600; }
+.modeChoices button[aria-pressed="true"] { border-color: #bcd1c7; background: #fff; color: #0d624b; box-shadow: 0 1px 3px #213e3014; }
+.modeChoices button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
+.modeChoices button:disabled { opacity: .6; }
+.workMode p { max-width: 64ch; margin: 0; color: #52675d; font-size: 14px; line-height: 1.45; }
 .navigation {
   position: relative;
   z-index: 5;
@@ -43,12 +50,15 @@
 .reference { position: relative; display: flex; min-width: 0; min-height: 0; border: 1px solid #cbd5d4; border-radius: 4px; box-shadow: 0 3px 0 -1px #fff, 0 3px 0 #d7dfdd, 0 6px 0 -1px #f7f9f8, 0 6px 0 #d7dfdd, 0 10px 18px -12px #253e3a40; }
 .reference::after { content: ""; position: absolute; top: 20px; left: -1px; width: 3px; height: 24px; border-radius: 0 2px 2px 0; background: #167c65; pointer-events: none; }
 .referenceContent { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
-.referenceHeader { display: flex; align-items: center; flex-shrink: 0; min-height: 64px; padding: 12px 28px; border-bottom: 1px solid #dce4e1; }
+.referenceHeader { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; flex-shrink: 0; min-height: 80px; padding: 12px 28px; border-bottom: 1px solid #dce4e1; }
 .referenceHeader h4 { margin: 0; color: #29463e; font-size: 19px; font-weight: 650; letter-spacing: -.025em; line-height: 1.4; }
+.referenceHeader p { margin: 0; color: #596d63; font-size: 13px; line-height: 1.4; }
 .referenceToggle { display: none; }
 .readingPage { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding: 4px 28px 30px; scroll-padding-block: 20px; }
 .referenceGroup + .referenceGroup { margin-top: 6px; padding-top: 6px; border-top: 1px solid #d5dfdb; }
-:is(.reference, .referenceSheet) .answer { display: block; width: 100%; min-height: 48px; padding: 16px 0; border: 0; border-radius: 3px; text-align: left; }
+:is(.reference, .referenceSheet) .answer { position: relative; display: block; width: 100%; min-height: 48px; padding: 16px 0; border: 0; border-radius: 3px; text-align: left; }
+.answerSource { display: block; margin-top: 7px; color: #61736b; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.answerUpdate { position: absolute; inset: 0 -8px; border-radius: 5px; pointer-events: none; }
 :is(.reference, .referenceSheet) .answer + .answer { border-top: 1px solid #e8edeb; }
 :is(.reference, .referenceSheet) .answerLabel { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 0; color: #52665f; font-size: 14px; font-weight: 600; line-height: 1.5; letter-spacing: 0; }
 .answerLabel svg { position: static; opacity: .55; flex-shrink: 0; }
@@ -180,6 +190,11 @@
   .answerLabel svg { visibility: visible; }
 }
 @media (max-width: 639px) {
+  .workMode { display: block; padding: 6px 12px 8px; }
+  .modeChoices { display: flex; width: 100%; }
+  .modeChoices button { flex: 1; min-height: 44px; padding-inline: 8px; font-size: 13px; }
+  .modeChoices button:first-child { flex: 1.7; }
+  .workMode p { margin-top: 6px; font-size: 12px; line-height: 1.35; }
   .footerUtilities { flex-basis: 100%; justify-content: space-between; gap: 8px; }
   .navigation { gap: 6px; padding: 7px 12px; }
   .sectionPicker select { font-size: 16px; }
@@ -194,6 +209,8 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .answerUpdate { animation: answer-recorded 900ms ease-out both; }
+  @keyframes answer-recorded { from { background: #cae8d991; box-shadow: inset 3px 0 #258365; } to { background: transparent; box-shadow: inset 3px 0 transparent; } }
   .readingPage { animation: reading-page-in 160ms ease-out; }
   @keyframes reading-page-in { from { opacity: .65; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 }

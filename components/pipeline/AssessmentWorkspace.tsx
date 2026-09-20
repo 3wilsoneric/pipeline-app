@@ -100,12 +100,12 @@ import {
   type AssessmentRemoteChange,
 } from "@/components/pipeline/assessment-workspace-state";
 import { PracticeAssessmentReview } from "@/components/pipeline/AssessmentInterviewFields";
-import AssessmentWorkingSection, { AssessmentWorkingNavigation } from "@/components/pipeline/AssessmentWorkingSection";
+import AssessmentWorkingSection, { AssessmentWorkingNavigation, AssessmentWorkMode } from "@/components/pipeline/AssessmentWorkingSection";
 import AssessmentInterviewHeader, { AssessmentFileDetails } from "@/components/pipeline/AssessmentInterviewHeader";
 import { assessmentGapSections } from "@/components/pipeline/assessment-working-view";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
-import AssessmentPreparation, { PreparationNavigation, AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
+import { AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
 import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
 import AssessmentExcelBackup from "@/components/pipeline/AssessmentExcelBackup";
 import { validateAssessmentPatchRequest } from "@/lib/assessment/assessment-validation";
@@ -350,12 +350,12 @@ export default function AssessmentWorkspace({
   const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
   const reviewingChart = chartReview ?? notebookView === "chart";
   const embeddedFolder = Boolean(workspaceTitle);
-  const preparing = !embeddedFolder && !trainingAssessmentMode && (notebookView === "prepare" || (notebookView === null && assessmentReadyToBegin(selected)));
+  const preparing = notebookView === "prepare" || (!embeddedFolder && !trainingAssessmentMode && notebookView === null && assessmentReadyToBegin(selected));
   const preparationGroup = preparationGroupForSection(activeSection);
   const preparationIndex = assessmentPreparationGroups.indexOf(preparationGroup);
   const visibleSectionKey = preparing ? preparationGroup.key : activeSection;
   const previousVisibleSectionRef = useRef(visibleSectionKey);
-  const QuestionPage = phoneInterview ? AssessmentPhoneInterview : preparing ? AssessmentPreparation : AssessmentWorkingSection;
+  const QuestionPage = phoneInterview ? AssessmentPhoneInterview : AssessmentWorkingSection;
   const { canSupervise, canEditClinical, canCreateAssignedAssessment, canAddAddendum } = assessmentWorkspacePermissions(
     trainingAssessmentMode, viewer, selected, assignedAssessorId, readOnly,
   );
@@ -370,8 +370,10 @@ export default function AssessmentWorkspace({
   );
   const conversationSections = assessmentGapSections(draft, pendingFields);
   const activeSectionIndex = conversationSections.findIndex((section) => section.key === activeSection);
-  const nextSection = conversationSections[activeSectionIndex + 1];
-  const previousSection = conversationSections[activeSectionIndex - 1];
+  const pageSections = preparing ? assessmentPreparationGroups : conversationSections;
+  const pageIndex = preparing ? preparationIndex : activeSectionIndex;
+  const nextSection = pageSections[pageIndex + 1];
+  const previousSection = pageSections[pageIndex - 1];
   const showSecondaryActions = Boolean(
     selected && !selected.signed_at && !selected.started_at && canEditClinical
     || recommendationControl && !preparing && !selected?.signed_at
@@ -1535,7 +1537,7 @@ export default function AssessmentWorkspace({
   const commitForLayoutChange = useEffectEvent(() => {
     if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
   });
-  useLayoutEffect(() => () => { commitForLayoutChange(); }, [phoneInterview]);
+  useLayoutEffect(() => () => { commitForLayoutChange(); }, [phoneInterview, preparing]);
 
   useEffect(() => {
     if (trainingAssessmentMode) return;
@@ -1672,9 +1674,16 @@ export default function AssessmentWorkspace({
   </> : null;
   const assessmentDetails = <>{renderAssessmentDetails()}
   </>;
+  const continueFromPreparation = () => {
+    setWorkingTarget(null);
+    setActiveSection(conversationSections.find((section) => section.remaining.length > 0)?.key ?? "identity");
+    setNotebookView("assessment");
+  };
+
   const nextConversationSection = () => {
     setWorkingTarget(null);
     if (nextSection) setActiveSection(nextSection.key);
+    else if (preparing) continueFromPreparation();
     else void reviewChart();
   };
 
@@ -1714,8 +1723,6 @@ export default function AssessmentWorkspace({
     <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">
           {selected.signed_at ? (
             renderSignedAction()
-          ) : preparing ? (
-            <button type="button" onClick={() => setNotebookView("assessment")}>{selected.started_at ? "Return to assessment" : "Open assessment"}<ChevronRight size={14} /></button>
           ) : !assessmentReview && onReviewAssessment ? (
             <button type="button" onClick={() => void reviewChart()} disabled={isBusy || isClosing}>Review assessment<ChevronRight size={14} /></button>
           ) : canEditClinical ? (
@@ -1830,20 +1837,15 @@ export default function AssessmentWorkspace({
       ) : null}
 
       {renderSignatureHistory()}
+      {!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} onChange={(prepare) => {
+        if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
+        setWorkingTarget(null);
+        setNotebookView(prepare ? "prepare" : "assessment");
+      }} /> : null}
 
       <div className="flex min-h-0 flex-1">
-        {preparing && !phoneInterview ? <aside aria-label="Preparation navigation" className="order-last hidden w-[280px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#f7faf4] px-5 py-5 lg:block">
-          <PreparationNavigation active={preparationGroup.key} data={draft} pending={pendingFields} onChange={setActiveSection} />
-        </aside> : null}
-
-        <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : preparing ? "overflow-y-auto" : workingStyles.readingMain}`}>
+        <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : workingStyles.readingMain}`}>
           <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook} />
-          {phoneInterview ? null : preparing ? <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
-            <label htmlFor="preparation-group-mobile" className="mb-1 block text-[11px] font-semibold text-[#56665d]">Preparation group</label>
-            <select id="preparation-group-mobile" value={preparationGroup.key} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="min-h-11 w-full rounded border border-[#cddace] bg-white px-3 text-[14px] text-[#234c36]">
-              {assessmentPreparationGroups.map((group) => <option key={group.key} value={group.key}>{group.label}</option>)}
-            </select>
-          </div> : null}
 
           {error ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[11px] font-semibold text-[#59645e]">{error}</div> : null}
           {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
@@ -1858,10 +1860,9 @@ export default function AssessmentWorkspace({
 
           {renderRemoteChanges()}
 
-          {reviewingChart ? renderChartReview() : <div data-assessment-question-content className={!preparing && !phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
-            <div className={preparing && !phoneInterview ? "mb-3" : "sr-only"}>
-              <h3 className="text-[21px] font-bold text-[#213629]">{preparing ? preparationGroup.label : sectionDefinition.label}</h3>
-                {preparing ? <p className="mt-2 text-[12px] leading-5 text-[#657167]">Use documented information; leave unknowns unanswered. These are the same answers used in the assessment.</p> : null}
+          {reviewingChart ? renderChartReview() : <div data-assessment-question-content className={!phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
+            <div className="sr-only">
+              <h3>{preparing ? preparationGroup.label : sectionDefinition.label}</h3>
             </div>
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <QuestionPage
@@ -1870,17 +1871,17 @@ export default function AssessmentWorkspace({
               onQuestionChange={rememberPhoneQuestion}
               onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }}
               onFinish={() => {
-                if (preparing) setNotebookView("assessment");
+                if (preparing) continueFromPreparation();
                 else void reviewChart();
               }}
-              section={activeSection}
+              section={visibleSectionKey}
               assessment={selected}
               data={draft}
               pending={pendingFields}
               questions={preparing ? preparationQuestions(preparationGroup, draft) : sectionQuestions}
               required={requiredInterviewFields}
               target={workingTarget}
-              questionNavigation={!preparing && !phoneInterview ? <AssessmentWorkingNavigation data={draft} pending={pendingFields} activeSection={activeSection} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} /> : null}
+              questionNavigation={!phoneInterview ? <AssessmentWorkingNavigation preparing={preparing} data={draft} pending={pendingFields} activeSection={visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} /> : null}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               onChange={updateField}
@@ -1896,14 +1897,6 @@ export default function AssessmentWorkspace({
                 setWorkingTarget({ field });
               }}
             />
-
-            {preparing && !phoneInterview ? <div className="mt-7 flex items-center justify-between gap-3">
-              <button type="button" onClick={() => setActiveSection(assessmentPreparationGroups[preparationIndex - 1].key)} disabled={preparationIndex === 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-bold disabled:opacity-35"><ChevronLeft size={14} />Previous</button>
-              <button type="button" data-guide-target="assessment-next-section" onClick={() => {
-                if (preparationIndex === assessmentPreparationGroups.length - 1) setNotebookView("assessment");
-                else setActiveSection(assessmentPreparationGroups[preparationIndex + 1].key);
-              }} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white">{preparationIndex === assessmentPreparationGroups.length - 1 ? "Review assessment" : "Next group"}<ChevronRight size={14} /></button>
-            </div> : null}
 
             {selected.unmapped_fields.length > 0 ? (
               <details className="mt-7 border-t border-[#d9dfdb] py-4">
@@ -1926,11 +1919,11 @@ export default function AssessmentWorkspace({
 
       <footer aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneInterview ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
         {renderSaveStatus()}
-        {!preparing && !reviewingChart && !phoneInterview ? <nav aria-label="Assessment section steps" className={workingStyles.sectionSteps}>
+        {!reviewingChart && !phoneInterview ? <nav aria-label="Assessment section steps" className={workingStyles.sectionSteps}>
           <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isBusy || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" />Previous</button>
-          <span className={workingStyles.stepPosition} aria-label={`Section ${activeSectionIndex + 1} of ${conversationSections.length}`}><strong>{activeSectionIndex + 1}</strong> of {conversationSections.length}</span>
-          <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing} title={nextSection ? `Next: ${nextSection.label}` : "Review your answers before signing"}>{nextSection ? "Next section" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
-        </nav> : (preparing || reviewingChart || selected.signed_at) ? <div>
+          <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
+          <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Continue to interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
+        </nav> : (reviewingChart || selected.signed_at) ? <div>
         {renderPrimaryAssessmentActions()}
         </div> : null}
       </footer>
