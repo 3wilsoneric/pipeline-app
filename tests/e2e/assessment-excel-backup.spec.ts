@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { strToU8, unzipSync, zipSync } from "fflate";
 import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, signOperationalAssessment } from "./support/operational-api";
-import { changeWorkbook, workbookRuntime } from "./support/workbook-runtime";
+import { changeWorkbook, closeRecoveryTools, openRecoveryTools, workbookRuntime } from "./support/workbook-runtime";
 import type * as Backup from "../../lib/assessment/assessment-excel-backup";
 import type * as Contract from "../../lib/assessment/assessment-workbook-contract";
 import type * as Schema from "../../lib/assessment/assessment-tool-schema";
@@ -23,6 +23,7 @@ test("conditional workbook restore labels retained details and drops inactive ne
   const { assessment } = await created.json();
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=legal_conservatorship`);
+  await openRecoveryTools(page);
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
   const original = await fs.readFile((await (await downloading).path())!);
@@ -40,6 +41,7 @@ test("conditional workbook restore labels retained details and drops inactive ne
   expect(saved.arrest_last_two_years_details).toBe("Synthetic earlier recorded detail");
   expect(getAssessmentCompletionSummary(saved).missing.flatMap((item) => item.fields)).not.toContain("arrest_last_two_years_details");
   await page.reload();
+  await openRecoveryTools(page);
   const downloaded = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
   const finalBytes = await fs.readFile((await (await downloaded).path())!);
@@ -135,6 +137,7 @@ test("download current unsynced answers, drop Excel changes, review conflicts an
   await page.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true }).fill("Latest device answer");
   await page.context().setOffline(true);
   const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
+  await openRecoveryTools(page);
   await expect(page.getByRole("region", { name: "Restore Excel workbook", exact: true })).toBeVisible();
   const downloadEvent = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
@@ -156,12 +159,14 @@ test("download current unsynced answers, drop Excel changes, review conflicts an
   await dialog.getByRole("button", { name: "Commit 2 changes", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('[data-excel-strip] [role="status"]')).toContainText("2 workbook changes applied");
+  await closeRecoveryTools(page);
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).toContainText(/Offline|queued/i);
   await page.context().setOffline(false);
   await expect.poll(async () => (await read()).prior_awol_failed_placements, { timeout: 15000 }).toBe("Excel updated answer");
   await expect.poll(async () => (await read()).crisis_er_utilization).toBe("Synthetic crisis detail");
   expect((await read()).field_provenance.crisis_er_utilization.at(-1).source_field_key).toBe("workbook.crisis_er_utilization");
   expect((await read()).signed_at).toBeNull();
+  await openRecoveryTools(page);
   await page.getByLabel("Choose workbook").setInputFiles({ name: "assessment.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: original });
   await expect(dialog.getByRole("heading", { name: "No new changes", exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -178,6 +183,7 @@ test("offline workbook restore never overwrites a concurrent server answer", asy
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic concurrent Excel", owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await openRecoveryTools(page);
   const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
@@ -189,6 +195,7 @@ test("offline workbook restore never overwrites a concurrent server answer", asy
   await expect(dialog).toHaveCount(0);
   const remote = await page.request.patch(`/api/assessments/${assessment.assessment_id}`, { data: { if_match: assessment.version, client_mutation_id: randomUUID(), patch: { data: { prior_awol_failed_placements: "Another assessor's answer" } } } });
   expect(remote.status(), await remote.text()).toBe(200);
+  await closeRecoveryTools(page);
   await page.context().setOffline(false);
   await expect(page.getByRole("button", { name: "Keep mine", exact: true })).toBeVisible();
   expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_awol_failed_placements).toBe("Another assessor's answer");
@@ -209,6 +216,7 @@ test("drop previews the populated chart, cancel is neutral, and commit replaces 
   const { assessment } = await created.json();
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await openRecoveryTools(page);
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
   const bytes = await fs.readFile((await (await downloading).path())!);
@@ -260,6 +268,7 @@ test("invalid or different-client workbooks cannot be committed, and Escape canc
   const assessment = await createOperationalAssessment(page.request, referral.id);
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await openRecoveryTools(page);
   await workbookRuntime(page);
   const wrong = await page.evaluate(async (bytes) => Array.from((await window.workbookTest.exportAssessmentWorkbook(new Uint8Array(bytes), { assessmentId: "different-client", referralId: 999999, origin: location.origin }, window.workbookTest.createEmptyAssessmentToolData())).bytes), Array.from(await fs.readFile(templateFile)));
   const before = await read();
@@ -273,11 +282,14 @@ test("invalid or different-client workbooks cannot be committed, and Escape canc
     await expect(page.getByRole("button", { name: "Import workbook", exact: true })).toBeFocused();
     expect(await read()).toEqual(before);
   }
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Backup & recovery", exact: true })).toHaveCount(0);
+  await expect(page.locator('summary[aria-label="Assessment details"]')).toBeFocused();
 });
 
 test.describe("compact touch assessment", () => {
 test.use({ hasTouch: true, isMobile: true });
-test("the visible strip leaves phone questions and navigation usable at compact sizes", async ({ page }, info) => {
+test("backup tools stay off the phone questionnaire and return to the same question", async ({ page }, info) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic compact strip", owner: "", tags: [] });
   await createOperationalAssessment(page.request, referral.id);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -286,16 +298,28 @@ test("the visible strip leaves phone questions and navigation usable at compact 
     await page.setViewportSize(size);
     const pocket = page.locator("[data-phone-interview]");
     await expect(pocket).toBeVisible();
-    await expect(page.getByRole("button", { name: "Import workbook", exact: true })).toBeInViewport();
+    await expect(page.locator("[data-excel-strip]")).toHaveCount(0);
     await expect(pocket.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
     await expect(pocket.getByRole("textbox").first()).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: info.outputPath(`excel-strip-${size.width}x${size.height}.png`) });
+    await page.screenshot({ path: info.outputPath(`assessment-clear-${size.width}x${size.height}.png`) });
+    const question = await pocket.locator("textarea, input").first().getAttribute("id");
+    await openRecoveryTools(page);
+    const tools = page.getByRole("dialog", { name: "Backup & recovery", exact: true });
+    await expect(tools.getByRole("heading", { name: "Save & sync" })).toBeVisible();
+    await expect(tools.getByRole("button", { name: "Download current assessment" })).toBeVisible();
+    expect(await tools.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`backup-tools-${size.width}x${size.height}.png`) });
+    await closeRecoveryTools(page);
+    await expect(pocket.locator("textarea, input").first()).toHaveAttribute("id", question!);
+    await expect(page.locator('summary[aria-label="Assessment details"]')).toBeFocused();
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  await openRecoveryTools(page);
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
   await downloading;
+  await closeRecoveryTools(page);
   await expect(page.locator('[data-phone-interview]').getByRole("button", { name: "Next", exact: true })).toBeInViewport();
   await expect(page.locator('[data-phone-interview]').getByRole("textbox").first()).toBeInViewport();
 });
@@ -336,6 +360,7 @@ test("iPad WebKit exports and restores Excel with usable tablet and phone contro
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Tablet Excel", owner: "", tags: [] });
     const assessment = await createOperationalAssessment(page.request, referral.id);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+    await openRecoveryTools(page);
     const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
     const downloading = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download current assessment", exact: true }).tap();

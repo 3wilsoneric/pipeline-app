@@ -59,11 +59,14 @@
 .mobileFooter [data-guide-target="assessment-save-status"] { flex: 1; font-size: 12px; }
 .mobileFooter [data-guide-target="assessment-save-status"] > span { white-space: normal; }
 @media (max-height: 500px) {
-  .toolbar { padding-block: 4px; }
+  .toolbar { padding-block: 2px; }
+  .toolbar button { min-height: 44px; }
+  .toolbar small { display: inline; margin-right: 10px; }
   .question { padding-top: 12px; }
+  .question [data-working-field] > div > div:first-child { margin-bottom: 8px; }
   .question [data-working-field] > div > div:first-child > label { font-size: 22px; }
   .position { margin-bottom: 10px; }
-  .paging { padding-block: 6px; }
+  .paging { padding-block: 2px; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .question { animation: enter 130ms ease-out; }

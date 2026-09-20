@@ -15,6 +15,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 
 import {
@@ -290,6 +291,7 @@ export default function AssessmentWorkspace({
   const { contentRef, beforeNavigationRef, setAssessmentFocused } = usePipelineShell();
   const phoneInterview = usePhoneAssessment();
   const secondaryActionsRef = useRef<HTMLDetailsElement>(null);
+  const [recoveryToolsAssessment, setRecoveryToolsAssessment] = useState<string | null>(null);
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
@@ -1673,6 +1675,7 @@ export default function AssessmentWorkspace({
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
   </> : null;
   const assessmentDetails = <>{renderAssessmentDetails()}
+    <button type="button" onClick={() => setRecoveryToolsAssessment(selected.assessment_id)}><ShieldCheck size={15} aria-hidden="true" />Backup & recovery</button>
   </>;
   const continueFromPreparation = () => {
     setWorkingTarget(null);
@@ -1845,7 +1848,12 @@ export default function AssessmentWorkspace({
 
       <div className="flex min-h-0 flex-1">
         <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : workingStyles.readingMain}`}>
-          <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook} />
+          <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook}
+            toolsOpen={recoveryToolsAssessment === selected.assessment_id} onCloseTools={() => setRecoveryToolsAssessment(null)}
+            saveStatus={<>
+              <p role="status">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</p>
+              <p>{trainingAssessmentMode ? "Practice answers stay local; they are not a live client record." : "Changes sync automatically when connected. If you lose connection, keep this assessment open and check its save status before switching devices."}</p>
+            </>} />
 
           {error ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[11px] font-semibold text-[#59645e]">{error}</div> : null}
           {presence.some((item) => item.section === `assessment:${activeSection}`) ? (

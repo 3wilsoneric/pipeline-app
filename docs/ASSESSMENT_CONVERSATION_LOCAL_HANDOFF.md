@@ -60,3 +60,25 @@ not claimed: review/refresh that evidence and rerun release gates on the later i
 candidate. No assurance thresholds or generated baselines were changed.
 
 Synthetic local preview: `http://127.0.0.1:3385/`. No live data or email configuration used.
+
+## Follow-up: secondary backup and recovery path
+
+Excel download and drag-and-drop now live under **Details > Backup & recovery**,
+alongside the canonical save/sync status. No Excel strip occupies the questionnaire.
+The small footer save indicator, errors, and remote-conflict choices stay visible;
+no persistence, encryption, retry, workbook mapping, or conflict policy changed.
+The existing import preview still requires explicit commit. Cancel returns to the
+tools panel; closing that panel preserves the assessment question and restores focus.
+Template preloading remains mounted so moving the controls does not break offline export.
+
+The panel uses native modal dialogs and the existing workbook component rather than
+a new route or answer store. This deliberately does not provide a global recovery
+dashboard. Revisit routing only if recovery across multiple assessments is requested.
+Short-screen touch spacing was tightened after a landscape test exposed a clipped answer.
+
+Follow-up optimized-build run: **31 passed** across Excel backup, recovery, workbook
+provenance, offline reconciliation, conversation, and footer suites. Includes Chromium
+phone/landscape and iPad WebKit interactions. The phone recovery-panel axe scan reported
+no WCAG A/AA violations. TypeScript, focused lint, complexity, repository audit, and
+guidance/setup gates passed. `certify:refactor` again stopped at the reviewed-source
+fingerprint freshness check; the release hold above remains in force.
