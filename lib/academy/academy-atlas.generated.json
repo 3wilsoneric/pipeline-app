@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:4d5c6b970cf6416f",
-  "fingerprint": "4d5c6b970cf6416f4d9f2cd8abc3dac61148294905910be2f0d5c3b7a5447f1e",
+  "generatedAt": "source-fingerprint:c4eb216485230c4e",
+  "fingerprint": "c4eb216485230c4ea32672795ecfe4afc7ca5fc306bcce90a8b85a2c6bc709fe",
   "totals": {
-    "files": 1233,
-    "lines": 345887,
-    "coveredFiles": 1233
+    "files": 1234,
+    "lines": 345933,
+    "coveredFiles": 1234
   },
   "entries": [
     {
@@ -5541,6 +5541,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/test-suite-assertion-inventory-9ecd2cd.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 31,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -6245,7 +6257,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 26,
+      "lines": 28,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -13088,7 +13100,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 50,
+      "lines": 55,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14108,7 +14120,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "critical",
-      "lines": 456,
+      "lines": 464,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"

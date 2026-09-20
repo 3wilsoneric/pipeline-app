@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "release-gate-repair-20260920",
+  "startingCommit": "9ecd2cd2e3b1b6c3409d3a098f43615475acfb1e",
+  "generatedAt": "2026-09-20T06:30:00Z",
+  "previousInventory": "test-suite-assertion-inventory-e5d0584.json",
+  "comparisonRule": "Pin every ordered case, assertion expression and hook to the owner-approved reviewed starting candidate. These three protected source files are unchanged by this repair. Preserve the prior completed-slice inventory separately; no assertion is removed or threshold reduced.",
+  "playwright": {
+    "sourceFiles": ["tests/e2e/pipeline-smoke.spec.ts", "tests/e2e/pipeline-home.spec.ts"],
+    "caseCount": 49,
+    "assertionCount": 813,
+    "caseManifestDigest": "c60c8e95dca42ec163bc3b0a7c99259563a47d94549aefe49d08ef61369c4133",
+    "titleDigest": "f0a44bc3d255411f7269f52c8b3e7ae4addaa5807176a8bad6bd487895771f2f",
+    "hooks": ["beforeAll", "afterAll", "beforeEach"]
+  },
+  "apiBehavior": {
+    "sourceFiles": ["scripts/api-behavior-fixtures.mjs"],
+    "caseCount": 114,
+    "assertionCount": 400,
+    "caseManifestDigest": "88b56c4559e8557946ae6e866474e07715a29493c9a74c5a68c0cbaf49f60ca1",
+    "titleDigest": "738873acc2fa78dd91968617ac7ed43491a14ca85b0956740f8fb9d1b08320fa",
+    "hooks": []
+  },
+  "criticalJourneyTrace": {
+    "id": "coordinates section edits, presence leases, and remote conflicts across two sessions",
+    "assertionCount": 24,
+    "assertionDigest": "7dcd2e3de5c2b203f542842b437941c9ff95751b202067b50f14fd28a6ca503f",
+    "failureSignal": "Retain all direct assertions for two-session presence, disjoint persistence, stale same-field conflict visibility and no silent overwrite."
+  }
+}

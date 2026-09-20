@@ -108,31 +108,34 @@ test.describe("assessment store characterization", () => {
     }
   });
 
-  test("denied actors cannot change an assessment or its audit history", async ({ baseURL }) => {
+  test("approved staff can edit shared work while outsiders cannot change data or audit history", async ({ baseURL }) => {
     const actors = await assessmentActors(baseURL);
     try {
       const referral = await createAssessmentReferral(actors.coordinator);
       const assessment = await createAssessment(actors.assessor, referral.id, "assessment-characterization-denial");
       const before = await readAssessment(actors.assessor, String(assessment.assessment_id));
 
-      const viewerRead = await actors.viewer.get(`/api/assessments/${assessment.assessment_id}`);
-      expect(viewerRead.status()).toBe(200);
-      const viewerWrite = await actors.viewer.patch(`/api/assessments/${assessment.assessment_id}`, {
-        data: { if_match: before.version, patch: { data: { assessment_notes: "Viewer must not save" } } },
-      });
-      expect(viewerWrite.status()).toBe(403);
+      let latest = before;
+      for (const [actor, note] of [[actors.viewer, "Approved teammate edit"], [actors.otherAssessor, "Shared assessor edit"]] as const) {
+        expect((await actor.get(`/api/assessments/${assessment.assessment_id}`)).status()).toBe(200);
+        const saved = await actor.patch(`/api/assessments/${assessment.assessment_id}`, {
+          data: { if_match: latest.version, patch: { data: { assessment_notes: note } } },
+        });
+        latest = asRecord((await responseRecord(saved, 200)).assessment);
+        expect(latest.assessment_notes).toBe(note);
+      }
+      expect(latest.version).toBe(Number(before.version) + 2);
+      expect(auditActions(latest).filter((action) => action === "assessment_updated")).toHaveLength(2);
 
-      const wrongResourceRead = await actors.otherAssessor.get(`/api/assessments/${assessment.assessment_id}`);
-      expect(wrongResourceRead.status()).toBe(404);
-      const wrongResourceWrite = await actors.otherAssessor.patch(`/api/assessments/${assessment.assessment_id}`, {
-        data: { if_match: before.version, patch: { data: { assessment_notes: "Other assessor must not save" } } },
+      expect((await actors.outsider.get(`/api/assessments/${assessment.assessment_id}`)).status()).toBe(403);
+      const denied = await actors.outsider.patch(`/api/assessments/${assessment.assessment_id}`, {
+        data: { if_match: latest.version, patch: { data: { assessment_notes: "Outsider must not save" } } },
       });
-      expect(wrongResourceWrite.status()).toBe(404);
-
+      expect(denied.status()).toBe(403);
       const after = await readAssessment(actors.assessor, String(assessment.assessment_id));
-      expect(after.version).toBe(before.version);
-      expect(after.assessment_notes).toBe(before.assessment_notes);
-      expect(after.audit_events).toEqual(before.audit_events);
+      expect(after.version).toBe(latest.version);
+      expect(after.assessment_notes).toBe(latest.assessment_notes);
+      expect(after.audit_events).toEqual(latest.audit_events);
       expect((await readReferral(actors.assessor, referral.id)).workflowStatus).toBe("ready_to_schedule");
     } finally {
       await actors.dispose();
@@ -195,7 +198,7 @@ test.describe("assessment store characterization", () => {
     }
   });
 
-  test("blocks overlapping schedules unless a supervisor explicitly overrides", async ({ baseURL }) => {
+  test("saves overlapping appointments with an alert while stale schedule writes remain blocked", async ({ baseURL }) => {
     const actors = await assessmentActors(baseURL);
     try {
       const firstReferral = await createAssessmentReferral(actors.coordinator);
@@ -211,17 +214,17 @@ test.describe("assessment store characterization", () => {
         "assessment-characterization-schedule-first",
       );
       await responseRecord(firstSchedule, 200);
-      const blocked = await scheduleAssessment(
+      const overlap = await scheduleAssessment(
         actors.assessor,
         secondAssessment,
         startsAt,
-        "assessment-characterization-schedule-blocked",
+        "assessment-characterization-schedule-overlap",
       );
-      const blockedBody = await responseRecord(blocked, 409);
-      expect(blockedBody).toMatchObject({ code: "assessment_schedule_conflict", can_override: false });
-      expect(Array.isArray(blockedBody.conflicts) ? blockedBody.conflicts : []).toEqual(expect.arrayContaining([
-        expect.objectContaining({ assessment_id: firstAssessment.assessment_id }),
-      ]));
+      const overlapBody = await responseRecord(overlap, 200);
+      expect(overlapBody.warnings).toContain("This assessor has another assessment during that time. The appointment was saved with an overlap alert.");
+      const saved = asRecord(overlapBody.assessment);
+      expect(saved.schedule_status).toBe("scheduled");
+      expect(saved.scheduled_start_at).toBe(startsAt);
 
       const override = await scheduleAssessment(
         actors.coordinator,
@@ -230,9 +233,11 @@ test.describe("assessment store characterization", () => {
         "assessment-characterization-schedule-override",
         true,
       );
-      const overridden = asRecord((await responseRecord(override, 200)).assessment);
-      expect(overridden.schedule_status).toBe("scheduled");
-      expect(overridden.scheduled_start_at).toBe(startsAt);
+      await responseRecord(override, 409);
+      const latest = await readAssessment(actors.assessor, String(secondAssessment.assessment_id));
+      expect(latest.version).toBe(saved.version);
+      expect(latest.scheduled_start_at).toBe(startsAt);
+      expect(latest.audit_events).toEqual(saved.audit_events);
     } finally {
       await actors.dispose();
     }
@@ -329,6 +334,7 @@ async function assessmentActors(baseURL: string | undefined) {
   const assessor = await actorApiContext("assessorA", url);
   const otherAssessor = await actorApiContext("assessorB", url);
   const viewer = await actorApiContext("viewer", url);
+  const outsider = await actorApiContext("outsider", url);
   const registrations = await Promise.all([
     coordinator.get("/api/members"),
     assessor.get("/api/members"),
@@ -341,11 +347,13 @@ async function assessmentActors(baseURL: string | undefined) {
     assessor,
     otherAssessor,
     viewer,
+    outsider,
     dispose: () => Promise.all([
       coordinator.dispose(),
       assessor.dispose(),
       otherAssessor.dispose(),
       viewer.dispose(),
+      outsider.dispose(),
     ]),
   };
 }
