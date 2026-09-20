@@ -29,18 +29,21 @@ function fixture() {
   const received = [];
   const context = {
     window: { navigator: { onLine: true } }, offlinePrincipal: "principal-a",
+    PipelineApiError: class extends Error { status = 0; },
     offlineSyncRef: { current: false },
     initializedAssessmentIdRef: { current: { id: "assessment-a", principal: "principal-a" } },
     selectedRef: { current: { assessment_id: "assessment-a" } },
     saveQueueRef: { current: Promise.resolve() },
     dirtySectionsRef: { current: new Set() }, remoteChangeRef: { current: null },
+    draftRef: { current: {} }, workbookSourcesRef: { current: {} },
+    editableSectionData: () => ({}), assessmentSaveGroups: () => [],
     flushOfflineAssessmentMutations: async () => ({ completed: 0, conflicts: 1, remaining: 0 }),
     fetchPipelineJson: async () => { started.resolve(); await response.promise; return { assessment: { assessment_id: "assessment-a" } }; },
     receiveRemoteAssessment: (record) => received.push(record.assessment_id),
     removeOfflineAssessmentDraft: async (...args) => removed.push(args),
     setPendingOfflineSaves: () => {}, setMessage: (message) => messages.push(message),
   };
-  const run = new Function(...Object.keys(context), `${compiled}; return run;`)(...Object.values(context));
+  const run = () => new Function(...Object.keys(context), `${compiled}; return run;`)(...Object.values(context))();
   return { context, run, started, response, removed, messages, received };
 }
 
@@ -83,4 +86,26 @@ test("unchanged dirty session retains its unsaved answer", async () => {
   await pending;
   assert.deepEqual(f.removed, []);
   assert.deepEqual(f.messages, ["Changes saved on this device; waiting to sync"]);
+});
+
+test("switching principal while a queued sender waits preserves the mutation without dispatching it", async () => {
+  const f = fixture();
+  const queued = deferred();
+  const releaseQueue = deferred();
+  const requests = [];
+  f.context.saveQueueRef.current = releaseQueue.promise;
+  f.context.fetchPipelineJson = async (...args) => { requests.push(args); return {}; };
+  f.context.flushOfflineAssessmentMutations = async (_principal, send) => {
+    queued.resolve();
+    await assert.rejects(send({ url: "/api/assessments/assessment-a", method: "PATCH", body: "{}" }), (error) => error.status === 0);
+    return { completed: 0, conflicts: 0, remaining: 1 };
+  };
+  const pending = f.run();
+  await queued.promise;
+  f.context.initializedAssessmentIdRef.current = { id: "assessment-a", principal: "principal-b" };
+  releaseQueue.resolve();
+  await pending;
+  assert.deepEqual(requests, []);
+  assert.deepEqual(f.removed, []);
+  assert.deepEqual(f.messages, []);
 });

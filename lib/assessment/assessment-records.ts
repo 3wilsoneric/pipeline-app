@@ -123,9 +123,11 @@ export type AssessmentCreateInput = {
   unmapped_fields?: UnmappedAssessmentField[];
 };
 
+export type AssessmentWorkbookRestoreSource = { export_id: string; exported_at: string };
+
 export type AssessmentPatchInput = {
   data?: Partial<AssessmentToolData>;
-  workbook_restore?: { export_id: string; exported_at: string };
+  workbook_restore?: AssessmentWorkbookRestoreSource;
   /** Server-resolved only. Browser requests supply an active workspace member ID. */
   assigned_assessor?: AssessmentActor | null;
   /** Server-resolved only. A canonical identity can be attached once and never changed. */
