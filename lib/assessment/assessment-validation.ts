@@ -11,6 +11,7 @@ import { assessmentYesNoQuestionFields } from "./assessment-interview-schema";
 import type { AssessmentToolSection } from "./assessment-tool-schema";
 import type {
   AssessmentPatchInput,
+  AssessmentWorkbookRestoreSource,
   AssessmentWorkflowStatus,
 } from "./assessment-records";
 import { assessmentFieldOwner } from "./assessment-field-ownership";
@@ -122,11 +123,16 @@ function validatePatchEnvelope(patch: Record<string, unknown>): AssessmentValida
 }
 
 function validateWorkbookRestorePatch(patch: Record<string, unknown>): AssessmentValidationResult<true> {
-  const source = patch.workbook_restore;
-  if (!isRecord(source) || typeof source.export_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(source.export_id)
-    || typeof source.exported_at !== "string" || source.exported_at.length > 40 || !Number.isFinite(Date.parse(source.exported_at))
+  if (!isAssessmentWorkbookRestoreSource(patch.workbook_restore)
     || !isRecord(patch.data) || Object.keys(patch).some((k) => k !== "data" && k !== "workbook_restore")) return invalid("Excel restore must contain answers and valid copy identification only.");
   return { ok: true, value: true };
+}
+
+export function isAssessmentWorkbookRestoreSource(value: unknown): value is AssessmentWorkbookRestoreSource {
+  return isRecord(value)
+    && Object.keys(value).every((key) => key === "export_id" || key === "exported_at")
+    && typeof value.export_id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.export_id)
+    && typeof value.exported_at === "string" && value.exported_at.length <= 40 && Number.isFinite(Date.parse(value.exported_at));
 }
 
 function validatePatchFields(patch: Record<string, unknown>): AssessmentValidationResult<true> {

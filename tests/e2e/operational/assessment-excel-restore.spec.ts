@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { actorApiContext, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, signOperationalAssessment } from "../support/operational-api";
 import type { PipelineAssessmentRecord } from "../../../lib/assessment/assessment-records";
+import { assessmentToolSections, pickAssessmentToolData } from "../../../lib/assessment/assessment-tool-schema";
 
 test.describe("Excel restore through canonical PostgreSQL API", () => {
   test.skip(process.env.PIPELINE_EXCEL_POSTGRES !== "true", "Use the isolated assessment-excel-postgres harness.");
@@ -72,6 +73,33 @@ test.describe("Excel restore through canonical PostgreSQL API", () => {
     expect(replay.status(), await replay.text()).toBe(200);
     expect((await replay.json()).assessment.version).toBe(saved.version);
     expect(await snapshot()).toEqual(beforeReplay);
+  });
+
+  test("pending workbook sources round-trip through private PostgreSQL recovery without changing the assessment", async () => {
+    const draftUrl = `/api/me/assessment-drafts/${assessment.assessment_id}`;
+    const baseData = pickAssessmentToolData(assessment);
+    const workbookSources = { prior_placements: source };
+    const draft = {
+      schema: 1, assessmentId: assessment.assessment_id, savedAt: source.exported_at,
+      baseVersion: assessment.version, sectionVersions: assessment.section_versions,
+      dirtySections: assessmentToolSections, activeSection: "prior_history", baseData,
+      data: { ...baseData, prior_placements: "Synthetic recovered workbook answer" }, workbookSources,
+    };
+    const before = await snapshot();
+    const stored = await assessor.put(draftUrl, { data: { if_match: 0, draft } });
+    expect(stored.status(), await stored.text()).toBe(200);
+    const current = await (await assessor.get(draftUrl)).json();
+    expect(current).toMatchObject({ version: 1, draft: { ...draft, savedAt: expect.any(String) } });
+    const rows = await sql`select payload, version from pipeline.user_workspace_state where principal_id = ${pipelineActors.assessorA.id} and state_kind = 'assessment_draft' and state_key = ${assessment.assessment_id}`;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].payload.workbookSources).toEqual(workbookSources);
+    expect((await (await coordinator.get(draftUrl)).json()).draft).toBeNull();
+    const invalid = await assessor.put(draftUrl, { data: { if_match: 1, draft: { ...draft, workbookSources: { prior_placements: { ...source, extra: "rejected" } } } } });
+    expect(invalid.status()).toBe(400);
+    const stale = await assessor.put(draftUrl, { data: { if_match: 0, draft: { ...draft, workbookSources: {} } } });
+    expect(stale.status()).toBe(409);
+    expect(await (await assessor.get(draftUrl)).json()).toEqual(current);
+    expect(await snapshot()).toEqual(before);
   });
 
   test("stale section/global CAS and malformed restore leave every protected table unchanged", async () => {
