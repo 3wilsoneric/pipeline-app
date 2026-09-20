@@ -35,7 +35,7 @@ test("Help has searchable task tutorials; contextual guides require a workspace"
   await expect(page.getByTestId("guided-coach-panel").getByRole("heading", { name: "Choose a view" })).toBeVisible();
 });
 
-for (const width of [1440, 390]) {
+for (const width of [1440, 1024, 390]) {
   test("assessment tutorial targets actual controls at " + width, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     const writes: string[] = [];
@@ -60,6 +60,16 @@ for (const width of [1440, 390]) {
       expect(box.x + box.width).toBeLessThanOrEqual(width);
       expect(box.y).toBeGreaterThanOrEqual(0);
       expect(box.y + box.height).toBeLessThanOrEqual(901);
+      const main = (await page.locator("main").first().boundingBox())!;
+      if (width >= 1200) expect(main.x + main.width).toBeLessThanOrEqual(box.x + 1);
+      else expect(main.y + main.height).toBeLessThanOrEqual(box.y + 1);
+      if (index === 2) {
+        const outline = (await page.getByTestId("guide-spotlight").boundingBox())!;
+        const header = (await page.getByTestId("workspace-folder-header").boundingBox())!;
+        const footer = (await page.locator('footer[aria-label="Assessment actions"]').boundingBox())!;
+        expect(outline.y).toBeGreaterThanOrEqual(header.y + header.height);
+        expect(outline.y + outline.height).toBeLessThanOrEqual(footer.y + 1);
+      }
       if (index === 2) await page.screenshot({ path: info.outputPath("assessment-tutorial-" + width + ".png") });
       await coach.getByRole("button", { name: index === headings.length - 1 ? "Finish" : "Continue", exact: true }).click();
     }
@@ -79,7 +89,7 @@ test("skipping is not completion, and ending leaves normal Home outside practice
   const coach = page.getByTestId("guided-coach-panel");
   await expect(coach.getByRole("heading", { name: "A separate practice case" })).toBeVisible();
   for (let index = 0; index < 5; index++) {
-    await expect(coach).toContainText((index + 1) + "/6");
+    await expect(coach).toContainText("Step " + (index + 1) + " of 6");
     await coach.getByRole("button", { name: "Skip step", exact: true }).click();
   }
   await coach.getByRole("button", { name: "Skip and finish" }).click();
@@ -89,6 +99,100 @@ test("skipping is not completion, and ending leaves normal Home outside practice
   await expect(page).toHaveURL(/\/$/);
   await expect(coach.getByRole("heading", { name: "Your work on Home" })).toBeVisible();
 });
+
+test("task rail can jump, locate, collapse, and resume without losing the practice case", async ({ page }, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const panel = await library(page);
+  await panel.getByRole("button", { name: "Start tutorial: Try the assessment controls" }).click();
+  const coach = page.getByTestId("guided-coach-panel");
+  const draft = new URL(page.url()).searchParams.get("draftId");
+  await coach.getByRole("button", { name: "Step 1 of 6" }).click();
+  await expect(coach.getByRole("list", { name: "Tutorial steps" })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("tutorial-steps.png") });
+  await coach.getByRole("list").getByRole("button", { name: "4 Work on remaining fields" }).click();
+  await expect(coach.getByRole("heading", { name: "Work on remaining fields" })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("draftId")).toBe(draft);
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("pipeline-guided-coach:v5")!).reviewedStepIds)).toEqual([]);
+  await coach.getByRole("button", { name: "Show control" }).click();
+  await expect(page.locator('[data-guide-target="assessment-fields"]:visible')).toBeFocused();
+  await coach.getByRole("button", { name: "Collapse tutorial", exact: true }).click();
+  await expect(coach).toHaveAttribute("data-collapsed", "true");
+  await expect(page.getByTestId("guide-spotlight")).toHaveCount(0);
+  expect((await coach.boundingBox())!.width).toBe(56);
+  await coach.getByRole("button", { name: "Expand tutorial" }).click();
+  await expect(coach.getByRole("heading", { name: "Work on remaining fields" })).toBeVisible();
+  await coach.getByRole("button", { name: "Pause tutorial" }).click();
+  await expect(coach).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
+  await expect(coach).toHaveCount(0);
+  await library(page);
+  await page.getByRole("button", { name: "Resume Try the assessment controls" }).click();
+  await expect(coach.getByRole("heading", { name: "Work on remaining fields" })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("draftId")).toBe(draft);
+});
+
+for (const width of [1440, 390]) {
+  test("scheduling stays usable beside the tutorial at " + width, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule");
+    await page.getByRole("button", { name: "Close schedule", exact: true }).click();
+    const panel = await library(page);
+    await panel.getByRole("button", { name: "Start tutorial: Schedule an assessment", exact: true }).click();
+    const coach = page.getByTestId("guided-coach-panel");
+    await expect(coach.getByRole("heading", { name: "Open scheduling" })).toBeVisible();
+    await page.locator('[data-guide-target="assessment-schedule-open"]').filter({ hasNot: page.locator("input") }).first().click();
+    const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+    await expect(schedule).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Set the appointment" })).toBeVisible();
+    const scheduleBox = (await schedule.boundingBox())!;
+    const guideBox = (await coach.boundingBox())!;
+    if (width >= 1200) expect(scheduleBox.x + scheduleBox.width).toBeLessThanOrEqual(guideBox.x + 1);
+    else expect(scheduleBox.y + scheduleBox.height).toBeLessThanOrEqual(guideBox.y + 1);
+    await schedule.getByRole("textbox", { name: "Assessment address" }).fill("Fictional practice location");
+    await page.screenshot({ path: info.outputPath("scheduling-guide-" + width + ".png") });
+    await coach.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Choose how to meet" })).toBeVisible();
+    await coach.getByRole("button", { name: "Pause tutorial" }).click();
+    await expect(coach).toHaveCount(0);
+    await expect(schedule).toBeVisible();
+    await schedule.getByRole("button", { name: "Close schedule" }).click();
+  });
+}
+
+for (const width of [1440, 375]) {
+  test("practice supports edit and reopen, with an explicit refresh reset at " + width, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 667 });
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() !== "GET" && /\/api\/(assessments|referrals|files)(\/|\?|$)/.test(new URL(request.url()).pathname)) writes.push(request.url());
+    });
+    await page.goto("/");
+    const panel = await library(page);
+    await panel.getByRole("button", { name: "Start tutorial: Try the assessment controls" }).click();
+    const coach = page.getByTestId("guided-coach-panel");
+    await coach.getByRole("button", { name: "Step 1 of 6" }).click();
+    await coach.getByRole("list").getByRole("button", { name: "4 Work on remaining fields" }).click();
+    const answer = page.locator('[data-working-field="bathing_assistance_details"] textarea');
+    await answer.fill("Fictional practice entry for tutorial controls.");
+    await coach.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Check saving" })).toBeVisible();
+    await expect(page.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
+    await coach.getByRole("button", { name: "Collapse tutorial", exact: true }).click();
+    if (width < 1200) expect((await coach.boundingBox())!.height).toBeLessThan(80);
+    await page.screenshot({ path: info.outputPath("tutorial-collapsed-" + width + ".png") });
+    await coach.getByRole("button", { name: "Pause tutorial" }).click();
+    if (width < 640) {
+      await page.getByRole("button", { name: "Client info", exact: true }).click();
+      await page.getByRole("button", { name: "Review Bathing assistance needed", exact: true }).click();
+    } else await page.getByRole("button", { name: "Edit Bathing assistance needed", exact: true }).click();
+    await expect(answer).toHaveValue("Fictional practice entry for tutorial controls.");
+    await page.reload();
+    await expect(answer).toHaveValue("");
+    expect(writes).toEqual([]);
+  });
+}
 
 test("intake practice steps find the actual form without creating a referral", async ({ page }) => {
   const writes: string[] = [];
@@ -118,6 +222,7 @@ test("Escape closes Tutorials without changing the current page", async ({ page 
   await expect(panel.getByRole("textbox", { name: "Search tutorials" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open guided tutorials" })).toBeFocused();
   await expect(page).toHaveURL(/\/$/);
 });
 

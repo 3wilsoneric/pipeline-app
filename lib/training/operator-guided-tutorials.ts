@@ -83,9 +83,58 @@ const email = packet + "&workspaceView=email";
 const intakePractice = packet + "&trainingIntake=1";
 const assessmentPractice = assessment + "&trainingAssessment=interview";
 
+// Expected screen states, not assertions that the user completed a clinical action.
+const expectedGuideResults: Readonly<Record<string, string>> = {
+  "my-queue": "Referrals in the displayed scope, with a stage and a way to reopen each one.",
+  "workspace-directory": "The referral directory with its current owner and stage filters.",
+  "workspace-search": "Matching referrals as you type, or an empty result if no visible referral matches.",
+  "workspace-results": "The selected referral opens with its client details and saved work.",
+  "packet-workspace": "One workspace containing the client's chart, assessment, files, and activity.",
+  "workspace-stage-nav": "The selected workspace page opens without creating another referral.",
+  "initial-packet-upload": "Selected files appear in the intake packet. Wait for upload or processing errors to resolve.",
+  "intake-identity": "Client identity and date of birth together, with age calculated from that date.",
+  "intake-routing": "The referral source, contact details, and assigned assessor in the intake form.",
+  "intake-medications": "The referral summary and available medication information in this intake.",
+  "create-workspace": "In live intake, a created referral opens as a workspace. This practice draft does not create a live referral.",
+  "assessment-section-nav": "The section name and its questions change together. Existing answers stay recorded.",
+  "assessment-recorded": "Recorded answers for this section. Selecting an editable answer brings it back into the question area.",
+  "assessment-fields": "An unanswered question, or a completed-section message when nothing remains in this section.",
+  "assessment-save-status": "A saved confirmation after editing. Practice explicitly says changes are saved locally.",
+  "assessment-next-section": "The next question or section opens. Saved answers remain available when you go back.",
+  "assessment-review": "The assembled assessment with unanswered items visible, ready for your review.",
+  "assessment-sign": "The signing confirmation appears only when you choose the signing action.",
+  "assessment-schedule-open": "The appointment form for the referral currently open.",
+  "assessment-schedule-fields": "The selected appointment date, time, duration, and displayed time zone.",
+  "assessment-schedule-method": "Contact or location fields matching your chosen interview method.",
+  "assessment-schedule-save": "After a successful save, the appointment form closes and the assessment workspace returns.",
+  "workspace-decision": "The saved decision displayed on this referral. Viewing the form does not change it.",
+  "workspace-admit-date": "The admission date on the accepted referral; acceptance alone is not an admission.",
+  "workspace-finish-send": "The packet and email preparation page, with no message sent yet.",
+  "workspace-files-upload": "The new documents join this referral's file list after upload succeeds.",
+  "workspace-files": "The chosen file opens for inspection, or an explicit message if it is unavailable.",
+  "workspace-history": "Recorded changes with an actor and time, or an empty history message.",
+  "workspace-packet-preview": "The prepared assessment summary and packet, including any missing-material notices.",
+  "packet-recipients": "The intended recipients and subject before delivery is confirmed.",
+  "packet-attachments": "The documents selected for this packet, available to inspect before sending.",
+  "chart-email-handoff": "A separate recipient confirmation and Send action. Continuing this tutorial sends nothing.",
+  "packet-delivery-status": "The actual delivery status. A draft or preview must not be treated as a sent packet.",
+  "calendar-view": "Appointments displayed in the selected calendar view and date range.",
+  "calendar-filters": "The current assessor and date scope, limited to what your account can access.",
+  "calendar-workspace": "Appointment details and a route back to its linked referral.",
+  "client-directory": "Matching client charts, with identity details to distinguish similar names.",
+  "operations-report-select": "The selected report and its available controls.",
+  "operations-summary": "The period and grouping that will be used for the report.",
+  "operations-report-apply": "Updated results for the applied filters, or an error to resolve before relying on them.",
+  "operations-report-results": "Report totals and supporting rows for the scope shown on the page.",
+  "operations-report-export": "A CSV download only after you explicitly choose Export CSV.",
+};
+
 // Acknowledging a tooltip is not evidence that a clinical or delivery action occurred.
 function step(id: string, route: string, target: string, title: string, instruction: string, advance: OperatorGuideAdvance = "confirm", optionalTarget = false): OperatorGuideStep {
-  return { id, route, target, title, phase: title, instruction, message: instruction, completion: "Walkthrough step reviewed.", why: instruction,
+  const completion = id === "practice-start" ? "A synthetic case with recorded answers beside fields still needing attention. Refreshing resets this practice case."
+    : target === "assessment-save-status" && route.includes("trainingAssessment=") ? "The practice status confirms edits in this open session. Refreshing or reopening the case resets its answers."
+    : expectedGuideResults[target];
+  return { id, route, target, title, phase: title, instruction, message: instruction, completion, why: instruction,
     safety: "The walkthrough does not save, sign, or send on your behalf. Normal permissions still apply.", advance, optionalTarget };
 }
 function tutorial(definition: Pick<OperatorGuidedTutorial, "id" | "title" | "context" | "summary" | "steps"> & Partial<OperatorGuidedTutorial>): OperatorGuidedTutorial {
@@ -97,7 +146,7 @@ function assessmentSteps(route: string) {
     step("assessment-section", route, "assessment-section-nav", "Jump to a section", "Use Assessment section to jump directly to any part of this assessment. You do not need to finish the sections in order."),
     step("assessment-current", route, "assessment-recorded", "Current information", "Answers already recorded stay here. Select an answer to reopen it. On a phone, open Client info; on a tablet, expand Current information."),
     step("assessment-fields", route, "assessment-fields", "Work on remaining fields", "The question area keeps fields still needing attention together. Conditional follow-ups appear when relevant. Editing an answer does not create another assessment."),
-    step("assessment-save", route, "assessment-save-status", "Check saving", "Changes save automatically. Check this status after editing. If saving fails, keep the assessment open and resolve the error before leaving."),
+    step("assessment-save", route, "assessment-save-status", "Check saving", route.includes("trainingAssessment=") ? "Check the practice status after editing. Practice answers last only while this assessment stays open; refreshing resets them. Live referrals use normal autosave." : "Changes save automatically. Check this status after editing. If saving fails, keep the assessment open and resolve the error before leaving."),
     step("assessment-next", route, "assessment-next-section", "Continue or jump", "Next moves through phone questions; Next section moves between sections. Use the section picker to jump elsewhere. Review & sign is at the end. Advancing this tutorial signs nothing."),
   ];
 }
@@ -132,8 +181,8 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
       step("schedule-continue", assessment, "assessment-section-nav", "Continue the assessment", "After scheduling, continue in the assessment. The appointment remains linked to this referral and appears in Calendar.", "confirm", true),
     ] }),
   tutorial({ id: "complete-assessment", title: "Use the assessment", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Jump between sections, reopen answers, and check autosave.", steps: assessmentSteps(assessment) }),
-  tutorial({ id: "practice-assessment", title: "Try the assessment controls", context: "practice", persona: "assessor", audiences: writeRoles, summary: "Use the same interface with a fresh synthetic case. Changes stay local.",
-    steps: [step("practice-start", assessmentPractice, "assessment-section-nav", "A separate practice case", "This synthetic assessment is separate from live referrals. Answers save locally. Starting this tutorial again creates a fresh practice draft."), ...assessmentSteps(assessmentPractice)] }),
+  tutorial({ id: "practice-assessment", title: "Try the assessment controls", context: "practice", persona: "assessor", audiences: writeRoles, summary: "Try the real controls with synthetic data. Refreshing resets the case.",
+    steps: [step("practice-start", assessmentPractice + "&assessmentSection=functional_adl", "assessment-section-nav", "A separate practice case", "Use this synthetic case to try the controls without changing a live referral. Practice edits last while the assessment stays open. Restarting or refreshing resets the case."), ...assessmentSteps(assessmentPractice)] }),
   tutorial({ id: "review-chart", title: "Review and sign", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Review the full assessment and locate the separate signing action.",
     steps: [
       step("review-chart", review, "assessment-review", "Review the full assessment", "Review the assembled chart and unanswered items. Return to Assessment to add or change an answer in the same assessment."),

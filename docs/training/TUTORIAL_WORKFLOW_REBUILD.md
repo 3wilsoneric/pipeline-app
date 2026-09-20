@@ -9,7 +9,7 @@ Application-use walkthroughs only: where to click, what a control changes, how
 to return, and how to recognize saved work. No assessment philosophy, clinical
 instruction, language lab, or competency claims.
 
-The existing Help entry is labeled Tutorials. Its tooltip library is searchable
+The existing Help entry is labeled Tutorials. Its task library is searchable
 and grouped into the current workspace, other application tasks, and explicitly
 separate practice. Existing /training routes still redirect home. No deployment,
 activation of retired pages, real invitations, or email deliveries are included.
@@ -57,7 +57,40 @@ the referral or bypassing a permission.
   also check the effective user's role. Guides add no permissions.
 - Progress stores step identifiers and timestamps, not field contents.
 - Mobile assessment targets point to the phone controls; other layouts use the
-  full assessment. Tooltip placement stays within the viewport.
+  full assessment. Guidance occupies its own layout area instead of covering work.
+
+## Second Pass: Contextual Task Guide (2026-09-20)
+
+The floating modal and full-page scrim are replaced by a docked Tutorials rail.
+Desktop reserves 352px beside the working area; smaller screens reserve a bounded
+bottom area. Collapse reduces it to a slim rail or one-line bar. Scheduling stays
+inside the working area while the tutorial is open; closing Tutorials restores
+the ordinary layout. Native top-layer dialogs still take precedence.
+
+Each step includes the action and expected screen result. The numbered outline
+allows direct navigation without crediting skipped steps. Show control reveals
+and focuses the actual target. Highlights clip to workspace scrollers and do not
+cover the sticky folder header or assessment action footer. Guidance is opt-in,
+can be closed immediately, and remembers its step without reopening on refresh.
+
+Practice starts in a section with both recorded and unanswered information. Code
+inspection and browser tests confirmed the existing synthetic assessment is held
+in component state and resets on refresh. The new guide explicitly states this;
+it does not promise persistent practice answers. Guide progress can resume, but
+that is separate from practice answers and from live assessment autosave. No new
+answer store, live save path, or production-data behavior is introduced.
+
+Design references: [Scribe's step-by-step capture model](https://support.scribehow.com/hc/en-us/articles/8951146003741-New-User-Guide-Scribe-101)
+and [NN/g's contextual-help guidance](https://www.nngroup.com/articles/onboarding-tutorials/).
+The useful patterns here are task-sized instructions, an observable result,
+context beside the work, and easy dismissal/re-entry. Pipeline uses live control
+anchors instead of capturing client screenshots. It does not install Scribe or
+send screenshots, field values, or PHI to an external service.
+
+Deliberate ceiling: this pass documents expected outcomes; it does not claim to
+verify clinical competence or every business action. Only already-supported
+interaction/completion events advance automatically. Add new automatic checks
+only when a canonical success signal exists and has a failure-path test.
 
 ## Deliberate Limits
 
@@ -80,9 +113,10 @@ replaces those legacy contracts.
 
 ## Focused Evidence
 
-Result: five executable contract tests and nine browser tests passed. The
-production Webpack build, TypeScript, focused ESLint, and diff checks passed.
-Desktop (1440px) and phone (390px) screenshots were inspected. This does not
+Second-pass result: six executable contract tests and fifteen browser tests
+passed. The production Webpack build, TypeScript, focused ESLint, and diff checks
+passed. Desktop (1440px), tablet (1024px), and phone (390px/375px) screenshots were
+inspected, including scheduling and the collapsed guide. This does not
 certify every state of every authored guide or real email delivery.
 
 - node --test scripts/tutorial-workflow-fixtures.test.mjs
@@ -92,7 +126,14 @@ certify every state of every authored guide or real email delivery.
 - tests/e2e/tutorial-workflows.spec.ts: real Help entry, search, stage/context
   restrictions, desktop/phone highlights, practice reset, no live practice
   writes, skipped progress, preserved referral context, restricted-role event,
-  and continued /training redirect.
+  continued /training redirect, non-overlapping work/guide areas, sticky-control
+  highlight bounds, direct jumps, focus return, collapse, progress resume,
+  scheduling form access, and practice edit/reopen plus refresh reset.
+
+An exploratory test initially assumed practice answers survived a browser reload.
+That failed on the existing training implementation, which recreates the synthetic
+case on mount. The final acceptance tests explicitly cover both in-session answer
+retention and the existing refresh reset; tutorial copy now explains the limit.
 
 Tests use the repository's isolated local E2E stores and mock authentication, not
 production client records. The worktree's shared node_modules symlink prevents a

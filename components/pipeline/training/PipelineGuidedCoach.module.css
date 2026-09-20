@@ -1,0 +1,76 @@
+.dock {
+  position: relative; z-index: 120; display: flex; flex: 0 0 352px; flex-direction: column;
+  width: 352px; min-width: 0; min-height: 0; overflow: hidden;
+  border-left: 1px solid #cddbd3; background: #fff; color: #213b30;
+  font-size: 14px; line-height: 1.5; letter-spacing: 0;
+}
+.dock button { cursor: pointer; }
+.dock button:focus-visible { outline: 2px solid #127454; outline-offset: -2px; }
+.dock button:disabled { cursor: default; opacity: .4; }
+.dock h2:focus { outline: none; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; min-height: 56px; padding: 4px 16px; border-bottom: 1px solid #e0e8e3; }
+.libraryLink { display: flex; align-items: center; gap: 8px; min-height: 40px; color: #16644e; font-size: 14px; font-weight: 650; }
+.headerActions { display: flex; }
+.headerActions button { display: grid; place-items: center; width: 36px; height: 40px; border-radius: 4px; color: #52675b; }
+.headerActions button:hover, .footer button:not(.continue):hover { background: #edf4ef; }
+.scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 24px; }
+.context { margin: 0 0 8px; color: #61736a; font-size: 12px; font-weight: 600; }
+.task h2 { margin: 0; font-size: 21px; line-height: 1.3; font-weight: 700; }
+.summary { margin: 10px 0 24px; color: #5a6b62; font-size: 13px; line-height: 1.6; }
+.stepToggle { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; border-block: 1px solid #dfe7e2; color: #17684f; font-size: 13px; font-weight: 650; }
+.stepToggle span { flex: 1; text-align: left; }
+.rotated { transform: rotate(180deg); }
+.steps { list-style: none; padding: 8px 0; margin: 0; border-bottom: 1px solid #dfe7e2; }
+.steps button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 6px; border-radius: 4px; text-align: left; font-size: 13px; }
+.steps button:hover, .steps button[aria-current] { background: #edf5f0; color: #105e45; }
+.stepNumber { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border: 1px solid #c6d6cd; border-radius: 50%; font-size: 11px; }
+.steps button[aria-current] .stepNumber { background: #16684e; border-color: #16684e; color: #fff; }
+.instruction { padding-top: 24px; }
+.instruction h3 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.4; }
+.instruction > p { margin: 12px 0 0; font-size: 14px; line-height: 1.7; color: #344b3e; }
+.result { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e1e8e3; }
+.result > span { color: #52655a; font-size: 12px; font-weight: 650; }
+.result p { margin: 6px 0 0; color: #455d4e; font-size: 13px; line-height: 1.6; }
+.locate { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 12px; color: #12684c; font-size: 13px; font-weight: 650; }
+.locate:hover { text-decoration: underline; }
+.unavailable { margin-top: 16px; padding: 12px; background: #fff7e7; color: #765219; font-size: 13px; }
+.unavailable button { display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 650; text-decoration: underline; }
+.error { color: #a23529; font-size: 13px; }
+.sync { margin-top: 12px; color: #67736c; font-size: 11px; }
+.footer { flex-shrink: 0; padding: 12px 16px; border-top: 1px solid #dbe5de; background: #f8fbf9; }
+.footerActions { display: flex; align-items: center; gap: 6px; }
+.footer button { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 40px; min-height: 42px; border-radius: 5px; font-size: 13px; font-weight: 600; }
+.footer .skip { padding-inline: 8px; margin-right: auto; color: #617267; font-size: 12px; }
+.footer .continue { padding-inline: 14px; background: #156e52; color: #fff; }
+.footer .continue:hover { background: #0c553e; }
+.waiting { margin-left: auto; font-size: 12px; color: #12664b; }
+.collapsedTitle { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 600; }
+.dock[data-collapsed="true"] { flex-basis: 56px; width: 56px; }
+.dock[data-collapsed="true"] .header { padding: 8px; }
+.dock[data-collapsed="true"] .headerActions { flex-direction: column; }
+.dock[data-collapsed="true"] .libraryLink, .dock[data-collapsed="true"] .collapsedTitle { display: none; }
+.spotlight { position: fixed; z-index: 110; pointer-events: none; border-radius: 4px; }
+.outline { position: absolute; inset: 0; border: 2px solid #258763; border-radius: inherit; }
+.targetNumber { position: absolute; right: 0; top: -11px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #156e52; color: white; font-size: 11px; font-weight: 650; box-shadow: 0 0 0 2px #fff; }
+@media (max-width: 1199px) {
+  .dock { flex: 0 0 auto; width: 100%; max-height: min(42%, 340px); border-left: 0; border-top: 1px solid #b7d0c1; box-shadow: 0 -3px 12px #233f3010; }
+  .library { height: 48%; max-height: 48%; }
+  .header { min-height: 44px; padding-inline: 16px; }
+  .headerActions button { height: 36px; }
+  .scroll { padding: 0 16px 12px; }
+  .task .context, .summary { display: none; }
+  .task h2 { padding: 10px 0 8px; font-size: 14px; font-weight: 600; color: #617267; }
+  .stepToggle { min-height: 36px; border-top: 0; font-size: 12px; }
+  .instruction { padding-top: 12px; }
+  .instruction h3 { font-size: 17px; }
+  .instruction > p { margin-top: 8px; font-size: 13px; line-height: 1.6; }
+  .result { margin-top: 12px; padding-top: 10px; }
+  .footer { padding: 6px 12px; }
+  .footer button { min-height: 40px; }
+  .dock[data-collapsed="true"] { align-self: stretch; flex-direction: row; flex-basis: auto; width: 100%; max-height: none; }
+  .dock[data-collapsed="true"] .header { border: 0; }
+  .dock[data-collapsed="true"] .headerActions { flex-direction: row; }
+  .dock[data-collapsed="true"] .collapsedTitle { display: flex; }
+  .dock[data-collapsed="true"] .libraryLink { display: none; }
+  .collapsedTitle { flex: 1; padding-inline: 0 16px; }
+}

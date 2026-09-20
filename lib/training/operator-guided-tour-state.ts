@@ -29,6 +29,7 @@ export type OperatorGuideEvent =
   | { type: "close" }
   | { type: "next"; skipped?: boolean }
   | { type: "previous" }
+  | { type: "go-to-step"; stepIndex: number }
   | { type: "restart" }
   | { type: "finish"; skipped?: boolean }
   | { type: "end" };
@@ -82,6 +83,7 @@ export function reduceOperatorGuideState(current: OperatorGuideState, event: Ope
   const tutorial = getOperatorGuidedTutorial(state.activeTutorialId);
   if (!tutorial) return state;
   if (event.type === "previous") return previousGuideState(state, now);
+  if (event.type === "go-to-step") return { ...state, stepIndex: normalizedStepIndex(event.stepIndex, tutorial.steps.length), updatedAt: now };
   if (event.type === "restart") return { ...state, mode: "active", stepIndex: 0, reviewedStepIds: [], startedAt: now, updatedAt: now };
   const reviewedStepIds = "skipped" in event && event.skipped ? state.reviewedStepIds : [...new Set([...state.reviewedStepIds, tutorial.steps[state.stepIndex].id])];
   if (event.type === "next") return { ...state, reviewedStepIds, stepIndex: Math.min(tutorial.steps.length - 1, state.stepIndex + 1), updatedAt: now };

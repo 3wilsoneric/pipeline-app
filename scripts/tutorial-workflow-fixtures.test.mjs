@@ -15,6 +15,8 @@ test("every guide has distinct steps, local routes, and real source anchors", ()
     assert.equal(new Set(guide.steps.map((step) => step.id)).size, guide.steps.length);
     for (const step of guide.steps) {
       assert.ok(step.route.startsWith("/?") || step.route === "/");
+      assert.ok(step.completion?.length > 30, "Expected screen result: " + step.id);
+      assert.notEqual(step.completion, "Walkthrough step reviewed.");
       assert.ok(!/language lab|defensible assessment|finding, source, timeframe/i.test(step.instruction));
       const file = catalog.operatorGuideTargetSources[step.target];
       assert.ok(file, step.target);
@@ -22,6 +24,18 @@ test("every guide has distinct steps, local routes, and real source anchors", ()
       if (/sign|decision|packet-send|export/.test(step.id)) assert.equal(step.advance, "confirm");
     }
   }
+});
+
+test("jumping preserves reviewed steps without crediting skipped work", () => {
+  let current = state.reduceOperatorGuideState(state.emptyOperatorGuideState(), { type: "start", tutorialId: "complete-assessment" });
+  current = state.reduceOperatorGuideState(current, { type: "next" });
+  const reviewed = [...current.reviewedStepIds];
+  current = state.reduceOperatorGuideState(current, { type: "go-to-step", stepIndex: 4 });
+  assert.equal(current.stepIndex, 4);
+  assert.deepEqual([...current.reviewedStepIds], reviewed);
+  assert.equal(state.operatorGuideCanComplete(current), false);
+  current = state.reduceOperatorGuideState(current, { type: "go-to-step", stepIndex: 0 });
+  assert.deepEqual([...current.reviewedStepIds], reviewed);
 });
 
 test("skips and mid-guide starts do not receive completion credit", () => {
