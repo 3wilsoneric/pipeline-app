@@ -156,6 +156,9 @@ test("future delivery cannot be abandoned through the handoff controls while its
   await signOperationalAssessment(page.request, assessment);
   const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   await recordOperationalAcceptance(page.request, current);
+  await page.route("**/api/community-recipient-lists", (route) => route.fulfill({ json: { lists: [
+    { community: current.community, to: [], cc: [], version: 1, sourceDates: [], updatedAt: null },
+  ] } }));
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
@@ -171,7 +174,10 @@ test("future delivery cannot be abandoned through the handoff controls while its
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
   await page.getByRole("button", { name: "Continue to finish & send", exact: true }).click();
-  await page.getByLabel("Authorized recipients", { exact: true }).fill("example@example.invalid");
+  const recipients = page.getByRole("combobox", { name: /^To/ });
+  await recipients.fill("Example recipient <example@example.invalid>");
+  await recipients.press("Enter");
+  await expect(page.getByRole("status").filter({ hasText: "Recipients saved for this handoff" })).toBeVisible();
   await page.getByRole("checkbox", { name: /I verified that each recipient/ }).check();
   try {
     await page.getByRole("button", { name: "Send email & packet", exact: true }).click();
