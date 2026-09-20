@@ -189,6 +189,47 @@ cost is approximately $8–10; this is an estimate, not the Azure invoice.
 
 ## Reproduction and safety
 
+### Follow-up diagnosis authorized September 20 UTC
+
+Eric authorized targeted diagnosis, fixes and a new peak/endurance sequence
+after reviewing the failure. The isolated branch now includes core-only
+integration `991969a26a6be5c40e4cf96490607227c6ddfd2b` (live UI plus save
+reliability and the defensive offline-reconciliation generation guard), without
+Excel. Production remains untouched. New disposable resources are exclusively
+in `rg-pipeline-diagnostic-20260920`; the previous rehearsal group remains deleted.
+The same $50 total allowance includes the previous estimated $8–10 spend.
+
+The retained peak's **server-side** PATCH duration p95 was 118 ms in minute zero,
+100 ms in minute one and 106 ms in minute nineteen. GET p95 fell from 20 to
+10 ms. Those measurements do not explain the simultaneous growth in browser
+elapsed time and do not justify a speculative production database upgrade.
+
+Two harness defects were identified and corrected without changing the browser
+workload or weakening save/progress/audit assertions:
+
+- Verification API response bodies and logs remained retained until context
+  closure. Each is now disposed after its value is checked, including non-200
+  responses. [Playwright's documented response lifecycle](https://playwright.dev/docs/api/class-apiresponse#api-response-dispose).
+- Unscoped sustained actions repeatedly searched Playwright's growing step tree
+  for a parent. Each actor now uses the public `test.step` context; no dependency
+  internals were changed. An isolated 12,000-action real-browser comparison
+  showed the flat log's later batches climbing to 922 ms per 1,000 actions,
+  while the scoped batches remained approximately 630–700 ms. This is evidence
+  of runner overhead, not by itself proof that all application slowdown is fixed.
+
+The corrected harness records native browser HTTP duration separately from
+server timing and blur-to-ack duration, per-minute API traffic, runner heap/RSS,
+and CDP heap/DOM/script/layout samples for two pages per generator. Actor failure
+timestamps and all cross-replica probe timings are retained. Failed actor runs
+now still execute final acknowledged-write SQL/audit reconciliation before
+reporting failure. Network retries remain explicitly zero.
+
+A two-minute read-only connection diagnostic exercised loopback, SSH-tunneled
+and VNet-direct paths with retained connections and `Connection: close` controls:
+2,760 reads, all HTTP 200, zero resets. It **did not reproduce** the intermittent
+failure, so its cause remains unresolved. A short instrumented 100-user run is
+in progress; no new sustained capacity or endurance pass is claimed yet.
+
 Use only loopback PostgreSQL named `pipeline_capacity_*` and unchanged canonical
 migrations. Never deploy the synthetic build or point this harness at production.
 
