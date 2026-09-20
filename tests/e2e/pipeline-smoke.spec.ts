@@ -1722,13 +1722,16 @@ test.describe("Referral home and packet canvas", () => {
       await expect(page.getByTestId("workspace-save-status")).toContainText("Correction saved");
       await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1951-08-15");
 
-      const bulkConfirm = extractionReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ });
-      if (await bulkConfirm.count()) {
-        await bulkConfirm.click();
-        await extractionReview.getByRole("button", { name: "Confirm values", exact: true }).click();
-      } else {
-        await extractionReview.getByRole("button", { name: "Confirm", exact: true }).click();
+      async function confirmValues() {
+        const bulkConfirm = extractionReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ });
+        if (await bulkConfirm.count()) {
+          await bulkConfirm.click();
+          await extractionReview.getByRole("button", { name: "Confirm values", exact: true }).click();
+        } else {
+          await extractionReview.getByRole("button", { name: "Confirm", exact: true }).click();
+        }
       }
+      await confirmValues();
       await expect(extractionReview.getByText("Extraction review complete", { exact: true })).toBeVisible();
     } else {
       await expect(extractionReview).toHaveCount(0);

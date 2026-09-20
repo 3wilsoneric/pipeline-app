@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sliceId": "deploy-all-attachment-only-product-20260920",
   "startingCommit": "c4f4a204eac5747b153352009989ee1ede2865f9",
-  "generatedAt": "2026-09-20T18:33:37.330456+00:00",
+  "generatedAt": "2026-09-20T18:41:13.829420+00:00",
   "previousInventory": "test-suite-assertion-inventory-deploy-all-20260920.json",
   "comparisonRule": "User-approved product changes pause file reading and population, retain manual intake, and use Home focus tabs. Existing extraction assertions remain conditional on the canonical autofill flag; the disabled branch verifies absent extraction UI/fields, unchanged manual identity, exact original bytes, and continued manual edits. All other chart, files, scheduling, history, separate-referral upload and save assertions execute. Home journeys explicitly select the relevant tab. Case/title counts, API digest, and critical conflict digest are unchanged; assertion count increases. This is product behavior evidence, not a refactor coverage waiver.",
   "playwright": {
@@ -37,7 +37,7 @@
     "failureSignal": "Two-session presence, disjoint persistence, stale same-field conflict visibility and no silent overwrite remain byte-equivalent assertions."
   },
   "sourceSha256": {
-    "tests/e2e/pipeline-smoke.spec.ts": "c6b2484e03b9d9d3496816f15932fa84bb5ad9cedef4be360ef6605275296b44",
+    "tests/e2e/pipeline-smoke.spec.ts": "a290e8d74d76be7843f8d225917e1e4d24c0eb38debe71cb45c942533d417f9b",
     "tests/e2e/pipeline-home.spec.ts": "0d5d77fc9552cfd4a747b46b5aa4231caebaba911e6a37265540ccd21400bc23",
     "scripts/api-behavior-fixtures.mjs": "3f0f0f538e5b7dd9c24eb90a833033b4da7ad0b5213c19455c93d1978904abf4"
   }

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f34a5dce1009209b",
-  "fingerprint": "f34a5dce1009209b56af8ffe1913ff41fe459c1b31f74769f3b0f0995ae4b93b",
+  "generatedAt": "source-fingerprint:4312bb038e21180b",
+  "fingerprint": "4312bb038e21180b344755824f92c3eda0fb495dab536194c5406593fbfc4b0a",
   "totals": {
     "files": 1279,
-    "lines": 350440,
+    "lines": 350451,
     "coveredFiles": 1279
   },
   "entries": [
@@ -2544,7 +2544,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 362,
+      "lines": 364,
       "moduleIds": [
         "pre-assessment-workflow",
         "provenance-review"
@@ -2964,7 +2964,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4554,
+      "lines": 4555,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -8140,7 +8140,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 14,
+      "lines": 13,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -12105,7 +12105,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 19,
+      "lines": 25,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14939,7 +14939,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2880,
+      "lines": 2883,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
