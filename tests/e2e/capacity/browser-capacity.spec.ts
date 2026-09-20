@@ -32,7 +32,7 @@ test('sustained browser saves survive alternating application instances', async 
   const browsers: Browser[] = [];
   const sessions: Array<{ context: BrowserContext; page: Page; actor: PipelineActor; id: number; field: string }> = [];
   const runId = `capacity-${Date.now()}-${randomUUID().slice(0, 8)}`;
-  const ledger: Array<{ actor: string; id: number; field: string; value: string; ms: number; http_ms: number; backend: string; at: number }> = [];
+  const ledger: Array<{ actor: string; id: number; field: string; value: string; ms: number; http_ms: number; server_ms: number | null; backend: string; at: number }> = [];
   const errors: string[] = [];
   const backendCounts: Record<string, number> = {};
   const heartbeats = new Map<string, number>();
@@ -150,7 +150,8 @@ test('sustained browser saves survive alternating application instances', async 
         ]);
         const backend = response.headers()['x-capacity-backend'];
         backendCounts[backend] = (backendCounts[backend] ?? 0) + 1;
-        ledger.push({ actor: actor.id, id, field, value, ms: Date.now() - started, http_ms: response.request().timing().responseStart, backend, at: Date.now() });
+        const serverDuration = /app;dur=([\d.]+)/.exec(response.headers()['server-timing'] ?? '');
+        ledger.push({ actor: actor.id, id, field, value, ms: Date.now() - started, http_ms: response.request().timing().responseStart, server_ms: serverDuration ? Number(serverDuration[1]) : null, backend, at: Date.now() });
         expect(backendPorts.map(String)).toContain(backend);
         const oppositePort = backendPorts[(backendPorts.indexOf(Number(backend)) + 1) % replicas];
         await expect.poll(async () => {
