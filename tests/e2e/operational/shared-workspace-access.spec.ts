@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "../support/referral-upload";
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { referralCanvasFieldKeys } from "../../../lib/pipeline/referral-types";
@@ -96,7 +97,8 @@ test.describe("shared workspace editing", () => {
       await page.getByTestId("document-checklist-toggle").click();
       const canvas = createCanvas(160, 60);
       canvas.getContext("2d").fillRect(0, 0, 160, 60);
-      await page.getByLabel("Choose additional referral documents").setInputFiles({ name: "shared-synthetic.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") });
+      await page.getByLabel("Choose referral documents").setInputFiles({ name: "shared-synthetic.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") });
+    await confirmReferralFileLabels(page);
       await expect(page.getByRole("region", { name: "Uploaded documents", exact: true }).getByText("Uploaded", { exact: true })).toBeVisible();
       const files = (await (await api.get(`/api/files?referral_id=${referral.id}`)).json()).files;
       const deleted = await api.delete(`/api/files/${files[0].id}`, { data: { confirmed: true } });

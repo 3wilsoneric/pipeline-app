@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "../support/referral-upload";
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createCanvas } from "@napi-rs/canvas";
@@ -24,7 +25,8 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     drawing.fillStyle = "white"; drawing.fillRect(0, 0, 160, 60);
     drawing.fillStyle = "black"; drawing.fillText("Synthetic file", 10, 30);
     const packet = { name: "synthetic-check.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") };
-    await page.getByLabel("Choose additional referral documents").setInputFiles(packet);
+    await page.getByLabel("Choose referral documents").setInputFiles(packet);
+    await confirmReferralFileLabels(page);
     const list = page.getByRole("region", { name: "Uploaded documents", exact: true });
     await expect(list.getByText("Uploaded", { exact: true })).toBeVisible();
     const files = async () => (await (await api.get(`/api/files?referral_id=${referral.id}`)).json()).files;
@@ -68,10 +70,12 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     await api.delete(`/api/files/${file.id}`, { data: { confirmed: true } });
     await page.goto(intakeUrl);
     await page.getByTestId("document-checklist-toggle").click();
-    await page.getByLabel("Choose additional referral documents").setInputFiles(packet);
+    await page.getByLabel("Choose referral documents").setInputFiles(packet);
+    await confirmReferralFileLabels(page);
     await expect.poll(async () => (await files()).length).toBe(1);
     expect((await files())[0].id).not.toBe(file.id);
-    await page.getByLabel("Choose additional referral documents").setInputFiles(packet);
+    await page.getByLabel("Choose referral documents").setInputFiles(packet);
+    await confirmReferralFileLabels(page);
     await expect(page.getByTestId("workspace-save-status")).toContainText("Files uploaded");
     expect(await files()).toHaveLength(1);
     const activity = (await (await api.get(`/api/referrals/${referral.id}/activity`)).json()).events;

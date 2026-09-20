@@ -9,7 +9,7 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 const draftTypes = loadTypeScriptModule(process.cwd(), "lib/pipeline/user-workspace-state-types.ts");
 const local = {};
 const codecSource = ts.transpileModule(readFileSync("lib/pipeline/referral-local-recovery.ts", "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
-new Function("exports", "require", codecSource)(local, (name) => name.endsWith("user-workspace-state-types") ? draftTypes : {});
+new Function("exports", "require", codecSource)(local, (name) => name.endsWith("user-workspace-state-types") ? draftTypes : name.endsWith("referral-document-labels") ? loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-document-labels.ts") : {});
 const fields = Object.fromEntries(draftTypes.referralCanvasFieldKeys?.map((key) => [key, { value: "" }]) ?? []);
 // The parser's canonical field inventory is exported by the referral types owner.
 const referralTypes = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-types.ts");
@@ -23,7 +23,7 @@ assert.ok(draftTypes.parsePipelineReferralDraft(draft));
 const recovery = {
   draft, ownerPrincipalId: "synthetic-owner", initialPacket: new File([new Uint8Array([0, 10, 255, 13])], "synthetic.pdf", { type: "application/pdf", lastModified: 123 }),
   pendingDocuments: { medical: new File(["medical bytes"], "medical.txt", { type: "text/plain" }) },
-  additionalFiles: [new File(["additional bytes"], "additional.txt")],
+  additionalFiles: [{ file: new File(["additional bytes"], "additional.txt"), category: "medication_list" }],
 };
 const reference = "new-133c3e28-2731-4d4f-9c32-175a8ac96fcb";
 const encoded = await local.encodeReferralRecovery(reference, recovery).arrayBuffer();
@@ -33,7 +33,16 @@ assert.equal(JSON.stringify(decoded.draft), JSON.stringify(draftTypes.parsePipel
 assert.deepEqual(new Uint8Array(await decoded.initialPacket.arrayBuffer()), new Uint8Array([0, 10, 255, 13]));
 assert.equal(decoded.initialPacket.lastModified, 123);
 assert.equal(await decoded.pendingDocuments.medical.text(), "medical bytes");
-assert.equal(await decoded.additionalFiles[0].text(), "additional bytes");
+assert.equal(await decoded.additionalFiles[0].file.text(), "additional bytes");
+assert.equal(decoded.additionalFiles[0].category, "medication_list");
+const boundary = new Uint8Array(encoded).indexOf(10);
+const header = JSON.parse(new TextDecoder().decode(encoded.slice(0, boundary)));
+header.files.at(-1).category = "invalid_category";
+const damagedLabel = await new Blob([JSON.stringify(header), "\n", encoded.slice(boundary + 1)]).arrayBuffer();
+assert.throws(() => local.decodeReferralRecovery(damagedLabel), /invalid document label/);
+delete header.files.at(-1).category;
+const earlierCopy = await new Blob([JSON.stringify(header), "\n", encoded.slice(boundary + 1)]).arrayBuffer();
+assert.equal(local.decodeReferralRecovery(earlierCopy).additionalFiles[0].category, "other");
 assert.throws(() => local.decodeReferralRecovery(encoded.slice(0, -1)), /incomplete/);
 
 const source = ts.transpileModule(readFileSync("lib/offline/offline-assessment-store.ts", "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;

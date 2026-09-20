@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -10,11 +11,12 @@ test("ingests an operator-supplied packet without pre-entered demographics", asy
 
   const resolvedPath = path.resolve(packetPath!);
   await page.goto("/?view=referrals&screen=packet");
-  await page.getByTestId("initial-packet-input").setInputFiles({
+  await page.getByTestId("referral-documents-input").setInputFiles({
     name: path.basename(resolvedPath),
     mimeType: "application/pdf",
     buffer: readFileSync(resolvedPath),
   });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
   await page.getByRole("button", { name: /^Create referral$/ }).click();
 
   await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded and ready for review", { timeout: 120_000 });

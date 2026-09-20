@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "../support/referral-upload";
 import { test, expect, type Browser, type Page, type Route } from '@playwright/test';
 import postgres from 'postgres';
 import { randomUUID } from 'node:crypto';
@@ -249,7 +250,8 @@ test('uploaded document survives a lost completion reply, previews and remains a
       await route.fulfill({ status: 503, json: { error: 'Synthetic lost upload acknowledgement' } });
     });
     await s.page.getByTestId('document-checklist-toggle').click();
-    await s.page.getByLabel('Choose additional referral documents').setInputFiles(file);
+    await s.page.getByLabel('Choose referral documents').setInputFiles(file);
+    await confirmReferralFileLabels(s.page);
     const files = async () => (await (await s.context.request.get(`/api/files?referral_id=${referral.id}`)).json()).files.filter((item: { name: string }) => item.name === file.name);
     await expect.poll(async () => (await files()).length).toBe(1);
     await expect(s.page.getByTestId('workspace-save-status')).toContainText('Files uploaded');

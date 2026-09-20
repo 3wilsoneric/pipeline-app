@@ -3,10 +3,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue } from "@/lib/assessment/assessment-interview-schema";
-import { assessmentPreparationGroups, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 import type { AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
-import { WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
-import { assessmentQuestionStatus, assessmentGapSections, capturedAssessmentAnswer, assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
+import { AssessmentAnswerSource, WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
+import { assessmentQuestionStatus, assessmentWorkingSections, capturedAssessmentAnswer, assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
 import styles from "./AssessmentPhoneInterview.module.css";
 import readingStyles from "./AssessmentWorkingSection.module.css";
 
@@ -20,11 +19,9 @@ type Props = WorkingSectionProps & {
 export default function AssessmentPhoneInterview(props: Props) {
   const { questions, data, pending, target } = props;
   const { onQuestionChange } = props;
-  const sections = props.preparing
-    ? assessmentPreparationGroups.map((group) => ({ ...group, questions: preparationQuestions(group, data), remaining: preparationQuestions(group, data) }))
-    : assessmentGapSections(data, pending);
+  const sections = assessmentWorkingSections(data, pending, props.preparing);
   const section = sections.find((section) => section.questions.some((q) => questions.some((question) => question.field === q.field))) ?? sections.find((section) => section.key === props.section) ?? sections[0];
-  const initial = () => target?.field ?? questions.find((question) => assessmentQuestionStatus(question, data, pending) !== "captured")?.field ?? (props.preparing ? questions[0]?.field : undefined);
+  const initial = () => target?.field ?? questions.find((question) => assessmentQuestionStatus(question, data, pending) !== "captured")?.field;
   const [field, setField] = useState<AssessmentToolFieldKey | undefined>(initial);
   const [entryFields, setEntryFields] = useState(() => questions.map((question) => question.field));
   const [visitGaps, setVisitGaps] = useState(() => questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured").map((question) => question.field));
@@ -44,7 +41,7 @@ export default function AssessmentPhoneInterview(props: Props) {
     setReceived({ section: section.key, target });
     setField(initial());
   }
-  const steps = props.preparing ? questions : questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured" || visitGaps.includes(question.field) || question.field === field || target?.field === question.field || !entryFields.includes(question.field));
+  const steps = questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured" || visitGaps.includes(question.field) || question.field === field || target?.field === question.field || !entryFields.includes(question.field));
   const index = Math.max(0, steps.findIndex((question) => question.field === field));
   const question = steps[index];
   const questionField = question?.field;
@@ -109,7 +106,7 @@ export default function AssessmentPhoneInterview(props: Props) {
           })}
           </>}
           {search.trim() && !matchedQuestions.length ? <p>No matching questions.</p> : null}
-          <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Open assessment" : "Review assessment"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
+          <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Continue to interview" : "Review assessment"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
         </>
   );
   const renderReferenceChoices = () => (
@@ -118,7 +115,7 @@ export default function AssessmentPhoneInterview(props: Props) {
             const destination = sections.find((section) => section.questions.some((question) => question.field === item.field));
             if (destination) chooseSection(destination.key, item.field);
           }} disabled={!sections.some((section) => section.questions.some((question) => question.field === item.field))}>
-            <strong className={readingStyles.answerLabel}>{assessmentInterviewFieldLabel(item.field)}{!props.disabled ? <Pencil size={15} aria-hidden="true" /> : null}</strong><span className={readingStyles.answerValue}>{capturedAssessmentAnswer(item, data)}</span>{getAssessmentUnableReason(data, item.field) ? <span className={readingStyles.answerReason}>{getAssessmentUnableReason(data, item.field)}</span> : null}{pending.includes(item.field) ? <small className={readingStyles.attention}>Needs verification</small> : null}
+            <strong className={readingStyles.answerLabel}>{assessmentInterviewFieldLabel(item.field)}{!props.disabled ? <Pencil size={15} aria-hidden="true" /> : null}</strong><span className={readingStyles.answerValue}>{capturedAssessmentAnswer(item, data)}</span><AssessmentAnswerSource assessment={props.assessment} data={data} field={item.field} />{getAssessmentUnableReason(data, item.field) ? <span className={readingStyles.answerReason}>{getAssessmentUnableReason(data, item.field)}</span> : null}{pending.includes(item.field) ? <small className={readingStyles.attention}>Needs verification</small> : null}
           </button>)}
         </>
   );
@@ -136,7 +133,7 @@ export default function AssessmentPhoneInterview(props: Props) {
     <nav className={styles.paging} aria-label="Question steps">
       <button type="button" aria-label="Previous question" title="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={22} aria-hidden="true" /></button>
       <span className={styles.stepCount} aria-hidden="true">{question ? <><strong>{index + 1}</strong> / {steps.length}</> : "Complete"}</span>
-      <button type="button" onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Open assessment" : "Review assessment"}<ChevronRight size={20} aria-hidden="true" /></button>
+      <button type="button" onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Continue to interview" : "Review assessment"}<ChevronRight size={20} aria-hidden="true" /></button>
     </nav>
   );
 

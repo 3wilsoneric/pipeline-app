@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
-import { changeWorkbook } from "./support/workbook-runtime";
+import { changeWorkbook, closeRecoveryTools, openRecoveryTools } from "./support/workbook-runtime";
 import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
 import type { AssessmentWorkbookRestoreSource, PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
 const historySheet = assessmentWorkbookLayout.findIndex((section) => section.key === "prior_history") + 2;
@@ -26,6 +26,7 @@ test("Keep mine after offline conflict and reload retains the workbook source an
     await chooseCopy(page, changed);
     await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
     await expect(dialog).toHaveCount(0);
+    await closeRecoveryTools(page);
     const current = await fixture.read();
     const response = await page.request.patch(fixture.api, { data: { if_match: current.version, client_mutation_id: randomUUID(), patch: { data: { prior_awol_failed_placements: "Synthetic remote answer" } } } });
     expect(response.status(), await response.text()).toBe(200);
@@ -128,6 +129,7 @@ async function createFixture(page: Page, name: string) {
 }
 
 async function downloadCopy(page: Page) {
+  await openRecoveryTools(page);
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
   return fs.readFile((await (await pending).path())!);

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
-import { changeWorkbook } from "./support/workbook-runtime";
+import { changeWorkbook, closeRecoveryTools, openRecoveryTools } from "./support/workbook-runtime";
 import { pickAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
 const historySheet = assessmentWorkbookLayout.findIndex((section) => section.key === "prior_history") + 2;
@@ -40,6 +40,7 @@ test.describe("workbook recovery integration boundaries", () => {
     await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
     await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
     await expect(dialog).toHaveCount(0);
+    await closeRecoveryTools(page);
     release();
     await expect.poll(() => delivered).toBe(true);
     await expect.soft(page.getByRole("button", { name: "Edit Prior AWOL / failed placements", exact: true })).toContainText("Newer typed answer");
@@ -98,6 +99,7 @@ async function createFixture(page: Page, name: string) {
 }
 
 async function downloadCopy(page: Page) {
+  await openRecoveryTools(page);
   const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();

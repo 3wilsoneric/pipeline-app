@@ -243,6 +243,12 @@ test("unfinished view preserves pending source verification and missing reasons"
   const reference = page.getByRole("complementary", { name: "Current information" });
   await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
   await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toContainText("Reason missing");
+  await page.getByRole("button", { name: "Prepare from records", exact: true }).click();
+  await expect(field.getByRole("button", { name: "Use", exact: true })).toBeVisible();
+  await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Source: Synthetic referral.pdf");
+  await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
+  await page.getByRole("button", { name: "Interview", exact: true }).click();
+  await expect(editor.locator('[data-working-field="current_symptoms"]')).toBeVisible();
   await page.unrouteAll({ behavior: "wait" });
 });
 
@@ -318,6 +324,7 @@ for (const width of [1440, 390]) {
     if (width < 640) await expect(secondary).toBeInViewport();
     await openAssessmentChart(page);
     await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();

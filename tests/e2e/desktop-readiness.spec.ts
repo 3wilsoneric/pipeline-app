@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { expect, request, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 
@@ -215,11 +216,12 @@ test.describe("desktop feature enabled", () => {
       },
     });
     await page.getByRole("button", { name: "Edit referral details" }).click();
-    await page.getByTestId("initial-packet-input").setInputFiles({
+    await page.getByTestId("referral-documents-input").setInputFiles({
       name: "desktop-recovery-face-sheet.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from(`desktop-recovery-face-sheet-${Date.now()}`),
     });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
     await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded and ready for review", { timeout: 20_000 });
     await expect.poll(async () => {
       const response = await page.request.get(draftEndpoint);

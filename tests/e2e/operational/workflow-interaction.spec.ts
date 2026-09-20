@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "../support/referral-upload";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -203,10 +204,11 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
       await page.getByTestId("document-checklist-toggle").click();
       const packetBytes = syntheticPdf();
-      await page.getByTestId("initial-packet-input").setInputFiles({
+      await page.getByTestId("referral-documents-input").setInputFiles({
         name: "synthetic-intake.pdf", mimeType: "application/pdf", buffer: packetBytes,
       });
-      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("Packet selected");
+    await confirmReferralFileLabels(page, {}, "face_sheet");
+      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("1 pending");
       let uploading = false;
       await page.route("**/api/uploads/local", async (route) => {
         uploading = true;
@@ -221,12 +223,12 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(page.getByTestId("workspace-save-status")).toContainText("Uploading");
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       await page.getByTestId("document-checklist-toggle").click();
-      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("Packet selected");
+      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("1 pending");
       await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("creation-upload-pending.png") });
       releaseUpload();
       await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded");
-      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("Packet added");
+      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("1 file");
       expect(new URL(page.url()).searchParams.get("referralId")).toBe(id);
       const storedPacket = await page.request.get(`/api/referrals/${id}/packet`);
       expect(storedPacket.status()).toBe(200);

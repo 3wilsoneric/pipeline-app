@@ -2,7 +2,18 @@ import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+
+export async function openRecoveryTools(page: Page) {
+  await page.locator('summary[aria-label="Assessment details"]').click();
+  await page.getByRole("button", { name: "Backup & recovery", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Backup & recovery", exact: true })).toBeVisible();
+}
+
+export async function closeRecoveryTools(page: Page) {
+  await page.getByRole("button", { name: "Return to assessment", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Backup & recovery", exact: true })).toHaveCount(0);
+}
 
 // Run the actual browser-only importer/exporter in a browser, not a parser stub.
 export async function workbookRuntime(page: Page) {

@@ -7,7 +7,7 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import ReferralFilePreviewDialog from "./ReferralFilePreviewDialog";
 
-export default function UploadedDocumentList({ files }: { files: ReferralFile[] }) {
+export default function UploadedDocumentList({ files, readOnly = false }: { files: ReferralFile[]; readOnly?: boolean }) {
   const [preview, setPreview] = useState<ReferralFile | null>(null);
   const [deleting, setDeleting] = useState<ReferralFile | null>(null);
   const [busy, setBusy] = useState(false);
@@ -18,7 +18,7 @@ export default function UploadedDocumentList({ files }: { files: ReferralFile[] 
     else dialog.current?.close();
   }, [deleting]);
   const remove = async () => {
-    if (!deleting || busy) return;
+    if (!deleting || busy || readOnly) return;
     setBusy(true);
     setError("");
     try {
@@ -40,6 +40,7 @@ export default function UploadedDocumentList({ files }: { files: ReferralFile[] 
         </button>
         <div className="min-w-0 flex-1">
           <button type="button" onClick={() => setPreview(file)} className="block max-w-full truncate text-left text-[12px] font-bold text-[#173c2b] underline-offset-2 hover:underline">{file.name}</button>
+          <span className="mt-1 block text-[12px] text-[#52655d]">{file.category}</span>
           {/^[0-9a-f-]{36}$/i.test(file.id)
             ? <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#128049]"><CheckCircle2 size={14} aria-hidden="true" />Uploaded</span>
             : <span className="mt-1 block text-[11px] text-[#737373]">Recorded file</span>}
@@ -48,7 +49,7 @@ export default function UploadedDocumentList({ files }: { files: ReferralFile[] 
             {file.downloadUrl ? <a href={file.downloadUrl} target="_blank" rel="noreferrer" className="underline">Open original</a> : <span className="text-[#737373]">{file.previewStatus === "unavailable" ? "Preview unavailable" : "Preview processing"}</span>}
           </div>
         </div>
-        {/^[0-9a-f-]{36}$/i.test(file.id) ? <button type="button" aria-label={`Delete ${file.name}`} title="Delete file" onClick={() => { setError(""); setDeleting(file); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-[#737373] hover:bg-[#fff1ee] hover:text-[#9d352a] focus-visible:outline-2"><X size={17} /></button> : null}
+        {!readOnly && /^[0-9a-f-]{36}$/i.test(file.id) ? <button type="button" aria-label={`Delete ${file.name}`} title="Delete file" onClick={() => { setError(""); setDeleting(file); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-[#737373] hover:bg-[#fff1ee] hover:text-[#9d352a] focus-visible:outline-2"><X size={17} /></button> : null}
       </li>)}
     </ul>
     {preview ? <ReferralFilePreviewDialog key={preview.id} file={preview} onClose={() => setPreview(null)} /> : null}

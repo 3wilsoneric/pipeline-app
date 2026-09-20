@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Download, FileSpreadsheet, Upload, X } from "lucide-react";
 import { assessmentWorkbookChanges, exportAssessmentWorkbook, importAssessmentWorkbook, type AssessmentWorkbookCopy, type WorkbookChange } from "@/lib/assessment/assessment-excel-backup";
@@ -13,11 +13,16 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 import ClientAssessmentRecord from "./ClientAssessmentRecord";
 import styles from "./AssessmentExcelBackup.module.css";
 
-export default function AssessmentExcelBackup({ assessment, data, readOnly, onApply }: {
+export default function AssessmentExcelBackup({ assessment, data, readOnly, onApply, toolsOpen, onCloseTools, saveStatus, importFile, onImportFileRead }: {
+  importFile?: File | null;
+  onImportFileRead?: () => void;
   assessment: PipelineAssessmentRecord;
   data: AssessmentToolData;
   readOnly: boolean;
   onApply: (patch: Partial<AssessmentToolData>, expected: AssessmentToolData, source: NonNullable<AssessmentPatchInput["workbook_restore"]>) => Promise<void>;
+  toolsOpen: boolean;
+  onCloseTools: () => void;
+  saveStatus: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
@@ -33,6 +38,7 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
   const returnFocus = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const latest = useRef(data); latest.current = data;
+  const receivedImport = useRef<File | null>(null);
   const changes = copy ? assessmentWorkbookChanges(copy, data) : [];
   const importDisabled = readOnly || Boolean(busy);
   const selected = changes.filter((change) => approved[changeKey(change)] ?? (!change.conflict && !change.clearing));
@@ -75,6 +81,18 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
     } catch (e) { setError(e instanceof Error ? e.message : "This file could not be restored. Your answers are unchanged."); }
     finally { setBusy(""); if (input.current) input.current.value = ""; }
   };
+  const receiveImport = useEffectEvent((file: File) => {
+    if (readOnly) {
+      setError("This assessment is read-only. No workbook answers were changed.");
+      setOpen(true);
+      onImportFileRead?.();
+    } else void read(file).finally(() => onImportFileRead?.());
+  });
+  useEffect(() => {
+    if (!importFile || busy || receivedImport.current === importFile) return;
+    receivedImport.current = importFile;
+    receiveImport(importFile);
+  }, [importFile, busy]);
   const drop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault(); setDragging(false);
     if (readOnly || busy) return;
@@ -96,6 +114,12 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
     finally { setBusy(""); }
   };
   return <>
+    {toolsOpen ? <AssessmentRecoveryPanel name={data.resident_name} busy={Boolean(busy) || open} onClose={onCloseTools}>
+    <section className={styles.sync} aria-label="Save and sync">
+      <h3>Save & sync</h3>
+      {saveStatus}
+    </section>
+    <div className={styles.copyHeading}><h3>Excel working copy</h3><p>Continue in Excel if you need to, then bring your answers back here.</p></div>
     <section data-excel-strip aria-label="Restore Excel workbook" className={styles.strip} data-dragging={dragging || undefined}
       onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = readOnly ? "none" : "copy"; setDragging(true); }}
       onDragLeave={() => setDragging(false)} onDrop={drop}>
@@ -108,6 +132,8 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
       <button type="button" className={styles.download} disabled={Boolean(busy)} onClick={() => void download()} aria-label="Download current assessment"><Download size={17} aria-hidden="true" /><span>Download copy</span></button>
       <WorkbookStatus busy={busy} message={message} />
     </section>
+    <p className={styles.storageNote}>A download contains your answers at that moment; it does not update itself. Store client information only on approved secure devices.</p>
+    </AssessmentRecoveryPanel> : null}
     {open ? createPortal(<dialog ref={dialog} className={styles.panel} aria-labelledby="excel-backup-title" aria-describedby="excel-preview-description" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onCancel={(event) => { event.preventDefault(); close(); }}>
       <header className={styles.heading}>
         <div><p className={styles.eyebrow}>Excel import preview</p><h2 id="excel-backup-title">{data.resident_name || "Review assessment"}</h2><p id="excel-preview-description">Nothing changes until you commit. Only selected answers will be replaced.</p></div>
@@ -126,6 +152,29 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
       </footer>
     </dialog>, document.body) : null}
   </>;
+}
+
+function AssessmentRecoveryPanel({ name, busy, onClose, children }: { name: string | null; busy: boolean; onClose: () => void; children: ReactNode }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const element = dialog.current;
+    element?.showModal();
+    return () => {
+      element?.close();
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus({ preventScroll: true });
+    };
+  }, []);
+  return createPortal(<dialog ref={dialog} className={`${styles.panel} ${styles.toolsPanel}`} aria-labelledby="assessment-recovery-title"
+    onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}
+    onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
+    <header className={styles.heading}>
+      <div><h2 id="assessment-recovery-title">Backup & recovery</h2><p>{name || "Current assessment"}</p></div>
+      <button type="button" aria-label="Close backup and recovery" disabled={busy} onClick={onClose}><X size={22} aria-hidden="true" /></button>
+    </header>
+    <div className={styles.body}>{children}</div>
+    <footer className={styles.footer}><button type="button" className={styles.cancel} disabled={busy} onClick={onClose}>Return to assessment</button></footer>
+  </dialog>, document.body);
 }
 
 function WorkbookImportPrompt({ readOnly }: { readOnly: boolean }) {

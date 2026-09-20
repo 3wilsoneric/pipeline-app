@@ -4,16 +4,17 @@ import { fetchCurrentPipelineUser } from "@/lib/auth/authenticated-fetch";
 import { loadOfflineReferralDrafts, removeOfflineReferralDraft, saveOfflineReferralDraft } from "@/lib/offline/offline-assessment-store";
 import { parsePipelineReferralDraft, type PipelineReferralDraft } from "@/lib/pipeline/user-workspace-state-types";
 import type { ReferralRecoveryDraftKey } from "@/lib/pipeline/referral-draft-recovery";
+import { isReferralDocumentCategory, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
 
 export type ReferralLocalRecovery = {
   draft: PipelineReferralDraft;
   ownerPrincipalId: string;
   initialPacket: File | null;
   pendingDocuments: Record<string, File>;
-  additionalFiles: File[];
+  additionalFiles: LabeledReferralFile[];
 };
 
-type FileDescription = { key: string; name: string; type: string; size: number; lastModified: number };
+type FileDescription = { key: string; name: string; type: string; size: number; lastModified: number; category?: LabeledReferralFile["category"] };
 type RecoveryHeader = { reference: string; draft: PipelineReferralDraft; ownerPrincipalId: string; files: FileDescription[] };
 
 // File bytes and their identifying metadata share the encrypted, expiring record.
@@ -21,10 +22,12 @@ type RecoveryHeader = { reference: string; draft: PipelineReferralDraft; ownerPr
 export function encodeReferralRecovery(reference: ReferralRecoveryDraftKey, recovery: ReferralLocalRecovery) {
   const entries: Array<[string, File]> = Object.entries(recovery.pendingDocuments).map(([key, file]) => [`document:${key}`, file]);
   if (recovery.initialPacket) entries.push(["packet", recovery.initialPacket]);
-  recovery.additionalFiles.forEach((file, index) => entries.push([`additional:${index}`, file]));
+  recovery.additionalFiles.forEach(({ file }, index) => entries.push([`additional:${index}`, file]));
   const header: RecoveryHeader = {
     reference: String(reference ?? "new"), draft: recovery.draft, ownerPrincipalId: recovery.ownerPrincipalId,
-    files: entries.map(([key, file]) => ({ key, name: file.name, type: file.type, size: file.size, lastModified: file.lastModified })),
+    files: entries.map(([key, file]) => ({ key, name: file.name, type: file.type, size: file.size, lastModified: file.lastModified,
+      ...(key.startsWith("additional:") ? { category: recovery.additionalFiles[Number(key.slice(11))].category } : {}),
+    })),
   };
   return new Blob([JSON.stringify(header), "\n", ...entries.map(([, file]) => file)]);
 }
@@ -47,7 +50,10 @@ export function decodeReferralRecovery(buffer: ArrayBuffer): ReferralLocalRecove
     offset += entry.size;
     if (entry.key === "packet") result.initialPacket = file;
     else if (entry.key.startsWith("document:")) result.pendingDocuments[entry.key.slice(9)] = file;
-    else result.additionalFiles.push(file);
+    else {
+      if (entry.category !== undefined && !isReferralDocumentCategory(entry.category)) throw new Error("A pending file has an invalid document label.");
+      result.additionalFiles.push({ file, category: entry.category ?? "other" });
+    }
   }
   if (offset !== bytes.length) throw new Error("The pending intake copy has unexpected data.");
   return result;

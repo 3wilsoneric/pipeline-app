@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "../e2e/support/referral-upload";
 import { expect, test } from "@playwright/test";
 import {
   completeOperationalAssessment,
@@ -62,7 +63,8 @@ test("intake saves on switch and the assigned workspace appears for the assessor
   await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
   const packet = syntheticPdf();
   await page.getByTestId("document-checklist-toggle").click();
-  await page.getByTestId("initial-packet-input").setInputFiles({ name: "practice-packet.pdf", mimeType: "application/pdf", buffer: packet });
+  await page.getByTestId("referral-documents-input").setInputFiles({ name: "practice-packet.pdf", mimeType: "application/pdf", buffer: packet });
+    await confirmReferralFileLabels(page, {}, "face_sheet");
   // Do not manually save: the role switch must persist these exact pending edits.
   await page.getByRole("button", { name: "Switch to Assessor", exact: true }).click();
   await expect(page.getByRole("button", { name: "Switch to Supervisor", exact: true })).toBeVisible();

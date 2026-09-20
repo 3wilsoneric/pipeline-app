@@ -9,11 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatc
 import dynamic from "next/dynamic";
 import {
   ArrowRight,
-  Check,
   CheckCircle2,
-  ChevronDown,
-  Circle,
-  FileText,
   FolderOpen,
   History,
   LoaderCircle,
@@ -21,7 +17,6 @@ import {
   RefreshCw,
   Trash2,
   UploadCloud,
-  X,
 } from "lucide-react";
 
 import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/community-config";
@@ -51,7 +46,8 @@ import DuplicateReferralReviewDialog, {
   type ReferralDuplicateReview,
 } from "@/components/pipeline/DuplicateReferralReviewDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
-import UploadedDocumentList from "@/components/pipeline/UploadedDocumentList";
+import ReferralDocumentUpload from "./ReferralDocumentUpload";
+import { validateReferralDocumentFiles, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
 import type {
   Referral,
   ReferralFile,
@@ -397,7 +393,8 @@ export default function ReferralPacketCanvas({
   const [conserved, setConserved] = useState<"yes" | "no" | "">("");
   const [documents, setDocuments] = useState<Record<string, string>>({});
   const [pendingDocuments, setPendingDocuments] = useState<Record<string, File>>({});
-  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
+  const [additionalFiles, setAdditionalFiles] = useState<LabeledReferralFile[]>([]);
+  const [workbookImport, setWorkbookImport] = useState<File | null>(null);
   const [workspaceFiles, setWorkspaceFiles] = useState<ReferralFile[]>([]);
   const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Set<string>>(() => new Set());
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
@@ -724,7 +721,7 @@ export default function ReferralPacketCanvas({
       startIntakeExtraction(recovery.initialPacket, "initial", loadedReferralRef.current?.id);
     }
     Object.entries(recovery.pendingDocuments).forEach(([key, file]) => startIntakeExtraction(file, key, loadedReferralRef.current?.id));
-    recovery.additionalFiles.forEach((file) => startIntakeExtraction(file, `additional-${createMutationId()}`, loadedReferralRef.current?.id));
+    recovery.additionalFiles.forEach(({ file }) => startIntakeExtraction(file, `additional-${createMutationId()}`, loadedReferralRef.current?.id));
   }, [startIntakeExtraction]);
 
   const loadIntakeRecovery = async (reference: ReferralRecoveryDraftKey) => {
@@ -1233,27 +1230,9 @@ export default function ReferralPacketCanvas({
     updateField("owner", change.displayName);
   };
 
-  const attachDocument = (id: string, file: File) => {
-    if (file.size === 0 || file.size > maxUploadFileBytes) {
-      setSaveError("Choose a nonempty file, up to 100 MB.");
-      return;
-    }
-    setSavedAt("Unsaved changes");
-    markDirty("documents");
-    const nextDocuments = { ...documentsRef.current, [id]: file.name };
-    const nextPendingDocuments = { ...pendingDocumentsRef.current, [id]: file };
-    documentsRef.current = nextDocuments;
-    pendingDocumentsRef.current = nextPendingDocuments;
-    setDocuments(nextDocuments);
-    setPendingDocuments(nextPendingDocuments);
-    intakeExtraction.start(file, id, loadedReferralRef.current?.id);
-    const currentReferral = loadedReferralRef.current;
-    if (currentReferral) void queueFileUpload(() => uploadAndLinkSupportingDocument(loadedReferralRef.current ?? currentReferral, id, file)).catch(() => undefined);
-  };
-
-  const attachAdditionalFiles = (files: File[]) => {
+  const attachAdditionalFiles = (files: LabeledReferralFile[]) => {
     if (!files.length) return;
-    const error = validateAdditionalFileSelection(files);
+    const error = validateReferralDocumentFiles(files.map(({ file }) => file));
     if (error) {
       setSaveError(error);
       return;
@@ -1261,7 +1240,7 @@ export default function ReferralPacketCanvas({
     const next = [...additionalFilesRef.current, ...files];
     additionalFilesRef.current = next;
     setAdditionalFiles(next);
-    files.forEach((file) => intakeExtraction.start(file, `additional-${createMutationId()}`, loadedReferralRef.current?.id));
+    files.forEach(({ file }) => intakeExtraction.start(file, `additional-${createMutationId()}`, loadedReferralRef.current?.id));
     markDirty("documents");
     setSaveError("");
     setSavedAt(loadedReferralRef.current ? "Uploading files..." : "Files queued with referral draft");
@@ -1277,17 +1256,26 @@ export default function ReferralPacketCanvas({
     }).catch((error) => setSaveError(error instanceof Error ? error.message : "File upload failed. Retry Save."));
   };
 
-  const uploadAdditionalFiles = async (referral: Referral, files: File[]) => {
-    if (!files.length) return;
-    for (const file of files) {
+  const uploadAdditionalFiles = async (referral: Referral, files: LabeledReferralFile[]) => {
+    if (!files.length) return referral;
+    for (const entry of files) {
+      const { file, category } = entry;
       setSavedAt(`Uploading ${file.name}...`);
-      const result = await uploadReferralSupportingDocument(referral, file, "other");
+      const result = await uploadReferralSupportingDocument(referral, file, category);
       if (!result.documents?.length) throw new Error(`${file.name} uploaded without a document record. Check the file list before retrying.`);
-      const remaining = additionalFilesRef.current.filter((queued) => queued !== file);
+      const remaining = additionalFilesRef.current.filter((queued) => queued !== entry);
       additionalFilesRef.current = remaining;
       setAdditionalFiles(remaining);
       window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id } }));
     }
+    const refreshed = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" });
+    if (!refreshed.referral) throw new Error("Files were stored, but their checklist could not be refreshed. Retry Save.");
+    loadedReferralRef.current = refreshed.referral;
+    setLoadedReferral(refreshed.referral);
+    const nextDocuments = mergePendingDocumentNames(documentsFromReferral(refreshed.referral), pendingDocumentsRef.current);
+    documentsRef.current = nextDocuments;
+    setDocuments(nextDocuments);
+    return refreshed.referral;
   };
 
   const retainQueuedAdditionalFileDraft = () => {
@@ -1378,11 +1366,8 @@ export default function ReferralPacketCanvas({
 
   const selectInitialFiles = (files: File[]): InitialPacketSelectionResult => {
     const selection = validateInitialPacketSelection(files[0]);
-    const additionalError = validateAdditionalFileSelection(files.slice(1));
-    if (additionalError) return { accepted: false, error: additionalError };
     if (!selection.accepted) return selection;
     selectInitialPacket(selection.file);
-    attachAdditionalFiles(files.slice(1));
     if (loadedReferralRef.current) {
       void queueFileUpload(async () => {
         const current = loadedReferralRef.current;
@@ -1396,12 +1381,39 @@ export default function ReferralPacketCanvas({
     return selection;
   };
 
-  const clearInitialPacket = () => {
-    intakeExtraction.remove("initial");
-    initialPacketRef.current = null;
-    setInitialPacket(null);
-    setSaveError("");
-    markDirty("initialPacket");
+  const addLabeledFiles = (files: LabeledReferralFile[]) => {
+    if (permissionReadOnly) return;
+    const invalid = validateReferralDocumentFiles(files.map(({ file }) => file));
+    if (invalid) { setSaveError(invalid); return; }
+    // Only establish a primary document when there isn't one already.
+    const current = loadedReferralRef.current;
+    const hasPacket = initialPacketRef.current || (current?.documentName && current.documentStatus !== "Missing");
+    const primary = !hasPacket ? files.find(({ category }) => category === "face_sheet" || category === "referral_packet") : undefined;
+    if (primary && (primary.category === "face_sheet" || primary.category === "referral_packet")) {
+      initialPacketCategoryRef.current = primary.category;
+      setInitialPacketCategory(primary.category);
+      selectInitialFiles([primary.file]);
+    }
+    attachAdditionalFiles(files.filter((entry) => entry !== primary));
+  };
+
+  const removeQueuedFile = (file: File) => {
+    if (permissionReadOnly || uploadingDocumentIds.size || isSavingRef.current) return;
+    intakeExtraction.removeFile(file);
+    if (initialPacketRef.current === file) {
+      initialPacketRef.current = null;
+      setInitialPacket(null);
+      markDirty("initialPacket");
+    }
+    const pending = Object.fromEntries(Object.entries(pendingDocumentsRef.current).filter(([, queued]) => queued !== file));
+    const names = Object.fromEntries(Object.entries(documentsRef.current).filter(([key]) => pendingDocumentsRef.current[key] !== file));
+    pendingDocumentsRef.current = pending;
+    setPendingDocuments(pending);
+    documentsRef.current = names;
+    setDocuments(names);
+    additionalFilesRef.current = additionalFilesRef.current.filter((entry) => entry.file !== file);
+    setAdditionalFiles(additionalFilesRef.current);
+    markDirty("documents");
     setSavedAt("Unsaved changes");
   };
 
@@ -1792,7 +1804,7 @@ export default function ReferralPacketCanvas({
       for (const [requirementId, file] of Object.entries(snapshot.pendingDocuments)) {
         savedReferral = await uploadAndLinkSupportingDocument(savedReferral, requirementId, file);
       }
-      await uploadAdditionalFiles(savedReferral, additionalFilesSnapshot);
+      savedReferral = await uploadAdditionalFiles(savedReferral, additionalFilesSnapshot);
       await finishReferralSave(savedReferral, snapshot);
       retainQueuedAdditionalFileDraft();
       return savedReferral;
@@ -2375,40 +2387,50 @@ export default function ReferralPacketCanvas({
             ) : null
   );
 
+  const renderDocumentUpload = (collapsible: boolean) => (
+    <ReferralDocumentUpload
+      readOnly={permissionReadOnly || draftRecoveryLoading}
+      collapsible={collapsible}
+      queued={[
+        ...(initialPacket ? [{ file: initialPacket, category: initialPacketCategory }] : []),
+        ...Object.entries(pendingDocuments).map(([id, file]): LabeledReferralFile => {
+          const requirement = [...requirements, ...attachments].find((item) => item.id === id);
+          return { file, category: requirement ? documentCategoryForRequirement(requirement.type) : "other" };
+        }),
+        ...additionalFiles,
+      ]}
+      files={workspaceFiles}
+      onAdd={addLabeledFiles}
+      onRemove={removeQueuedFile}
+      uploading={isSaving || uploadingDocumentIds.size > 0}
+      onWorkbook={loadedReferral && assessmentSummary.assessmentId && !permissionReadOnly ? (file) => { setWorkbookImport(file); void navigatePage(2); } : undefined}
+    >
+      {renderPacketReview()}
+      <details className="mt-4 border-t border-[#dce4df] pt-3">
+        <summary className="cursor-pointer text-[13px] font-semibold text-[#52655d]">Document checklist</summary>
+        <ul className="mt-2 grid gap-x-6 sm:grid-cols-2">
+          {[...requirements, ...attachments].map((item) => {
+            const filename = getRequirementReviewValue(item, documents[item.id], loadedReferral);
+            const queued = Boolean(pendingDocuments[item.id]) || additionalFiles.some((entry) => entry.category === documentCategoryForRequirement(item.type)) || Boolean(initialPacket && item.type === initialPacketCategory);
+            const pending = queued || uploadingDocumentIds.has(item.id);
+            return <li key={item.id} className="flex items-start justify-between gap-3 border-b border-[#edf0ee] py-3 text-[13px]">
+              <span>{item.label}{filename ? <small className="mt-1 block break-all text-[#52655d]">{filename}</small> : null}</span>
+              <span className={pending ? "text-[#755618]" : filename ? "text-[#08735e]" : "text-[#66736c]"}>{pending ? "Pending" : filename ? "Received" : "Not added"}</span>
+            </li>;
+          })}
+        </ul>
+      </details>
+    </ReferralDocumentUpload>
+  );
+
   const renderIntakePage = () => (
     <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
-            <IntakeEditScope readOnly={permissionReadOnly}>
+            <IntakeEditScope readOnly={permissionReadOnly || draftRecoveryLoading}>
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
                 <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
             {referralDocumentAutofillEnabled ? <IntakeExtractionProgress extraction={intakeExtraction} referralId={loadedReferral?.id} suggestionCount={suggestionCount} /> : null}
-            <IntakeDocumentChecklist
-              readOnly={permissionReadOnly}
-              initialPacket={initialPacket}
-              initialPacketCategory={initialPacketCategory}
-              recordedName={loadedReferral?.documentName}
-              recordedStatus={loadedReferral?.documentStatus}
-              packetMessage={referralDocumentAutofillEnabled ? loadedReferral?.packetMessage : undefined}
-              documents={documents}
-              pendingDocuments={pendingDocuments}
-              referral={loadedReferral}
-              uploadingDocumentIds={uploadingDocumentIds}
-              onInitialPacketCategoryChange={(category) => {
-                setInitialPacketCategory(category);
-                if (initialPacket) {
-                  markDirty("initialPacket");
-                  setSavedAt("Unsaved changes");
-                }
-              }}
-              onInitialPacketSelect={selectInitialFiles}
-              onInitialPacketClear={clearInitialPacket}
-              onAttach={attachDocument}
-              additionalFiles={additionalFiles}
-              workspaceFiles={workspaceFiles}
-              onAddFiles={attachAdditionalFiles}
-            >
-            {renderPacketReview()}
-            </IntakeDocumentChecklist>
+            {renderDocumentUpload(true)}
             <ClientChartFrame label="Referral intake chart">
               <ClientChartHeader title={loadedReferral ? "Referral details" : "Referral intake"}>
                 <ChartHeaderCell label="Details captured" value={`${fieldCount} / ${visibleChartFieldKeys.length}`} />
@@ -2608,15 +2630,9 @@ export default function ReferralPacketCanvas({
           ) : displayedPage === 1 ? (
           renderIntakePage()
           ) : displayedPage === "files" ? (
-            <WorkspaceFilesPage
-              presentation={workspacePresentation}
-              documents={documents}
-              uploadingDocumentIds={uploadingDocumentIds}
-              onAttach={attachDocument}
-              additionalFiles={additionalFiles}
-              workspaceFiles={workspaceFiles}
-              onAddFiles={attachAdditionalFiles}
-            />
+            <PacketPage id="packet-files" title={workspacePresentation.filesLabel}>
+              {renderDocumentUpload(false)}
+            </PacketPage>
           ) : displayedPage === "workflow" && loadedReferral ? (
             <PacketPage id="admission-workflow" title="Decision" flush>
               <WorkspaceChartFolder>
@@ -2653,6 +2669,8 @@ export default function ReferralPacketCanvas({
             <PacketPage id="packet-page-2" title={displayedPage === 3 ? "Chart" : "Assessment"} flush>
                 <AssessmentWorkspace
                   readOnly={permissionReadOnly}
+                  workbookImport={workbookImport}
+                  onWorkbookImportRead={() => setWorkbookImport(null)}
                   referralId={referralWorkspaceId}
                   referral={loadedReferral ?? undefined}
                   recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenEmail={() => openPage("email")} onOpenProfile={onOpenProfile} /> : undefined}
@@ -2969,204 +2987,6 @@ function WorkspaceAssignedWorkControl({ referral, available, onOpen, disabled }:
   return <AssignedWorkButton onOpen={() => void onOpen().catch(() => undefined)} disabled={disabled} />;
 }
 
-function WorkspaceFilesPage({
-  presentation,
-  documents,
-  uploadingDocumentIds,
-  onAttach,
-  additionalFiles,
-  workspaceFiles,
-  onAddFiles,
-}: {
-  presentation: ReturnType<typeof getWorkspacePresentation>;
-  documents: Record<string, string>;
-  uploadingDocumentIds: Set<string>;
-  onAttach: (requirementId: string, file: File) => void;
-  additionalFiles: File[];
-  workspaceFiles: ReferralFile[];
-  onAddFiles: (files: File[]) => void;
-}) {
-  return (
-    <PacketPage id="packet-files" title={presentation.filesLabel}>
-      {!presentation.readOnly ? <AdditionalDocumentDropzone queued={additionalFiles} files={workspaceFiles} onAdd={onAddFiles} /> : null}
-      <DocumentGroup
-        title={presentation.admissionTitle}
-        detail={presentation.admissionDetail}
-        requirements={requirements}
-        documents={documents}
-        uploadingDocumentIds={uploadingDocumentIds}
-        onAttach={onAttach}
-        readOnly={presentation.readOnly}
-      />
-      <DocumentGroup
-        title={presentation.supportingTitle}
-        detail={presentation.supportingDetail}
-        requirements={attachments}
-        documents={documents}
-        uploadingDocumentIds={uploadingDocumentIds}
-        onAttach={onAttach}
-        readOnly={presentation.readOnly}
-      />
-    </PacketPage>
-  );
-}
-
-function IntakeDocumentChecklist({
-  readOnly = false,
-  initialPacket,
-  initialPacketCategory,
-  recordedName,
-  recordedStatus,
-  packetMessage,
-  documents,
-  pendingDocuments,
-  referral,
-  uploadingDocumentIds,
-  onInitialPacketCategoryChange,
-  onInitialPacketSelect,
-  onInitialPacketClear,
-  onAttach,
-  additionalFiles,
-  workspaceFiles,
-  onAddFiles,
-  children,
-}: {
-  readOnly?: boolean;
-  initialPacket: File | null;
-  initialPacketCategory: InitialDocumentCategory;
-  recordedName?: string;
-  recordedStatus?: Referral["documentStatus"];
-  packetMessage?: string;
-  documents: Record<string, string>;
-  pendingDocuments: Record<string, File>;
-  referral: Referral | null;
-  uploadingDocumentIds: Set<string>;
-  onInitialPacketCategoryChange: (category: InitialDocumentCategory) => void;
-  onInitialPacketSelect: (files: File[]) => InitialPacketSelectionResult;
-  onInitialPacketClear: () => void;
-  onAttach: (requirementId: string, file: File) => void;
-  additionalFiles: File[];
-  workspaceFiles: ReferralFile[];
-  onAddFiles: (files: File[]) => void;
-  children?: React.ReactNode;
-}) {
-  const panelRef = useRef<HTMLDetailsElement>(null);
-  const dragDepthRef = useRef(0);
-  const [dragActive, setDragActive] = useState(false);
-  const [dropError, setDropError] = useState("");
-  const documentItems = [...requirements, ...attachments];
-  const capturedDocuments = documentItems.filter((item) => (
-    !pendingDocuments[item.id] && !uploadingDocumentIds.has(item.id) && getRequirementReviewValue(item, documents[item.id], referral)
-  )).length;
-  const hasInitialPacket = Boolean(initialPacket || (recordedName && recordedStatus !== "Missing"));
-
-  const renderUploadStatus = () => (
-          <div className="flex shrink-0 items-center gap-3">
-            <span className={`text-[10px] font-black ${hasInitialPacket && !initialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
-              {dragActive ? "Release to add files" : initialPacket ? "Packet selected" : hasInitialPacket ? "Packet added" : "Packet needed"}
-            </span>
-            <span className={`hidden text-[10px] font-black sm:inline ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#66716b]"}`}>
-              {capturedDocuments} / {documentItems.length} files
-            </span>
-            <span className="flex h-6 w-6 items-center justify-center rounded border border-[#c4cec8] bg-white text-[#386453]"><ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180" /></span>
-          </div>
-  );
-
-  return (
-    <section aria-label="Document checklist" className={`mb-6 rounded transition-colors ${dragActive ? "outline-2 outline-offset-2 outline-[#0f8b73]" : ""}`}
-      data-file-drag-active={dragActive || undefined}
-      onDragEnter={(event) => {
-        if (readOnly || !event.dataTransfer.types.includes("Files")) return;
-        event.preventDefault();
-        dragDepthRef.current += 1;
-        setDragActive(true);
-        if (panelRef.current) panelRef.current.open = true;
-      }}
-      onDragOver={(event) => {
-        if (!event.dataTransfer.types.includes("Files")) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = readOnly ? "none" : "copy";
-      }}
-      onDragLeave={(event) => {
-        if (!event.dataTransfer.types.includes("Files")) return;
-        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-        if (!dragDepthRef.current) setDragActive(false);
-      }}
-      onDrop={(event) => {
-        if (!event.dataTransfer.types.includes("Files") && !event.dataTransfer.files.length) return;
-        const handledByUploadControl = event.defaultPrevented;
-        event.preventDefault();
-        dragDepthRef.current = 0;
-        setDragActive(false);
-        setDropError("");
-        if (readOnly || handledByUploadControl) return;
-        const files = Array.from(event.dataTransfer.files);
-        if (!files.length) return;
-        if (panelRef.current) panelRef.current.open = true;
-        // Dropping on the broad Documents surface must not replace a packet.
-        // Explicit packet/checklist drop targets keep their own handlers.
-        if (hasInitialPacket) onAddFiles(files);
-        else {
-          const result = onInitialPacketSelect(files);
-          if (!result.accepted) setDropError(result.error ?? "");
-          else panelRef.current?.querySelector('[data-guide-target="initial-packet-upload"]')?.dispatchEvent(new CustomEvent("pipeline:guide-complete", { bubbles: true }));
-        }
-      }}>
-      <details
-        ref={panelRef}
-        data-testid="document-checklist-panel"
-        className="pipeline-details-feedback group bg-white"
-      >
-        <summary
-          data-testid="document-checklist-toggle"
-          className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded border border-[#c4cec8] bg-[#f4f7f5] px-2 py-3 outline-none transition-colors hover:bg-[#eaf0ec] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#386453] [&::-webkit-details-marker]:hidden"
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <h2 className="text-[14px] font-black text-[#111111]">Documents</h2>
-            <span className="rounded border border-[#cfd8d3] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#595959]">Beta</span>
-          </div>
-          {renderUploadStatus()}
-        </summary>
-
-        <div className="px-1 pb-4 pt-4">
-          {dropError ? <p role="alert" className="mb-3 text-[12px] font-semibold text-[#9a492e]">{dropError}</p> : null}
-          <InitialPacketDropzone
-            file={initialPacket}
-            recordedName={recordedName}
-            recordedStatus={recordedStatus}
-            message={packetMessage}
-            category={initialPacketCategory}
-            onCategoryChange={onInitialPacketCategoryChange}
-            onSelect={(files) => { setDropError(""); return onInitialPacketSelect(files); }}
-            onClear={onInitialPacketClear}
-          />
-          <AdditionalDocumentDropzone queued={additionalFiles} files={workspaceFiles} onAdd={(files) => { setDropError(""); onAddFiles(files); }} />
-          {children}
-
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Document checklist</h3>
-            <span className="text-[10px] font-semibold text-[#737373]">Drop a file into its checklist item</span>
-          </div>
-          <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] sm:grid-cols-2 xl:grid-cols-4">
-            {documentItems.map((requirement) => (
-              <DocumentDropRow
-                key={requirement.id}
-                requirement={requirement}
-                fileName={getRequirementReviewValue(requirement, documents[requirement.id], referral)}
-                onAttach={(file) => onAttach(requirement.id, file)}
-                uploading={uploadingDocumentIds.has(requirement.id)}
-                queued={Boolean(pendingDocuments[requirement.id])}
-                variant="checklist"
-              />
-            ))}
-          </div>
-        </div>
-      </details>
-    </section>
-  );
-}
-
-
 function ChartSection({
   title,
   complete,
@@ -3290,184 +3110,6 @@ function PacketPage({
     <section id={id} aria-label={title} className={id === "admission-workflow" || id === "packet-email" ? "overflow-clip bg-white" : "overflow-hidden bg-white"}>
       <h2 className="sr-only">{title}</h2>
       <div className={flush ? undefined : "px-0 py-1 sm:px-2 sm:py-2"}>{children}</div>
-    </section>
-  );
-}
-
-function InitialPacketDropzone({
-  file,
-  recordedName,
-  recordedStatus,
-  message,
-  category,
-  onCategoryChange,
-  onSelect,
-  onClear,
-}: {
-  file: File | null;
-  recordedName?: string;
-  recordedStatus?: Referral["documentStatus"];
-  message?: string;
-  category: InitialDocumentCategory;
-  onCategoryChange: (category: InitialDocumentCategory) => void;
-  onSelect: (files: File[]) => InitialPacketSelectionResult;
-  onClear: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropzoneRef = useRef<HTMLDivElement>(null);
-  const dragDepthRef = useRef(0);
-  const [dragActive, setDragActive] = useState(false);
-  const [selectionError, setSelectionError] = useState("");
-  const displayName = file?.name || recordedName;
-  const presentation = initialPacketDropzonePresentation({ file, recordedName, recordedStatus, dragActive });
-
-  const acceptFile = (files: File[]) => {
-    const result = onSelect(files);
-    if (!result.accepted) {
-      setSelectionError(result.error ?? "");
-      return;
-    }
-    setSelectionError("");
-    dropzoneRef.current?.dispatchEvent(new CustomEvent("pipeline:guide-complete", { bubbles: true }));
-  };
-
-  const resetDragState = () => {
-    dragDepthRef.current = 0;
-    setDragActive(false);
-  };
-
-  return (
-    <section data-guide-target="initial-packet" aria-label="Initial referral packet" className="mb-5 border-b border-[#d9d9d9] pb-5">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h3 className="text-[12px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Initial document</h3>
-          <p className="mt-1 text-[11px] leading-5 text-[#595959]">Add documents whenever available. Suggested chart values can be corrected at any time.</p>
-        </div>
-        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]">
-          Document type
-          <select
-            aria-label="Initial document type"
-            value={category}
-            onChange={(event) => onCategoryChange(event.target.value as InitialDocumentCategory)}
-            className="h-8 border border-[#c9ceca] bg-white px-2 text-[11px] font-semibold normal-case tracking-normal text-[#111111] outline-none focus:border-[#0f8b73]"
-          >
-            <option value="face_sheet">Face sheet</option>
-            <option value="referral_packet">Referral packet</option>
-          </select>
-        </label>
-      </div>
-
-      <div
-        ref={dropzoneRef}
-        data-guide-target="initial-packet-upload"
-        role="group"
-        aria-label="Upload initial referral document"
-        aria-describedby="initial-packet-help initial-packet-status"
-        onDragEnter={(event) => {
-          event.preventDefault();
-          dragDepthRef.current += 1;
-          setDragActive(true);
-        }}
-        onDragOver={(event) => {
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "copy";
-        }}
-        onDragLeave={(event) => {
-          event.preventDefault();
-          dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-          if (dragDepthRef.current === 0) setDragActive(false);
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          resetDragState();
-          acceptFile(Array.from(event.dataTransfer.files ?? []));
-        }}
-        className={`flex min-h-[126px] flex-col justify-center gap-4 border-2 border-dashed px-4 py-4 transition-colors sm:flex-row sm:items-center sm:px-5 ${presentation.className}`}
-      >
-        <span className={`flex h-11 w-11 shrink-0 items-center justify-center ${presentation.iconClassName}`}>
-          {displayName ? <FileText size={25} /> : <UploadCloud size={26} />}
-        </span>
-        <div className="min-w-0 flex-1 text-center sm:text-left">
-          <div className="truncate text-[15px] font-black text-[#111111]">
-            {presentation.title}
-          </div>
-          <div id="initial-packet-status" aria-live="polite" className="mt-1 text-[11px] leading-5 text-[#595959]">
-            {presentation.status}
-          </div>
-          <div id="initial-packet-help" className="mt-0.5 text-[10px] font-semibold text-[#737373]">Any file type · 100 MB per file</div>
-        </div>
-        <div className="flex shrink-0 items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="flex h-10 items-center justify-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
-          >
-            <UploadCloud size={15} aria-hidden="true" />
-            {presentation.actionLabel}
-          </button>
-          {file ? (
-            <button
-              type="button"
-              onClick={() => {
-                onClear();
-                setSelectionError("");
-                if (inputRef.current) inputRef.current.value = "";
-              }}
-              aria-label="Remove selected initial referral document"
-              title="Remove selected document"
-              className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#b8dacf] bg-white text-[#595959] hover:border-[#a04436] hover:text-[#a04436]"
-            >
-              <X size={16} />
-            </button>
-          ) : null}
-        </div>
-        <input
-          ref={inputRef}
-          data-testid="initial-packet-input"
-          type="file"
-          aria-label="Choose referral documents"
-          multiple
-          className="sr-only"
-          onChange={(event) => {
-            acceptFile(Array.from(event.target.files ?? []));
-            event.target.value = "";
-          }}
-        />
-      </div>
-      {selectionError ? <p role="alert" className="mt-2 text-[11px] font-semibold leading-5 text-[#59645e]">{selectionError}</p> : null}
-      {message ? <p className="mt-2 text-[11px] leading-5 text-[#737373]">{message}</p> : null}
-    </section>
-  );
-}
-
-function AdditionalDocumentDropzone({ queued, files, onAdd }: {
-  queued: File[];
-  files: ReferralFile[];
-  onAdd: (files: File[]) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-  return (
-    <section aria-label="Additional referral documents" className="mb-5">
-      <div className="mb-2 text-[11px] font-black uppercase text-[#3e4742]">Other referral documents</div>
-      <div
-        role="group"
-        aria-label="Drop additional referral documents"
-        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(event) => { event.preventDefault(); setDragging(false); onAdd(Array.from(event.dataTransfer.files ?? [])); }}
-        className={`flex min-h-20 flex-wrap items-center justify-between gap-3 border-2 border-dashed px-4 py-3 ${dragging ? "border-[#0f8b73] bg-[#effaf5]" : "border-[#c6d2cb] bg-[#fbfdfc]"}`}
-      >
-        <div className="flex min-w-0 items-center gap-3"><UploadCloud size={20} aria-hidden="true" className="text-[#0f8b73]" /><span className="text-[12px] font-semibold text-[#3f4745]">Drop files here or browse</span></div>
-        <button type="button" onClick={() => inputRef.current?.click()} className="h-9 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]">Add files</button>
-        <input ref={inputRef} type="file" multiple aria-label="Choose additional referral documents" className="sr-only" onChange={(event) => { onAdd(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
-      </div>
-      {queued.length ? (
-        <ul className="mt-2 divide-y divide-[#e1e4e2]" aria-label="Additional referral file list">
-          {queued.map((file, index) => <li key={`queued:${index}:${file.name}`} className="flex gap-2 py-2 text-[11px]"><FileText size={14} className="shrink-0 text-[#8a6a16]" /><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="font-bold text-[#8a6a16]">Queued</span></li>)}
-        </ul>
-      ) : null}
-      <UploadedDocumentList files={files} />
     </section>
   );
 }
@@ -3703,133 +3345,6 @@ function MedicationProfileField({
     </section>
   );
 }
-
-function DocumentGroup({
-  title,
-  detail,
-  requirements: groupRequirements,
-  documents,
-  uploadingDocumentIds,
-  onAttach,
-  readOnly = false,
-}: {
-  title: string;
-  detail: string;
-  requirements: Requirement[];
-  documents: Record<string, string>;
-  uploadingDocumentIds: Set<string>;
-  onAttach: (requirementId: string, file: File) => void;
-  readOnly?: boolean;
-}) {
-  return (
-    <section aria-label={title} className="mb-6 last:mb-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#cfd6d2] px-1 pb-3">
-        <h2 className="text-[14px] font-black text-[#111111]">{title}</h2>
-        <span className="text-[10px] font-black text-[#595959]">{detail}</span>
-      </div>
-      <div>
-        {groupRequirements.map((requirement) => (
-          <DocumentDropRow
-            key={requirement.id}
-            requirement={requirement}
-            fileName={documents[requirement.id]}
-            onAttach={(file) => onAttach(requirement.id, file)}
-            uploading={uploadingDocumentIds.has(requirement.id)}
-            readOnly={readOnly}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function DocumentDropRow({
-  requirement,
-  fileName,
-  onAttach,
-  uploading = false,
-  queued = false,
-  readOnly = false,
-  variant = "row",
-}: {
-  requirement: Requirement;
-  fileName?: string;
-  onAttach: (file: File) => void;
-  uploading?: boolean;
-  queued?: boolean;
-  readOnly?: boolean;
-  variant?: "row" | "checklist";
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  if (readOnly) return <ReadOnlyDocumentRow requirement={requirement} fileName={fileName} />;
-  const isChecklist = variant === "checklist";
-  const status = uploading ? "Uploading" : queued ? "Queued" : fileName ? "Received" : "Needed";
-
-  return (
-    <div
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => {
-        event.preventDefault();
-        const file = event.dataTransfer.files?.[0];
-        if (file) onAttach(file);
-      }}
-      className={isChecklist
-        ? "flex min-h-[112px] flex-col justify-between border-b border-r border-[#d7ddd9] bg-white p-3 transition-colors hover:bg-[#fbfdfc]"
-        : "grid gap-2 border-b border-[#e1e4e2] bg-white px-3 py-2.5 transition-colors hover:bg-[#fbfdfc] md:grid-cols-[minmax(0,1fr)_minmax(210px,280px)] md:items-center"}
-    >
-      <div>
-        <div className={`flex gap-2 ${isChecklist ? "items-start" : "items-center"}`}>
-          {fileName
-            ? <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[#0f8b73]" />
-            : <Circle size={15} className="mt-0.5 shrink-0 text-[#a59b55]" />}
-          <div className={`${isChecklist ? "min-h-8 text-[11px] leading-4" : "text-[13px]"} font-black text-[#303638]`}>{requirement.label}</div>
-          <span className={`relative ml-auto shrink-0 text-[9px] font-black uppercase tracking-[0.08em] ${uploading || queued ? "text-[#8a6a16]" : fileName ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
-            <FeedbackCue value={status} enabled={status === "Received"} />
-            {status}
-          </span>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        aria-label={isChecklist ? `${requirement.label}: ${fileName ? "replace document" : "drop document or browse"}` : undefined}
-        className={`flex ${isChecklist ? "mt-3 h-9" : "h-10"} w-full items-center justify-center gap-2 border border-dashed px-3 text-[10px] font-black transition-colors ${fileName ? "border-[#8fc6b7] bg-[#f2faf7] text-[#0c705f] hover:bg-white" : "border-[#d2c77b] bg-[#fffdf0] text-[#6f641b] hover:bg-white"}`}
-      >
-        {uploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#c6ba59] border-t-transparent" /> : fileName ? <Check size={15} /> : <UploadCloud size={16} />}
-        <span className="max-w-full truncate">{uploading ? "Uploading..." : fileName || (isChecklist ? "Add file" : "Drop document or browse")}</span>
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) onAttach(file);
-        }}
-      />
-    </div>
-  );
-}
-
-function ReadOnlyDocumentRow({ requirement, fileName }: { requirement: Requirement; fileName?: string }) {
-  return (
-    <div className="grid gap-2 border-b border-[#e1e4e2] bg-white px-3 py-2.5 md:grid-cols-[minmax(0,1fr)_minmax(210px,280px)] md:items-center">
-      <div className="flex items-center gap-2">
-        <FileText size={15} className="text-[#6f641b]" />
-        <div className="text-[13px] font-black text-[#303638]">{requirement.label}</div>
-        <span className={`ml-auto text-[9px] font-black uppercase tracking-[0.08em] ${fileName ? "text-[#0f8b73]" : "text-[#747b77]"}`}>
-          {fileName ? "Received" : "Not linked"}
-        </span>
-      </div>
-      <div className={`flex h-10 w-full items-center justify-center gap-2 border px-3 text-[10px] font-black ${fileName ? "border-[#8fc6b7] bg-[#f2faf7] text-[#0c705f]" : "border-[#d9ddda] bg-[#f7f8f7] text-[#7c827f]"}`}>
-        {fileName ? <Check size={15} /> : <FileText size={15} />}
-        <span className="max-w-full truncate">{fileName ?? "No linked source file"}</span>
-      </div>
-    </div>
-  );
-}
-
 
 const persistedFieldKeys = persistedCanvasFieldKeys;
 type PersistedFieldKey = PersistedCanvasFieldKey;
@@ -4414,7 +3929,7 @@ function workspaceHasQueuedChanges(
   dirtyKeys: ReadonlySet<DirtyDraftKey>,
   pendingDocuments: Record<string, File>,
   initialPacket: File | null,
-  additionalFiles: readonly File[],
+  additionalFiles: readonly LabeledReferralFile[],
 ) {
   return workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
 }
@@ -4466,64 +3981,6 @@ function validateInitialPacketSelection(file: File | undefined): InitialPacketSe
     return { accepted: false, error: "Choose a nonempty file, up to 100 MB." };
   }
   return { accepted: true, file };
-}
-
-function validateAdditionalFileSelection(files: File[]) {
-  const invalid = files.find((file) => file.size === 0 || file.size > maxUploadFileBytes);
-  return invalid ? `${invalid.name}: choose a nonempty file, up to 100 MB.` : "";
-}
-
-function initialPacketDropzonePresentation({
-  file,
-  recordedName,
-  recordedStatus,
-  dragActive,
-}: {
-  file: File | null;
-  recordedName?: string;
-  recordedStatus?: Referral["documentStatus"];
-  dragActive: boolean;
-}) {
-  if (dragActive) {
-    return {
-      title: "Release to add the document",
-      status: "Face sheet or referral packet",
-      actionLabel: "Choose file",
-      className: "border-[#0f8b73] bg-[#e6f7f1]",
-      iconClassName: "text-[#6f641b]",
-    };
-  }
-  if (file) {
-    return {
-      title: file.name,
-      status: `${formatFileSize(file.size)} · Ready to upload`,
-      actionLabel: "Replace file",
-      className: "border-[#8fc7b7] bg-[#f4fbf8]",
-      iconClassName: "text-[#0f8b73]",
-    };
-  }
-  if (recordedName && recordedStatus !== "Missing") {
-    return {
-      title: recordedName,
-      status: `${recordedStatus} · Choose another file to replace it`,
-      actionLabel: "Replace file",
-      className: "border-[#8fc7b7] bg-[#f4fbf8]",
-      iconClassName: "text-[#0f8b73]",
-    };
-  }
-  return {
-    title: "Drop the referral document here",
-    status: "Face sheet or referral packet",
-    actionLabel: "Choose file",
-    className: "border-[#aaa25f] bg-[#fffdf0] hover:border-[#817932] hover:bg-[#fffbe2]",
-    iconClassName: "text-[#6f641b]",
-  };
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
 function isRetryableIntakeSave(error: unknown) {
