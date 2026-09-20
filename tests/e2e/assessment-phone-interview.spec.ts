@@ -7,8 +7,9 @@ test.use({ hasTouch: true });
 for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
   test(`${engine} phone questionnaire uses real answers, conditional steps and safe swipe navigation`, async ({ baseURL }, info) => {
     const browser = await browserType.launch();
+    const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     try {
-      const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+      const page = await context.newPage();
       const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Pocket ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
@@ -109,7 +110,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await findQuestion(page, "Secondary diagnosis");
       await expect(diagnosis).toHaveValue("Synthetic rotation edit");
       expect((await read())[0].assessment_id).toBe(assessments[0].assessment_id);
-    } finally { await browser.close(); }
+    } finally { await context.close(); await browser.close(); }
   });
 }
 

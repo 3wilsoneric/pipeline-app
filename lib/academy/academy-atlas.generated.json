@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:512b9d08c4acbac2",
-  "fingerprint": "512b9d08c4acbac25297226b20ed893c277c36ac908a8a9b91b64243a1dfac9f",
+  "generatedAt": "source-fingerprint:39360550b273b39f",
+  "fingerprint": "39360550b273b39f89d4bb1a1c96e45a8149dfa5aca6003ea4ec02a99624fa5f",
   "totals": {
     "files": 1235,
-    "lines": 345310,
+    "lines": 345316,
     "coveredFiles": 1235
   },
   "entries": [
@@ -6269,7 +6269,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 99,
+      "lines": 101,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -13556,7 +13556,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 163,
+      "lines": 164,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -13988,7 +13988,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 164,
+      "lines": 166,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14385,7 +14385,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 159,
+      "lines": 160,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

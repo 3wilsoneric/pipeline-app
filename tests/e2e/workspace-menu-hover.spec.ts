@@ -5,9 +5,9 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
   for (const width of [1440, 834]) {
     test(`${engine} persistent sidebar works across pages at ${width}px`, async ({ baseURL }, info) => {
       const browser = await browserType.launch();
+      const context = await browser.newContext({ baseURL, viewport: { width, height: 900 }, hasTouch: width < 960, deviceScaleFactor: width < 960 ? 3 : 2 });
       try {
-        const height = width === 437 ? 536 : 900;
-        const page = await browser.newPage({ baseURL, viewport: { width, height }, hasTouch: width < 960, deviceScaleFactor: width < 960 ? 3 : 2 });
+        const page = await context.newPage();
         await page.emulateMedia({ reducedMotion: "reduce" });
         const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
         const panel = page.locator("#pipeline-app-navigation");
@@ -108,7 +108,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         await expect(profile).toBeHidden();
         await expect(rail).toBeVisible();
         await page.screenshot({ path: info.outputPath(`sidebar-collapsed-${width}.png`) });
-      } finally { await browser.close(); }
+      } finally { await context.close(); await browser.close(); }
     });
   }
 }

@@ -56,7 +56,9 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
       return (await axe.run('[data-testid="workspace-folder-header"]', { runOnly: ["color-contrast", "button-name", "select-name"] })).violations;
     });
     expect(violations).toEqual([]);
-    const surname = randomUUID().replace(/[^a-z]/g, "");
+    // Keep this geometry fixture a fixed length; UUID filtering produced 7–23
+    // letters, randomly changing the name's line count at the 320px breakpoint.
+    const surname = randomUUID().slice(0, 8).replace(/\d/g, (digit) => String.fromCharCode(103 + Number(digit)));
     const name = `Avery ${surname[0].toUpperCase()}${surname.slice(1)}`;
     await folder.locator('[data-workspace-field="name"] input').fill(name);
     await folder.locator('[data-workspace-field="email"] input').fill("folder-tabs@example.invalid");
