@@ -9,6 +9,15 @@ const state = loadTypeScriptModule(root, "lib/training/operator-guided-tour-stat
 const navigation = loadTypeScriptModule(root, "lib/training/operator-guide-navigation.ts");
 const packet = "/?view=referrals&screen=packet";
 
+test("four core topics plus team tools retain every guide exactly once", () => {
+  assert.equal(catalog.operatorGuideTopics.length, 5);
+  const ids = catalog.operatorGuideTopics.flatMap((topic) => [...topic.tutorialIds]);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.deepEqual([...ids].sort(), [...catalog.operatorGuidedTutorialIds].sort());
+  const reviewerIds = catalog.guidedTutorialsForRoles(["reviewer"]).map((guide) => guide.id);
+  assert.equal(catalog.operatorGuideTopics.filter((topic) => topic.tutorialIds.some((id) => reviewerIds.includes(id))).length, 4);
+});
+
 test("every guide has distinct steps, local routes, and real source anchors", () => {
   assert.equal(new Set(catalog.operatorGuidedTutorialIds).size, catalog.operatorGuidedTutorials.length);
   for (const guide of catalog.operatorGuidedTutorials) {

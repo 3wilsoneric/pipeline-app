@@ -3,7 +3,11 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Search,
+  FolderPlus,
+  ClipboardList,
+  FolderSearch,
+  Send,
+  ChartNoAxesCombined,
   Check,
   ChevronRight,
   Compass,
@@ -22,6 +26,7 @@ import { PIPELINE_NAVIGATION_EVENT, pushPipelineHistory } from "@/lib/pipeline/c
 import {
   getOperatorGuidedTutorial,
   guidedTutorialsForRoles,
+  operatorGuideTopics,
   operatorGuideStepTitle,
   type OperatorGuidedTutorial,
   type OperatorGuideStep,
@@ -298,12 +303,12 @@ export default function PipelineGuidedCoach() {
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
   const currentTarget = target.stepId === step?.id && step && guideRouteMatches(step.route, locationKey) ? target : emptyTarget;
-  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={currentTarget} locationKey={locationKey} progressSyncState={progressSyncState} navigationError={navigationError} onOpenRoute={() => { if (step) void openGuideRoute(step.route); }} onSkip={() => { void advance(undefined, true); }} onStart={startTutorial} onCommit={commit} onAdvance={() => advance()} onBack={goBack} onResume={resumeTutorial} onGoToStep={goToStep} /></>;
+  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={currentTarget} locationKey={locationKey} progressSyncState={progressSyncState} navigationError={navigationError} onBrowse={() => { void openGuideRoute("/?view=referrals", "app", true); }} onOpenRoute={() => { if (step) void openGuideRoute(step.route); }} onSkip={() => { void advance(undefined, true); }} onStart={startTutorial} onCommit={commit} onAdvance={() => advance()} onBack={goBack} onResume={resumeTutorial} onGoToStep={goToStep} /></>;
 }
 
-function GuideCoachSurface({ state, roles, tutorial, step, target, locationKey, progressSyncState, navigationError, onOpenRoute, onSkip, onStart, onCommit, onAdvance, onBack, onResume, onGoToStep }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; progressSyncState: ProgressSyncState; navigationError: string; onOpenRoute: () => void; onSkip: () => void; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void; onGoToStep: (index: number) => void }) {
+function GuideCoachSurface({ state, roles, tutorial, step, target, locationKey, progressSyncState, navigationError, onBrowse, onOpenRoute, onSkip, onStart, onCommit, onAdvance, onBack, onResume, onGoToStep }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; progressSyncState: ProgressSyncState; navigationError: string; onBrowse: () => void; onOpenRoute: () => void; onSkip: () => void; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void; onGoToStep: (index: number) => void }) {
   if (state.mode === "closed") return null;
-  if (state.mode === "library") return <GuideLibrary locationKey={locationKey} navigationError={navigationError} roles={roles} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
+  if (state.mode === "library") return <GuideLibrary locationKey={locationKey} navigationError={navigationError} roles={roles} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onBrowse={onBrowse} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
   return <GuideConversation key={tutorial.id} tutorial={tutorial} step={step} stepIndex={state.stepIndex} sequenceIndex={state.sequenceIndex} sequenceCount={state.sequenceTutorialIds.length} target={target} routeMatches={guideRouteMatches(step.route, locationKey)} progressSyncState={progressSyncState} onBack={onBack} onAdvance={onAdvance} onOpenRoute={onOpenRoute} onSkip={onSkip} navigationError={navigationError} onPause={() => onCommit({ type: "close" })} onLibrary={() => onCommit({ type: "open-library" })} onGoToStep={onGoToStep} reviewedStepIds={state.reviewedStepIds} />;
 }
@@ -331,40 +336,68 @@ function targetView(candidate: HTMLElement | null): TargetView {
   return { element: candidate, rect, available: Boolean(candidate && rect && rect.width > 0 && rect.height > 0) };
 }
 
-function GuideLibrary({ roles, completed, locationKey, navigationError, resumableTutorialId, onStart, onResume, onClose }: { roles: readonly OperatorRole[]; completed: readonly string[]; locationKey: string; navigationError: string; resumableTutorialId: string | null; onStart: (id: string) => void; onResume: () => void; onClose: () => void }) {
-  const [query, setQuery] = useState("");
-  const search = useRef<HTMLInputElement>(null);
-  useEffect(() => { search.current?.focus(); }, []);
-  const tutorials = guidedTutorialsForRoles(roles).filter((item) => (item.title + " " + item.summary).toLowerCase().includes(query.toLowerCase().trim()));
+const topicIcons = { create: FolderPlus, assess: ClipboardList, admit: Send, find: FolderSearch, team: ChartNoAxesCombined };
+
+function GuideLibrary({ roles, completed, locationKey, navigationError, resumableTutorialId, onBrowse, onStart, onResume, onClose }: { roles: readonly OperatorRole[]; completed: readonly string[]; locationKey: string; navigationError: string; resumableTutorialId: string | null; onBrowse: () => void; onStart: (id: string) => void; onResume: () => void; onClose: () => void }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ id: string; resume: boolean } | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [pending?.id]);
+  const tutorials = guidedTutorialsForRoles(roles);
   const workspace = guideWorkspaceAvailable(locationKey);
-  const resumable = tutorials.find((item) => item.id === resumableTutorialId);
-  const groups = [
-    { id: "workspace", label: "In this workspace" },
-    { id: "app", label: "Around Pipeline" },
-    { id: "practice", label: "Practice separately" },
-  ] as const;
+  const resumable = tutorials.find((item) => item.id === resumableTutorialId && !completed.includes(item.id));
+  const waitingForReferral = tutorials.find((item) => item.id === pending?.id);
+  const startPending = useEffectEvent(() => {
+    if (!waitingForReferral || !pending) return;
+    if (pending.resume) onResume();
+    else onStart(waitingForReferral.id);
+    setPending(null);
+  });
+  useEffect(() => { if (pending && workspace) startPending(); }, [pending, workspace]);
+
+  function choose(item: OperatorGuidedTutorial, resume = false) {
+    if (item.context === "workspace" && !workspace) {
+      setPending({ id: item.id, resume });
+      onBrowse();
+    } else if (resume) onResume();
+    else onStart(item.id);
+  }
+
   return <section role="dialog" aria-label="Tutorials" data-guide-dock onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }} className={styles.dock + " " + styles.library}>
-    <header className="flex items-center justify-between border-b border-[#d8dfdc] px-4 py-3">
-      <h2 className="flex items-center gap-2 text-lg font-bold text-[#1d3028]"><Compass size={18} /> Tutorials</h2>
-      <button type="button" aria-label="Close tutorials" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded hover:bg-[#edf4f0]"><X size={18} /></button>
+    <header className={styles.header}>
+      <h2 ref={heading} tabIndex={-1} className={styles.libraryHeading}><Compass size={20} aria-hidden="true" /> Tutorials</h2>
+      <div className={styles.headerActions}><button type="button" aria-label="Close tutorials" onClick={onClose}><X size={18} /></button></div>
     </header>
-    <label className="mx-4 my-3 flex items-center gap-2 rounded border border-[#cbd7d1] px-3 focus-within:ring-2 focus-within:ring-[#0f8b73]"><Search size={16} aria-hidden="true" /><input ref={search} aria-label="Search tutorials" placeholder="Find a task" value={query} onChange={(event) => setQuery(event.target.value)} className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
-    {navigationError ? <p role="alert" className="px-4 pb-3 text-sm text-[#a13b30]">{navigationError}</p> : null}
-    <div className="min-h-0 overflow-y-auto px-4 pb-3">
-      {resumable ? <button type="button" onClick={onResume} className="mb-3 flex w-full items-center justify-between border-b border-[#cbd7d1] py-3 text-left text-sm font-semibold text-[#0c705f]">Resume {resumable.title}<ArrowRight size={16} /></button> : null}
-      {groups.map((group) => {
-        const items = tutorials.filter((item) => item.context === group.id);
+    <div className={styles.libraryBody}>
+      {navigationError ? <p role="alert" className={styles.error}>{navigationError}</p> : null}
+      {waitingForReferral ? <div className={styles.pickReferral}>
+        <button type="button" className={styles.backToTopics} onClick={() => setPending(null)}><ArrowLeft size={16} /> All tutorials</button>
+        <h3>Choose a referral</h3>
+        <p>Open a referral in Workspaces. <strong>{waitingForReferral.title}</strong> will {pending?.resume ? "resume" : "start"} there.</p>
+        <button type="button" onClick={onBrowse} className={styles.browseReferrals}><FolderSearch size={17} /> Show referrals</button>
+        {waitingForReferral.id === "complete-assessment" ? <button type="button" className={styles.sampleLink} onClick={() => { setPending(null); onStart("practice-assessment"); }}>Use a sample assessment instead <ArrowRight size={16} /></button> : null}
+      </div> : <>
+      {resumable ? <button type="button" onClick={() => choose(resumable, true)} className={styles.resume}><span>Resume <strong>{resumable.title}</strong></span><ArrowRight size={17} /></button> : null}
+      <div className={styles.topics} aria-label="Tutorial topics">
+      {operatorGuideTopics.map((topic) => {
+        const items = topic.tutorialIds.flatMap((id) => tutorials.filter((item) => item.id === id));
         if (!items.length) return null;
-        return <section key={group.id} className="mb-4">
-          <h3 className="mb-1 text-xs font-bold text-[#4b6155]">{group.label}</h3>
-          {group.id === "workspace" && !workspace ? <p className="mb-2 text-xs text-[#67756d]">Open a referral to use these tutorials.</p> : null}
-          <div className="divide-y divide-[#e5ebe7]">{items.map((item) => <button key={item.id} type="button" onClick={() => onStart(item.id)} disabled={item.context === "workspace" && !workspace} aria-label={"Start tutorial: " + item.title} className="flex w-full items-center gap-3 py-3 text-left hover:text-[#0c705f] disabled:opacity-45">
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{item.title}</span><span className="mt-1 block text-xs leading-4 text-[#67756d]">{item.summary}</span><span className="mt-1 block text-[11px] text-[#67756d]">{item.steps.length} steps · {item.minutes} min</span></span>
-            {completed.includes(item.id) ? <Check size={16} aria-label="Guide reviewed" /> : <ChevronRight size={16} className="shrink-0" />}
-          </button>)}</div>
+        const Icon = topicIcons[topic.id];
+        const isOpen = expanded === topic.id;
+        const direct = topic.id === "create";
+        return <section key={topic.id} className={styles.topic}>
+          <button type="button" className={styles.topicButton} aria-label={direct ? "Start tutorial: " + items[0].title : topic.title} aria-expanded={direct ? undefined : isOpen} aria-controls={direct ? undefined : "tutorial-topic-" + topic.id} onClick={() => direct ? choose(items[0]) : setExpanded(isOpen ? null : topic.id)}>
+            <span className={styles.topicIcon}><Icon size={20} aria-hidden="true" /></span>
+            <span className={styles.topicTitle}>{topic.title}{direct ? <span className={styles.sampleLabel}>Sample referral</span> : null}</span>
+            {direct ? <ArrowRight size={17} aria-hidden="true" /> : <ChevronDown size={17} className={isOpen ? styles.rotated : undefined} aria-hidden="true" />}
+          </button>
+          {!direct && isOpen ? <div id={"tutorial-topic-" + topic.id} className={styles.topicItems}>{items.map((item) => <button key={item.id} type="button" onClick={() => choose(item)} aria-label={"Start tutorial: " + item.title} className={styles.tutorialItem}>
+            <span>{item.title}</span>{completed.includes(item.id) ? <Check size={16} aria-label="Guide reviewed" /> : <ChevronRight size={16} aria-hidden="true" />}
+          </button>)}</div> : null}
         </section>;
       })}
-      {!tutorials.length ? <p role="status" className="py-4 text-sm text-[#67756d]">No matching tutorials.</p> : null}
+      </div>
+      </>}
     </div>
   </section>;
 }

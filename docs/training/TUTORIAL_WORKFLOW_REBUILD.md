@@ -9,9 +9,9 @@ Application-use walkthroughs only: where to click, what a control changes, how
 to return, and how to recognize saved work. No assessment philosophy, clinical
 instruction, language lab, or competency claims.
 
-The existing Help entry is labeled Tutorials. Its task library is searchable
-and grouped into the current workspace, other application tasks, and explicitly
-separate practice. Existing /training routes still redirect home. No deployment,
+The existing Help entry is labeled Tutorials. Its menu groups related tasks
+under four plain-language topics, plus role-filtered team/report tools.
+Practice options are explicitly labeled. Existing /training routes still redirect home. No deployment,
 activation of retired pages, real invitations, or email deliveries are included.
 
 ## First-Pass Catalog
@@ -43,8 +43,9 @@ the referral or bypassing a permission.
 ## Behavior
 
 - Workspace navigation preserves referral/draft identity and uses the existing
-  workspace-location helpers. A workspace-only guide cannot start from Home or
-  an unsaved intake.
+  workspace-location helpers. From Home or an unsaved intake, selecting a
+  workspace guide opens Workspaces and waits for the user to choose a referral.
+  It starts only after a referral opens, with a fresh role check.
 - Navigation awaits the shell's existing save guard. A failed guard leaves the
   current page and step in place and reports the failure.
 - Practice starts with a new draft identifier and never inherits a live referral
@@ -92,6 +93,26 @@ verify clinical competence or every business action. Only already-supported
 interaction/completion events advance automatically. Add new automatic checks
 only when a canonical success signal exists and has a failure-path test.
 
+## Menu Simplification (2026-09-20)
+
+The gray disabled list and search box are removed. Create a referral starts the
+explicitly labeled sample intake. Schedule & assess, Decide & admit, and Find
+work & files expand into short action labels, with only one group open at a time.
+Team & reports appears only when the role catalog allows those guides. Each
+existing guide appears exactly once; identifiers and stored progress are unchanged.
+Repeated summaries and time/step estimates are removed from the menu.
+
+A guide that needs a referral remains clickable from Home. It opens the existing
+Workspaces directory, then starts on the referral the user selects. This uses
+the same save guard and workspace identity resolver as other guide navigation;
+it does not create a blank referral or change data. The user can cancel, close,
+or choose a clearly labeled sample assessment instead. A canceled selection does
+not survive closing the menu; resuming an already-started guide still does.
+
+Deliberate ceiling: the menu has four core topics and one supervisor group, so
+search adds unnecessary clutter. Reconsider search if topic lists grow beyond
+the current six short actions in the largest group.
+
 ## Deliberate Limits
 
 This pass reuses the existing coach, progress API, practice fixtures, and real
@@ -113,6 +134,14 @@ replaces those legacy contracts.
 
 ## Focused Evidence
 
+Menu-simplification result: seven contract tests and eighteen browser tests passed.
+Desktop and phone menu screenshots were inspected. Scoped axe WCAG A/AA checks
+passed for the expanded menu at both sizes. The Home-to-referral test verifies
+the chosen referral ID and unchanged record contents, while allowing the app's
+existing presence heartbeat. Cancellation and switching to a sample are covered.
+The production Webpack build (including TypeScript), focused ESLint, and diff
+checks passed. No deployment was performed.
+
 Second-pass result: six executable contract tests and fifteen browser tests
 passed. The production Webpack build, TypeScript, focused ESLint, and diff checks
 passed. Desktop (1440px), tablet (1024px), and phone (390px/375px) screenshots were
@@ -123,7 +152,7 @@ certify every state of every authored guide or real email delivery.
 - npx tsc --noEmit
 - npx eslint on the changed tutorial modules and new browser test
 - npm run build -- --webpack (isolated output directory)
-- tests/e2e/tutorial-workflows.spec.ts: real Help entry, search, stage/context
+- tests/e2e/tutorial-workflows.spec.ts: real Help entry, grouped menu, stage/context
   restrictions, desktop/phone highlights, practice reset, no live practice
   writes, skipped progress, preserved referral context, restricted-role event,
   continued /training redirect, non-overlapping work/guide areas, sticky-control

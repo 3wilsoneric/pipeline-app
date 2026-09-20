@@ -13,6 +13,28 @@
 .headerActions { display: flex; }
 .headerActions button { display: grid; place-items: center; width: 36px; height: 40px; border-radius: 4px; color: #52675b; }
 .headerActions button:hover, .footer button:not(.continue):hover { background: #edf4ef; }
+.libraryHeading { display: flex; align-items: center; gap: 9px; margin: 0; color: #155f49; font-size: 19px; font-weight: 700; }
+.libraryBody { flex: 1; min-height: 0; padding: 16px; overflow-y: auto; overscroll-behavior: contain; }
+.topics { display: flex; flex-direction: column; gap: 4px; }
+.topicButton { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 68px; padding: 12px 8px; border-radius: 6px; color: #145b44; text-align: left; }
+.topicButton:hover, .topicButton[aria-expanded="true"] { background: #edf6f0; }
+.topicButton > svg { flex-shrink: 0; }
+.topicIcon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 6px; background: #e5f2e9; color: #126347; }
+.topicTitle { flex: 1; min-width: 0; font-size: 16px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+.sampleLabel { display: block; margin-top: 3px; color: #486959; font-size: 12px; font-weight: 500; }
+.topicItems { padding: 4px 8px 8px 24px; }
+.tutorialItem { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 10px 12px; border-left: 2px solid #c6e0d0; text-align: left; color: #214d3a; font-size: 14px; line-height: 1.5; }
+.tutorialItem:hover { border-color: #1b7f59; background: #f0f7f2; }
+.tutorialItem > svg { flex-shrink: 0; color: #1b7f59; }
+.resume { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 12px; margin-bottom: 12px; border-radius: 6px; background: #e7f4ec; text-align: left; color: #185c43; font-size: 12px; }
+.resume strong { display: block; font-size: 14px; font-weight: 650; }
+.resume > svg { flex-shrink: 0; }
+.pickReferral h3 { margin: 20px 0 8px; color: #1e3d2d; font-size: 19px; font-weight: 650; }
+.pickReferral p { margin: 0 0 16px; color: #425c4d; font-size: 14px; line-height: 1.6; }
+.backToTopics, .sampleLink { display: flex; align-items: center; gap: 8px; min-height: 44px; color: #17684b; font-size: 13px; text-align: left; }
+.sampleLink { margin-top: 16px; }
+.browseReferrals { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 6px; background: #146d50; color: #fff; font-size: 14px; font-weight: 600; }
+.browseReferrals:hover { background: #0b553c; }
 .scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 24px; }
 .context { margin: 0 0 8px; color: #61736a; font-size: 12px; font-weight: 600; }
 .task h2 { margin: 0; font-size: 21px; line-height: 1.3; font-weight: 700; }
@@ -55,6 +77,8 @@
 @media (max-width: 1199px) {
   .dock { flex: 0 0 auto; width: 100%; max-height: min(42%, 340px); border-left: 0; border-top: 1px solid #b7d0c1; box-shadow: 0 -3px 12px #233f3010; }
   .library { height: 48%; max-height: 48%; }
+  .libraryBody { padding: 8px 16px 16px; }
+  .topicButton { min-height: 56px; padding-block: 8px; }
   .header { min-height: 44px; padding-inline: 16px; }
   .headerActions button { height: 36px; }
   .scroll { padding: 0 16px 12px; }
