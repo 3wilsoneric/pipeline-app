@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:bd73a45b2c91fe24",
-  "fingerprint": "bd73a45b2c91fe246a1196bbf7a0d7335011984bfe927f516567f4f9f718f7c0",
+  "generatedAt": "source-fingerprint:a881351897e8a3cb",
+  "fingerprint": "a881351897e8a3cb3aa8d596a07ace49b36f4d1ee9607a9e4c44d4b92c915b52",
   "totals": {
     "files": 1279,
-    "lines": 350457,
+    "lines": 350469,
     "coveredFiles": 1279
   },
   "entries": [
@@ -12873,7 +12873,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 833,
+      "lines": 847,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15431,7 +15431,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 83,
+      "lines": 81,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

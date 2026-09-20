@@ -71,6 +71,7 @@ let seededReferralName = `McMaster QA ${runId}`;
 
 if (useSanitizedFixtures) await installSanitizedClinicalFixtures(page);
 if (useSanitizedFixtures) await installSanitizedTrainingFixture(page);
+if (useSanitizedFixtures) await installSanitizedContactListFixture(page);
 if (isLocalTarget && process.env.PIPELINE_PERF_SEED !== "false") {
   seededReferralName = await seedPerformanceReferral(context.request, parsedBaseUrl.origin, seededReferralName, runId);
 }
@@ -696,6 +697,19 @@ async function installSanitizedClinicalFixtures(page) {
     headers: fixtureHeaders,
     body: JSON.stringify(directory),
   }));
+}
+
+async function installSanitizedContactListFixture(page) {
+  // Private community address files are intentionally absent from certification.
+  // Supply an explicit empty template; recipient persistence stays in its own gates.
+  await page.route(/\/api\/community-recipient-lists(?:\?|$)/, (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    return route.fulfill({ status: 200, headers: {
+      "cache-control": "private, no-store, max-age=0",
+      "content-type": "application/json",
+      "x-pipeline-test-fixture": "sanitized",
+    }, body: JSON.stringify({ lists: [] }) });
+  });
 }
 
 async function installSanitizedTrainingFixture(page) {
