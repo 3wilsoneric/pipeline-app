@@ -315,6 +315,10 @@ export function getMockUploadDescriptor(packetId: string, fileId: string) {
   return uploadDescriptors.get(packetId)?.find((file) => file.file_id === fileId) ?? null;
 }
 
+export function isMockPreviewOnlyPacket(packetId: string) {
+  return packets.get(packetId)?.processing_intent === "preview_only";
+}
+
 export function recordMockPacketExtraction(input: {
   packetId: string;
   fields: ExtractedField[];

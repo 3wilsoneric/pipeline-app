@@ -2,6 +2,7 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import {
   allowedUploadContentTypes,
+  referralDocumentAutofillEnabled,
   type CompleteUploadResponse,
   type CreateUploadUrlResponse,
   type DocumentCategory,
@@ -48,7 +49,11 @@ export async function uploadReferralPacket(
   sha256: string,
   category: InitialDocumentCategory,
 ): Promise<PacketUploadResult> {
-  const { packetId, fileId, completed, mock } = await uploadFileOnce(referral, file, sha256, category);
+  const { packetId, fileId, completed, mock } = await uploadFileOnce(referral, file, sha256, category, referralDocumentAutofillEnabled ? undefined : "preview_only");
+  if (!referralDocumentAutofillEnabled) return {
+    packetId, status: completed.status, pageCount: 0,
+    document: completed.documents?.find((document) => document.file_id === fileId), mock,
+  };
   const status = await fetchPipelineJson<PacketStatusResponse>(`/api/packets/${packetId}/status`, {
     cache: "no-store",
   }).catch(() => ({
@@ -234,5 +239,6 @@ export function getPacketContentType(file: Pick<File, "name" | "type">) {
   if (extension === "png") return "image/png";
   if (extension === "tif" || extension === "tiff") return "image/tiff";
   if (extension === "heic") return "image/heic";
+  if (type.length <= 128 && /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type)) return type;
   return "application/octet-stream";
 }

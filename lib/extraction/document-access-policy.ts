@@ -3,3 +3,7 @@
 export function isDocumentContentAvailable(scanStatus: string | undefined): boolean {
   return scanStatus === "clean" || scanStatus === "not_scanned";
 }
+
+export function isBrowserPreviewable(contentType: string | undefined): boolean {
+  return ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "text/plain"].includes(contentType ?? "");
+}

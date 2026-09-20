@@ -3,6 +3,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { readLocalReferralPacket } from "@/lib/pipeline/local-document-store";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { isBrowserPreviewable } from "@/lib/extraction/document-access-policy";
 
 export const runtime = "nodejs";
 
@@ -26,10 +27,12 @@ export async function GET(request: Request, context: { params: Promise<{ referra
     return new Response(packet.bytes, {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
-        "Content-Disposition": `inline; filename="${contentDispositionName(packet.filename)}"`,
+        "Content-Disposition": `${isBrowserPreviewable(packet.contentType) ? "inline" : "attachment"}; filename="${contentDispositionName(packet.filename)}"`,
         "Content-Length": String(packet.size),
         "Content-Type": packet.contentType,
         "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
+        "X-Frame-Options": "SAMEORIGIN",
       },
     });
   });

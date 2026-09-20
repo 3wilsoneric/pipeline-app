@@ -11,6 +11,7 @@ import type {
 } from "@/lib/extraction/contracts";
 import {
   isReviewFieldReplay,
+  referralDocumentAutofillEnabled,
   resolveReviewFieldOutcome,
 } from "@/lib/extraction/contracts";
 import {
@@ -29,6 +30,7 @@ import {
   getPacketFields,
   getPacketStatus,
   getMockUploadDescriptor,
+  isMockPreviewOnlyPacket,
   recordMockPacketExtraction,
   retryField,
   reviewField,
@@ -45,6 +47,9 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 type Actor = { id: string; name: string; email: string };
 
 export function createPacketUpload(input: CreateUploadUrlRequest, actor: Actor) {
+  if (!referralDocumentAutofillEnabled && input.source_type === "manual") {
+    input = { ...input, processing_intent: "preview_only" };
+  }
   return getExtractionBackendMode() === "mock"
     ? Promise.resolve(createUploadTargets(input))
     : createDurableUploadTargets(input, actor);
@@ -89,6 +94,7 @@ export async function ingestLocalMockPacketFile(input: {
       filename: descriptor.filename,
       contentType: descriptor.content_type,
       expectedSha256: descriptor.sha256,
+      previewOnly: isMockPreviewOnlyPacket(input.packetId),
       bytes: input.bytes,
     });
     if (!recordMockPacketExtraction({

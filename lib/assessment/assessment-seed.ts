@@ -1,3 +1,4 @@
+import { referralDocumentAutofillEnabled } from "../extraction/contracts";
 import { assessmentFieldOwner } from "./assessment-field-ownership";
 import {
   assessmentToolFieldForExtractionKey,
@@ -35,7 +36,7 @@ export function buildAssessmentSeedFromReferral(
   referral: Referral,
   assessorName: string,
 ): AssessmentSeed {
-  const packetEvidence = (referral.packetFields ?? []).filter((field) => {
+  const packetEvidence = (referralDocumentAutofillEnabled ? referral.packetFields ?? [] : []).filter((field) => {
     const target = assessmentToolFieldForExtractionKey(field.field_key);
     return target ? assessmentFieldOwner(target) === "assessment_answer" : false;
   });

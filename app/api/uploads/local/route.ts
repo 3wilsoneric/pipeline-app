@@ -41,8 +41,8 @@ export async function POST(request: Request) {
     }
     const access = await requireMutablePacketAccess(auth.user, packetId, "files");
     if (!access.ok) return access.response;
-    if (packet.size < 5 || packet.size > maxUploadFileBytes) {
-      return Response.json({ error: "The initial packet must be between 5 bytes and 100 MB." }, { status: 413 });
+    if (packet.size < 1 || packet.size > maxUploadFileBytes) {
+      return Response.json({ error: "The initial packet must be between 1 byte and 100 MB." }, { status: 413 });
     }
 
     try {

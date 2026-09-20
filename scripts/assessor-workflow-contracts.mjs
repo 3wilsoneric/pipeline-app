@@ -363,11 +363,11 @@ const seededAssessment = assessmentSeed.buildAssessmentSeedFromReferral({
     },
   ],
 }, "Assigned Assessor", new Date("2026-08-25T12:00:00.000Z"));
-check("packet clinical evidence seeds the assessment as reviewable", seededAssessment.data.mobility === "Independent" && seededAssessment.status === "needs_review");
+check("paused document autofill leaves clinical answers for the assessor", seededAssessment.data.mobility === null && seededAssessment.status === "draft");
 check("opening a draft does not invent an assessment encounter date", seededAssessment.data.assessment_date === null && !seededAssessment.field_provenance.assessment_date);
 check("referral context remains authoritative during assessment seeding", seededAssessment.data.community === "San Pablo" && seededAssessment.data.county === "Contra Costa County");
 check("pre-assessment medications seed the assessment medication profile", seededAssessment.data.medications_at_intake.join("|") === "Olanzapine 10 mg|Metformin 500 mg");
-check("seeded assessment evidence retains page provenance", seededAssessment.field_provenance.mobility?.at(-1)?.source_page_no === 14);
+check("paused autofill does not attach unused packet evidence to answers", !seededAssessment.field_provenance.mobility);
 check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));
 const riskAnswerGuide = narrativeGuide.getAssessmentNarrativeGuide("behavioral_history");
 const guideCoverage = narrativeGuide.getAssessmentNarrativeGuideCoverage();

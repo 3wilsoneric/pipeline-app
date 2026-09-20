@@ -25,8 +25,8 @@ export async function writeLocalReferralPacket(input: {
   if (getReferralStoreReadiness().mode !== "local_file") {
     throw new Error("Local packet storage is available only with the local referral store.");
   }
-  if (input.bytes.byteLength < 5 || input.bytes.byteLength > maxLocalDocumentBytes) {
-    throw new Error("The packet must be between 5 bytes and 100 MB.");
+  if (input.bytes.byteLength < 1 || input.bytes.byteLength > maxLocalDocumentBytes) {
+    throw new Error("The packet must be between 1 byte and 100 MB.");
   }
 
   const root = localDocumentRoot();
@@ -71,7 +71,7 @@ export async function readLocalReferralPacket(documentHash: string) {
     const extension = contentTypeExtension(documentMetadata.contentType);
     const filePath = path.join(/* turbopackIgnore: true */ directory, `original.${extension}`);
     const fileMetadata = await stat(filePath);
-    if (!fileMetadata.isFile() || fileMetadata.size < 5 || fileMetadata.size > maxLocalDocumentBytes) return null;
+    if (!fileMetadata.isFile() || fileMetadata.size < 1 || fileMetadata.size > maxLocalDocumentBytes) return null;
     const bytes = await readFile(filePath);
     return {
       bytes,

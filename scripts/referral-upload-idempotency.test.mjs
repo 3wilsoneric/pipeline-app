@@ -68,6 +68,7 @@ test("eight simultaneous selections of the same packet share one reservation, tr
     const digest = await client.hashPacket(packet());
     const results = await Promise.all(Array.from({ length: 8 }, () => client.uploadReferralPacket(referral, packet(), digest, "face_sheet")));
     assert.equal(current.calls.reservations.length, 1);
+    assert.equal(current.calls.reservations[0].processing_intent, "preview_only");
     assert.equal(current.reservations.size, 1);
     assert.equal(current.calls.completions.length, 1);
     assert.equal(current.calls.local.length, azure ? 0 : 1);
@@ -153,4 +154,15 @@ test("production reservation serializes the same identity before checking or ins
   assert.equal(inserts, 1);
   assert.equal(calls.filter((call) => call.query.includes("pg_advisory_xact_lock")).length, 8);
   assert.deepEqual(calls[0].values, [`upload:${packetId}`]);
+});
+
+
+test("attachment MIME validation accepts any format without admitting unsafe headers or sending it to extraction", () => {
+  const contracts = loadEntry("lib/extraction/contracts.ts");
+  const input = { referral_id: "42", submitting_facility: "Synthetic", source_type: "manual", processing_intent: "preview_only", files: [{ file_id: "one", filename: "one.docx", size: 1, content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }] };
+  assert.equal(contracts.validateCreateUploadUrlRequest(input).ok, true);
+  assert.equal(contracts.validateCreateUploadUrlRequest({ ...input, processing_intent: "extract_referral" }).ok, false);
+  for (const content_type of ["text/html\r\nX-Bad: yes", "text/html; charset=utf8", "x".repeat(129)]) {
+    assert.equal(contracts.validateCreateUploadUrlRequest({ ...input, files: [{ ...input.files[0], content_type }] }).ok, false);
+  }
 });

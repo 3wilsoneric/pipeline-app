@@ -8,7 +8,7 @@ async function dragFiles(target: Locator, names: string[], phase: "enter" | "dro
     files.forEach(({ name, contents }) => dataTransfer.items.add(new File([contents], name, { type: name.endsWith(".txt") ? "text/plain" : "application/pdf" })));
     const types = phase === "enter" ? ["dragenter", "dragover"] : ["drop"];
     return types.map((type) => !element.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer })));
-  }, { files: names.map((name) => ({ name, contents: syntheticPdf() })), phase });
+  }, { files: names.map((name) => ({ name, contents: name === "empty.txt" ? "" : syntheticPdf() })), phase });
 }
 
 function syntheticPdf() {
@@ -87,10 +87,10 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
       const toggle = page.getByTestId("document-checklist-toggle");
       const panel = page.getByTestId("document-checklist-panel");
-      await dragFiles(toggle, ["invalid.txt"]);
+      await dragFiles(toggle, ["empty.txt"]);
       await expect(panel).toHaveAttribute("open", "");
-      await expect(panel.getByRole("alert")).toContainText("Upload a PDF");
-      await expect(page.getByRole("group", { name: "Upload initial referral document" })).not.toContainText("invalid.txt");
+      await expect(panel.getByRole("alert")).toContainText("Choose a nonempty file");
+      await expect(page.getByRole("group", { name: "Upload initial referral document" })).not.toContainText("empty.txt");
 
       // The file picker still clears the broad-drop error and uses the same pipeline.
       await page.getByTestId("initial-packet-input").setInputFiles({ name: "chosen-packet.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\nSynthetic packet") });

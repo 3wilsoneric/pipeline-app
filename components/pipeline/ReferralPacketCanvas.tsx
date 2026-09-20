@@ -91,7 +91,7 @@ import { getReferralPatchSections, normalizeReferralSectionVersions } from "@/li
 import { documentCategoryForRequirement } from "@/lib/pipeline/document-requirements";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
 import {
-  allowedUploadContentTypes,
+  referralDocumentAutofillEnabled,
   maxUploadFileBytes,
   type ExtractedField,
   type PacketFieldsResponse,
@@ -103,7 +103,6 @@ import { workspaceCanvasCacheTtlMs } from "@/lib/pipeline/client-navigation";
 import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import {
   createMutationId,
-  getPacketContentType,
   hashPacket,
   uploadReferralPacket,
   uploadReferralSupportingDocument,
@@ -443,7 +442,7 @@ export default function ReferralPacketCanvas({
   }, [beforeNavigationRef, emailSending]);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
-  const extraction = usePacketExtraction(loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
+  const extraction = usePacketExtraction(!referralDocumentAutofillEnabled || loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
   const intakeExtraction = useIntakeFileExtraction();
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<FieldKey>>(() => new Set());
   const { start: startIntakeExtraction, reset: resetIntakeExtraction } = intakeExtraction;
@@ -1035,7 +1034,7 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     const extractedFields = loadedReferral?.packetFields;
     const sourceFile = loadedReferral?.documentName;
-    if (loadedReferral?.workspaceStatus === "historical" || !extractedFields?.length) return;
+    if (!referralDocumentAutofillEnabled || loadedReferral?.workspaceStatus === "historical" || !extractedFields?.length) return;
 
     setFields((current) => {
       const next = populateFormFromExtraction(
@@ -1233,13 +1232,8 @@ export default function ReferralPacketCanvas({
   };
 
   const attachDocument = (id: string, file: File) => {
-    const contentType = getPacketContentType(file);
-    if (!(allowedUploadContentTypes as readonly string[]).includes(contentType)) {
-      setSaveError("Upload a PDF, JPEG, PNG, TIFF, or HEIC document.");
-      return;
-    }
-    if (file.size > maxUploadFileBytes) {
-      setSaveError("Documents must be 100 MB or smaller.");
+    if (file.size === 0 || file.size > maxUploadFileBytes) {
+      setSaveError("Choose a nonempty file, up to 100 MB.");
       return;
     }
     setSavedAt("Unsaved changes");
@@ -1290,8 +1284,8 @@ export default function ReferralPacketCanvas({
       const remaining = additionalFilesRef.current.filter((queued) => queued !== file);
       additionalFilesRef.current = remaining;
       setAdditionalFiles(remaining);
+      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id } }));
     }
-    window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id } }));
   };
 
   const retainQueuedAdditionalFileDraft = () => {
@@ -1666,8 +1660,8 @@ export default function ReferralPacketCanvas({
     );
     documentsRef.current = refreshedDocuments;
     setDocuments(refreshedDocuments);
-    setSavedAt("Linking extraction...");
-    const extractedForm = upload.fields
+    setSavedAt("Saving document...");
+    const extractedForm = referralDocumentAutofillEnabled && upload.fields
       ? populateFormFromExtraction(fieldsRef.current, upload.fields.fields, packet.name, dirtyKeysRef.current)
       : fieldsRef.current;
     const extractedKeys = changedExtractionKeys(fieldsRef.current, extractedForm, dirtyKeysRef.current);
@@ -2366,14 +2360,14 @@ export default function ReferralPacketCanvas({
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
                 <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
-            <IntakeExtractionProgress extraction={intakeExtraction} referralId={loadedReferral?.id} suggestionCount={suggestionCount} />
+            {referralDocumentAutofillEnabled ? <IntakeExtractionProgress extraction={intakeExtraction} referralId={loadedReferral?.id} suggestionCount={suggestionCount} /> : null}
             <IntakeDocumentChecklist
               readOnly={permissionReadOnly}
               initialPacket={initialPacket}
               initialPacketCategory={initialPacketCategory}
               recordedName={loadedReferral?.documentName}
               recordedStatus={loadedReferral?.documentStatus}
-              packetMessage={loadedReferral?.packetMessage}
+              packetMessage={referralDocumentAutofillEnabled ? loadedReferral?.packetMessage : undefined}
               documents={documents}
               pendingDocuments={pendingDocuments}
               referral={loadedReferral}
@@ -2392,7 +2386,7 @@ export default function ReferralPacketCanvas({
               workspaceFiles={workspaceFiles}
               onAddFiles={attachAdditionalFiles}
             >
-            {loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length ? (
+            {referralDocumentAutofillEnabled && (loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length) ? (
               <PacketExtractionReview
                 fields={referralContextPacketFields}
                 fileName={loadedReferral?.documentName || "the uploaded packet"}
@@ -3391,7 +3385,7 @@ function InitialPacketDropzone({
           <div id="initial-packet-status" aria-live="polite" className="mt-1 text-[11px] leading-5 text-[#595959]">
             {presentation.status}
           </div>
-          <div id="initial-packet-help" className="mt-0.5 text-[10px] font-semibold text-[#737373]">PDF, JPEG, PNG, TIFF, or HEIC · 100 MB maximum</div>
+          <div id="initial-packet-help" className="mt-0.5 text-[10px] font-semibold text-[#737373]">Any file type · 100 MB per file</div>
         </div>
         <div className="flex shrink-0 items-center justify-center gap-2">
           <button
@@ -3422,7 +3416,6 @@ function InitialPacketDropzone({
           ref={inputRef}
           data-testid="initial-packet-input"
           type="file"
-          accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic"
           aria-label="Choose referral documents"
           multiple
           className="sr-only"
@@ -3458,7 +3451,7 @@ function AdditionalDocumentDropzone({ queued, files, onAdd }: {
       >
         <div className="flex min-w-0 items-center gap-3"><UploadCloud size={20} aria-hidden="true" className="text-[#0f8b73]" /><span className="text-[12px] font-semibold text-[#3f4745]">Drop files here or browse</span></div>
         <button type="button" onClick={() => inputRef.current?.click()} className="h-9 bg-[#111111] px-4 text-[11px] font-bold text-white hover:bg-[#0f8b73]">Add files</button>
-        <input ref={inputRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic" aria-label="Choose additional referral documents" className="sr-only" onChange={(event) => { onAdd(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
+        <input ref={inputRef} type="file" multiple aria-label="Choose additional referral documents" className="sr-only" onChange={(event) => { onAdd(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
       </div>
       {queued.length ? (
         <ul className="mt-2 divide-y divide-[#e1e4e2]" aria-label="Additional referral file list">
@@ -3800,7 +3793,6 @@ function DocumentDropRow({
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic"
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -4164,6 +4156,7 @@ function mergeExtractedFields(
 }
 
 function packetUploadStatusMessage(mock: boolean, pageCount: number) {
+  if (!referralDocumentAutofillEnabled) return "Document saved.";
   if (!mock) return "Packet uploaded and extraction started.";
   const pageLabel = pageCount === 1 ? "page" : "pages";
   return `Development local extraction completed. ${pageCount} source ${pageLabel} preserved; confirm the stripped values below.`;
@@ -4456,19 +4449,15 @@ function workspaceTagsInput(tags: string[] | undefined) {
 
 function validateInitialPacketSelection(file: File | undefined): InitialPacketSelectionResult {
   if (!file) return { accepted: false };
-  const contentType = getPacketContentType(file);
-  if (!(allowedUploadContentTypes as readonly string[]).includes(contentType)) {
-    return { accepted: false, error: "Upload a PDF, JPEG, PNG, TIFF, or HEIC referral document." };
-  }
-  if (file.size > maxUploadFileBytes) {
-    return { accepted: false, error: "The initial referral document must be 100 MB or smaller." };
+  if (file.size === 0 || file.size > maxUploadFileBytes) {
+    return { accepted: false, error: "Choose a nonempty file, up to 100 MB." };
   }
   return { accepted: true, file };
 }
 
 function validateAdditionalFileSelection(files: File[]) {
-  const invalid = files.find((file) => !(allowedUploadContentTypes as readonly string[]).includes(getPacketContentType(file)) || file.size > maxUploadFileBytes);
-  return invalid ? `${invalid.name}: upload a PDF, JPEG, PNG, TIFF, or HEIC document under 100 MB.` : "";
+  const invalid = files.find((file) => file.size === 0 || file.size > maxUploadFileBytes);
+  return invalid ? `${invalid.name}: choose a nonempty file, up to 100 MB.` : "";
 }
 
 function initialPacketDropzonePresentation({

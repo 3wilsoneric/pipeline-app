@@ -263,6 +263,9 @@ export const maxJsonBodyBytes = 64 * 1024;
 export const maxUploadFileBytes = 100 * 1024 * 1024;
 export const maxUploadFilesPerRequest = 25;
 export const maxUploadRequestBytes = 1024 * 1024 * 1024;
+// Attachments remain available while document reading/autofill is being rebuilt.
+// Re-enable only with an approved extraction rollout and field-accuracy evidence.
+export const referralDocumentAutofillEnabled: boolean = false;
 export const allowedUploadContentTypes = [
   "application/pdf",
   "image/jpeg",
@@ -328,7 +331,10 @@ export function validateCreateUploadUrlRequest(
     }
     fileIds.add(file.file_id);
 
-    if (
+    if (file.content_type.length > 128 || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i.test(file.content_type)) {
+      return invalid("Invalid file content type.", 415);
+    }
+    if (body.processing_intent !== "preview_only" &&
       !(allowedUploadContentTypes as readonly string[]).includes(
         file.content_type.toLowerCase(),
       )

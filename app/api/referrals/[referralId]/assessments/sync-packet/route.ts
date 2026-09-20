@@ -17,7 +17,7 @@ import {
   requireAssessmentStore,
 } from "@/lib/assessment/assessment-store";
 import { assessmentToolFieldForExtractionKey } from "@/lib/assessment/assessment-tool-schema";
-import { jsonError, readJsonBody, type ExtractedField } from "@/lib/extraction/contracts";
+import { referralDocumentAutofillEnabled, jsonError, readJsonBody, type ExtractedField } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
@@ -62,7 +62,7 @@ export async function POST(
     }
     const assessment = await getAssessment(body.value.assessment_id);
     if (!assessment || assessment.referral_id !== referralId) return jsonError("Assessment not found.", 404);
-    if (isAssessmentFinalized(assessment)) {
+    if (!referralDocumentAutofillEnabled || isAssessmentFinalized(assessment)) {
       return Response.json({ assessment, synced: false }, { headers: privateHeaders() });
     }
 

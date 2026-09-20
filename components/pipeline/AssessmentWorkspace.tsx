@@ -1,5 +1,7 @@
 "use client";
 
+import { referralDocumentAutofillEnabled } from "@/lib/extraction/contracts";
+
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -697,7 +699,7 @@ export default function AssessmentWorkspace({
   }, [loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
 
   useEffect(() => {
-    if (!referralId || !selected || isAssessmentFinalized(selected) || !packetEvidenceVersion || dirty) return;
+    if (!referralDocumentAutofillEnabled || !referralId || !selected || isAssessmentFinalized(selected) || !packetEvidenceVersion || dirty) return;
     const syncKey = `${selected.assessment_id}:${packetEvidenceVersion}`;
     if (packetSyncKeysRef.current.has(syncKey)) return;
     packetSyncKeysRef.current.add(syncKey);
