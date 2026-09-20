@@ -294,6 +294,14 @@ field checks and SQL/audit obligations are unchanged. Only if it passes may one
 corrected peak, then one two-hour soak proceed. Prior failed profiles stay failed;
 the connection-policy change must remain explicit in all reported results.
 
+That fresh-connection control passed 9,922 saves, all 100 actors' steady progress,
+SQL/audit reconciliation, all HTTP 200 verification reads and zero captured
+transport/browser failures. Shard save p95 was 222 / 222 / 240 / 261 ms;
+Calendar-and-back p95 was 557 / 520 / 600 / 674 ms. The corrected 20-minute peak
+(`freshprobe100-peak`, same `6d36b01` harness, explicit `close` verification policy)
+is running. It must pass before endurance; no production application change or
+capacity certification follows from this short control alone.
+
 Use only loopback PostgreSQL named `pipeline_capacity_*` and unchanged canonical
 migrations. Never deploy the synthetic build or point this harness at production.
 
