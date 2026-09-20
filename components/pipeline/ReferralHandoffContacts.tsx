@@ -26,8 +26,8 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
   return <details className={styles.section} open={!compact || undefined}>
     <summary><span className={styles.icon}><Mail size={19} aria-hidden="true" /></span><span><strong>Handoff contacts</strong><small>{community === "Unassigned" || !community ? "Select a community" : community} <span aria-hidden="true">/</span> {count} recipients</small></span><span className={styles.summaryNote}>{compact ? "Review To / Cc" : "Admission packet & Meet the Client"}</span></summary>
     <div className={styles.content} aria-label="Handoff contacts">
-      <p className={styles.explanation}>Built from your admission emails. Changes here apply only to your handoff, not the community list. Review everyone before sending.</p>
-      {(["to", "cc"] as const).map((lane) => <RecipientChipField key={`${community}-${lane}`} label={lane === "to" ? "To" : "Cc"}
+      <p className={styles.explanation}>Changes apply to this handoff only. Confirm recipients before sending.</p>
+      {(["to", "cc"] as const).map((lane) => <RecipientChipField key={`${community}-${lane}`} compact label={lane === "to" ? "To" : "Cc"}
         recipients={value.fields[lane]} contacts={contacts} excluded={excluded} text={text[lane]} disabled={disabled || !value.editable}
         onText={(input) => setText((previous) => ({ ...previous, [lane]: input }))} onAdd={(input) => add(lane, input)}
         onRemove={(email) => value.change({ ...value.fields, [lane]: value.fields[lane].filter((item) => item.email !== email) })} />)}

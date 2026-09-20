@@ -12,12 +12,13 @@ type Props = {
   excluded: Set<string>;
   text: string;
   disabled: boolean;
+  compact?: boolean;
   onText: (text: string) => void;
   onAdd: (text: string) => void;
   onRemove: (email: string) => void;
 };
 
-export default function RecipientChipField({ label, recipients, contacts, excluded, text, disabled, onText, onAdd, onRemove }: Props) {
+export default function RecipientChipField({ label, recipients, contacts, excluded, text, disabled, compact = false, onText, onAdd, onRemove }: Props) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
@@ -32,7 +33,7 @@ export default function RecipientChipField({ label, recipients, contacts, exclud
     input.current?.focus();
   };
 
-  return <div className={styles.recipientRow}>
+  return <div className={`${styles.recipientRow} ${compact ? styles.compact : ""}`}>
     <label className={styles.laneLabel} htmlFor={id}>{label}<span>{recipients.length}</span></label>
     <div className={styles.recipientBody}>
       <ul className={styles.chips} aria-label={`${label} recipients`}>

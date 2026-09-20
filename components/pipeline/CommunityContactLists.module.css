@@ -61,6 +61,15 @@
 .error { padding: 14px 28px; background: #fff3f1; color: #923d38; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .error button { display: block; min-height: 44px; margin-top: 5px; text-decoration: underline; font-weight: 600; }
 .loading { display: flex; gap: 10px; align-items: center; min-height: 100px; }
+.recipientRow.compact { grid-template-columns: 36px minmax(0, 1fr); gap: 10px; margin: 0; padding: 12px 0; }
+.compact .laneLabel { padding-top: 4px; font-size: 14px; }
+.compact .chips { gap: 6px; }
+.compact .chip { min-height: 46px; gap: 6px; padding: 2px 2px 2px 8px; }
+.compact .avatar { flex-basis: 22px; width: 22px; height: 22px; font-size: 11px; }
+.compact .identity strong { font-size: 14px; }
+.compact .identity > span { font-size: 12px; }
+.compact .addWrap { margin-top: 6px; }
+.compact .hint { margin-top: 4px; }
 @keyframes arrive { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 1050px) { .layout { grid-template-columns: 185px minmax(0, 1fr); gap: 16px; } .recipientRow { margin: 0 20px; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; } .avatar { display: none; } }
 @media (max-width: 760px) {
@@ -68,6 +77,7 @@
   .layout { display: block; } .communities { display: none; } .mobileCommunity { display: grid; gap: 6px; margin-bottom: 16px; } .mobileCommunity label { font-size: 12px; font-weight: 650; } .mobileCommunity select { width: 100%; min-height: 44px; border: 1px solid #bcccc1; border-radius: 7px; background: #fff; padding: 8px 10px; font-size: 16px; }
   .editorHeader { padding: 18px 14px; gap: 10px; } .editorHeader h2 { font-size: 21px; } .editorHeader p { font-size: 12px; } .mailIcon { width: 36px; height: 38px; } .editorHeader p span { padding: 0 3px; }
   .recipientRow { display: block; margin: 0 14px; padding: 16px 0; } .laneLabel { display: flex; align-items: center; gap: 8px; padding-top: 0; margin-bottom: 12px; } .laneLabel span { margin-top: 0; }
+  .compact .laneLabel { padding-top: 0; margin-bottom: 6px; }
   .chips { gap: 7px; } .chip { width: 100%; padding: 5px 0 5px 9px; justify-content: space-between; } .identity { flex: 1; } .identity strong { font-size: 14px; } .identity > span { font-size: 12px; } .remove { flex-basis: 44px; height: 44px; } .addLine input { font-size: 16px; }
   .note { padding: 14px; } .footer { padding: 12px 14px max(12px, env(safe-area-inset-bottom)); gap: 8px; } .feedback { gap: 8px; } .save { padding: 0 13px; } .error { padding: 14px; }
 }
