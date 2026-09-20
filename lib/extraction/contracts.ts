@@ -331,16 +331,8 @@ export function validateCreateUploadUrlRequest(
     }
     fileIds.add(file.file_id);
 
-    if (file.content_type.length > 128 || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i.test(file.content_type)) {
-      return invalid("Invalid file content type.", 415);
-    }
-    if (body.processing_intent !== "preview_only" &&
-      !(allowedUploadContentTypes as readonly string[]).includes(
-        file.content_type.toLowerCase(),
-      )
-    ) {
-      return invalid("Unsupported file type. Upload PDF, JPEG, PNG, TIFF, or HEIC packets only.", 415);
-    }
+    const contentTypeError = uploadContentTypeError(file.content_type, body.processing_intent);
+    if (contentTypeError) return invalid(contentTypeError, 415);
 
     if (!Number.isFinite(file.size) || file.size <= 0) {
       return invalid("Each file requires a positive size.");
@@ -456,4 +448,16 @@ function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} bytes`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${Math.round(bytes / 1024 / 1024)} MB`;
+}
+
+export function isUploadContentType(value: string) {
+  return value.length <= 128 && /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i.test(value);
+}
+
+function uploadContentTypeError(contentType: string, intent: CreateUploadUrlRequest["processing_intent"]) {
+  if (!isUploadContentType(contentType)) return "Invalid file content type.";
+  if (intent !== "preview_only" && !(allowedUploadContentTypes as readonly string[]).includes(contentType.toLowerCase())) {
+    return "Unsupported file type. Upload PDF, JPEG, PNG, TIFF, or HEIC packets only.";
+  }
+  return "";
 }

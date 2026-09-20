@@ -165,15 +165,8 @@ function PreviewBody({
       </div>
     );
   }
-  if (isDocumentContentAvailable(metadata?.malware_scan_status) && isBrowserPreviewable(metadata?.content_type ?? file.contentType)) {
-    return <iframe src={file.previewUrl ?? toPipelinePath(`/api/files/${file.id}/preview`)} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
-  }
   if (isDocumentContentAvailable(metadata?.malware_scan_status)) {
-    return <div className="bg-white px-5 py-16 text-center">
-      <div className="text-[14px] font-black text-[#111111]">File saved</div>
-      <p className="mt-2 text-[12px] text-[#737373]">This file type opens in its original application.</p>
-      <a href={originalFileUrl(file, metadata)} target="_blank" rel="noreferrer" className="mt-4 inline-block font-bold text-[#0f8b73]">Open or download original</a>
-    </div>;
+    return <OriginalFilePreview file={file} metadata={metadata} />;
   }
   return (
     <div className="bg-white px-5 py-16 text-center">
@@ -183,6 +176,17 @@ function PreviewBody({
       </p>
     </div>
   );
+}
+
+function OriginalFilePreview({ file, metadata }: { file: ReferralFile; metadata: FilePreviewMetadata | null }) {
+  if (isBrowserPreviewable(metadata?.content_type ?? file.contentType)) {
+    return <iframe src={file.previewUrl ?? toPipelinePath(`/api/files/${file.id}/preview`)} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
+  }
+  return <div className="bg-white px-5 py-16 text-center">
+    <div className="text-[14px] font-black text-[#111111]">File saved</div>
+    <p className="mt-2 text-[12px] text-[#737373]">This file type opens in its original application.</p>
+    <a href={originalFileUrl(file, metadata)} target="_blank" rel="noreferrer" className="mt-4 inline-block font-bold text-[#0f8b73]">Open or download original</a>
+  </div>;
 }
 
 function previewDetail(file: ReferralFile, metadata: FilePreviewMetadata | null, isLocalPacket: boolean) {

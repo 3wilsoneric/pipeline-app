@@ -7,7 +7,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { localFileBytesResponse } from "@/lib/pipeline/local-file-response";
-import { isBrowserPreviewable } from "@/lib/extraction/document-access-policy";
+import { originalDocumentDisposition } from "@/lib/extraction/document-access-policy";
 
 export const runtime = "nodejs";
 
@@ -28,7 +28,7 @@ export async function GET(request: Request, context: { params: Promise<{ documen
       const asset = await getDocumentOriginalAsset(documentId);
       if (!asset) return Response.json({ error: "File not found." }, { status: 404 });
       const location = await getAzureBlobUploadSigner().createReadUrl(
-        asset.container, asset.blobKey, 120, isBrowserPreviewable(asset.contentType) ? undefined : "attachment",
+        asset.container, asset.blobKey, 120, originalDocumentDisposition(asset.contentType),
       );
       return new Response(null, {
         status: 303,

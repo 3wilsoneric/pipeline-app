@@ -235,7 +235,7 @@ async function completeDurableUploadWithMode(
   const queueReferralExtraction = queueExtraction && packet.processing_intent === "extract_referral";
   const previewContentTypes = [...allowedUploadContentTypes];
   const previewFiles = files.filter((file) => (previewContentTypes as string[]).includes(file.content_type));
-  const queuePreview = (queueExtraction || packet.processing_intent === "preview_only") && previewFiles.length > 0;
+  const queuePreview = shouldQueueDocumentPreviews(queueExtraction, packet.processing_intent, previewFiles.length);
   const queuesWork = queueReferralExtraction || queuePreview;
   const priorJob = queuesWork
     ? await sql<{ extraction_job_id: string }[]>`
@@ -673,4 +673,8 @@ function uuid(value: string) {
 
 function iso(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function shouldQueueDocumentPreviews(queueExtraction: boolean, intent: PacketRow["processing_intent"], supportedFileCount: number) {
+  return (queueExtraction || intent === "preview_only") && supportedFileCount > 0;
 }

@@ -1661,7 +1661,7 @@ export default function ReferralPacketCanvas({
     documentsRef.current = refreshedDocuments;
     setDocuments(refreshedDocuments);
     setSavedAt("Saving document...");
-    const extractedForm = referralDocumentAutofillEnabled && upload.fields
+    const extractedForm = upload.fields
       ? populateFormFromExtraction(fieldsRef.current, upload.fields.fields, packet.name, dirtyKeysRef.current)
       : fieldsRef.current;
     const extractedKeys = changedExtractionKeys(fieldsRef.current, extractedForm, dirtyKeysRef.current);

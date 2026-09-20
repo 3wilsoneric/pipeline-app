@@ -62,7 +62,7 @@ export async function POST(
     }
     const assessment = await getAssessment(body.value.assessment_id);
     if (!assessment || assessment.referral_id !== referralId) return jsonError("Assessment not found.", 404);
-    if (!referralDocumentAutofillEnabled || isAssessmentFinalized(assessment)) {
+    if (packetSyncPaused(assessment)) {
       return Response.json({ assessment, synced: false }, { headers: privateHeaders() });
     }
 
@@ -148,4 +148,8 @@ function isPositiveInteger(value: unknown): value is number {
 
 function privateHeaders() {
   return { "Cache-Control": "private, no-store, max-age=0" };
+}
+
+function packetSyncPaused(assessment: Parameters<typeof isAssessmentFinalized>[0]) {
+  return !referralDocumentAutofillEnabled || isAssessmentFinalized(assessment);
 }

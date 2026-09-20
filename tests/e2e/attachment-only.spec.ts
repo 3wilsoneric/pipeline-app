@@ -5,7 +5,8 @@ import { expect, test, webkit } from "@playwright/test";
 for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}: attachments save once, open, and require confirmed deletion without reading`, async ({ page: desktop, baseURL }, info) => {
   test.setTimeout(90_000);
   const browser = phone ? await webkit.launch() : undefined;
-  const page = browser ? await browser.newPage({ baseURL, viewport: { width: 390, height: 844 } }) : desktop;
+  const context = browser ? await browser.newContext({ baseURL, viewport: { width: 390, height: 844 } }) : undefined;
+  const page = context ? await context.newPage() : desktop;
   try {
     const canvas = createCanvas(160, 60);
     const drawing = canvas.getContext("2d");
@@ -84,5 +85,5 @@ for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}:
     expect(saved.name).toBe(name);
     expect(readingCalls).toEqual([]);
     await page.screenshot({ path: info.outputPath("attachment-only.png"), animations: "disabled" });
-  } finally { await browser?.close(); }
+  } finally { await context?.close(); await browser?.close(); }
 });

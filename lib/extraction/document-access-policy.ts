@@ -7,3 +7,7 @@ export function isDocumentContentAvailable(scanStatus: string | undefined): bool
 export function isBrowserPreviewable(contentType: string | undefined): boolean {
   return ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "text/plain"].includes(contentType ?? "");
 }
+
+export function originalDocumentDisposition(contentType: string | undefined): "inline" | "attachment" {
+  return isBrowserPreviewable(contentType) ? "inline" : "attachment";
+}

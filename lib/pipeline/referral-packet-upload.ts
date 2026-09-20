@@ -2,6 +2,7 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import {
   allowedUploadContentTypes,
+  isUploadContentType,
   referralDocumentAutofillEnabled,
   type CompleteUploadResponse,
   type CreateUploadUrlResponse,
@@ -239,6 +240,6 @@ export function getPacketContentType(file: Pick<File, "name" | "type">) {
   if (extension === "png") return "image/png";
   if (extension === "tif" || extension === "tiff") return "image/tiff";
   if (extension === "heic") return "image/heic";
-  if (type.length <= 128 && /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type)) return type;
+  if (isUploadContentType(type)) return type;
   return "application/octet-stream";
 }
