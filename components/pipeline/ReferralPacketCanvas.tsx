@@ -2412,9 +2412,10 @@ export default function ReferralPacketCanvas({
           {[...requirements, ...attachments].map((item) => {
             const filename = getRequirementReviewValue(item, documents[item.id], loadedReferral);
             const queued = Boolean(pendingDocuments[item.id]) || additionalFiles.some((entry) => entry.category === documentCategoryForRequirement(item.type)) || Boolean(initialPacket && item.type === initialPacketCategory);
+            const pending = queued || uploadingDocumentIds.has(item.id);
             return <li key={item.id} className="flex items-start justify-between gap-3 border-b border-[#edf0ee] py-3 text-[13px]">
               <span>{item.label}{filename ? <small className="mt-1 block break-all text-[#52655d]">{filename}</small> : null}</span>
-              <span className={queued || uploadingDocumentIds.has(item.id) ? "text-[#755618]" : filename ? "text-[#08735e]" : "text-[#66736c]"}>{queued || uploadingDocumentIds.has(item.id) ? "Pending" : filename ? "Received" : "Not added"}</span>
+              <span className={pending ? "text-[#755618]" : filename ? "text-[#08735e]" : "text-[#66736c]"}>{pending ? "Pending" : filename ? "Received" : "Not added"}</span>
             </li>;
           })}
         </ul>
