@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { assessmentAnswerOrigin, assessmentQuestionStatus, assessmentWorkingSections } from "../../components/pipeline/assessment-working-view";
 import { buildTrainingAssessment } from "../../lib/training/mock-assessment";
 import type { AxeResults } from "axe-core";
@@ -6,6 +6,13 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 
 const practice = "/?view=referrals&screen=packet&trainingAssessment=prepare&demo=1&workspaceStage=assessment&assessmentSection=diagnosis_clinical";
+
+async function beginInterview(page: Page) {
+  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+  await dialog.getByRole("button", { name: "Begin assessment", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+}
 
 test("preparation uses the same conditional answers without treating source acceptance as client confirmation", () => {
   const data = buildTrainingAssessment("prepare");
@@ -35,12 +42,11 @@ for (const width of [1440, 820]) {
     await page.setViewportSize({ width, height: 950 });
     await page.goto(practice);
     const folder = page.getByTestId("assessment-client-folder");
-    const modes = folder.getByRole("group", { name: "Assessment working mode" });
+    const progress = folder.getByRole("region", { name: "Assessment progress", exact: true });
     const reference = folder.getByRole("complementary", { name: "Current information" });
     const editor = folder.locator("[data-assessment-question-editor]");
-    await modes.getByRole("button", { name: "Prepare from records", exact: true }).click();
-    await expect(modes.getByRole("button", { name: "Prepare from records", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(folder).toContainText("Complete what the referral supports");
+    await expect(progress.locator('[aria-current="step"]')).toHaveText("1Prepare from records");
+    await expect(folder).toContainText("Before meeting the client");
     await expect(folder.getByLabel("Assessment section", { exact: true })).toHaveValue("prior_history");
     await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toHaveCount(0);
     const field = editor.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
@@ -52,8 +58,11 @@ for (const width of [1440, 820]) {
     await expect(reference).toContainText(answer);
     await expect(field).toBeVisible();
     await page.screenshot({ path: info.outputPath(`prepare-${width}.png`) });
-    await modes.getByRole("button", { name: "Interview", exact: true }).click();
-    await expect(folder.getByLabel("Assessment section", { exact: true })).toHaveValue("diagnosis_clinical");
+    await beginInterview(page);
+    await expect(progress.locator('[aria-current="step"]')).toHaveText("2Interview");
+    await expect(progress.getByRole("button")).toHaveCount(0);
+    await expect(folder.getByLabel("Assessment section", { exact: true })).toHaveValue("functional_adl");
+    await folder.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
     await expect(reference).toContainText(answer);
     await expect(field).toHaveCount(0);
     const current = reference.getByRole("button", { name: "Edit Current symptoms", exact: true });
@@ -64,30 +73,37 @@ for (const width of [1440, 820]) {
     await interview.press("Tab");
     await expect(current).toContainText("Synthetic change described by the client today.");
     await expect(interview).toBeVisible();
-    // A mode change must retain the latest field even without waiting for autosave.
+    // Section changes retain the latest field without waiting for autosave.
     await interview.fill("Synthetic final sentence before switching.");
-    await modes.getByRole("button", { name: "Prepare from records", exact: true }).click();
-    await modes.getByRole("button", { name: "Interview", exact: true }).click();
+    await folder.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
+    await folder.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
     await expect(current).toContainText("Synthetic final sentence before switching.");
     await expect(folder.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-      return (await axe.run('[aria-label="Assessment working mode"], [data-assessment-working-section]', { runOnly: ["color-contrast", "button-name", "label"] })).violations.map(({ id }) => id);
+      return (await axe.run('[aria-label="Assessment progress"], [data-assessment-working-section]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id }) => id);
     });
     expect(violations).toEqual([]);
     await page.screenshot({ path: info.outputPath(`interview-${width}.png`), animations: "disabled" });
   });
 }
 
-test("record preparation can remain incomplete and lead directly into interview", async ({ page }) => {
+test("incomplete preparation needs explicit Begin confirmation, not a mode switch", async ({ page }) => {
   await page.goto(practice);
   const folder = page.getByTestId("assessment-client-folder");
-  await folder.getByRole("button", { name: "Prepare from records", exact: true }).click();
+  const picker = folder.getByLabel("Assessment section", { exact: true });
+  await expect(picker.locator("option")).toHaveCount(5);
   await folder.getByLabel("Assessment section", { exact: true }).selectOption("legal_conservatorship");
-  await folder.getByRole("button", { name: "Continue to interview", exact: true }).click();
-  await expect(folder.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const next = folder.getByRole("navigation", { name: "Assessment section steps" }).getByRole("button", { name: "Begin assessment", exact: true });
+  await next.click();
+  const dialog = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+  await expect(dialog).toContainText("Your prepared answers become the section reference");
+  await dialog.getByRole("button", { name: "Keep preparing", exact: true }).click();
+  await expect(picker.locator("option")).toHaveCount(5);
+  await next.click();
+  await dialog.getByRole("button", { name: "Begin assessment", exact: true }).click();
   await expect(folder.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
   await expect(folder.getByLabel("Assessment section", { exact: true })).toHaveValue("diagnosis_clinical");
   await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
@@ -101,10 +117,12 @@ test("preparation persists in the same assessment without starting or signing an
   const { assessment } = await created.json();
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
   const folder = page.getByTestId("assessment-client-folder");
-  await folder.getByRole("button", { name: "Prepare from records", exact: true }).click();
+  await expect(folder.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(5);
   await folder.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
   await folder.getByRole("textbox", { name: "Secondary diagnosis", exact: true }).fill("Synthetic amended history from records");
-  await folder.getByRole("button", { name: "Interview", exact: true }).click();
+  await folder.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+  const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+  await begin.getByRole("button", { name: "Keep preparing", exact: true }).click();
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   await expect.poll(async () => (await read()).secondary_diagnoses).toEqual(["Synthetic amended history from records"]);
   await page.reload();
@@ -115,6 +133,14 @@ test("preparation persists in the same assessment without starting or signing an
   expect(stored.current_symptoms).toBeNull();
   const list = await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json();
   expect(list.assessments).toHaveLength(1);
+  await beginInterview(page);
+  await expect.poll(async () => Boolean((await read()).started_at)).toBe(true);
+  await folder.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
+  await expect(folder.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic amended history from records");
+  await page.reload();
+  await expect(folder.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
+  await expect(folder.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
+  expect((await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments).toHaveLength(1);
 });
 
 for (const width of [390, 320]) {
@@ -123,7 +149,6 @@ for (const width of [390, 320]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(practice);
     const folder = page.getByTestId("assessment-client-folder");
-    await folder.getByRole("button", { name: "Prepare from records", exact: true }).click();
     await folder.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
     const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
     await sections.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Secondary diagnosis");
@@ -136,7 +161,9 @@ for (const width of [390, 320]) {
     await expect(reference).not.toContainText("During the practice interview");
     await reference.getByRole("button", { name: "Close information panel" }).click();
     await expect(field).toHaveValue("Synthetic diagnosis from referral notes.");
-    await folder.getByRole("button", { name: "Interview", exact: true }).click();
+    await beginInterview(page);
+    await folder.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+    await sections.getByRole("button", { name: /^2\. How things are now/ }).click();
     await folder.getByRole("button", { name: "Client info", exact: true }).click();
     await expect(reference).toContainText("Synthetic diagnosis from referral notes.");
     await expect(reference).toContainText("During the practice interview");
@@ -146,3 +173,58 @@ for (const width of [390, 320]) {
     await page.screenshot({ path: info.outputPath(`phone-interview-${width}.png`), animations: "disabled" });
   });
 }
+
+test("a failed start never blocks questions or loses preparation, and retry records the same assessment", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Start retry ${randomUUID().slice(0, 8)}`, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
+  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { secondary_diagnoses: ["Synthetic prepared diagnosis"] } } });
+  const { assessment } = await created.json();
+  const startUrl = `**/api/assessments/${assessment.assessment_id}/start`;
+  const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  await page.route(startUrl, (route) => route.fulfill({ status: 503, json: { error: "Synthetic start unavailable" } }));
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+  await beginInterview(page);
+  await expect(page.getByText("Start time not saved. You can keep answering.", { exact: true })).toBeVisible();
+  await page.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
+  await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic prepared diagnosis");
+  const field = page.locator("#assessment-current_symptoms");
+  await field.fill("Synthetic answer while start service is unavailable");
+  await field.blur();
+  await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic answer while start service is unavailable");
+  expect((await read()).started_at).toBeNull();
+  await page.unroute(startUrl);
+  await page.getByRole("button", { name: "Retry start time", exact: true }).click();
+  await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+  await expect.poll(async () => Boolean((await read()).started_at)).toBe(true);
+  await expect(page.getByRole("button", { name: "Retry start time", exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Assessment section", { exact: true })).toHaveValue("diagnosis_clinical");
+  expect((await read()).signed_at).toBeNull();
+});
+
+test("late recovery restores answers without moving the assessor back to an older section", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Late recovery ${randomUUID().slice(0, 8)}`, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
+  const response = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
+  const { assessment } = await response.json();
+  let release!: () => void;
+  const delayed = new Promise<void>((resolve) => { release = resolve; });
+  let reads = 0;
+  await page.route(`**/api/me/assessment-drafts/${assessment.assessment_id}`, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    reads += 1;
+    await delayed;
+    await route.fulfill({ json: { version: 1, draft: {
+      schema: 1, assessmentId: assessment.assessment_id, referralId: referral.id,
+      savedAt: new Date(Date.now() + 1000).toISOString(), baseVersion: assessment.version,
+      sectionVersions: assessment.section_versions, dirtySections: ["medication"],
+      activeSection: "prior_history", baseData: assessment,
+      data: { ...assessment, medications_at_intake: ["Synthetic recovered medication note"] },
+    } } });
+  });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await expect.poll(() => reads).toBeGreaterThan(0);
+  const picker = page.getByLabel("Assessment section", { exact: true });
+  await picker.selectOption("medication");
+  await expect(picker).toHaveValue("medication");
+  release();
+  await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic recovered medication note");
+  await expect(picker).toHaveValue("medication");
+});

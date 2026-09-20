@@ -1,5 +1,7 @@
 # Pipeline Architecture
 
+Role: system overview. [Documentation entrypoint](README.md) distinguishes current working policy, data specifications, file lookup, and historical evidence. This overview does not activate the historical refactor program.
+
 ## System overview
 
 Pipeline is a Next.js 16 App Router application for referral intake, packet extraction review, assessment completion, admission decisions, follow-up requirements, and admitted-client context. The browser talks only to authenticated Pipeline route handlers. Server-only adapters own PostgreSQL, Azure Blob, Databricks, Entra service credentials, and the governed Alamo clinical API.

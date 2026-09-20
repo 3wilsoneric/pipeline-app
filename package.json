@@ -24,6 +24,8 @@
     "dev": "next dev --webpack",
     "build": "npm run check:assessment-workbook && next build",
     "clean:artifacts": "node scripts/clean-local-artifacts.mjs",
+    "check:tooling": "node scripts/ci-change-impact-fixtures.mjs && node --test scripts/clean-local-artifacts.test.mjs",
+    "check:saving": "node --test scripts/referral-save-state.test.mjs scripts/referral-audit-values.test.mjs scripts/assessment-draft-save-boundaries.test.mjs scripts/assessment-offline-reconciliation.test.mjs scripts/referral-upload-idempotency.test.mjs",
     "codebase:baseline": "node scripts/codebase-refactor-baseline.mjs",
     "codebase:baseline:compare": "node scripts/compare-refactor-baselines.mjs",
     "check:refactor-evidence": "node scripts/refactor-evidence-readiness.mjs",

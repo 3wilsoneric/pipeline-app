@@ -133,3 +133,94 @@ the entire wider test suite was not executed. The client-workspace source contra
 still fails its unchanged unassigned-file-only-access string check. Full certification
 continues to stop at Developer Academy source freshness; do not change its baselines
 merely to turn the gate green. No production deployment or external service enabled.
+
+## Follow-up: preparation before Begin assessment
+
+The two-way preparation/interview switch is superseded by a sequential flow. Unsigned,
+unstarted assessments open the five existing record-preparation groups. A visible
+Begin assessment action (also at the end of preparation) opens the existing confirmation
+dialog. Confirming uses the canonical start endpoint, then opens the first conversation
+section with unresolved questions. Already-started and signed assessments do not return
+to preparation on reload. Both phases still edit the same assessment and retain source
+verification, conditional questions, signature rules, and chart navigation.
+
+The phase indicator is informational, not another set of tabs. During interview the
+reference follows the current section, remains editable, and updates after answers are
+committed. Section changes now commit the focused answer before unmount, just like phone
+layout/mode changes. Touch Begin gives the native dialog a concrete focus-return target.
+
+If saving the start fails, the confirmed action still opens the interview in this mounted
+session. A visible warning and Retry start time action remain until a server-confirmed
+start exists. No fictitious timestamp is saved. Deliberate ceiling: start requests are
+not a new offline mutation type; a reload before successful retry returns an unstarted
+record to preparation, while existing answer recovery remains authoritative. If durable
+offline encounter-start timing is required, add it to the canonical lifecycle queue with
+idempotency, original-time semantics, and local/PostgreSQL evidence rather than browser
+flags masquerading as a clinical event.
+
+This is a bounded product-flow change, not an approved structural refactor. Deployment
+remains held. Repository audit, guidance/setup, TypeScript, focused lint, and complexity
+checks passed. Full certification again stops at Developer Academy reviewed-source
+freshness; no assurance baselines were relaxed.
+
+Final optimized-build run: **48 passed** in `test-results/assessment-flow-verified`
+across conversation, preparation, working-view, footer, footer-layout, and phone-interview
+suites. Coverage includes desktop/tablet/phone, iPad WebKit focus, conditional questions,
+same-record persistence, source verification, failed-start continuation/retry, answer
+recovery, and clean accessibility scans. A delayed recovery response previously could
+restore an older section after the assessor had navigated elsewhere. Recovery now
+restores position only if navigation has not advanced since that read began; recovered
+answers still merge through the canonical path. The delayed-response regression passed.
+Earlier failures exposed that race, focused-answer commit on section changes, and
+touch focus return; the final combined run passed without retries. The wider operational
+suite was not run. Local preview on port 3385 responds successfully; nothing was deployed.
+
+## Follow-up: handoff overview and email preview
+
+Finish & send now leads with the canonical signed-assessment handoff, with medication
+and injection information followed by behavior/safety, arrival, daily support, and
+billing. The side summary shows signature, acceptance, recipient count, attachments,
+and existing delivery blockers. Unsigned assessments retain a clear review/sign route;
+the UI does not invent a signed summary. Duplicate dietary labels are consolidated
+for display from the same summary data, not a second clinical model.
+
+Preview email opens a native modal with From, the existing editable To/Cc chips,
+subject, packet attachments, and the unchanged sandboxed email preview. The modal
+fills the phone screen and uses a bounded window on desktop/tablet. Send confirmation
+and send results remain outside the scrolling message area. Close/Escape return focus;
+closing is blocked while a send is pending. Opening, closing, and reopening never sends.
+Reopening or changing recipients clears confirmation. Example-only, authorization,
+recipient persistence, version checks, idempotency, packet inventory, and provider
+acceptance semantics remain owned by the existing send path. No mail was sent.
+
+Review & sign has a readable document width, larger labels/answers, a compact assessor,
+date, and recorded-answer overview, and an expandable list linking directly to sections
+with unresolved items. Signing and subsequent decision navigation are unchanged.
+Signing errors now stay beside the persistent action rather than above a long record.
+
+Deliberate limits: the email body/subject remain generated, not independently editable;
+corrections go through the chart. If custom email copy becomes a requirement, introduce
+an authorized, versioned and audited message draft before allowing it to diverge from
+the clinical source. The iframe keeps its existing sandbox and independent scrolling;
+no same-origin/script permission was added to resize or manipulate its document.
+
+This is a bounded UI behavior change, not structural refactoring. Repository audit,
+guidance/setup, TypeScript, focused lint, and the complexity ratchet passed. Full
+certification remains stopped at Developer Academy source freshness; release baselines
+were not relaxed. Local preview remains on port 3385; no deployment was performed.
+
+Final regression run: **37 passed** in `test-results/handoff-polish-confirmed` using
+the verified production build. Covers the 21 email/review/handoff cases plus assessment
+conversation and footer regressions: phone to desktop layouts, iPad WebKit, recipient
+persistence and 18-person lists, explicit confirmation reset, unsigned/sent states,
+version-conflict recovery, pending-send navigation lock, signing failures and complete
+synthetic intake-to-handoff journeys. Main overview and modal WCAG A/AA scans passed.
+Screenshots were inspected at desktop and phone widths. No provider email was sent.
+
+Earlier runs caught low-contrast contact metadata and a contrast scan taken during the
+modal opening animation. Contact text is darker; the modal now moves without fading
+its text, and the scan waits for active animations. One wider WebKit menu test pressed
+Enter during workspace restoration; it now asserts the canonical recovery-ready state
+before acting and passed three isolated repeats plus the final combined run. A first
+cold-load assertion timed out once; subsequent combined runs passed that case without
+retries. The wider repository suite was not run and full certification is still held.

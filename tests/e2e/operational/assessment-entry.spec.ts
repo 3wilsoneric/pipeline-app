@@ -28,9 +28,9 @@ test.describe("assessment editing entry and return paths", () => {
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
         expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeFalsy();
-        await full.locator('summary[aria-label="Assessment details"]').click();
         await full.getByRole("button", { name: "Begin assessment", exact: true }).click();
-        await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Record start", exact: true }).click();
+        await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+        await full.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
         const started = await readAssessment(api, assessment.assessment_id);
         expect(Date.parse(started.started_at!)).toBeLessThan(Date.parse(started.scheduled_start_at!));
 
@@ -87,10 +87,9 @@ test.describe("assessment editing entry and return paths", () => {
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
         await schedule.getByRole("button", { name: "Save new time", exact: true }).click();
         await expect(schedule).not.toBeVisible();
-        await full.locator('summary[aria-label="Assessment details"]').click();
         await full.getByRole("button", { name: "Begin assessment", exact: true }).click();
         await page.getByRole("dialog", { name: "Begin assessment", exact: true })
-          .getByRole("button", { name: "Record start", exact: true }).click();
+          .getByRole("button", { name: "Begin assessment", exact: true }).click();
         await expect(full).toBeVisible();
         const saved = await readAssessment(api, assessment.assessment_id);
         expect(saved.assessment_id).toBe(assessment.assessment_id);

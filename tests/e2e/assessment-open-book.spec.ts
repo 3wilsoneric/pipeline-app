@@ -243,11 +243,11 @@ test("unfinished view preserves pending source verification and missing reasons"
   const reference = page.getByRole("complementary", { name: "Current information" });
   await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
   await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toContainText("Reason missing");
-  await page.getByRole("button", { name: "Prepare from records", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Prepare from records", exact: true })).toHaveCount(0);
   await expect(field.getByRole("button", { name: "Use", exact: true })).toBeVisible();
   await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Source: Synthetic referral.pdf");
   await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
-  await page.getByRole("button", { name: "Interview", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveCount(0);
   await expect(editor.locator('[data-working-field="current_symptoms"]')).toBeVisible();
   await page.unrouteAll({ behavior: "wait" });
 });

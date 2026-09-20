@@ -1,3 +1,7 @@
+# Implementation file map
+
+Role: file lookup, not a second working policy or a current health claim. Start at the [documentation entrypoint](README.md) for authority and scope; verify each owner in the current checkout.
+
 ## Backend And Contracts
 
 - `app/api/uploads/create-url/route.ts` - authenticated upload-target request route.

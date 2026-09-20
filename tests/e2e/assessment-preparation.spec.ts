@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "../../lib/assessment/assessment-preparation";
 import { assessmentInterviewQuestions, assessmentInterviewSections, getRequiredAssessmentInterviewQuestions } from "../../lib/assessment/assessment-interview-schema";
-import { createEmptyAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
+import { createEmptyAssessmentToolData, type AssessmentToolSection } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkingCounts } from "../../components/pipeline/assessment-working-view";
 import { createOperationalReferral } from "./support/operational-api";
 import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
@@ -31,7 +31,8 @@ async function openPage(page: Page, label: string) {
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: new RegExp(`${label}$`) }).click();
 }
 async function section(page: Page, key: string) {
-  await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption(key);
+  const picker = page.getByRole("combobox", { name: "Assessment section", exact: true });
+  await picker.selectOption(await picker.locator(`option[value="${key}"]`).count() ? key : preparationGroupForSection(key as AssessmentToolSection).key);
 }
 
 for (const width of [1440, 768]) {
@@ -76,11 +77,12 @@ for (const width of [1440, 768]) {
     const schedule = page.locator('[data-assessment-scheduling="fullscreen"]');
     await schedule.getByRole("button", { name: /Close/ }).click();
     await expect(schedule).toHaveCount(0);
-    await folder.locator('summary[aria-label="Assessment details"]').click();
     await folder.getByRole("button", { name: "Begin assessment", exact: true }).click();
     const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-    await begin.getByRole("button", { name: "Record start", exact: true }).click();
+    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
     await expect(begin).toHaveCount(0);
+    await section(page, "diagnosis_clinical");
+    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     await expect(secondary).toHaveValue("Documented secondary diagnosis from the referral.");
     await secondary.fill("Updated during the interview.");
     await openAssessmentChart(page);
@@ -190,7 +192,8 @@ test("queued answers stay visible across chart review and sync after recovery", 
   await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Unsaved but retained referral notes");
   await page.unroute(endpoint);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
-  await expect.poll(async () => (await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).toBe("Unsaved but retained referral notes");
+  // A reconnect during an in-flight replay is picked up by the 10-second retry loop.
+  await expect.poll(async () => (await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location, { timeout: 15_000 }).toBe("Unsaved but retained referral notes");
 });
 
 test("extracted answers retain source and verification controls in the question flow", async ({ page }) => {

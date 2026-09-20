@@ -1,3 +1,17 @@
+import type { JSONValue } from "postgres";
+import type { Referral } from "./referral-types";
+
+// Shared value construction only. Each adapter retains its own atomic audit write.
+export function referralAuditValues(referral: Referral, fields: string[]): JSONValue {
+  const values = Object.fromEntries(fields.map((field) => [
+    field,
+    isSensitiveReferralActivityField(field)
+      ? "[masked]"
+      : (referral as unknown as Record<string, unknown>)[field] ?? null,
+  ]));
+  return JSON.parse(JSON.stringify(values)) as JSONValue;
+}
+
 export type ReferralActivityChange = {
   field: string;
   label: string;

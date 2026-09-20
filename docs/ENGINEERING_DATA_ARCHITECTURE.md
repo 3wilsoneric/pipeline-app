@@ -1,5 +1,7 @@
 # Pipeline Data Architecture Handoff
 
+Role: data-boundary specification. See the [documentation entrypoint](README.md) for current working policy and the distinction between maintained specifications and historical evidence.
+
 This document describes how Pipeline must load, store, edit, and propagate
 referral data. It is the engineering companion to
 [`docs/PRODUCT_TENETS.md`](./PRODUCT_TENETS.md).

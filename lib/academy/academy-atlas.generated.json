@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:1b8dd296b2293ac2",
-  "fingerprint": "1b8dd296b2293ac2c5db09a8a39fca8a2700f5f6fde168fe3bda86c90e78942c",
+  "generatedAt": "source-fingerprint:8ba7bafb3bc99b1d",
+  "fingerprint": "8ba7bafb3bc99b1db4c5b4147b0b540b3f39e3f08436eab167cba8841047cc36",
   "totals": {
-    "files": 1287,
-    "lines": 350873,
-    "coveredFiles": 1287
+    "files": 1294,
+    "lines": 351971,
+    "coveredFiles": 1294
   },
   "entries": [
     {
@@ -110,7 +110,7 @@
       "kind": "documentation",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 35,
+      "lines": 33,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -1980,7 +1980,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 394,
+      "lines": 460,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2004,7 +2004,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 248,
+      "lines": 252,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2076,7 +2076,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 52,
+      "lines": 49,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2112,7 +2112,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 224,
+      "lines": 264,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2124,7 +2124,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 212,
+      "lines": 216,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2136,7 +2136,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2110,
+      "lines": 2140,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2508,7 +2508,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 70,
+      "lines": 132,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2808,7 +2808,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 124,
+      "lines": 131,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2892,7 +2892,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 139,
+      "lines": 151,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2916,7 +2916,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 224,
+      "lines": 243,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2928,7 +2928,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 18,
+      "lines": 24,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2940,7 +2940,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 44,
+      "lines": 47,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2988,7 +2988,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4012,
+      "lines": 4023,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -4609,7 +4609,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 82,
+      "lines": 84,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4621,7 +4621,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 136,
+      "lines": 227,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5029,7 +5029,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 204,
+      "lines": 206,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5089,7 +5089,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 182,
+      "lines": 186,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5384,12 +5384,24 @@
       ]
     },
     {
+      "path": "docs/README.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 29,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/REFACTORING_PLAYBOOK.md",
       "subsystem": "Documentation",
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 310,
+      "lines": 312,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6159,7 +6171,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 125,
+      "lines": 127,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -9401,7 +9413,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 129,
+      "lines": 143,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9642,7 +9654,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3471,
+      "lines": 3461,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -10269,7 +10281,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 252,
+      "lines": 254,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -11457,7 +11469,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 63,
+      "lines": 140,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11481,10 +11493,22 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 31,
+      "lines": 87,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/clean-local-artifacts.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 31,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
@@ -13156,6 +13180,18 @@
       ]
     },
     {
+      "path": "scripts/README.md",
+      "subsystem": "Engineering tooling",
+      "kind": "documentation",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 21,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/reconcile-allo-canvas-content.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -13276,6 +13312,18 @@
       ]
     },
     {
+      "path": "scripts/referral-audit-values.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 24,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/referral-intake-recovery-contracts.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -13342,6 +13390,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 677,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/referral-save-state.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 79,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13894,7 +13954,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 149,
+      "lines": 231,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -13966,7 +14026,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 105,
+      "lines": 106,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -13978,7 +14038,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 174,
+      "lines": 175,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14074,7 +14134,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 164,
+      "lines": 163,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14086,7 +14146,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 215,
+      "lines": 218,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14146,7 +14206,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 210,
+      "lines": 211,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14170,7 +14230,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 367,
+      "lines": 366,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14458,7 +14518,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 260,
+      "lines": 325,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14483,6 +14543,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 80,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/files-visual-audit.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 100,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14674,7 +14746,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 218,
+      "lines": 217,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14710,7 +14782,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 150,
+      "lines": 152,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14903,7 +14975,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 131,
+      "lines": 130,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15011,7 +15083,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2889,
+      "lines": 2888,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15083,7 +15155,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 297,
+      "lines": 306,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15420,6 +15492,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 134,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/workspace-files.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 154,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

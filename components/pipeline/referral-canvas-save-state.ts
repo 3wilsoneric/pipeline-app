@@ -53,7 +53,7 @@ export function reconcileSavedDirtyKeys(
   activeDirtyKeys: ReadonlySet<ReferralCanvasDirtyKey>,
   saved: ReferralSaveSnapshot,
   current: DraftValueSnapshot,
-  allSupportingDocumentsUploaded: boolean,
+  allDocumentUploadsFinished: boolean,
 ) {
   const remaining = new Set(activeDirtyKeys);
   for (const key of saved.dirtyKeys) {
@@ -62,7 +62,7 @@ export function reconcileSavedDirtyKeys(
       continue;
     }
     if (key === "documents") {
-      if (allSupportingDocumentsUploaded) remaining.delete(key);
+      if (allDocumentUploadsFinished) remaining.delete(key);
       continue;
     }
     if (draftKeySignature(key, current) === saved.signatures.get(key)) remaining.delete(key);
@@ -105,6 +105,13 @@ export function mergePendingDocumentNames(
     ...Object.entries(savedDocuments),
     ...Object.entries(pending).map(([requirementId, file]) => [requirementId, file.name]),
   ]);
+}
+
+export function hasPendingDocumentUploads(
+  pendingDocuments: Record<string, File>,
+  additionalFiles: readonly unknown[],
+) {
+  return Object.keys(pendingDocuments).length > 0 || additionalFiles.length > 0;
 }
 
 export function normalizeTags(value: string) {

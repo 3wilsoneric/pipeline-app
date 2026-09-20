@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Download, FileSpreadsheet, Upload, X } from "lucide-react";
-import { assessmentWorkbookChanges, exportAssessmentWorkbook, importAssessmentWorkbook, type AssessmentWorkbookCopy, type WorkbookChange } from "@/lib/assessment/assessment-excel-backup";
+import type { AssessmentWorkbookCopy, WorkbookChange } from "@/lib/assessment/assessment-excel-backup";
 import { assessmentWorkbookFingerprint, assessmentWorkbookTemplatePath } from "@/lib/assessment/assessment-workbook-contract";
 import { assessmentWorkbookPresentationVersion } from "@/lib/assessment/assessment-workbook-presentation";
 import { assessmentInterviewOptionLabel } from "@/lib/assessment/assessment-interview-schema";
@@ -33,13 +33,14 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
   const [copy, setCopy] = useState<AssessmentWorkbookCopy | null>(null);
   const [approved, setApproved] = useState<Record<string, boolean>>({});
   const template = useRef<Uint8Array | null>(null);
+  const [workbook, setWorkbook] = useState<typeof import("@/lib/assessment/assessment-excel-backup") | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const latest = useRef(data); latest.current = data;
   const receivedImport = useRef<File | null>(null);
-  const changes = copy ? assessmentWorkbookChanges(copy, data) : [];
+  const changes = copy ? workbook?.assessmentWorkbookChanges(copy, data) ?? [] : [];
   const importDisabled = readOnly || Boolean(busy);
   const selected = changes.filter((change) => approved[changeKey(change)] ?? (!change.conflict && !change.clearing));
   const patch = Object.fromEntries(selected.map((change) => [change.field, change.value])) as Partial<AssessmentToolData>;
@@ -63,6 +64,7 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
     const snapshot = structuredClone(latest.current);
     const owner = workbookIdentity();
     try {
+      const { exportAssessmentWorkbook } = await import("@/lib/assessment/assessment-excel-backup");
       const bytes = template.current ?? await loadTemplate(); template.current = bytes;
       const result = await exportAssessmentWorkbook(bytes, owner, snapshot);
       const url = URL.createObjectURL(new Blob([new Uint8Array(result.bytes)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
@@ -77,7 +79,9 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
     setCopy(null); setApproved({}); setError(""); setMessage(""); setFilename(file.name); setOpen(true); setBusy("Reading mapped answers...");
     try {
       if (!file.name.toLowerCase().endsWith(".xlsx") || file.size > 5 * 1024 * 1024) throw new Error("Choose a Pipeline .xlsx working copy smaller than 5 MB.");
-      setCopy(await importAssessmentWorkbook(new Uint8Array(await file.arrayBuffer()), workbookIdentity()));
+      const parser = await import("@/lib/assessment/assessment-excel-backup");
+      setWorkbook(parser);
+      setCopy(await parser.importAssessmentWorkbook(new Uint8Array(await file.arrayBuffer()), workbookIdentity()));
     } catch (e) { setError(e instanceof Error ? e.message : "This file could not be restored. Your answers are unchanged."); }
     finally { setBusy(""); if (input.current) input.current.value = ""; }
   };

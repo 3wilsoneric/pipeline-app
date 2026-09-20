@@ -201,7 +201,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
       onCancel={(event) => { event.preventDefault(); if (!isBusy) onClose(); }}
       onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (!isBusy) onClose(); } }}>
       <h2>Begin assessment</h2>
-      <p id="assessment-start-description">Record when the interview starts. This is optional; you can answer questions and sign without it.</p>
+      <p id="assessment-start-description">Your prepared answers become the section reference. Continue with the remaining questions and check what has changed with the client.</p>
       <dl>
         <BeginAssessmentDetail label="Start time" value="Recorded when you confirm" />
         <BeginAssessmentDetail label="Assessor" value={assessment.assessor || "Not assigned"} />
@@ -209,8 +209,8 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
       </dl>
       {error ? <p role="alert">{error}</p> : null}
       <footer>
-        <button type="button" onClick={onClose} disabled={isBusy}>Not now</button>
-        <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical}>{isBusy ? "Recording..." : "Record start"}</button>
+        <button type="button" onClick={onClose} disabled={isBusy}>Keep preparing</button>
+        <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical}>{isBusy ? "Starting..." : "Begin assessment"}</button>
       </footer>
     </dialog>
   );

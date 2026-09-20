@@ -73,6 +73,8 @@ for (const width of [1440, 834, 390]) {
     await page.reload();
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open assessment", exact: true })).toHaveCount(0);
+    await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
     if (width >= 640) {
       await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentSection=provenance_qc`);
       await page.getByRole("button", { name: "Review assessment", exact: true }).click();
@@ -118,12 +120,14 @@ for (const width of [1440, 834, 390]) {
     await decision.getByRole("button", { name: "Review email & packet", exact: true }).click();
     await expectStage("Finish & send");
     await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Preview email", exact: true }).click();
     await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
-    await expect(page.getByRole("status").filter({ hasText: "Example only" })).toHaveText("Example only · no email will be sent.");
+    await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true }).getByRole("status").filter({ hasText: "Example only" })).toHaveText("Example only · no email will be sent.");
     await expect(page.getByRole("navigation", { name: "Assessment chart views" })).toHaveCount(0);
     await expect(page.getByLabel("Authorized recipients", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Send email & packet|Back to outcome/ })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.getByRole("button", { name: "Close email preview", exact: true }).click();
     await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Preview");
     await expect(page.locator('footer[aria-label="Handoff actions"]').getByRole("button", { name: "Close workspace", exact: true })).toBeInViewport();
     await page.screenshot({ path: info.outputPath(`example-handoff-${width}.png`), fullPage: true });
@@ -176,6 +180,7 @@ test("future delivery cannot be abandoned through the handoff controls while its
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
   await page.getByRole("button", { name: "Review email & packet", exact: true }).click();
+  await page.getByRole("button", { name: "Preview email", exact: true }).click();
   const recipients = page.getByRole("combobox", { name: /^To/ });
   await recipients.fill("Example recipient <example@example.invalid>");
   await recipients.press("Enter");
@@ -185,13 +190,14 @@ test("future delivery cannot be abandoned through the handoff controls while its
     await page.getByRole("button", { name: "Send email & packet", exact: true }).click();
     await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Back to decision", exact: true })).toBeDisabled();
-    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart$/ }).click();
+    await expect(page.getByRole("button", { name: "Close email preview", exact: true })).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/workspaceView=email/);
-    const beforeNavigation = page.url();
-    await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("button", { name: "Open calendar", exact: true }).click();
-    await expect(page).toHaveURL(beforeNavigation);
     await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeDisabled();
   } finally { release(); }
+  await expect(page.getByRole("button", { name: "Close email preview", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Close email preview", exact: true }).click();
   await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeEnabled();
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Sent");
   await expect(page.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
@@ -287,10 +293,13 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await stages.getByRole("button", { name: /Finish & send$/ }).tap();
     await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("status").filter({ hasText: "Example only" })).toHaveText("Example only · no email will be sent.");
+    await page.getByRole("button", { name: "Preview email", exact: true }).tap();
     const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
     await expect(preview.locator("li").first()).toHaveCSS("font-size", "17px");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await preview.locator("body").evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath("ipad-finish-webkit.png"), animations: "disabled" });
+    await page.getByRole("button", { name: "Close email preview", exact: true }).tap();
+    await expect(page.getByRole("button", { name: "Preview email", exact: true })).toBeFocused();
   } finally { await browser.close(); }
 });

@@ -39,17 +39,17 @@ export default function UploadedDocumentList({ files, readOnly = false }: { file
           {file.thumbnailUrl ? <Image src={file.thumbnailUrl} alt="" fill sizes="48px" unoptimized className="object-contain" /> : <FileText size={25} />}
         </button>
         <div className="min-w-0 flex-1">
-          <button type="button" onClick={() => setPreview(file)} className="block max-w-full truncate text-left text-[12px] font-bold text-[#173c2b] underline-offset-2 hover:underline">{file.name}</button>
-          <span className="mt-1 block text-[12px] text-[#52655d]">{file.category}</span>
+          <button type="button" onClick={() => setPreview(file)} title={file.name} className="block max-w-full truncate text-left text-[14px] font-bold text-[#173c2b] underline-offset-2 hover:underline">{file.name}</button>
+          <span className="mt-1 block text-[13px] text-[#52655d]">{file.category}</span>
           {/^[0-9a-f-]{36}$/i.test(file.id)
             ? <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#128049]"><CheckCircle2 size={14} aria-hidden="true" />Uploaded</span>
             : <span className="mt-1 block text-[11px] text-[#737373]">Recorded file</span>}
-          <div className="mt-1 flex gap-3 text-[11px] text-[#0f7059]">
-            <button type="button" onClick={() => setPreview(file)} className="underline">Preview</button>
-            {file.downloadUrl ? <a href={file.downloadUrl} target="_blank" rel="noreferrer" className="underline">Open original</a> : <span className="text-[#737373]">{file.previewStatus === "unavailable" ? "Preview unavailable" : "Preview processing"}</span>}
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 text-[13px] font-semibold text-[#0f7059]">
+            <button type="button" onClick={() => setPreview(file)} className="min-h-11 underline underline-offset-2">Preview</button>
+            {file.downloadUrl ? <a href={file.downloadUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline underline-offset-2">Open original</a> : <span className="text-[#737373]">{file.previewStatus === "unavailable" ? "Preview unavailable" : "Preview processing"}</span>}
           </div>
         </div>
-        {!readOnly && /^[0-9a-f-]{36}$/i.test(file.id) ? <button type="button" aria-label={`Delete ${file.name}`} title="Delete file" onClick={() => { setError(""); setDeleting(file); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-[#737373] hover:bg-[#fff1ee] hover:text-[#9d352a] focus-visible:outline-2"><X size={17} /></button> : null}
+        {!readOnly && /^[0-9a-f-]{36}$/i.test(file.id) ? <button type="button" aria-label={`Delete ${file.name}`} title="Delete file" onClick={() => { setError(""); setDeleting(file); }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-[#737373] hover:bg-[#fff1ee] hover:text-[#9d352a] focus-visible:outline-2"><X size={19} /></button> : null}
       </li>)}
     </ul>
     {preview ? <ReferralFilePreviewDialog key={preview.id} file={preview} onClose={() => setPreview(null)} /> : null}
@@ -58,8 +58,8 @@ export default function UploadedDocumentList({ files, readOnly = false }: { file
       <p className="mt-3 break-words text-sm"><strong>{deleting?.name}</strong> will leave this workspace. You can restore it from Change history for 24 hours. Entered chart values stay unchanged.</p>
       {error ? <p role="alert" className="mt-3 text-sm text-[#a63d2f]">{error}</p> : null}
       <div className="mt-5 flex justify-end gap-3">
-        <button type="button" autoFocus disabled={busy} onClick={() => setDeleting(null)} className="rounded border px-4 py-2 text-sm font-bold">Cancel</button>
-        <button type="button" disabled={busy} onClick={() => void remove()} className="rounded bg-[#a63d2f] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{busy ? "Deleting…" : "Delete file"}</button>
+        <button type="button" autoFocus disabled={busy} onClick={() => setDeleting(null)} className="min-h-11 rounded border px-4 py-2 text-sm font-bold">Cancel</button>
+        <button type="button" disabled={busy} onClick={() => void remove()} className="min-h-11 rounded bg-[#a63d2f] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{busy ? "Deleting…" : "Delete file"}</button>
       </div>
     </dialog>
   </section>;

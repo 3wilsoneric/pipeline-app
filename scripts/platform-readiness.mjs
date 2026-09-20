@@ -142,14 +142,9 @@ const checks = [
     args: ["scripts/api-behavior-fixtures.mjs"],
   },
   {
-    name: "Assessment draft saves independent of census availability",
-    command: "node",
-    args: ["--test", "scripts/assessment-draft-save-boundaries.test.mjs"],
-  },
-  {
-    name: "Single-upload retries and duplicate-selection protection",
-    command: "node",
-    args: ["--test", "scripts/referral-upload-idempotency.test.mjs"],
+    name: "Draft saving, offline recovery, audit values, and single-upload retries",
+    command: "npm",
+    args: ["run", "check:saving"],
   },
   {
     name: "Evidence link safety and community handoff integrity",
@@ -200,6 +195,11 @@ const checks = [
     name: "Path-aware CI impact behavior",
     command: "node",
     args: ["scripts/ci-change-impact-fixtures.mjs"],
+  },
+  {
+    name: "Safe local artifact cleanup",
+    command: "node",
+    args: ["--test", "scripts/clean-local-artifacts.test.mjs"],
   },
   {
     name: "Desktop distribution boundary",
