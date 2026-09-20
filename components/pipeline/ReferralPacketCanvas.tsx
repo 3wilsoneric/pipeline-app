@@ -2635,7 +2635,7 @@ export default function ReferralPacketCanvas({
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={{ recipients: emailRecipients, onChange: setEmailRecipients }}
-                onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2)}
+                onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2, undefined, "review")}
                 onOpenDecision={() => openPage("workflow")} />
               </WorkspaceChartFolder>
               <footer aria-label="Handoff actions" className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-[#dce4df] bg-white/95 px-3 py-3 backdrop-blur-sm">

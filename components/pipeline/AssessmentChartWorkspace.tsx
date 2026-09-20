@@ -273,9 +273,9 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
 }) {
-  const status = meetClientPreviewStatus(email, sent);
+  const status = meetClientPreviewStatus(email, sent, sending);
   const renderSendToolbar = () => (
-    email.example_only ? <div role="note" className={styles.notice}><strong>Example only. No email will be sent.</strong> This previews the client handoff. Live delivery will be enabled separately.</div> : sent ? null : <div className={styles.toolbar}>
+    email.example_only || sent ? null : <div className={styles.toolbar}>
         {email.can_send ? <label className={styles.confirmation}>
           <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={sending} aria-label="I verified that each recipient is authorized to receive this summary and the attached files." />
           <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></span>
@@ -307,15 +307,18 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
           <summary>Delivery details</summary>
           {email.blockers.length ? <ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
           <p>Approved recipient domains: {email.allowed_recipient_domains.join(", ") || "Not connected yet"}.</p>
-          <div className={styles.detailActions}>
-            {!email.eligible && onOpenDecision ? <button type="button" className={styles.textButton} onClick={onOpenDecision}>Open decision</button> : null}
-            {onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Review assessment</button> : null}
-          </div>
         </details>
   );
 
   return (
     <div className={styles.composer} data-guide-target="chart-email-handoff">
+      <div className={styles.nextStep}>
+        <p role="status">{status}</p>
+        {!sent ? <div className={styles.detailActions}>
+          {onOpenAssessment ? <button type="button" className={styles.textButton} disabled={sending} onClick={onOpenAssessment}>{email.preview ? "Review assessment" : "Review & sign assessment"}</button> : null}
+          {!email.eligible && onOpenDecision ? <button type="button" className={styles.textButton} disabled={sending} onClick={onOpenDecision}>Open decision</button> : null}
+        </div> : null}
+      </div>
       {renderSendToolbar()}
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
       {!email.example_only ? <div className={styles.addressRow}>
@@ -327,21 +330,21 @@ function MeetClientEmailPreview({ email, recipients, confirmed, sending, sent, o
       {renderPacketAttachments()}
       <div className={styles.messageBody}>
         {email.preview ? <iframe title="Meet the Client email preview" srcDoc={email.preview.html} sandbox="" referrerPolicy="no-referrer" className={styles.emailFrame} />
-          : <div className={styles.emptyPreview}><Mail size={30} /><h3>Your email preview will appear here</h3><p>You can review files and recipients now. Sign an assessment to fill in the client summary.</p>{onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Open assessment</button> : null}</div>}
+          : <div className={styles.emptyPreview}><Mail size={30} /><h3>Your email preview will appear here</h3><p>You can review files and recipients now. The summary is prepared from your signed assessment.</p></div>}
       </div>
       <footer className={styles.footer}>
-        <p role="status">{status}</p>
         {renderDeliveryDetails()}
       </footer>
     </div>
   );
 }
 
-function meetClientPreviewStatus(email: ChartPayload["email"], sent: boolean) {
+function meetClientPreviewStatus(email: ChartPayload["email"], sent: boolean, sending: boolean) {
   return sent ? "Microsoft 365 accepted this handoff for sending. This is not a delivery or read receipt."
+    : sending ? "Sending the email and packet. Keep this workspace open until the result appears."
     : email.example_only ? "Example only · no email will be sent." : !email.configured ? "Preview only · email delivery is not connected."
-    : !email.eligible ? "Preview ready · record acceptance before sending."
-    : !email.preview ? "Your summary will appear when an assessment is signed."
+    : !email.preview ? "Assessment not signed yet. Review and sign it to prepare the summary."
+    : !email.eligible ? "Assessment signed · record acceptance in Decision before sending."
     : !email.ready ? "Preview ready · review the items below before sending."
     : "Review the recipients and packet, then send when ready.";
 }

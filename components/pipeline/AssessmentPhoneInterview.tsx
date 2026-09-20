@@ -109,7 +109,7 @@ export default function AssessmentPhoneInterview(props: Props) {
           })}
           </>}
           {search.trim() && !matchedQuestions.length ? <p>No matching questions.</p> : null}
-          <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Open assessment" : "Review & sign"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
+          <button type="button" onClick={() => { dialog.current?.close(); props.onFinish(); }}><strong>{props.preparing ? "Open assessment" : "Review assessment"}</strong><span>{props.preparing ? "Continue with the client interview" : "Review recorded answers before signing"}</span><ChevronRight size={17} aria-hidden="true" /></button>
         </>
   );
   const renderReferenceChoices = () => (
@@ -136,7 +136,7 @@ export default function AssessmentPhoneInterview(props: Props) {
     <nav className={styles.paging} aria-label="Question steps">
       <button type="button" aria-label="Previous question" title="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={22} aria-hidden="true" /></button>
       <span className={styles.stepCount} aria-hidden="true">{question ? <><strong>{index + 1}</strong> / {steps.length}</> : "Complete"}</span>
-      <button type="button" onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Open assessment" : "Review & sign"}<ChevronRight size={20} aria-hidden="true" /></button>
+      <button type="button" onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Open assessment" : "Review assessment"}<ChevronRight size={20} aria-hidden="true" /></button>
     </nav>
   );
 

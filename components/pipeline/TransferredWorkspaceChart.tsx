@@ -14,15 +14,16 @@ import { isClientChartWorkspace } from "@/lib/pipeline/workspace-presentation";
 import ReferralIntakeSummary from "@/components/pipeline/ReferralIntakeSummary";
 import folderStyles from "./ClientFolder.module.css";
 
-export default function WorkspaceClientChart({ referral, headerActions, assessment, practice = false, onEditReferralField, onEditAssessmentField }: {
+export default function WorkspaceClientChart({ referral, headerActions, assessment, practice = false, assessmentOnly = false, onEditReferralField, onEditAssessmentField }: {
   referral: Referral | null;
   headerActions?: ReactNode;
   assessment?: PipelineAssessmentRecord;
   practice?: boolean;
+  assessmentOnly?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
 }) {
-  if (practice) return assessment ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : null;
+  if (practice || assessmentOnly) return assessment ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : null;
   return <WorkspaceClientChartLoader key={referral?.clientId ?? "unlinked"} referral={referral} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField} />;
 }
 

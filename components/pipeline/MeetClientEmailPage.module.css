@@ -41,7 +41,10 @@
 .deliveryDetails summary { cursor: pointer; width: fit-content; font-weight: 600; color: #424242; }
 .deliveryDetails ul { margin: 8px 0; padding-left: 18px; }
 .deliveryDetails p { margin: 6px 0; }
-.detailActions { display: flex; gap: 12px; }
+.detailActions { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.nextStep { padding: 12px 20px; border-bottom: 1px solid #e8e8e8; background: #f7f9f8; color: #59665f; font-size: 14px; line-height: 1.5; }
+.nextStep p { margin: 0; }
+.nextStep .textButton { padding-inline: 0; font-size: 14px; }
 .confirmation { display: flex; align-items: start; gap: 12px; max-width: 680px; min-height: 44px; cursor: pointer; }
 .confirmation input { flex-shrink: 0; margin-top: 2px; width: 20px; height: 20px; accent-color: #087d66; }
 .confirmation strong { display: block; margin-bottom: 3px; color: #243b32; font-size: 17px; font-weight: 650; }
