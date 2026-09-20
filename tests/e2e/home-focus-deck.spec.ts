@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"]) {
+async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0) {
   const acknowledgments: unknown[] = [];
   let layout = { schema: 3, module_ids: moduleIds, locked: true };
   const { viewer } = await (await page.request.get("/api/operations/home")).json();
@@ -24,7 +24,16 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       completion_pct: 40, missing_document_count: 1, location: { view: "intake" },
     };
     payload.unavailable_sections = [];
-    payload.workflow = { ...payload.workflow, active_items: [item], board_items: [item], active_total: 1 };
+    const boardItems = filesPerStage ? [
+      { name: "Avery", workflow_status: "ready_to_schedule", assessment_state: "not_started" },
+      { name: "Jordan", workflow_status: "assessment_in_progress", assessment_state: "in_progress" },
+      { name: "Morgan", workflow_status: "decision_pending", assessment_state: "signed" },
+    ].flatMap((stage, stageIndex) => Array.from({ length: filesPerStage }, (_, index) => ({
+      ...item, referral_id: 920000 + stageIndex * 100 + index,
+      client_name: `${stage.name} ${["Rivera", "Brooks", "Chen", "Patel", "Torres", "Bennett", "Parker", "Reed", "Hayes", "Ellis"][index]}`,
+      workflow_status: stage.workflow_status, assessment_state: stage.assessment_state,
+    }))) : [item];
+    payload.workflow = { ...payload.workflow, active_items: boardItems, board_items: boardItems, active_total: boardItems.length };
     payload.upcoming = [{ id: "synthetic-appointment", referralId: 910502, clientName: "Jordan Appointment", community: "San Pablo", owner: "Example Assessor", date: "2026-09-22", startsAt: "2026-09-22T17:00:00Z", method: "in_person", kind: "assessment", status: "scheduled", title: "Assessment" }];
     payload.continuity = { ...payload.continuity, unavailable: false, needs_assignment_tracking_initialization: false,
       new_assignments: Array.from({ length: 7 }, (_, index) => ({ event_id: `focus-assignment-${index}`, action: "referral_assigned", actor_id: "coordinator", actor_name: "Example Coordinator", created_at: new Date().toISOString(), workspace: { referral_id: 910510 + index, client_name: `New Client ${index + 1}`, community: "San Pablo", owner: "Example Assessor", workflow_status: "intake_in_progress", workspace_status: "active" }, attention: null })),
@@ -47,6 +56,7 @@ for (const width of [1440, 834, 390, 320]) test(`focus deck keeps the foreground
   const deck = page.getByTestId("home-focus-deck");
   const tabs = deck.getByRole("tab");
   await expect(tabs).toHaveText(["BoardBoard1", "Upcoming assessmentsUpcoming1", "New assignmentsAssignments7"]);
+  await expect(deck.getByRole("button", { name: /^(Previous|Next) Home panel$/ })).toHaveCount(0);
   await expect(deck.getByRole("tabpanel", { name: "Board", exact: true })).toBeVisible();
   await expect(deck.getByRole("button", { name: "Open Avery Board" })).toBeVisible();
   await expect(deck.locator('[data-position]:not([data-position="front"])[inert][aria-hidden="true"]')).toHaveCount(2);
@@ -84,12 +94,79 @@ test("keyboard controls wrap, keep focus, and appointments keep their assessment
   await page.keyboard.press("End");
   await expect(tabs.getByRole("tab", { name: "New assignments", exact: true })).toBeFocused();
   await page.keyboard.press("Home");
-  await page.getByRole("button", { name: "Next Home panel" }).click();
+  await page.keyboard.press("ArrowRight");
   await expect(tabs.getByRole("tab", { name: "Upcoming assessments", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.getByRole("button", { name: /Jordan Appointment/ }).click();
   await expect(page).toHaveURL(/referralId=910502/);
   await expect(page).toHaveURL(/workspaceStage=assessment/);
 });
+
+for (const { width, count } of [{ width: 1440, count: 5 }, { width: 1440, count: 10 }, { width: 834, count: 10 }, { width: 390, count: 10 }]) {
+  test(`straight deck contains ${count} files per stage at ${width}px without clipping or nested scrolling`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await homeFixture(page, undefined, count);
+    await page.goto("/");
+    const deck = page.getByTestId("home-focus-deck");
+    const stage = page.getByTestId("home-focus-stage");
+    const board = deck.getByRole("tabpanel", { name: "Board", exact: true });
+    const received = board.locator('[data-board-stage="received"]');
+    const folders = received.locator("[data-board-card]");
+    await expect(folders).toHaveCount(count);
+    await expect(board.locator("[data-board-card]")).toHaveCount(count * 3);
+    await expect(board).toHaveCSS("position", "relative");
+    await expect(board).toHaveCSS("overflow-y", "visible");
+    await expect(stage).toHaveCSS("overflow-y", "visible");
+    const panels = await deck.locator("[data-position]").evaluateAll((elements) => elements.map((element) => {
+      const bounds = element.getBoundingClientRect();
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+      return { x: bounds.x + bounds.width / 2, y: bounds.y, width: bounds.width, rotation: matrix.m12, skew: matrix.m21, offset: matrix.m41 };
+    }));
+    for (const background of panels.slice(1)) {
+      expect(background.rotation).toBe(0);
+      expect(background.skew).toBe(0);
+      expect(background.offset).toBe(0);
+      expect(Math.abs(background.x - panels[0].x)).toBeLessThan(1);
+      expect(background.y).toBeLessThan(panels[0].y);
+      expect(background.width).toBeLessThan(panels[0].width);
+    }
+    const collapsed = (await received.boundingBox())!.height;
+    if (width >= 1024) {
+      expect(collapsed).toBeLessThan(350 + count * 110);
+      await folders.first().locator("[data-folder-name]").hover();
+      await expect(folders.first()).toHaveCSS("margin-bottom", "-130px");
+      await expect.poll(async () => (await received.boundingBox())!.height).toBeGreaterThan(collapsed + 70);
+      await page.screenshot({ path: info.outputPath(`stack-${count}-${width}.png`), animations: "disabled" });
+      await page.getByRole("tab", { name: "Board", exact: true }).hover();
+      await folders.first().focus();
+      await expect(folders.first()).toHaveCSS("margin-bottom", "-130px");
+    }
+    for (const key of width >= 1024 ? ["received", "in_progress", "decision"] : ["received"]) {
+      const last = board.locator(`[data-board-stage="${key}"] [data-board-card]`).last();
+      await last.scrollIntoViewIfNeeded();
+      await expect(last).toBeInViewport();
+      const bounds = (await last.boundingBox())!;
+      const container = (await board.boundingBox())!;
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(container.y + container.height);
+    }
+    await page.screenshot({ path: info.outputPath(`stack-end-${count}-${width}.png`), animations: "disabled" });
+    expect(Math.abs((await stage.boundingBox())!.height - (await board.boundingBox())!.height)).toBeLessThan(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
+    await expect.poll(async () => (await stage.boundingBox())!.height).toBeLessThan(700);
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    if (width < 1024) {
+      await board.getByLabel("Referral stage").selectOption("in_progress");
+      const last = board.getByRole("button", { name: "Open Jordan Ellis", exact: true });
+      await last.scrollIntoViewIfNeeded();
+      await expect(last).toBeInViewport();
+      await page.screenshot({ path: info.outputPath(`stack-bottom-${width}.png`) });
+      await last.click();
+      await expect(page).toHaveURL(/referralId=920109/);
+    } else {
+      await expect(folders).toHaveCount(count);
+    }
+  });
+}
 
 test("horizontal gestures turn the deck, vertical and cancelled gestures do not, and reduced motion settles immediately", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 850 });

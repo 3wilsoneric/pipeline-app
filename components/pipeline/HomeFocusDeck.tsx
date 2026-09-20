@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, BriefcaseBusiness, CalendarClock, UserPlus } from "lucide-react";
+import { useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { BriefcaseBusiness, CalendarClock, UserPlus } from "lucide-react";
 import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import styles from "./HomeFocusDeck.module.css";
 
@@ -22,20 +22,8 @@ export default function HomeFocusDeck({ modules, moduleIds, counts }: {
   const [selected, setSelected] = useState<FocusModule>("current-work");
   const active = moduleIds.includes(selected) ? selected : "current-work";
   const index = moduleIds.indexOf(active);
-  const stage = useRef<HTMLDivElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   const gesture = useRef<{ x: number; y: number; pointerId: number; captured: boolean } | null>(null);
-
-  useEffect(() => {
-    const element = panel.current;
-    if (!element) return;
-    const resize = () => stage.current?.style.setProperty("--panel-height", `${element.offsetHeight}px`);
-    resize();
-    const observer = new ResizeObserver(resize);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [active]);
 
   function select(next: number, focus = false) {
     const target = (next + moduleIds.length) % moduleIds.length;
@@ -97,19 +85,14 @@ export default function HomeFocusDeck({ modules, moduleIds, counts }: {
           </button>;
         })}
       </div>
-      {moduleIds.length > 1 ? <div className={styles.controls}>
-        <span aria-hidden="true">{String(index + 1).padStart(2, "0")} <span>/ {String(moduleIds.length).padStart(2, "0")}</span></span>
-        <button type="button" aria-label="Previous Home panel" onClick={() => select(index - 1)}><ArrowLeft size={19} /></button>
-        <button type="button" aria-label="Next Home panel" onClick={() => select(index + 1)}><ArrowRight size={19} /></button>
-      </div> : null}
     </div>
     <span className="sr-only" role="status">{labels[active].title}, panel {index + 1} of {moduleIds.length}</span>
-    <div ref={stage} className={styles.stage} data-testid="home-focus-stage" onPointerDown={startGesture} onPointerMove={moveGesture}
+    <div className={styles.stage} data-testid="home-focus-stage" onPointerDown={startGesture} onPointerMove={moveGesture}
       onPointerUp={endGesture} onPointerCancel={(event) => endGesture(event, true)} onLostPointerCapture={(event) => endGesture(event, true)}>
       {moduleIds.map((moduleId, position) => {
         const distance = (position - index + moduleIds.length) % moduleIds.length;
         const front = distance === 0;
-        return <div key={moduleId} ref={front ? panel : undefined} id={`${id}-panel-${moduleId}`} role="tabpanel"
+        return <div key={moduleId} id={`${id}-panel-${moduleId}`} role="tabpanel"
           aria-labelledby={`${id}-tab-${moduleId}`} aria-hidden={!front} inert={!front} tabIndex={front ? 0 : -1}
           data-home-module={moduleId} data-home-surface="true" data-position={front ? "front" : distance === 1 ? "next" : "previous"}
           className={styles.panel}>

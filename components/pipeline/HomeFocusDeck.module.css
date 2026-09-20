@@ -13,9 +13,7 @@
   z-index: 5;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 62px;
+  margin-bottom: 42px;
   border-radius: 18px;
   background: rgb(239 239 232 / 95%);
 }
@@ -56,36 +54,17 @@
   box-shadow: 0 2px 3px rgb(39 47 36 / 8%), 0 4px 12px rgb(39 47 36 / 5%);
 }
 .tab:hover:not([aria-selected="true"]) { background: rgb(255 255 255 / 65%); }
-.tab:active, .controls button:active { transform: scale(.96); }
-.tab:focus-visible, .controls button:focus-visible, .panel:focus-visible { outline: 2px solid #087e64; outline-offset: 3px; }
+.tab:active { transform: scale(.96); }
+.tab:focus-visible, .panel:focus-visible { outline: 2px solid #087e64; outline-offset: 3px; }
 .shortLabel { display: none; }
 .count { font-size: 12px; font-variant-numeric: tabular-nums; opacity: .75; }
 .tab[aria-selected="true"] .count { opacity: 1; }
-.controls { display: flex; align-items: center; gap: 6px; }
-.controls > span { margin-right: 12px; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.controls > span > span { color: #8a8e85; padding-left: 4px; }
-.controls button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid #d2d7ce;
-  border-radius: 50%;
-  background: #fcfcf8;
-  color: #3d5548;
-  box-shadow: 0 2px 3px rgb(43 52 38 / 5%);
-  transition: transform 160ms, background 160ms;
-}
-.controls button:hover { background: #e5eee2; }
-
 .stage {
   position: relative;
-  height: var(--panel-height, 500px);
-  margin-inline: 24px;
+  margin-inline: 8px;
   perspective: 1800px;
-  perspective-origin: center 180px;
+  perspective-origin: center top;
   touch-action: pan-y pinch-zoom;
-  transition: height 360ms ease;
 }
 
 .deck .panel[data-home-surface] {
@@ -102,21 +81,22 @@
   transition: transform 560ms var(--deck-ease), opacity 340ms ease, filter 340ms ease, box-shadow 400ms ease;
 }
 
-.deck .panel[data-position="front"] { z-index: 3; transform: translate3d(var(--drag, 0px), 0, 0); opacity: 1; }
+/* The active panel owns document height, including long folder stacks and hover expansion. */
+.deck .panel[data-position="front"] { position: relative; z-index: 3; transform: translate3d(var(--drag, 0px), 0, 0); opacity: 1; }
 .deck .panel[data-position="next"] {
   z-index: 2;
-  transform: translate3d(3.5%, -26px, -100px) rotate(2deg);
-  opacity: .55;
-  filter: saturate(.6) blur(.6px);
+  transform: translate3d(0, -14px, -60px);
+  opacity: .85;
+  filter: saturate(.75);
   pointer-events: none;
   max-height: 100%;
   overflow: hidden;
 }
 .deck .panel[data-position="previous"] {
   z-index: 1;
-  transform: translate3d(-3.5%, -45px, -170px) rotate(-2deg);
-  opacity: .35;
-  filter: saturate(.5) blur(1px);
+  transform: translate3d(0, -28px, -120px);
+  opacity: .65;
+  filter: saturate(.6);
   pointer-events: none;
   max-height: 100%;
   overflow: hidden;
@@ -162,7 +142,7 @@
 .panel :global([aria-label="Since your last visit"]) > div > :global(button.group) > span:first-child > span:first-child { font-size: 17px; font-weight: 650; letter-spacing: -.025em; }
 .panel :global([aria-label="Since your last visit"]) > div > :global(button.group) > span:first-child > span:last-child { font-size: 13px; margin-top: 4px; }
 .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 280px; padding: 28px 16px; text-align: center; }
-.empty > svg { margin-bottom: 20px; padding: 18px; width: 72px; height: 72px; border: 1px solid #d6dfdf; border-radius: 23px; color: #597997; background: linear-gradient(145deg, #fff, #e8eef0); box-shadow: 0 2px 0 #fff inset, 0 10px 20px -12px #8d9d9f; transform: rotate(-5deg); }
+.empty > svg { margin-bottom: 20px; padding: 18px; width: 72px; height: 72px; border: 1px solid #d6dfdf; border-radius: 23px; color: #597997; background: linear-gradient(145deg, #fff, #e8eef0); box-shadow: 0 2px 0 #fff inset, 0 10px 20px -12px #8d9d9f; }
 .empty h3 { font-size: 21px; letter-spacing: -.04em; font-weight: 600; color: #36483f; }
 .empty p { max-width: 300px; margin-top: 8px; font-size: 14px; line-height: 1.65; color: #727970; }
 .assignmentEmpty > svg { color: #986044; border-color: #e0d7c9; background: linear-gradient(145deg, #fffdfa, #f0e4d8); }
@@ -179,19 +159,17 @@
   .fullLabel { display: none; }
   .shortLabel { display: inline; }
   .tab { padding-inline: 12px; }
-  .stage { margin-inline: 14px; }
 }
 @media (max-width: 639px) {
-  .toolbar { margin-bottom: 40px; }
+  .toolbar { margin-bottom: 34px; }
   .tabs { width: 100%; gap: 0; padding: 4px; border-radius: 14px; }
   .tab { flex: 1; min-width: 0; min-height: 52px; gap: 5px; padding: 6px 5px; font-size: 12px; }
   .tab > svg { display: none; }
   .count { font-size: 11px; }
-  .controls { display: none; }
   .stage { margin-inline: 2px; perspective: 1200px; }
   .deck .panel[data-home-surface] { padding: 10px 14px 18px; border-radius: 15px; min-height: 370px; }
-  .deck .panel[data-position="next"] { transform: translate3d(2%, -15px, -55px) rotate(2deg); }
-  .deck .panel[data-position="previous"] { transform: translate3d(-2%, -28px, -90px) rotate(-2deg); }
+  .deck .panel[data-position="next"] { transform: translate3d(0, -11px, -45px); }
+  .deck .panel[data-position="previous"] { transform: translate3d(0, -22px, -90px); }
   .panel :global(.home-panel-heading) h2, .panel :global([aria-label="Since your last visit"]) h2 { font-size: 19px; }
   .panel :global(.home-panel-heading), .panel :global([aria-label="Since your last visit"]) > div:first-child { gap: 10px; flex-wrap: wrap; }
   .empty { min-height: 235px; }
@@ -201,9 +179,9 @@
   .scheduleMethod { font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .deck .panel[data-home-surface], .stage, .tab, .controls button { transition: none; }
+  .deck .panel[data-home-surface], .tab { transition: none; }
   .deck .panel[data-position="front"] { transform: none; }
-  .tab:active, .controls button:active { transform: none; }
+  .tab:active { transform: none; }
 }
 @media (forced-colors: active) {
   .tab[aria-selected="true"] { outline: 2px solid Highlight; }
