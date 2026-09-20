@@ -1,5 +1,102 @@
 # Browser capacity rehearsal — isolated evidence
 
+## Current result — September 20, 03:44 UTC
+
+The single two-hour `freshprobe100-soak` completed with a clean runner verdict on
+all four shards. **100 distinct actors acknowledged 405,093 saves**, and the
+post-run independent PostgreSQL check matched every value to exactly one audit
+entry and all 100 final actor-field values. Each shard's intentionally missing
+audit negative control was rejected. The earlier failed runs below remain failed.
+
+Exact runtime: `991969a26a6be5c40e4cf96490607227c6ddfd2b`; application build:
+`a0055c1758619e659371f73869e655a2a6747246`; harness:
+`056bfddd6c29ccc2ce0a3744bfd59f352cd9e615`. The build differs from the runtime only
+in test infrastructure. Excel is excluded. The legacy `application_baseline`
+attachment field still names `ccd4744`; it is historical, not this build identity.
+The workload-profile attachment records the actual build and harness.
+
+Measurement ran from `2026-09-20T01:33:39.168Z` to approximately `03:33:41Z`
+(one shard's start differs by 1 ms); all four measured at least 7,200 seconds.
+Final controller completion was `03:33:50.854Z`. There were no actor failures,
+captured 429/5xx responses, page exceptions, or verification transport failures.
+All 405,093 independent cross-replica reads returned 200; all three backends
+participated. All 25 actors on every shard progressed in each of its 1,434
+measured steady samples. The largest actor save gap, including boundaries, was
+4,052 ms. Independent reconciliation finished at `03:36:40.312Z`.
+
+| Shard | Saves / exact audit matches | Save p95 / p99 | Calendar and back p95 | First / last minute save p95 |
+| --- | ---: | ---: | ---: | ---: |
+| 0 | 104,098 | 216 / 287 ms | 472 ms | 305 / 271 ms |
+| 1 | 104,468 | 215 / 282 ms | 462 ms | 301 / 259 ms |
+| 2 | 98,630 | 246 / 319 ms | 562 ms | 322 / 275 ms |
+| 3 | 97,897 | 246 / 320 ms | 581 ms | 335 / 288 ms |
+
+The original per-shard budgets (save p95 <= 1,000 ms; Calendar round trip p95
+<= 2,000 ms) passed without adjustment. Real browser connection behavior was
+unchanged; only independent verification GETs explicitly used `Connection:
+close`, with zero network retries, following the documented idle-socket race.
+No contexts were recycled, garbage collection forced, or heap limits raised.
+
+### Memory finding: bounded success, not a blanket memory certification
+
+The three-process app service had zero restarts and zero cgroup memory-limit/OOM
+events. All five preserved kernel logs had no OOM kills. App anonymous memory
+stayed approximately 0.89–0.90 GiB during the measured run. Its 4,731,944,960-byte
+cgroup peak includes growing reclaimable log-file cache, not just app heap;
+post-run collection measured 797,167,616 anonymous bytes and 3,600,515,072 file
+cache bytes before the app was stopped solely for evidence preservation.
+
+**Summed Chromium process RSS did not plateau**: approximately 6.3 GiB to
+14.9–15.3 GiB per 25-context generator. Summed RSS double-counts shared pages and
+is not the physical footprint of one user's tab. The eight sampled page heaps
+ended at 11.6–13.9 MB, document counts stayed at four, and DOM counts remained
+within their repeatedly mounted/unmounted views. These observations do not
+explain or exonerate native/browser memory growth. Runner RSS stabilized broadly
+around 0.77–0.96 GB after warm-up, while its retained measurement ledger grew as
+expected. There was no observed end-of-run latency deterioration or OOM, but
+all-day browser-memory stability remains **unqualified**.
+
+Next bounded investigation: reproduce repeated saves/navigation in a small
+isolated browser run; capture per-process PSS/private memory and renderer/network
+allocation evidence alongside page heap and DOM counts; distinguish browser/test
+instrumentation retention from app retention before editing runtime code. Keep
+normal connections, contexts, and save assertions intact. Do not rerun another
+large fleet, resize production, or claim a proven leak from summed RSS alone.
+
+### Evidence preservation and cleanup
+
+Local evidence is under `.data/diagnostic-20260920/`. The independent verification
+is `freshprobe100-soak-independent-verification.json`. All five archives were
+downloaded, matched against remote SHA-256, inspected for expected reports and
+absence of private-key/environment file names, and checked for kernel OOM events.
+The synthetic dump has 3,473 referrals and 647,358 audit rows across all preserved
+runs; `fsync` and `synchronous_commit` remained on. The dump manifest was readable
+and its streamed local bytes matched SHA-256
+`5ca5f72b57cd58dc6e92befcec4cca375fba6d6154a97dcad32473dde25e2bf1`.
+
+| Archive | SHA-256 |
+| --- | --- |
+| diagnostic-evidence-runner.tgz | `f5774ef5047a60b7f701282812e31ea483831598a5127bb1a7e27edd621494eb` |
+| diagnostic-evidence-app.tgz | `ed3b8c376ef34f651562a18017762799bd84d242b2d61113125f938341dd8836` |
+| diagnostic-evidence-browser2.tgz | `b031d7c29efe4782dfdc1f27140ae7e8fa961bb058f51ec238aa78d98342e86b` |
+| diagnostic-evidence-browser3.tgz | `c7c885943415b804af8e2119241dd03ed7ac59ee12ffa0441c621ced11f8df17` |
+| diagnostic-evidence-browser4.tgz | `33d27e50744b1e713cb8ab06c6ca9e2a6d82973d1f4dd4eeca00db38b421fd48` |
+
+Deletion of only verified synthetic group `rg-pipeline-diagnostic-20260920` was
+requested at approximately `03:40:49Z`; Azure resource inventory was empty and
+group absence was verified at `03:43:55Z`, before the OS shutdown deadline.
+The five VMs, their disks, IPs, and associated temporary network resources were
+removed. Logs and synthetic database contents are recoverable from the verified
+local archives; the deleted VMs themselves are not retained.
+Estimated total incremental testing cost is approximately **$18–21**, including
+the earlier $8–10 fleet, within the $50 authorization. This is a resource-duration
+estimate, not a finalized Azure invoice. No recurring production cost increased.
+No production deployment, scaling, settings change, or additional load run occurred.
+The bounded save/navigation correctness and speed result passes; overall
+production-capacity and all-day browser-memory certification remain on hold.
+
+## Historical runs and diagnosis
+
 Baseline: `ccd474433c05001ed621c30643bde3f1b3e8a201`.
 Runtime candidate: `1bae62b1d0a81a0a92d9f07a2e7a3afc9ffe6211`.
 Latest harness: `1bd61d64de8d508b48a35003030cf32215f1d591`.

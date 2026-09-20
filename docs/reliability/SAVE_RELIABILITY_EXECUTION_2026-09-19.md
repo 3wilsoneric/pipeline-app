@@ -8,6 +8,39 @@ Harness/fixture candidate: `1bd61d64de8d508b48a35003030cf32215f1d591`.
 Readiness-check alignment: `78d6f790c5fb3b571b9554fce3f20e016e03f6b1` (test-only).
 This ledger does not claim production deployment or universal reliability.
 
+## Current handback — September 20
+
+The exact clean core runtime is now
+`991969a26a6be5c40e4cf96490607227c6ddfd2b` (Deploy's core-only integration;
+no Excel). The diagnostic build `a0055c1` contains that runtime, and the final
+load harness is `056bfddd6c29ccc2ce0a3744bfd59f352cd9e615`.
+
+The **100-actor, two-hour save/navigation run passed**: 405,093 confirmed writes,
+all independently matched to exactly one audit entry; 100 final field values
+matched; every actor progressed throughout the measured window; zero captured
+429/5xx, browser exceptions, actor errors, or verification connection failures.
+Save p95 was 215–246 ms and Calendar-and-back p95 462–581 ms across the four
+shards. Final-minute save latency was lower than first-minute latency.
+Application restarts and OOM events were zero. See the
+[exact evidence, prior failures, and preserved hashes](BROWSER_CAPACITY_REHEARSAL_2026-09-19.md).
+
+This does **not** close the browser-memory question: summed Chromium RSS rose
+throughout the run despite small sampled page heaps, stable server anonymous
+memory and no observed slowdown. Native/browser memory attribution needs a
+small targeted follow-up; all-day memory stability remains unqualified. The
+previous failed reload and keep-alive test profiles retain their failed verdicts.
+Only independent verification reads used fresh connections, without retries;
+actual browser requests and application behavior were unchanged.
+
+Five new evidence archives and a consistent synthetic database dump have been
+downloaded and SHA-256 verified. Temporary diagnostic group deletion was
+verified at `2026-09-20T03:43:55Z`; no residual test resources remain in that group.
+Total temporary cost is estimated at $18–21 including the earlier fleet, not a
+final bill and below the approved $50 ceiling. No production changes or additional
+recurring production capacity were purchased. The deployment owner receives this bounded result,
+not a blanket release approval or a claim that the entire app is bulletproof.
+The sections below retain the earlier execution/hold history.
+
 ## Invariants revisited for every change
 
 - Preserve chart, assessment, decision, navigation, ownership, and reports boundaries.
