@@ -80,7 +80,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await chooseSection(page, "prior_history");
     if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
     await expect(reference.getByRole("button", { name: "Edit Prior placements", exact: true })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath(`open-book-${width}.png`) });
+    await page.screenshot({ path: testInfo.outputPath(`open-book-${width}.png`), animations: "disabled" });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;

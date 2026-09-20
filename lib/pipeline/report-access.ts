@@ -1,11 +1,18 @@
 import { canEditWorkspace } from "./referral-ownership";
 
-export const operationsReportRoles = ["admin", "assessment_coordinator", "reviewer", "viewer"] as const;
+export const operationsReportRoles = ["admin", "assessment_coordinator"] as const;
+
+const operationsReportEmails = new Set([
+  "andrew@aaahealthservices.com",
+  "ericwilsonalamo@outlook.com",
+  "sandeep@aaahealthservices.com",
+]);
 
 type OperationsReportPrincipal = {
   id?: string | null;
   email?: string | null;
   roles: readonly string[];
+  accessScope?: string;
 };
 
 export function canAccessSupervisorOperations(roles: readonly string[]) {
@@ -13,5 +20,10 @@ export function canAccessSupervisorOperations(roles: readonly string[]) {
 }
 
 export function canAccessOperationsReports(principal: OperationsReportPrincipal | null | undefined) {
-  return canEditWorkspace(principal);
+  if (!principal || !canEditWorkspace(principal)
+    || !operationsReportRoles.some((role) => principal.roles.includes(role))) return false;
+  const email = principal.email?.trim().toLowerCase();
+  if (!email) return false;
+  // Retain the reserved local/demo identity contract; real accounts require the named allowlist.
+  return operationsReportEmails.has(email) || Boolean(principal.id && email.endsWith("@pipeline.local"));
 }

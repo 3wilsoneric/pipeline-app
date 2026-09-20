@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.describe("Assessment practice lab", () => {
   test("the real assessment renderer preserves typed spaces and newlines in secondary diagnoses", async ({ page }) => {
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical");
-    const full = page.locator('[data-assessment-view="chart"]');
+    const full = page.locator('[data-assessment-view="assessment"]');
     await expect(full).toBeVisible();
     const secondary = full.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
     await secondary.fill("");
@@ -30,15 +30,15 @@ test.describe("Assessment practice lab", () => {
     await sectionRail.getByRole("button", { name: /^Substance use\b/ }).click();
     const history = page.getByRole("group", { name: "History of substance abuse", exact: true });
     await history.getByRole("button", { name: "Yes", exact: true }).click();
-    const insight = page.getByRole("combobox", { name: "Insight into substance use *", exact: true });
-    await expect(insight.getByRole("option")).toHaveText(["Select...", "Acknowledge", "Doesn't acknowledge"]);
-    await insight.selectOption({ label: "Acknowledge" });
+    const insight = page.getByRole("combobox", { name: "Acknowledgment of substance-use impact", exact: true });
+    await expect(insight.getByRole("option")).toHaveText(["Select...", "Acknowledges impact", "Partially acknowledges impact", "Does not acknowledge impact", "Not discussed"]);
+    await insight.selectOption({ label: "Acknowledges impact" });
     await expect(insight).toHaveValue("yes");
-    await insight.selectOption({ label: "Doesn't acknowledge" });
+    await insight.selectOption({ label: "Does not acknowledge impact" });
     await expect(insight).toHaveValue("no");
     await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole("combobox", { name: "Insight into substance use *", exact: true })).toHaveValue("no");
+    await expect(page.getByRole("combobox", { name: "Acknowledgment of substance-use impact", exact: true })).toHaveValue("no");
     await sectionRail.getByRole("button", { name: /^Behavior & safety\b/ }).click();
     await expect(page.locator('[data-practice-field="triggers"]')).toHaveCount(0);
     await expect(page.locator('[data-practice-field="aggression_risk"]')).toHaveCount(0);

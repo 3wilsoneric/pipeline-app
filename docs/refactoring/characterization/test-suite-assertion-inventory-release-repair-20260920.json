@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "release-gate-repair-20260920",
+  "startingCommit": "9ecd2cd2e3b1b6c3409d3a098f43615475acfb1e",
+  "generatedAt": "2026-09-20T15:07:00Z",
+  "previousInventory": "test-suite-assertion-inventory-9ecd2cd.json",
+  "comparisonRule": "Eric authorized current-UI browser contract repair with 'do both, and then deploy'. Preserve historical manifests; pin this reviewed repair to its exact assertions. All 49 journeys remain, the API manifest and all 24 critical multi-session assertions remain unchanged. See RELEASE_GATE_REPAIR_20260920.md for the behavior mapping; this is not a complexity baseline or relaxed threshold.",
+  "playwright": {
+    "sourceFiles": ["tests/e2e/pipeline-smoke.spec.ts", "tests/e2e/pipeline-home.spec.ts"],
+    "caseCount": 49,
+    "assertionCount": 820,
+    "caseManifestDigest": "eafcc8e5174b7a498982c2ce37b495a61a666e5d8f92e13eb1232675852d449a",
+    "titleDigest": "0ee06b5f8e286eda7ebf56a85383f7b5a2f87e481de86b9fb8082c2f58233702",
+    "hooks": ["beforeAll", "afterAll", "beforeEach"]
+  },
+  "apiBehavior": {
+    "sourceFiles": ["scripts/api-behavior-fixtures.mjs"],
+    "caseCount": 114,
+    "assertionCount": 400,
+    "caseManifestDigest": "88b56c4559e8557946ae6e866474e07715a29493c9a74c5a68c0cbaf49f60ca1",
+    "titleDigest": "738873acc2fa78dd91968617ac7ed43491a14ca85b0956740f8fb9d1b08320fa",
+    "hooks": []
+  },
+  "criticalJourneyTrace": {
+    "id": "coordinates section edits, presence leases, and remote conflicts across two sessions",
+    "assertionCount": 24,
+    "assertionDigest": "7dcd2e3de5c2b203f542842b437941c9ff95751b202067b50f14fd28a6ca503f",
+    "failureSignal": "Two-session presence, disjoint persistence, stale same-field conflict visibility and no silent overwrite remain byte-equivalent assertions."
+  }
+}

@@ -512,10 +512,9 @@ function guidePanelLayout(rect: DOMRect | null, preferred: OperatorGuidePlacemen
     if (candidate) return candidate;
   }
 
-  if (space.bottom >= space.top) {
-    return { left: centeredX, top: rect.bottom + gap, width, maxHeight: Math.max(1, space.bottom) };
-  }
-  return { left: centeredX, bottom: viewportHeight - rect.top + gap, width, maxHeight: Math.max(1, space.top) };
+  // A full-screen target (for example the work board) leaves no adjacent room.
+  // Keep the guide's controls usable instead of clipping them into a 1px strip.
+  return { right: margin, bottom: margin, width, maxHeight: estimatedHeight };
 }
 
 function clamp(value: number, minimum: number, maximum: number) {

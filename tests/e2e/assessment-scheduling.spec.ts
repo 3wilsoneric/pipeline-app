@@ -104,8 +104,9 @@ test("includes the tutorial controls in the appointment keyboard cycle and pause
     updatedAt: new Date().toISOString(),
     persistence: "browser",
   } }));
-  await page.goto("/training");
-  await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Guided tutorial library", exact: true })).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new CustomEvent("pipeline:guided-coach", {
     detail: { type: "start", tutorialId: "start-assessment", stepIndex: 2 },
   })));

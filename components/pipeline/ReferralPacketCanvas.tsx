@@ -3062,7 +3062,7 @@ function IntakeDocumentChecklist({
             <span className={`text-[10px] font-black ${hasInitialPacket && !initialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
               {dragActive ? "Release to add files" : initialPacket ? "Packet selected" : hasInitialPacket ? "Packet added" : "Packet needed"}
             </span>
-            <span className={`hidden text-[10px] font-black sm:inline ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
+            <span className={`hidden text-[10px] font-black sm:inline ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#66716b]"}`}>
               {capturedDocuments} / {documentItems.length} files
             </span>
             <span className="flex h-6 w-6 items-center justify-center rounded border border-[#c4cec8] bg-white text-[#386453]"><ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180" /></span>

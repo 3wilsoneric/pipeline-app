@@ -17,8 +17,10 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       }, true);
     });
     await page.goto("/");
+    await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
     const button = page.getByRole("button", { name: "Open calendar", exact: true });
     await expect(button).toBeVisible();
+    await expect(button).toHaveJSProperty("clientWidth", 189);
     const resting = await button.evaluate((node) => ({ width: node.clientWidth, height: node.clientHeight }));
     await button.hover();
     await expect(button).not.toHaveCSS("box-shadow", "none");
@@ -65,10 +67,21 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 test("disabled create action does not get hover or press animation", async ({ page }) => {
   await page.goto("/?view=referrals&screen=packet&draftId=tactile-disabled-control");
   const create = page.getByRole("button", { name: "Create referral", exact: true });
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+  // Incomplete intake is allowed. The real disabled state is a pending save.
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/api/referrals", async (route) => {
+    if (route.request().method() === "POST") await held;
+    await route.continue();
+  });
+  await create.click();
   await expect(create).toBeDisabled();
   await create.hover({ force: true });
   await page.mouse.down();
   await expect(create).toHaveCSS("scale", "none");
   await expect(create).toHaveCSS("background-image", "none");
   await page.mouse.up();
+  release();
+  await expect(page).toHaveURL(/referralId=\d+/);
 });

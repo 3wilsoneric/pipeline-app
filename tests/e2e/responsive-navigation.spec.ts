@@ -19,6 +19,9 @@ test.describe("Responsive application navigation", () => {
       await mockReferralDirectory(page);
       await page.goto("/?view=referrals");
       await expect(page.getByRole("main", { name: "Referral workspaces" })).toBeVisible();
+      const phone = viewport.width < 640;
+      if (phone) await page.getByRole("button", { name: /^Open page menu/ }).click();
+      else await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
 
       for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
         await expect(page.getByRole("button", { name })).toBeVisible();
@@ -48,6 +51,8 @@ test.describe("Responsive application navigation", () => {
       }
 
       await expect(page.getByTestId("primary-navigation").getByText("Workspaces", { exact: true })).toBeVisible();
+      if (phone) await page.getByRole("button", { name: "Close page menu", exact: true }).click();
+      else await page.getByRole("button", { name: "Collapse navigation", exact: true }).click();
 
       if (viewport.width < 1280) {
         await page.getByRole("button", { name: "Browse workspaces by month and community" }).click();
@@ -161,7 +166,8 @@ async function expectNavigationItemsDoNotOverlap(page: Page) {
     }),
   );
   for (let index = 1; index < boxes.length; index += 1) {
-    expect(boxes[index].left).toBeGreaterThanOrEqual(boxes[index - 1].right - 1);
+    // The canonical shell is vertical on desktop and in the phone page menu.
+    expect(boxes[index].top).toBeGreaterThanOrEqual(boxes[index - 1].bottom - 1);
   }
 }
 

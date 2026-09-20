@@ -27,7 +27,9 @@ test("keeps account identity locked and profile settings editable", async ({ pag
 
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByRole("heading", { name: "Profile settings" })).toBeVisible();
-  await expect(page.getByText("Playwright QA", { exact: true }).first()).toBeVisible();
+  const identities = page.getByRole("form", { name: "Profile settings" }).getByText("Playwright QA", { exact: true });
+  await expect(identities).toHaveCount(2);
+  for (const identity of await identities.all()) await expect(identity).toBeVisible();
   await expect(page.getByText("Microsoft verified", { exact: true }).first()).toBeVisible();
 
   const originalResponse = await page.request.get("/api/me/profile");
@@ -84,6 +86,7 @@ test("rejects invalid and cross-origin profile setting changes", async ({ page }
 test("keeps profile settings usable on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
+  await page.getByRole("button", { name: /^Open page menu/ }).click();
   await page.getByRole("button", { name: "Open profile menu for Playwright QA" }).click();
   await expect(page.getByRole("dialog", { name: "Profile settings" })).toBeVisible();
   await page.getByRole("link", { name: "Profile settings Account and display preferences" }).click();

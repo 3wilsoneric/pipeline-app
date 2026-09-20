@@ -17,7 +17,6 @@ import {
   markOperationalPacketReviewed,
   mutateOperationalEhrHandoff,
   readOperationalReferral,
-  recordOperationalAcceptance,
   resolveOperationalDecisionRequirements,
   resolveOperationalMoveInRequirements,
   scheduleOperationalAssessment,
@@ -40,6 +39,7 @@ test.describe("role-separated referral golden thread", () => {
     const otherAssessor = await actorApiContext("assessorB", url);
     const supervisor = await actorApiContext("admin", url);
     const viewer = await actorApiContext("viewer", url);
+    const outsider = await actorApiContext("outsider", url);
 
     try {
       const registrations = await Promise.all([
@@ -90,12 +90,12 @@ test.describe("role-separated referral golden thread", () => {
       const assessorCalendar = asRecord(await assessorCalendarResponse.json());
       const otherCalendar = asRecord(await otherCalendarResponse.json());
       const teamCalendar = asRecord(await teamCalendarResponse.json());
-      expect(assessorCalendar.scope).toBe("personal");
+      expect(assessorCalendar.scope).toBe("team");
       expect(teamCalendar.scope).toBe("team");
       expect(assessorCalendar.events).toEqual(expect.arrayContaining([
         expect.objectContaining({ referralId: referral.id, kind: "referral_assigned", ownerId: pipelineActors.assessorA.id }),
       ]));
-      expect(otherCalendar.events).not.toEqual(expect.arrayContaining([
+      expect(otherCalendar.events).toEqual(expect.arrayContaining([
         expect.objectContaining({ referralId: referral.id }),
       ]));
 
@@ -109,6 +109,7 @@ test.describe("role-separated referral golden thread", () => {
             filename: "synthetic-golden-thread.pdf",
             content_type: "application/pdf",
             size: 2_048,
+            sha256: "b".repeat(64),
           }],
         },
       });
@@ -135,8 +136,9 @@ test.describe("role-separated referral golden thread", () => {
       referral = await markOperationalPacketReviewed(coordinator, referral, reservation.packet_id);
       referral = await transitionOperationalReferral(coordinator, referral, "Assessment");
 
-      const hiddenFromOtherAssessor = await otherAssessor.get(`/api/referrals/${referral.id}`);
-      expect(hiddenFromOtherAssessor.status()).toBe(404);
+      const sharedWithOtherAssessor = await otherAssessor.get(`/api/referrals/${referral.id}`);
+      expect(sharedWithOtherAssessor.status()).toBe(200);
+      expect((await outsider.get(`/api/referrals/${referral.id}`)).status()).toBe(403);
 
       let assessment = await createOperationalAssessment(assessor, referral.id);
       const seededAssessmentResponse = await assessor.get(`/api/assessments/${assessment.assessment_id}`);
@@ -161,7 +163,7 @@ test.describe("role-separated referral golden thread", () => {
       ]));
       assessment = await startOperationalAssessment(assessor, assessment);
 
-      const unauthorizedDecision = await assessor.put(`/api/referrals/${referral.id}/decision`, {
+      const unauthorizedDecision = await outsider.put(`/api/referrals/${referral.id}/decision`, {
         data: {
           if_match: referral.version,
           if_match_section: referral.sectionVersions.decision,
@@ -174,30 +176,29 @@ test.describe("role-separated referral golden thread", () => {
       assessment = await signOperationalAssessment(assessor, assessment);
       referral = await readOperationalReferral(assessor, referral.id);
       referral = await submitOperationalRecommendation(assessor, referral, assessment);
-      const blockedDecision = await supervisor.put(`/api/referrals/${referral.id}/decision`, {
+      const acceptedDecision = await supervisor.put(`/api/referrals/${referral.id}/decision`, {
         data: {
           if_match: referral.version,
           if_match_section: referral.sectionVersions.decision,
           outcome: "accepted",
         },
       });
-      expect(blockedDecision.status()).toBe(422);
-      expect(asRecord(await blockedDecision.json()).error).toContain("Signed medication list");
+      expect(acceptedDecision.status()).toBe(200);
+      expect(asRecord(asRecord(await acceptedDecision.json()).decision).outcome).toBe("accepted");
       expect(await resolveOperationalDecisionRequirements(supervisor, referral.id)).toBeGreaterThan(0);
       referral = await readOperationalReferral(supervisor, referral.id);
-      referral = await recordOperationalAcceptance(supervisor, referral);
 
-      const blockedMoveIn = await supervisor.post(`/api/referrals/${referral.id}/transition`, {
+      const admittedWithOutstandingDocuments = await supervisor.post(`/api/referrals/${referral.id}/transition`, {
         data: {
           if_match: referral.version,
           if_match_section: referral.sectionVersions.workflow,
           target_stage: "Accepted / Admitted",
         },
       });
-      expect(blockedMoveIn.status()).toBe(422);
+      expect(admittedWithOutstandingDocuments.status()).toBe(200);
+      expect(asRecord(asRecord(await admittedWithOutstandingDocuments.json()).referral).stage).toBe("Accepted / Admitted");
       expect(await resolveOperationalMoveInRequirements(supervisor, referral.id)).toBeGreaterThan(0);
       referral = await readOperationalReferral(supervisor, referral.id);
-      referral = await transitionOperationalReferral(supervisor, referral, "Accepted / Admitted");
 
       const admittedRequirementsResponse = await supervisor.get(`/api/referrals/${referral.id}/work-items`);
       expect(admittedRequirementsResponse.status()).toBe(200);
@@ -212,16 +213,11 @@ test.describe("role-separated referral golden thread", () => {
       const reopenedAgreementBody = await reopenedAgreement.json();
       expect(reopenedAgreement.status(), JSON.stringify(reopenedAgreementBody)).toBe(200);
       referral = asReferralPayload(reopenedAgreementBody).referral;
-      const blockedHandoff = await mutateOperationalEhrHandoff(supervisor, referral, "queue");
-      expect(blockedHandoff.response.status()).toBe(422);
-      expect(blockedHandoff.body.error).toContain("Signed admission agreement");
-      expect(await resolveOperationalMoveInRequirements(supervisor, referral.id)).toBe(1);
-      referral = await readOperationalReferral(supervisor, referral.id);
-
       const queued = await mutateOperationalEhrHandoff(supervisor, referral, "queue");
       expect(queued.response.status()).toBe(200);
       expect(queued.body.ehr_handoff).toEqual(expect.objectContaining({ status: "queued" }));
-      referral = queued.referral;
+      expect(await resolveOperationalMoveInRequirements(supervisor, referral.id)).toBe(1);
+      referral = await readOperationalReferral(supervisor, referral.id);
 
       const staleWrite = await supervisor.post(`/api/referrals/${referral.id}/ehr-handoff`, {
         data: { if_match: 1, if_match_section: 1, action: "mark_sent" },
@@ -256,9 +252,10 @@ test.describe("role-separated referral golden thread", () => {
       const viewerRead = await viewer.get(`/api/referrals/${referral.id}`);
       expect(viewerRead.status()).toBe(200);
       const viewerMutation = await viewer.patch(`/api/referrals/${referral.id}`, {
-        data: { if_match: sent.referral.version, patch: { note: "Viewer must not save." } },
+        data: { if_match: sent.referral.version, patch: { note: "Synthetic shared staff update." } },
       });
-      expect(viewerMutation.status()).toBe(403);
+      expect(viewerMutation.status()).toBe(200);
+      expect(asRecord(asRecord(await viewerMutation.json()).referral).note).toBe("Synthetic shared staff update.");
 
       const finalReferral = asRecord(asRecord(await viewerRead.json()).referral);
       expect(finalReferral.stage).toBe("Accepted / Admitted");
@@ -279,6 +276,7 @@ test.describe("role-separated referral golden thread", () => {
         otherAssessor.dispose(),
         supervisor.dispose(),
         viewer.dispose(),
+        outsider.dispose(),
       ]);
     }
   });

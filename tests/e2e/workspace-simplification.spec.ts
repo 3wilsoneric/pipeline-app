@@ -53,7 +53,8 @@ for (const width of [1440, 390]) {
     await expect(activity.getByText("Assessment signed", { exact: true }).first()).toHaveCSS("font-size", "15px");
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(page.getByRole("button", { name: "Workspace activity", exact: true })).toHaveAttribute("aria-current", "page");
+    if (width < 640) await expect(page.getByLabel("Workspace view", { exact: true })).toHaveValue("activity");
+    else await expect(page.getByRole("button", { name: "Workspace activity", exact: true })).toHaveAttribute("aria-current", "page");
     await page.screenshot({ path: testInfo.outputPath(`activity-${width}.png`), animations: "disabled" });
     const disclosure = activity.locator("summary").filter({ hasText: "Detailed history" });
     await disclosure.focus();
@@ -84,7 +85,8 @@ for (const width of [1440, 390]) {
     const signed = await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
     expect(signed.status()).toBe(200);
     await page.goto(workspaceUrl(referral.id, "intake"));
-    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision$/ }).click();
+    if (width < 640) await page.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Decision" });
+    else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision$/ }).click();
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(decision).toBeVisible();
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);
@@ -100,7 +102,7 @@ for (const width of [1440, 390]) {
     const admitDate = decision.getByLabel("Admission date", { exact: true });
     await expect(admitDate).toBeVisible();
     await admitDate.fill("2026-10-01");
-    await decision.getByRole("button", { name: "Prepare Meet the Client", exact: true }).click();
+    await decision.getByRole("button", { name: "Continue to finish & send", exact: true }).click();
     await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     const saved = await (await page.request.get(`/api/referrals/${referral.id}`)).json();
     expect(saved.referral.admissionDate).toBe("2026-10-01");
@@ -111,7 +113,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("note")).toContainText("Example only. No email will be sent.");
     await expect(page.getByRole("navigation", { name: "Assessment chart views" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Send email & packet" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Edit decision", exact: true }).click();
+    await page.getByRole("button", { name: "Back to decision", exact: true }).click();
     await expect(decision.getByLabel("Admission date", { exact: true })).toHaveValue("2026-10-01");
     await decision.locator("summary").filter({ hasText: /^Admission details$/ }).click();
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).toBeVisible();
@@ -124,7 +126,8 @@ for (const width of [1440, 390]) {
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("New");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("New");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
+    if (width < 640) await expect(page.getByLabel("Workspace view", { exact: true })).toHaveValue("workflow");
+    else await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
   });
 }
 

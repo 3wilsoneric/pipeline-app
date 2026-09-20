@@ -8,6 +8,10 @@ Exact source: `9ecd2cd2e3b1b6c3409d3a098f43615475acfb1e`. Dedicated branch: `cod
 
 ## Scope and invariants
 
+### September 20 scope extension approved by Eric
+
+Eric's subsequent directive, “do both, and then deploy,” approves repairing the remaining outdated browser contracts (including the protected `pipeline-home` and `pipeline-smoke` sources) against the current approved application, and restoring Reports to Eric, Andrew, and Sandeep. This permits changes to those browser fixtures/support and their exact-source assurance inventory, the canonical `lib/pipeline/report-access.ts` policy, Reports-facing API guards, policy documentation, and focused authorization tests. Keep the historical assertion baseline and the earlier failed-run evidence; preserve executable coverage of saves, identity, audit, recovery, accessibility, and denied access. No skipped tests, relaxed limits, restored retired UI, or broad product redesign is authorized. All other approved-staff workspace access remains shared. This is explicit new product authority for Reports only, not a retroactive claim that the broader policy was correct.
+
 Repair the 42 failing functions and two aggregate violations identified by the source complexity report. Implementation paths are the 24 files containing those failures: admission-summary and meet-client-email routes; AssessmentChartWorkspace, AssessmentPhoneInterview, AssessmentWorkspace, ClientProfileDirectory, ClientProfileView, PacketExtractionReview, PipelineCalendar, PipelineHeader, PipelineOverviewRoute, ReferralPacketCanvas, ReferralWorkflowPanelPresentation, pipeline-calendar-model; assessment-lifecycle-validation, assessment-store, assessment-validation, authenticated-fetch, processing-worker, assessment-calendar, calendar-store, referral-canvas-persistence, referral-store; and browser-capacity.spec.ts. Focused tests for these responsibilities and this evidence record may also change. No other product work is included.
 
 Keep public exports, rendered layout, field names, click paths, hooks and state ordering, draft reconciliation, save acknowledgment, conflict checks, authentication, route error mapping, transaction clients, locks, version checks, audit atomicity, extraction fencing/provenance, and notification/packet side-effect order unchanged. Extract coherent same-owner helpers; do not split arbitrary code merely to move a score. No schema, dependency, complexity-baseline, threshold, or source-exclusion changes. Browser assertions may be retargeted to the current approved UI while retaining their underlying safety properties; obsolete controls are not restored merely to pass old selectors. Two narrow defects subsequently demonstrated by browser checks are recorded below.
@@ -43,9 +47,38 @@ The full default-browser diagnostic, started before this test-alignment batch co
 
 Operational evidence maintenance includes two navigation details discovered from actual traces: the calendar fixture must keep a midnight-Sunday appointment in the displayed Pacific week, and stacked folders must be opened through their exposed name tabs rather than clicking the area deliberately covered by the next folder. New-intake tests wait for the existing `aria-busy=false` readiness boundary before filling controls inside the initially inert recovery surface. No arbitrary delay, forced click, test skip, or runtime workflow change was introduced for these cases.
 
-Unresolved release evidence must remain visible:
+Historical unresolved evidence at `3bf090c`, before Eric's scope extension above:
 
 - Complete browser/operational CI still requires reconciliation and a green exact-commit run. The protected `pipeline-home`, `pipeline-smoke`, and API behavior fixture sources remain unchanged from `9ecd2cd`; the first two include old search/filter/workflow assumptions that are failing in the full diagnostic.
 - `/training` routes redirect to Home by existing commit `bb5e18a` (“Make Help the Learning Center walkthrough entry”). Legacy Learning Center/presentation tests still target those retired pages. No such test is skipped or deleted, and those routes have not been re-enabled by this repair.
 - Reports currently permits all approved staff through pre-existing commit `3a53a0d`. This conflicts with earlier owner instructions to limit Reports to named supervisors. A user decision has been requested; this repair has not silently changed that policy or changed the report-denial tests to accept the wider access.
 - Production is unchanged. Actual-assessor production acceptance and inbox confirmation of the two real monitoring signals remain pending; synthetic-account and action-group evidence do not substitute for them.
+
+## Approved browser-contract reconciliation and Reports restoration
+
+This section supersedes the historical statements above that the protected browser files are unchanged, legacy presentation tests are unchanged, and the Reports decision is pending. The original inventories and failed-run artifacts remain unchanged.
+
+The canonical Reports policy now admits Eric (`ericwilsonalamo@outlook.com`), Andrew (`andrew@aaahealthservices.com`), and Sandeep (`sandeep@aaahealthservices.com`) when authenticated with a staff supervisor/admin role. The pre-existing synthetic `@pipeline.local` test identity remains bounded to authenticated test principals; viewer and Note Lab-only principals are rejected. Reports, exports, dashboard, and performance graph share the same guard, before store reads. Other approved-staff workspace access is unchanged. The policy matrix checks the three names, unnamed administrators, assessors, viewers, Note Lab sessions, every Reports-facing API, and export audit behavior (23 passing cases).
+
+The current exact-source assertion inventory has **49 Home/smoke journeys and 820 direct assertions** (previously 49/813). API characterization remains **114 cases / 400 assertions**. All **24 multi-session conflict assertions retain their original digest**. Counts are not a substitute for the following obligation mapping:
+
+| Obsolete assumption | Current contract | Executable evidence retained |
+| --- | --- | --- |
+| Root client filters and flat cards | Community cabinets, stacked folders, optional list | Directory provenance/filtering, profile navigation, geometry, reduced motion and local-only interaction feedback |
+| Search header icon, numbered stages and assessment modal | Keyboard search, folder tabs, inline questionnaire and phone section picker | Home/smoke journeys, section routing, keyboard focus, phone/WebKit controls, save/reopen and audit assertions |
+| Scheduling or missing contact blocks entry; automatic start | Optional scheduling/start with nonblocking missing information | Scheduling/contact tests still verify exact assessment identity, version, appointments and persisted contacts |
+| Signature alone locks answers | Signed but unsent stays editable; sending finalizes | Final-send, signing, recommendation, decision, audit and concurrency tests retain their separate boundaries |
+| Workspaces opens the former hopper and waits for the server | Return to directory after durable local preservation; reopen resumes | Pending and failed server-save tests verify unchanged server data on failure, recovered values and later successful persistence; assessment return verifies same saved answer and section |
+| `/training` fullscreen workshop, chapter pages and preview gallery | Existing `bb5e18a` redirects; Help launches real-screen guides | Legacy-route redirects/no writes; current guide advance/skip/pause/reload, report filter/export checkpoint, upload validation/visibility, all 12 real assessment sections, Language Lab, responsive practice and no clinical writes |
+
+Presentation-only assertions for retired slide numbers, gallery layouts, chapter pages and the separate medication preview are replaced rather than skipped. Their surviving safety obligations run on the canonical assessment/mobile/focused-group/Note Lab components, not dead demo copies. No CI job, browser project, complexity threshold, mutation test, API denial or data-recovery gate is removed. The full browser run is still required; focused passes alone do not authorize release.
+
+Additional narrowly demonstrated UI defects repaired without changing workflow or storage:
+
+- `ReferralHomeDirectory`: increase the enabled Retry label contrast from 2.37:1.
+- `ReferralPacketCanvas` and `ReferralWorklist`: darken small muted file-count, progress and relative-date text on tinted surfaces that measured 4.39:1 (below 4.5:1).
+- `PipelineGuidedCoach`: when a target fills the viewport and leaves no adjacent space, dock the bounded guide instead of clipping its controls to a one-pixel strip. The ordinary adjacent placements and existing skip/advance semantics remain unchanged. The guide is exercised by real clicks, not forced dispatches.
+
+No schema, third-party dependency, live record, public click path or billing resource changes are included. Production remains on the recorded rollback revision until exact-candidate checks and CI clear. Actual-assessor production acceptance and real-alert inbox confirmation remain distinct outstanding evidence.
+
+The next complete default run produced 495 passes, four failures and 40 existing conditional skips (specialized desktop/cross-browser/visual jobs exercise their dedicated cases). Three findings were corrected while that run was already in progress and pass in the final 52-case focused run: entrance-animation sampling, use of an existing ID as a supposedly missing referral, and the small-text contrast above. The fourth exposed suite accumulation beyond the supervisor queue's existing 250-item preview; its test now verifies exact unassigned/stale count increments from its one created referral regardless of truncation, preview length, and item identity when the complete queue fits. The API is unchanged. The unchanged-limit complexity, full 53-check platform, test-effectiveness and production-build certification passed before that final test-only adjustment. Exact-commit CI remains the release authority, not an arithmetic combination of these runs.

@@ -13,20 +13,21 @@ for (const engine of ["chromium", "webkit"] as const) {
         await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
         const header = page.getByTestId("workspace-folder-header");
         const folder = page.getByTestId("intake-client-folder");
-        const intake = header.getByRole("button", { name: "Intake", exact: true });
+        const intake = width < 640 ? header.getByLabel("Workspace view") : header.getByRole("button", { name: "Intake", exact: true });
         const create = header.getByRole("button", { name: "Create referral", exact: true });
         await expect(create).toBeEnabled();
         await expect(create).toHaveText("Create referral");
-        await expect(intake).toHaveCSS("font-size", width < 640 ? "14px" : "17px");
-        await expect(header.getByTestId("workspace-identity-title").locator("span")).toHaveCSS("text-align", "center");
-        await expect(intake).toHaveCSS("justify-content", "center");
+        await expect(intake).toHaveCSS("font-size", width < 640 ? "16px" : "17px");
+        await expect(header.getByTestId("workspace-identity-title").locator("span")).toHaveCSS("text-align", width < 640 ? "left" : "center");
+        if (width >= 640) await expect(intake).toHaveCSS("justify-content", "center");
         const headerBox = (await header.boundingBox())!;
         const folderBox = (await folder.boundingBox())!;
         const createBox = (await create.boundingBox())!;
-        expect(createBox.height).toBeGreaterThanOrEqual(width < 640 ? 50 : 56);
+        expect(createBox.height).toBeGreaterThanOrEqual(width < 640 ? 44 : 56);
         expect(headerBox.height).toBeLessThanOrEqual(width > 1250 ? 72 : 120);
         expect(Math.abs(folderBox.y - headerBox.y - headerBox.height)).toBeLessThanOrEqual(1);
-        expect(Math.abs(folderBox.y - createBox.y - createBox.height)).toBeLessThanOrEqual(1);
+        // Phone chrome gives its 44px create control 5px of vertical breathing room.
+        expect(Math.abs(folderBox.y - createBox.y - createBox.height - (width < 640 ? 5 : 0))).toBeLessThanOrEqual(1);
         for (const button of await header.getByRole("button").all()) {
           const box = (await button.boundingBox())!;
           expect(box.x).toBeGreaterThanOrEqual(0);
@@ -39,9 +40,15 @@ for (const engine of ["chromium", "webkit"] as const) {
         await page.screenshot({ path: info.outputPath(`folder-${engine}-${width}.png`) });
         await create.focus();
         await expect(create).toBeFocused();
-        await header.getByRole("button", { name: "Workspace files", exact: true }).click();
-        await expect(header.getByRole("button", { name: "Workspace files", exact: true })).toHaveAttribute("aria-current", "page");
-        await intake.click();
+        if (width < 640) {
+          await intake.selectOption({ label: "Files" });
+          await expect(intake).toHaveValue("files");
+          await intake.selectOption({ label: "Intake" });
+        } else {
+          await header.getByRole("button", { name: "Workspace files", exact: true }).click();
+          await expect(header.getByRole("button", { name: "Workspace files", exact: true })).toHaveAttribute("aria-current", "page");
+          await intake.click();
+        }
         await expect(folder).toBeVisible();
         await page.emulateMedia({ reducedMotion: "reduce" });
         await expect(intake).toHaveCSS("transition-duration", "0s");
@@ -95,12 +102,17 @@ test("the prominent create action still saves once and opens the same client's c
       if (width >= 640) expect(overlap).toBeGreaterThanOrEqual(10);
     }
     // Elevation must not stretch type or turn overlap into an unclickable label.
-    expect(await chart.evaluate((element) => {
+    if (width >= 640) expect(await chart.evaluate((element) => {
       const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
       return { x: matrix.a, y: matrix.d };
     })).toEqual({ x: 1, y: 1 });
+    else {
+      await expect(stages.getByLabel("Workspace view")).toBeVisible();
+      await expect(stages.getByLabel("Workspace view")).toHaveValue("3");
+    }
     await page.screenshot({ path: info.outputPath(`saved-folder-${width}.png`) });
   }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.reload();
   await expect(chart).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("workspace-identity-title")).toContainText("Avery");
@@ -113,15 +125,18 @@ for (const width of [1440, 834, 320]) {
     const folder = page.getByTestId("assessment-client-folder");
     const header = page.getByTestId("workspace-folder-header");
     const stages = header.getByRole("navigation", { name: "Workspace stages" });
-    const assessment = stages.getByRole("button", { name: /Assessment$/ });
+    const assessment = width < 640 ? stages.getByLabel("Workspace view") : stages.getByRole("button", { name: /Assessment$/ });
     await expect(folder).toBeVisible();
-    await expect(assessment).toHaveAttribute("aria-current", "page");
-    await expect(assessment).toHaveCSS("font-size", width < 640 ? "14px" : "17px");
+    if (width < 640) await expect(assessment).toHaveValue("2");
+    else await expect(assessment).toHaveAttribute("aria-current", "page");
+    await expect(assessment).toHaveCSS("font-size", width < 640 ? "16px" : "17px");
     const bounds = (await header.boundingBox())!;
     await page.screenshot({ path: info.outputPath(`assessment-folder-${width}.png`) });
-    await stages.getByRole("button", { name: /Chart$/ }).click();
+    if (width < 640) await assessment.selectOption({ label: "Chart" });
+    else await stages.getByRole("button", { name: /Chart$/ }).click();
     await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toBeVisible();
-    await assessment.click();
+    if (width < 640) await assessment.selectOption({ label: "Assessment" });
+    else await assessment.click();
     await expect(folder).toBeVisible();
     const current = (await header.boundingBox())!;
     for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(current[key] - bounds[key])).toBeLessThan(1);

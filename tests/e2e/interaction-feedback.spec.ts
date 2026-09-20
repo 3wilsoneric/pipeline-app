@@ -29,8 +29,8 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       canonical_client_id: `feedback-${index}`,
       resident_numbers: [`F-${index}`],
       display_name: name,
-      community_names: [index < 2 ? "A & A Health Services San Pablo" : "AHS Turlock OP LLC"],
-      current_community: index < 2 ? "A & A Health Services San Pablo" : "AHS Turlock OP LLC",
+      community_names: ["A & A Health Services San Pablo"],
+      current_community: "A & A Health Services San Pablo",
       current_resident: true,
       admit_date: index < 2 ? "2026-07-08" : "2025-01-08",
     }));
@@ -43,7 +43,9 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     });
     await page.goto("/");
     await page.getByRole("button", { name: "Open client profiles" }).click();
-    await expect(page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true })).toContainText("2 clients");
+    const cabinet = page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true });
+    await expect(cabinet).toContainText("3 clients");
+    await cabinet.click();
     await page.waitForLoadState("networkidle");
     const requestsBeforeFiltering = directoryRequests;
     expect(await page.evaluate(() => (window as unknown as MeasuredWindow).feedbackMeasurements)).toHaveLength(0);
@@ -51,17 +53,17 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await browserSession.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
     const admitted = page.getByLabel("Filter profiles by admission date");
-    const count = page.locator('[aria-live="polite"]').filter({ hasText: /matching/ });
+    const count = page.getByRole("region", { name: "A & A Health Services San Pablo file cabinet", exact: true }).locator('[aria-live="polite"]');
     await admitted.selectOption("last_12_months");
-    await expect(count).toHaveText("2 matching");
-    await expect(page.getByRole("button", { name: "Open AHS Turlock OP LLC file cabinet", exact: true })).toHaveCount(0);
+    await expect(count).toHaveText("2 clients");
+    await expect(page.getByRole("button", { name: "Open profile for Taylor Chen", exact: true })).toHaveCount(0);
     await expect(page.locator("label").filter({ has: admitted })).toHaveAttribute("data-filter-active", "true");
 
     // An unchanged count must still acknowledge a different filter, without a request.
     await admitted.focus();
     for (let index = 0; index < 20; index += 1) {
       await admitted.selectOption(index % 2 === 0 ? "last_6_months" : "last_3_months");
-      await expect(count).toHaveText("2 matching");
+      await expect(count).toHaveText("2 clients");
       await expect(admitted).toBeFocused();
     }
     const measurements = await page.evaluate(() => (window as unknown as MeasuredWindow).feedbackMeasurements);
@@ -90,9 +92,9 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
         await page.screenshot({ path: testInfo.outputPath(`clients-${width}.png`), fullPage: true });
       }
     }
-    await page.getByRole("button", { name: "Reset", exact: true }).click();
+    await page.getByRole("button", { name: "Reset filters", exact: true }).click();
     await expect(admitted).toHaveValue("any");
-    await expect(page.getByRole("button", { name: "Open AHS Turlock OP LLC file cabinet", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open profile for Taylor Chen", exact: true })).toBeVisible();
     await expect(page.locator('[data-filter-active="true"]')).toHaveCount(0);
     expect(directoryRequests).toBe(requestsBeforeFiltering);
   });
