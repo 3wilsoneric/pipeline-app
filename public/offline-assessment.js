@@ -37,10 +37,19 @@
   let saveChain = Promise.resolve();
 
   elements.retry.addEventListener("click", () => window.location.reload());
-  elements.returnOnline.addEventListener("click", () => {
+  elements.returnOnline.addEventListener("click", async () => {
     if (!navigator.onLine || !workingSet) return;
-    const target = safeReturnPath(workingSet.returnPath);
-    window.location.assign(target);
+    elements.returnOnline.disabled = true;
+    try {
+      await saveChain;
+      await saveWorkingSet();
+      const target = new URL(safeReturnPath(workingSet.returnPath), window.location.origin);
+      target.searchParams.set("syncOfflineAssessment", workingSet.draft.assessmentId);
+      window.location.assign(target.href);
+    } catch {
+      elements.saveStatus.textContent = "Local save failed · keep this window open";
+      updateConnectionState();
+    }
   });
   window.addEventListener("online", updateConnectionState);
   window.addEventListener("offline", updateConnectionState);

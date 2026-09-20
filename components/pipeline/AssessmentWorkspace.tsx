@@ -317,6 +317,7 @@ export default function AssessmentWorkspace({
   const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
   const [networkOnline, setNetworkOnline] = useState(true);
   const [pendingOfflineSaves, setPendingOfflineSaves] = useState(0);
+  const [offlineReturnToSync, setOfflineReturnToSync] = useState<string | null>(null);
   const selectedRef = useRef<PipelineAssessmentRecord | null>(null);
   const draftRef = useRef<AssessmentToolData>(draft);
   const baseDataRef = useRef<AssessmentToolData>(draft);
@@ -496,6 +497,9 @@ export default function AssessmentWorkspace({
     draftVersionRef.current = recoveredVersion;
     if (!recovered || recovered.assessmentId !== assessment.assessment_id) return;
     applyRecoveryAnswers(recovered, selectedRef.current);
+    if (offlinePrincipal && new URL(window.location.href).searchParams.get("syncOfflineAssessment") === assessment.assessment_id) {
+      setOfflineReturnToSync(assessment.assessment_id);
+    }
   }, [initialSection, offlinePrincipal]);
 
   const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord) => {
@@ -1091,16 +1095,33 @@ export default function AssessmentWorkspace({
     };
   }, [offlinePrincipal, syncOfflineChanges]);
 
-  const queueSectionSave = useCallback((section: AssessmentToolSection, captured?: Partial<AssessmentToolData>) => {
-    const next = saveQueueRef.current.then(() => saveSectionNow(section, captured));
+  const queueSectionSave = useCallback((section: AssessmentToolSection, captured?: Partial<AssessmentToolData>, expectedAssessmentId?: string) => {
+    const next = saveQueueRef.current.then(() => {
+      if (expectedAssessmentId && selectedRef.current?.assessment_id !== expectedAssessmentId) return;
+      return saveSectionNow(section, captured);
+    });
     saveQueueRef.current = next.catch(() => undefined);
     return next;
   }, [saveSectionNow]);
 
-  const flushDirtySections = useCallback(async () => {
-    for (const section of [...dirtySectionsRef.current]) await queueSectionSave(section);
+  const flushDirtySections = useCallback(async (expectedAssessmentId?: string) => {
+    for (const section of [...dirtySectionsRef.current]) await queueSectionSave(section, undefined, expectedAssessmentId);
     await saveQueueRef.current;
   }, [queueSectionSave]);
+
+  useEffect(() => {
+    if (!offlineReturnToSync || selectedRef.current?.assessment_id !== offlineReturnToSync) return;
+    setOfflineReturnToSync(null);
+    // Only the offline screen's explicit Return and sync action commits recovery.
+    // Ordinary recovered drafts and conflicting fields retain their current behavior.
+    void flushDirtySections(offlineReturnToSync).then(() => {
+      if (selectedRef.current?.assessment_id !== offlineReturnToSync || dirtySectionsRef.current.size > 0) return;
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("syncOfflineAssessment") !== offlineReturnToSync) return;
+      url.searchParams.delete("syncOfflineAssessment");
+      window.history.replaceState(window.history.state, "", url);
+    }).catch(() => undefined); // Canonical saving retains the draft and its error/conflict feedback.
+  }, [flushDirtySections, offlineReturnToSync]);
 
   const saveBeforeExit = async () => {
     const current = selectedRef.current;

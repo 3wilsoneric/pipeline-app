@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:5ddca23d163141af",
-  "fingerprint": "5ddca23d163141af2b8bb34a438ab7dc76d1c5761b7845c5795cd1ad4e52b8e2",
+  "generatedAt": "source-fingerprint:8fd86dbdb88833bf",
+  "fingerprint": "8fd86dbdb88833bf7a8e5b7462fa6e576a26c280b84b4346d77f2a6eec3831b1",
   "totals": {
     "files": 1235,
-    "lines": 345198,
+    "lines": 345268,
     "coveredFiles": 1235
   },
   "entries": [
@@ -2075,7 +2075,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1999,
+      "lines": 2020,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6269,7 +6269,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 56,
+      "lines": 91,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -10039,7 +10039,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 477,
+      "lines": 486,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -13868,7 +13868,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 621,
+      "lines": 619,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14421,7 +14421,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2830,
+      "lines": 2841,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14637,7 +14637,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 101,
+      "lines": 103,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -14901,7 +14901,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 87,
+      "lines": 81,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
