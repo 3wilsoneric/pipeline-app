@@ -143,7 +143,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
 
   return <div data-assessment-working-section data-assessment-section={props.section} className={styles.book}>
     <CapturedAssessmentAnswers {...props} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} />
-    <div data-guide-target="assessment-fields" data-assessment-question-editor className={styles.editor}>
+    <div data-assessment-question-editor className={styles.editor}>
       {props.questionNavigation}
       <div ref={editor} className={styles.questionPage} data-assessment-question-page>
       {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Review this section in Current information." : "This section is complete. Continue to the next section, or select an answer in Current information to edit it."}</p> : null}
@@ -179,7 +179,7 @@ function CapturedAssessmentAnswers({ section, data, pending, questions, onEdit, 
   const captured = questions.filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field));
   const groups = groupWorkingQuestions(captured);
   const id = "captured-answers-" + section;
-  return <aside data-guide-target="assessment-recorded" aria-label="Current information" className={styles.reference}>
+  return <aside aria-label="Current information" className={styles.reference}>
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)} className={styles.referenceToggle}><span>Current information</span><ChevronDown size={16} aria-hidden="true" /></button>
     <div id={id} data-expanded={expanded} className={styles.referenceContent}>
       <header className={styles.referenceHeader}>

@@ -1,4 +1,5 @@
 import type { OperatorRole } from "@/lib/training/operator-training-types";
+import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 
 export type OperatorGuideAdvance = "confirm" | "target-click" | "target-input" | "target-change";
 export type OperatorGuidePlacement = "top" | "right" | "bottom" | "left" | "auto";
@@ -24,7 +25,6 @@ export type OperatorGuidedTutorial = {
   id: string;
   title: string;
   workflow: string;
-  context: "app" | "workspace" | "practice";
   summary: string;
   outcome: string;
   minutes: number;
@@ -42,7 +42,51 @@ export type OperatorGuideChapter = {
   steps: readonly OperatorGuideStep[];
 };
 
-export function operatorGuideStepTitle(step: OperatorGuideStep) { return step.title; }
+const simpleStepTitles: Readonly<Record<string, string>> = {
+  "chart-find": "Find the referral",
+  "chart-complete": "Check the chart",
+  "chart-email": "Check the email",
+  "assessor-review-queue": "Check your queue",
+  "assessor-find-referral": "Search for the referral",
+  "assessor-open-referral": "Open the workspace",
+  "assessment-find": "Find the referral",
+  "assessment-stage": "Open Assessment",
+  "assessment-open": "Open the assessment",
+  "assessment-schedule-fields": "Set the appointment",
+  "assessment-schedule-method": "Choose the interview method",
+  "assessment-schedule-save": "Save the schedule",
+  "assessment-schedule-assessment": "Open the assessment",
+  "assessment-section": "Choose a section",
+  "assessment-answer": "Enter an answer",
+  "assessment-help": "Open Language Lab",
+  "assessment-next": "Open the next section",
+  "assessment-save": "Check saved",
+  "assessment-sign": "Review the full assessment",
+  "supervisor-home": "Check the team queue",
+  "supervisor-workspaces": "Open Workspaces",
+  "supervisor-open-calendar": "Open Calendar",
+  "supervisor-calendar-view": "Pick a calendar view",
+  "supervisor-calendar-filter": "Filter the calendar",
+  "supervisor-reports": "Open Reports",
+  "referral-new": "Select New referral",
+  "referral-packet": "Upload the packet",
+  "referral-routing": "Assign the referral",
+  "referral-medications": "Add medication information",
+  "referral-create": "Review before creating",
+  "referral-schedule-open": "Select Schedule",
+  "referral-schedule-fields": "Add appointment details",
+  "referral-schedule-save": "Review before scheduling",
+  "report-period": "Set the report filters",
+  "report-results": "Check the results",
+  "report-export": "Review before exporting",
+  "find-search": "Search referrals",
+  "find-open-result": "Open the referral",
+  "find-verify-record": "Verify the record",
+};
+
+export function operatorGuideStepTitle(step: OperatorGuideStep) {
+  return simpleStepTitles[step.id] ?? step.title;
+}
 
 export function operatorGuideChapters(tutorial: OperatorGuidedTutorial): readonly OperatorGuideChapter[] {
   const chapters: OperatorGuideChapter[] = [];
@@ -69,236 +113,247 @@ export function operatorGuideChapterAtStep(tutorial: OperatorGuidedTutorial, ste
   ));
 }
 
-
 const allRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"];
 const writeRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer"];
+const assessorRoles = writeRoles;
 const supervisorRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator"];
-const packet = "/?view=referrals&screen=packet";
-const assessment = packet + "&workspaceStage=assessment";
-const review = assessment + "&assessmentMode=review";
-const files = packet + "&workspaceView=files";
-const activity = packet + "&workspaceView=activity";
-const decision = packet + "&workspaceView=workflow";
-const email = packet + "&workspaceView=email";
-const intakePractice = packet + "&trainingIntake=1";
-const assessmentPractice = assessment + "&trainingAssessment=interview";
 
-// Expected screen states, not assertions that the user completed a clinical action.
-const expectedGuideResults: Readonly<Record<string, string>> = {
-  "my-queue": "Referrals in the displayed scope, with a stage and a way to reopen each one.",
-  "workspace-directory": "The referral directory with its current owner and stage filters.",
-  "workspace-search": "Matching referrals as you type, or an empty result if no visible referral matches.",
-  "workspace-results": "The selected referral opens with its client details and saved work.",
-  "packet-workspace": "One workspace containing the client's chart, assessment, files, and activity.",
-  "workspace-stage-nav": "The selected workspace page opens without creating another referral.",
-  "initial-packet-upload": "Selected files appear in the intake packet. Wait for upload or processing errors to resolve.",
-  "intake-identity": "Client identity and date of birth together, with age calculated from that date.",
-  "intake-routing": "The referral source, contact details, and assigned assessor in the intake form.",
-  "intake-medications": "The referral summary and available medication information in this intake.",
-  "create-workspace": "In live intake, a created referral opens as a workspace. This practice draft does not create a live referral.",
-  "assessment-section-nav": "The section name and its questions change together. Existing answers stay recorded.",
-  "assessment-recorded": "Recorded answers for this section. Selecting an editable answer brings it back into the question area.",
-  "assessment-fields": "An unanswered question, or a completed-section message when nothing remains in this section.",
-  "assessment-save-status": "A saved confirmation after editing. Practice explicitly says changes are saved locally.",
-  "assessment-next-section": "The next question or section opens. Saved answers remain available when you go back.",
-  "assessment-review": "The assembled assessment with unanswered items visible, ready for your review.",
-  "assessment-sign": "The signing confirmation appears only when you choose the signing action.",
-  "assessment-schedule-open": "The appointment form for the referral currently open.",
-  "assessment-schedule-fields": "The selected appointment date, time, duration, and displayed time zone.",
-  "assessment-schedule-method": "Contact or location fields matching your chosen interview method.",
-  "assessment-schedule-save": "After a successful save, the appointment form closes and the assessment workspace returns.",
-  "workspace-decision": "The saved decision displayed on this referral. Viewing the form does not change it.",
-  "workspace-admit-date": "The admission date on the accepted referral; acceptance alone is not an admission.",
-  "workspace-finish-send": "The packet and email preparation page, with no message sent yet.",
-  "workspace-files-upload": "The new documents join this referral's file list after upload succeeds.",
-  "workspace-files": "The chosen file opens for inspection, or an explicit message if it is unavailable.",
-  "workspace-history": "Recorded changes with an actor and time, or an empty history message.",
-  "workspace-packet-preview": "The prepared assessment summary and packet, including any missing-material notices.",
-  "packet-recipients": "The intended recipients and subject before delivery is confirmed.",
-  "packet-attachments": "The documents selected for this packet, available to inspect before sending.",
-  "chart-email-handoff": "A separate recipient confirmation and Send action. Continuing this tutorial sends nothing.",
-  "packet-delivery-status": "The actual delivery status. A draft or preview must not be treated as a sent packet.",
-  "calendar-view": "Appointments displayed in the selected calendar view and date range.",
-  "calendar-filters": "The current assessor and date scope, limited to what your account can access.",
-  "calendar-workspace": "Appointment details and a route back to its linked referral.",
-  "client-directory": "Matching client charts, with identity details to distinguish similar names.",
-  "operations-report-select": "The selected report and its available controls.",
-  "operations-summary": "The period and grouping that will be used for the report.",
-  "operations-report-apply": "Updated results for the applied filters, or an error to resolve before relying on them.",
-  "operations-report-results": "Report totals and supporting rows for the scope shown on the page.",
-  "operations-report-export": "A CSV download only after you explicitly choose Export CSV.",
-};
+const assessmentSchedulingRoute = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule";
+const assessmentWorkspaceRoute = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=guided";
 
-// Acknowledging a tooltip is not evidence that a clinical or delivery action occurred.
-function step(id: string, route: string, target: string, title: string, instruction: string, advance: OperatorGuideAdvance = "confirm", optionalTarget = false): OperatorGuideStep {
-  const completion = id === "practice-start" ? "A synthetic case with recorded answers beside fields still needing attention. Refreshing resets this practice case."
-    : target === "assessment-save-status" && route.includes("trainingAssessment=") ? "The practice status confirms edits in this open session. Refreshing or reopening the case resets its answers."
-    : expectedGuideResults[target];
-  return { id, route, target, title, phase: title, instruction, message: instruction, completion, why: instruction,
-    safety: "The walkthrough does not save, sign, or send on your behalf. Normal permissions still apply.", advance, optionalTarget };
-}
-function tutorial(definition: Pick<OperatorGuidedTutorial, "id" | "title" | "context" | "summary" | "steps"> & Partial<OperatorGuidedTutorial>): OperatorGuidedTutorial {
-  return { workflow: "Pipeline", outcome: definition.summary, minutes: Math.max(1, Math.ceil(definition.steps.length / 2)), persona: "shared",
-    clickpath: definition.steps.map((item) => item.title), audiences: allRoles, moduleIds: [], ...definition };
-}
-function assessmentSteps(route: string) {
-  return [
-    step("assessment-section", route, "assessment-section-nav", "Jump to a section", "Use Assessment section to jump directly to any part of this assessment. You do not need to finish the sections in order."),
-    step("assessment-current", route, "assessment-recorded", "Current information", "Answers already recorded stay here. Select an answer to reopen it. On a phone, open Client info; on a tablet, expand Current information."),
-    step("assessment-fields", route, "assessment-fields", "Work on remaining fields", "The question area keeps fields still needing attention together. Conditional follow-ups appear when relevant. Editing an answer does not create another assessment."),
-    step("assessment-save", route, "assessment-save-status", "Check saving", route.includes("trainingAssessment=") ? "Check the practice status after editing. Practice answers last only while this assessment stays open; refreshing resets them. Live referrals use normal autosave." : "Changes save automatically. Check this status after editing. If saving fails, keep the assessment open and resolve the error before leaving."),
-    step("assessment-next", route, "assessment-next-section", "Continue or jump", "Next moves through phone questions; Next section moves between sections. Use the section picker to jump elsewhere. Review & sign is at the end. Advancing this tutorial signs nothing."),
-  ];
+function assessmentSectionRoute(section: AssessmentToolSection) {
+  return `${assessmentWorkspaceRoute}&assessmentSection=${section}`;
 }
 
-export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
-  tutorial({ id: "assessor-shift", title: "See my referrals", context: "app", persona: "assessor", audiences: writeRoles, summary: "Open your assigned referrals from Home.",
-    steps: [
-      step("assessor-home", "/", "my-queue", "Your work on Home", "Your assigned referrals show their current stage here. Open a referral to continue its saved work. An empty queue means no visible work in this scope."),
-      step("assessor-directory", "/?view=referrals", "workspace-directory", "Look across Workspaces", "Use Workspaces when you need a different referral. Check the current filters before searching."),
-      step("assessor-search", "/?view=referrals", "workspace-search", "Find a referral", "Search by client or referral details. Opening an existing result keeps its files and assessment together."),
-    ] }),
-  tutorial({ id: "find-workspace", title: "Find a referral", context: "app", summary: "Find an existing referral and pick up where you left off.",
-    steps: [
-      step("find-search", "/?view=referrals", "workspace-search", "Search Workspaces", "Type part of the client's name or referral details. Clear filters if the expected referral is missing.", "target-input"),
-      step("find-open", "/?view=referrals", "workspace-results", "Open the matching result", "Open the intended referral. Check identity before changing anything.", "target-click"),
-      step("find-record", packet, "packet-workspace", "Continue this workspace", "Check the client and available pages. Chart, Assessment, Files, and Activity belong to this workspace. Do not create a new referral just to return to it."),
-    ] }),
-  tutorial({ id: "create-referral", title: "Create a referral", context: "practice", audiences: writeRoles, summary: "Practice adding files and client details. No real referral is created.",
-    steps: [
-      step("referral-packet", intakePractice, "initial-packet-upload", "Add referral documents", "This is a practice intake. In normal work, drop the packet here or choose multiple files. More files can be added to the same workspace later."),
-      step("referral-identity", intakePractice, "intake-identity", "Confirm client details", "Review the identity fields and date of birth. Check extracted values before relying on them; age is calculated from date of birth."),
-      step("referral-routing", intakePractice, "intake-routing", "Set referral details", "Set the referral source, contact information, and responsible assessor. These are referral details, not a confirmed admission."),
-      step("referral-medications", intakePractice, "intake-medications", "Summary and medications", "Use these intake fields for the information available now. Later additions belong in this same workspace."),
-      step("referral-create", intakePractice, "create-workspace", "Create once, then continue", "In live intake, Create referral establishes the referral. Later edits use that workspace. This practice guide stops here and creates no live referral."),
-    ] }),
-  tutorial({ id: "start-assessment", title: "Schedule an assessment", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Set the appointment, then begin the assessment.",
-    steps: [
-      step("schedule-open", assessment, "assessment-schedule-open", "Open scheduling", "Open the scheduling control under Assessment details. If an appointment already exists, review or change it there.", "target-click", true),
-      step("schedule-details", assessment, "assessment-schedule-fields", "Set the appointment", "Choose the date, time, and duration. Check the time zone displayed in the form. This is the open referral's appointment.", "confirm", true),
-      step("schedule-method", assessment, "assessment-schedule-method", "Choose how to meet", "Choose the interview method and supply the matching phone number, address, or meeting link.", "confirm", true),
-      step("schedule-save", assessment, "assessment-schedule-save", "Save the appointment", "Select Schedule assessment when the details are correct. The guide advances only after scheduling succeeds. Skip if you are only looking.", "target-click", true),
-      step("schedule-continue", assessment, "assessment-section-nav", "Continue the assessment", "After scheduling, continue in the assessment. The appointment remains linked to this referral and appears in Calendar.", "confirm", true),
-    ] }),
-  tutorial({ id: "complete-assessment", title: "Fill out the assessment", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Answer questions, change earlier answers, and check that they saved.", steps: assessmentSteps(assessment) }),
-  tutorial({ id: "practice-assessment", title: "Practice an assessment", context: "practice", persona: "assessor", audiences: writeRoles, summary: "Try a sample assessment without changing real client information. Refreshing resets it.",
-    steps: [step("practice-start", assessmentPractice + "&assessmentSection=functional_adl", "assessment-section-nav", "A separate practice case", "Use this synthetic case to try the controls without changing a live referral. Practice edits last while the assessment stays open. Restarting or refreshing resets the case."), ...assessmentSteps(assessmentPractice)] }),
-  tutorial({ id: "review-chart", title: "Sign the assessment", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Check your answers, then sign when ready.",
-    steps: [
-      step("review-chart", review, "assessment-review", "Review the full assessment", "Review the assembled chart and unanswered items. Return to Assessment to add or change an answer in the same assessment."),
-      step("review-save", review, "assessment-save-status", "Check the save status", "Confirm changes have saved before signing. A saving or error message is not a successful save."),
-      step("review-sign", review, "assessment-sign", "Sign when ready", "Sign & continue to decision is an explicit action with its own confirmation. Signing and sending the packet are separate. This tooltip does not sign for you.", "confirm", true),
-    ] }),
-  tutorial({ id: "record-decision", title: "Accept or decline a referral", context: "workspace", audiences: writeRoles, summary: "Record the decision. If accepted, add the admission date when known.",
-    steps: [
-      step("decision", decision, "workspace-decision", "Record the decision", "Choose Accept, Deny, or Under review, then use the form's save action. An existing decision appears in this same area. Opening the page records nothing."),
-      step("decision-date", decision, "workspace-admit-date", "Add the admission date", "For an accepted referral, enter the admission date when known. Accepted and admitted are separate states.", "confirm", true),
-      step("decision-packet", decision, "workspace-finish-send", "Continue to the packet", "Continue to finish & send opens the packet and email workspace. Opening it does not send or notify recipients.", "confirm", true),
-    ] }),
-  tutorial({ id: "workspace-files", title: "Add or open files", context: "workspace", audiences: writeRoles, summary: "Keep new documents with the same referral.",
-    steps: [
-      step("files-add", files, "workspace-files-upload", "Add more documents", "Drop additional documents here or choose files. They attach to this workspace, including documents received after the initial intake."),
-      step("files-list", files, "workspace-files", "Open an existing file", "Review the attached documents here. Check the file name and client before using or removing a document."),
-    ] }),
-  tutorial({ id: "workspace-history", title: "See what changed", context: "workspace", summary: "See who changed this referral and when.",
-    steps: [
-      step("history", activity, "workspace-history", "Review Activity", "Expand an activity group to see recorded changes, the actor, and time. Masked or unavailable values are labeled; only available history is shown."),
-      step("history-pages", activity, "workspace-stage-nav", "Return to the workspace", "Use the workspace pages to return to Chart or Assessment. Activity is a view of this referral, not another copy."),
-    ] }),
-  tutorial({ id: "prepare-packet", title: "Prepare and send the packet", context: "workspace", audiences: writeRoles, summary: "Check the packet and recipients before choosing to send.",
-    steps: [
-      step("packet-preview", email, "workspace-packet-preview", "Review the packet", "Review the prepared summary and packet here. Check missing or unavailable material in the source workspace before sending."),
-      step("packet-recipients", email, "packet-recipients", "Check recipients", "Review each authorized recipient and the subject. Previewing this page sends nothing.", "confirm", true),
-      step("packet-files", email, "packet-attachments", "Inspect included files", "Open attachments to verify they belong to this client and are intended for these recipients.", "confirm", true),
-      step("packet-send", email, "chart-email-handoff", "Sending is a separate action", "Recipient confirmation and Send belong to the real delivery form. Only send when authorized; completing this tutorial does not send anything.", "confirm", true),
-      step("packet-status", email, "packet-delivery-status", "Check delivery status", "After a real send, check delivery status here. A preview, signature, or completed tutorial is not evidence of delivery.", "confirm", true),
-    ] }),
-  tutorial({ id: "calendar", title: "Open the calendar", context: "app", summary: "Find appointments and open their referrals.",
-    steps: [
-      step("calendar-view", "/?screen=calendar", "calendar-view", "Choose a view", "Choose the calendar view for the day or date range you need. The view changes how appointments are displayed."),
-      step("calendar-filters", "/?screen=calendar", "calendar-filters", "Check whose appointments are shown", "Check the assessor and date filters. Team scope is available only when your account permits it."),
-      step("calendar-events", "/?screen=calendar", "calendar-workspace", "Open linked work", "Open an appointment for its details and available referral actions. Changing views does not create or reschedule an appointment."),
-    ] }),
-  tutorial({ id: "clients", title: "Find a client chart", context: "app", summary: "Use Clients to find an existing chart.",
-    steps: [
-      step("clients", "/?screen=profiles", "client-directory", "Search Clients", "Search or filter the directory, then open the correct client. Check identity before using chart information."),
-      step("clients-return", "/?view=referrals", "workspace-directory", "Return to referral work", "Use Workspaces for a referral episode and its assessment. A client chart and an active referral are different views, not reasons to create a duplicate."),
-    ] }),
-  tutorial({ id: "supervisor-shift", title: "See team referrals", context: "app", persona: "supervisor", audiences: supervisorRoles, summary: "See team referrals and appointments.",
-    steps: [
-      step("team-home", "/", "my-queue", "Check the Home queue", "Check the visible scope. Open the source referral to inspect its status; a stage label alone is not a completed action."),
-      step("team-workspaces", "/?view=referrals", "workspace-directory", "Review team referrals", "Use available owner and stage filters to narrow team work. Board access does not override workspace edit permissions."),
-      step("team-calendar", "/?screen=calendar", "calendar-filters", "Review appointment coverage", "Use the permitted assessor scope and date filters to review the team schedule."),
-    ] }),
-  tutorial({ id: "run-report", title: "View reports", context: "app", persona: "supervisor", audiences: supervisorRoles, summary: "Choose a report and the dates you need.",
-    steps: [
-      step("report-choose", "/?screen=operations", "operations-report-select", "Choose a report", "Choose from this dropdown. Only reports permitted for your account are available."),
-      step("report-scope", "/?screen=operations", "operations-summary", "Set the scope", "Set available period and grouping controls. Review the scope before interpreting totals."),
-      step("report-apply", "/?screen=operations", "operations-report-apply", "Apply changed filters", "Apply refreshes results for your filters. If nothing changed, no refresh may be needed."),
-      step("report-results", "/?screen=operations", "operations-report-results", "Read the result", "Review results and supporting rows. Empty results are not evidence that the filters include all work."),
-      step("report-export", "/?screen=operations", "operations-report-export", "Export deliberately", "Export CSV downloads the report. Confirm scope before downloading or sharing. This tutorial does not export for you."),
-    ] }),
+const assessmentSectionGuideSteps: readonly OperatorGuideStep[] = [
+  step("assessment-section-identity", assessmentSectionRoute("identity"), "assessment-section-identity", "Section 1 of 12", "Client & referral", "These values came from intake and identify the assessment episode.", "Check the name, date of birth, community, referral date, referral source, contact, and current location. Select Client & referral when they match the source packet.", "The inherited identity and referral details match the source packet.", "The assessment must stay attached to the correct intake episode.", "If an inherited value is wrong, correct it in Intake instead of working around it here.", "target-click", "right"),
+  step("assessment-section-placement", assessmentSectionRoute("prior_placement"), "assessment-section-prior-placement", "Section 2 of 12", "Placement", "This section explains where the person is now and what happened in prior settings.", "Enter the current setting, prior setting type and name, dates when known, and any placement breakdowns or AWOL history. Select Placement when current and prior settings are clearly separated.", "The current setting and relevant placement history are complete and dated where possible.", "Placement context helps reviewers understand transition needs and prior breakdowns.", "Name the source and leave unsupported dates or details unknown.", "target-click", "right"),
+  step("assessment-section-history", assessmentSectionRoute("prior_history"), "assessment-section-history", "Section 3 of 12", "History", "This section records prior hospital, crisis, and emergency events.", "Record psychiatric hospitalizations, holds, crisis visits, emergency visits, and failed placements with dates or timeframes and a source. Select History when the sequence of events is understandable.", "Each relevant event has a timeframe, outcome, and source when known.", "A readable timeline supports risk review without turning old events into current status.", "Do not copy historical statements forward as current facts without verification.", "target-click", "right"),
+  step("assessment-answer", assessmentSectionRoute("prior_history"), "assessment-answer", "Section 3 of 12", "Enter a supported answer", "Narrative answers should state the finding, source, timeframe, and relevant detail.", "Enter a short synthetic answer in the highlighted History field.", "The field contains a source-backed training answer and autosave begins.", "Specific documentation can be reviewed and converted into the downstream Chart.", "The guide detects input but never reads or stores the answer value.", "target-input", "top", true),
+  step("assessment-help", assessmentSectionRoute("prior_history"), "assessment-answer-help", "Section 3 of 12", "Use Language Lab when needed", "Language Lab appears inside narrative fields that benefit from field-specific structure or an example.", "Open Language Lab on the highlighted narrative field.", "The field-specific structure and example are visible.", "Targeted help supports consistent documentation without adding clutter to self-evident questions.", "Use the example as structure only; never copy facts that were not assessed.", "confirm", "top", true),
+  step("assessment-section-clinical", assessmentSectionRoute("diagnosis_clinical"), "assessment-section-clinical", "Section 4 of 12", "Clinical", "This section separates diagnosis history from the current interview presentation.", "Verify diagnoses and document current mood, thought process, cognition, orientation, and reported symptoms. Select Clinical when current observations and historical information are clearly labeled.", "The current presentation is distinct from prior diagnoses and symptoms.", "This distinction keeps the clinical summary accurate and reviewable.", "Record what was reported or observed without validating, dismissing, or inventing symptom content.", "target-click", "right"),
+  step("assessment-section-function", assessmentSectionRoute("functional_adl"), "assessment-section-function", "Section 5 of 12", "Function", "This section defines the support the person needs during daily care.", "For each ADL, record independent, prompting, equipment, or hands-on support. Include mobility, communication, and participation needs. Select Function when the support level is specific enough for receiving staff.", "ADLs, mobility, communication, and participation each have a clear support level.", "Specific functional information becomes an actionable care handoff.", "Do not infer independence from diagnosis or setting alone.", "target-click", "right"),
+  step("assessment-section-medication", assessmentSectionRoute("medication"), "assessment-section-medication", "Section 6 of 12", "Medication", "Medication details from intake are carried here for assessor verification.", "Compare the supplied medication list with the packet and interview. Record adherence, refusals, oral or injectable route, PRN use, and any discrepancy. Select Medication when the source and unresolved differences are clear.", "The medication list, adherence pattern, routes, PRN use, source, and discrepancies are documented.", "The handoff needs usable medication context without misrepresenting intake text as reconciliation.", "This assessment does not prescribe or independently reconcile medications.", "target-click", "right"),
+  step("assessment-section-substance", assessmentSectionRoute("substance_use"), "assessment-section-substance-use", "Section 7 of 12", "Substance use", "This section distinguishes current use from historical use.", "For each substance, record current or historical use, frequency, last known use, effect on functioning, and treatment history. Select Substance use when the client and collateral accounts are attributed separately.", "The substances, recency, pattern, impact, treatment, and source are clear.", "A structured account avoids collapsing past and current use into one label.", "Use neutral language and preserve differences between client and collateral reports.", "target-click", "right"),
+  step("assessment-section-behavior", assessmentSectionRoute("behavioral_risk"), "assessment-section-behavior-safety", "Section 8 of 12", "Behavior & safety", "This section documents behavior and safety patterns that affect placement and care.", "Record self-harm, aggression, elopement, fire-setting, and perceptual experiences with recency, frequency, trigger, response, and outcome. Select Behavior & safety when every positive answer has usable context.", "Positive safety history includes recency, frequency, trigger, response, outcome, and source.", "Specific behavior patterns are more actionable than broad risk labels.", "Escalate an immediate safety concern through policy; completing this form is not an escalation.", "target-click", "right"),
+  step("assessment-section-physical", assessmentSectionRoute("physical_health"), "assessment-section-physical-health", "Section 9 of 12", "Physical health", "This section identifies medical and personal-care needs receiving staff must prepare for.", "Record active health issues, skin concerns, continence and brief support, ostomy care, diet, mobility equipment, and other required assistance. Select Physical health when the exact support level is clear.", "Each active health need identifies the assistance, equipment, or follow-up required.", "Receiving staff need concrete support information rather than a diagnosis list alone.", "Record observed or attributed facts and escalate urgent medical concerns separately.", "target-click", "right"),
+  step("assessment-section-legal", assessmentSectionRoute("legal_conservatorship"), "assessment-section-legal", "Section 10 of 12", "Legal", "This section records current legal authority and obligations.", "Select the conserved status: LPS, TCon, Murphy's, or Non-Conserved. Add current forensic history, court requirements, and supervision obligations with a source. Select Legal when current status is distinct from old legal history.", "Conserved status and any current court or supervision requirements are source-backed.", "Accurate legal context protects placement decisions and required follow-up.", "Do not infer legal status from a placement type or an old record.", "target-click", "right"),
+  step("assessment-section-support", assessmentSectionRoute("social_support"), "assessment-section-support-goals", "Section 11 of 12", "Support & goals", "This section records the people, preferences, and goals that support a successful placement.", "Document involved supports, stable-living history, facility preferences, and the person's stated goals. Select Support & goals when each statement is attributed and no placement outcome is promised.", "Supports, preferences, and goals are specific, attributed, and relevant to placement.", "The final recommendation should reflect the person, not only risks and deficits.", "Do not promise a placement or outcome that has not been approved.", "target-click", "right"),
+  step("assessment-section-review", assessmentSectionRoute("provenance_qc"), "assessment-section-review", "Section 12 of 12", "Review", "This is the final check before the save and signature steps.", "Resolve missing required answers, duplicated notes, conflicting sources, and unsupported statements. Use Additional information only for relevant facts that do not fit another section. Select Review when the assessment is ready for the save check.", "Required fields are complete and unresolved conflicts or unknowns remain visible.", "A deliberate final review catches missing evidence before signature locks the record.", "Do not fill an unknown value by assumption or hide a source conflict in general comments.", "target-click", "right"),
 ];
 
-export const operatorGuidedTutorialIds = operatorGuidedTutorials.map((item) => item.id);
+export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
+  tutorial({
+    id: "review-chart",
+    title: "Review a chart",
+    workflow: "Supervisor",
+    summary: "Review a completed, signed assessment and its Meet the Client handoff. Transferred charts may not have these assessment views.",
+    outcome: "Check the signed assessment behind these views without confusing a transferred chart with a completed assessment.",
+    minutes: 6,
+    persona: "supervisor",
+    clickpath: ["Workspaces", "Referral", "Chart", "Complete chart", "Meet the Client"],
+    audiences: supervisorRoles,
+    moduleIds: ["assessment-complete-sign", "move-in-requirements", "ehr-handoff"],
+    steps: [
+      step("chart-find", "/?view=referrals", "workspace-search", "Find", "Find the reviewed referral", "Chart review begins from the existing referral so its signed assessment, decision state, and source files remain connected.", "Enter a training client or referral search term.", "The matching workspace results are visible.", "A deliberate lookup reduces wrong-record review risk.", "Verify the referral episode and authorized purpose before opening it.", "target-input", "bottom"),
+      step("chart-open-referral", "/?view=referrals", "workspace-results", "Find", "Open the referral", "The workspace connects the assessment source, generated Chart views, files, and activity in one governed episode.", "Select the correct training workspace.", "The referral workspace is open.", "The source workspace makes Chart provenance reviewable.", "Only open records required for authorized review.", "target-click", "top"),
+      step("chart-stage", "/?view=referrals&screen=packet", "chart-stage", "Chart", "Open Chart", "Chart presents assessment-derived records after the assessment has reached the required completed and signed state.", "Select Chart in the highlighted stage navigation.", "The Chart stage is visible.", "Chart views are downstream representations of the assessment, not separate clinical documentation.", "If Chart is unavailable, resolve assessment completion or permission rather than recreating it.", "target-click", "bottom", true),
+      step("chart-complete", "/?view=referrals&screen=packet", "chart-complete-record", "Review", "Review the complete chart", "The complete chart organizes the signed assessment into a medical-record-style review surface with assessment provenance.", "Review the highlighted chart and compare important conclusions with the signed assessment.", "You can identify the assessment version and signed source behind the Chart.", "Provenance prevents a generated view from being mistaken for a separate source record.", "Do not treat a Chart summary as permission to alter the signed assessment.", "confirm", "top", true),
+      step("chart-meet-client", "/?view=referrals&screen=packet", "chart-meet-client-tab", "Handoff", "Open Meet the Client", "Meet the Client provides a concise face sheet from the same assessment for an authorized accepted-referral handoff.", "Select Meet the Client in the highlighted Chart tabs.", "The Meet the Client face sheet is visible.", "A concise handoff supports receiving staff without replacing the complete Chart.", "Availability depends on assessment and decision state; do not bypass those controls.", "target-click", "bottom", true),
+      step("chart-email", "/?view=referrals&screen=packet", "chart-email-handoff", "Handoff", "Review before sending", "The handoff page shows the client information. Preview email opens the recipients, message, and admission packet in a separate window.", "Open Preview email to check recipient authorization, packet readiness, and minimum-necessary content. Close the preview and finish the guide without sending training data.", "Opening or closing the preview does not send the handoff.", "A human send checkpoint protects PHI, recipient scope, and packet completeness.", "The guide never sends email or confirms recipient authorization for you.", "confirm", "left", true),
+    ],
+  }),
+  tutorial({
+    id: "assessor-shift",
+    title: "Check my work",
+    workflow: "Assessor",
+    summary: "Find your assignment on Home, return to saved work, or locate the existing referral in Workspaces.",
+    outcome: "Leave Home with the correct assigned referral open and a clear next action.",
+    minutes: 5,
+    persona: "assessor",
+    clickpath: ["Home", "Workspaces", "Search", "Assessment"],
+    audiences: assessorRoles,
+    moduleIds: ["pipeline-purpose", "navigation-model", "assessment-start"],
+    steps: [
+      step("assessor-review-queue", "/", "my-queue", "Home", "Review your assigned work", "Assessors see My work and new assignments on Home; supervisors may see Team work. Continue working appears when saved work is available.", "Find your assignment in My work. To return to saved work, use Continue working when available or search Workspaces.", "You know which referral to open and whether you are starting assigned work or resuming a draft.", "Starting with ownership and timing prevents work from being selected from memory.", "Open the underlying referral before changing anything; a summary is not the clinical record.", "confirm", "right"),
+      step("assessor-open-workspaces", "/", "primary-workspaces", "Workspaces", "Open Workspaces", "Workspaces contains active referral episodes and their connected intake, assessment, chart, files, and activity.", "Select Workspaces in the highlighted navigation.", "The workspace directory is open.", "The shared directory keeps each assessment attached to its referral episode.", "Opening Workspaces is read-only and does not change ownership or status.", "target-click", "bottom"),
+      step("assessor-find-referral", "/?view=referrals", "workspace-search", "Workspaces", "Find the assigned referral", "Search narrows the governed referral list by client, community, county, source, or owner.", "Enter a training search term in the highlighted field.", "The visible results narrow after you type.", "Searching the shared list prevents duplicate work and wrong-record navigation.", "The guide detects typing but never reads or stores the search value.", "target-input", "bottom"),
+      step("assessor-open-referral", "/?view=referrals", "workspace-results", "Workspaces", "Open the correct workspace", "The result opens the referral episode where packet evidence, assessment work, chart, files, and activity remain connected.", "Select the intended training referral from the highlighted results.", "The referral workspace opens.", "Opening the source record preserves context before clinical work begins.", "Verify identity and assignment before documenting assessment information.", "target-click", "top"),
+      step("assessor-open-stage", "/?view=referrals&screen=packet", "assessment-stage", "Assessment", "Open Assessment", "Active referrals offer Assessment for scheduling and documentation. Transferred chart-only records do not need a new assessment merely because they were imported.", "Select Assessment for an active referral. If this is a transferred chart with no Assessment tab, skip this step.", "The active assessment opens, or the transferred chart remains unchanged.", "The assessment stays attached to the referral and its verified intake information.", "Do not begin when identity, assignment, or readiness remains unresolved.", "target-click", "bottom", true),
+    ],
+  }),
+  tutorial({
+    id: "start-assessment",
+    title: "Schedule an assessment",
+    workflow: "Assessor",
+    summary: "After reviewing intake and arranging the interview, practice scheduling it in Pacific Time and opening the assessment.",
+    outcome: "Save the appointment and continue directly to section 1 of the assessment.",
+    minutes: 3,
+    persona: "assessor",
+    clickpath: ["Schedule", "Assessment"],
+    audiences: assessorRoles,
+    moduleIds: ["assessment-start", "calendar-coordination"],
+    steps: [
+      step("assessment-schedule-fields", assessmentSchedulingRoute, "assessment-schedule-fields", "Schedule", "Set the appointment", "Record the date, time, duration, and method. Add the assessment address, phone number, or Zoom meeting link shown for that method.", "Set the synthetic date and time in the highlighted field, then complete the remaining appointment details before saving.", "The appointment details match the selected method.", "Complete appointment details make the event actionable in the assessor’s calendar.", "Confirm time zone and never place unnecessary clinical detail in calendar fields.", "target-change", "left"),
+      step("assessment-schedule-method", assessmentSchedulingRoute, "assessment-schedule-method", "Schedule", "Choose the interview method", "The method tells the assessor how the assessment will happen.", "Choose Zoom, in person, phone, or record review. Enter the Zoom meeting link, assessment address, or phone number in the matching field. Record review needs no meeting details.", "The method and matching appointment details are ready to save.", "A complete appointment can be used directly from the assessor calendar.", "Do not place clinical details or unnecessary PHI in appointment fields.", "target-change", "left"),
+      step("assessment-schedule-save", assessmentSchedulingRoute, "assessment-schedule-save", "Schedule", "Save the schedule", "Saving creates the appointment and keeps it attached to the referral and assigned assessor.", "Complete the remaining appointment fields, then select Schedule assessment. The guide continues after the appointment saves.", "The appointment is saved and the assessment opens.", "The calendar and referral use the same appointment record.", "Confirm the time zone and keep clinical detail out of calendar fields.", "confirm", "left"),
+      step("assessment-schedule-assessment", assessmentSectionRoute("identity"), "assessment-section-identity", "Assessment", "Open the assessment", "The appointment is complete. Assessment work now begins with the inherited client and referral information.", "Select Client & referral to begin the assessment walkthrough.", "Section 1 is open and ready for verification.", "The assessment remains connected to the scheduled referral.", "Verify inherited intake facts before entering clinical answers.", "target-click", "right"),
+    ],
+  }),
+  tutorial({
+    id: "complete-assessment",
+    title: "Finish an assessment",
+    workflow: "Assessor",
+    summary: "Work through all 12 sections, verify autosave, and stop at signature.",
+    outcome: "Complete a defensible assessment and understand the final signing boundary.",
+    minutes: 20,
+    persona: "assessor",
+    clickpath: ["Assessment", "12 sections", "Save", "Sign"],
+    audiences: assessorRoles,
+    moduleIds: ["assessment-start", "assessment-demographics", "assessment-questionnaire", "assessment-complete-sign"],
+    steps: [
+      ...assessmentSectionGuideSteps.map((item): OperatorGuideStep => item.id.startsWith("assessment-section-") ? {
+        ...item,
+        advance: "confirm",
+        instruction: "Open a subsection to review its questions. Use the section links to jump around, then Continue to move to the next section of the guide.",
+      } : item),
+      step("assessment-save", assessmentSectionRoute("provenance_qc"), "assessment-save-status", "Save and sign", "Confirm autosave status", "The save indicator distinguishes a saved draft from work that is pending or failed to persist.", "Confirm that the highlighted status says Practice changes saved locally before continuing.", "The training assessment has a visible locally saved state.", "Visible persistence status protects work during interruptions and handoffs.", "In live work, do not leave or sign while save failure, queued changes, or unresolved conflicts are visible.", "confirm", "left"),
+      step("assessment-sign", assessmentSectionRoute("provenance_qc"), "assessment-section-review", "Save and sign", "Review the full assessment", "Section links show unanswered questions, and captured answers remain beside the questions.", "Select Review. Check missing answers and autosave before signing authorized work.", "The full assessment is open for review.", "Signature is a clinical accountability boundary and must remain a deliberate human action.", "The guide never clicks Sign assessment or records a signature for you.", "target-click", "left"),
+    ],
+  }),
+  tutorial({
+    id: "supervisor-shift",
+    title: "Check team work",
+    workflow: "Supervisor",
+    summary: "Review team exceptions, current referral work, and upcoming assessment coverage.",
+    outcome: "Identify unowned, blocked, overdue, or unscheduled work and assign a next action.",
+    minutes: 6,
+    persona: "supervisor",
+    clickpath: ["Home", "Workspaces", "Calendar", "Reports"],
+    audiences: supervisorRoles,
+    moduleIds: ["dashboard-meaning", "supervisor-exceptions", "calendar-coordination"],
+    steps: [
+      step("supervisor-home", "/", "my-queue", "Home", "Review current team work", "Home shows current work requiring attention and upcoming assessment events; it is not a fixed last-24-hours report.", "Review Team work and open the source referral for any item that needs attention.", "You can name the item that needs supervisor action.", "A short exception-first review focuses attention on work that can stall admissions.", "Open source records before changing assignments or reporting a conclusion.", "confirm", "right"),
+      step("supervisor-workspaces", "/", "primary-workspaces", "Workspaces", "Open the referral inventory", "Workspaces provides the shared operational list across assessors, communities, months, and stages.", "Select Workspaces in the highlighted navigation.", "The workspace directory is open.", "The shared inventory is the correct place to verify ownership and stage.", "Opening the directory is read-only and does not reassign work.", "target-click", "bottom"),
+      step("supervisor-open-calendar", "/?view=referrals", "primary-calendar", "Calendar", "Open team scheduling", "Calendar shows assessment appointments and unscheduled work within your role's scope. New assignments appear on Home.", "Select Calendar in the highlighted navigation.", "The assessment calendar is open.", "The calendar exposes coverage and timing issues while the referral remains authoritative.", "Opening Calendar does not create or move an event.", "target-click", "bottom"),
+      step("supervisor-calendar-view", "/?screen=calendar", "calendar-view", "Calendar", "Choose the time horizon", "Week shows the schedule; on phones it lists appointments by date. Month shows the longer view. Select a date for its appointments; unfinished assessments remain under Continue working.", "Select Week or Month.", "The calendar changes to the selected view.", "An empty time slot does not confirm availability, and a past appointment does not complete an assessment.", "Changing the view affects presentation only.", "target-click", "bottom"),
+      step("supervisor-calendar-filter", "/?screen=calendar", "calendar-filters", "Calendar", "Scope by assessor or community", "Filter appointments and the scheduling queue by assessor or community. My appointments shows your own work.", "Change one highlighted calendar filter.", "The visible schedule reflects the chosen scope.", "The referral remains the source of the appointment and its follow-ups.", "A filter never changes the underlying assignment or schedule.", "target-change", "bottom"),
+      step("supervisor-reports", "/?screen=calendar", "primary-reports", "Reports", "Open operational reports", "Reports provides reproducible lists for completed assessments, workload, documents, calendar, and workspaces.", "Select Reports in the highlighted navigation.", "The report runner is open.", "A report can verify the exception and preserve its exact scope.", "Opening Reports does not export or transmit information.", "target-click", "bottom"),
+    ],
+  }),
+  tutorial({
+    id: "create-referral",
+    title: "Create a referral",
+    workflow: "Intake",
+    summary: "Attach the packet, verify intake facts, assign the referral, and stop at the creation check.",
+    outcome: "Prepare one source-backed referral and understand the creation boundary.",
+    minutes: 7,
+    persona: "shared",
+    clickpath: ["New referral", "Packet", "Identity", "Assignment", "Create"],
+    audiences: writeRoles,
+    moduleIds: ["inbound-triage", "create-referral", "medication-intake", "upload-packet"],
+    steps: [
+      step("referral-new", "/", "primary-new-referral", "Start", "Open New referral", "New referral opens one unsaved intake draft for the packet, referral facts, routing, and medication context.", "Select New referral in the highlighted navigation.", "An unsaved referral draft is open.", "One entry point preserves source history and ownership from the beginning.", "Search for an existing referral before creating a real record.", "target-click", "bottom"),
+      step("referral-packet", "/?view=referrals&screen=packet", "initial-packet-upload", "Packet", "Attach the source packet", "Document labels keep source files organized in the chart.", "Drop authorized training files or select Choose files. Confirm each document type, then select Add files.", "Each filename and its label appear in the document area, pending upload with the referral.", "Source-first intake makes later verification and correction explainable.", "Verify the workspace and use only training material while learning. A label does not verify a signature.", "target-change", "bottom"),
+      step("referral-identity", "/?view=referrals&screen=packet", "intake-identity", "Identity", "Verify identity", "Identity fields establish who the referral belongs to and must be compared with the packet before creation.", "Enter or correct one training identity field, then leave the field.", "The draft shows the source-backed identity value.", "Accurate identity protects assessment history, reporting, and EHR matching.", "A proposed extraction is not verified until a person compares it with the source.", "target-input", "top"),
+      step("referral-routing", "/?view=referrals&screen=packet", "intake-routing", "Assignment", "Set routing and ownership", "Community, received date, source, contact, and assignee determine where the referral belongs and who moves it forward.", "Change one training routing or assignment field.", "The draft has an accountable destination and owner.", "Explicit ownership prevents referrals from disappearing between people or communities.", "Do not make an unexplained reassignment or use another person’s identity.", "target-change", "top"),
+      step("referral-medications", "/?view=referrals&screen=packet", "intake-medications", "Medications", "Carry supplied medication context", "Medication information received at intake carries into assessment for verification rather than becoming a reconciled list.", "Enter or correct training medication context, then leave the field.", "Medication context is visible for later assessor review.", "Carry-forward reduces re-entry while preserving where the information came from.", "Intake medication text is not clinically verified, reconciled, or prescribed.", "target-input", "top"),
+      step("referral-create", "/?view=referrals&screen=packet", "create-workspace", "Create", "Stop at Create referral", "Creating stores the referral, exposes it to authorized workflows, and uploads queued documents. Later edits save automatically.", "Check the client, source, assessor, and queued files. Finish this checkpoint without creating training data.", "The draft is deliberately created by you or kept as an autosaved draft for correction.", "An explicit creation boundary keeps unfinished drafts out of operational queues.", "The guide never clicks Create referral for you.", "confirm", "left", true),
+    ],
+  }),
+  tutorial({
+    id: "run-report",
+    title: "Run a report",
+    workflow: "Reports",
+    summary: "Choose a client or operational report, set its scope, Apply changes, and review the result before exporting.",
+    outcome: "Produce a reproducible report without losing period, scope, or row-level context.",
+    minutes: 5,
+    persona: "supervisor",
+    clickpath: ["Reports", "Choose report", "Filters", "Apply", "Review", "Export CSV"],
+    audiences: supervisorRoles,
+    moduleIds: ["dashboard-meaning", "filter-report-export"],
+    steps: [
+      step("report-open", "/", "primary-reports", "Reports", "Open Reports", "Reports contains governed operational lists and exports for referral, assessment, document, and workload questions.", "Select Reports in the highlighted navigation.", "The report runner is open.", "One report surface keeps operational questions reproducible.", "Opening Reports is read-only and does not create an export.", "target-click", "bottom"),
+      step("report-choose", "/?screen=operations", "operations-report-select", "Reports", "Choose the report", "Choose the report that matches your question. Client reports and assessor performance reports expose different filters.", "Choose a report in the dropdown, rather than just opening the list.", "The selected report and its available filters load.", "Starting with the question prevents unrelated data from entering the result.", "Report availability follows role permissions and does not grant broader access.", "target-change", "bottom"),
+      step("report-period", "/?screen=operations", "operations-summary", "Scope", "Set the report filters", "Available filters depend on the report. Changed filters do not update the displayed result until you select Apply.", "Set the available community, client scope, or period filters. Skip this step if the existing scope is correct.", "The chosen filters are ready to apply; the existing result is not yet refreshed.", "An explicit period and scope prevent ambiguous totals and exports.", "Confirm all displayed scope before interpreting staff or community results.", "target-change", "bottom"),
+      step("report-apply", "/?screen=operations", "operations-report-apply", "Scope", "Apply the filters", "Apply loads results for the changed filters. It is disabled while loading or when the scope has not changed.", "Select Apply. If you kept the same filters and Apply is disabled, skip this step.", "The result refreshes for the selected scope before you review or export it.", "Applying the scope prevents reading old rows as if they reflected new filters.", "If the report fails to load, retry before relying on its results or exporting.", "target-click", "bottom", true),
+      step("report-results", "/?screen=operations", "operations-report-results", "Verify", "Inspect the source rows", "Apply refreshes changed filters. Some reports open grouped Summary rows; Clients or a summary group reveals the underlying client rows.", "Select Apply if filters changed, then inspect the totals and source rows. In client reports, distinguish Summary groups from individual clients.", "You can explain each row and the applied scope that produced it.", "Row-level review catches filter mistakes before information leaves Pipeline.", "A report is operational evidence and not a clinical conclusion.", "confirm", "bottom"),
+      step("report-export", "/?screen=operations", "operations-report-export", "Export", "Stop at CSV export", "CSV creates a portable copy of the currently scoped result for an approved operational purpose.", "Verify period, row count, audience, and minimum-necessary fields. Finish the guide; export authorized data yourself.", "The export is deliberately downloaded by you or withheld for correction.", "A human export checkpoint protects scope and PHI handling.", "The guide never clicks CSV or transmits report data.", "confirm", "left", true),
+    ],
+  }),
+  tutorial({
+    id: "find-workspace",
+    title: "Find a referral",
+    workflow: "Workspaces",
+    summary: "Search the workspaces you can access and reopen the existing referral or transferred chart.",
+    outcome: "Return to the correct referral without creating a duplicate or losing its stage context.",
+    minutes: 4,
+    persona: "shared",
+    clickpath: ["Workspaces", "Search", "Open referral"],
+    audiences: allRoles,
+    moduleIds: ["pipeline-purpose", "navigation-model"],
+    steps: [
+      step("find-open-workspaces", "/", "primary-workspaces", "Workspaces", "Open Workspaces", "Workspaces shows the records you can access, sorted by recent updates. Supervisors can choose Mine or Team; assessors see their own work.", "Select Workspaces. Check the scope and any filters if a referral is missing.", "The workspace directory is open with its permitted scope.", "The shared directory is the reliable return path after interruption.", "Opening Workspaces is read-only.", "target-click", "bottom"),
+      step("find-search", "/?view=referrals", "workspace-search", "Search", "Search the shared inventory", "Search by approved client, community, county, source, or owner information rather than scanning from memory.", "Enter a training search term in the highlighted field.", "The visible result list narrows.", "Search is the first protection against duplicate work.", "Treat matching names as candidates until identity and episode are verified.", "target-input", "bottom"),
+      step("find-open-result", "/?view=referrals", "workspace-results", "Open", "Open the existing referral", "The result opens the connected referral episode at its available workflow stage with files and activity intact.", "Select the intended training referral from the highlighted results.", "The existing referral workspace opens.", "Reopening the existing record preserves one source of truth.", "Only open a record required for authorized work and verify identity before editing.", "target-click", "top"),
+      step("find-verify-record", "/?view=referrals&screen=packet", "packet-workspace", "Verify", "Verify the referral episode", "Confirm the name and available referral details. Transferred charts may not have an Intake tab, and do not need a new workflow merely to view their records.", "Compare the displayed chart or intake details with the referral you intended to open, then continue.", "The client and referral episode match the work you intended to continue.", "A final identity check prevents a matching name from becoming a wrong-record edit.", "Stop and return to search if any identity or episode detail does not match.", "confirm", "top"),
+    ],
+  }),
+];
 
-// Group the existing guides without changing their saved progress or permissions.
-export const operatorGuideTopics = [
-  { id: "create", title: "Create a referral", tutorialIds: ["create-referral"] },
-  { id: "assess", title: "Schedule & assess", tutorialIds: ["start-assessment", "complete-assessment", "review-chart", "practice-assessment"] },
-  { id: "admit", title: "Decide & admit", tutorialIds: ["record-decision", "prepare-packet"] },
-  { id: "find", title: "Find work & files", tutorialIds: ["assessor-shift", "find-workspace", "workspace-files", "workspace-history", "calendar", "clients"] },
-  { id: "team", title: "Team & reports", tutorialIds: ["supervisor-shift", "run-report"] },
-] as const;
-export const operatorGuideTargetIds = [...new Set(operatorGuidedTutorials.flatMap((item) => item.steps.map((item) => item.target)))];
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["workspace-results", "assessment-schedule-open", "assessment-schedule-save"],
-  "target-input": ["workspace-search"],
-  "target-change": [],
+  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "calendar-view", "workspace-results", "assessment-stage", "assessment-section-identity", "assessment-section-prior-placement", "assessment-section-history", "assessment-answer-help", "assessment-section-clinical", "assessment-section-function", "assessment-section-medication", "assessment-section-substance-use", "assessment-section-behavior-safety", "assessment-section-physical-health", "assessment-section-legal", "assessment-section-support-goals", "assessment-section-review", "chart-stage", "chart-meet-client-tab", "operations-report-apply"],
+  "target-input": ["workspace-search", "intake-identity", "intake-medications", "assessment-answer"],
+  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "assessment-schedule-method", "operations-report-select", "operations-summary"],
 };
+
+export const operatorGuidedTutorialIds = operatorGuidedTutorials.map((tutorial) => tutorial.id);
+export const operatorGuideTargetIds = [...new Set(operatorGuidedTutorials.flatMap((tutorial) => tutorial.steps.map((step) => step.target)))];
+
 export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
+  "primary-workspaces": "components/pipeline/PipelineActionNav.tsx",
+  "primary-calendar": "components/pipeline/PipelineActionNav.tsx",
+  "primary-new-referral": "components/pipeline/PipelineActionNav.tsx",
+  "primary-reports": "components/pipeline/PipelineActionNav.tsx",
   "my-queue": "components/pipeline/PipelineWelcome.tsx",
-  "workspace-directory": "components/pipeline/ReferralHomeDirectory.tsx",
   "workspace-search": "components/pipeline/ReferralHomeDirectory.tsx",
   "workspace-results": "components/pipeline/ReferralWorklist.tsx",
-  "packet-workspace": "components/pipeline/ReferralPacketCanvas.tsx",
-  "workspace-stage-nav": "components/pipeline/ReferralPacketCanvas.tsx",
-  "initial-packet-upload": "components/pipeline/ReferralPacketCanvas.tsx",
+  "calendar-view": "components/pipeline/PipelineCalendarPresentation.tsx",
+  "calendar-filters": "components/pipeline/PipelineCalendarPresentation.tsx",
+  "initial-packet-upload": "components/pipeline/ReferralDocumentUpload.tsx",
   "intake-identity": "components/pipeline/ReferralPacketCanvas.tsx",
   "intake-routing": "components/pipeline/ReferralPacketCanvas.tsx",
   "intake-medications": "components/pipeline/ReferralPacketCanvas.tsx",
   "create-workspace": "components/pipeline/ReferralPacketCanvas.tsx",
-  "assessment-section-nav": "components/pipeline/AssessmentWorkingSection.tsx",
-  "assessment-recorded": "components/pipeline/AssessmentWorkingSection.tsx",
-  "assessment-fields": "components/pipeline/AssessmentWorkingSection.tsx",
-  "assessment-save-status": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-next-section": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-review": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-sign": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-schedule-open": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-stage": "components/pipeline/ReferralPacketCanvas.tsx",
   "assessment-schedule-fields": "components/pipeline/AssessmentSchedulingDialogs.tsx",
   "assessment-schedule-method": "components/pipeline/AssessmentSchedulingDialogs.tsx",
   "assessment-schedule-save": "components/pipeline/AssessmentSchedulingDialogs.tsx",
-  "workspace-files": "components/pipeline/ReferralPacketCanvas.tsx",
-  "workspace-files-upload": "components/pipeline/ReferralPacketCanvas.tsx",
-  "workspace-history": "components/pipeline/ReferralActivityPanel.tsx",
-  "workspace-decision": "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
-  "workspace-admit-date": "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
-  "workspace-finish-send": "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
-  "workspace-packet-preview": "components/pipeline/AssessmentChartWorkspace.tsx",
-  "packet-recipients": "components/pipeline/AssessmentChartWorkspace.tsx",
-  "packet-attachments": "components/pipeline/AssessmentChartWorkspace.tsx",
+  "assessment-section-identity": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-prior-placement": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-history": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-clinical": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-function": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-medication": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-substance-use": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-behavior-safety": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-physical-health": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-legal": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-support-goals": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-review": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-answer": "components/pipeline/AssessmentInterviewFields.tsx",
+  "assessment-answer-help": "components/pipeline/AssessmentInterviewFields.tsx",
+  "assessment-save-status": "components/pipeline/AssessmentWorkspace.tsx",
+  "chart-stage": "components/pipeline/ReferralPacketCanvas.tsx",
+  "chart-complete-record": "components/pipeline/AssessmentChartWorkspace.tsx",
+  "chart-meet-client-tab": "components/pipeline/ReferralPacketCanvas.tsx",
   "chart-email-handoff": "components/pipeline/AssessmentChartWorkspace.tsx",
-  "packet-delivery-status": "components/pipeline/AssessmentChartWorkspace.tsx",
-  "calendar-view": "components/pipeline/PipelineCalendarPresentation.tsx",
-  "calendar-filters": "components/pipeline/PipelineCalendarPresentation.tsx",
-  "calendar-workspace": "components/pipeline/PipelineCalendar.tsx",
-  "client-directory": "components/pipeline/ClientProfileDirectory.tsx",
   "operations-report-select": "components/pipeline/OperationsDashboard.tsx",
   "operations-summary": "components/pipeline/OperationsDashboard.tsx",
   "operations-report-apply": "components/pipeline/OperationsDashboard.tsx",
+  "packet-workspace": "components/pipeline/ReferralPacketCanvas.tsx",
   "operations-report-results": "components/pipeline/OperationsDashboard.tsx",
-  "operations-report-export": "components/pipeline/OperationsDashboard.tsx"
+  "operations-report-export": "components/pipeline/OperationsDashboard.tsx",
 };
 
 export function getOperatorGuidedTutorial(id: string | null | undefined) {
@@ -312,4 +367,12 @@ export function guidedTutorialsForRole(role: OperatorRole) {
 export function guidedTutorialsForRoles(roles: readonly string[]) {
   const assigned = new Set(roles);
   return operatorGuidedTutorials.filter((tutorial) => tutorial.audiences.some((role) => assigned.has(role)));
+}
+
+function tutorial(definition: OperatorGuidedTutorial): OperatorGuidedTutorial {
+  return definition;
+}
+
+function step(id: string, route: string, target: string, phase: string, title: string, message: string, instruction: string, completion: string, why: string, safety: string, advance: OperatorGuideAdvance, placement: OperatorGuidePlacement = "auto", optionalTarget = false): OperatorGuideStep {
+  return { id, route, target, phase, title, message, instruction, completion, why, safety, advance, placement, optionalTarget };
 }

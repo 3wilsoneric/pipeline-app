@@ -278,13 +278,13 @@ function HeaderSessionControls({ user, hideGlobalGuide }: { user: PipelineCurren
       <button
         type="button"
         aria-label="Open guided tutorials"
-        title="Tutorials"
+        title="Help · Learning Center"
         data-guide-target="guided-help"
         onClick={() => dispatchOperatorGuide({ type: "open-library" })}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"
       >
         <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
-        <span>Tutorials</span>
+        <span>Help</span>
       </button>
     ) : null}
   </>;

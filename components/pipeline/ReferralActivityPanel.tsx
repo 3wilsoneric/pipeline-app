@@ -69,7 +69,7 @@ export default function ReferralActivityPanel({ referralId, version }: ReferralA
   if (!referralId) return <ActivityState message="Activity will appear once this referral is saved." />;
   if (!result || result.referralId !== referralId) return <ActivityState message="Loading activity..." busy />;
   if (result.error) return (
-    <section data-guide-target="workspace-history" aria-label="Referral ownership and activity" className="flex items-center gap-4 px-3 py-6 text-[14px] text-[#53615a]">
+    <section aria-label="Referral ownership and activity" className="flex items-center gap-4 px-3 py-6 text-[14px] text-[#53615a]">
       <p role="alert">Activity could not be loaded.</p>
       <button type="button" className="font-semibold text-[#08765d] underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4" onClick={() => { setResult(null); setRetry((value) => value + 1); }}>Retry</button>
     </section>
@@ -80,7 +80,7 @@ export default function ReferralActivityPanel({ referralId, version }: ReferralA
 function ActivityTimeline({ events, metadata, referralId }: { events: ReferralActivityEvent[]; metadata: ReferralWorkflowMetadata | null; referralId: number }) {
   const important = events.filter((event) => !routineActions.has(event.action) || event.changed_fields.some((field) => importantFields.has(field)));
   return (
-    <section data-guide-target="workspace-history" aria-label="Referral ownership and activity" className="mx-auto max-w-4xl py-3 sm:px-3">
+    <section aria-label="Referral ownership and activity" className="mx-auto max-w-4xl py-3 sm:px-3">
       {important.length ? groupActivityByDay(important).map((group) => (
         <section key={group.date} aria-label={group.label} className="mb-5">
           <h3 className="border-b border-[#dce4df] px-3 py-2 text-[13px] font-semibold text-[#52625a]">{group.label}</h3>
@@ -163,7 +163,7 @@ function ActivityRow({ event, referralId, detailed = false }: { event: ReferralA
 }
 
 function ActivityState({ message, busy = false }: { message: string; busy?: boolean }) {
-  return <section data-guide-target="workspace-history" aria-label="Referral ownership and activity" aria-busy={busy} className="px-3 py-6 text-[14px] text-[#53615a]"><p role="status">{message}</p></section>;
+  return <section aria-label="Referral ownership and activity" aria-busy={busy} className="px-3 py-6 text-[14px] text-[#53615a]"><p role="status">{message}</p></section>;
 }
 
 function groupActivityByDay(events: ReferralActivityEvent[]) {

@@ -133,17 +133,17 @@ export default function AssessmentPhoneInterview(props: Props) {
     <nav className={styles.paging} aria-label="Question steps">
       <button type="button" aria-label="Previous question" title="Previous question" onClick={() => move(-1)} disabled={index === 0 && sectionIndex === 0}><ChevronLeft size={22} aria-hidden="true" /></button>
       <span className={styles.stepCount} aria-hidden="true">{question ? <><strong>{index + 1}</strong> / {steps.length}</> : "Complete"}</span>
-      <button type="button" data-guide-target="assessment-next-section" disabled={props.preparing && props.disabled && index >= steps.length - 1 && !nextSection} onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Begin assessment" : "Review assessment"}<ChevronRight size={20} aria-hidden="true" /></button>
+      <button type="button" disabled={props.preparing && props.disabled && index >= steps.length - 1 && !nextSection} onClick={() => move(1)}>{index < steps.length - 1 ? "Next" : nextSection ? "Next section" : props.preparing ? "Begin assessment" : "Review assessment"}<ChevronRight size={20} aria-hidden="true" /></button>
     </nav>
   );
 
   return <section className={styles.interview} data-phone-interview aria-label={props.preparing ? "Guided questionnaire" : "Guided assessment"}>
     <nav className={styles.toolbar} aria-label="Question navigation">
-      <button type="button" data-guide-target="assessment-section-nav" onClick={(event) => openPanel("sections", event.currentTarget)} aria-haspopup="dialog" aria-label="Choose questionnaire section"><span><small>Section {sectionIndex + 1} of {sections.length}</small>{section.label}</span><ChevronDown size={16} aria-hidden="true" /></button>
-      <button type="button" data-guide-target="assessment-recorded" onClick={(event) => openPanel("reference", event.currentTarget)} aria-haspopup="dialog"><BookOpen size={17} aria-hidden="true" /><span>Client info</span></button>
+      <button type="button" onClick={(event) => openPanel("sections", event.currentTarget)} aria-haspopup="dialog" aria-label="Choose questionnaire section"><span><small>Section {sectionIndex + 1} of {sections.length}</small>{section.label}</span><ChevronDown size={16} aria-hidden="true" /></button>
+      <button type="button" onClick={(event) => openPanel("reference", event.currentTarget)} aria-haspopup="dialog"><BookOpen size={17} aria-hidden="true" /><span>Client info</span></button>
     </nav>
     <div className={styles.progress} role="progressbar" aria-label="Recorded in this section" aria-valuemin={0} aria-valuemax={questions.length || 1} aria-valuenow={counts.captured}><span style={{ width: `${counts.captured / (questions.length || 1) * 100}%` }} /></div>
-    <div ref={scroller} className={styles.scroller} data-guide-target="assessment-fields" data-phone-question-scroll onTouchStart={(event) => {
+    <div ref={scroller} className={styles.scroller} data-phone-question-scroll onTouchStart={(event) => {
       const el = event.target as HTMLElement;
       touch.current = event.touches.length === 1 && event.touches[0].clientX > 24 && event.touches[0].clientX < window.innerWidth - 24 && !el.closest("input, textarea, select, button, label, summary, a, [contenteditable]")
         ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
