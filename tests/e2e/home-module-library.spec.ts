@@ -310,6 +310,8 @@ for (const width of [390, 834, 1440]) {
 test("moves Search with the pointer and Recent work with arrow keys", async ({ page }) => {
   await mockLayout(page, ["search", "recent-work", "current-work"]);
   await page.goto("/?editHome=1");
+  // The briefing adds the Board above these controls; measure only its settled layout.
+  await expect(page.locator('main[data-performance-ready="home"]')).toBeVisible();
   const handle = page.getByRole("button", { name: "Move Search", exact: true });
   await page.locator('[data-home-module="recent-work"]').scrollIntoViewIfNeeded();
   const start = await handle.boundingBox();

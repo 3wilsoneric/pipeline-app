@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8c01bb44232e771b",
-  "fingerprint": "8c01bb44232e771b76900fad1dd9c55d4b1cabd99b023f5fa15232045b7126ca",
+  "generatedAt": "source-fingerprint:dfc4efc7c7e1c598",
+  "fingerprint": "dfc4efc7c7e1c598e4831911ca8b5eaddf9a2ea81d72922533de7b9748251a61",
   "totals": {
     "files": 1237,
-    "lines": 345414,
+    "lines": 345420,
     "coveredFiles": 1237
   },
   "entries": [
@@ -6269,7 +6269,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 121,
+      "lines": 125,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -13977,7 +13977,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 376,
+      "lines": 378,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
