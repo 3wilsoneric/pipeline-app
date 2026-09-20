@@ -227,8 +227,30 @@ reporting failure. Network retries remain explicitly zero.
 A two-minute read-only connection diagnostic exercised loopback, SSH-tunneled
 and VNet-direct paths with retained connections and `Connection: close` controls:
 2,760 reads, all HTTP 200, zero resets. It **did not reproduce** the intermittent
-failure, so its cause remains unresolved. A short instrumented 100-user run is
-in progress; no new sustained capacity or endurance pass is claimed yet.
+failure. The subsequent 180-second, 100-user run (`aa654f4` harness) reproduced
+one verification socket reset on actor 45. All 8,359 acknowledged saves and final
+values reconciled. Shard save p95 was 328 / 372 / 285 / 280 ms; Calendar-and-back
+p95 was 954 / 1,221 / 766 / 820 ms. No captured browser 429/5xx/page errors occurred.
+The run remains **failed**, and the connection's cause remains unresolved.
+
+That diagnostic also isolated retained test-runner memory: one generator's
+JavaScript heap grew from 174 to 606 MiB in three minutes, while the sampled
+application pages remained around 8–14 MiB with DOM counts falling after garbage
+collection. Named steps fix parent lookup but do not release Playwright Test's
+action history. A two-hour run through that reporter would confound application
+memory measurement with test-runner growth.
+
+Harness `6d36b015cb2371f2b93f25c5330cfab71e5bda43` therefore provides an explicit
+standalone executor of the **same canonical workload callback**, using the
+repository's existing TypeScript loader and installed Playwright browser APIs
+and assertions. It replaces test registration/reporting only; no browser action,
+SQL check, progress requirement, timeout, synthetic-only restriction, or failure
+is stubbed or bypassed. It emits a distinguishable JSON report. A two-user,
+30-second real-browser smoke passed including SQL/audit reconciliation; invalid
+database targeting and an incorrect-value assertion were separately verified to
+fail. Native HTTP diagnostics now capture socket reuse and idle age on failures.
+The new 100-user standalone diagnostic retains the original keep-alive policy
+and zero retries. No sustained capacity/endurance pass is claimed yet.
 
 Use only loopback PostgreSQL named `pipeline_capacity_*` and unchanged canonical
 migrations. Never deploy the synthetic build or point this harness at production.
