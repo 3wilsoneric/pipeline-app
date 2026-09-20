@@ -130,7 +130,10 @@ test('sustained browser saves survive alternating application instances', async 
       const runner = process.memoryUsage();
       processMemory.push({ at: Date.now(), app_rss_kib: rss(/next-server/), browser_rss_kib: rss(/chrome|chromium/i), runner_rss_bytes: runner.rss, runner_heap_bytes: runner.heapUsed, event_loop_p99_ms: delay.percentile(99) / 1e6 });
     }, 5000);
-    const outcomes = await Promise.allSettled(sessions.map(async session => {
+    // A named actor step gives Playwright a stable parent for its action log.
+    // Without it, every API call searches the entire growing test-step tree,
+    // making the load generator itself progressively slower during a soak.
+    const outcomes = await Promise.allSettled(sessions.map(session => test.step(session.actor.id, async () => {
       let cycle = 0;
       try {
       do {
@@ -195,7 +198,7 @@ test('sustained browser saves survive alternating application instances', async 
         actorFailures.push({ actor: session.actor.id, at: Date.now(), message: String(error).split('\n')[0] });
         throw error;
       }
-    }));
+    })));
     measuredEnd = Date.now();
     await samplePages();
     const latest = new Map(ledger.map(entry => [`${entry.id}:${entry.field}`, entry]));
