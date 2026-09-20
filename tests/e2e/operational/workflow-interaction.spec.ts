@@ -85,6 +85,7 @@ test.describe("workflow interaction and durable feedback", () => {
     try {
       await assessor.get("/api/auth/me");
       await page.goto("/");
+      await page.getByRole("tab", { name: "New assignments", exact: true }).click();
       const panel = page.getByRole("region", { name: "Since your last visit" });
       await expect(panel).toBeVisible();
       await expect(panel).not.toContainText("could not be checked");
@@ -96,11 +97,13 @@ test.describe("workflow interaction and durable feedback", () => {
       const ids = new Set(referrals.map((referral) => referral.id));
       expect(snapshot.continuity.new_assignments.filter((item: { workspace: { referral_id: number } }) => ids.has(item.workspace.referral_id))).toHaveLength(8);
       await expect(panel.getByRole("button", { name: /Show \d+ more assignments/ })).toBeVisible();
+      await page.getByRole("tab", { name: "Board", exact: true }).click();
       const currentWork = page.getByRole("region", { name: "Current work", exact: true });
       await expect(currentWork.getByRole("button", { name: "Open current work" })).toBeVisible();
       for (const referral of referrals) {
         await expect(currentWork.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toBeVisible();
       }
+      await page.getByRole("tab", { name: "New assignments", exact: true }).click();
       let acknowledged: { acknowledgeAssignmentIds?: string[]; acknowledgeAssignmentsThrough?: string } | undefined;
       await page.route("**/api/me/work-continuity", async (route) => {
         const body = route.request().postDataJSON();
@@ -142,6 +145,7 @@ test.describe("workflow interaction and durable feedback", () => {
       }
       await createReferral(api, uniqueName(), pipelineActors.assessorB.id);
       await page.goto("/");
+      await page.getByRole("tab", { name: "New assignments", exact: true }).click();
       const panel = page.getByRole("region", { name: "Since your last visit" });
       await expect(panel.getByRole("button", { name: "Mark shown seen" })).toBeVisible();
       let held = false;
@@ -159,8 +163,11 @@ test.describe("workflow interaction and durable feedback", () => {
         await route.fulfill({ response });
         delivered = true;
       });
-      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-      await expect.poll(() => held).toBe(true);
+      await expect.poll(async () => {
+        // An initial hydration refresh may still own the single in-flight read.
+        if (!held) await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+        return held;
+      }).toBe(true);
       await panel.getByRole("button", { name: "Mark shown seen" }).click();
       await expect(panel).toContainText("No referrals were assigned");
       release();
@@ -173,6 +180,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect.poll(() => returnPending).toBe(true);
       await expect(panel.getByRole("button", { name: "Mark shown seen" })).toHaveCount(0);
       releaseReturn();
+      await page.getByRole("tab", { name: "New assignments", exact: true }).click();
       await expect(panel).toContainText("No referrals were assigned");
     } finally {
       release();
