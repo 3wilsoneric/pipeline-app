@@ -25,7 +25,18 @@ export async function workbookRuntime(page: Page) {
   const tool = path.resolve("lib/assessment/assessment-tool-schema.ts");
   visit(entry); visit(contract); visit(tool);
   await page.addScriptTag({ path: path.resolve("node_modules/fflate/umd/index.js") });
-  await page.addScriptTag({ content: `(() => { const modules=${JSON.stringify(modules)}, cache={}; function load(id) { if(id==='fflate') return window.fflate; if(cache[id]) return cache[id].exports; const mod=cache[id]={exports:{}}; new Function('module','exports','require',modules[id].code)(mod,mod.exports,(name)=>load(modules[id].imports[name]||name));return mod.exports; } window.workbookTest={...load(${JSON.stringify(entry)}),...load(${JSON.stringify(contract)}),...load(${JSON.stringify(tool)})}; })();` });
+  await page.evaluate(({ modules, entry, contract, tool }) => {
+    const runtime = window as unknown as { fflate: Record<string, unknown>; workbookTest: Record<string, unknown> };
+    const cache: Record<string, { exports: Record<string, unknown> }> = {};
+    function load(id: string): Record<string, unknown> {
+      if (id === "fflate") return runtime.fflate;
+      if (cache[id]) return cache[id].exports;
+      const mod = cache[id] = { exports: {} };
+      new Function("module", "exports", "require", modules[id].code)(mod, mod.exports, (name: string) => load(modules[id].imports[name] || name));
+      return mod.exports;
+    }
+    runtime.workbookTest = { ...load(entry), ...load(contract), ...load(tool) };
+  }, { modules, entry, contract, tool });
 }
 
 export function changeWorkbook(bytes: Uint8Array, cells: Array<{ sheet: number; cell: string; value: string; formula?: boolean }>) {

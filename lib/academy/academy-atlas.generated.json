@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:586616fbed94e19b",
-  "fingerprint": "586616fbed94e19b4fd889f1165d9f637f2e3285a093f007010473180f02f752",
+  "generatedAt": "source-fingerprint:3c725409099caf5d",
+  "fingerprint": "3c725409099caf5de52ee84e92141fdbd39cfc9d0cfb1d21637b2a3af5666fea",
   "totals": {
     "files": 1279,
-    "lines": 350481,
+    "lines": 350492,
     "coveredFiles": 1279
   },
   "entries": [
@@ -15131,7 +15131,7 @@
       "kind": "typescript-module",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 43,
+      "lines": 54,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
