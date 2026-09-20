@@ -46,8 +46,9 @@ for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}:
     else await page.getByRole("button", { name: "Workspace files", exact: true }).click();
     const list = page.getByRole("region", { name: "Uploaded documents", exact: true });
     // A repeat selection after reload reuses the stored document.
+    const uploaded = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/uploads/complete" && response.request().method() === "POST");
     await page.getByLabel("Choose additional referral documents").setInputFiles(files[1]);
-    await expect(page.getByTestId("workspace-save-status")).toContainText("Files uploaded");
+    expect((await uploaded).ok()).toBe(true);
     expect(await inventory()).toHaveLength(files.length);
     for (const expected of files) {
       const file = (await inventory()).find((item) => item.name === expected.name)!;

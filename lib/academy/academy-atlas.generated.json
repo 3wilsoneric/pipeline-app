@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:4312bb038e21180b",
-  "fingerprint": "4312bb038e21180b344755824f92c3eda0fb495dab536194c5406593fbfc4b0a",
+  "generatedAt": "source-fingerprint:bd73a45b2c91fe24",
+  "fingerprint": "bd73a45b2c91fe246a1196bbf7a0d7335011984bfe927f516567f4f9f718f7c0",
   "totals": {
     "files": 1279,
-    "lines": 350451,
+    "lines": 350457,
     "coveredFiles": 1279
   },
   "entries": [
@@ -2040,7 +2040,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 71,
+      "lines": 72,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -14110,7 +14110,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 95,
+      "lines": 96,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14458,7 +14458,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 365,
+      "lines": 367,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15431,7 +15431,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 81,
+      "lines": 83,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

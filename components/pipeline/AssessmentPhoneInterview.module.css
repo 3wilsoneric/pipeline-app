@@ -52,6 +52,7 @@
 .sheetScope { display: block; padding-block: 12px; font-size: 13px; }
 .sheetScope select { display: inline-flex; margin-top: 6px; }
 .mobileMain { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.mobileMain > [data-excel-strip] { order: 1; flex-shrink: 0; }
 .mobileMain > div:not([data-assessment-question-content]) { flex-shrink: 0; max-height: 35%; overflow-y: auto; }
 .mobileMain > [data-assessment-question-content] { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0; }
 .mobileFooter { padding: 0 20px 4px; gap: 0 10px; border-top: 1px solid #edf1ee; }

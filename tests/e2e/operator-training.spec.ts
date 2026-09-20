@@ -75,13 +75,13 @@ test.describe("Pipeline Learning Center", () => {
     await fileChooser.setFiles({
       name: "training-notes.txt",
       mimeType: "text/plain",
-      buffer: Buffer.from("Not an accepted referral document"),
+      buffer: Buffer.alloc(0),
     });
-    await expect(page.getByTestId("document-checklist-panel").getByRole("alert").filter({ hasText: "Upload a PDF, JPEG, PNG, TIFF, or HEIC referral document." })).toBeVisible();
+    await expect(page.getByTestId("document-checklist-panel").getByRole("alert").filter({ hasText: "Choose a nonempty file, up to 100 MB." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
 
     await dropTrainingPdf(upload, "training-referral.pdf");
-    await expect(page.getByRole("alert").filter({ hasText: "Upload a PDF" })).toHaveCount(0);
+    await expect(page.getByRole("alert").filter({ hasText: "Choose a nonempty file" })).toHaveCount(0);
     await expect(upload.getByText("training-referral.pdf", { exact: true })).toBeVisible();
     await expect(upload.getByText(/Ready to upload/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Verify identity" })).toBeVisible();
