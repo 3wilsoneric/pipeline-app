@@ -118,7 +118,8 @@ test.describe("assessment editing entry and return paths", () => {
       // Keep the target in the displayed Pacific week, including Sunday just after midnight.
       await page.clock.setFixedTime(new Date(assessment.scheduled_start_at!));
       await page.goto("/?screen=calendar");
-      await page.getByRole("button", { name: new RegExp(`^Appointment details for ${referral.name}$`, "i") }).click();
+      await page.getByRole("region", { name: "Timed assessment week", exact: true })
+        .getByRole("button", { name: new RegExp(referral.name!) }).click();
       await page.getByRole("dialog", { name: "Calendar item", exact: true }).getByRole("button", { name: "Open assessment", exact: true }).click();
       await expect(page.locator("[data-assessment-view]")).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));

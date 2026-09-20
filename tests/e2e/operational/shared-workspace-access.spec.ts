@@ -68,7 +68,8 @@ test.describe("shared workspace editing", () => {
         expect(workflow.decision.decidedByRole).toBe(pipelineActors[actor].expectedRoles[0]);
         expect(workflow.capabilities.can_update).toBe(true);
         expect(workflow.capabilities.can_email).toBe(true);
-        expect((await api.get(`/api/operations/reports?report_id=assessment_completion&month=${new Date().toISOString().slice(0, 7)}`)).status()).toBe(200);
+        expect((await api.get(`/api/operations/reports?report_id=assessment_completion&month=${new Date().toISOString().slice(0, 7)}`)).status())
+          .toBe(actor === "admin" || actor === "assessmentCoordinator" ? 200 : 403);
         const mine = await (await api.get("/api/referrals?scope=mine&limit=100")).json();
         const team = await (await api.get("/api/referrals?scope=team&limit=100")).json();
         expect(team.referrals.some((item: { id: number }) => item.id === referral.id)).toBe(true);

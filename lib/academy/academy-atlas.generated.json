@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8fd86dbdb88833bf",
-  "fingerprint": "8fd86dbdb88833bf7a8e5b7462fa6e576a26c280b84b4346d77f2a6eec3831b1",
+  "generatedAt": "source-fingerprint:38e842de2ccd5274",
+  "fingerprint": "38e842de2ccd527444d18c8752469a5e919320809b369c4c0fd5c0ab814b1821",
   "totals": {
     "files": 1235,
-    "lines": 345268,
+    "lines": 345297,
     "coveredFiles": 1235
   },
   "entries": [
@@ -6269,7 +6269,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 91,
+      "lines": 97,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -14096,7 +14096,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 217,
+      "lines": 218,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14216,7 +14216,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 575,
+      "lines": 596,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -14301,7 +14301,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 131,
+      "lines": 132,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
