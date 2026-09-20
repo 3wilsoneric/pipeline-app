@@ -13,6 +13,8 @@ test('sustained browser saves survive alternating application instances', async 
   const users = Number(process.env.PIPELINE_CAPACITY_USERS ?? 100);
   const actorOffset = Number(process.env.PIPELINE_CAPACITY_ACTOR_OFFSET ?? 0);
   const navigationMode = process.env.PIPELINE_CAPACITY_NAVIGATION ?? 'reload';
+  const probeConnection = process.env.PIPELINE_CAPACITY_PROBE_CONNECTION ?? 'keepalive';
+  if (!['keepalive', 'close'].includes(probeConnection)) throw Error('Unknown diagnostic probe connection policy');
   const replicas = Number(process.env.PIPELINE_CAPACITY_REPLICAS ?? 2);
   if (![2, 3].includes(replicas)) throw Error('Only the two- or three-replica rehearsal is supported');
   const backendPorts = Array.from({ length: replicas }, (_, index) => 4178 + index);
@@ -30,15 +32,21 @@ test('sustained browser saves survive alternating application instances', async 
   const browsers: Browser[] = [];
   const sessions: Array<{ context: BrowserContext; page: Page; actor: PipelineActor; id: number; field: string }> = [];
   const runId = `capacity-${Date.now()}-${randomUUID().slice(0, 8)}`;
-  const ledger: Array<{ actor: string; id: number; field: string; value: string; ms: number; backend: string; at: number }> = [];
+  const ledger: Array<{ actor: string; id: number; field: string; value: string; ms: number; http_ms: number; backend: string; at: number }> = [];
   const errors: string[] = [];
   const backendCounts: Record<string, number> = {};
   const heartbeats = new Map<string, number>();
   const overlap: Array<{ at: number; actors_progressing_last_30s: number; free_memory_bytes: number }> = [];
   const navigationMs: number[] = [];
-  const processMemory: Array<{ at: number; app_rss_kib: number; browser_rss_kib: number }> = [];
+  const processMemory: Array<{ at: number; app_rss_kib: number; browser_rss_kib: number; runner_rss_bytes: number; runner_heap_bytes: number; event_loop_p99_ms: number }> = [];
+  const actorFailures: Array<{ actor: string; at: number; message: string }> = [];
+  const probeTimings: Array<{ at: number; actor: string; port: number; ms: number; status?: number; error?: string }> = [];
+  const pageMetrics: Array<Record<string, unknown>> = [];
+  const requestMinutes = new Map<string, { count: number; total_ms: number; max_ms: number }>();
   const delay = monitorEventLoopDelay({ resolution: 20 });
   let sampler: ReturnType<typeof setInterval> | undefined;
+  let pageSampler: ReturnType<typeof setInterval> | undefined;
+  let pageSampleRunning = false;
   let measuredStart = 0;
   let measuredEnd = 0;
   try {
@@ -61,6 +69,17 @@ test('sustained browser saves survive alternating application instances', async 
       const page = await context.newPage();
       page.on('pageerror', () => errors.push(`browser_exception:${i}`));
       page.on('response', response => { if (response.url().startsWith(baseURL!) && (response.status() >= 500 || response.status() === 429)) errors.push(`http_${response.status()}:${new URL(response.url()).pathname}:${i}`); });
+      page.on('requestfinished', request => {
+        if (!measuredStart || !request.url().startsWith(`${baseURL}/api/`)) return;
+        const timing = request.timing();
+        const path = new URL(request.url()).pathname.replace(/\/\d+(?=\/|$)/g, '/:id');
+        const key = `${Math.floor((Date.now() - measuredStart) / 60_000)}:${request.method()}:${path}`;
+        const previous = requestMinutes.get(key) ?? { count: 0, total_ms: 0, max_ms: 0 };
+        previous.count++;
+        previous.total_ms += Math.max(0, timing.responseEnd);
+        previous.max_ms = Math.max(previous.max_ms, timing.responseEnd);
+        requestMinutes.set(key, previous);
+      });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
       await intakeChart(page).getByRole('button', { name: 'Edit Phone', exact: true }).click();
       await expect(page.getByRole('textbox', { name: 'Client phone:', exact: true })).toBeVisible();
@@ -82,14 +101,38 @@ test('sustained browser saves survive alternating application instances', async 
     measuredStart = Date.now();
     const deadline = measuredStart + seconds * 1000;
     delay.enable();
+    // Sample only two pages per generator; do not profile every actor and turn
+    // the diagnostic itself into the browser bottleneck.
+    const sampledSessions = [sessions[0], sessions.at(-1)!];
+    const metricSessions = await Promise.all(sampledSessions.map(async ({ context, page, actor }) => {
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Performance.enable');
+      return { cdp, actor };
+    }));
+    const samplePages = async () => {
+      if (pageSampleRunning) return;
+      pageSampleRunning = true;
+      try {
+        for (const { cdp, actor } of metricSessions) {
+          const { metrics } = await cdp.send('Performance.getMetrics');
+          pageMetrics.push({ at: Date.now(), actor: actor.id, ...Object.fromEntries(metrics.filter(({ name }) => ['Documents', 'Nodes', 'JSEventListeners', 'JSHeapUsedSize', 'JSHeapTotalSize', 'TaskDuration', 'ScriptDuration', 'LayoutDuration'].includes(name)).map(({ name, value }) => [name, value])) });
+        }
+      } catch (error) {
+        pageMetrics.push({ at: Date.now(), error: String(error).split('\n')[0] });
+      } finally { pageSampleRunning = false; }
+    };
+    await samplePages();
+    pageSampler = setInterval(() => void samplePages(), 30_000);
     sampler = setInterval(() => {
       overlap.push({ at: Date.now(), actors_progressing_last_30s: [...heartbeats.values()].filter(at => Date.now() - at < 30_000).length, free_memory_bytes: freemem() });
       const rows = execFileSync('ps', ['-eo', 'rss,comm'], { encoding: 'utf8' }).split('\n');
       const rss = (pattern: RegExp) => rows.reduce((sum, row) => pattern.test(row) ? sum + Number(row.trim().split(/\s+/)[0]) : sum, 0);
-      processMemory.push({ at: Date.now(), app_rss_kib: rss(/next-server/), browser_rss_kib: rss(/chrome|chromium/i) });
+      const runner = process.memoryUsage();
+      processMemory.push({ at: Date.now(), app_rss_kib: rss(/next-server/), browser_rss_kib: rss(/chrome|chromium/i), runner_rss_bytes: runner.rss, runner_heap_bytes: runner.heapUsed, event_loop_p99_ms: delay.percentile(99) / 1e6 });
     }, 5000);
     const outcomes = await Promise.allSettled(sessions.map(async session => {
       let cycle = 0;
+      try {
       do {
         const { page, context, id, actor, field } = session;
         const value = field === 'email' ? `${runId}-${actor.id.split('-').at(-1)}-${cycle}@example.invalid` : `555-${actor.id.split('-').at(-1)}-${cycle}`;
@@ -107,13 +150,26 @@ test('sustained browser saves survive alternating application instances', async 
         ]);
         const backend = response.headers()['x-capacity-backend'];
         backendCounts[backend] = (backendCounts[backend] ?? 0) + 1;
-        ledger.push({ actor: actor.id, id, field, value, ms: Date.now() - started, backend, at: Date.now() });
+        ledger.push({ actor: actor.id, id, field, value, ms: Date.now() - started, http_ms: response.request().timing().responseStart, backend, at: Date.now() });
         expect(backendPorts.map(String)).toContain(backend);
         const oppositePort = backendPorts[(backendPorts.indexOf(Number(backend)) + 1) % replicas];
         await expect.poll(async () => {
-          const read = await context.request.get(`http://127.0.0.1:${oppositePort}/api/referrals/${id}`);
-          if (!read.ok()) return null;
-          return (await read.json()).referral[field];
+          const probeStart = Date.now();
+          try {
+            const read = await context.request.get(`http://127.0.0.1:${oppositePort}/api/referrals/${id}`, { maxRetries: 0, ...(probeConnection === 'close' ? { headers: { Connection: 'close' } } : {}) });
+            try {
+              probeTimings.push({ at: probeStart, actor: actor.id, port: oppositePort, ms: Date.now() - probeStart, status: read.status() });
+              if (!read.ok()) return null;
+              return (await read.json()).referral[field];
+            } finally {
+              // API responses otherwise retain their body and log until the
+              // context closes. This rehearsal lasts up to two hours.
+              await read.dispose();
+            }
+          } catch (error) {
+            probeTimings.push({ at: probeStart, actor: actor.id, port: oppositePort, ms: Date.now() - probeStart, error: String(error).split('\n')[0] });
+            throw error;
+          }
         }).toBe(value);
         heartbeats.set(actor.id, Date.now());
         cycle++;
@@ -134,9 +190,13 @@ test('sustained browser saves survive alternating application instances', async 
         }
         await page.waitForTimeout(1000 + (Number(actor.id.split('-').at(-1)) % 5) * 200);
       } while (Date.now() < deadline);
+      } catch (error) {
+        actorFailures.push({ actor: session.actor.id, at: Date.now(), message: String(error).split('\n')[0] });
+        throw error;
+      }
     }));
-    for (const outcome of outcomes) if (outcome.status === 'rejected') throw outcome.reason;
     measuredEnd = Date.now();
+    await samplePages();
     const latest = new Map(ledger.map(entry => [`${entry.id}:${entry.field}`, entry]));
     for (const entry of latest.values()) {
       const [row] = await sql`select data from pipeline.referrals where referral_id=${entry.id}`;
@@ -151,6 +211,10 @@ test('sustained browser saves survive alternating application instances', async 
       expect(audit).toHaveLength(expected.length);
       expect(audit.every(row => row.count === 1), 'Each acknowledged write must have exactly one independent audit entry').toBe(true);
     }
+    // Reconcile acknowledged writes even on a failed actor, without turning
+    // that failure into a pass or abandoning the other actors' evidence.
+    const failures = outcomes.filter(outcome => outcome.status === 'rejected');
+    if (failures.length) throw new AggregateError(failures.map(outcome => outcome.reason), `${failures.length} capacity actors failed`);
     expect(Object.keys(backendCounts).sort()).toEqual(backendPorts.map(String));
     expect(new Set(ledger.map(entry => entry.actor)).size).toBe(users);
     if (seconds >= 60) {
@@ -161,8 +225,10 @@ test('sustained browser saves survive alternating application instances', async 
     expect(errors).toEqual([]);
   } finally {
     if (sampler) clearInterval(sampler);
+    if (pageSampler) clearInterval(pageSampler);
     delay.disable();
     await testInfo.attach('workload-profile', { body: JSON.stringify({ navigationMode, actorOffset, users, replicas }), contentType: 'application/json' });
+    await testInfo.attach('capacity-diagnostics', { body: JSON.stringify({ probeConnection, actorFailures, probeTimings, pageMetrics, requestMinutes: Object.fromEntries(requestMinutes) }), contentType: 'application/json' });
     const sorted = ledger.map(entry => entry.ms).sort((a, b) => a - b);
     await testInfo.attach('capacity-evidence', { body: Buffer.from(JSON.stringify({ runId, candidate_commit: candidate, application_baseline: 'ccd474433c05001ed621c30643bde3f1b3e8a201', environment: `loopback-postgres-${replicas}-process-synthetic-auth`, requested_users: users, created_sessions: sessions.length, actors_with_confirmed_saves: new Set(ledger.map(entry => entry.actor)).size, measuredStart, measuredEnd, browser_processes: browsers.length, backendCounts, overlap, processMemory, calendar_and_return_navigation_ms: navigationMs, saves: ledger.length, p95_save_ms: sorted[Math.ceil(sorted.length * .95) - 1] ?? null, p99_save_ms: sorted[Math.ceil(sorted.length * .99) - 1] ?? null, generator_event_loop_p99_ms: delay.percentile(99) / 1e6, errors, ledger, limits: ['Not Entra sign-in or Azure production performance certification', 'Current workload: intake save/cross-replica reads/calendar navigation; assessment/upload/fault waves remain separate'] }, null, 2)), contentType: 'application/json' });
     await Promise.allSettled(sessions.map(session => session.context.close()));
