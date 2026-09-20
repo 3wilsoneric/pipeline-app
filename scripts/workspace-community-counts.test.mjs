@@ -16,6 +16,7 @@ const referrals = [
 
 function loadStore(mode, sql) {
   return loadEntry("lib/pipeline/referral-store.ts", {
+    "./document-lifecycle-policy": loadEntry("lib/pipeline/document-lifecycle-policy.ts"),
     "@/lib/pipeline/client-identity-presentation.mjs": identity,
     "@/lib/pipeline/workspace-month.mjs": months,
     "@/shared/persona-demo-config.mjs": personaDemo,
