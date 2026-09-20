@@ -232,21 +232,18 @@ test('sustained browser saves survive alternating application instances', async 
       }
     })));
     measuredEnd = Date.now();
+    // Actors have stopped. SQL reconciliation is evidence collection, not a
+    // period in which those actors should still be making progress.
+    if (sampler) clearInterval(sampler);
+    if (pageSampler) clearInterval(pageSampler);
+    delay.disable();
     await samplePages();
     const latest = new Map(ledger.map(entry => [`${entry.id}:${entry.field}`, entry]));
     for (const entry of latest.values()) {
       const [row] = await sql`select data from pipeline.referrals where referral_id=${entry.id}`;
       expect(row.data[entry.field]).toBe(entry.value);
     }
-    for (let offset = 0; offset < ledger.length; offset += 500) {
-      const expected = ledger.slice(offset, offset + 500).map(({ actor, id, field, value }) => ({ actor, id: String(id), field, value }));
-      const audit = await sql`select e.actor, e.id, e.field, e.value, count(a.audit_event_id)::int as count
-        from jsonb_to_recordset(${sql.json(expected)}::jsonb) as e(actor text, id text, field text, value text)
-        left join pipeline.audit_events a on a.entity_type='referral' and a.entity_id=e.id and a.actor_id=e.actor and a.after_values->>e.field=e.value
-        group by e.actor, e.id, e.field, e.value`;
-      expect(audit).toHaveLength(expected.length);
-      expect(audit.every(row => row.count === 1), 'Each acknowledged write must have exactly one independent audit entry').toBe(true);
-    }
+    await reconcileCapacityAuditLedger(sql, ledger);
     // Reconcile acknowledged writes even on a failed actor, without turning
     // that failure into a pass or abandoning the other actors' evidence.
     const failures = outcomes.filter(outcome => outcome.status === 'rejected');
@@ -254,7 +251,7 @@ test('sustained browser saves survive alternating application instances', async 
     expect(Object.keys(backendCounts).sort()).toEqual(backendPorts.map(String));
     expect(new Set(ledger.map(entry => entry.actor)).size).toBe(users);
     if (seconds >= 60) {
-      const steady = overlap.filter(sample => sample.at >= measuredStart + 30_000);
+      const steady = measuredCapacityProgress(overlap, measuredStart, measuredEnd);
       expect(steady.length).toBeGreaterThan(0);
       expect(steady.every(sample => sample.actors_progressing_last_30s === users)).toBe(true);
     }
@@ -276,4 +273,28 @@ test('sustained browser saves survive alternating application instances', async 
 
 function intakeChart(page: Page) {
   return page.locator('article[aria-label="Referral chart"]:not([data-testid="profile-workspace"] article)');
+}
+
+export function measuredCapacityProgress(samples: Array<{ at: number; actors_progressing_last_30s: number }>, started: number, ended: number) {
+  return samples.filter(sample => sample.at >= started + 30_000 && sample.at <= ended);
+}
+
+export async function reconcileCapacityAuditLedger(sql: ReturnType<typeof postgres>, ledger: Array<{ actor: string; id: number; field: string; value: string }>) {
+  const pairKey = (entry: { actor: string; id: string | number; field: string }) => JSON.stringify([entry.actor, String(entry.id), entry.field]);
+  const valueKey = (entry: { actor: string; id: string | number; field: string; value: unknown }) => JSON.stringify([entry.actor, String(entry.id), entry.field, entry.value]);
+  const pairs = [...new Map(ledger.map(entry => [pairKey(entry), { actor: entry.actor, id: String(entry.id), field: entry.field }])).values()];
+  // Read each actor/record/field's audit history once, instead of rescanning
+  // that growing history once per acknowledged value. Counts remain exact.
+  for (let offset = 0; offset < pairs.length; offset += 25) {
+    const batch = pairs.slice(offset, offset + 25);
+    const selected = new Set(batch.map(pairKey));
+    const rows = await sql`select e.actor, e.id, e.field, a.after_values->>e.field as value, count(a.audit_event_id)::int as count
+      from jsonb_to_recordset(${sql.json(batch)}::jsonb) as e(actor text, id text, field text)
+      join pipeline.audit_events a on a.entity_type='referral' and a.entity_id=e.id and a.actor_id=e.actor
+      group by e.actor, e.id, e.field, a.after_values->>e.field`;
+    const counts = new Map(rows.map(row => [valueKey(row as { actor: string; id: string; field: string; value: unknown }), row.count]));
+    for (const entry of ledger) if (selected.has(pairKey(entry))) {
+      expect(counts.get(valueKey(entry)), 'Each acknowledged write must have exactly one independent audit entry').toBe(1);
+    }
+  }
 }
