@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { Plus, X } from "lucide-react";
 import type { ListRecipient } from "@/lib/pipeline/community-recipient-lists";
 import styles from "./CommunityContactLists.module.css";
@@ -32,6 +32,22 @@ export default function RecipientChipField({ label, recipients, contacts, exclud
     setActive(-1);
     input.current?.focus();
   };
+  const addSelection = () => {
+    if (open && active >= 0) select(suggestions[active]);
+    else if (text.trim()) onAdd(text);
+  };
+  const navigateSuggestions = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (open && ["ArrowDown", "ArrowUp"].includes(event.key)) {
+      event.preventDefault();
+      setActive((current) => event.key === "ArrowDown" ? (current + 1) % suggestions.length : (current - 1 + suggestions.length) % suggestions.length);
+      return true;
+    }
+    if (event.key === "Escape") {
+      setFocused(false); setActive(-1);
+      return true;
+    }
+    return false;
+  };
 
   return <div className={`${styles.recipientRow} ${compact ? styles.compact : ""}`}>
     <label className={styles.laneLabel} htmlFor={id}>{label}<span>{recipients.length}</span></label>
@@ -57,14 +73,10 @@ export default function RecipientChipField({ label, recipients, contacts, exclud
             }}
             onKeyDown={(event) => {
               if (event.nativeEvent.isComposing) return;
-              if (open && ["ArrowDown", "ArrowUp"].includes(event.key)) {
+              if (navigateSuggestions(event)) return;
+              if (event.key === "Enter" || event.key === ";") {
                 event.preventDefault();
-                setActive((current) => event.key === "ArrowDown" ? (current + 1) % suggestions.length : (current - 1 + suggestions.length) % suggestions.length);
-              } else if (event.key === "Escape") { setFocused(false); setActive(-1); }
-              else if (event.key === "Enter" || event.key === ";") {
-                event.preventDefault();
-                if (open && active >= 0) select(suggestions[active]);
-                else if (text.trim()) onAdd(text);
+                addSelection();
               } else if (event.key === "Backspace" && !text && recipients.length) {
                 const buttons = event.currentTarget.closest(`.${styles.recipientBody}`)?.querySelectorAll<HTMLButtonElement>(`.${styles.remove}`);
                 buttons?.[buttons.length - 1]?.focus();

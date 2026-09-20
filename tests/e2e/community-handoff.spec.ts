@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalReferral, readOperationalReferral } from "./support/operational-api";
 
+test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
+
 const contact = (name: string, email: string) => ({ name, email: `${email}@example.invalid` });
 const lists = [
   { community: "San Pablo", to: [contact("Care team", "care"), contact("Medication team", "meds")], cc: [contact("Admissions", "admissions")] },
@@ -60,6 +62,32 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   await expect(page.getByRole("status").filter({ hasText: "Recipients saved for this handoff" })).toBeVisible();
   expect((await (await page.request.get(endpoint)).json()).draft.community).toBe("Turlock");
   expect(sends).toBe(0);
+});
+
+test("recipient keyboard suggestions, dismissal, add and chip focus preserve the selected audience", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "", community: "San Pablo" });
+  await openHandoff(page, referral.id);
+  await page.getByRole("button", { name: "Remove Medication team from To", exact: true }).click();
+  const input = page.getByRole("combobox", { name: /^To/ });
+  await input.fill("meds");
+  await input.press("ArrowDown");
+  await expect(page.getByRole("option", { name: /Medication team/ })).toHaveAttribute("aria-selected", "true");
+  await input.press("Escape");
+  await expect(input).toHaveAttribute("aria-expanded", "false");
+  await input.fill("med");
+  await input.press("ArrowUp");
+  await input.press("Enter");
+  const remove = page.getByRole("button", { name: "Remove Medication team from To", exact: true });
+  await expect(remove).toBeVisible();
+  await expect(input).toHaveValue("");
+  await input.press("Backspace");
+  await expect(remove).toBeFocused();
+  await input.fill("Keyboard <keyboard@example.invalid>");
+  await input.press(";");
+  await expect(page.getByRole("status").filter({ hasText: "Recipients saved for this handoff" })).toBeVisible();
+  const saved = await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json();
+  expect(saved.draft.to.map((item: { email: string }) => item.email)).toEqual(["care@example.invalid", "meds@example.invalid", "keyboard@example.invalid"]);
+  expect(saved.draft.cc.map((item: { email: string }) => item.email)).toEqual(["admissions@example.invalid"]);
 });
 
 test("conflicts preserve the saved audience and cross-origin or wrong-community changes are rejected", async ({ page, baseURL }) => {

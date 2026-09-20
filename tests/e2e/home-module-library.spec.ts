@@ -23,7 +23,8 @@ for (const entry of ["click", "shortcut"]) {
       await page.goto("/");
       await page.getByRole("button", { name: "Open search", exact: true }).click();
     }
-    const input = page.getByRole("textbox", { name: "Search or ask" });
+    const input = page.getByRole("region", { name: "Search Pipeline", exact: true }).getByRole("textbox", { name: "Search or ask" });
+    await expect(input).toBeFocused();
     await input.fill("Avery");
     const originalInput = await input.elementHandle();
     release();
@@ -101,7 +102,7 @@ for (const width of [1440, 390]) {
     const card = work.getByRole("button", { name: "Open Avery Assigned", exact: true });
     await expect(card).toBeVisible();
     await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
-    await expect(work.getByRole("heading", { name: "Board", exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(work.getByText(/^(Team referrals|Assigned to you)$/)).toHaveCount(0);
     await expect(work.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
     await page.goto("/?editHome=1");

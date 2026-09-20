@@ -15,7 +15,7 @@ test("email copy follows admission handoff sections without inventing example-cl
   const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
   const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "synthetic-delivery", ["Client data sheet.html"]);
   for (const label of ["Med room", "Allergies &amp; diet", "Billing team", "Recorded diet", "Recorded coverage", "Not recorded", "Client data sheet.html"]) assert.ok(email.html.includes(label), label);
-  assert.ok(email.subject.includes("2026-09-30"));
+  assert.equal(email.subject, `Meet the Client | ${summary.community || "New admission"}`);
   assert.doesNotMatch(email.html, /30 days of meds|No Food Allergy|SSI application has not started|<script>/);
 });
 

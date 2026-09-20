@@ -62,7 +62,7 @@ test("every canonical field round-trips exactly, including long answers and expl
   const bytes = Array.from(await fs.readFile(templateFile));
   const result = await page.evaluate(async (template) => {
     const w = window.workbookTest, data = w.createEmptyAssessmentToolData();
-    for (const field of w.assessmentWorkbookFields) {
+    const syntheticValue = (field: typeof w.assessmentWorkbookFields[number]) => {
       const option = field.question?.options?.[0]?.value;
       let value: unknown = option ?? `Synthetic ${field.key} = < & >`;
       if (field.value_type === "integer") value = field.question?.min ?? 0;
@@ -71,8 +71,9 @@ test("every canonical field round-trips exactly, including long answers and expl
       if (field.value_type === "timestamp") value = "2026-09-19T14:00:00.000Z";
       if (field.value_type === "string_list") value = option ? [option] : ["Synthetic one", "Synthetic two\nembedded newline"];
       if (field.value_type === "reason_map") value = { medication_adherence: "Synthetic explanation" };
-      data[field.key] = value as never;
-    }
+      return value;
+    };
+    for (const field of w.assessmentWorkbookFields) data[field.key] = syntheticValue(field) as never;
     data.medication_adherence = "unable_to_assess";
     data.unable_to_assess_reasons.medication_adherence = "Synthetic explanation: client requested a break; verify with the source record. ".repeat(3).trim();
     data.assessment_notes = "N".repeat(50000);

@@ -95,14 +95,9 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
 
   const emailMeetClient = async () => {
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
-    if (!emailDraft || emailDraft.error || emailDraft.loading) return;
+    if (!handoffDraftReady(emailDraft)) return;
     const recipientList = recipients;
-    const requestKey = JSON.stringify([
-      payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
-      [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
-      [...ccRecipients].sort(),
-      payload.email.admission_packet.files.map((file) => file.document_id).sort(),
-    ]);
+    const requestKey = handoffRequestKey(payload, recipientList, ccRecipients);
     if (sendRequest.current?.key !== requestKey) sendRequest.current = { key: requestKey, mutationId: crypto.randomUUID() };
     sendInFlight.current = true;
     setSending(true);
@@ -169,6 +164,19 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       <AssessmentRecord report={readyPayload.report!} embedded={embedded} />
     </div>
   );
+}
+
+function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRecipients: string[]) {
+  return JSON.stringify([
+      payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
+      [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
+      [...ccRecipients].sort(),
+      payload.email.admission_packet.files.map((file) => file.document_id).sort(),
+    ]);
+}
+
+function handoffDraftReady(draft?: HandoffRecipients): draft is HandoffRecipients {
+  return Boolean(draft && !draft.error && !draft.loading);
 }
 
 function canStartMeetClientSend(payload: ChartPayload | null, alreadyAccepted: boolean, confirmed: boolean, inFlight: boolean): payload is ChartPayload {
@@ -291,7 +299,7 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
           <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></span>
         </label> : null}
         <button type="button" className={styles.sendButton} onClick={onSend}
-          disabled={sending || !email.ready || !confirmed || !emailDraft?.fields.to.length || Boolean(emailDraft?.error) || emailDraft?.loading}>
+          disabled={!canSendHandoff(email, emailDraft, confirmed, sending)}>
           <Send size={16} />{sending ? "Sending…" : "Send email & packet"}
         </button>
       </div>
@@ -320,8 +328,7 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
         </details>
   );
 
-  return (
-    <div className={styles.composer} data-guide-target="chart-email-handoff">
+  const renderNextStep = () => (
       <div className={styles.nextStep}>
         <p role="status">{status}</p>
         {!sent ? <div className={styles.detailActions}>
@@ -329,6 +336,11 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
           {!email.eligible && onOpenDecision ? <button type="button" className={styles.textButton} disabled={sending} onClick={onOpenDecision}>Open decision</button> : null}
         </div> : null}
       </div>
+  );
+
+  return (
+    <div className={styles.composer} data-guide-target="chart-email-handoff">
+      {renderNextStep()}
       {renderSendToolbar()}
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
       {emailDraft ? <div className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={!email.can_edit_recipients || sending || sent} /></div> : null}
@@ -343,6 +355,10 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
       </footer>
     </div>
   );
+}
+
+function canSendHandoff(email: ChartPayload["email"], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean) {
+  return !sending && email.ready && confirmed && Boolean(draft?.fields.to.length) && handoffDraftReady(draft);
 }
 
 function meetClientPreviewStatus(email: ChartPayload["email"], sent: boolean, sending: boolean) {

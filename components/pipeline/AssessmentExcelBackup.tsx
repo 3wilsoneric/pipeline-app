@@ -102,12 +102,11 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
       <FileSpreadsheet size={24} className={styles.fileIcon} aria-hidden="true" />
       <button ref={trigger} type="button" className={styles.import} disabled={importDisabled} onClick={() => input.current?.click()} aria-label="Import workbook">
         <Upload size={18} className={styles.uploadIcon} aria-hidden="true" />
-        <strong>{readOnly ? "Excel working copy" : "Drop an updated Excel workbook"}</strong>
-        <span>{readOnly ? "Download the current assessment." : "or choose a file. Review before replacing any answers."}</span>
+        <WorkbookImportPrompt readOnly={readOnly} />
       </button>
       <input ref={input} type="file" className="sr-only" tabIndex={-1} aria-label="Choose workbook" accept=".xlsx" disabled={importDisabled} onChange={(event) => void read(event.target.files?.[0])} />
       <button type="button" className={styles.download} disabled={Boolean(busy)} onClick={() => void download()} aria-label="Download current assessment"><Download size={17} aria-hidden="true" /><span>Download copy</span></button>
-      {message || busy ? <p role="status" className={styles.stripStatus}>{busy || message}</p> : null}
+      <WorkbookStatus busy={busy} message={message} />
     </section>
     {open ? createPortal(<dialog ref={dialog} className={styles.panel} aria-labelledby="excel-backup-title" aria-describedby="excel-preview-description" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onCancel={(event) => { event.preventDefault(); close(); }}>
       <header className={styles.heading}>
@@ -127,6 +126,18 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
       </footer>
     </dialog>, document.body) : null}
   </>;
+}
+
+function WorkbookImportPrompt({ readOnly }: { readOnly: boolean }) {
+  return <>
+    <strong>{readOnly ? "Excel working copy" : "Drop an updated Excel workbook"}</strong>
+    <span>{readOnly ? "Download the current assessment." : "or choose a file. Review before replacing any answers."}</span>
+  </>;
+}
+
+function WorkbookStatus({ busy, message }: { busy: string; message: string }) {
+  if (!message && !busy) return null;
+  return <p role="status" className={styles.stripStatus}>{busy || message}</p>;
 }
 
 function CommitSummary({ count }: { count: number }) {

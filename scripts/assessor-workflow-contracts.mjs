@@ -545,14 +545,15 @@ check("email recipients are constrained to approved organization domains", graph
 check("email subject excludes the client name", meetClientTemplateSource.includes('Meet the Client | ${summary.community') && !meetClientTemplateSource.match(/subject\s*=.*summary\.name/));
 check("admission packet selection is server-owned and referral-scoped", meetClientEmailRoute.includes("getMeetClientAttachmentInventory")
   && meetClientAttachments.includes("referralId: referral.id")
-  && meetClientAttachments.includes('excludedCategories = new Set<ReferralFile["category"]>(["Assessment"])')
+  && meetClientAttachments.includes("file.referralId === referral.id")
+  && meetClientAttachments.includes("renderClientDataSheet(options.report ?? null, referral)")
   && !meetClientEmailRoute.includes("document_ids"));
 check("owner-approved unscanned and clean attachments are available; unsafe and unknown states are blocked",
   ["clean", "not_scanned"].every((status) => documentAccess.isDocumentContentAvailable(status))
   && ["pending", "infected", "failed", "unknown", undefined].every((status) => !documentAccess.isDocumentContentAvailable(status))
   && meetClientAttachments.includes("!isDocumentContentAvailable(status)")
   && meetClientAttachments.includes("files.some((file) => !file.ready)")
-  && meetClientAttachments.includes("sourceSystem === \"pipeline\""));
+  && meetClientAttachments.includes("file.referralId === referral.id"));
 check("packet delivery supports direct and resumable Graph attachment paths", graphMail.includes("sendDirectMessage")
   && graphMail.includes("createUploadSession")
   && graphMail.includes('Range: `bytes=${start}-${end}`')
@@ -588,7 +589,8 @@ check("the Chart and email surfaces retain the signed record and server-generate
 check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')
   && assessmentChartWorkspace.includes("email.admission_packet.files.map")
   && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the attached files.")
-  && assessmentChartWorkspace.includes('disabled={sending || !email.ready || !confirmed || !recipients.trim()}')
+  && assessmentChartWorkspace.includes('disabled={!canSendHandoff(email, emailDraft, confirmed, sending)}')
+  && assessmentChartWorkspace.includes('return !sending && email.ready && confirmed && Boolean(draft?.fields.to.length) && handoffDraftReady(draft)')
   && assessmentChartWorkspace.includes("Send email & packet"));
 check("the complete chart is generated only from a signed assessment", admissionSummaryRoute.includes("selectSignedAssessment") && read("lib/assessment/assessment-summary.ts").includes("return assessment?.signed_at ? assessment : null"));
 check("approved teammates can move a referral to trash", referralRoute.includes("requirePipelineUser(request)") && referralRoute.includes("requireMutableReferralAccess"));

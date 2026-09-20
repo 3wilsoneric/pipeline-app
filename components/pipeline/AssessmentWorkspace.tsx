@@ -1055,6 +1055,30 @@ export default function AssessmentWorkspace({
       });
       if (!isCurrentSync()) return;
       setPendingOfflineSaves(result.remaining);
+      const retryWorkbookSaves = async () => {
+        for (const section of [...dirtySectionsRef.current]) {
+          const retry = saveQueueRef.current.then(async () => {
+            if (!isCurrentSync()) return;
+            const groups = assessmentSaveGroups(editableSectionData(draftRef.current, section), draftRef.current, workbookSourcesRef.current);
+            for (const group of groups) {
+              if (!isCurrentSync()) return;
+              if (group.workbook_restore && !hasSectionConflict(remoteChangeRef.current, section, group.data)) await saveSectionNow(section, group.data, group.workbook_restore);
+            }
+          });
+          saveQueueRef.current = retry.catch(() => undefined);
+          await retry;
+        }
+      };
+      const finishOfflineReconciliation = async () => {
+        const current = selectedRef.current;
+        if (!current) return;
+        if (result.conflicts > 0 && dirtySectionsRef.current.size > 0) {
+          setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
+        } else {
+          setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : dirtySectionsRef.current.size > 0 ? "Changes saved on this device; waiting to sync" : "Offline changes synced");
+          if (result.remaining + dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+        }
+      };
       const reconcileOfflineResult = async () => {
         const current = selectedRef.current;
         if (!current || result.completed + result.conflicts === 0) return;
@@ -1069,25 +1093,9 @@ export default function AssessmentWorkspace({
           receiveRemoteAssessment(payload.assessment, false);
           // Rebase only still-current workbook answers after the canonical
           // three-way merge; never replay over another person's conflicting edit.
-          for (const section of [...dirtySectionsRef.current]) {
-            const retry = saveQueueRef.current.then(async () => {
-              if (!isCurrentSync()) return;
-              const groups = assessmentSaveGroups(editableSectionData(draftRef.current, section), draftRef.current, workbookSourcesRef.current);
-              for (const group of groups) {
-                if (!isCurrentSync()) return;
-                if (group.workbook_restore && !hasSectionConflict(remoteChangeRef.current, section, group.data)) await saveSectionNow(section, group.data, group.workbook_restore);
-              }
-            });
-            saveQueueRef.current = retry.catch(() => undefined);
-            await retry;
-          }
+          await retryWorkbookSaves();
           if (!isCurrentSync()) return;
-          if (result.conflicts > 0 && dirtySectionsRef.current.size > 0) {
-            setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
-          } else {
-            setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : dirtySectionsRef.current.size > 0 ? "Changes saved on this device; waiting to sync" : "Offline changes synced");
-            if (result.remaining + dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
-          }
+          await finishOfflineReconciliation();
         } catch {
           // The normal active-assessment poll will reconcile the saved version.
         }
@@ -1160,7 +1168,7 @@ export default function AssessmentWorkspace({
 
   const restoreWorkbook = async (patch: Partial<AssessmentToolData>, expected: AssessmentToolData, source: NonNullable<AssessmentPatchInput["workbook_restore"]>) => {
     const current = selectedRef.current;
-    if (!current || current.signed_at || isAssessmentFinalized(current) || !canEditClinical || isBusy || isClosing) throw new Error("This assessment cannot accept Excel changes right now.");
+    if (!current || workbookReadOnly(current, canEditClinical, isBusy, isClosing)) throw new Error("This assessment cannot accept Excel changes right now.");
     if (JSON.stringify(draftRef.current) !== JSON.stringify(expected) || remoteChangeRef.current?.conflicts.length) throw new Error("The assessment changed while reviewing Excel. Review the current answers before applying.");
     const validation = validateAssessmentPatchRequest({ if_match: current.version, patch: { data: patch, workbook_restore: source } });
     if (!validation.ok) throw new Error(validation.message);
@@ -1698,6 +1706,10 @@ export default function AssessmentWorkspace({
   const renderSignedAction = () => (onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>);
   const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
 
+  const renderScheduleAction = () => (
+    <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
+  );
+
   const renderPrimaryAssessmentActions = () => (
     <div data-assessment-primary-action className="flex flex-wrap items-center gap-2">
           {selected.signed_at ? (
@@ -1709,7 +1721,7 @@ export default function AssessmentWorkspace({
           ) : canEditClinical ? (
             renderSignAction()
           ) : !selected.started_at && canSupervise ? (
-            <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
+            renderScheduleAction()
           ) : null}
         </div>
   );
@@ -1825,7 +1837,7 @@ export default function AssessmentWorkspace({
         </aside> : null}
 
         <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : preparing ? "overflow-y-auto" : workingStyles.readingMain}`}>
-          <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={Boolean(selected.signed_at) || isAssessmentFinalized(selected) || !canEditClinical || isBusy || isClosing} onApply={restoreWorkbook} />
+          <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook} />
           {phoneInterview ? null : preparing ? <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
             <label htmlFor="preparation-group-mobile" className="mb-1 block text-[11px] font-semibold text-[#56665d]">Preparation group</label>
             <select id="preparation-group-mobile" value={preparationGroup.key} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="min-h-11 w-full rounded border border-[#cddace] bg-white px-3 text-[14px] text-[#234c36]">
@@ -1925,6 +1937,10 @@ export default function AssessmentWorkspace({
 
     </AssessmentFileSurface>
   );
+}
+
+function workbookReadOnly(assessment: PipelineAssessmentRecord, canEdit: boolean, busy: boolean, closing: boolean) {
+  return Boolean(assessment.signed_at) || isAssessmentFinalized(assessment) || !canEdit || busy || closing;
 }
 
 function newestRecoveryDraft(current: PipelineAssessmentDraft | null, candidate: PipelineAssessmentDraft | null | undefined) {

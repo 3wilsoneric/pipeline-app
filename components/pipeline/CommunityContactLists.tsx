@@ -109,7 +109,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
     if (!dirty) return;
     const leave = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     const link = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      if (!isUnmodifiedClick(event)) return;
       const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
       if (!anchor || anchor.target === "_blank" || anchor.origin !== window.location.origin) return;
       event.preventDefault(); event.stopPropagation();
@@ -160,7 +160,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
       <div className={styles.note}>Built from your admission emails. Meet the Client recipients still need confirmation.</div>
       {error && <div className={styles.error} role="alert" aria-label="Contact list error">{error}{conflict && <button type="button" disabled={saving} onClick={() => void reload()}>Reload saved list</button>}</div>}
       <footer className={styles.footer}>
-        <div className={styles.feedback}><span role="status">{saving ? "Saving..." : dirty ? "Unsaved changes" : message || "Saved locally"}</span>
+        <div className={styles.feedback}><span role="status">{listSaveStatus(saving, dirty, message)}</span>
           {undo && <button type="button" disabled={saving} onClick={() => {
             if (!excluded.has(undo.recipient.email)) {
               if (excluded.size >= recipientListLimit) { setError("Remove a contact before undoing: the list has reached 100 recipients."); return; }
@@ -176,4 +176,14 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
       <span role="status" className="sr-only">{message}</span>
     </form>
   </div>;
+}
+
+function isUnmodifiedClick(event: MouseEvent) {
+  return !event.defaultPrevented && event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
+}
+
+function listSaveStatus(saving: boolean, dirty: boolean, message: string) {
+  if (saving) return "Saving...";
+  if (dirty) return "Unsaved changes";
+  return message || "Saved locally";
 }

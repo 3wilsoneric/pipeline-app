@@ -33,7 +33,11 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
         onRemove={(email) => value.change({ ...value.fields, [lane]: value.fields[lane].filter((item) => item.email !== email) })} />)}
       {inputError ? <p role="alert" className={styles.error}>{inputError}</p> : null}
       {value.error ? <p role="alert" className={styles.error}>{value.error} <button type="button" onClick={() => { if (window.confirm("Reload the saved list? Any unsaved contact edits will be replaced.")) value.reload(); }}><RotateCcw size={14} /> Reload saved list</button></p> : null}
-      <p role="status" className={styles.status}>{value.loading ? "Loading contacts..." : value.message}{!value.editable && !value.loading && !value.error ? ". Create the referral to edit these recipients." : ""}</p>
+      <HandoffContactStatus value={value} />
     </div>
   </details>;
+}
+
+function HandoffContactStatus({ value }: { value: HandoffRecipients }) {
+  return <p role="status" className={styles.status}>{value.loading ? "Loading contacts..." : value.message}{!value.editable && !value.loading && !value.error ? ". Create the referral to edit these recipients." : ""}</p>;
 }

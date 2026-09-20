@@ -164,10 +164,7 @@ export function buildMeetClientSummary(
       { label: "Coverage / payer", value: referral.payer?.trim() || "Not recorded" },
       { label: "SSI / representative payee", value: "Not recorded in the structured chart. Confirm with the referring team." },
     ],
-    dietaryNotes: [
-      { label: "Allergies", value: "Not recorded in the structured chart. Review source documents and confirm." },
-      { label: "Diet", value: assessment.special_diet_details?.trim() || (assessment.special_diet === "no" ? "No special diet reported" : "Confirm dietary requirements") },
-    ],
+    dietaryNotes: buildDietaryHandoff(assessment),
     bio: compactValues([
       sentence("Current setting", assessment.current_location),
       sentence("Community and routine", assessment.programming_notes),
@@ -211,6 +208,13 @@ export function buildAdmissionAgreementSummary(requirements?: readonly Admission
   if (agreement?.status === "waived" && agreement.waiverReason?.trim()) value += ` Reason: ${agreement.waiverReason.trim()}`;
   if (agreement?.status === "unavailable" && agreement.unavailableReason?.trim()) value += ` Reason: ${agreement.unavailableReason.trim()}`;
   return { label: "Signed admission agreement", value };
+}
+
+function buildDietaryHandoff(assessment: PipelineAssessmentRecord): AssessmentSummaryItem[] {
+  return [
+    { label: "Allergies", value: "Not recorded in the structured chart. Review source documents and confirm." },
+    { label: "Diet", value: assessment.special_diet_details?.trim() || (assessment.special_diet === "no" ? "No special diet reported" : "Confirm dietary requirements") },
+  ];
 }
 
 function buildMedicationHandoff(assessment: PipelineAssessmentRecord): AssessmentSummaryItem[] {

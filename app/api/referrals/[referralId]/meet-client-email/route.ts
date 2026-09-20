@@ -180,13 +180,18 @@ async function prepareEmailRequest(request: Request): Promise<
   if (!readiness.configured) {
     return { ok: false, response: jsonError("Microsoft 365 email is not configured for Pipeline.", 503) };
   }
-  const to = body.value.recipients;
-  const cc = body.value.cc_recipients ?? [];
-  if (!Array.isArray(to) || to.length === 0 || !Array.isArray(cc)) return { ok: false, response: jsonError("Add at least one To recipient and a valid Cc list.") };
+  const audience = prepareHandoffAudience(body.value, readiness);
+  return audience.ok ? { ...audience, mutationId, referralVersion } : audience;
+}
+
+function prepareHandoffAudience(body: Record<string, unknown>, readiness: ReturnType<typeof getGraphMailReadiness>) {
+  const to = body.recipients;
+  const cc = body.cc_recipients ?? [];
+  if (!Array.isArray(to) || to.length === 0 || !Array.isArray(cc)) return { ok: false as const, response: jsonError("Add at least one To recipient and a valid Cc list.") };
   const audience = validateMeetClientRecipients([...to, ...cc], readiness);
-  if (!audience.ok) return { ok: false, response: jsonError(audience.message) };
+  if (!audience.ok) return { ok: false as const, response: jsonError(audience.message) };
   const recipients = [...new Set((to as string[]).map((address) => address.trim().toLowerCase()))];
-  return { ok: true, mutationId, recipients, ccRecipients: audience.recipients.filter((address) => !recipients.includes(address)), referralVersion };
+  return { ok: true as const, recipients, ccRecipients: audience.recipients.filter((address) => !recipients.includes(address)) };
 }
 
 async function loadMeetClientContext(referralId: number, referralVersion: number) {

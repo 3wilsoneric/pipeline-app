@@ -29,12 +29,16 @@ async function readStore(): Promise<ListFile> {
   if (data.schema !== 1 || !Array.isArray(data.lists) || data.lists.length > 5) throw new Error("Invalid contact list file.");
   const communities = new Set<string>();
   for (const list of data.lists) {
-    if (!isListCommunity(list.community) || communities.has(list.community) || !parseRecipientFields(list)
-      || !Number.isSafeInteger(list.version) || list.version < 1 || !Array.isArray(list.sourceDates)
-      || !list.sourceDates.every((date) => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(date))) throw new Error("Invalid contact list file.");
+    if (!validStoredList(list) || communities.has(list.community)) throw new Error("Invalid contact list file.");
     communities.add(list.community);
   }
   return data;
+}
+
+function validStoredList(list: StoredList) {
+  return isListCommunity(list.community) && Boolean(parseRecipientFields(list))
+    && Number.isSafeInteger(list.version) && list.version >= 1 && Array.isArray(list.sourceDates)
+    && list.sourceDates.every((date) => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(date));
 }
 
 export async function readCommunityRecipientLists() {

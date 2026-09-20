@@ -73,7 +73,7 @@ test("finds an exact question across sections and preserves answers when revisit
   await field.blur();
   await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
   await assessment.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-  await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review & sign/ }).click();
+  await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
   await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toContainText("Synthetic medication A");
   await page.getByRole("button", { name: "Back to questions", exact: true }).click();
   await expect(field).toHaveValue("Synthetic medication A");

@@ -68,13 +68,17 @@ function splitRecipients(text: string) {
     if (char === '"' && !token.endsWith("\\")) quoted = !quoted;
     if (!quoted && char === "<") angle = true;
     if (!quoted && char === ">") angle = false;
-    if (!quoted && !angle && /[;,\r\n]/u.test(char)) {
-      if (token.trim()) tokens.push(token.trim());
+    if (isRecipientSeparator(char, quoted, angle)) {
+      tokens.push(token);
       token = "";
     } else token += char;
   }
-  if (token.trim()) tokens.push(token.trim());
-  return tokens;
+  tokens.push(token);
+  return tokens.map((value) => value.trim()).filter(Boolean);
+}
+
+function isRecipientSeparator(char: string, quoted: boolean, angle: boolean) {
+  return !quoted && !angle && /[;,\r\n]/u.test(char);
 }
 
 export function addListRecipients(fields: RecipientFields, lane: keyof RecipientFields, recipients: ListRecipient[]) {

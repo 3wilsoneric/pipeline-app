@@ -189,11 +189,7 @@ export default function PipelineWelcome({
                 initialEditing={editHome}
                 onFinishEditing={onFinishEditingHome}
                 onSearchVisibilityChange={setSearchVisible}
-                counts={briefing ? {
-                  "current-work": briefing.unavailable_sections.includes("workflow") ? undefined : (briefing.workflow.board_items ?? briefing.workflow.active_items).length,
-                  "upcoming-assessments": briefing.unavailable_sections.includes("upcoming") ? undefined : briefing.upcoming.length,
-                  "new-assignments": briefing.continuity.unavailable ? undefined : briefing.continuity.new_assignments.length,
-                } : undefined}
+                counts={homeFocusCounts(briefing)}
                 modules={{
                   ...briefingModules,
                   "search": (
@@ -217,6 +213,15 @@ export default function PipelineWelcome({
       ) : null}
     </>
   );
+}
+
+function homeFocusCounts(briefing: HomeBriefingSnapshot | null) {
+  if (!briefing) return undefined;
+  return {
+    "current-work": briefing.unavailable_sections.includes("workflow") ? undefined : (briefing.workflow.board_items ?? briefing.workflow.active_items).length,
+    "upcoming-assessments": briefing.unavailable_sections.includes("upcoming") ? undefined : briefing.upcoming.length,
+    "new-assignments": briefing.continuity.unavailable ? undefined : briefing.continuity.new_assignments.length,
+  };
 }
 
 function HomeLiveCountNotice({ sections }: { sections: HomeBriefingSnapshot["unavailable_sections"] | undefined }) {

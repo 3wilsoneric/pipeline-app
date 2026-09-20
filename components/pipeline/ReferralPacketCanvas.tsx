@@ -425,7 +425,7 @@ export default function ReferralPacketCanvas({
   const emailSendingRef = useRef(false);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
-  const handoff = useHandoffRecipients(loadedReferral?.id ?? referral?.id, fields.community.value);
+  const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
   const flushHandoff = handoff.flush;
   const { beforeNavigationRef, assessmentFocused, setAssessmentFocused } = usePipelineShell();
   // Keep the shell stable for the whole folder, not just while its assessment is mounted.
@@ -445,7 +445,7 @@ export default function ReferralPacketCanvas({
       if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = previous;
     };
   }, [beforeNavigationRef, emailSending, flushHandoff]);
-  const extraction = usePacketExtraction(!referralDocumentAutofillEnabled || loadedReferral?.workspaceStatus === "historical" ? undefined : loadedReferral?.packetId);
+  const extraction = usePacketExtraction(extractionPacketId(loadedReferral));
   const intakeExtraction = useIntakeFileExtraction();
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<FieldKey>>(() => new Set());
   const { start: startIntakeExtraction, reset: resetIntakeExtraction } = intakeExtraction;
@@ -2357,6 +2357,23 @@ export default function ReferralPacketCanvas({
         </div>
   );
 
+  const renderPacketReview = () => (
+    referralDocumentAutofillEnabled && (loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length) ? (
+              <PacketExtractionReview
+                fields={referralContextPacketFields}
+                fileName={loadedReferral?.documentName || "the uploaded packet"}
+                status={extraction?.status}
+                hasPacket={Boolean(loadedReferral?.packetId)}
+                developmentOnly={loadedReferral?.packetMessage?.startsWith("Development")}
+                busyFieldKey={reviewBusyFieldKey}
+                bulkBusy={isBulkReviewing}
+                onAccept={(field) => reviewExtractedField(field, "accept")}
+                onAcceptAll={acceptExtractedFields}
+                onEdit={(field, value) => reviewExtractedField(field, "edit", value)}
+              />
+            ) : null
+  );
+
   const renderIntakePage = () => (
     <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
             <IntakeEditScope readOnly={permissionReadOnly}>
@@ -2389,20 +2406,7 @@ export default function ReferralPacketCanvas({
               workspaceFiles={workspaceFiles}
               onAddFiles={attachAdditionalFiles}
             >
-            {referralDocumentAutofillEnabled && (loadedReferral?.workspaceStatus !== "historical" || referralContextPacketFields.length) ? (
-              <PacketExtractionReview
-                fields={referralContextPacketFields}
-                fileName={loadedReferral?.documentName || "the uploaded packet"}
-                status={extraction?.status}
-                hasPacket={Boolean(loadedReferral?.packetId)}
-                developmentOnly={loadedReferral?.packetMessage?.startsWith("Development")}
-                busyFieldKey={reviewBusyFieldKey}
-                bulkBusy={isBulkReviewing}
-                onAccept={(field) => reviewExtractedField(field, "accept")}
-                onAcceptAll={acceptExtractedFields}
-                onEdit={(field, value) => reviewExtractedField(field, "edit", value)}
-              />
-            ) : null}
+            {renderPacketReview()}
             </IntakeDocumentChecklist>
             <ClientChartFrame label="Referral intake chart">
               <ClientChartHeader title={loadedReferral ? "Referral details" : "Referral intake"}>
@@ -4412,6 +4416,10 @@ function workspaceHasQueuedChanges(
   additionalFiles: readonly File[],
 ) {
   return workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
+}
+
+function extractionPacketId(referral: Referral | null) {
+  return !referralDocumentAutofillEnabled || referral?.workspaceStatus === "historical" ? undefined : referral?.packetId;
 }
 
 function activeReferralId(loadedReferral: Referral | null, referral: { id: number } | undefined) {

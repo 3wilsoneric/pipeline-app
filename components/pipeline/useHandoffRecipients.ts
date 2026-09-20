@@ -36,7 +36,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
       current.fields = { to: values.to, cc: values.cc };
       current.saved = JSON.stringify(current.fields);
       setFields(current.fields); setLists(templates); setError("");
-      setMessage(stored.draft?.community === community ? "Your saved handoff list" : note || (template ? `Filled from ${community}'s admission list` : community ? "No saved community list. Add authorized recipients below." : "Choose a community to load its contacts"));
+      setMessage(recipientLoadMessage(stored.draft?.community === community, note, Boolean(template), community));
     };
     void load().catch(() => { if (!controller.signal.aborted) setError("Recipient drafts could not be loaded. Retry before editing."); })
       .finally(() => { if (!controller.signal.aborted) setLoadedKey(loadKey); });
@@ -73,3 +73,10 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;
+
+function recipientLoadMessage(saved: boolean, note: string, hasTemplate: boolean, community: string) {
+  if (saved) return "Your saved handoff list";
+  if (note) return note;
+  if (hasTemplate) return `Filled from ${community}'s admission list`;
+  return community ? "No saved community list. Add authorized recipients below." : "Choose a community to load its contacts";
+}

@@ -6,7 +6,7 @@ export function renderMeetClientEmail(
   deliveryId: string,
   attachmentNames: string[] = [],
 ) {
-  const subject = `${summary.community || "New admission"}: ${summary.name} admission${summary.admissionDate ? ` | ${summary.admissionDate}` : ""}`;
+  const subject = `Meet the Client | ${summary.community || "New admission"}`;
   const identityRows = [
     ["Name", summary.name],
     ["Date of birth", summary.dateOfBirth],

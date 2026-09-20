@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "deploy-all-product-integration-20260920",
+  "startingCommit": "782e5e96a60c9875f62ccb706da409f042fe1aec",
+  "generatedAt": "2026-09-20T17:53:42.762029+00:00",
+  "previousInventory": "test-suite-assertion-inventory-release-repair-20260920.json",
+  "comparisonRule": "Integrate the user-approved assessment review/signing clarity and deploy-all changes. The protected smoke journey clicks Review assessment instead of Review & sign before the unchanged explicit signature action. All case, title, assertion, API and critical-conflict digests remain identical to the release-repair inventory. Preserve historical inventories and all thresholds.",
+  "playwright": {
+    "sourceFiles": [
+      "tests/e2e/pipeline-smoke.spec.ts",
+      "tests/e2e/pipeline-home.spec.ts"
+    ],
+    "caseCount": 49,
+    "assertionCount": 820,
+    "caseManifestDigest": "eafcc8e5174b7a498982c2ce37b495a61a666e5d8f92e13eb1232675852d449a",
+    "titleDigest": "0ee06b5f8e286eda7ebf56a85383f7b5a2f87e481de86b9fb8082c2f58233702",
+    "hooks": [
+      "beforeAll",
+      "afterAll",
+      "beforeEach"
+    ]
+  },
+  "apiBehavior": {
+    "sourceFiles": [
+      "scripts/api-behavior-fixtures.mjs"
+    ],
+    "caseCount": 114,
+    "assertionCount": 400,
+    "caseManifestDigest": "88b56c4559e8557946ae6e866474e07715a29493c9a74c5a68c0cbaf49f60ca1",
+    "titleDigest": "738873acc2fa78dd91968617ac7ed43491a14ca85b0956740f8fb9d1b08320fa",
+    "hooks": []
+  },
+  "criticalJourneyTrace": {
+    "id": "coordinates section edits, presence leases, and remote conflicts across two sessions",
+    "assertionCount": 24,
+    "assertionDigest": "7dcd2e3de5c2b203f542842b437941c9ff95751b202067b50f14fd28a6ca503f",
+    "failureSignal": "Two-session presence, disjoint persistence, stale same-field conflict visibility and no silent overwrite remain byte-equivalent assertions."
+  },
+  "sourceSha256": {
+    "tests/e2e/pipeline-smoke.spec.ts": "1ae85bbac264ee761f8aa2d5836000cd9bf2851d894cc436fad63f5784953411",
+    "tests/e2e/pipeline-home.spec.ts": "c07d5c21ca6975e5c6622b862cb085925d03b97814cd9ac54d60b10e155140ad",
+    "scripts/api-behavior-fixtures.mjs": "3f0f0f538e5b7dd9c24eb90a833033b4da7ad0b5213c19455c93d1978904abf4"
+  }
+}

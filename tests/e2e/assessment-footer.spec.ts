@@ -5,10 +5,10 @@ import { createOperationalReferral } from "./support/operational-api";
 async function openAssessmentReview(page: Page) {
   if (page.viewportSize()!.width < 640) {
     await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-    await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review & sign/ }).click();
+    await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
   } else {
     await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("provenance_qc");
-    await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review & sign", exact: true }).click();
+    await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
   }
 }
 
