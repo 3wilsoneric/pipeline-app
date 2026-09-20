@@ -238,8 +238,8 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
         </div>
       </div>
   </>;
-  const pageLabel = pathname === "/settings" ? "Settings" : activeSearchParams.get("screen") === "packet" ? "Workspace" : activeNav === "calendar" ? "Calendar" : activeNav === "profiles" ? "Clients" : activeNav === "operations" ? "Reports" : "Workspaces";
-  const hasBack = activeSearchParams.has("referralId") || activeSearchParams.has("residentKey") || activeSearchParams.has("profileKey") || activeSearchParams.get("screen") === "packet" || pathname !== "/";
+  const pageLabel = headerPageLabel(pathname, activeSearchParams, activeNav);
+  const hasBack = headerHasBack(pathname, activeSearchParams);
   const goBack = () => void runNavigation(() => {
     const previous = window.history.state?.pipelinePrevious;
     if (typeof previous === "string" && previous.startsWith("/") && !previous.startsWith("//")) window.history.back();
@@ -394,4 +394,12 @@ function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): Pi
   if (searchParams.get("screen") === "profiles" || searchParams.get("screen") === "profile") return "profiles";
   if (searchParams.get("screen") === "operations") return "operations";
   return null;
+}
+
+function headerPageLabel(pathname: string, activeSearchParams: URLSearchParams, activeNav: PipelineNavTarget) {
+  return pathname === "/settings" ? "Settings" : activeSearchParams.get("screen") === "packet" ? "Workspace" : activeNav === "calendar" ? "Calendar" : activeNav === "profiles" ? "Clients" : activeNav === "operations" ? "Reports" : "Workspaces";
+}
+
+function headerHasBack(pathname: string, activeSearchParams: URLSearchParams) {
+  return activeSearchParams.has("referralId") || activeSearchParams.has("residentKey") || activeSearchParams.has("profileKey") || activeSearchParams.get("screen") === "packet" || pathname !== "/";
 }

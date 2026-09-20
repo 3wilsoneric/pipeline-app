@@ -1324,6 +1324,18 @@ type ReferralFileRow = {
   cursor_time?: string;
 };
 
+function referralSqlCursor(cursor: ReturnType<typeof decodeReferralSortCursor>, sort: NonNullable<ReferralListOptions["sort"]>) {
+  const cursorTimestamp = cursor && ["updated_desc", "created_desc", "created_asc"].includes(sort)
+    ? cursor.value
+    : null;
+  const cursorText = cursor && ["owner_asc", "community_asc", "client_asc"].includes(sort)
+    ? cursor.value
+    : null;
+  const cursorId = cursor ? Number.parseInt(cursor.key, 10) : null;
+  if (cursor && (!Number.isSafeInteger(cursorId) || cursorId! <= 0)) throw new Error("Invalid referral cursor.");
+  return { cursorTimestamp, cursorText, cursorId };
+}
+
 async function listPostgresReferrals(options: ReferralListOptions = {}): Promise<ReferralListResult> {
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(options.query ?? "");
@@ -1343,14 +1355,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const queue = options.queue ?? null;
   const sort = options.sort ?? "updated_desc";
   const cursor = decodeReferralSortCursor(options.cursor, sort);
-  const cursorTimestamp = cursor && (sort === "updated_desc" || sort === "created_desc" || sort === "created_asc")
-    ? cursor.value
-    : null;
-  const cursorText = cursor && (sort === "owner_asc" || sort === "community_asc" || sort === "client_asc")
-    ? cursor.value
-    : null;
-  const cursorId = cursor ? Number.parseInt(cursor.key, 10) : null;
-  if (cursor && (!Number.isSafeInteger(cursorId) || cursorId! <= 0)) throw new Error("Invalid referral cursor.");
+  const { cursorTimestamp, cursorText, cursorId } = referralSqlCursor(cursor, sort);
   const limit = clampPageSize(options.limit);
   const includeTotal = options.includeTotal !== false;
   const rows = await sql<ReferralRow[]>`
@@ -1943,74 +1948,93 @@ async function patchPostgresReferral(
   const sql = getPipelineSql();
   const mutate = async (tx: TransactionSql): Promise<ReferralMutation | null> => {
     const idempotency = referralPatchIdempotency(metadata);
-    if (idempotency) {
-      await tx`select pg_advisory_xact_lock(hashtextextended(${`${idempotency.scope}:${idempotency.mutationId}`}, 0))`;
-      const replay = await tx<{ entity_id: string }[]>`
-        select entity_id from pipeline.idempotency_keys
-        where scope = ${idempotency.scope} and mutation_id = ${idempotency.mutationId}
-      `;
-      if (replay[0]?.entity_id === String(id)) {
-        const referral = await getReferralInTransaction(tx, id, true);
-        if (!referral) return null;
-        const revisions = await tx<{ revision: number | string }[]>`
-          select revision from pipeline.store_revisions where store_name = 'referrals'
+    const replayPatch = async (): Promise<ReferralMutation | null | undefined> => {
+      if (idempotency) {
+        await tx`select pg_advisory_xact_lock(hashtextextended(${`${idempotency.scope}:${idempotency.mutationId}`}, 0))`;
+        const replay = await tx<{ entity_id: string }[]>`
+          select entity_id from pipeline.idempotency_keys
+          where scope = ${idempotency.scope} and mutation_id = ${idempotency.mutationId}
         `;
-        return {
-          ok: true,
-          referral,
-          revision: Number(revisions[0]?.revision ?? 0),
-          idempotentReplay: true,
-        };
+        if (replay[0]?.entity_id === String(id)) {
+          const referral = await getReferralInTransaction(tx, id, true);
+          if (!referral) return null;
+          const revisions = await tx<{ revision: number | string }[]>`
+            select revision from pipeline.store_revisions where store_name = 'referrals'
+          `;
+          return {
+            ok: true,
+            referral,
+            revision: Number(revisions[0]?.revision ?? 0),
+            idempotentReplay: true,
+          };
+        }
       }
-    }
+      };
+    const replay = await replayPatch();
+    if (replay !== undefined) return replay;
     const current = await getReferralInTransaction(tx, id, true);
     if (!current) return null;
     assertMutableWorkspace(current);
-    const currentVersion = current.version ?? 1;
-    const clientId = current.clientId ?? buildLocalClientId(current.id);
-    const safePatch = sanitizePatch(patch);
-    const assignmentChanged = assignmentHasChanged(current, safePatch);
-    const now = new Date().toISOString();
-    const nextOwner = {
-      owner: safePatch.owner ?? current.owner,
-      ownerId: safePatch.ownerId === undefined ? current.ownerId : safePatch.ownerId,
+    const preparePatch = () => {
+      const currentVersion = current.version ?? 1;
+      const clientId = current.clientId ?? buildLocalClientId(current.id);
+      const safePatch = sanitizePatch(patch);
+      const assignmentChanged = assignmentHasChanged(current, safePatch);
+      const now = new Date().toISOString();
+      const nextOwner = {
+        owner: safePatch.owner ?? current.owner,
+        ownerId: safePatch.ownerId === undefined ? current.ownerId : safePatch.ownerId,
+      };
+      const nextRequirements = assignmentChanged
+        ? synchronizeRequirementAssignment(safePatch.requirements ?? current.requirements, nextOwner, now)
+        : safePatch.requirements ?? current.requirements;
+      const touchedSections = getReferralPatchSections(assignmentChanged
+        ? { ...safePatch, requirements: nextRequirements ?? [] }
+        : safePatch);
+      const currentSectionVersions = normalizeReferralSectionVersions(current.sectionVersions);
+      return { currentVersion, clientId, safePatch, assignmentChanged, now, nextOwner, nextRequirements, touchedSections, currentSectionVersions };
     };
-    const nextRequirements = assignmentChanged
-      ? synchronizeRequirementAssignment(safePatch.requirements ?? current.requirements, nextOwner, now)
-      : safePatch.requirements ?? current.requirements;
-    const touchedSections = getReferralPatchSections(assignmentChanged
-      ? { ...safePatch, requirements: nextRequirements ?? [] }
-      : safePatch);
-    const currentSectionVersions = normalizeReferralSectionVersions(current.sectionVersions);
-    const sectionConflict = getSectionConflicts(
-      currentSectionVersions,
-      touchedSections,
-      expectedSectionVersions,
-    );
-    if (sectionConflict.length > 0) {
-      return { ok: false, conflict: true, referral: current, conflictingSections: sectionConflict };
-    }
-    if (!expectedSectionVersions && expectedVersion !== undefined && expectedVersion !== currentVersion) {
-      return { ok: false, conflict: true, referral: current };
-    }
-    if (patch.stage && patch.stage !== current.stage && !metadata?.workflowTransitionValidated) {
-      if (!isReferralStage(patch.stage)) {
-        return { ok: false, blocked: true, blockers: [{ code: "stage_invalid", label: "Choose a valid workflow stage." }], referral: current };
+    const { currentVersion, clientId, safePatch, assignmentChanged, now, nextOwner, nextRequirements, touchedSections, currentSectionVersions } = preparePatch();
+    const validatePatch = async (): Promise<ReferralMutation | undefined> => {
+      const sectionConflict = getSectionConflicts(
+        currentSectionVersions,
+        touchedSections,
+        expectedSectionVersions,
+      );
+      if (sectionConflict.length > 0) {
+        return { ok: false, conflict: true, referral: current, conflictingSections: sectionConflict };
       }
-      const workflow = await getPostgresWorkflowContext(tx, id, current);
-      workflow.decision = safePatch.admissionDecision ?? workflow.decision;
-      workflow.requirements = safePatch.requirements ?? workflow.requirements;
-      const blockers = getReferralTransitionBlockers(current, patch.stage as ReferralStage, workflow);
-      if (blockers.length > 0) return { ok: false, blocked: true, blockers, referral: current };
-    }
-    const nextAssigned = hasAssignedOwner(nextOwner);
-    const nextAssignedAt = assignmentChanged
-      ? nextAssigned ? now : undefined
-      : current.assignedAt;
-    const nextAssignmentDueAt = assignmentChanged
-      ? nextAssigned ? safePatch.assignmentDueAt ?? assignmentDueAt(now) : undefined
-      : safePatch.assignmentDueAt ?? current.assignmentDueAt;
-    const nextAssignmentVersion = (current.assignmentVersion ?? 1) + (assignmentChanged ? 1 : 0);
+      if (!expectedSectionVersions && expectedVersion !== undefined && expectedVersion !== currentVersion) {
+        return { ok: false, conflict: true, referral: current };
+      }
+      const validateTransition = async (): Promise<ReferralMutation | undefined> => {
+        if (patch.stage && patch.stage !== current.stage && !metadata?.workflowTransitionValidated) {
+          if (!isReferralStage(patch.stage)) {
+            return { ok: false, blocked: true, blockers: [{ code: "stage_invalid", label: "Choose a valid workflow stage." }], referral: current };
+          }
+          const workflow = await getPostgresWorkflowContext(tx, id, current);
+          workflow.decision = safePatch.admissionDecision ?? workflow.decision;
+          workflow.requirements = safePatch.requirements ?? workflow.requirements;
+          const blockers = getReferralTransitionBlockers(current, patch.stage as ReferralStage, workflow);
+          if (blockers.length > 0) return { ok: false, blocked: true, blockers, referral: current };
+        }
+      };
+      return validateTransition();
+    };
+    const rejected = await validatePatch();
+    if (rejected) return rejected;
+    const assignmentTiming = () => {
+      const nextAssigned = hasAssignedOwner(nextOwner);
+      const nextAssignedAt = assignmentChanged
+        ? nextAssigned ? now : undefined
+        : current.assignedAt;
+      const nextAssignmentDueAt = assignmentChanged
+        ? nextAssigned ? safePatch.assignmentDueAt ?? assignmentDueAt(now) : undefined
+        : safePatch.assignmentDueAt ?? current.assignmentDueAt;
+      const nextAssignmentVersion = (current.assignmentVersion ?? 1) + (assignmentChanged ? 1 : 0);
+      return { nextAssignedAt, nextAssignmentDueAt, nextAssignmentVersion };
+    };
+    const { nextAssignedAt, nextAssignmentDueAt, nextAssignmentVersion } = assignmentTiming();
     const statusCandidate = {
       ...current,
       ...safePatch,
@@ -2046,75 +2070,85 @@ async function patchPostgresReferral(
       updatedBy: actor,
       updatedAt: now,
     });
-    const persistedWorkflowStatus = next.workflowStatus ?? "intake_unassigned";
-    const rows = await tx<ReferralRow[]>`
-      update pipeline.referrals r
-      set stage = ${next.stage},
-          workflow_status = ${persistedWorkflowStatus},
-          community = ${next.community},
-          county = ${next.county ?? null},
-          owner_id = ${next.ownerId || null},
-          owner_name = ${next.owner || null},
-          assigned_at = ${next.assignedAt ? new Date(next.assignedAt) : null},
-          assignment_due_at = ${next.assignmentDueAt ? new Date(next.assignmentDueAt) : null},
-          assignment_version = ${next.assignmentVersion ?? 1},
-          priority = ${next.priority},
-          source = ${next.source},
-          received_date = ${dateToSql(next.date)}::date,
-          tags = ${next.tags ?? []},
-          summary = ${next.note || null},
-          document_sha256 = ${next.documentHash ?? null},
-          search_text = ${referralSearchText(next)},
-          data = ${tx.json(referralDataPayload(next))},
-          section_versions = ${tx.json(nextSectionVersions)},
-          closed_at = ${isClosedStage(next.stage) ? new Date() : null},
-          version = r.version + 1,
-          updated_by = ${actor.id},
-          updated_by_name = ${actor.name},
-          updated_at = now()
-      from pipeline.people p
-      where r.referral_id = ${id} and p.person_id = r.person_id and r.version = ${currentVersion}
-      returning r.*, p.external_client_id, p.display_name
-    `;
+    const writeReferralRow = async () => {
+      const persistedWorkflowStatus = next.workflowStatus ?? "intake_unassigned";
+      return tx<ReferralRow[]>`
+        update pipeline.referrals r
+        set stage = ${next.stage},
+            workflow_status = ${persistedWorkflowStatus},
+            community = ${next.community},
+            county = ${next.county ?? null},
+            owner_id = ${next.ownerId || null},
+            owner_name = ${next.owner || null},
+            assigned_at = ${optionalSqlTimestamp(next.assignedAt)},
+            assignment_due_at = ${optionalSqlTimestamp(next.assignmentDueAt)},
+            assignment_version = ${next.assignmentVersion ?? 1},
+            priority = ${next.priority},
+            source = ${next.source},
+            received_date = ${dateToSql(next.date)}::date,
+            tags = ${next.tags ?? []},
+            summary = ${next.note || null},
+            document_sha256 = ${next.documentHash ?? null},
+            search_text = ${referralSearchText(next)},
+            data = ${tx.json(referralDataPayload(next))},
+            section_versions = ${tx.json(nextSectionVersions)},
+            closed_at = ${isClosedStage(next.stage) ? new Date() : null},
+            version = r.version + 1,
+            updated_by = ${actor.id},
+            updated_by_name = ${actor.name},
+            updated_at = now()
+        from pipeline.people p
+        where r.referral_id = ${id} and p.person_id = r.person_id and r.version = ${currentVersion}
+        returning r.*, p.external_client_id, p.display_name
+      `;
+    };
+    const rows = await writeReferralRow();
     if (!rows[0]) {
       const latest = await getReferralInTransaction(tx, id);
       return latest ? { ok: false, conflict: true, referral: latest } : null;
     }
-    await tx`
-      update pipeline.people
-      set display_name = ${next.name}, date_of_birth = coalesce(${dateToSql(next.dob)}::date, date_of_birth), updated_at = now()
-      where external_client_id = ${clientId}
-    `;
-    const referral = mapReferralRow({ ...rows[0], display_name: next.name });
-    if (safePatch.requirements || assignmentChanged) {
-      await syncPostgresWorkItems(tx, id, null, referral.requirements ?? []);
-    }
-    if (assignmentChanged) {
-      await syncPostgresOpenAssessmentAssignments(tx, referral, actor);
-    }
-    const auditAction = referralAuditAction(metadata, current, referral, safePatch, assignmentChanged, nextOwner);
-    await writeReferralAudit(
-      tx,
-      id,
-      auditAction,
-      actor,
-      changedFields,
-      current,
-      referral,
-      referral.version ?? currentVersion + 1,
-      metadata?.auditReason,
-    );
-    if (idempotency) {
+    const finishPatch = async (): Promise<ReferralMutation> => {
       await tx`
-        insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
-        values (${idempotency.scope}, ${idempotency.mutationId}, 'referral', ${String(id)})
-        on conflict (scope, mutation_id) do nothing
+        update pipeline.people
+        set display_name = ${next.name}, date_of_birth = coalesce(${dateToSql(next.dob)}::date, date_of_birth), updated_at = now()
+        where external_client_id = ${clientId}
       `;
-    }
-    const revision = await bumpReferralRevision(tx);
-    return { ok: true, referral, revision };
+      const referral = mapReferralRow({ ...rows[0], display_name: next.name });
+      if (safePatch.requirements || assignmentChanged) {
+        await syncPostgresWorkItems(tx, id, null, referral.requirements ?? []);
+      }
+      if (assignmentChanged) {
+        await syncPostgresOpenAssessmentAssignments(tx, referral, actor);
+      }
+      const auditAction = referralAuditAction(metadata, current, referral, safePatch, assignmentChanged, nextOwner);
+      await writeReferralAudit(
+        tx,
+        id,
+        auditAction,
+        actor,
+        changedFields,
+        current,
+        referral,
+        referral.version ?? currentVersion + 1,
+        metadata?.auditReason,
+      );
+      if (idempotency) {
+        await tx`
+          insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
+          values (${idempotency.scope}, ${idempotency.mutationId}, 'referral', ${String(id)})
+          on conflict (scope, mutation_id) do nothing
+        `;
+      }
+      const revision = await bumpReferralRevision(tx);
+      return { ok: true, referral, revision };
+    };
+    return finishPatch();
   };
   return transaction ? mutate(transaction) : sql.begin(mutate);
+}
+
+function optionalSqlTimestamp(value: string | undefined) {
+  return value ? new Date(value) : null;
 }
 
 function referralPatchIdempotency(metadata?: ReferralMutationMetadata) {
@@ -3084,15 +3118,33 @@ function isStoredReferralAuditEvent(value: unknown): value is StoredReferralAudi
 }
 
 function matchesReferralFilters(referral: Referral, options: ReferralListOptions, communities: string[], owners: string[]) {
-  if (!matchesWorkspaceStatus(referral, options.workspaceStatus)) return false;
-  if (options.stage && referral.stage !== options.stage) return false;
-  if (options.nameInitial && referral.name.trim().charAt(0).toUpperCase() !== options.nameInitial) return false;
+  return matchesReferralPlacement(referral, options, communities, owners)
+    && matchesReferralLabels(referral, options) && matchesReferralWork(referral, options);
+}
+
+function matchesReferralPlacement(referral: Referral, options: ReferralListOptions, communities: string[], owners: string[]) {
+  if (!matchesReferralIdentity(referral, options)) return false;
   if (communities.length && !communities.includes(referral.community)) return false;
   if (options.county && resolveWorkspaceCounty(referral) !== options.county) return false;
   if (owners.length && !owners.includes(normalizeOwnerName(referral.owner))) return false;
+  return true;
+}
+
+function matchesReferralIdentity(referral: Referral, options: ReferralListOptions) {
+  if (!matchesWorkspaceStatus(referral, options.workspaceStatus)) return false;
+  if (options.stage && referral.stage !== options.stage) return false;
+  if (options.nameInitial && referral.name.trim().charAt(0).toUpperCase() !== options.nameInitial) return false;
+  return true;
+}
+
+function matchesReferralLabels(referral: Referral, options: ReferralListOptions) {
   if (options.priority && referral.priority !== options.priority) return false;
   if (options.tag && !(referral.tags ?? []).includes(options.tag)) return false;
   if (options.month && workspaceMonthKey(referral) !== options.month) return false;
+  return true;
+}
+
+function matchesReferralWork(referral: Referral, options: ReferralListOptions) {
   if (options.workflowStatus && referral.workflowStatus !== options.workflowStatus) return false;
   if (options.activeOnly && isClosedStage(referral.stage)) return false;
   if (options.postOutcomeAssessment && !hasPostOutcomeAssessment(referral)) return false;
@@ -3371,14 +3423,16 @@ function referralSortValue(referral: Referral, sort: ReferralSort) {
 }
 
 function postgresReferralSortValue(row: ReferralRow, sort: ReferralSort) {
-  if (sort === "received_desc") return row.cursor_received_date ?? isoTimestamp(row.received_date ?? row.created_at).slice(0, 10);
-  if (sort === "updated_desc") return row.cursor_time ?? isoTimestamp(row.updated_at);
-  if (sort === "created_desc" || sort === "created_asc") {
-    return row.cursor_created_time ?? isoTimestamp(row.created_at);
-  }
+  if (["received_desc", "updated_desc", "created_desc", "created_asc"].includes(sort)) return postgresReferralDateSortValue(row, sort);
   if (sort === "owner_asc") return row.sort_owner ?? "unassigned";
   if (sort === "community_asc") return row.sort_community ?? "";
   return row.sort_client ?? "";
+}
+
+function postgresReferralDateSortValue(row: ReferralRow, sort: ReferralSort) {
+  if (sort === "received_desc") return row.cursor_received_date ?? isoTimestamp(row.received_date ?? row.created_at).slice(0, 10);
+  if (sort === "updated_desc") return row.cursor_time ?? isoTimestamp(row.updated_at);
+  return row.cursor_created_time ?? isoTimestamp(row.created_at);
 }
 
 function normalize(value: string) {

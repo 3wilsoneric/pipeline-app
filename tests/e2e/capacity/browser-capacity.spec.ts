@@ -10,6 +10,7 @@ import { clientDirectoryFixture } from '../support/pipeline-clinical-fixtures';
 
 test('sustained browser saves survive alternating application instances', async ({ baseURL }, testInfo) => {
   test.skip(testInfo.config.metadata.pipelineCapacityRehearsal !== true, 'Opt in with playwright.capacity.config.ts; never run as part of the ordinary browser suite');
+  const capacityProfile = () => {
   const users = Number(process.env.PIPELINE_CAPACITY_USERS ?? 100);
   const actorOffset = Number(process.env.PIPELINE_CAPACITY_ACTOR_OFFSET ?? 0);
   const navigationMode = process.env.PIPELINE_CAPACITY_NAVIGATION ?? 'reload';
@@ -17,15 +18,17 @@ test('sustained browser saves survive alternating application instances', async 
   if (![2, 3].includes(replicas)) throw Error('Only the two- or three-replica rehearsal is supported');
   const backendPorts = Array.from({ length: replicas }, (_, index) => 4178 + index);
   if (!['reload', 'in-app'].includes(navigationMode)) throw Error('Unknown capacity navigation mode');
-  if (!Number.isInteger(actorOffset) || actorOffset < 0 || actorOffset + users > 100) throw Error('Distinct distributed actors must remain inside the synthetic allowlist');
-  const candidate = process.env.PIPELINE_CAPACITY_COMMIT ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-  if (!/^[a-f0-9]{40}$/.test(candidate)) throw Error('Exact candidate commit required');
+  validateCapacityActors(actorOffset, users);
+  const candidate = capacityCandidate();
   const seconds = Number(process.env.PIPELINE_CAPACITY_SECONDS ?? 1200);
-  if (!Number.isInteger(users) || users < 2 || users > 100 || !Number.isInteger(seconds) || seconds < 10 || seconds > 7200) throw Error('Invalid bounded capacity profile');
+  validateCapacityDuration(users, seconds);
   test.setTimeout((seconds + 180 + users * 3) * 1000);
-  if (users > 10 && totalmem() < 32 * 1024 ** 3) throw Error('Use a dedicated 32+ GiB runner for >10 browsers; do not saturate the operator laptop');
+  validateRunnerMemory(users);
   const dbUrl = new URL(process.env.PIPELINE_TEST_DATABASE_URL ?? '');
-  if (baseURL !== 'http://127.0.0.1:4177' || dbUrl.hostname !== '127.0.0.1' || !dbUrl.pathname.startsWith('/pipeline_capacity_')) throw Error('Synthetic-only loopback guard failed');
+  validateCapacityEnvironment(baseURL, dbUrl);
+    return { users, actorOffset, navigationMode, replicas, backendPorts, candidate, seconds, dbUrl };
+  };
+  const { users, actorOffset, navigationMode, replicas, backendPorts, candidate, seconds, dbUrl } = capacityProfile();
   const sql = postgres(dbUrl.href, { ssl: false, max: 2, onnotice: () => {} });
   const browsers: Browser[] = [];
   const sessions: Array<{ context: BrowserContext; page: Page; actor: PipelineActor; id: number; field: string }> = [];
@@ -42,6 +45,7 @@ test('sustained browser saves survive alternating application instances', async 
   let measuredStart = 0;
   let measuredEnd = 0;
   try {
+    const prepareSessions = async () => {
     for (let i = 0; i < Math.ceil(users / 10); i++) browsers.push(await chromium.launch({ headless: true }));
     // Bounded preparation only. The measured actor loops below are NOT batched.
     for (let start = 0; start < users; start += 5) await Promise.all(Array.from({ length: Math.min(5, users - start) }, async (_, offset) => {
@@ -76,9 +80,9 @@ test('sustained browser saves survive alternating application instances', async 
       await intakeChart(sessions[i + 1].page).getByRole('button', { name: 'Edit Email', exact: true }).click();
       await expect(sessions[i + 1].page.getByRole('textbox', { name: 'Client email:', exact: true })).toBeVisible();
     }
-    const startAt = Number(process.env.PIPELINE_CAPACITY_START_AT ?? 0);
-    if (startAt && (!Number.isSafeInteger(startAt) || startAt <= Date.now() || startAt > Date.now() + 10 * 60_000)) throw Error('Distributed start must be a shared future time within ten minutes');
-    if (startAt) await new Promise(resolve => setTimeout(resolve, startAt - Date.now()));
+    };
+    await prepareSessions();
+    await waitForDistributedStart();
     measuredStart = Date.now();
     const deadline = measuredStart + seconds * 1000;
     delay.enable();
@@ -94,6 +98,22 @@ test('sustained browser saves survive alternating application instances', async 
         const { page, context, id, actor, field } = session;
         const value = field === 'email' ? `${runId}-${actor.id.split('-').at(-1)}-${cycle}@example.invalid` : `555-${actor.id.split('-').at(-1)}-${cycle}`;
         const input = page.getByRole('textbox', { name: field === 'phone' ? 'Client phone:' : 'Client email:', exact: true });
+        const navigateCalendarAndReturn = async () => {
+
+          const navigationStarted = Date.now();
+          const documentStarted = await page.evaluate(() => performance.timeOrigin);
+          if (navigationMode === 'reload') await page.goto('/?screen=calendar');
+          else await page.getByRole('button', { name: 'Open calendar', exact: true }).click();
+          await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeVisible();
+          if (navigationMode === 'reload') await page.goto(`/?view=referrals&screen=packet&referralId=${id}`);
+          else await page.goBack();
+          const edit = intakeChart(page).getByRole('button', { name: field === 'phone' ? 'Edit Phone' : 'Edit Email', exact: true });
+          await expect(input.or(edit).first()).toBeVisible();
+          if (await edit.isVisible()) await edit.click();
+          await expect(input).toHaveValue(value);
+          if (navigationMode === 'in-app') expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentStarted);
+          navigationMs.push(Date.now() - navigationStarted);
+        };
         // A person cannot type through the recovery overlay. fill() can alter an
         // inert input without focus/blur events, producing a false missing-save.
         await expect(page.getByTestId('packet-workspace')).toHaveAttribute('aria-busy', 'false');
@@ -117,26 +137,13 @@ test('sustained browser saves survive alternating application instances', async 
         }).toBe(value);
         heartbeats.set(actor.id, Date.now());
         cycle++;
-        if (cycle % 3 === 0) {
-          const navigationStarted = Date.now();
-          const documentStarted = await page.evaluate(() => performance.timeOrigin);
-          if (navigationMode === 'reload') await page.goto('/?screen=calendar');
-          else await page.getByRole('button', { name: 'Open calendar', exact: true }).click();
-          await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeVisible();
-          if (navigationMode === 'reload') await page.goto(`/?view=referrals&screen=packet&referralId=${id}`);
-          else await page.goBack();
-          const edit = intakeChart(page).getByRole('button', { name: field === 'phone' ? 'Edit Phone' : 'Edit Email', exact: true });
-          await expect(input.or(edit).first()).toBeVisible();
-          if (await edit.isVisible()) await edit.click();
-          await expect(input).toHaveValue(value);
-          if (navigationMode === 'in-app') expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentStarted);
-          navigationMs.push(Date.now() - navigationStarted);
-        }
+        if (cycle % 3 === 0) await navigateCalendarAndReturn();
         await page.waitForTimeout(1000 + (Number(actor.id.split('-').at(-1)) % 5) * 200);
       } while (Date.now() < deadline);
     }));
     for (const outcome of outcomes) if (outcome.status === 'rejected') throw outcome.reason;
     measuredEnd = Date.now();
+    const verifySavedData = async () => {
     const latest = new Map(ledger.map(entry => [`${entry.id}:${entry.field}`, entry]));
     for (const entry of latest.values()) {
       const [row] = await sql`select data from pipeline.referrals where referral_id=${entry.id}`;
@@ -151,6 +158,8 @@ test('sustained browser saves survive alternating application instances', async 
       expect(audit).toHaveLength(expected.length);
       expect(audit.every(row => row.count === 1), 'Each acknowledged write must have exactly one independent audit entry').toBe(true);
     }
+    };
+    await verifySavedData();
     expect(Object.keys(backendCounts).sort()).toEqual(backendPorts.map(String));
     expect(new Set(ledger.map(entry => entry.actor)).size).toBe(users);
     if (seconds >= 60) {
@@ -173,4 +182,32 @@ test('sustained browser saves survive alternating application instances', async 
 
 function intakeChart(page: Page) {
   return page.locator('article[aria-label="Referral chart"]:not([data-testid="profile-workspace"] article)');
+}
+
+function validateCapacityActors(actorOffset: number, users: number) {
+  if (!Number.isInteger(actorOffset) || actorOffset < 0 || actorOffset + users > 100) throw Error('Distinct distributed actors must remain inside the synthetic allowlist');
+}
+
+function validateCapacityDuration(users: number, seconds: number) {
+  if (!Number.isInteger(users) || users < 2 || users > 100 || !Number.isInteger(seconds) || seconds < 10 || seconds > 7200) throw Error('Invalid bounded capacity profile');
+}
+
+function validateCapacityEnvironment(baseURL: string | undefined, dbUrl: URL) {
+  if (baseURL !== 'http://127.0.0.1:4177' || dbUrl.hostname !== '127.0.0.1' || !dbUrl.pathname.startsWith('/pipeline_capacity_')) throw Error('Synthetic-only loopback guard failed');
+}
+
+async function waitForDistributedStart() {
+    const startAt = Number(process.env.PIPELINE_CAPACITY_START_AT ?? 0);
+    if (startAt && (!Number.isSafeInteger(startAt) || startAt <= Date.now() || startAt > Date.now() + 10 * 60_000)) throw Error('Distributed start must be a shared future time within ten minutes');
+    if (startAt) await new Promise(resolve => setTimeout(resolve, startAt - Date.now()));
+}
+
+function capacityCandidate() {
+  const candidate = process.env.PIPELINE_CAPACITY_COMMIT ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  if (!/^[a-f0-9]{40}$/.test(candidate)) throw Error('Exact candidate commit required');
+  return candidate;
+}
+
+function validateRunnerMemory(users: number) {
+  if (users > 10 && totalmem() < 32 * 1024 ** 3) throw Error('Use a dedicated 32+ GiB runner for >10 browsers; do not saturate the operator laptop');
 }

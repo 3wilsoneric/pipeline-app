@@ -235,12 +235,16 @@ export async function reportExtractionJob(input: WorkerReport) {
     const [document] = await tx<{ malware_scan_status: string }[]>`
       select malware_scan_status from pipeline.documents where document_id = ${job.document_id}::uuid for update
     `;
-    const scan = input.malware_scan_status === "not_scanned" && ["infected", "failed"].includes(document.malware_scan_status)
-      ? document.malware_scan_status : input.malware_scan_status;
-    const infected = scan === "infected";
-    const scanFailed = scan === "failed";
-    const unsafe = infected || scanFailed;
-    const previewStatus = input.preview ? "ready" : job.job_type === "document_preview" ? "failed" : undefined;
+    const processingOutcome = () => {
+      const scan = input.malware_scan_status === "not_scanned" && ["infected", "failed"].includes(document.malware_scan_status)
+        ? document.malware_scan_status : input.malware_scan_status;
+      const infected = scan === "infected";
+      const scanFailed = scan === "failed";
+      const unsafe = infected || scanFailed;
+      const previewStatus = input.preview ? "ready" : job.job_type === "document_preview" ? "failed" : undefined;
+      return { scan, infected, scanFailed, unsafe, previewStatus };
+    };
+    const { scan, infected, scanFailed, unsafe, previewStatus } = processingOutcome();
     await tx`
       update pipeline.documents set
         malware_scan_status = coalesce(${scan ?? null}, malware_scan_status),

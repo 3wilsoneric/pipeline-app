@@ -250,6 +250,8 @@ function DecisionCard({ workflow, busy, recommendation, onRecommendationChange, 
   </WorkflowCard>;
   const underReview = recommendation.outcome === "needs_more_information";
   const legacySubmission = Boolean(workflow.review && workflow.review.assessmentId === workflow.context.assessmentId);
+  const decisionExplanation = () => underReview ? legacySubmission ? "This earlier submission is preserved. Choose Accept or Deny when ready." : "Keeps the referral open. No approval request is sent." : "Signing and packet sending are separate.";
+  const decisionUnavailable = () => !workflow.capabilities.can_decide || !recommendation.outcome || (underReview && (!workflow.capabilities.can_recommend || !workflow.context.assessmentId || legacySubmission));
   return (
     <WorkflowCard title="Decision" detail="">
       <fieldset disabled={!workflow.capabilities.can_decide || Boolean(busy)} className="my-4">
@@ -263,9 +265,9 @@ function DecisionCard({ workflow, busy, recommendation, onRecommendationChange, 
         </div>
       </fieldset>
       <WorkflowTextArea label={underReview ? "What needs review?" : "Reason (optional)"} value={recommendation.reasonNote} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
-      <p className="mt-3 text-[12px] text-[#68716c]">{underReview ? legacySubmission ? "This earlier submission is preserved. Choose Accept or Deny when ready." : "Keeps the referral open. No approval request is sent." : "Signing and packet sending are separate."}</p>
+      <p className="mt-3 text-[12px] text-[#68716c]">{decisionExplanation()}</p>
       {underReview && !workflow.context.assessmentId ? <p className="mt-2 text-[12px] text-[#68716c]">Open the assessment before saving Under review.</p> : null}
-      <PrimaryButton busy={Boolean(busy)} disabled={!workflow.capabilities.can_decide || !recommendation.outcome || (underReview && (!workflow.capabilities.can_recommend || !workflow.context.assessmentId || legacySubmission))} onClick={onSubmitDecision}>{underReview ? "Save under review" : "Record decision"}</PrimaryButton>
+      <PrimaryButton busy={Boolean(busy)} disabled={decisionUnavailable()} onClick={onSubmitDecision}>{underReview ? "Save under review" : "Record decision"}</PrimaryButton>
     </WorkflowCard>
   );
 }

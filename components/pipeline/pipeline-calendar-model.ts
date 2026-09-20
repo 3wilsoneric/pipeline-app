@@ -174,14 +174,19 @@ export function calendarDrawerModel(selection: CalendarSelection, scope: "person
       showStatusActions: false,
     };
   }
-  const event = selection.event;
+  return calendarEventDrawerModel(selection.event);
+}
+
+function calendarEventDrawerModel(event: PipelineCalendarEvent): CalendarDrawerModel {
   const isAppointment = event.kind === "assessment" && Boolean(event.assessmentId);
+  const canSchedule = isAppointment && event.status !== "complete" && event.scheduleStatus !== "completed";
+  const hasScheduledTime = isAppointment && Boolean(event.startsAt);
   return {
     kicker: event.title,
     clientName: calendarClientName(event.clientName, event.community),
     community: event.community,
     owner: event.owner,
-    dateLabel: event.startsAt ? `${longDate(event.date)} at ${eventTime(event.startsAt)}` : event.date ? longDate(event.date) : "",
+    dateLabel: calendarDateLabel(event),
     receivedLabel: "",
     methodLabel: methodLabel(event.method),
     durationLabel: `${calendarDuration(event)} minutes`,
@@ -189,14 +194,22 @@ export function calendarDrawerModel(selection: CalendarSelection, scope: "person
     locationLabel: appointmentLocationLabel(event.method),
     followUps: event.followUpLabels ?? [],
     needsAssignment: false,
-    zoomUrl: event.method === "zoom" && event.location && isHttpUrl(event.location) ? event.location : "",
-    canSchedule: isAppointment && event.status !== "complete" && event.scheduleStatus !== "completed",
+    zoomUrl: calendarZoomUrl(event),
+    canSchedule,
     isAppointment,
-    hasScheduledTime: isAppointment && Boolean(event.startsAt),
-    showStatusActions: isAppointment && Boolean(event.startsAt) && event.status !== "complete" && event.scheduleStatus !== "completed",
+    hasScheduledTime,
+    showStatusActions: hasScheduledTime && canSchedule,
     workLabel: event.kind === "assessment" ? appointmentStatusLabel(event) : undefined,
-    workspaceOwner: event.workspaceOwner && event.workspaceOwner !== event.owner ? event.workspaceOwner : undefined,
+    workspaceOwner: distinctWorkspaceOwner(event),
   };
+}
+
+function calendarDateLabel(event: PipelineCalendarEvent) {
+  return event.startsAt ? `${longDate(event.date)} at ${eventTime(event.startsAt)}` : event.date ? longDate(event.date) : "";
+}
+
+function calendarZoomUrl(event: PipelineCalendarEvent) {
+  return event.method === "zoom" && event.location && isHttpUrl(event.location) ? event.location : "";
 }
 
 export function appointmentLocationLabel(method: string | undefined) {
@@ -404,4 +417,8 @@ function isHttpUrl(value: string) {
   } catch {
     return false;
   }
+}
+
+function distinctWorkspaceOwner(event: PipelineCalendarEvent) {
+  return event.workspaceOwner && event.workspaceOwner !== event.owner ? event.workspaceOwner : undefined;
 }

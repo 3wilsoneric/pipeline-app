@@ -186,29 +186,35 @@ async function requestPipelineJson<T>(
     let response: Response | undefined;
     try {
       response = await fetchPipelineApi(input, init, options);
-      const text = await readBoundedResponseText(response, options.maxResponseBytes ?? defaultMaxResponseBytes);
-      const payload = parseJson(text);
-      if (response.ok) {
-        return payload as T;
-      }
-      if (response.status === 401) void beginReauthentication();
-      throw new PipelineApiError(
-        getErrorMessage(payload, response.status), response.status,
-        response.headers.get("x-request-id") ?? getPayloadRequestId(payload), payload,
-      );
+      return await readPipelineJsonResponse<T>(response, options);
     } catch (error) {
       const retryRead = method === "GET" && shouldRetryPipelineRead(attempt, attempts, init.signal, response, error);
       // The governor rejects before running any handler. Only that explicit
       // response is safe to retry automatically for a write; ambiguous network
       // failures and 5xx still belong to the editor's recovery/idempotency flow.
-      const retryUnstartedWrite = method !== "GET" && attempt + 1 < attempts && !init.signal?.aborted
-        && typeof init.body === "string" && response?.status === 429
-        && ["mutation", "upload", "worker"].includes(response.headers.get("x-pipeline-capacity-class") ?? "");
+      const retryUnstartedWrite = method !== "GET" && shouldRetryUnstartedWrite(attempt, attempts, init, response);
       if (!retryRead && !retryUnstartedWrite) throw error;
       await waitForRetry(response, attempt, retryUnstartedWrite);
     }
   }
   throw new PipelineApiError("Pipeline could not complete that request.");
+}
+
+async function readPipelineJsonResponse<T>(response: Response, options: PipelineFetchOptions) {
+  const text = await readBoundedResponseText(response, options.maxResponseBytes ?? defaultMaxResponseBytes);
+  const payload = parseJson(text);
+  if (response.ok) return payload as T;
+  if (response.status === 401) void beginReauthentication();
+  throw new PipelineApiError(
+    getErrorMessage(payload, response.status), response.status,
+    response.headers.get("x-request-id") ?? getPayloadRequestId(payload), payload,
+  );
+}
+
+function shouldRetryUnstartedWrite(attempt: number, attempts: number, init: RequestInit, response?: Response) {
+  return attempt + 1 < attempts && !init.signal?.aborted
+    && typeof init.body === "string" && response?.status === 429
+    && ["mutation", "upload", "worker"].includes(response.headers.get("x-pipeline-capacity-class") ?? "");
 }
 
 function shouldRetryPipelineRead(attempt: number, attempts: number, signal: AbortSignal | null | undefined, response: Response | undefined, error: unknown) {

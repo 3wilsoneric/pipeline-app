@@ -56,15 +56,7 @@ export function assessmentCalendarEvent(
   const date = calendarDate(assessment.scheduled_start_at);
   if (!date) return null;
   const needsOutcome = assessment.status !== "complete" && assessment.schedule_status !== "completed" && date < today;
-  const title = assessment.status === "complete"
-    ? "Assessment completed"
-    : assessment.status === "needs_review"
-      ? "Assessment ready for review"
-      : assessment.schedule_status === "completed"
-        ? "Interview completed · documentation unfinished"
-      : needsOutcome
-        ? "Appointment outcome not recorded"
-        : "Assessment scheduled";
+  const presentation = scheduledAssessmentPresentation(assessment, needsOutcome);
   return {
     id: `assessment:${assessment.assessment_id}`,
     referralId: referral.id,
@@ -72,8 +64,7 @@ export function assessmentCalendarEvent(
     assessmentVersion: assessment.version,
     clientName: referral.name,
     community: referral.community,
-    ownerId: assessment.assessor_id ?? referral.ownerId ?? undefined,
-    owner: assessment.assessor_id ? assessment.assessor?.trim() || "Assigned assessor" : referral.owner?.trim() || "Unassigned",
+    ...scheduledAssessmentOwner(assessment, referral),
     workspaceOwner: referral.owner,
     startedAt: assessment.started_at ?? undefined,
     date,
@@ -84,16 +75,22 @@ export function assessmentCalendarEvent(
     scheduleStatus: calendarScheduleStatus(assessment.schedule_status),
     kind: "assessment",
     status: assessment.status,
-    title,
-    detail: assessment.status === "complete"
-      ? "Completed"
-      : assessment.status === "needs_review"
-        ? "Review extracted and entered data"
-        : assessment.schedule_status === "completed"
-          ? "Continue documentation"
-        : needsOutcome
-          ? "Record what happened or reschedule"
-          : "Scheduled assessment",
+    ...presentation,
+  };
+}
+
+function scheduledAssessmentPresentation(assessment: CalendarAssessment, needsOutcome: boolean) {
+  if (assessment.status === "complete") return { title: "Assessment completed", detail: "Completed" };
+  if (assessment.status === "needs_review") return { title: "Assessment ready for review", detail: "Review extracted and entered data" };
+  if (assessment.schedule_status === "completed") return { title: "Interview completed · documentation unfinished", detail: "Continue documentation" };
+  if (needsOutcome) return { title: "Appointment outcome not recorded", detail: "Record what happened or reschedule" };
+  return { title: "Assessment scheduled", detail: "Scheduled assessment" };
+}
+
+function scheduledAssessmentOwner(assessment: CalendarAssessment, referral: Pick<Referral, "owner" | "ownerId">) {
+  return {
+    ownerId: assessment.assessor_id ?? referral.ownerId ?? undefined,
+    owner: assessment.assessor_id ? assessment.assessor?.trim() || "Assigned assessor" : referral.owner?.trim() || "Unassigned",
   };
 }
 
@@ -161,15 +158,8 @@ export function assessmentPreparationItem(
   referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "date" | "createdAt" | "stage" | "workspaceOrigin" | "workspaceStatus" | "workflowStatus" | "admissionDecision">,
   assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "version" | "schedule_status" | "status" | "created_at"> | null,
 ): PipelineUnscheduledAssessment | null {
-  const hasScheduledAssessment = isScheduledAssessment(assessment);
   const reassessment = isPostOutcomeAssessment(referral, assessment);
-  if (
-    (referral.workspaceStatus ?? "active") !== "active"
-    || hasScheduledAssessment
-    || assessment?.status === "complete"
-    || assessment?.schedule_status === "completed"
-    || (isClosedOutcome(referral) && !reassessment)
-  ) return null;
+  if (!canPrepareAssessment(referral, assessment, reassessment)) return null;
   const workflowStatus = referral.workflowStatus ?? "intake_unassigned";
   if (!reassessment && !assessmentPreparationStatuses.has(workflowStatus)) return null;
   const receivedDate = calendarDate(referral.date) ?? calendarDate(referral.createdAt);
@@ -186,6 +176,16 @@ export function assessmentPreparationItem(
     workflowStatus,
     nextAction: reassessment ? "schedule" : preparationNextAction(workflowStatus),
   };
+}
+
+function canPrepareAssessment(
+  referral: Pick<Referral, "workspaceStatus" | "stage" | "admissionDecision">,
+  assessment: Pick<PipelineAssessmentRecord, "schedule_status" | "status"> | null,
+  reassessment: boolean,
+) {
+  if ((referral.workspaceStatus ?? "active") !== "active" || isScheduledAssessment(assessment)) return false;
+  if (assessment?.status === "complete" || assessment?.schedule_status === "completed") return false;
+  return !isClosedOutcome(referral) || reassessment;
 }
 
 function calendarScheduleStatus(status: PipelineAssessmentRecord["schedule_status"]) {

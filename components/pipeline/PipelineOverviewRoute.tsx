@@ -150,11 +150,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const screen = getScreenFromParams(activeSearchParams);
   const currentWorkOpen = isCurrentWorkOpen(screen, activeSearchParams);
   const editHome = screen === "home" && activeSearchParams.get("editHome") === "1";
-  const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
-  const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
-  const newReferralDraftKey = screen === "packet" && !routeReferral
-    ? getNewReferralDraftKey(activeSearchParams)
-    : undefined;
+  const { selectedClientId, routeReferral, newReferralDraftKey } = selectedRouteDetails(screen, activeSearchParams);
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
   const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser) : undefined);
@@ -308,7 +304,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const trainingAssessmentMode = getTrainingAssessmentMode(activeSearchParams);
   const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
   const isDemoWorkspace = [activeSearchParams.get("demo") === "1", Boolean(trainingAssessmentMode), trainingIntakeMode].some(Boolean);
-  if (screen === "packet") {
+  const renderPacketWorkspace = () => {
     const workspaceKey = referralWorkspaceKey(selectedReferral, createdWorkspace, newReferralDraftKey);
     const stillViewingWorkspace = () => {
       const current = new URLSearchParams(window.location.search);
@@ -358,7 +354,11 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       onOpenProfile: (clientId) => navigate("profile", undefined, clientId),
       onOpenAssignedWork: isDemoWorkspace ? undefined : () => { void navigate("referrals"); },
     };
-    page = deferredWorkSurfaces ? <deferredWorkSurfaces.ReferralPacketCanvas key={workspaceKey} {...packetProps} /> : <DeferredScreenLoading />;
+    return deferredWorkSurfaces ? <deferredWorkSurfaces.ReferralPacketCanvas key={workspaceKey} {...packetProps} /> : <DeferredScreenLoading />;
+
+  };
+  if (screen === "packet") {
+    page = renderPacketWorkspace();
   } else if (screen === "profile" && selectedClientId) {
     const profileProps: ComponentProps<DeferredWorkSurfaces["ClientProfileView"]> = {
       residentKey: selectedClientId,
@@ -554,4 +554,13 @@ function recordNavigation(
       detail: "Create a workspace",
     });
   }
+}
+
+function selectedRouteDetails(screen: PipelineScreen, activeSearchParams: URLSearchParams) {
+  const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
+  const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
+  const newReferralDraftKey = screen === "packet" && !routeReferral
+    ? getNewReferralDraftKey(activeSearchParams)
+    : undefined;
+  return { selectedClientId, routeReferral, newReferralDraftKey };
 }

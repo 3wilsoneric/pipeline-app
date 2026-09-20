@@ -132,7 +132,7 @@ export function buildReferralCanvasPatch(input: {
 // Section CAS remains the server's atomic boundary. Only a rejected, disjoint
 // field edit can be retried against a newer section; never retry ambiguous errors.
 export function canRebaseReferralCanvasPatch(base: Referral, latest: Referral, patch: ReferralPatch) {
-  if (base.id !== latest.id || (latest.version ?? 0) <= (base.version ?? 0)) return false;
+  if (!isNewerCanvasReferral(base, latest)) return false;
   // File linking and assignment carry additional lifecycle/identity semantics.
   if ("requirements" in patch || "documentHash" in patch || "owner" in patch) return false;
   const same = (left: unknown, right: unknown) => JSON.stringify(left ?? "") === JSON.stringify(right ?? "");
@@ -140,6 +140,11 @@ export function canRebaseReferralCanvasPatch(base: Referral, latest: Referral, p
     if (key === "fieldSources") continue;
     if (!same(base[key], latest[key]) && !same(patch[key], latest[key])) return false;
   }
+  return canRebaseCanvasFieldSources(base, latest, patch);
+}
+
+function canRebaseCanvasFieldSources(base: Referral, latest: Referral, patch: ReferralPatch) {
+  const same = (left: unknown, right: unknown) => JSON.stringify(left ?? "") === JSON.stringify(right ?? "");
   for (const key of persistedCanvasFieldKeys) {
     if (!(referralPatchKeyByCanvasField[key] in patch)) continue;
     if (!same(base.fieldSources?.[key], latest.fieldSources?.[key])
@@ -188,4 +193,8 @@ export function buildReferralCanvasCreateInput(input: {
     payer: "",
     requirements: input.requirements,
   };
+}
+
+function isNewerCanvasReferral(base: Referral, latest: Referral) {
+  return !(base.id !== latest.id || (latest.version ?? 0) <= (base.version ?? 0));
 }

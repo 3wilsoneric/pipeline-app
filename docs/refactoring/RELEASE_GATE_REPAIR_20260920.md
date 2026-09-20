@@ -16,6 +16,8 @@ Before-change evidence from the exact source: 116 API checks, 28 save/recovery c
 
 ## Release conditions
 
+The first unchanged platform gate also identified stale generated Academy/training fingerprints and a stale guide target ownership map: the existing `chart-meet-client-tab` is on `ReferralPacketCanvas`, not `AssessmentChartWorkspace`. Refresh the canonical generated atlas/registries and correct that single source mapping as release evidence maintenance. No guide steps, UI target, curriculum, validator, or threshold is removed or weakened.
+
 Focused behavior tests, type/build checks, the unchanged complexity gate, required CI and certification must pass on the final candidate. No unresolved critical/high finding may ship. Record exact final commit and observed results. Production remains unchanged until then.
 
 Rollback: runtime revision `pipeline-prod-web--991c9a279e848e49`, source `991c9a279e848e49578131504d16c49d5bb92ba0`, immutable image digest `sha256:e5d5effd597afc1cc965f379015e83805e2beafc727d22bedb82b72c1a4c5e06`. There are no database migrations; accepted data and audit history must be retained.

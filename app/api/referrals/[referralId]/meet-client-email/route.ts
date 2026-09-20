@@ -59,32 +59,35 @@ export async function POST(
     const attachmentContext = await loadAdmissionPacket(snapshot.referral);
     if (!attachmentContext.ok) return attachmentContext.response;
 
-    const deliveryId = randomUUID();
-    const accountableActor = pipelineAccountableActor(auth.user);
-    const audit = buildDeliveryAudit({
-      mutationId: prepared.mutationId,
-      deliveryId,
-      referralId,
-      assessment,
-      decisionId: contextResult.decisionId,
-      reviewId: contextResult.reviewId,
-      reviewVersion: contextResult.reviewVersion,
-      actor: accountableActor,
-      recipients: prepared.recipients,
-      attachmentCount: attachmentContext.attachments.length,
-      attachmentBytes: attachmentContext.inventory.totalBytes,
-    });
-    const reserved = await reserveMeetClientDelivery(audit);
-    if (!reserved) return jsonError("This email request was already processed. Refresh the summary before trying again.", 409);
+    const reserveAndDeliver = async () => {
+      const deliveryId = randomUUID();
+      const accountableActor = pipelineAccountableActor(auth.user);
+      const audit = buildDeliveryAudit({
+        mutationId: prepared.mutationId,
+        deliveryId,
+        referralId,
+        assessment,
+        decisionId: contextResult.decisionId,
+        reviewId: contextResult.reviewId,
+        reviewVersion: contextResult.reviewVersion,
+        actor: accountableActor,
+        recipients: prepared.recipients,
+        attachmentCount: attachmentContext.attachments.length,
+        attachmentBytes: attachmentContext.inventory.totalBytes,
+      });
+      const reserved = await reserveMeetClientDelivery(audit);
+      if (!reserved) return jsonError("This email request was already processed. Refresh the summary before trying again.", 409);
 
-    return deliverMeetClientEmail({
-      audit,
-      recipients: prepared.recipients,
-      summary: buildMeetClientSummary(assessment, snapshot.referral),
-      preparedBy: accountableActor.name,
-      deliveryId,
-      attachments: attachmentContext.attachments,
-    });
+      return deliverMeetClientEmail({
+        audit,
+        recipients: prepared.recipients,
+        summary: buildMeetClientSummary(assessment, snapshot.referral),
+        preparedBy: accountableActor.name,
+        deliveryId,
+        attachments: attachmentContext.attachments,
+      });
+    };
+    return reserveAndDeliver();
   });
 }
 

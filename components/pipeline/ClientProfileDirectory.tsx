@@ -241,13 +241,16 @@ export default function ClientProfileDirectory({
     .sort((left, right) => compareDirectoryClients(left, right, sort));
   const visibleClients = cabinetClients.slice(0, displayLimit);
   const hasCabinetFilters = admissionFilter !== "any" || sort !== "name";
-  const countLabel = isLoading && clients.length === 0
+  const clientCountLabel = () => {
+    return isLoading && clients.length === 0
     ? "Loading clients..."
     : isCompletingRoster
       ? nameQuery ? "Searching client names..." : `${clients.length} of ${total} loaded`
       : nameQuery
         ? countNoun(matchingClients.length, "matching file")
         : `${total} client${total === 1 ? "" : "s"}`;
+  };
+  const countLabel = clientCountLabel();
   const directoryNotice = freshness?.status === "stale"
     ? "Live census information may be out of date. Referral records are still available while the source refreshes."
     : freshness?.warning
@@ -259,6 +262,53 @@ export default function ClientProfileDirectory({
     setSort("name");
     setDisplayLimit(DISPLAY_INCREMENT);
   };
+
+  const renderClientSearchResults = () => (
+    <section aria-label="Client list" className={styles.directoryCabinets}>
+          {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
+          {nameQuery ? <>
+            <div role="list" aria-label="Matching client files" className="grid gap-6 lg:grid-cols-2">
+              {matchingClients.slice(0, displayLimit).map((client) => (
+                <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
+                  <ClientDirectoryCard client={client} layout="cards" onOpen={(opener) => {
+                    profileOpener.current = opener;
+                    onOpenProfile(client.profile_key ?? client.canonical_client_id);
+                  }} />
+                </div>
+              ))}
+            </div>
+            {displayLimit < matchingClients.length ? <div className={styles.cabinetPagination}>
+              <span>Showing {displayLimit} of {matchingClients.length}</span>
+              <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)}><ChevronDown size={14} aria-hidden="true" /> Show more</button>
+            </div> : null}
+          </> : <div role="group" aria-label="Community file cabinets" className={styles.cabinetRow} hidden={communityBoxes.length === 0}>
+            {communityBoxes.map(([community, records]) => (
+              <button key={community} type="button" aria-label={`Open ${community} file cabinet`} className={styles.cabinet} onClick={(event) => {
+                cabinetOpener.current = event.currentTarget;
+                cabinetScrollTop.current = directoryRef.current?.scrollTop ?? 0;
+                clearFilters();
+                setOpenCabinet({ community });
+              }}>
+                <span className={styles.cabinetFiles} aria-hidden="true"><i /><i /><i /></span>
+                <span className={styles.cabinetFace}>
+                  <span className={styles.cabinetName}>{community}</span>
+                  <span className={styles.cabinetCount}>{countNoun(records.length, "client")}</span>
+                </span>
+                <ArrowRight size={18} className={styles.cabinetArrow} aria-hidden="true" />
+              </button>
+            ))}
+          </div>}
+
+          {!isLoading && !isCompletingRoster && !error && matchingClients.length === 0 ? (
+            <div className={styles.directoryEmpty}>
+              <FolderOpen size={28} aria-hidden="true" />
+              <h2>{emptyRosterMessage(query)}</h2>
+              <p>Try a broader name or refresh the directory if the client was recently added.</p>
+              {query.trim() ? <button type="button" onClick={() => setQuery("")} className={styles.cabinetReset}>Clear search</button> : null}
+            </div>
+          ) : null}
+        </section>
+  );
 
   return (
     <main ref={directoryRef} data-guide-target="client-directory" data-performance-ready={pipelineSurfaceReady("profiles", isLoading, error)} aria-label="Client profiles" className={`${styles.directoryShell} ${openCabinet ? "overflow-hidden" : "overflow-y-auto"}`}>
@@ -310,50 +360,7 @@ export default function ClientProfileDirectory({
         {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
         {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
 
-        <section aria-label="Client list" className={styles.directoryCabinets}>
-          {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
-          {nameQuery ? <>
-            <div role="list" aria-label="Matching client files" className="grid gap-6 lg:grid-cols-2">
-              {matchingClients.slice(0, displayLimit).map((client) => (
-                <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                  <ClientDirectoryCard client={client} layout="cards" onOpen={(opener) => {
-                    profileOpener.current = opener;
-                    onOpenProfile(client.profile_key ?? client.canonical_client_id);
-                  }} />
-                </div>
-              ))}
-            </div>
-            {displayLimit < matchingClients.length ? <div className={styles.cabinetPagination}>
-              <span>Showing {displayLimit} of {matchingClients.length}</span>
-              <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)}><ChevronDown size={14} aria-hidden="true" /> Show more</button>
-            </div> : null}
-          </> : <div role="group" aria-label="Community file cabinets" className={styles.cabinetRow} hidden={communityBoxes.length === 0}>
-            {communityBoxes.map(([community, records]) => (
-              <button key={community} type="button" aria-label={`Open ${community} file cabinet`} className={styles.cabinet} onClick={(event) => {
-                cabinetOpener.current = event.currentTarget;
-                cabinetScrollTop.current = directoryRef.current?.scrollTop ?? 0;
-                clearFilters();
-                setOpenCabinet({ community });
-              }}>
-                <span className={styles.cabinetFiles} aria-hidden="true"><i /><i /><i /></span>
-                <span className={styles.cabinetFace}>
-                  <span className={styles.cabinetName}>{community}</span>
-                  <span className={styles.cabinetCount}>{countNoun(records.length, "client")}</span>
-                </span>
-                <ArrowRight size={18} className={styles.cabinetArrow} aria-hidden="true" />
-              </button>
-            ))}
-          </div>}
-
-          {!isLoading && !isCompletingRoster && !error && matchingClients.length === 0 ? (
-            <div className={styles.directoryEmpty}>
-              <FolderOpen size={28} aria-hidden="true" />
-              <h2>{emptyRosterMessage(query)}</h2>
-              <p>Try a broader name or refresh the directory if the client was recently added.</p>
-              {query.trim() ? <button type="button" onClick={() => setQuery("")} className={styles.cabinetReset}>Clear search</button> : null}
-            </div>
-          ) : null}
-        </section>
+        {renderClientSearchResults()}
 
       </div>
       {openCabinet ? <section ref={cabinetRef} tabIndex={-1} aria-label={`${openCabinet.community} file cabinet`} className={styles.cabinetDrawer} onKeyDown={(event) => {
