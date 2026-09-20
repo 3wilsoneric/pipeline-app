@@ -340,6 +340,16 @@ memory peaked at 2,116,923,392 bytes. No clean original-run verdict or completed
 endurance qualification is claimed. A focused real-browser run of the corrected
 harness precedes the two-hour soak; no further peak is being rerun.
 
+The corrected harness's two-user, 60-second real-browser smoke passed, including
+steady-progress and SQL/audit checks. All four remote harness copies matched
+SHA-256 `a6a6280fe11ba9a211295e9a14e9e023f6acebf0675ba89f8ec84e4455482cce`.
+The single two-hour `freshprobe100-soak` is now running with harness `056bfdd`,
+explicit fresh verification connections and unchanged application build. Its
+shared measured start is `2026-09-20T01:33:39.168Z`; results remain pending.
+All temporary machines' OS shutdown deadlines were checked: the earliest is
+`03:59:35.054Z`. Evidence preservation and verified group deletion take priority
+before that deadline; production is untouched.
+
 Use only loopback PostgreSQL named `pipeline_capacity_*` and unchanged canonical
 migrations. Never deploy the synthetic build or point this harness at production.
 
