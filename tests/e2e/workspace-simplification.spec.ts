@@ -110,7 +110,7 @@ for (const width of [1440, 390]) {
     const workflow = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
     expect(workflow.review).toBeNull();
     expect(workflow.reviews).toEqual([]);
-    await expect(page.getByRole("note")).toContainText("Example only. No email will be sent.");
+    await expect(page.getByRole("status").filter({ hasText: "Example only" })).toHaveText("Example only · no email will be sent.");
     await expect(page.getByRole("navigation", { name: "Assessment chart views" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Send email & packet" })).toHaveCount(0);
     await page.getByRole("button", { name: "Back to decision", exact: true }).click();

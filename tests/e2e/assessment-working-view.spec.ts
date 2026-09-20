@@ -191,9 +191,9 @@ test("profile navigation leaves through the save path and practice help stays in
   await expect(assessment).toBeVisible();
 });
 
-test("Home uses the shared refined canvas behind its existing board", async ({ page }) => {
+test("Home uses the warm canvas behind its board deck", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(230, 237, 240)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(238, 238, 231)");
   await expect(page.getByRole("button", { name: "Open current work", exact: true })).toBeVisible();
   await page.screenshot({ path: "outputs/home-working-green.png" });
 });
