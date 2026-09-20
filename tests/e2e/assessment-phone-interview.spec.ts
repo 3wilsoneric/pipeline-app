@@ -11,15 +11,14 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
       const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Pocket ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
-      await page.getByRole("button", { name: "02 Questionnaire", exact: true }).tap();
+      await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
       const pocket = page.locator("[data-phone-interview]");
       await expect(pocket).toBeVisible();
       await expect(pocket.locator("[data-working-field]")).toHaveCount(1);
-      // Wait for React to remove the temporary streamed header before checking the live dock.
-      await expect(page.getByTestId("primary-navigation-dock")).toHaveCount(1);
-      await expect(page.getByTestId("primary-navigation-dock")).not.toBeInViewport();
+      await expect(page.locator("[data-phone-header]")).toBeInViewport();
+      await expect(page.getByRole("button", { name: "Back to previous page", exact: true })).toBeInViewport();
       await expect(page.getByTestId("preparation-client-folder")).toHaveCount(0);
-      expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(true);
+      expect(await pocket.evaluate((el) => Boolean(el.closest("[inert]")))).toBe(false);
 
       await findQuestion(page, "Ambulatory");
       const ambulatory = pocket.getByRole("group", { name: "Ambulatory", exact: true });
@@ -70,7 +69,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
 
       await diagnosis.fill("Synthetic rotation edit");
       await page.setViewportSize({ width: 1024, height: 768 });
-      await expect(page.getByTestId("preparation-client-folder")).toBeVisible();
+      await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toBeVisible();
       await expect.poll(async () => (await read())[0]?.secondary_diagnoses).toEqual(["Synthetic rotation edit"]);
       await page.setViewportSize({ width: 390, height: 844 });
       await expect(diagnosis).toHaveValue("Synthetic rotation edit");
@@ -85,27 +84,27 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
       const violations = await page.evaluate(async () => {
         const axe = (window as unknown as { axe: typeof import("axe-core") }).axe;
-        const result = await axe.run('[data-assessment-view="chart"]', { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] } });
+        const result = await axe.run('[data-assessment-view]', { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] } });
         return result.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => ({ id: v.id, targets: v.nodes.map((n) => n.target) }));
       });
       expect(violations).toEqual([]);
-      // Full-screen exit returns to this referral, without beginning or signing it.
-      await page.getByRole("button", { name: "Back to referral", exact: true }).tap();
-      await expect(page.getByTestId("intake-client-folder")).toBeVisible();
+      // The shared stage picker returns to this referral's chart without starting or signing.
+      await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Chart" });
+      await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
       expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(false);
       const assessments = await read();
       expect(assessments).toHaveLength(1);
       expect(assessments[0].signed_at).toBeNull();
       expect(assessments[0].started_at).toBeNull();
 
-      await page.getByRole("button", { name: "02 Questionnaire", exact: true }).tap();
+      await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
       await page.locator('summary[aria-label="Assessment details"]').tap();
       await page.getByRole("button", { name: "Begin assessment", exact: true }).tap();
       const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
       await expect(begin).toBeInViewport();
       await begin.getByRole("button", { name: "Record start", exact: true }).tap();
-      await page.getByRole("button", { name: "Return to assessment", exact: true }).tap();
-      await expect(page.getByRole("region", { name: "Guided assessment", exact: true })).toBeVisible();
+      await expect(begin).toHaveCount(0);
+      await expect(pocket).toBeVisible();
       await expect.poll(async () => Boolean((await read())[0]?.started_at)).toBe(true);
       await findQuestion(page, "Secondary diagnosis");
       await expect(diagnosis).toHaveValue("Synthetic rotation edit");

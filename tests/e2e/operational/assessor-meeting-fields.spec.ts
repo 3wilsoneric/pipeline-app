@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { actorApiContext, operationalActorHeaders, requireOperationalBaseURL } from "../support/pipeline-actors";
 import { createOperationalAssessment, createOperationalReferral, signOperationalAssessment } from "../support/operational-api";
+import { assessmentToolFieldDefinitions } from "../../../lib/assessment/assessment-tool-schema";
 
 test.describe("assessor meeting fields", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Isolated stores required.");
@@ -17,12 +18,13 @@ test.describe("assessor meeting fields", () => {
       expect(started.status()).toBe(200);
       const assessmentUrl = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`;
       await page.goto(assessmentUrl);
-      const editor = page.locator('[data-assessment-view="chart"]');
-      const search = editor.getByRole("searchbox", { name: "Find assessment question" });
+      const editor = page.locator('[data-assessment-view]');
       const find = async (name: string) => {
-        await editor.locator('summary[aria-label="Find assessment question"]').click();
-        await search.fill(name);
-        await editor.locator('[aria-label="Matching assessment questions"]').getByRole("button", { name: new RegExp(`^${name}`) }).click();
+        const definition = assessmentToolFieldDefinitions.find((field) => field.label === name)!;
+        expect(definition, `Canonical question: ${name}`).toBeDefined();
+        await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption(definition.section);
+        const captured = editor.getByRole("button", { name: `Edit ${name}`, exact: true });
+        if (await captured.isVisible()) await captured.click();
       };
       const read = async () => (await (await api.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
       await find("IM injections");
@@ -53,12 +55,18 @@ test.describe("assessor meeting fields", () => {
       const details = editor.getByRole("textbox", { name: "Physical altercation details", exact: true });
       await expect(details).toHaveAttribute("placeholder", "What happened, when, the context, and the outcome");
       await expect(details).not.toHaveAttribute("required");
-      await editor.locator('summary[aria-label="Find assessment question"]').click();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await editor.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+      const questions = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
+      const search = questions.getByRole("searchbox", { name: "Find a question", exact: true });
       for (const retired of ["Aggression risk", "Triggers"]) {
         await search.fill(retired);
-        await expect(editor.locator('[aria-label="Matching assessment questions"]').getByRole("button")).toHaveCount(0);
+        await expect(questions).toContainText("No matching questions.");
       }
-      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
+      await search.fill("");
+      await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
       await page.goto(assessmentUrl);
       await expect(editor).toBeVisible();
       await find("Injection frequency");

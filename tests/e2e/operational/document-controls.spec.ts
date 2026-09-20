@@ -15,6 +15,7 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     expect(created.status()).toBe(201);
     const referral = (await created.json()).referral;
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
+    await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(page.getByRole("combobox", { name: "Assessor", exact: true })).toHaveValue("assessor-a");
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     await page.getByTestId("document-checklist-toggle").click();
@@ -29,10 +30,12 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     const files = async () => (await (await api.get(`/api/files?referral_id=${referral.id}`)).json()).files;
     const file = (await files())[0];
     expect(await files()).toHaveLength(1);
-    const history = page.getByRole("region", { name: "Workspace change history" });
-    await history.locator("summary").click();
-    await expect(history.getByText("Document uploaded", { exact: true })).toBeVisible();
-    await history.locator("summary").click();
+    const intakeUrl = page.url();
+    const history = page.getByRole("region", { name: "Referral ownership and activity" });
+    await page.getByRole("button", { name: "Workspace activity", exact: true }).click();
+    await expect(history.getByText("Document uploaded", { exact: true }).first()).toBeVisible();
+    await page.goto(intakeUrl);
+    await page.getByTestId("document-checklist-toggle").click();
     expect((await stranger.get(`/api/files/${file.id}`)).status()).toBe(403);
     expect((await stranger.delete(`/api/files/${file.id}`, { data: { confirmed: true } })).status()).toBe(403);
     expect((await api.delete(`/api/files/${file.id}`, { data: { confirmed: false } })).status()).toBe(400);
@@ -48,13 +51,13 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     await page.getByRole("dialog", { name: "Delete this file?" }).getByRole("button", { name: "Delete file", exact: true }).click();
     await expect.poll(async () => (await files()).length).toBe(0);
     expect((await api.get(file.downloadUrl)).status()).toBe(404);
-    await history.locator("summary").click();
-    await expect(history.getByText("Document uploaded", { exact: true })).toBeVisible();
-    await expect(history.getByText("Document deleted", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Workspace activity", exact: true }).click();
+    await expect(history.getByText("Document uploaded", { exact: true }).first()).toBeVisible();
+    await expect(history.getByText("Document deleted", { exact: true }).first()).toBeVisible();
     page.once("dialog", (dialog) => dialog.accept());
     await history.getByRole("button", { name: "Restore file", exact: true }).click();
     await expect.poll(async () => (await files()).length).toBe(1);
-    await expect(history.getByText("Document restored", { exact: true })).toBeVisible();
+    await expect(history.getByText("Document restored", { exact: true }).first()).toBeVisible();
     await expect(history.getByRole("button", { name: "Restore file", exact: true })).toHaveCount(0);
     expect((await files())[0].id).toBe(file.id);
     expect(await (await api.get(file.downloadUrl)).body()).toEqual(packet.buffer);
@@ -63,6 +66,8 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
 
     // Deleting and explicitly selecting again creates one new, retry-stable file.
     await api.delete(`/api/files/${file.id}`, { data: { confirmed: true } });
+    await page.goto(intakeUrl);
+    await page.getByTestId("document-checklist-toggle").click();
     await page.getByLabel("Choose additional referral documents").setInputFiles(packet);
     await expect.poll(async () => (await files()).length).toBe(1);
     expect((await files())[0].id).not.toBe(file.id);

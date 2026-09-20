@@ -24,7 +24,8 @@ for (const width of [1440, 1024, 768, 640]) {
     await expect(section.locator("option:checked")).toHaveText("How things are now");
     await expect(bar.locator('input, summary')).toHaveCount(0);
     await expect(reference.getByRole("combobox")).toHaveCount(0);
-    expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(82);
+    // The narrow-tablet layout deliberately stacks the progress row below the select.
+    expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(width >= 760 && width < 960 ? 104 : 82);
     await page.screenshot({ path: info.outputPath(`section-bar-${width}.png`) });
 
     const order = await section.locator("option").evaluateAll((items) => items.map((item) => (item as HTMLOptionElement).value));
@@ -61,7 +62,7 @@ for (const width of [1440, 1024, 768, 640]) {
     }
     await section.selectOption("provenance_qc");
     await expect(bar).toContainText("Section 12 of 12");
-    await expect(paging.getByRole("button", { name: "Review chart", exact: true })).toBeVisible();
+    await expect(paging.getByRole("button", { name: "Review & sign", exact: true })).toBeVisible();
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
@@ -85,21 +86,21 @@ for (const width of [390, 320]) {
     await interview.getByRole("textbox", { name: "Secondary diagnosis", exact: true }).fill("Synthetic mobile section note");
     await interview.getByRole("button", { name: "Next section", exact: true }).click();
     await expect(interview).toContainText("Section 3 of 12");
-    await interview.getByRole("button", { name: "Current info", exact: true }).click();
-    const reference = page.getByRole("dialog", { name: "Current information", exact: true });
+    await interview.getByRole("button", { name: "Client info", exact: true }).click();
+    const reference = page.getByRole("dialog", { name: "Client information", exact: true });
     await expect(reference).not.toContainText("Synthetic mobile section note");
-    await expect(reference.getByRole("combobox")).toHaveCount(0);
+    await expect(reference.getByRole("combobox", { name: "Reference information", exact: true })).toHaveValue("section");
     await page.keyboard.press("Escape");
-    await expect(interview.getByRole("button", { name: "Current info", exact: true })).toBeFocused();
+    await expect(interview.getByRole("button", { name: "Client info", exact: true })).toBeFocused();
     await interview.getByRole("button", { name: "Previous question", exact: true }).click();
     await expect(interview).toContainText("Section 2 of 12");
-    await interview.getByRole("button", { name: "Current info", exact: true }).click();
+    await interview.getByRole("button", { name: "Client info", exact: true }).click();
     await expect(reference).toContainText("Synthetic mobile section note");
     await reference.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
     await expect(interview.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).toHaveValue("Synthetic mobile section note");
     await interview.getByRole("button", { name: "Choose questionnaire section" }).click();
     const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
-    await expect(sections.getByRole("searchbox")).toHaveCount(0);
+    await expect(sections.getByRole("searchbox", { name: "Find a question", exact: true })).toBeVisible();
     await expect(sections.locator('[aria-current="step"]')).toContainText("2. How things are now");
     await sections.getByRole("button", { name: /^7\. Recent care and history/ }).click();
     await expect(interview).toContainText("Section 7 of 12");

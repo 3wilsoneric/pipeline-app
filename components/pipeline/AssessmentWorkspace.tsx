@@ -1114,7 +1114,11 @@ export default function AssessmentWorkspace({
     });
     // A confirmed recovery copy or canonical save releases navigation; a failed
     // request never becomes a saved or signed record.
-    await Promise.any([persistRecoveryDraft(current), canonical]);
+    try {
+      await Promise.any([persistRecoveryDraft(current), canonical]);
+    } catch (cause) {
+      throw new Error("Your last changes could not be saved. Keep this assessment open and try again.", { cause });
+    }
   };
 
   usePersonaSwitchSave(async () => {

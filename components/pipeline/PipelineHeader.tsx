@@ -152,7 +152,7 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
           data-pipeline-home="true"
           data-guide-target="pipeline-home"
           data-platform-page-active="pipeline"
-          className={sidebarStyles.home}
+          className={`${sidebarStyles.home} min-w-11`}
         >
           <PipelineLogoMark size={32} />
           <span className={sidebarStyles.brandDivider} data-brand-divider aria-hidden="true" />

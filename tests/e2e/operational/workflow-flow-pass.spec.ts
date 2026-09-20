@@ -27,7 +27,7 @@ test.describe("uninterrupted workflow", () => {
       workflow = await (await api.get(`/api/referrals/${referral.id}/workflow`)).json();
       expect(workflow.decision).toEqual(accepted);
       expect(workflow.referral.workflowStatus).toBe("approved_for_placement");
-      expect(workflow.review.status).toBe("submitted");
+      expect(workflow.review).toBeNull();
       expect(workflow.work_items.some((item: { status: string }) => item.status === "needed")).toBe(true);
       const queued = await api.post(`/api/referrals/${referral.id}/ehr-handoff`, { data: {
         if_match: workflow.referral.version, if_match_section: workflow.referral.sectionVersions.decision, action: "queue",
@@ -51,11 +51,9 @@ test.describe("uninterrupted workflow", () => {
       const assessment = await createOperationalAssessment(api, referral.id);
       expect((await api.post(`/api/assessments/${assessment.assessment_id}/start`, { data: { if_match: assessment.version } })).status()).toBe(200);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-      const editor = page.locator('[data-assessment-view="chart"]');
+      const editor = page.locator("[data-assessment-view]");
       await expect(editor).toBeVisible();
-      await editor.locator('summary[aria-label="Find assessment question"]').click();
-      await editor.getByRole("searchbox", { name: "Find assessment question" }).fill("Prior 5150");
-      await editor.locator('[aria-label="Matching assessment questions"]').getByRole("button", { name: /Prior 5150/ }).click();
+      await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
       const answer = editor.getByRole("textbox", { name: /Prior 5150/ });
       let rejectWrites = true;
       let syncCommitted = () => {};
@@ -87,7 +85,7 @@ test.describe("uninterrupted workflow", () => {
       await expect.poll(async () => (await (await api.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_5150_5250_holds).toBe("Newer answer typed while the earlier save returns.");
       await expect(editor.getByRole("button", { name: "Keep mine", exact: true })).toHaveCount(0);
       await expect(answer).toHaveValue("Newer answer typed while the earlier save returns.");
-      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
+      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
       await expect(editor).toHaveCount(0);
     } finally { releaseSync(); await context.close(); await api.dispose(); }
   });
@@ -100,6 +98,7 @@ test.describe("uninterrupted workflow", () => {
       const referral = await createOperationalReferral(api, "viewer", { documentName: "", dob: "", owner: "Unassigned" });
       await createOperationalAssessment(api, referral.id);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+      await page.locator('summary[aria-label="Assessment details"]').click();
       await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
       const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
       await schedule.getByLabel("Assessment date and time").fill("2027-01-15T10:00");
@@ -108,19 +107,19 @@ test.describe("uninterrupted workflow", () => {
       const notice = schedule.getByRole("alert");
       await expect(notice).toContainText("Synthetic schedule outage");
       expect(await notice.evaluate(element => getComputedStyle(element).color)).toBe("rgb(89, 100, 94)");
-      await schedule.getByRole("button", { name: "Back to questionnaire", exact: true }).click();
+      await schedule.getByRole("button", { name: "Close schedule", exact: true }).click();
       await expect(schedule).toHaveCount(0);
+      await page.locator('summary[aria-label="Assessment details"]').click();
       await page.getByRole("button", { name: "Begin assessment", exact: true }).click();
-      await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
-      const editor = page.locator('[data-assessment-view="chart"]');
+      await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Record start", exact: true }).click();
+      const editor = page.locator("[data-assessment-view]");
       await expect(editor.getByRole("button", { name: "Next section", exact: true })).toBeEnabled();
       await editor.getByRole("button", { name: "Next section", exact: true }).click();
       await expect(editor.getByText("Required", { exact: true })).toHaveCount(0);
-      await editor.getByRole("button", { name: "Back to referral", exact: true }).click();
-      await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Intake$/ }).click();
-      await expect(page.getByRole("region", { name: "Intake completion", exact: true })).toBeVisible();
-      await expect(page.getByRole("region", { name: "Intake completion", exact: true }).getByRole("button")).toBeEnabled();
-      await page.getByRole("button", { name: "Admission workflow", exact: true }).click();
+      await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Edit referral details", exact: true })).toBeEnabled();
+      await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
+      await page.getByText("Admission details", { exact: true }).click();
       const stages = page.getByRole("combobox", { name: "Workflow stage", exact: true });
       await stages.selectOption("Assessment");
       await expect.poll(async () => (await (await api.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Assessment");
