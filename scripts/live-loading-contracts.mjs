@@ -286,6 +286,7 @@ let releaseReferrals, releaseDocuments;
 let referralsStarted = false, documentsStarted = false;
 let visible = true;
 const unified = load("lib/pipeline/unified-profile.ts", {
+  "./referral-ownership": loadTypeScriptModule(root, "lib/pipeline/referral-ownership.ts"),
   "@/lib/assessment/assessment-store": { getAssessmentStoreReadiness: () => ({ ready: false }) },
   "@/lib/assessment/assessment-tool-schema": {},
   "@/lib/clinical/clinical-data": {},
@@ -305,7 +306,7 @@ const unified = load("lib/pipeline/unified-profile.ts", {
     listReferralFilesByClient: () => { documentsStarted = true; return new Promise((resolve) => { releaseDocuments = resolve; }); },
   },
 });
-const profileRead = unified.getUnifiedClientProfile(operator, "pipeline:fixture", undefined, { id: "fixture-owner" });
+const profileRead = unified.getUnifiedClientProfile(operator, "pipeline:fixture", undefined, { id: "fixture-reader", roles: [] });
 assert.ok(referralsStarted && documentsStarted);
 const referral = { id: 42, name: "Fixture Person", community: "Fixture", createdAt: "2026-09-12T00:00:00Z", stage: "Intake", workspaceStatus: "historical", requirements: [] };
 releaseReferrals([referral]);
@@ -314,10 +315,10 @@ const profile = await profileRead;
 assert.equal(profile.pipeline.documents.length, 1);
 assert.equal(profile.pipeline.documents[0].id, "allowed");
 visible = false;
-const rejectedProfile = unified.getUnifiedClientProfile(operator, "pipeline:fixture", undefined, { id: "different-owner" });
+const rejectedProfile = unified.getUnifiedClientProfile(operator, "pipeline:fixture", undefined, { id: "unaffiliated-reader", roles: [] });
 releaseReferrals([referral]); releaseDocuments([{ id: "allowed", referralId: 42 }]);
 await assert.rejects(rejectedProfile, (error) => error.status === 404);
-checks.push("parallel chart reads start together while assessor ownership and document visibility remain enforced");
+checks.push("parallel chart reads start together while restricted-reader chart and document visibility remain enforced");
 
 let warmed = 0;
 const identity = load("lib/pipeline/referral-clinical-identity.ts", {

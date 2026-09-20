@@ -18,6 +18,9 @@ assert.match(scorecard, /await waitForRequiredPaintMetrics\(page\);/, "Cold pain
 assert.match(scorecard, /first-contentful-paint[\s\S]+> 0[\s\S]+__pipelinePerformance\?\.lcp[\s\S]+> 0/, "FCP and LCP must both be observed before certification continues.");
 assert.match(scorecard, /polling: "raf", timeout: 2_000/, "Paint observation must use a bounded rendering-frame wait.");
 assert.match(scorecard, /await locator\.click\(\)/, "Performance journeys must use trusted browser interactions.");
+assert.match(scorecard, /event\.isTrusted && journey && journey\.inputAt === null/, "Response timing must begin at the first real input, never a dispatched synthetic event.");
+assert.match(scorecard, /duration_ms: inputTiming\?\.input_to_content_ms \?\? automationDuration/, "A missing input sample must retain full driver time, not certify zero response time.");
+assert.match(scorecard, /automation_duration_ms: round\(automationDuration\)/, "Driver actionability time must remain visible alongside application response time.");
 assert.match(scorecard, /api_errors: apiSummary\.errors === 0/, "Observed API errors must fail certification.");
 const profileJourney = scorecard.slice(scorecard.indexOf('measureJourney("open_client_profile"'), scorecard.indexOf('measureJourney("source_thumbnail_decoded"'));
 assert.match(profileJourney, /getByTestId\("client-identity-title"\)/, "Chart timing must wait for loaded identity, not its loading wrapper.");
@@ -45,7 +48,8 @@ assert.match(scorecard, /guideJourneys\.length >= 9/, "The guide certification m
 assert.match(scorecard, /referrals_to_learning_center/, "Learning Center navigation must be timed.");
 assert.match(scorecard, /report_csv_export/, "Report export must be timed.");
 assert.match(scorecard, /history_back_to_operations/, "Back and forward navigation must be timed.");
-assert.match(header, /href="\/training" prefetch=\{true\}/, "The dynamic Learning Center route must be fully prefetched.");
+assert.match(header, /aria-label="Open guided tutorials"[\s\S]+dispatchOperatorGuide\(\{ type: "open-library" \}\)/, "Help must open the in-app Learning Center without a document navigation.");
+assert.doesNotMatch(scorecard, /Filter profiles by admission date|Open Assessor's Workshop presentation/, "Performance journeys must exercise current controls, not retired filters or presentations.");
 assert.match(completeCertification, /PIPELINE_COLLABORATION_USERS[^\n]+"20"/, "Complete certification must exercise twenty simultaneous collaboration identities.");
 assert.match(completeCertification, /scripts\/http-soak-smoke\.mjs/, "Complete certification must include a bounded soak.");
 assert.match(soak, /172_800/, "The soak runner must support a bounded 48-hour maximum.");
@@ -62,4 +66,4 @@ assert.match(
   "Custom Next dist directories must stage browser assets where the standalone server expects them.",
 );
 
-console.log(JSON.stringify({ ok: true, checks: 38 }, null, 2));
+console.log(JSON.stringify({ ok: true, checks: 42 }, null, 2));

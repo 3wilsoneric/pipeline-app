@@ -77,6 +77,12 @@ if (isLocalTarget && process.env.PIPELINE_PERF_SEED !== "false") {
 
 await page.addInitScript(() => {
   globalThis.__pipelinePerformance = { cls: 0, lcp: 0, interactions: {} };
+  for (const type of ["pointerdown", "keydown", "input"]) {
+    document.addEventListener(type, (event) => {
+      const journey = globalThis.__pipelinePerformance.journey;
+      if (event.isTrusted && journey && journey.inputAt === null) journey.inputAt = performance.now();
+    }, { capture: true });
+  }
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
       if (!entry.hadRecentInput) globalThis.__pipelinePerformance.cls += entry.value;
@@ -186,6 +192,8 @@ await measureJourney("typed_search", "filter", async () => {
   await page.getByRole("button", { name: new RegExp(seededReferralName, "i") }).first().waitFor({ state: "visible" });
 });
 await measureJourney("search_to_referrals", "navigation", async () => {
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog", { name: "Search Pipeline", exact: true }).waitFor({ state: "hidden" });
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
@@ -220,12 +228,10 @@ await measureJourney("referrals_to_clients", "navigation", async () => {
   await page.getByRole("button", { name: /file cabinet$/ }).first().waitFor({ state: "visible" });
 });
 await measureJourney("client_filter", "filter", async () => {
-  const admissionFilter = page.getByLabel("Filter profiles by admission date", { exact: true });
-  await admissionFilter.waitFor({ state: "visible" });
-  await admissionFilter.selectOption("last_12_months");
+  await activate(page.getByRole("button", { name: /file cabinet$/ }).first());
+  await page.getByRole("button", { name: /Open profile for / }).first().waitFor({ state: "visible" });
 });
 await measureJourney("open_client_profile", "navigation", async () => {
-  await activate(page.getByRole("button", { name: /file cabinet$/ }).first());
   await activate(page.getByRole("button", { name: /Open profile for / }).first());
   // The workspace wrapper exists during loading: count actual chart content,
   // not a skeleton, and wait through the frame that paints that content.
@@ -267,12 +273,14 @@ await measureJourney("source_pdf_complete_body", "asset", async () => {
 });
 await measureJourney("profile_to_clients", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open client profiles", exact: true }));
-  await page.getByRole("button", { name: /file cabinet$/ }).first().waitFor({ state: "visible" });
+  await page.getByLabel("Search this cabinet", { exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("button", { name: /Open profile for / }).first().waitFor({ state: "visible" });
 });
 await measureJourney("clients_to_new_referral", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Create new referral", exact: true }));
   await page.getByTestId("packet-workspace").waitFor({ state: "visible" });
 });
+await page.locator('[data-testid="packet-workspace"][aria-busy="false"]').waitFor({ state: "visible" });
 if (isLocalTarget) {
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill("");
   await measureJourney("packet_field_input", "input", async () => {
@@ -348,6 +356,7 @@ await measureJourney("calendar_view_change", "tab", async () => {
   if (await month.getAttribute("aria-pressed") !== "true") fail("Calendar view did not change synchronously.");
 });
 await measureJourney("calendar_filter", "filter", async () => {
+  await activate(page.getByRole("button", { name: "Show calendar filters", exact: true }));
   const community = page.getByLabel("Filter calendar by community", { exact: true });
   await community.selectOption("San Pablo");
   if (await community.inputValue() !== "San Pablo") fail("Calendar filter did not update synchronously.");
@@ -395,40 +404,29 @@ await measureJourney("history_forward_to_referrals", "navigation", async () => {
 
 await measureJourney("referrals_to_learning_center", "navigation", async () => {
   const startedAt = performance.now();
-  await activate(page.getByRole("button", { name: /Open profile menu for / }).first());
-  navigationPhases.learning_profile_menu_ms = round(performance.now() - startedAt);
-  const learningCenter = page.getByRole("link", { name: /Learning Center Pipeline walkthrough and quick help/ });
-  await learningCenter.waitFor({ state: "visible" });
-  const linkStartedAt = performance.now();
-  await learningCenter.click({ noWaitAfter: true });
-  navigationPhases.learning_link_click_ms = round(performance.now() - linkStartedAt);
-  const commitStartedAt = performance.now();
-  const academy = page.locator('[data-operator-academy="true"]');
-  const hydratedAcademy = page.locator('[data-training-hydrated="true"]');
-  const workflowAction = page.getByRole("link", { name: "Open Assessor's Workshop presentation", exact: true });
-  await Promise.all([
-    recordPhase(navigationPhases, "learning_url_commit_ms", commitStartedAt, page.waitForURL((url) => url.pathname === "/training")),
-    recordPhase(navigationPhases, "learning_dom_attached_ms", commitStartedAt, academy.waitFor({ state: "attached" })),
-    recordPhase(navigationPhases, "learning_main_visible_ms", commitStartedAt, academy.waitFor({ state: "visible" })),
-    recordPhase(navigationPhases, "learning_hydrated_ms", commitStartedAt, hydratedAcademy.waitFor({ state: "visible" })),
-    recordPhase(navigationPhases, "learning_action_visible_ms", commitStartedAt, workflowAction.waitFor({ state: "visible" })),
-  ]);
+  await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
+  navigationPhases.learning_help_click_ms = round(performance.now() - startedAt);
+  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("button", { name: /^Find a referral / }).first().waitFor({ state: "visible" });
+  navigationPhases.learning_action_visible_ms = round(performance.now() - startedAt);
 });
 await measureJourney("learning_workflow_open", "navigation", async () => {
-  await activate(page.getByRole("link", { name: "Open Assessor's Workshop presentation", exact: true }));
-  await page.getByRole("heading", { name: "One referral stays connected from packet to decision", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("button", { name: /^Find a referral / }).first());
+  await page.getByRole("dialog", { name: "Find a referral guided tutorial", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "Open Workspaces", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("learning_workflow_step", "interaction", async () => {
-  await page.getByRole("navigation", { name: "Presentation slides", exact: true }).getByRole("combobox", { name: "Jump to slide", exact: true }).selectOption("2");
-  await page.getByRole("heading", { name: "The workspace opens in Intake", exact: true }).waitFor({ state: "visible" });
+await measureJourney("learning_workflow_step", "guide", async () => {
+  await activate(page.getByRole("button", { name: "Skip step", exact: true }));
+  await page.getByRole("heading", { name: "Search referrals", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_close", "navigation", async () => {
-  await page.goBack();
-  await page.locator('[data-training-hydrated="true"]').waitFor({ state: "visible" });
+  await activate(page.getByRole("button", { name: "End tutorial", exact: true }));
+  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_task_open", "overlay", async () => {
-  await activate(page.getByRole("button", { name: "Open Finish an assessment", exact: true }));
-  await page.getByRole("heading", { name: "Finish an assessment", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("button", { name: /^Finish an assessment / }).first());
+  await page.getByRole("dialog", { name: "Finish an assessment guided tutorial", exact: true }).waitFor({ state: "visible" });
+  await page.getByTestId("assessment-client-folder").waitFor({ state: "visible" });
 });
 await page.waitForLoadState("networkidle");
 await afterNextPaint(page);
@@ -467,7 +465,7 @@ const result = {
   certification_limits: limits,
   checks: {},
   fixture_mode: useSanitizedFixtures ? "sanitized_test_only" : "none",
-  note: "The scorecard records route templates and aggregate timings only. It never records query strings, response bodies, client names, resident identifiers, referral identifiers, diagnoses, medications, documents, or tokens.",
+  note: "Response budgets start at the first trusted browser input and end after the existing content checks and paint. Driver actionability wait remains in automation_duration_ms and navigation_phases; actions without a trusted input retain the full driver duration. The scorecard records aggregate timings only, never clinical values or tokens.",
 };
 
 const navigationJourneys = result.warm_journeys.filter((journey) => journey.kind === "navigation");
@@ -495,15 +493,34 @@ result.checks = {
 };
 result.ok = Object.values(result.checks).every(Boolean);
 
+await context.close();
 await browser.close();
 console.log(JSON.stringify(result, null, 2));
-if (enforce && !result.ok) process.exit(1);
+if (enforce && !result.ok) process.exitCode = 1;
 
 async function measureJourney(name, kind, action) {
+  await page.evaluate(() => {
+    globalThis.__pipelinePerformance.journey = { startedAt: performance.now(), inputAt: null };
+  });
   const startedAt = performance.now();
   await action();
   await afterNextPaint(page);
-  journeys.push({ name, kind, duration_ms: performance.now() - startedAt });
+  const automationDuration = performance.now() - startedAt;
+  const inputTiming = await page.evaluate(() => {
+    const journey = globalThis.__pipelinePerformance.journey;
+    return journey.inputAt === null ? null : {
+      input_wait_ms: journey.inputAt - journey.startedAt,
+      input_to_content_ms: performance.now() - journey.inputAt,
+    };
+  });
+  // Animated hover targets make Playwright wait before delivering a click.
+  // Keep that driver time visible without calling it application response.
+  // No observed input means no subtraction (history and binary reads included).
+  journeys.push({ name, kind,
+    duration_ms: inputTiming?.input_to_content_ms ?? automationDuration,
+    automation_duration_ms: round(automationDuration),
+  });
+  if (inputTiming) navigationPhases[name] = roundObject(inputTiming);
 }
 
 async function activate(locator) {
@@ -518,11 +535,6 @@ async function waitForReport(targetPage, label) {
       .some((button) => button.textContent?.trim() === "Apply");
     return reportReady && controlsReady;
   }, label);
-}
-
-async function recordPhase(target, name, startedAt, operation) {
-  await operation;
-  target[name] = round(performance.now() - startedAt);
 }
 
 function summarizeApi(samples) {
