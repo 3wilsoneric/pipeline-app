@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
 import { readFile } from "node:fs/promises";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import postgres from "postgres";
+import { loadEntry } from "./contact-import-fixtures.mjs";
+import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const databaseUrl = process.env.PIPELINE_TEST_DATABASE_URL?.trim();
 if (!databaseUrl) fail("Configure PIPELINE_TEST_DATABASE_URL before running integration fixtures.");
@@ -184,6 +188,8 @@ try {
         name: "synthetic graph is queryable",
         ok: syntheticGraphIsQueryable(rows[0]),
       });
+      await checkEditingPresenceSections(tx);
+      checks.push({ name: "every assessment section supports presence without changing clinical data or lease ownership", ok: true });
       throw rollbackSentinel;
     });
   } catch (error) {
@@ -216,6 +222,39 @@ function databaseOptions(max) {
     prepare: false,
     onnotice: () => undefined,
   };
+}
+
+async function checkEditingPresenceSections(tx) {
+  const { assessmentToolSections } = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
+  const sections = ["identity", "intake", "documents", "assessment", "workflow", "decision",
+    ...assessmentToolSections.map((section) => `assessment:${section}`)];
+  const owner = loadEntry("lib/pipeline/editing-presence.ts", {
+    "@/lib/database/pipeline-database": { getPipelineSql: () => tx },
+    "@/lib/pipeline/referral-store": { getReferralStoreReadiness: () => ({ mode: "postgres" }) },
+    "@/lib/observability/pipeline-metrics": { recordPipelineMetric: () => {} },
+  });
+  const [existing] = await tx`select * from pipeline.editing_presence where actor_id = 'fixture-user' limit 1`;
+  assert.ok(existing);
+  const before = await tx`select row_to_json(r) as record from pipeline.referrals r where referral_id = ${existing.referral_id}`;
+  const input = { leaseId: randomUUID(), referralId: Number(existing.referral_id), actor: { id: "presence-fixture", name: "Synthetic presence fixture" } };
+  for (const section of sections) {
+    assert.equal(owner.isEditingPresenceSection(section), true, section);
+    const saved = await owner.heartbeatEditingPresence({ ...input, section });
+    assert.equal(saved.section, section);
+    assert.equal(saved.lease_id, input.leaseId);
+  }
+  assert.equal(await owner.heartbeatEditingPresence({ ...input, section: "intake", actor: { id: "other-fixture", name: "Other fixture" } }), null);
+  for (const section of ["assessment:not_a_section", "physical_health", "assessment:physical_health "]) {
+    assert.equal(owner.isEditingPresenceSection(section), false);
+    await assert.rejects(tx.savepoint(async (sp) => {
+      await sp`update pipeline.editing_presence set section = ${section} where lease_id = ${input.leaseId}::uuid`;
+    }), (error) => error.code === "23514" && error.constraint_name === "editing_presence_section_check");
+  }
+  assert.equal(await owner.releaseEditingPresence(input.leaseId, input.referralId, "other-fixture"), false);
+  assert.equal(await owner.releaseEditingPresence(input.leaseId, input.referralId, input.actor.id), true);
+  const [retained] = await tx`select * from pipeline.editing_presence where lease_id = ${existing.lease_id}::uuid`;
+  assert.deepEqual(retained, existing);
+  assert.deepEqual(await tx`select row_to_json(r) as record from pipeline.referrals r where referral_id = ${existing.referral_id}`, before);
 }
 
 function syntheticGraphIsQueryable(row) {

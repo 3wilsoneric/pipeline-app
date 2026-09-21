@@ -57,6 +57,7 @@ const REQUIRED_PIPELINE_MIGRATIONS = [
   "0038_assessment_packet_finalization",
   "0041_community_recipient_lists",
   "0042_admission_packet_links",
+  "0043_presence_physical_health",
 ] as const;
 
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {

@@ -1,0 +1,142 @@
+"use client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, ExternalLink, LoaderCircle, Mail, RefreshCw } from "lucide-react";
+import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { acquireOutlookToken } from "@/lib/auth/outlook-client";
+import { safeOutlookWebLink, type OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
+import { useConfirmationDialog } from "./useConfirmationDialog";
+import styles from "./OutlookHandoffControls.module.css";
+
+type State = { draft: OutlookDraftView | null; occupied: boolean; demo?: boolean };
+export default function OutlookHandoffControls({ referralId, selected, demo, ready, sending, onPrepare, onSent, onExistingDraft }: {
+  referralId: number; selected: boolean; demo: boolean; ready: boolean; sending: boolean;
+  onPrepare: (token: string) => Promise<OutlookDraftView | undefined>;
+  onSent: () => void; onExistingDraft: (present: boolean) => void;
+}) {
+  const [state, setState] = useState<State>({ draft: null, occupied: false });
+  const [mailbox, setMailbox] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [popupBlocked, setPopupBlocked] = useState(false);
+  const active = useRef(false);
+  const { confirm, confirmationDialog } = useConfirmationDialog();
+  const endpoint = `/api/referrals/${referralId}/outlook-draft`;
+  const callbacks = useRef({ onSent, onExistingDraft });
+  useEffect(() => { callbacks.current = { onSent, onExistingDraft }; }, [onSent, onExistingDraft]);
+  const load = useCallback(async (signal?: AbortSignal) => {
+    const next = await fetchPipelineJson<State>(endpoint, { cache: "no-store", signal });
+    if (signal?.aborted) return;
+    setState(next);
+    callbacks.current.onExistingDraft(Boolean(next.draft && next.draft.status !== "sent"));
+    if (next.draft?.status === "sent") callbacks.current.onSent();
+  }, [endpoint]);
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+    setLoading(true);
+    void load(controller.signal).catch(() => { if (!cancelled) setError("Outlook draft status could not be loaded. Retry before preparing a new draft."); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; controller.abort(); };
+  }, [load]);
+  useEffect(() => {
+    if (!selected || demo || state.demo) return;
+    let cancelled = false;
+    const reconnect = async () => {
+      const token = await acquireOutlookToken();
+      if (!token || cancelled) return;
+      const result = await fetchPipelineJson<{ mailbox: string }>(endpoint, { method: "POST", headers: { "x-pipeline-outlook-token": token }, body: JSON.stringify({ action: "connect" }) });
+      if (!cancelled) setMailbox(result.mailbox);
+    };
+    void reconnect().catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [selected, demo, state.demo, endpoint]);
+  const action = async (name: "connect" | "check" | "discard", token: string) => {
+    const result = await fetchPipelineJson<{ mailbox?: string; draft?: OutlookDraftView }>(endpoint, {
+      method: "POST", headers: { "x-pipeline-outlook-token": token },
+      body: JSON.stringify({ action: name, packet_id: state.draft?.packet_id, confirmed: name === "discard" }),
+    }, { timeoutMs: 90_000 });
+    if (result.mailbox) setMailbox(result.mailbox);
+    if (result.draft) acceptDraft(result.draft);
+    return result;
+  };
+  const acceptDraft = (draft: OutlookDraftView) => {
+    setState({ draft: draft.status === "discarded" ? null : draft, occupied: false });
+    callbacks.current.onExistingDraft(!["sent", "discarded"].includes(draft.status));
+    if (draft.status === "sent") callbacks.current.onSent();
+  };
+  const run = async (operation: () => Promise<void>) => {
+    if (active.current) return;
+    active.current = true; setBusy(true); setError("");
+    try { await operation(); }
+    catch (reason) { if (reason instanceof PipelineApiError && [401, 403, 428].includes(reason.status)) setMailbox(""); setError(reason instanceof Error ? reason.message : "Outlook could not complete that step. Your work is saved."); }
+    finally { active.current = false; setBusy(false); }
+  };
+  const requireToken = async (interactive = false) => {
+    const token = await acquireOutlookToken(interactive);
+    if (!token) { setMailbox(""); throw new Error("Reconnect Outlook to continue. Your existing draft will be kept."); }
+    return token;
+  };
+  const connect = () => run(async () => { await action("connect", await requireToken(true)); });
+  const check = () => run(async () => { await action("check", await requireToken()); });
+  const prepare = () => {
+    if (active.current || sending) return;
+    // Open immediately in the click event so Safari/iPad do not lose the user
+    // gesture while the packet is prepared. The fallback link remains visible.
+    const tab = window.open("about:blank", "_blank");
+    if (tab) tab.opener = null;
+    void run(async () => {
+      try {
+        const draft = await onPrepare(await requireToken());
+        if (!draft) { tab?.close(); return; }
+        acceptDraft(draft);
+        const link = safeOutlookWebLink(draft.web_link);
+        if (link && tab) tab.location.replace(link);
+        else { tab?.close(); setPopupBlocked(true); }
+      } catch (reason) { tab?.close(); await load().catch(() => undefined); throw reason; }
+    });
+  };
+  const discard = async () => {
+    const changed = state.draft?.status === "needs_review";
+    if (!await confirm({ title: changed ? "Prepare an updated handoff?" : "Remove this Outlook draft?", message: changed
+      ? "Outlook already sent this email. Its packet link will stop working and the original send will stay in the activity record. Review the latest assessment, recipients and files before creating another handoff."
+      : "Its packet link will stop working. Pipeline will remove the draft from Outlook, then you can prepare a replacement. An email already sent cannot be recalled.", confirmLabel: changed ? "Review updated handoff" : "Remove draft", destructive: true })) return;
+    await run(async () => { await action("discard", await requireToken()); });
+  };
+  if (!selected) return null;
+  const draft = state.draft;
+  const disabled = busy || sending || loading;
+  const isDemo = demo || state.demo;
+  const link = safeOutlookWebLink(draft?.web_link);
+  const connected = Boolean(mailbox);
+  const renderHeading = () => (<div className={styles.heading}><span className={styles.icon}><Mail size={22} aria-hidden="true" /></span><div><h3>{isDemo ? "Outlook preview" : draft ? "Your Outlook draft" : "Send from your Outlook"}</h3><p>{connected ? mailbox : "Use your Pipeline work account."}</p></div><span className={styles.badge}>{isDemo ? "Not production yet" : connected ? <><Check size={13} /> Connected</> : "Not connected"}</span></div>);
+  const preparationDisabled = disabled || !ready || isDemo || state.occupied;
+  const renderPrimaryAction = () => (isDemo ? <button type="button" className={styles.primary} disabled><ExternalLink size={16} />Open in Outlook</button> : !connected ? <button type="button" className={styles.primary} disabled={disabled || isDemo} onClick={() => void connect()}>{busy ? <LoaderCircle size={16} className={styles.spin} /> : <Mail size={16} />}Connect Outlook</button>
+        : !draft ? <button type="button" className={styles.primary} disabled={preparationDisabled} onClick={prepare}>{busy || sending ? <LoaderCircle size={16} className={styles.spin} /> : <ExternalLink size={16} />}Open in Outlook</button>
+          : <button type="button" className={styles.primary} disabled={disabled || isDemo} onClick={() => void check()}><RefreshCw size={16} className={busy ? styles.spin : undefined} />Check sent status</button>);
+  const renderActions = () => (<div className={styles.actions}>
+      {renderPrimaryAction()}
+      {link ? <a className={styles.secondary} href={link} target="_blank" rel="noopener noreferrer">Reopen draft<ExternalLink size={14} /></a> : null}
+      {draft && draft.status !== "sent" ? <button type="button" className={styles.quiet} disabled={disabled || isDemo} onClick={() => void discard()}>{draft.status === "needs_review" ? "Prepare updated handoff" : "Remove draft"}</button> : null}
+      {error && !draft ? <button type="button" className={styles.quiet} disabled={disabled} onClick={() => void run(load)}>Retry status</button> : null}
+    </div>);
+  const reviewHint = !draft && connected && !ready;
+  const renderMessages = () => {
+    if (isDemo) return <p className={styles.hint}>Not production yet — no email will be sent.</p>;
+    return <>
+    {state.occupied ? <p role="status" className={styles.hint}>A teammate already has an Outlook draft for this workspace. Complete or remove that draft first.</p> : null}
+    {draft ? <p className={styles.hint} role="status">{draft.message || "Prepared in Outlook, not sent. Keep the reviewed recipients, send from Outlook, then check sent status here."}</p>
+      : <p className={styles.hint}>Your recipients, message and complete packet link will be ready in Drafts. You choose when to send.</p>}
+    {error ? <p className={styles.error} role="alert">{error}</p> : null}
+    {popupBlocked && link ? <p role="status" className={styles.hint}>Your draft is saved. Use “Reopen draft” to open Outlook.</p> : null}
+
+    {reviewHint ? <p className={styles.hint}>Finish the email review and verify recipients to prepare your draft.</p> : null}</>;
+  };
+  return <section className={styles.panel} aria-label="Outlook handoff">
+    {renderHeading()}
+    {renderMessages()}
+    {renderActions()}
+    <details className={styles.setup}><summary>Connection setup</summary><ol><li>Use your own Microsoft 365 work account to sign in to Pipeline.</li><li>One-time organization setup: in Microsoft Entra, open the Pipeline app’s API permissions. Add Microsoft Graph delegated <strong>Mail.ReadWrite</strong> and <strong>User.Read</strong>, then grant consent.</li><li>Choose <strong>Connect Outlook</strong> here and select that same work account.</li></ol><p>Connecting lets Pipeline prepare and check its handoff draft. You send from Outlook. Packet verification emails must also be enabled before live use.</p></details>
+    {confirmationDialog}
+  </section>;
+}

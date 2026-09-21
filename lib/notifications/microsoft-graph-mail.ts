@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
 import {
   graphInlineAttachmentLimitBytes,
@@ -23,6 +24,14 @@ export type GraphMailReadiness = {
   largeAttachmentDeliveryConfigured: boolean;
 };
 
+// Enabling infrastructure or adding credentials must never activate delivery.
+// Change this switch only after the owner explicitly approves production use.
+export function isMeetClientLive() {
+  return process.env.PIPELINE_MEET_CLIENT_LIVE_ENABLED === "true"
+    && !getPipelineDemoEnvironment().enabled
+    && process.env.PIPELINE_PERSONA_DEMO !== "true";
+}
+
 export function getGraphMailReadiness(): GraphMailReadiness {
   if (process.env.PIPELINE_PERSONA_DEMO === "true") return {
     configured: false, missing: ["Email delivery is disabled in this environment."],
@@ -38,6 +47,7 @@ export function getGraphMailReadiness(): GraphMailReadiness {
     process.env.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS,
   );
   const missing = Object.entries(values).filter(([, value]) => !value).map(([name]) => name);
+  if (!isMeetClientLive()) missing.push("PIPELINE_MEET_CLIENT_LIVE_ENABLED (owner approval required)");
   if (allowedRecipientDomains.length === 0) missing.push("PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS");
   return {
     configured: missing.length === 0,

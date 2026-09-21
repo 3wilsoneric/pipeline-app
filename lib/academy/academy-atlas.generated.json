@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:05acf21eb9a1e4e8",
-  "fingerprint": "05acf21eb9a1e4e845d4f81cdbd8df539f31119a415665765c37d59631e10a29",
+  "generatedAt": "source-fingerprint:c09b05b485fc2fe5",
+  "fingerprint": "c09b05b485fc2fe52e760ab527eb06882da0f4ebc5614fc4bc0f77efaa6b4643",
   "totals": {
-    "files": 1350,
-    "lines": 360040,
-    "coveredFiles": 1350
+    "files": 1361,
+    "lines": 361071,
+    "coveredFiles": 1361
   },
   "entries": [
     {
@@ -1244,7 +1244,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 165,
+      "lines": 164,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1436,7 +1436,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 416,
+      "lines": 448,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1450,6 +1450,19 @@
       "runtime": "next-server",
       "risk": "high",
       "lines": 69,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/referrals/[referralId]/outlook-draft/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 62,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -2077,7 +2090,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 502,
+      "lines": 535,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2617,7 +2630,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 145,
+      "lines": 153,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2657,6 +2670,30 @@
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
+      ]
+    },
+    {
+      "path": "components/pipeline/OutlookHandoffControls.module.css",
+      "subsystem": "Pipeline UI",
+      "kind": "repository-file",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 25,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/OutlookHandoffControls.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 143,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
       ]
     },
     {
@@ -3673,7 +3710,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 49,
+      "lines": 50,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4184,6 +4221,18 @@
       ]
     },
     {
+      "path": "database/migrations/0043_presence_physical_health.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 23,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -4634,6 +4683,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 13,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0043_presence_physical_health.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 21,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -5487,6 +5548,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 225,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/outlook-handoff-setup.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 30,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8126,6 +8199,18 @@
       ]
     },
     {
+      "path": "lib/auth/outlook-client.ts",
+      "subsystem": "Identity and access",
+      "kind": "typescript-module",
+      "runtime": "next-server",
+      "risk": "critical",
+      "lines": 31,
+      "moduleIds": [
+        "authorization-phi",
+        "entra-session"
+      ]
+    },
+    {
       "path": "lib/auth/pipeline-auth.ts",
       "subsystem": "Identity and access",
       "kind": "typescript-module",
@@ -8275,7 +8360,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 131,
+      "lines": 132,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -8826,7 +8911,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 76,
+      "lines": 77,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8838,7 +8923,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 123,
+      "lines": 149,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -8910,7 +8995,43 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 384,
+      "lines": 394,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/outlook-draft-contract.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 22,
+      "moduleIds": [
+        "assessment-calendar-profiles-ui",
+        "frontend-resilience"
+      ]
+    },
+    {
+      "path": "lib/notifications/outlook-handoff.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 169,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/outlook-mail.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 87,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9666,7 +9787,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 153,
+      "lines": 174,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -11326,7 +11447,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 259,
+      "lines": 268,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13174,7 +13295,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 301,
+      "lines": 304,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13271,6 +13392,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 101,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/outlook-handoff.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 177,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13498,7 +13631,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 245,
+      "lines": 284,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15071,7 +15204,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 479,
+      "lines": 537,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

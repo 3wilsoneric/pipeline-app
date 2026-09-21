@@ -100,7 +100,7 @@ test("data sheet contains canonical chart sections, recorded version, unsigned s
   assert.ok(draft.includes("Assessment not yet recorded"));
 });
 
-const env = { PIPELINE_GRAPH_TENANT_ID: "synthetic-tenant", PIPELINE_GRAPH_CLIENT_ID: "synthetic-client", PIPELINE_GRAPH_CLIENT_SECRET: "synthetic-not-a-secret", PIPELINE_MEET_CLIENT_SENDER: "sender@example.test", PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS: "example.test" };
+const env = { NODE_ENV: "production", PIPELINE_MEET_CLIENT_LIVE_ENABLED: "true", PIPELINE_GRAPH_TENANT_ID: "synthetic-tenant", PIPELINE_GRAPH_CLIENT_ID: "synthetic-client", PIPELINE_GRAPH_CLIENT_SECRET: "synthetic-not-a-secret", PIPELINE_MEET_CLIENT_SENDER: "sender@example.test", PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS: "example.test" };
 
 test("recipient limit covers a 22-contact community, with strict domains and a combined bounded audience", () => {
   const graph = loadTypeScriptModule(root, "lib/notifications/microsoft-graph-mail.ts", { process: { ...process, env } });
@@ -158,13 +158,13 @@ test("demo messages clearly identify the packet as not live without changing liv
   const names = ["Referral.pdf", "Medication list.xlsx", "Assessment.docx"];
   const demo = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", names, undefined, { demo: true });
   assert.match(demo.subject, /^\[DEMO\] Meet the Client/);
-  assert.match(demo.html, /Demo — not live/);
-  assert.match(demo.html, /message and admission packet will not be sent/);
+  assert.match(demo.html, /Not production yet/);
+  assert.match(demo.html, /no email will be sent. This admission packet is a demo/);
   assert.match(demo.html, /every file uploaded to this workspace/);
   for (const name of names) assert.ok(demo.html.includes(name));
   const live = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "delivery", names);
   assert.doesNotMatch(live.subject, /DEMO/);
-  assert.doesNotMatch(live.html, /Demo — not live/);
+  assert.doesNotMatch(live.html, /Not production yet/);
 });
 
 test("packet inventory keeps every page, waits for unsafe files, then uses a secure link beyond email limits", async () => {
