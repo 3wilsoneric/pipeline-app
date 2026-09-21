@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:20541be6708eed9b",
-  "fingerprint": "20541be6708eed9bb2357e3625933f33f47d089532211ec72b4e544a443431d2",
+  "generatedAt": "source-fingerprint:c09b05b485fc2fe5",
+  "fingerprint": "c09b05b485fc2fe52e760ab527eb06882da0f4ebc5614fc4bc0f77efaa6b4643",
   "totals": {
-    "files": 1359,
-    "lines": 360955,
-    "coveredFiles": 1359
+    "files": 1361,
+    "lines": 361071,
+    "coveredFiles": 1361
   },
   "entries": [
     {
@@ -3710,7 +3710,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 49,
+      "lines": 50,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4221,6 +4221,18 @@
       ]
     },
     {
+      "path": "database/migrations/0043_presence_physical_health.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 23,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -4671,6 +4683,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 13,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0043_presence_physical_health.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 21,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -8336,7 +8360,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 131,
+      "lines": 132,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -13607,7 +13631,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 245,
+      "lines": 284,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15180,7 +15204,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 504,
+      "lines": 537,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16393,7 +16417,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 83,
+      "lines": 81,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
