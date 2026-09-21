@@ -488,6 +488,7 @@ const meetClientAttachments = read("lib/notifications/meet-client-attachments.ts
 const meetClientTemplateSource = read("lib/notifications/meet-client-email-template.ts");
 const deliveryAudit = read("lib/pipeline/meet-client-delivery-audit.ts");
 const assessmentChartWorkspace = read("components/pipeline/AssessmentChartWorkspace.tsx");
+const meetClientMessageEditor = read("components/pipeline/MeetClientMessageEditor.tsx");
 const referralPacketCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
 
 check("referral assignment propagates to open assessments", referralStore.includes("syncLocalOpenAssessmentAssignment") && referralStore.includes("syncPostgresOpenAssessmentAssignment"));
@@ -579,11 +580,14 @@ check("current workspaces expose Assessment and Chart while transferred charts s
     && referralPacketCanvas.includes('<TransferredWorkspaceChart')
     && referralPacketCanvas.includes('displayedPage === 3')
     && referralPacketCanvas.includes('usesSourceProfile'));
-check("the Chart and email surfaces retain the signed record and server-generated handoff without embedding decision controls",
+check("the Chart and email surfaces retain the signed record and sandboxed handoff without embedding decision controls",
   assessmentChartWorkspace.includes("<AssessmentRecord")
     && assessmentChartWorkspace.includes("<CompleteAssessmentChart")
     && assessmentChartWorkspace.includes("<MeetClientEmailPreview")
-    && assessmentChartWorkspace.includes('srcDoc={email.preview.html} sandbox=""')
+    && assessmentChartWorkspace.includes("<MeetClientMessageEditor")
+    && meetClientMessageEditor.includes('srcDoc={rendered.html} sandbox=""')
+    && meetClientMessageEditor.includes("renderMeetClientEmail(summary,")
+    && /renderMeetClientEmail\(\s*input\.summary,\s*input\.preparedBy,\s*input\.deliveryId,\s*input\.attachments\.map\(\(attachment\) => attachment\.name\),\s*input\.message,/.test(graphMail)
     && !assessmentChartWorkspace.includes("DecisionPanel")
     && !assessmentChartWorkspace.includes("overrideReason"));
 check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')

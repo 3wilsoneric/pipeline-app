@@ -19,7 +19,7 @@
 .sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: 6px; background: #087d66; color: #fff; font-size: 16px; font-weight: 650; }
 .sendButton:hover:enabled { background: #06634f; }
 .sendButton:disabled { background: #e9e9e9; color: #616161; cursor: not-allowed; }
-.addressRow { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: start; gap: 16px; margin: 0 28px; padding: 12px 0; border-bottom: 1px solid #ededed; font-size: 16px; line-height: 26px; }
+.addressRow { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: start; gap: 16px; margin: 0 28px; padding: 12px 0; border-bottom: 1px solid #ededed; font-size: 16px; line-height: 26px; }
 .addressRow > :first-child { color: #616161; white-space: nowrap; }
 .addressRow textarea { min-height: 24px; width: 100%; resize: vertical; background: transparent; outline-offset: 4px; }
 .addressRow textarea::placeholder { color: #707070; }
@@ -112,7 +112,7 @@
   .pageHeader p { font-size: 15px; }
   .toolbar { padding: 10px 12px; gap: 12px; flex-wrap: wrap; }
   .sendButton, .textButton { min-height: 44px; }
-  .addressRow { grid-template-columns: 56px minmax(0, 1fr); margin: 0 14px; gap: 8px; padding: 13px 0; }
+  .addressRow { margin: 0 14px; gap: 8px; padding: 13px 0; }
   .addressRow textarea { font-size: 16px; }
   .recipientSection { padding: 0 12px; }
   .attachments { padding: 8px 14px 14px; }
