@@ -1,4 +1,5 @@
 import "server-only";
+import { getPlannedAdmissionDate, isAwaitingAdmission } from "./admission-lifecycle";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getClinicalDataReadiness } from "@/lib/clinical/clinical-data";
@@ -668,6 +669,9 @@ function toWorkItem(
     community: referral.community,
     stage: referral.stage,
     workflow_status: workflowStatus,
+    packet_sent_at: context?.packetSentAt,
+    planned_admission_date: getPlannedAdmissionDate(referral),
+    actual_admission_date: referral.actualAdmissionDate,
     flow_state: flowState,
     assignment_state: progress.state.assignment,
     assessment_state: progress.state.assessment,
@@ -830,6 +834,9 @@ function toReferralWorklistItem(
     community: referral.community,
     stage: work.stage,
     workflow_status: work.workflow_status,
+    packet_sent_at: work.packet_sent_at,
+    planned_admission_date: work.planned_admission_date,
+    actual_admission_date: work.actual_admission_date,
     flow_state: work.flow_state,
     assignment_state: work.assignment_state,
     assessment_state: work.assessment_state,
@@ -851,7 +858,7 @@ function toReferralWorklistItem(
     age_hours: work.age_hours,
     completion_pct: work.completion_pct,
     missing_document_count: missingDocuments.length + missingInitialPacketCount(work, referral),
-    location: worklistWorkspaceLocation(primaryCategory, referral),
+    location: isAwaitingAdmission(work.stage, work.outcome_state, work.packet_sent_at) ? { view: "workflow" } : worklistWorkspaceLocation(primaryCategory, referral),
   };
 }
 

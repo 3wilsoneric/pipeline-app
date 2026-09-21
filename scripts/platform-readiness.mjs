@@ -57,6 +57,11 @@ const checks = [
     args: ["scripts/assessor-workflow-contracts.mjs"],
   },
   {
+    name: "Admission dates and packet delivery boundaries",
+    command: "node",
+    args: ["--test", "scripts/admission-lifecycle.test.mjs", "scripts/meet-client-delivery-fixtures.test.mjs", "scripts/client-data-reports.test.mjs"],
+  },
+  {
     name: "Hosted workshop isolation and session boundaries",
     command: "node",
     args: ["--test", "scripts/persona-demo-isolation.test.mjs", "scripts/workshop-gateway.test.mjs"],

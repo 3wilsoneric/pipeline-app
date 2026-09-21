@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { getPlannedAdmissionDate, plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
 
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
@@ -206,6 +207,8 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   if (snapshot.decision?.outcome !== "accepted") {
     return { ok: false as const, response: jsonError("Record an accepted admission decision before emailing Meet the Client.", 422) };
   }
+  const dateError = plannedAdmissionDateError(getPlannedAdmissionDate(snapshot.referral));
+  if (dateError) return { ok: false as const, response: jsonError(dateError, 422) };
   const assessment = selectSignedAssessment(
     assessmentList.assessments,
     snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,

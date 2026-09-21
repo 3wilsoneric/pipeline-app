@@ -1,5 +1,6 @@
 "use client";
 
+import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -61,7 +62,7 @@ export default function ReferralWorkflowPanel({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [recommendationDraft, setRecommendationDraft] = useState<RecommendationDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
-  const [admissionDateDraft, setAdmissionDateDraft] = useState(referral.admissionDate ?? "");
+  const [admissionDateDraft, setAdmissionDateDraft] = useState(getPlannedAdmissionDate(referral));
   const [manualIntakeReason, setManualIntakeReason] = useState("");
   const [pendingDetail, setPendingDetail] = useState<PendingWorkflowDetail | null>(null);
   const mutationIds = useRef(new Map<string, string>());
@@ -82,7 +83,7 @@ export default function ReferralWorkflowPanel({
         reasonNote: payload.recommendation?.reasonNote ?? "",
       });
     }
-    if (!admissionDateDirty.current) setAdmissionDateDraft(payload.referral.admissionDate ?? "");
+    if (!admissionDateDirty.current) setAdmissionDateDraft(getPlannedAdmissionDate(payload.referral));
     setLoading(false);
   }, [referral.id]);
 
@@ -213,15 +214,15 @@ export default function ReferralWorkflowPanel({
     );
   };
 
-  const submitTransition = (target: ReferralStage) => {
+  const submitTransition = (target: ReferralStage, actualAdmissionDate?: string) => {
     if (target === "Accepted / Admitted" && !window.confirm(
-      "Mark this referral admitted? Missing dates and documents will remain visible and unresolved. This closes the active referral stage.",
+      `Confirm the client arrived on ${actualAdmissionDate}? This moves the referral to Finished referrals. Its workspace and files remain available.`,
     )) return;
     void runMutation(
       `transition:${target}:${currentReferral.version}`,
       `/api/referrals/${currentReferral.id}/transition`,
       "POST",
-      { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: target },
+      { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: target, ...(actualAdmissionDate ? { actual_admission_date: actualAdmissionDate } : {}) },
       target === "Accepted / Admitted" ? "Admission recorded" : `Moved to ${target}`,
     );
   };
@@ -231,7 +232,7 @@ export default function ReferralWorkflowPanel({
       setError("Record an accepted decision before preparing Meet the Client.");
       return false;
     }
-    if (admissionDateDraft === (currentReferral.admissionDate ?? "")) {
+    if (admissionDateDraft === getPlannedAdmissionDate(currentReferral)) {
       if (!admissionDateDraft) setMessage("Admission date is not provided. You can still preview Meet the Client.");
       if (openPreview) onOpenEmail();
       return true;
@@ -240,7 +241,7 @@ export default function ReferralWorkflowPanel({
       `admit-date:${currentReferral.version}:${sections.intake}`,
       `/api/referrals/${currentReferral.id}`,
       "PATCH",
-      { if_match: currentReferral.version, if_match_sections: { intake: sections.intake }, patch: { admissionDate: admissionDateDraft } },
+      { if_match: currentReferral.version, if_match_sections: { intake: sections.intake }, patch: { plannedAdmissionDate: admissionDateDraft } },
       "Date of admit recorded",
     );
     if (saved && openPreview) onOpenEmail();

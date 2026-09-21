@@ -86,11 +86,22 @@ test("invalid route identities and denied roles cannot reserve or send an email"
   assert.equal(denied.reservationCalls(), 0);
 });
 
-test("acceptance at a draft version allows an explicit send after signing, without an admission date", async () => {
-  const fixture = deliveryFixture({ admissionDate: "", decisionVersion: 1 });
+test("acceptance at a draft version allows an explicit send after signing with a planned admission date", async () => {
+  const fixture = deliveryFixture({ decisionVersion: 1 });
   assert.equal((await fixture.send()).status, 200);
   assert.equal(fixture.providerCalls(), 1);
   assert.equal(fixture.audits[0].assessmentVersion, 7);
+});
+
+test("missing or invalid planned dates cannot reserve a delivery or contact the provider", async () => {
+  for (const admissionDate of ["", "not-a-date", "2026-02-30"]) {
+    const fixture = deliveryFixture({ admissionDate });
+    const response = await fixture.send();
+    assert.equal(response.status, 422);
+    assert.match((await response.json()).error, /planned admission date/);
+    assert.equal(fixture.providerCalls(), 0);
+    assert.equal(fixture.reservationCalls(), 0);
+  }
 });
 
 test("stale previews and unsigned or unrelated assessments cannot reserve or send", async () => {
@@ -140,6 +151,7 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error {}
   const dependencies = {
+    "@/lib/pipeline/admission-lifecycle": loadTypeScriptModule(process.cwd(), "lib/pipeline/admission-lifecycle.ts"),
     "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ writable: exampleOnly }) },
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
       assert.equal(roles, undefined);

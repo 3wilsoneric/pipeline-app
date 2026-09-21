@@ -77,9 +77,10 @@ export async function packetContentUploadResults() {
     assert.equal(decision.ok, true, `Decision: ${JSON.stringify(decision)}`);
     const forAdmission = await workflow.getReferralWorkflowSnapshot(sameName.referral.id);
     const admitted = await workflow.transitionReferral(sameName.referral.id, "Accepted / Admitted",
-      forAdmission.referral.version, forAdmission.referral.sectionVersions.workflow, actor);
+      forAdmission.referral.version, forAdmission.referral.sectionVersions.workflow, actor, undefined, "2026-09-16");
     assert.equal(admitted.ok, true, `Admission: ${JSON.stringify(admitted)}`);
     assert.equal(admitted.referral.admissionDate ?? "", "");
+    assert.equal(admitted.referral.actualAdmissionDate, "2026-09-16");
     return [{ name, ok: true }, { name: "matching names and incomplete assessments progress through signing, review and explicit admission without invented answers", ok: true }];
   } catch (error) {
     return [{ name, ok: false, error: String(error.message ?? error) }];

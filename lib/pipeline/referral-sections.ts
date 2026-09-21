@@ -27,6 +27,8 @@ const sectionByField = {
   assignmentVersion: "intake",
   note: "intake",
   admissionDate: "intake",
+  plannedAdmissionDate: "intake",
+  actualAdmissionDate: "workflow",
   responsiblePerson: "intake",
   currentMedications: "intake",
   interview: "intake",

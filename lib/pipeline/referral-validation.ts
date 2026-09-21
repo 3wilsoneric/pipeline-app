@@ -64,6 +64,7 @@ export const stringLimits = {
   reportedAge: 40,
   ssn: 32,
   admissionDate: 40,
+  plannedAdmissionDate: 40,
   responsiblePerson: 500,
   currentMedications: 20_000,
   phone: 80,
@@ -119,7 +120,7 @@ export function validateReferralCreateInput(
   }
 
   const enumChecks = [
-    validateCalendarDates(value, ["date", "dob", "admissionDate"]),
+    validateCalendarDates(value, ["date", "dob", "admissionDate", "plannedAdmissionDate"]),
     validateEnum(value.stage, "stage", boardStages),
     validateEnum(value.community, "community", pipelineCommunities),
     validateEnum(value.priority, "priority", priorities),
@@ -132,12 +133,13 @@ export function validateReferralCreateInput(
     return invalid("New referrals must start in the New stage.");
   }
   if (typeof value.admissionDate === "string" && value.admissionDate.trim()) {
-    return invalid("A new referral cannot have an actual admission date.");
+    return invalid("Set the planned admission date after recording acceptance.");
   }
 
   const timestampResult = validateTimestamp(value.createdAt, "createdAt");
   if (!timestampResult.ok) return timestampResult;
 
+  if ("actualAdmissionDate" in value) return invalid("Confirm actual admission from the referral workflow.");
   const commonResult = validateCommonFields(value);
   if (!commonResult.ok) return commonResult;
 
@@ -156,7 +158,7 @@ export function validateReferralPatch(
     "id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId", "owners", "chartSource",
     "workflowStatus", "assignedAt", "assignmentDueAt", "assignmentVersion",
     "assessmentRecommendation", "assessmentReview", "assessmentReviewHistory", "admissionDecision",
-    "manualIntakeAuthorization", "ehrHandoff", "interview", "assessment",
+    "manualIntakeAuthorization", "ehrHandoff", "interview", "assessment", "actualAdmissionDate",
   ] as const) {
     if (protectedField in value) {
       return invalid(`${protectedField} cannot be changed through a referral patch.`);
@@ -178,6 +180,7 @@ export function validateReferralPatch(
     ["reportedAge", "reportedAge"],
     ["ssn", "ssn"],
     ["admissionDate", "admissionDate"],
+    ["plannedAdmissionDate", "plannedAdmissionDate"],
     ["responsiblePerson", "responsiblePerson"],
     ["currentMedications", "currentMedications"],
     ["phone", "phone"],
@@ -195,7 +198,7 @@ export function validateReferralPatch(
     if (!result.ok) return result;
   }
   const enumChecks = [
-    validateCalendarDates(value, ["date", "dob", "admissionDate"]),
+    validateCalendarDates(value, ["date", "dob", "admissionDate", "plannedAdmissionDate"]),
     optionalEnum(value.stage, "stage", boardStages),
     optionalEnum(value.community, "community", pipelineCommunities),
     optionalEnum(value.priority, "priority", priorities),
@@ -505,7 +508,7 @@ function validateTimestamp(value: unknown, field: string) {
 
 function validateCalendarDates(
   value: Record<string, unknown>,
-  fields: readonly ("date" | "dob" | "admissionDate")[],
+  fields: readonly ("date" | "dob" | "admissionDate" | "plannedAdmissionDate")[],
 ): ValidationSuccess<true> | ValidationFailure {
   for (const field of fields) {
     if (!(field in value) || value[field] === undefined || value[field] === "") continue;

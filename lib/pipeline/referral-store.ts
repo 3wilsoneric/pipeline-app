@@ -1052,7 +1052,7 @@ async function patchLocalReferral(
         referral: current,
       };
     }
-    const blockers = getReferralTransitionBlockers(current, patch.stage as ReferralStage, {
+    const blockers = getReferralTransitionBlockers({ ...current, ...safePatch }, patch.stage as ReferralStage, {
       assessmentComplete: await hasCompleteLocalAssessment(current.id),
       decision: safePatch.admissionDecision ?? current.admissionDecision ?? null,
       requirements: safePatch.requirements ?? current.requirements ?? [],
@@ -2015,7 +2015,7 @@ async function patchPostgresReferral(
           const workflow = await getPostgresWorkflowContext(tx, id, current);
           workflow.decision = safePatch.admissionDecision ?? workflow.decision;
           workflow.requirements = safePatch.requirements ?? workflow.requirements;
-          const blockers = getReferralTransitionBlockers(current, patch.stage as ReferralStage, workflow);
+          const blockers = getReferralTransitionBlockers({ ...current, ...safePatch }, patch.stage as ReferralStage, workflow);
           if (blockers.length > 0) return { ok: false, blocked: true, blockers, referral: current };
         }
       };
@@ -2851,6 +2851,8 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "reportedAge",
     "ssn",
     "admissionDate",
+    "plannedAdmissionDate",
+    "actualAdmissionDate",
     "responsiblePerson",
     "currentMedications",
     "conserved",

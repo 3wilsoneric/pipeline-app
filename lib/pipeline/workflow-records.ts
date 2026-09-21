@@ -18,6 +18,7 @@ export type WorkflowContext = {
   assessmentCreatedAt?: string | null;
   assessmentComplete?: boolean;
   assessmentSigned?: boolean;
+  packetSentAt?: string | null;
   assessmentStarted?: boolean;
   assessmentScheduleStatus?: AssessmentScheduleStatus | null;
   assessmentDate?: string | null;

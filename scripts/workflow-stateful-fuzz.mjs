@@ -26,6 +26,7 @@ const exhaustiveBooleanFields = [
   "declineReason",
   "moveInReady",
   "admissionDateRecorded",
+  "actualAdmissionConfirmed",
   "manualIntakeAuthorized",
 ];
 const preparationActions = [
@@ -41,6 +42,7 @@ const preparationActions = [
   (state) => { state.declineReason = state.declineReason || state.decision === "declined"; },
   (state) => { state.moveInReady = true; },
   (state) => { state.admissionDateRecorded = state.admissionDateRecorded || state.decision === "accepted"; },
+  (state) => { state.actualAdmissionConfirmed = state.actualAdmissionConfirmed || state.decision === "accepted"; },
   (state) => { state.manualIntakeAuthorized = true; },
 ];
 const transitionGateAlerts = {
@@ -261,6 +263,7 @@ function initialState(trace) {
     declineReason: false,
     moveInReady: false,
     admissionDateRecorded: false,
+    actualAdmissionConfirmed: false,
     manualIntakeAuthorized: false,
     accepted: false,
     declined: false,
@@ -277,7 +280,7 @@ function applyRandomPreparation(state) {
 
 function expectedBlockerCodes(state, target) {
   return expectedAlertCodes(state, target).filter((code) => [
-    "admission_decision_required", "decline_decision_required",
+    "admission_decision_required", "admission_actual_date_required", "decline_decision_required",
   ].includes(code));
 }
 
@@ -288,6 +291,7 @@ function expectedAlertCodes(state, target) {
 
 function acceptedAlertCodes(state) {
   const blockers = [];
+  if (!state.actualAdmissionConfirmed) blockers.push("admission_actual_date_required");
   if (state.decision !== "accepted") blockers.push("admission_decision_required");
   if (!state.admissionDateRecorded) blockers.push("admission_date_required");
   if (!state.moveInReady) blockers.push("requirement:signed_admission_agreement");
@@ -309,6 +313,7 @@ function toReferral(state) {
     owner: state.ownerAssigned ? "Synthetic Assessor" : "Unassigned",
     note: "",
     createdAt: new Date(state.receivedMs).toISOString(),
+    actualAdmissionDate: confirmedAdmissionDate(state.actualAdmissionConfirmed),
     admissionDate: state.admissionDateRecorded ? "2026-02-01" : "",
     admissionDecision: state.decision ? {
       outcome: state.decision,
@@ -396,3 +401,5 @@ function mulberry32(value) {
     return ((output ^ output >>> 14) >>> 0) / 4294967296;
   };
 }
+
+function confirmedAdmissionDate(confirmed) { return confirmed ? "2026-02-01" : ""; }

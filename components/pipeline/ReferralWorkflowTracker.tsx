@@ -112,6 +112,7 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
   const status = decision?.label ?? (stage === "in_progress" && item.assessment_state === "scheduled" ? "Assessment scheduled" : workflowStatusLabels[item.workflow_status]);
   const details = [
     { label: "Community", value: item.community },
+    ...plannedAdmissionDetail(item),
     ...(showOwner ? [{ label: "Assessor", value: item.owner || "Unassigned" }] : []),
     { label: "File progress", value: `${Math.round(item.completion_pct)}% complete` },
     { label: "Documents needed", value: String(item.missing_document_count) },
@@ -124,7 +125,7 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
     <span data-folder-body className={`${folderStyles.body} ${boardStyles.body}`}>
       <span className={`${folderStyles.paper} ${boardStyles.paper}`}>
         <span className={boardStyles.fileIndex}>
-          <span>Referral #{item.referral_id}</span>
+          <span>{item.packet_sent_at ? `Packet sent ${formatProfileDate(item.packet_sent_at)}` : `Referral #${item.referral_id}`}</span>
           {item.received_at ? <span>Received {formatProfileDate(item.received_at)}</span> : null}
         </span>
         <span className={boardStyles.nextStep}>
@@ -143,7 +144,7 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
 }
 
 function decisionPresentation(item: ReferralWorklistItem) {
-  if (item.outcome_state === "accepted") return { label: "Accepted", tone: "text-[#176f60]", accent: "border-l-[#0f8b73]" };
+  if (item.outcome_state === "accepted") return { label: item.packet_sent_at ? "Awaiting admission" : "Accepted", tone: "text-[#176f60]", accent: "border-l-[#0f8b73]" };
   if (item.outcome_state === "declined") return { label: "Denied", tone: "text-[#a74338]", accent: "border-l-[#b84b3d]" };
   return { label: "Under review", tone: "text-[#936116]", accent: "border-l-[#b77b27]" };
 }
@@ -233,4 +234,9 @@ function stageBadge(state: ReferralWorklistItem["flow_state"]) {
   if (state === "scheduled") return "bg-[#fff5e7] text-[#80581b]";
   if (state === "assessment") return "bg-[#edf2fb] text-[#36558f]";
   return state === "complete_chart" ? "bg-[#f1f3e9] text-[#536334]" : "bg-[#eef1ef] text-[#49524c]";
+}
+
+function plannedAdmissionDetail(item: ReferralWorklistItem) {
+  if (!item.planned_admission_date) return [];
+  return [{ label: "Planned admission", value: formatProfileDate(item.planned_admission_date) ?? item.planned_admission_date }];
 }

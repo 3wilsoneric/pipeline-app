@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c72640180305a1a7",
-  "fingerprint": "c72640180305a1a7e4c3f10d898bf0e9fe15c878fc4431dba2b5e31788f5e471",
+  "generatedAt": "source-fingerprint:b4913c30abcf89dd",
+  "fingerprint": "b4913c30abcf89dd78dd38bd29c2a1d02114f38d7f6a9aceca710f58ae307cce",
   "totals": {
-    "files": 1299,
-    "lines": 352771,
-    "coveredFiles": 1299
+    "files": 1303,
+    "lines": 353074,
+    "coveredFiles": 1303
   },
   "entries": [
     {
@@ -1183,7 +1183,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 156,
+      "lines": 161,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1375,7 +1375,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 327,
+      "lines": 330,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1465,7 +1465,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 81,
+      "lines": 82,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -1980,7 +1980,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 460,
+      "lines": 462,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2851,6 +2851,18 @@
       ]
     },
     {
+      "path": "components/pipeline/ReferralAdmissionPanel.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 47,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/ReferralClientActivationPanel.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -3012,7 +3024,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 347,
+      "lines": 348,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3024,7 +3036,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 377,
+      "lines": 374,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3048,7 +3060,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 237,
+      "lines": 243,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -7722,7 +7734,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 341,
+      "lines": 342,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8688,6 +8700,18 @@
       ]
     },
     {
+      "path": "lib/pipeline/admission-lifecycle.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 22,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/allo-note-recovery.d.mts",
       "subsystem": "Referral domain",
       "kind": "repository-file",
@@ -9365,7 +9389,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 957,
+      "lines": 964,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -9377,7 +9401,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 239,
+      "lines": 245,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -9594,7 +9618,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 362,
+      "lines": 364,
       "moduleIds": [
         "pre-assessment-workflow",
         "provenance-review"
@@ -9642,7 +9666,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 102,
+      "lines": 104,
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
@@ -9678,7 +9702,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3461,
+      "lines": 3463,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -9691,7 +9715,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 363,
+      "lines": 368,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -9704,7 +9728,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 543,
+      "lines": 546,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -9717,7 +9741,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 307,
+      "lines": 310,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -9945,7 +9969,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 440,
+      "lines": 441,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -9969,7 +9993,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 1687,
+      "lines": 1704,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -10053,7 +10077,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 280,
+      "lines": 290,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -10960,6 +10984,18 @@
       ]
     },
     {
+      "path": "scripts/admission-lifecycle.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 45,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/admissions-zone-contracts.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -11325,7 +11361,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 666,
+      "lines": 667,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11589,7 +11625,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 268,
+      "lines": 280,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12765,7 +12801,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 213,
+      "lines": 225,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12873,7 +12909,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 122,
+      "lines": 123,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13053,7 +13089,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 350,
+      "lines": 355,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13798,7 +13834,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 399,
+      "lines": 406,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14783,6 +14819,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 178,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/admission-follow-through.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 77,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

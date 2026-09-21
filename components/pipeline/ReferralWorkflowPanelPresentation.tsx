@@ -1,3 +1,4 @@
+import ReferralAdmissionPanel from "./ReferralAdmissionPanel";
 import { useState, type ReactNode } from "react";
 import { Check, CheckCircle2, ChevronDown, Circle, LoaderCircle } from "lucide-react";
 
@@ -62,7 +63,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onManualIntakeReasonChange: (value: string) => void;
   onUpdateRequirement: (item: AdmissionRequirement, status: RequirementStatus) => void;
   onSubmitDecision: () => void;
-  onSubmitTransition: (target: ReferralStage) => void;
+  onSubmitTransition: (target: ReferralStage, actualAdmissionDate?: string) => void;
   onAuthorizeManualIntake: () => void;
   onUpdateHandoff: (action: "queue" | "retry") => void;
   onRecordHandoffSent: () => void;
@@ -134,7 +135,7 @@ export function ReferralWorkflowPanelPresentation({
           <summary className="cursor-pointer py-4 text-[13px] font-semibold text-[#53615a] focus-visible:outline-2">Admission details</summary>
           <label className="mb-4 flex flex-wrap items-center gap-3 text-[13px] font-medium text-[#59645e]">Workflow stage
             <select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-10 border border-[#c9ceca] bg-white px-3 text-[#303b34]">
-              {referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage || (item.stage === "Accepted / Admitted" ? workflow.decision?.outcome === "accepted" : workflow.decision?.outcome === "declined")).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}
+              {referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage || (item.stage === "Declined" && workflow.decision?.outcome === "declined")).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}
             </select>
             <span>Revisit earlier work or move ahead as needed.</span>
           </label>
@@ -213,17 +214,13 @@ function CurrentGateCard({
   const { currentReferral, forwardTransition, assessmentState, showManualIntake } = view;
   if (workflow.context.assessmentSigned && !workflow.decision) return null;
   if (assessmentState && !workflow.decision) return null;
+  if (workflow.decision?.outcome === "accepted") return (
+    <WorkflowCard title="Admission" detail={currentReferral.stage}>
+      <ReferralAdmissionPanel key={currentReferral.id} referral={currentReferral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onConfirmAdmission={(date) => onSubmitTransition("Accepted / Admitted", date)} />
+    </WorkflowCard>
+  );
   return (
-    <WorkflowCard title={workflow.decision?.outcome === "accepted" ? "Admission" : "Next step"} detail={currentReferral.stage}>
-      {workflow.decision?.outcome === "accepted" ? (
-        <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-[#e3e6e4] pb-4">
-          <label className="block min-w-[180px] flex-1 text-[11px] font-bold text-[#303b34]" htmlFor="workflow-admit-date">
-            Admission date (optional)
-            <input data-guide-target="workspace-admit-date" id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={!workflow.capabilities.can_update || Boolean(busy)} className="mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]" />
-          </label>
-          <span data-guide-target="workspace-finish-send"><PrimaryButton busy={busy.startsWith("admit-date:")} disabled={Boolean(busy)} onClick={onSaveAdmissionDate}>Review email &amp; packet</PrimaryButton></span>
-        </div>
-      ) : null}
+    <WorkflowCard title="Next step" detail={currentReferral.stage}>
       {forwardTransition ? (
         forwardTransition.blockers.length > 0 ? (
           <div className="space-y-2">
