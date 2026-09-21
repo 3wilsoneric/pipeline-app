@@ -1,3 +1,4 @@
+import styles from "./AssessmentPreparation.module.css";
 import { ChevronDown, X } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
 
@@ -15,6 +16,10 @@ export function AssessmentSchedulingDialogs({
   assessment,
   showScheduleDialog,
   scheduleModal = true,
+  showBeginDialog,
+  canEditClinical,
+  onCloseBegin,
+  onBeginAssessment,
   isBusy,
   error,
   scheduleStart,
@@ -31,6 +36,10 @@ export function AssessmentSchedulingDialogs({
   assessment: PipelineAssessmentRecord;
   showScheduleDialog: boolean;
   scheduleModal?: boolean;
+  showBeginDialog: boolean;
+  canEditClinical: boolean;
+  onCloseBegin: () => void;
+  onBeginAssessment: () => void;
   isBusy: boolean;
   error: string;
   scheduleStart: string;
@@ -47,6 +56,7 @@ export function AssessmentSchedulingDialogs({
   return (
     <>
       {showScheduleDialog ? <ScheduleAssessmentDialog modal={scheduleModal} assessment={assessment} isBusy={isBusy} error={error} scheduleStart={scheduleStart} scheduleDuration={scheduleDuration} scheduleMethod={scheduleMethod} scheduleLocation={scheduleLocation} onScheduleStartChange={onScheduleStartChange} onScheduleDurationChange={onScheduleDurationChange} onScheduleMethodChange={onScheduleMethodChange} onScheduleLocationChange={onScheduleLocationChange} onClose={onCloseSchedule} onSave={onSaveSchedule} /> : null}
+      {showBeginDialog ? <BeginAssessmentDialog assessment={assessment} isBusy={isBusy} error={error} canEditClinical={canEditClinical} onClose={onCloseBegin} onBegin={onBeginAssessment} /> : null}
     </>
   );
 }
@@ -68,22 +78,26 @@ function ScheduleAssessmentDialog({ modal, assessment, isBusy, error, scheduleSt
   onSave: () => void;
 }) {
   const detailField = scheduleDetailFields[scheduleMethod];
+  const labels = assessment.scheduled_start_at
+    ? { title: "Reschedule assessment", save: "Save new time" }
+    : { title: "Schedule assessment", save: "Schedule assessment" };
   return (
     <AssessmentScheduleLayout
       modal={modal}
       label="Schedule assessment"
-      title={assessment.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}
+      title={labels.title}
       context={<>{formatClientIdentityTitle({ name: assessment.resident_name || "Client", community: assessment.community })}<span className="text-[#626a66]">Assigned to {assessment.assessor || "Unassigned"}</span></>}
       closeLabel="Close schedule"
       isBusy={isBusy}
       error={error}
       onClose={onClose}
       footer={<>
-        <button type="button" onClick={onClose} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to questionnaire</button>
-        <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#111111] px-6 font-bold text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : assessment.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
+        <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Cancel</button>
+        <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#08765e] px-6 font-bold text-white hover:bg-[#065c49] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : labels.save}</button>
       </>}
     >
       <div data-guide-target="assessment-schedule-open" className="space-y-7">
+        <p className="text-[15px] leading-6 text-[#52675d]">Book the appointment. You can keep preparing afterward; the interview starts only when you choose Begin assessment.</p>
         {assessment.scheduled_start_at ? <p className="border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[14px] leading-6 text-[#315e50]">Currently scheduled for <strong>{new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })}</strong>.</p> : null}
         <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_200px]">
           <label className="min-w-0"><span className="mb-2 block text-[14px] font-bold text-[#303a34]">Date and time <span className="font-normal text-[#626a66]">(Pacific)</span></span><input data-guide-target="assessment-schedule-fields" data-schedule-autofocus aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => onScheduleStartChange(event.target.value)} /></label>
@@ -134,16 +148,20 @@ export function AssessmentScheduleLayout({ modal = true, label, title, context, 
   });
   useEffect(() => {
     const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     dialogRef.current?.querySelector<HTMLElement>("[data-schedule-autofocus]")?.focus();
     window.addEventListener("keydown", handleModalKey, true);
     return () => {
       window.removeEventListener("keydown", handleModalKey, true);
+      document.body.style.overflow = previousOverflow;
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
     };
   }, []);
 
   return (
-    <section ref={dialogRef} role="dialog" aria-modal={modal} aria-label={label} aria-busy={isBusy} tabIndex={-1} data-assessment-scheduling="fullscreen" className="fixed inset-0 z-[100] flex h-[100dvh] min-w-0 flex-col overflow-hidden bg-white text-[#202822]">
+    <div data-assessment-scheduling-backdrop className="fixed inset-0 z-[100] flex items-center justify-center bg-[#102c23]/35 sm:p-6">
+    <section ref={dialogRef} role="dialog" aria-modal={modal} aria-label={label} aria-busy={isBusy} tabIndex={-1} data-assessment-scheduling="modal" className="flex max-h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-white text-[#202822] shadow-2xl max-sm:h-[100dvh] sm:max-h-[calc(100dvh-3rem)] sm:max-w-[660px] sm:rounded-xl">
       <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d9dfdb] px-5 py-5 sm:px-10 sm:py-6">
         <div className="min-w-0">
           <h2 className="text-[22px] font-black leading-7 sm:text-[24px]">{title}</h2>
@@ -152,11 +170,12 @@ export function AssessmentScheduleLayout({ modal = true, label, title, context, 
         <button type="button" onClick={onClose} aria-label={closeLabel} title={closeLabel} className="flex h-11 w-11 shrink-0 items-center justify-center text-[#4d534f] hover:bg-[#f1f4f2] hover:text-[#0f7664] focus-visible:outline-2 focus-visible:outline-[#0f8b73] disabled:opacity-50"><X size={22} /></button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <fieldset disabled={isBusy} className="mx-auto w-full min-w-0 max-w-[840px] px-5 py-7 sm:px-10 sm:py-12 [&_input]:h-14 [&_input]:w-full [&_input]:min-w-0 [&_input]:rounded-[2px] [&_input]:border [&_input]:border-[#bac8c0] [&_input]:bg-white [&_input]:px-4 [&_input]:text-[16px] [&_input]:outline-none [&_input:focus]:border-[#0f8b73] [&_input:focus]:ring-1 [&_input:focus]:ring-[#0f8b73] [&_select]:h-14 [&_select]:w-full [&_select]:min-w-0 [&_select]:rounded-[2px] [&_select]:border [&_select]:border-[#bac8c0] [&_select]:bg-white [&_select]:px-4 [&_select]:text-[16px] [&_select]:outline-none [&_select:focus]:border-[#0f8b73] [&_select:focus]:ring-1 [&_select:focus]:ring-[#0f8b73] disabled:opacity-60">{children}</fieldset>
+        <fieldset disabled={isBusy} className="mx-auto w-full min-w-0 px-5 py-6 sm:px-10 [&_input]:h-12 [&_input]:w-full [&_input]:min-w-0 [&_input]:rounded-md [&_input]:border [&_input]:border-[#bac8c0] [&_input]:bg-white [&_input]:px-4 [&_input]:text-[16px] [&_input]:outline-none [&_input:focus]:border-[#0f8b73] [&_input:focus]:ring-1 [&_input:focus]:ring-[#0f8b73] [&_select]:h-12 [&_select]:w-full [&_select]:min-w-0 [&_select]:rounded-md [&_select]:border [&_select]:border-[#bac8c0] [&_select]:bg-white [&_select]:px-4 [&_select]:text-[16px] [&_select]:outline-none [&_select:focus]:border-[#0f8b73] [&_select:focus]:ring-1 [&_select:focus]:ring-[#0f8b73] disabled:opacity-60">{children}</fieldset>
       </div>
       {error ? <div role="alert" className="shrink-0 bg-[#f7faf9] px-5 py-3 text-[14px] font-semibold leading-6 text-[#59645e] sm:px-10">{error}</div> : null}
       <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#d9dfdb] bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[14px] sm:px-10 sm:pt-5 sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] [&_button]:max-w-full [&_button]:flex-1 [&_button]:rounded-[2px] [&_button]:leading-5 sm:[&_button]:flex-none [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-[#0f8b73]">{footer}</footer>
     </section>
+    </div>
   );
 }
 
@@ -175,4 +194,51 @@ function cycleSchedulingFocus(event: KeyboardEvent, dialog: HTMLElement, coach: 
   const groupIndex = activeGroup ? (groups.indexOf(activeGroup) + direction + groups.length) % groups.length : 0;
   const nextGroup = groups[groupIndex] ?? [];
   ((event.shiftKey ? nextGroup.at(-1) : nextGroup[0]) ?? dialog).focus();
+}
+
+function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onClose, onBegin }: {
+  assessment: PipelineAssessmentRecord;
+  isBusy: boolean;
+  error: string;
+  canEditClinical: boolean;
+  onClose: () => void;
+  onBegin: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
+  return (
+    <dialog ref={dialogRef} aria-label="Begin assessment" aria-describedby="assessment-start-description" aria-busy={isBusy} className={styles.beginDialog}
+      onCancel={(event) => { event.preventDefault(); if (!isBusy) onClose(); }}
+      onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (!isBusy) onClose(); } }}>
+      <h2>Begin assessment</h2>
+      <p id="assessment-start-description">Your prepared answers become the section reference. Continue with the remaining questions and check what has changed with the client.</p>
+      <dl>
+        <BeginAssessmentDetail label="Interview date and start time" value={assessment.assessment_date ? `Keeping recorded date: ${assessment.assessment_date}. Start time recorded when you confirm.` : "Recorded when you confirm (Pacific time)"} />
+        <BeginAssessmentDetail label="Assessor" value={assessment.assessor || "Not assigned"} />
+        {assessment.scheduled_start_at ? <BeginAssessmentDetail label="Appointment" value={new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })} /> : null}
+      </dl>
+      {error ? <p role="alert">{error}</p> : null}
+      <footer>
+        <button type="button" onClick={onClose} disabled={isBusy}>Keep preparing</button>
+        <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical}>{isBusy ? "Starting..." : "Begin assessment"}</button>
+      </footer>
+    </dialog>
+  );
+}
+
+function BeginAssessmentDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
 }

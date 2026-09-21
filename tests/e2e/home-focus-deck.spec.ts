@@ -77,6 +77,15 @@ for (const width of [1440, 834, 390, 320]) test(`focus deck keeps the foreground
   await tabs.nth(1).click();
   await expect(deck.getByRole("tabpanel", { name: "Upcoming assessments", exact: true })).toBeVisible();
   await expect(deck.getByRole("button", { name: /Jordan Appointment/ })).toBeVisible();
+  if (width < 640) {
+    const appointment = deck.getByRole("button", { name: /Jordan Appointment/ });
+    const name = appointment.locator("strong");
+    const action = appointment.getByText("Begin assessment", { exact: true });
+    expect((await name.boundingBox())!.width).toBeGreaterThan(200);
+    expect((await action.boundingBox())!.y).toBeGreaterThan((await name.boundingBox())!.y + (await name.boundingBox())!.height);
+    // The deck scales into place; measure its settled touch target, not an animation frame.
+    await expect.poll(async () => (await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
   await deck.screenshot({ path: info.outputPath(`home-upcoming-${width}.png`), animations: "disabled" });
   await tabs.nth(2).click();
   await expect(deck.getByRole("region", { name: "Since your last visit" })).toBeVisible();

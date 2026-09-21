@@ -5,7 +5,7 @@ import { assessmentInterviewQuestions, assessmentInterviewSections, getRequiredA
 import { createEmptyAssessmentToolData, type AssessmentToolSection } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkingCounts } from "../../components/pipeline/assessment-working-view";
 import { createOperationalReferral } from "./support/operational-api";
-import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import type { AxeResults } from "axe-core";
 
 test("source preparation retains canonical questions and conditional fields", () => {
@@ -54,7 +54,10 @@ for (const width of [1440, 768]) {
     await expect(folder.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await section(page, "identity");
     const reference = folder.getByRole("complementary", { name: "Current information" });
-    await expect(reference).toContainText(referral.name!);
+    await expect(reference).toHaveCount(0);
+    await expect(page.locator('#assessment-resident_name')).toHaveCount(0);
+    await editPreparedAnswer(page, "Resident name");
+    await expect(page.locator('#assessment-resident_name')).toHaveValue(referral.name!);
     await page.locator("#assessment-current_location").fill("Synthetic referring facility");
     await section(page, "diagnosis_clinical");
     const secondary = page.locator("#assessment-secondary_diagnoses");
@@ -66,18 +69,25 @@ for (const width of [1440, 768]) {
     await openPage(page, "Chart");
     await openPage(page, "Assessment");
     await section(page, "functional_adl");
-    await expect(reference).toContainText("Uses a walker according to the referral.");
+    await expect(page.locator('#assessment-mobility')).toHaveCount(0);
+    await editPreparedAnswer(page, "Type of device");
+    await expect(page.locator('#assessment-mobility')).toHaveValue("Uses a walker according to the referral.");
     await page.reload();
-    await expect(reference).toContainText("Uses a walker according to the referral.");
+    await editPreparedAnswer(page, "Type of device");
+    await expect(page.locator('#assessment-mobility')).toHaveValue("Uses a walker according to the referral.");
     await section(page, "diagnosis_clinical");
-    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    await editPreparedAnswer(page, "Secondary diagnosis");
     await expect(secondary).toHaveValue("Documented secondary diagnosis from the referral.");
-    await folder.locator('summary[aria-label="Assessment details"]').click();
     await folder.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-    const schedule = page.locator('[data-assessment-scheduling="fullscreen"]');
+    const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
     await schedule.getByRole("button", { name: /Close/ }).click();
     await expect(schedule).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
+    await folder.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await expect(begin).toHaveCount(0);
+    await section(page, "diagnosis_clinical");
+    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     await expect(secondary).toHaveValue("Documented secondary diagnosis from the referral.");
     await secondary.fill("Updated during the interview.");
     await openAssessmentChart(page);
@@ -88,7 +98,7 @@ for (const width of [1440, 768]) {
     await expect(folder).toBeVisible();
     const records = (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
     expect(records).toHaveLength(1);
-    expect(records[0].started_at).toBeNull();
+    expect(records[0].started_at).toBeTruthy();
     expect(records[0].secondary_diagnoses).toEqual(["Updated during the interview."]);
     expect(records[0].current_location).toBe("Synthetic referring facility");
     expect(records[0].current_self_harm_ideation).toBeNull();
@@ -106,7 +116,10 @@ for (const width of [1440, 768]) {
     expect(assessments).toHaveLength(1);
     for (const destination of ["Files", "Activity", "Chart"]) {
       await section(page, "identity");
-      if (destination !== "Files") await page.getByRole("button", { name: "Edit Current location", exact: true }).click();
+      if (destination !== "Files") {
+        await expect(page.locator("#assessment-current_location")).toHaveCount(0);
+        await editPreparedAnswer(page, "Current location");
+      }
       const value = `Last answer before ${destination}`;
       await page.locator("#assessment-current_location").fill(value);
       if (destination === "Chart") await openPage(page, destination);
@@ -184,7 +197,8 @@ test("queued answers stay visible across chart review and sync after recovery", 
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).not.toHaveText("All changes saved");
   expect((await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).not.toBe("Unsaved but retained referral notes");
   await returnToAssessmentQuestions(page);
-  await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Unsaved but retained referral notes");
+  await editPreparedAnswer(page, "Current location");
+  await expect(page.locator('#assessment-current_location')).toHaveValue("Unsaved but retained referral notes");
   await page.unroute(endpoint);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   // A reconnect during an in-flight replay is picked up by the 10-second retry loop.

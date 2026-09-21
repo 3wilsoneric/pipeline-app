@@ -19,7 +19,8 @@
 .navigation .next, .action { background: #08765d; color: #fff; }
 .page { grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; contain: layout; }
 .preview { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
-.session .page [data-assessment-scheduling="fullscreen"] { position: absolute; inset: 0; height: 100%; }
+.session .page [data-assessment-scheduling-backdrop] { position: absolute; inset: 0; padding: 0; }
+.session .page [data-assessment-scheduling] { height: 100%; max-height: 100%; width: 100%; border-radius: 0; }
 .page [data-tutorial-highlight] { outline: 2px solid #179675; outline-offset: 3px; }
 .content { padding: 28px; min-width: 0; }
 .content h2 { margin: 0 0 24px; font-size: 22px; font-weight: 700; }

@@ -100,7 +100,6 @@ export default function AssessmentPhoneInterview(props: Props) {
             const destination = sections.find((item) => item.questions.some((q) => q.field === question.field));
             if (destination) chooseSection(destination.key, question.field);
           }}><strong>{assessmentInterviewFieldLabel(question.field)}</strong><span>{capturedAssessmentAnswer(question, data)}</span></button>) : <>
-          <button type="button" onClick={() => chooseSection("identity", "assessment_date")}><strong>Date assessment performed</strong><span>{data.assessment_date || "Add the interview date"}</span><ChevronRight size={17} aria-hidden="true" /></button>
           {sections.map((item, index) => {
             const count = assessmentWorkingCounts(item.questions, data, pending);
             return <button type="button" key={item.key} aria-current={item.key === section.key ? "step" : undefined} onClick={() => chooseSection(item.key)}><strong>{index + 1}. {item.label}</strong><span>{assessmentWorkingCountLabel(count)}</span><ChevronRight size={17} aria-hidden="true" /></button>;
@@ -139,6 +138,13 @@ export default function AssessmentPhoneInterview(props: Props) {
     </nav>
   );
 
+  const renderQuestion = () => (
+      <div className={styles.question} key={question?.field ?? section.key}>
+        <p ref={heading} tabIndex={-1} className={styles.position} aria-live="polite">{question ? `Question ${index + 1} of ${steps.length}` : "Section complete"}</p>
+        {question ? <WorkingAssessmentField {...props} question={question} /> : <p>Continue to the next section, or open Client info to review an answer.</p>}
+      </div>
+  );
+
   return <section className={styles.interview} data-phone-interview aria-label={props.preparing ? "Guided questionnaire" : "Guided assessment"}>
     <nav className={styles.toolbar} aria-label="Question navigation">
       <button type="button" data-guide-target="assessment-section-nav" onClick={(event) => openPanel("sections", event.currentTarget)} aria-haspopup="dialog" aria-label="Choose questionnaire section" title={`Section ${sectionIndex + 1} of ${sections.length}: ${section.label}`}><span><small>{sectionIndex + 1}/{sections.length}</small><strong>{section.label}</strong></span><ChevronDown size={16} aria-hidden="true" /></button>
@@ -157,10 +163,7 @@ export default function AssessmentPhoneInterview(props: Props) {
       const dy = event.changedTouches[0].clientY - start.y;
       if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 2) move(dx < 0 ? 1 : -1);
     }}>
-      <div className={styles.question} key={question?.field ?? section.key}>
-        <p ref={heading} tabIndex={-1} className={styles.position} aria-live="polite">{question ? `Question ${index + 1} of ${steps.length}` : "Section complete"}</p>
-        {question ? <WorkingAssessmentField {...props} question={question} /> : <p>Continue to the next section, or open Client info to review an answer.</p>}
-      </div>
+      {renderQuestion()}
     </div>
     {renderQuestionSteps()}
     {renderQuestionSheet()}

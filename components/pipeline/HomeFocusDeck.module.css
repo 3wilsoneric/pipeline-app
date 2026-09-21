@@ -153,7 +153,8 @@
 .scheduleClient { min-width: 0; }
 .scheduleClient strong { display: block; font-size: 18px; font-weight: 650; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .scheduleClient > span { display: block; margin-top: 5px; font-size: 13px; line-height: 1.5; color: #707970; }
-.scheduleMethod { font-size: 13px; color: #617165; }
+.scheduleAction { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 9px 14px; border: 1px solid #b9d0c4; border-radius: 6px; background: #f4f9f6; font-size: 14px; font-weight: 650; color: #17634e; }
+.scheduleRow:hover .scheduleAction { background: #e6f1ea; border-color: #87b09c; }
 
 @media (max-width: 1000px) {
   .fullLabel { display: none; }
@@ -173,10 +174,13 @@
   .panel :global(.home-panel-heading) h2, .panel :global([aria-label="Since your last visit"]) h2 { font-size: 19px; }
   .panel :global(.home-panel-heading), .panel :global([aria-label="Since your last visit"]) > div:first-child { gap: 10px; flex-wrap: wrap; }
   .empty { min-height: 235px; }
-  .scheduleRow { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding-block: 16px; }
+  .scheduleRow { grid-template-columns: minmax(0, 1fr); gap: 6px; padding-block: 16px; }
   .scheduleDate { grid-column: 1 / -1; font-size: 12px; }
   .scheduleClient strong { font-size: 17px; }
-  .scheduleMethod { font-size: 12px; }
+  .scheduleAction { justify-content: space-between; margin-top: 8px; font-size: 13px; padding-inline: 12px; }
+}
+@media (max-width: 359px) {
+  .tab { font-size: 12px; }
 }
 @media (max-width: 359px) {
   .tab { font-size: 12px; }
