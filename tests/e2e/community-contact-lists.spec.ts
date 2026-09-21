@@ -128,11 +128,11 @@ test("managed defaults reach new handoffs; saved audiences change only after exp
   await expect(to).not.toContainText("Later addition");
   await expect(to).not.toContainText("Alex Taylor");
   const replace = page.getByRole("button", { name: "Use latest community list", exact: true });
-  page.once("dialog", (dialog) => dialog.dismiss());
   await replace.click();
+  await page.getByRole("alertdialog", { name: "Use latest community list?", exact: true }).getByRole("button", { name: "Keep recipients", exact: true }).click();
   await expect(to).not.toContainText("Later addition");
-  page.once("dialog", (dialog) => dialog.accept());
   await replace.click();
+  await page.getByRole("alertdialog", { name: "Use latest community list?", exact: true }).getByRole("button", { name: "Use latest list", exact: true }).click();
   await expect(to).toContainText("Later addition");
   await expect(to).toContainText("Alex Taylor");
   await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
