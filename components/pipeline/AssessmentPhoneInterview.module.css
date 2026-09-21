@@ -1,14 +1,16 @@
 .interview { display: flex; flex: 1; flex-direction: column; min-height: 0; color: #20352d; background: #fff; }
-.toolbar { display: flex; flex-shrink: 0; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #e0e6e2; background: #fff; color: #283b31; }
-.toolbar button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; min-width: 44px; font-size: 13px; font-weight: 650; text-align: left; }
+.toolbar { display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 2px 12px; border-bottom: 1px solid #e0e6e2; background: #fff; color: #283b31; }
+.toolbar button { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 44px; min-width: 44px; font-size: 13px; font-weight: 650; text-align: left; }
 .toolbar button:first-child { flex: 1; min-width: 0; }
-.toolbar button:first-child span { min-width: 0; white-space: normal; font-size: 16px; line-height: 1.35; letter-spacing: -.015em; }
-.toolbar small { display: block; margin-bottom: 3px; color: #647368; font-size: 12px; font-weight: 500; }
+.toolbar button:first-child > span { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; line-height: 1.35; letter-spacing: -.015em; }
+.toolbar strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+.toolbar small { flex-shrink: 0; color: #647368; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.toolbar svg { flex-shrink: 0; }
 .toolbar button:last-child { flex-shrink: 0; justify-content: center; gap: 7px; min-height: 44px; padding-inline: 10px; border: 1px solid #d1dfd7; border-radius: 8px; background: #f5f9f7; color: #245d46; font-size: 13px; line-height: 1.2; }
 .progress { height: 3px; flex-shrink: 0; background: #e4ede8; }
 .progress span { display: block; height: 100%; background: #188260; }
 .scroller { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y pinch-zoom; scroll-padding-block: 16px; }
-.question { max-width: 580px; margin-inline: auto; padding: 24px 20px 28px; }
+.question { max-width: 580px; margin-inline: auto; padding: 16px 20px 24px; }
 .position { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .position:focus { outline: none; }
 .question [data-working-field] > div > div:first-child { align-items: flex-start; margin-bottom: 18px; }
@@ -49,25 +51,29 @@
 .sheetBody svg { position: absolute; right: 0; top: 24px; }
 .sheetBody > button:disabled { opacity: 1; cursor: default; }
 .sheetSearch, .sheetScope select { display: block; width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #c4d2c9; border-radius: 8px; background: #fff; font-size: 16px; }
+.sheetSearch { margin-bottom: 8px; }
 .sheetScope { display: block; padding-block: 12px; font-size: 13px; }
 .sheetScope select { display: inline-flex; margin-top: 6px; }
 .mobileMain { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .mobileMain > [data-excel-strip] { order: 1; flex-shrink: 0; }
 .mobileMain > div:not([data-assessment-question-content]) { flex-shrink: 0; max-height: 35%; overflow-y: auto; }
 .mobileMain > [data-assessment-question-content] { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0; }
-.mobileFooter { padding: 0 20px 4px; gap: 0 10px; border-top: 1px solid #edf1ee; }
+.mobileFooter { padding: 0 20px max(4px, env(safe-area-inset-bottom)); gap: 0 10px; border-top: 1px solid #edf1ee; }
 .mobileFooter [data-guide-target="assessment-save-status"] { flex: 1; font-size: 12px; }
 .mobileFooter [data-guide-target="assessment-save-status"] > span { white-space: normal; }
 @media (max-height: 500px) {
   .toolbar { padding-block: 2px; }
   .toolbar button { min-height: 44px; }
-  .toolbar small { display: inline; margin-right: 10px; }
   .question { padding-top: 12px; }
   .question [data-working-field] > div > div:first-child { margin-bottom: 8px; }
   .question [data-working-field] > div > div:first-child > label { font-size: 22px; }
   .position { margin-bottom: 10px; }
   .paging { padding-block: 2px; }
 }
+:global([data-mobile-keyboard="true"]) .question { padding-block: 10px 16px; }
+:global([data-mobile-keyboard="true"]) .paging { padding-block: 2px; }
+:global([data-mobile-keyboard="true"]) .question [data-working-field] > div > div:first-child { margin-bottom: 8px; }
+:global([data-mobile-keyboard="true"]) .question [data-working-field] > div > div:first-child > label { font-size: 22px; }
 @media (prefers-reduced-motion: no-preference) {
   .question { animation: enter 130ms ease-out; }
   @keyframes enter { from { transform: translateX(5px); } to { transform: none; } }

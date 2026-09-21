@@ -198,8 +198,11 @@ function PreviewBody({
 }
 
 function OriginalFilePreview({ file, metadata }: { file: ReferralFile; metadata: FilePreviewMetadata | null }) {
-  if (isBrowserPreviewable(metadata?.content_type ?? file.contentType)) {
-    return <iframe src={file.previewUrl ?? toPipelinePath(`/api/files/${file.id}/preview`)} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
+  const contentType = metadata?.content_type ?? file.contentType;
+  const previewUrl = file.previewUrl ?? toPipelinePath(`/api/files/${file.id}/preview`);
+  if (isBrowserPreviewable(contentType)) {
+    if (contentType?.startsWith("image/")) return <Image src={previewUrl} alt={`Preview ${file.name}`} width={1200} height={1600} unoptimized className="h-auto w-full bg-white" />;
+    return <iframe src={previewUrl} title={`Preview ${file.name}`} className="h-full min-h-[640px] w-full border-0 bg-white" />;
   }
   return <div className="bg-white px-5 py-16 text-center">
     <div className="text-[14px] font-black text-[#111111]">File saved</div>

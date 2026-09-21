@@ -2,6 +2,7 @@ import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-recor
 import { assessmentToolFieldDefinitions, type AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
 import { assessmentInterviewOptionLabel, assessmentInterviewSections, assessmentInterviewQuestions, isAssessmentQuestionVisible } from "@/lib/assessment/assessment-interview-schema";
 import { ChartFacts } from "@/components/pipeline/ClientMedicalChart";
+import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 
 export function ClientAssessmentRecords({ assessments, editableAssessmentId, onEditField }: { assessments: PipelineAssessmentRecord[]; editableAssessmentId?: string; onEditField?: (field: AssessmentToolFieldKey) => void }) {
   return assessments.map((assessment) => <ClientAssessmentRecord key={assessment.assessment_id} assessment={assessment} onEditField={assessment.assessment_id === editableAssessmentId ? onEditField : undefined} />);
@@ -12,16 +13,14 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
   const editableFields = new Set(assessmentInterviewQuestions.filter((question) => isAssessmentQuestionVisible(question, assessment)).map((question) => question.field));
   return <article aria-label="Assessment record" data-assessment-record={assessment.assessment_id} className="min-w-0 border border-[#d4dcd8] bg-white">
     <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#d4dcd8] bg-[#f5f7f6] px-5 py-4 sm:px-7">
-      <h2 className="text-[19px] font-bold text-[#23362f]">Assessment{assessment.assessment_date ? ` · ${assessment.assessment_date}` : ""}</h2>
+      <h2 className="text-[19px] font-bold text-[#23362f]">Assessment{assessment.assessment_date ? ` · ${formatProfileDate(assessment.assessment_date)}` : ""}</h2>
       <span className={`text-[13px] font-semibold ${signed ? "text-[#12765f]" : "text-[#865e20]"}`}>{signed ? "Signed" : "In progress, not signed"}</span>
     </header>
     {assessmentInterviewSections.map((section) => {
       const facts = assessmentToolFieldDefinitions.filter((field) => field.section === section.key).flatMap((field) => {
         const value = assessment[field.key];
         if (value === null || value === undefined || value === "" || (Array.isArray(value) && !value.length)) return [];
-        const display = Array.isArray(value) ? value.map((item) => assessmentInterviewOptionLabel(field.key, item) ?? item).join("\n")
-          : typeof value === "object" ? Object.entries(value).map(([key, reason]) => `${assessmentToolFieldDefinitions.find((item) => item.key === key)?.label ?? key}: ${reason}`).join("\n")
-          : assessmentInterviewOptionLabel(field.key, String(value)) ?? String(value);
+        const display = recordedFieldValue(field, value);
         const question = assessmentInterviewQuestions.find((item) => item.field === field.key);
         const inactive = question && !isAssessmentQuestionVisible(question, assessment);
         return display.trim() ? [{ label: inactive ? `${field.label} (previous answer)` : field.label, value: inactive ? `Not applicable to the current answers. Retained for review.\n${display}` : display, onEdit: onEditField && editableFields.has(field.key) ? () => onEditField(field.key) : undefined }] : [];
@@ -34,7 +33,22 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
     })}
     <footer className="flex flex-wrap justify-between gap-2 px-5 py-4 text-[12px] leading-5 text-[#59675f] sm:px-7">
       <span className="break-all">Assessment {assessment.assessment_id} · Version {assessment.version}</span>
-      <span>{signed ? `Signed ${assessment.signed_at}${assessment.signed_by?.name ? ` by ${assessment.signed_by.name}` : ""}` : "Working answers. Not a signed clinical record."}</span>
+      <span>{signed ? `Signed ${readableTimestamp(assessment.signed_at!)}${assessment.signed_by?.name ? ` by ${assessment.signed_by.name}` : ""}` : "Working answers. Not a signed clinical record."}</span>
     </footer>
   </article>;
+}
+
+function readableTimestamp(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  });
+}
+
+function recordedFieldValue(field: (typeof assessmentToolFieldDefinitions)[number], value: NonNullable<PipelineAssessmentRecord[AssessmentToolFieldKey]>): string {
+  return Array.isArray(value) ? value.map((item) => assessmentInterviewOptionLabel(field.key, item) ?? item).join("\n")
+          : typeof value === "object" ? Object.entries(value).map(([key, reason]) => `${assessmentToolFieldDefinitions.find((item) => item.key === key)?.label ?? key}: ${reason}`).join("\n")
+          : field.value_type === "date" ? formatProfileDate(String(value)) ?? String(value)
+          : field.value_type === "timestamp" ? readableTimestamp(String(value))
+          : assessmentInterviewOptionLabel(field.key, String(value)) ?? String(value);
 }

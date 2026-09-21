@@ -118,10 +118,11 @@ function withSecurityHeaders(response: Response, request: NextRequest) {
   const pathname = fromPipelinePath(request.nextUrl.pathname);
   if (!pathname.startsWith("/api/") && isProtectedPath(pathname)) response.headers.set("Cache-Control", "private, no-store, max-age=0");
   response.headers.set("X-Content-Type-Options", "nosniff");
-  const sameOriginPacketPreview = /^\/api\/referrals\/\d+\/packet$/.test(
-    fromPipelinePath(request.nextUrl.pathname),
-  );
-  response.headers.set("X-Frame-Options", sameOriginPacketPreview ? "SAMEORIGIN" : "DENY");
+  // Only authenticated document viewers may embed same-origin content. Keep
+  // application pages and all other API responses protected from framing.
+  const sameOriginPreview = /^\/api\/referrals\/\d+\/packet$/.test(pathname)
+    || /^\/api\/files\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/preview$/i.test(pathname);
+  response.headers.set("X-Frame-Options", sameOriginPreview ? "SAMEORIGIN" : "DENY");
   response.headers.set("Referrer-Policy", "no-referrer");
   response.headers.set("Permissions-Policy", PIPELINE_PERMISSIONS_POLICY);
   // The storage account is injected at container runtime, after next build.

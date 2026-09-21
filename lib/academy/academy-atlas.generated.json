@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:b4913c30abcf89dd",
-  "fingerprint": "b4913c30abcf89dd78dd38bd29c2a1d02114f38d7f6a9aceca710f58ae307cce",
+  "generatedAt": "source-fingerprint:dc7356f6e9f9ad61",
+  "fingerprint": "dc7356f6e9f9ad618efbdccfe196b128dea35a9f3999b8d4c3778eae731f5620",
   "totals": {
-    "files": 1303,
-    "lines": 353074,
-    "coveredFiles": 1303
+    "files": 1307,
+    "lines": 353529,
+    "coveredFiles": 1307
   },
   "entries": [
     {
@@ -2040,7 +2040,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 75,
+      "lines": 81,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2052,7 +2052,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 167,
+      "lines": 169,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2095,6 +2095,18 @@
       ]
     },
     {
+      "path": "components/pipeline/AssessmentSignDialog.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 56,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/AssessmentViewToggle.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2112,7 +2124,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 264,
+      "lines": 275,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2136,7 +2148,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2140,
+      "lines": 2153,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2208,7 +2220,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 41,
+      "lines": 55,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2887,6 +2899,18 @@
       ]
     },
     {
+      "path": "components/pipeline/ReferralDecision.module.css",
+      "subsystem": "Pipeline UI",
+      "kind": "repository-file",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 103,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/ReferralDocumentUpload.module.css",
       "subsystem": "Pipeline UI",
       "kind": "repository-file",
@@ -2928,7 +2952,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 243,
+      "lines": 246,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3036,7 +3060,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 374,
+      "lines": 412,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -10389,7 +10413,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "high",
-      "lines": 149,
+      "lines": 150,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -14086,7 +14110,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 87,
+      "lines": 112,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14597,6 +14621,18 @@
       ]
     },
     {
+      "path": "tests/e2e/document-preview-rendering.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 69,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/email-packet-page.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -14782,7 +14818,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 160,
+      "lines": 165,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15228,6 +15264,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 61,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/referral-decision-layout.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 109,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

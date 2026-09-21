@@ -91,8 +91,8 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await openAssessmentReview(page);
     // Unanswered questions remain permissible; the signature still uses the existing save path.
-    page.once("dialog", (dialog) => dialog.accept());
     await primary.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+    await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
     const signed = await read();
     expect(signed.signed_at).toBeTruthy();
@@ -162,8 +162,8 @@ for (const width of [1440, 390]) {
     await expect(page.getByTestId("assessment-client-folder").getByRole("alert")).toContainText("Synthetic start unavailable");
     await expect(page.getByText("Start time not saved. You can keep answering.", { exact: true })).toBeVisible();
     await openAssessmentReview(page);
-    page.once("dialog", (dialog) => dialog.accept());
     await footer.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+    await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(saved.signed_at).toBeTruthy();

@@ -51,7 +51,8 @@ export default function AssessmentPhoneInterview(props: Props) {
   const allQuestions = sections.flatMap((section) => section.questions);
   const matchedQuestions = allQuestions.filter((question) => assessmentInterviewFieldLabel(question.field).toLowerCase().includes(search.trim().toLowerCase()));
   const shownReference = (referenceScope === "all" ? allQuestions : questions)
-    .filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field));
+    .filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field))
+    .filter((question) => `${assessmentInterviewFieldLabel(question.field)} ${capturedAssessmentAnswer(question, data)}`.toLowerCase().includes(search.trim().toLowerCase()));
 
   // Unmounting a focused input does not reliably emit blur. Commit through the
   // same field-save owner before every swipe, section jump, or reference edit.
@@ -111,7 +112,8 @@ export default function AssessmentPhoneInterview(props: Props) {
   );
   const renderReferenceChoices = () => (
 <> <label className={styles.sheetScope}>Reference information<select aria-label="Reference information" value={referenceScope} onChange={(event) => setReferenceScope(event.target.value)}><option value="section">This section</option><option value="all">All sections</option></select></label>
-          {!shownReference.length ? <p>{referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} className={readingStyles.answer} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
+          <input type="search" aria-label="Find recorded information" placeholder="Find a detail or answer…" value={search} onChange={(event) => setSearch(event.target.value)} className={styles.sheetSearch} />
+          {!shownReference.length ? <p>{search.trim() ? "No matching information. Try another search or choose All sections." : referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} className={readingStyles.answer} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
             const destination = sections.find((section) => section.questions.some((question) => question.field === item.field));
             if (destination) chooseSection(destination.key, item.field);
           }} disabled={!sections.some((section) => section.questions.some((question) => question.field === item.field))}>
@@ -139,7 +141,7 @@ export default function AssessmentPhoneInterview(props: Props) {
 
   return <section className={styles.interview} data-phone-interview aria-label={props.preparing ? "Guided questionnaire" : "Guided assessment"}>
     <nav className={styles.toolbar} aria-label="Question navigation">
-      <button type="button" data-guide-target="assessment-section-nav" onClick={(event) => openPanel("sections", event.currentTarget)} aria-haspopup="dialog" aria-label="Choose questionnaire section"><span><small>Section {sectionIndex + 1} of {sections.length}</small>{section.label}</span><ChevronDown size={16} aria-hidden="true" /></button>
+      <button type="button" data-guide-target="assessment-section-nav" onClick={(event) => openPanel("sections", event.currentTarget)} aria-haspopup="dialog" aria-label="Choose questionnaire section" title={`Section ${sectionIndex + 1} of ${sections.length}: ${section.label}`}><span><small>{sectionIndex + 1}/{sections.length}</small><strong>{section.label}</strong></span><ChevronDown size={16} aria-hidden="true" /></button>
       <button type="button" data-guide-target="assessment-recorded" onClick={(event) => openPanel("reference", event.currentTarget)} aria-haspopup="dialog"><BookOpen size={17} aria-hidden="true" /><span>Client info</span></button>
     </nav>
     <div className={styles.progress} role="progressbar" aria-label="Recorded in this section" aria-valuemin={0} aria-valuemax={questions.length || 1} aria-valuenow={counts.captured}><span style={{ width: `${counts.captured / (questions.length || 1) * 100}%` }} /></div>
