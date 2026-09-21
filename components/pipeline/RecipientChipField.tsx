@@ -42,7 +42,9 @@ export default function RecipientChipField({ label, recipients, contacts, exclud
       setActive((current) => event.key === "ArrowDown" ? (current + 1) % suggestions.length : (current - 1 + suggestions.length) % suggestions.length);
       return true;
     }
-    if (event.key === "Escape") {
+    if (open && event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
       setFocused(false); setActive(-1);
       return true;
     }

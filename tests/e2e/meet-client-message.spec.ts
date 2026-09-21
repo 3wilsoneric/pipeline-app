@@ -42,7 +42,7 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   expect(saved.draft.to[0].email).toBe("care@example.invalid");
   await page.getByRole("button", { name: "Preview message", exact: true }).click();
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
-  await expect(preview.locator("body")).toContainText(text);
+  await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
   await expect(preview.locator("script")).toHaveCount(0);
   await expect(preview.locator("body")).toContainText("2026-10-01");
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
@@ -59,7 +59,7 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   expect(changed.status(), await changed.text()).toBe(200);
   await openMessage(page, referral.id);
   await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toHaveValue("Arrival arrangements");
-  await expect(preview.locator("body")).toContainText(text);
+  await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
   await expect(preview.locator("body")).toContainText("2026-10-02");
   await expect(preview.locator("body")).not.toContainText("2026-10-01");
   expect(sends).toBe(0);
