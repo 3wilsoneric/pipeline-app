@@ -167,7 +167,7 @@ function TutorialStepContent({ step, generation, state, files, onFiles, onChange
 }
 
 function TutorialAdmission({ state, onChange, navigate }: { state: TutorialReferral; onChange: (patch: Partial<Referral>) => void; navigate: (step: number) => void }) {
-  return <section className={styles.content} data-guide-target="tutorial-admission"><h2>Admission</h2>{state.underReview || state.referral.admissionDecision?.outcome === "declined" ? <p>No admission is needed for this outcome.</p> : <ReferralAdmissionPanel referral={state.referral} packetSentAt={state.sentAt} admissionDate={state.referral.plannedAdmissionDate ?? ""} disabled={false} onAdmissionDateChange={(plannedAdmissionDate) => onChange({ plannedAdmissionDate })} onSaveAdmissionDate={() => navigate(6)} onConfirmAdmission={(actualAdmissionDate) => { onChange({ actualAdmissionDate, stage: "Accepted / Admitted" }); navigate(8); }} />}</section>;
+  return <section className={styles.content} data-guide-target="tutorial-admission"><h2>Client handoff</h2>{state.underReview || state.referral.admissionDecision?.outcome === "declined" ? <p>No admission is needed for this outcome.</p> : <ReferralAdmissionPanel referral={state.referral} packetSentAt={state.sentAt} admissionDate={state.referral.plannedAdmissionDate ?? ""} disabled={false} onAdmissionDateChange={(plannedAdmissionDate) => onChange({ plannedAdmissionDate })} onSaveAdmissionDate={() => navigate(6)} />}</section>;
 }
 
 const intakeGroups: { title: string; target: string; keys: ReferralCanvasFieldKey[] }[] = [

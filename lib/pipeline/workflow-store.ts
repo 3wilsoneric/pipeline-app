@@ -162,8 +162,7 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       reviews,
       context: {
         assessmentExists: Boolean(latestAssessment) || Boolean(referral.assessment),
-        assessmentId: latestAssessment?.assessment_id ?? null,
-        assessmentCreatedAt: latestAssessment?.created_at ?? null,
+        ...workflowAssessmentIdentity(latestAssessment),
         assessmentComplete: latestAssessment ? latestAssessment.status === "complete" : Boolean(referral.assessment?.completedAt),
         assessmentSigned: Boolean(latestAssessment?.signed_at),
         packetSentAt: assessmentPacketSentAt(latestAssessment),
@@ -218,8 +217,8 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       where referral_id = ${referralId}
       order by submission_number desc, review_id desc
     `,
-    sql<{ assessment_id: string; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
-      select assessment_id, created_at, status, assessment_date, signed_at, meet_client_sent_at, started_at, schedule_status, data
+    sql<{ assessment_id: string; assessor_id: string | null; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
+      select assessment_id, assessor_id, created_at, status, assessment_date, signed_at, meet_client_sent_at, started_at, schedule_status, data
       from pipeline.assessments
       where referral_id = ${referralId}
       order by updated_at desc, assessment_id desc
@@ -244,8 +243,7 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
     reviews,
     context: {
       assessmentExists: Boolean(latestAssessment) || Boolean(referral.assessment),
-      assessmentId: latestAssessment?.assessment_id ?? null,
-      assessmentCreatedAt: latestAssessment?.created_at ? toIso(latestAssessment.created_at) : null,
+      ...workflowAssessmentIdentity(latestAssessment),
       assessmentComplete: latestAssessment ? latestAssessment.status === "complete" : Boolean(referral.assessment?.completedAt),
       assessmentSigned: Boolean(latestAssessment?.signed_at),
       packetSentAt: assessmentPacketSentAt(latestAssessment),
@@ -311,8 +309,8 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
       where referral_id = any(${ids}::bigint[])
       order by referral_id, submission_number desc, review_id desc
     `,
-    sql<{ referral_id: number | string; assessment_id: string; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
-      select distinct on (referral_id) referral_id, assessment_id, created_at, status, assessment_date, signed_at, meet_client_sent_at, started_at, schedule_status, data
+    sql<{ referral_id: number | string; assessment_id: string; assessor_id: string | null; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
+      select distinct on (referral_id) referral_id, assessment_id, assessor_id, created_at, status, assessment_date, signed_at, meet_client_sent_at, started_at, schedule_status, data
       from pipeline.assessments
       where referral_id = any(${ids}::bigint[])
       order by referral_id, updated_at desc, assessment_id desc
@@ -332,8 +330,7 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
     const reviewRow = reviewsByReferral.get(referral.id);
     contexts.set(referral.id, {
       assessmentExists: Boolean(assessmentRow) || Boolean(referral.assessment),
-      assessmentId: assessmentRow?.assessment_id ?? null,
-      assessmentCreatedAt: assessmentRow?.created_at ? toIso(assessmentRow.created_at) : null,
+      ...workflowAssessmentIdentity(assessmentRow),
       assessmentComplete: assessmentRow ? assessmentRow.status === "complete" : Boolean(referral.assessment?.completedAt),
       assessmentSigned: Boolean(assessmentRow?.signed_at),
       packetSentAt: assessmentPacketSentAt(assessmentRow),
@@ -1700,4 +1697,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function assessmentPacketSentAt(assessment: { meet_client_sent_at?: Date | string | null } | null | undefined) {
   return assessment?.meet_client_sent_at ? toIso(assessment.meet_client_sent_at) : null;
+}
+
+function workflowAssessmentIdentity(assessment: { assessment_id: string; assessor_id: string | null; created_at: Date | string } | null | undefined) {
+  return {
+    assessmentId: assessment?.assessment_id ?? null,
+    assessmentAssessorId: assessment?.assessor_id ?? null,
+    assessmentCreatedAt: assessment?.created_at ? toIso(assessment.created_at) : null,
+  };
 }

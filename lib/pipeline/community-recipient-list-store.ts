@@ -6,6 +6,7 @@ import { isPersonaDemo } from "@/lib/demo/persona-session";
 import { getPipelineDatabaseMode } from "@/lib/database/pipeline-database";
 import { readSharedCommunityLists, saveSharedCommunityList } from "./community-recipient-list-postgres";
 import { isListCommunity, parseRecipientFields, type CommunityRecipientList, type ListCommunity, type RecipientFields } from "./community-recipient-lists";
+import { pipelineCommunities } from "./community-config";
 
 type StoredList = CommunityRecipientList & { lastMutation?: { id: string; actorId: string } };
 type ListFile = { schema: 1; lists: StoredList[] };
@@ -45,7 +46,16 @@ async function readStoreText() {
 }
 
 async function readStore(): Promise<ListFile> {
-  const data = JSON.parse(await readStoreText()) as ListFile;
+  let data: ListFile;
+  try {
+    data = JSON.parse(await readStoreText()) as ListFile;
+  } catch (error) {
+    if (!isPersonaDemo() || (error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    // Empty isolated demos stay in memory until an explicit save.
+    return { schema: 1, lists: pipelineCommunities.filter(isListCommunity).map((community) => ({
+      community, version: 1, to: [], cc: [], sourceDates: [], updatedAt: null,
+    })) };
+  }
   if (data.schema !== 1 || !Array.isArray(data.lists) || data.lists.length > 5) throw new Error("Invalid contact list file.");
   const communities = new Set<string>();
   for (const list of data.lists) {

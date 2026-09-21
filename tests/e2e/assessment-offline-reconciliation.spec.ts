@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 import { pickAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
 
 test("a delayed offline reconciliation cannot delete another open assessment's recovery draft", async ({ page }) => {
@@ -83,7 +83,7 @@ test("a delayed offline reconciliation cannot delete another open assessment's r
 
 async function createFixture(page: Page, name: string) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: "", tags: [] });
-  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const assessment = await startOperationalAssessment(page.request, await createOperationalAssessment(page.request, referral.id));
   const api = `/api/assessments/${assessment.assessment_id}`;
   return {
     api,

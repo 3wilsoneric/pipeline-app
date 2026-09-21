@@ -18,8 +18,8 @@ export const tutorialReferralSteps = [
   { title: "Review & sign", instruction: "Review the chart and unanswered items, then sign the sample assessment.", target: "assessment-sign" },
   { title: "Decision", instruction: "Record Accept, Deny, or Under review. Acceptance opens the admission date and packet.", target: "tutorial-decision" },
   { title: "Email & packet", instruction: "Check the recipients, client summary and files. Try a simulated send; nobody receives an email.", target: "tutorial-packet" },
-  { title: "Confirm admission", instruction: "After the client arrives, record the actual admission date. Accepted and admitted are separate.", target: "tutorial-admission" },
-  { title: "Back on the board", instruction: "Finished referrals remain available. Close returns to your own work; Restart resets this sample.", target: "tutorial-board" },
+  { title: "Client handoff", instruction: "Review the recorded handoff. Sending the packet does not confirm that the client has arrived.", target: "tutorial-admission" },
+  { title: "Back on the board", instruction: "The referral remains available on the board. Close returns to your own work; Restart resets this sample.", target: "tutorial-board" },
 ] as const;
 
 const entrySteps: Readonly<Record<string, number>> = {
@@ -66,10 +66,6 @@ export function prepareTutorialStep(state: TutorialReferral, index: number): Tut
   if (index >= 6 && !next.referral.admissionDecision && !next.underReview) next.referral.admissionDecision = tutorialDecision(next, "accepted");
   if (index >= 6 && next.referral.admissionDecision?.outcome === "accepted") {
     next.referral.plannedAdmissionDate ||= calendarToday();
-  }
-  if (index >= 8 && next.referral.admissionDecision?.outcome === "accepted") {
-    next.referral.actualAdmissionDate ||= calendarToday();
-    next.referral.stage = "Accepted / Admitted";
   }
   return next;
 }

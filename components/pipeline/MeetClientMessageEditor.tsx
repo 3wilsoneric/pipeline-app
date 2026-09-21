@@ -8,7 +8,7 @@ import { emptyMeetClientMessage, meetClientBodyLimit, meetClientSubjectLimit, ty
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import styles from "./MeetClientEmailPage.module.css";
 
-export default function MeetClientMessageEditor({ summary, preview, preparedBy, attachments, children, draft, admissionDate, disabled, onEdited }: {
+export default function MeetClientMessageEditor({ summary, preview, preparedBy, attachments, children, draft, admissionDate, disabled, onEdited, demo = false }: {
   summary?: MeetClientSummary;
   preview: { subject: string; html: string; text?: string } | null;
   preparedBy: string;
@@ -18,10 +18,11 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
   admissionDate: string;
   disabled: boolean;
   onEdited: () => void;
+  demo?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const content = draft?.fields.message ?? emptyMeetClientMessage();
-  const rendered = summary ? renderMeetClientEmail(summary, preparedBy, "Preview — assigned when sent", attachments, content) : preview;
+  const rendered = summary ? renderMeetClientEmail(summary, preparedBy, "Preview — assigned when sent", attachments, content, { demo }) : preview;
   const editable = Boolean(draft?.editable) && !disabled;
   const change = (patch: Partial<MeetClientMessage>) => { draft?.changeMessage({ ...content, ...patch }); onEdited(); };
   const flush = () => { void draft?.flush().catch(() => undefined); };
@@ -43,6 +44,7 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
       {editing ? <span>Client details and admission date stay linked above the message.</span> : null}
     </div>
     <div className={styles.messageBody}>
+      <h3 className={styles.messageHeading}>Message</h3>
       {renderBody()}
     </div>
   </>;

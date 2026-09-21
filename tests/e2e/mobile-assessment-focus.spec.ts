@@ -13,7 +13,13 @@ async function openInterview(page: Page) {
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+  await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
   await expect(page.locator("[data-phone-interview]")).toBeVisible();
+  await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+  const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
+  await sections.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Prior AWOL / failed placements");
+  await sections.getByRole("button", { name: /^Prior AWOL \/ failed placements/ }).click();
   return { referral, read: async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment };
 }
 
@@ -145,6 +151,8 @@ test("iPhone WebKit supports portrait, landscape and iPad without replacing answ
     await expect.poll(async () => (await read()).prior_awol_failed_placements).toBe("Synthetic rotation answer.");
     await page.setViewportSize({ width: 844, height: 390 });
     await expect(page.locator("[data-phone-interview]")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Assessment progress", exact: true })).not.toBeVisible();
+    expect((await page.locator("[data-phone-question-scroll]").boundingBox())!.height).toBeGreaterThanOrEqual(120);
     await page.screenshot({ path: info.outputPath("mobile-landscape.png") });
     await expect(page.locator("[data-phone-interview]").getByRole("button", { name: "Next", exact: true })).toBeInViewport();
     await page.setViewportSize({ width: 834, height: 1194 });

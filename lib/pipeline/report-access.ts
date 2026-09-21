@@ -8,6 +8,13 @@ const operationsReportEmails = new Set([
   "sandeep@aaahealthservices.com",
 ]);
 
+// Tenant object IDs remain stable when Microsoft presents a guest UPN or email alias.
+const operationsReportPrincipalIds = new Set([
+  "e9f39185-d751-45c0-bcf5-c24d3565bdd9", // Andrew
+  "f73371d5-d2b4-48b4-a32b-1edc7c88869f", // Eric
+  "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2", // Sandeep
+]);
+
 type OperationsReportPrincipal = {
   id?: string | null;
   email?: string | null;
@@ -23,6 +30,7 @@ export function canAccessSupervisorOperations(roles: readonly string[]) {
 export function canAccessOperationsReports(principal: OperationsReportPrincipal | null | undefined) {
   if (!principal || !canEditWorkspace(principal)
     || !operationsReportRoles.some((role) => principal.roles.includes(role))) return false;
+  if (operationsReportPrincipalIds.has(principal.id?.trim().toLowerCase() ?? "")) return true;
   const email = principal.email?.trim().toLowerCase();
   if (!email) return false;
   // Retain the reserved local/demo identity contract; real accounts require the named allowlist.

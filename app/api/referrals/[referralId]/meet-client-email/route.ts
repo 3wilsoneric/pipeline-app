@@ -55,7 +55,7 @@ export async function POST(
     }
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;
-    const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion);
+    const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion, prepared.assessmentId, prepared.assessmentVersion);
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
@@ -166,7 +166,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 256_000);
@@ -186,8 +186,13 @@ async function prepareEmailRequest(request: Request): Promise<
   if (!readiness.configured) {
     return { ok: false, response: jsonError("Microsoft 365 email is not configured for Pipeline.", 503) };
   }
+  const assessmentId = body.value.assessment_id;
+  const assessmentVersion = body.value.if_match_assessment;
+  if (!validAssessmentPreview(assessmentId, assessmentVersion)) {
+    return { ok: false, response: jsonError("Refresh and review the assessment summary before sending.", 409) };
+  }
   const audience = prepareHandoffAudience(body.value, readiness);
-  return audience.ok ? { ...audience, mutationId, referralVersion, message } : audience;
+  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number } : audience;
 }
 
 function prepareHandoffAudience(body: Record<string, unknown>, readiness: ReturnType<typeof getGraphMailReadiness>) {
@@ -200,7 +205,7 @@ function prepareHandoffAudience(body: Record<string, unknown>, readiness: Return
   return { ok: true as const, recipients, ccRecipients: audience.recipients.filter((address) => !recipients.includes(address)) };
 }
 
-async function loadMeetClientContext(referralId: number, referralVersion: number) {
+async function loadMeetClientContext(referralId: number, referralVersion: number, assessmentId: string, assessmentVersion: number) {
   const [snapshot, assessmentList] = await Promise.all([
     getReferralWorkflowSnapshot(referralId),
     listAssessments({ referralId, limit: 100 }),
@@ -220,6 +225,9 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   );
   if (!assessment) {
     return { ok: false as const, response: jsonError("Sign the assessment before emailing Meet the Client. Acceptance and signing are separate steps.", 422) };
+  }
+  if (assessment.assessment_id !== assessmentId || assessment.version !== assessmentVersion) {
+    return { ok: false as const, response: jsonError("The assessment changed. Refresh and review Meet the Client before sending.", 409) };
   }
   return {
     ok: true as const,
@@ -335,4 +343,9 @@ function deliveryFailureMessage(error: unknown) {
 
 function privateHeaders() {
   return { "Cache-Control": "private, no-store, max-age=0", Vary: "Authorization" };
+}
+
+function validAssessmentPreview(id: unknown, version: unknown) {
+  return typeof id === "string" && /^[a-zA-Z0-9_.:-]{1,160}$/.test(id)
+    && typeof version === "number" && Number.isSafeInteger(version) && version >= 1;
 }

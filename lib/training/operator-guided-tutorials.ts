@@ -1,4 +1,6 @@
 import type { OperatorRole } from "@/lib/training/operator-training-types";
+import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 
 export type OperatorGuideAdvance = "confirm" | "target-click" | "target-input" | "target-change";
 export type OperatorGuidePlacement = "top" | "right" | "bottom" | "left" | "auto";
@@ -71,7 +73,7 @@ export function operatorGuideChapterAtStep(tutorial: OperatorGuidedTutorial, ste
 
 
 const allRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"];
-const writeRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer"];
+const writeRoles = allRoles;
 const supervisorRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator"];
 const packet = "/?view=referrals&screen=packet";
 const assessment = packet + "&workspaceStage=assessment";
@@ -203,7 +205,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
     steps: [
       step("decision", decision, "workspace-decision", "Record the decision", "Choose Accept, Deny, or Under review, then use the form's save action. An existing decision appears in this same area. Opening the page records nothing."),
       step("decision-check", decision, "workspace-decision", "Check the recorded decision", "After saving, check the decision shown for this referral. Acceptance does not sign an assessment or send a packet; those actions remain separate."),
-      step("decision-date", decision, "workspace-admit-date", "Set the planned admission date", "For an accepted referral, enter the planned admission date before sending Meet the Client. You can still preview without it. Confirm admitted separately after the client arrives.", "confirm", true),
+      step("decision-date", decision, "workspace-admit-date", "Set the planned admission date", "For an accepted referral, enter the planned admission date, then review the email and packet. You can still preview without a date. Nothing sends until you confirm Send.", "confirm", true),
       step("decision-packet", decision, "workspace-finish-send", "Continue to the packet", "Continue to finish & send opens the packet and email workspace. Opening it does not send or notify recipients.", "confirm", true),
     ] }),
   tutorial({ id: "workspace-files", title: "Add or open files", context: "workspace", audiences: writeRoles, summary: "Keep new documents with the same referral.",
@@ -241,7 +243,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
       step("clients-chart", "/?screen=profiles", "client-directory", "Open the chart", "Open the matching client to inspect the available chart and documents. Close it to return to the directory; opening a chart creates no new referral."),
       step("clients-return", "/?view=referrals", "workspace-directory", "Return to referral work", "Use Workspaces for a referral episode and its assessment. A client chart and an active referral are different views, not reasons to create a duplicate."),
     ] }),
-  tutorial({ id: "supervisor-shift", title: "See team referrals", context: "app", persona: "supervisor", audiences: supervisorRoles, summary: "See team referrals and appointments.",
+  tutorial({ id: "supervisor-shift", title: "See team referrals", context: "app", persona: "supervisor", audiences: allRoles, summary: "See team referrals and appointments.",
     steps: [
       step("team-home", "/", "my-queue", "Check the Home queue", "Check the visible scope. Open the source referral to inspect its status; a stage label alone is not a completed action."),
       step("team-workspaces", "/?view=referrals", "workspace-directory", "Review team referrals", "Use available owner and stage filters to narrow team work. Board access does not override workspace edit permissions."),
@@ -348,4 +350,10 @@ export function guidedTutorialsForRole(role: OperatorRole) {
 export function guidedTutorialsForRoles(roles: readonly string[]) {
   const assigned = new Set(roles);
   return operatorGuidedTutorials.filter((tutorial) => tutorial.audiences.some((role) => assigned.has(role)));
+}
+
+export function guidedTutorialsForUser(user: Parameters<typeof canAccessOperationsReports>[0]) {
+  if (!user || !canEditWorkspace(user)) return [];
+  return guidedTutorialsForRoles(user.roles).filter((tutorial) =>
+    tutorial.id !== "run-report" || canAccessOperationsReports(user));
 }

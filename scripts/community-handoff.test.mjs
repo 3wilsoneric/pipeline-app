@@ -152,3 +152,42 @@ test("packet includes chart documents, assessment attachments and data sheet wit
   assert.equal(blocked.ready, false);
   await assert.rejects(() => attachmentOwner.prepareMeetClientMailAttachments(blocked), /safety scanning/);
 });
+
+test("demo messages clearly identify the packet as not live without changing live email subjects", () => {
+  const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
+  const names = ["Referral.pdf", "Medication list.xlsx", "Assessment.docx"];
+  const demo = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", names, undefined, { demo: true });
+  assert.match(demo.subject, /^\[DEMO\] Meet the Client/);
+  assert.match(demo.html, /Demo — not live/);
+  assert.match(demo.html, /message and admission packet will not be sent/);
+  assert.match(demo.html, /every file uploaded to this workspace/);
+  for (const name of names) assert.ok(demo.html.includes(name));
+  const live = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "delivery", names);
+  assert.doesNotMatch(live.subject, /DEMO/);
+  assert.doesNotMatch(live.html, /Demo — not live/);
+});
+
+test("packet inventory shows all pages and all categories even beyond delivery limits", async () => {
+  const ids = Array.from({ length: 205 }, (_, index) => `f137d093-cc6b-4001-a8b4-${String(index).padStart(12, "0")}`);
+  const cursors = [];
+  const files = ids.map((id, index) => ({ id, referralId: referral.id, category: ["Admission", "Assessment", "Other"][index % 3], name: `Uploaded ${index + 1}.pdf` }));
+  const attachmentOwner = loadEntry("lib/notifications/meet-client-attachments.ts", {
+    "@/lib/pipeline/referral-store": { listReferralFiles: async (options) => {
+      assert.equal(options.referralId, referral.id);
+      assert.equal(options.limit, 200);
+      cursors.push(options.cursor);
+      return options.cursor ? { files: files.slice(200) } : { files: files.slice(0, 200), next_cursor: "second-page" };
+    } },
+    "@/lib/extraction/document-assets": { getDocumentFileMetadata: async (id) => ({ document_id: id, file_name: files.find((file) => file.id === id).name, content_type: "application/pdf", byte_size: 40, malware_scan_status: id === ids.at(-1) ? "pending" : "clean" }) },
+    "./client-data-sheet": sheetOwner,
+  });
+  const inventory = await attachmentOwner.getMeetClientAttachmentInventory(referral);
+  assert.deepEqual(cursors, [undefined, "second-page"]);
+  assert.equal(inventory.files.length, 206);
+  assert.deepEqual(Array.from(inventory.files.slice(1), (file) => file.documentId), ids);
+  assert.equal(inventory.files.at(-1).ready, false);
+  assert.equal(inventory.totalBytes, 205 * 40 + Buffer.byteLength(inventory.files[0].generatedContent));
+  assert.equal(inventory.ready, false);
+  assert.ok(inventory.blockers.some((message) => /file delivery limit/.test(message)));
+  await assert.rejects(attachmentOwner.prepareMeetClientMailAttachments(inventory), /file delivery limit/);
+});

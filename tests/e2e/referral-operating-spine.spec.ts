@@ -21,6 +21,7 @@ test.describe("Referral-to-decision operating spine", () => {
 
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
     const referralId = Number(new URL(page.url()).searchParams.get("referralId"));
+    await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     const contacts = page.getByRole("region", { name: "Contact and coordination", exact: true });
     await expect(contacts).toBeVisible();
@@ -98,9 +99,9 @@ test.describe("Referral-to-decision operating spine", () => {
     await contacts.getByRole("button", { name: "Save contact" }).click();
     await expect(contacts.getByText("Case manager", { exact: true })).toBeVisible();
     await expect(contacts.getByText("(555) 010-2027", { exact: true })).toBeVisible();
-
-    page.once("dialog", (dialog) => dialog.accept());
     await contacts.getByRole("button", { name: "Remove Jordan Coordinator from referral" }).click();
+
+    await page.getByRole("alertdialog", { name: "Remove this contact?", exact: true }).getByRole("button", { name: "Remove contact", exact: true }).click();
     await expect(contacts.getByText("No saved contacts are connected yet.", { exact: true })).toBeVisible();
     await expect(contacts.getByText("Contact needed", { exact: true })).toBeVisible();
 

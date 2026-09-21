@@ -55,6 +55,15 @@ lists were converted from the ignored local Markdown collection; that document
 remains a source snapshot, not a second synchronized store. No real addresses or
 patient details are checked into source or fixtures.
 
+A fresh isolated demo without that file opens five empty community lists. Reading
+never creates the file; the first explicit Save uses the same locked, atomic
+write path. Corrupt files and missing configured sources outside the demo still
+fail closed. Empty lists do not claim provenance from admission emails.
+
+The editor uses the read endpoint's `canEdit` capability. Readers see the saved
+recipients without add, remove, or save controls. The server still enforces
+admin/coordinator authorization on every write.
+
 The read endpoint requires an authenticated Pipeline user so assessors can load
 their community's default audience. Editing templates requires both the named
 supervisor policy and an admin/coordinator role (or the isolated demo supervisor).

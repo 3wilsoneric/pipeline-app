@@ -1,0 +1,63 @@
+.page { height: 100%; overflow-y: auto; color: #263d33; }
+.content { width: 100%; max-width: 1000px; margin: 0 auto; padding: 32px 32px 64px; }
+.header { margin-bottom: 24px; }
+.header h1 { font-size: 30px; font-weight: 750; line-height: 1.25; letter-spacing: -.025em; }
+.header p, .sectionHeader p { margin-top: 6px; color: #596a61; font-size: 15px; line-height: 1.55; }
+.card { min-width: 0; margin-bottom: 24px; border: 1px solid #d3ded8; border-radius: 12px; background: #fff; }
+.sectionHeader { padding: 22px 24px 0; }
+.sectionHeader h2 { font-size: 19px; line-height: 1.4; font-weight: 700; letter-spacing: -.015em; }
+.contacts .sectionHeader { padding-bottom: 12px; }
+.settingRow { display: flex; min-width: 0; align-items: center; gap: 16px; padding: 20px 24px; text-decoration: none; cursor: pointer; border-radius: 11px; }
+.settingRow:hover { background: #f2f7f4; }
+.settingRow > svg { flex-shrink: 0; color: #527064; }
+.icon { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; background: #edf5f0; color: #08765f; }
+.rowText { flex: 1; min-width: 0; }
+.rowText strong { display: block; font-size: 16px; line-height: 1.4; font-weight: 650; }
+.rowText > span { display: block; margin-top: 4px; color: #596a61; font-size: 14px; line-height: 1.5; }
+.contactLink { background: #f1f8f4; margin: 0 12px 12px; padding: 18px 12px; border: 1px solid #d4e6da; border-radius: 8px; }
+.rowAction { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 650; color: #08765f; }
+.directory { border-top: 1px solid #e1e8e3; }
+.directory:first-of-type { border-top: 0; }
+.directory summary { list-style: none; }
+.directory summary::-webkit-details-marker { display: none; }
+.directory[open] .chevron { transform: rotate(180deg); }
+.importer { padding: 0 24px 8px; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 24px; margin: 0; border: 0; padding: 24px; min-width: 0; }
+.field { display: flex; min-width: 0; flex-direction: column; gap: 8px; }
+.field > span { font-size: 14px; font-weight: 600; color: #394f43; }
+.field input, .field select { width: 100%; min-width: 0; min-height: 46px; padding: 10px 12px; border: 1px solid #bfcfc5; border-radius: 6px; background: #fff; color: #263d33; font-size: 16px; line-height: 1.5; }
+.field input::placeholder { color: #718177; }
+.field input:disabled, .field select:disabled { background: #f3f6f4; color: #596a61; }
+.page :is(a, button, summary, input, select):focus-visible { outline: 2px solid #087d66; outline-offset: 3px; }
+.saveBar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 24px; border-top: 1px solid #e1e8e3; border-radius: 0 0 11px 11px; background: #f8faf8; }
+.saveBar p { min-width: 0; font-size: 14px; line-height: 1.5; }
+.saveStatus { color: #52695b; }
+.error { color: #9f362c; }
+.primary, .secondary { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 46px; flex-shrink: 0; border-radius: 6px; padding: 10px 18px; font-size: 14px; line-height: 1.5; font-weight: 650; cursor: pointer; }
+.primary { background: #087d66; color: #fff; }
+.primary:hover { background: #06634f; }
+.primary:disabled { background: #dce7df; color: #536b5b; cursor: default; }
+.secondary { border: 1px solid #becfc4; margin: 16px 24px; background: #fff; }
+.card > .error { padding: 20px 24px 0; }
+.account { padding-top: 4px; }
+.account .sectionHeader { padding: 0; }
+.account .sectionHeader h2 { font-size: 17px; }
+.accountFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; padding-top: 20px; }
+.accountFields dt { font-size: 13px; color: #596a61; }
+.accountFields dd { margin: 5px 0 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.5; font-weight: 550; }
+.loading { display: flex; justify-content: center; align-items: center; gap: 10px; min-height: 200px; font-size: 15px; }
+@media (max-width: 700px) {
+  .content { padding: 24px 16px 40px; padding-bottom: max(40px, env(safe-area-inset-bottom)); }
+  .header h1 { font-size: 27px; }
+  .header p { font-size: 14px; }
+  .sectionHeader { padding: 20px 18px 0; }
+  .settingRow { gap: 12px; padding: 18px; flex-wrap: wrap; }
+  .rowText { flex-basis: calc(100% - 90px); }
+  .contactLink { margin: 0 10px 10px; padding: 14px; }
+  .rowAction { padding-left: 56px; }
+  .fields { grid-template-columns: minmax(0, 1fr); padding: 22px 18px; gap: 20px; }
+  .saveBar { align-items: stretch; flex-direction: column; gap: 12px; padding: 16px 18px; }
+  .primary { width: 100%; }
+  .importer { padding: 0 18px 4px; }
+  .accountFields { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+}

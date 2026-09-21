@@ -22,7 +22,7 @@
 .queued button:hover { background: #eef3f0; }
 .queued button:disabled { opacity: .4; cursor: not-allowed; }
 .pending { color: #755618; font-size: 12px; flex-shrink: 0; }
-.error { color: #9e352a; font-size: 14px; margin: 12px 0; }
+.error { padding: 10px 12px; border-left: 3px solid #9aa7a0; background: #f7faf9; color: #59645e; font-size: 14px; line-height: 1.6; margin: 12px 0; overflow-wrap: anywhere; }
 .dialog { margin: auto; padding: 0; width: min(780px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; border: 1px solid #c8d5ce; border-radius: 12px; color: #253b34; background: #fff; box-shadow: 0 24px 80px #122b3240; font-family: inherit; }
 .dialog::backdrop { background: #152d2b66; backdrop-filter: blur(3px); }
 .dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 24px 24px 20px; border-bottom: 1px solid #e0e7e2; }

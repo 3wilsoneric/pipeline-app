@@ -1,7 +1,7 @@
 import { expect, test, webkit, type Page } from "@playwright/test";
 import type { AxeResults } from "axe-core";
 
-async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false) {
+async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only") {
   const acknowledgments: unknown[] = [];
   let layout = { schema: 3, module_ids: moduleIds, locked: true };
   const { viewer } = await (await page.request.get("/api/operations/home")).json();
@@ -46,6 +46,14 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
         { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete" },
       ];
     }
+    payload.workflow.all_board_items = [...payload.workflow.board_items];
+    if (scope) {
+      for (const [index, workflow_status] of ["ready_to_schedule", "assessment_in_progress", "decision_pending", "declined"].entries()) {
+        payload.workflow.all_board_items.push({ ...item, referral_id: 940000 + index, client_name: `Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, workflow_status,
+          owner: "Another Assessor", outcome_state: workflow_status === "declined" ? "declined" : "pending" });
+      }
+      if (scope === "team-only") Object.assign(payload.workflow, { active_items: [], board_items: [], active_total: 0 });
+    }
     payload.upcoming = [{ id: "synthetic-appointment", referralId: 910502, clientName: "Jordan Appointment", community: "San Pablo", owner: "Example Assessor", date: "2026-09-22", startsAt: "2026-09-22T17:00:00Z", method: "in_person", kind: "assessment", status: "scheduled", title: "Assessment" }];
     payload.continuity = { ...payload.continuity, unavailable: false, needs_assignment_tracking_initialization: false,
       new_assignments: Array.from({ length: 7 }, (_, index) => ({ event_id: `focus-assignment-${index}`, action: "referral_assigned", actor_id: "coordinator", actor_name: "Example Coordinator", created_at: new Date().toISOString(), workspace: { referral_id: 910510 + index, client_name: `New Client ${index + 1}`, community: "San Pablo", owner: "Example Assessor", workflow_status: "intake_in_progress", workspace_status: "active" }, attention: null })),
@@ -60,6 +68,52 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
   });
   return acknowledgments;
 }
+
+for (const width of [1440, 390]) test(`folder All and Mine switch instantly without changing stages at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 900 });
+  await homeFixture(page, undefined, 2, true, false, "mixed");
+  await page.goto("/");
+  for (const [index, title] of ["Referral received", "In progress", "Decision", "Finished referrals"].entries()) {
+    if (width < 1024 && index < 3) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision"][index]);
+    const opener = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
+    await opener.click();
+    const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
+    const toggle = folder.getByRole("group", { name: "Folder scope" });
+    await expect(toggle.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
+    const mineCount = await folder.locator("[data-board-card]").count();
+    // All data is already present. Even a disconnected browser can switch scopes.
+    await page.context().setOffline(true);
+    await toggle.getByRole("button", { name: "All", exact: true }).click();
+    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + 1);
+    await expect(folder.getByRole("button", { name: `Open Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, exact: true })).toBeVisible();
+    await expect(folder.locator("h2")).toContainText(`${mineCount + 1} files`);
+    expect(await folder.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const box = await toggle.getByRole("button", { name: "All", exact: true }).boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    if (index === 0) await page.screenshot({ path: info.outputPath(`folder-scope-${width}.png`), animations: "disabled" });
+    await toggle.getByRole("button", { name: "Mine", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount);
+    await page.context().setOffline(false);
+    await page.keyboard.press("Escape");
+    await expect(folder).toHaveCount(0);
+    await expect(opener).toBeFocused();
+  }
+});
+
+test("All is reachable when Mine is empty, including finished referrals", async ({ page }) => {
+  await homeFixture(page, undefined, 0, false, false, "team-only");
+  await page.goto("/");
+  for (const title of ["Referral received", "Finished referrals"]) {
+    await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
+    const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
+    await expect(folder).toContainText("None assigned to you here.");
+    await folder.getByRole("button", { name: "All", exact: true }).click();
+    await expect(folder.locator("[data-board-card]").first()).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+});
 
 for (const width of [1440, 834, 390, 320]) test(`focus deck keeps the foreground legible and backgrounds inert at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });

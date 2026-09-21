@@ -1,3 +1,4 @@
+import { confirmReferralFileLabels } from "./support/referral-upload";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalReferral, recordOperationalAcceptance } from "./support/operational-api";
@@ -103,7 +104,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   expect(response.headers()["cache-control"]).toContain("no-store");
   const payload = await response.json();
   const { user } = await (await page.request.get("/api/auth/me")).json();
-  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name)));
+  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name), undefined, { demo: payload.email.example_only }));
   const dataSheet = await page.request.get(`/api/referrals/${referral.id}/admission-summary?download=chart`);
   expect(dataSheet.status()).toBe(200);
   expect(await dataSheet.text()).toContain("Received; signatures still need review.");
@@ -176,6 +177,7 @@ for (const width of [1440, 390, 320]) test(`handoff points to the next unfinishe
   await page.goto(url);
   const readiness = page.getByRole("region", { name: "Handoff readiness", exact: true });
   const expectNextActionVisible = async (name: string) => {
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     const action = readiness.getByRole("button", { name, exact: true });
     await expect(action).toBeInViewport({ ratio: 1 });
     const bounds = (await action.boundingBox())!;
@@ -234,7 +236,7 @@ for (const width of [1440, 390, 320]) test(`handoff points to the next unfinishe
   await page.screenshot({ path: info.outputPath(`next-step-email-${width}.png`), animations: "disabled" });
   await readiness.getByRole("button", { name: "Preview email", exact: true }).click();
   await page.getByRole("button", { name: "Done reviewing", exact: true }).click();
-  await expect(readiness.getByRole("heading", { name: "Example review complete", exact: true })).toBeVisible();
+  await expect(readiness.getByRole("heading", { name: "Demo review complete", exact: true })).toBeVisible();
   await expect(readiness.getByRole("button")).toHaveCount(1);
   await expectNextActionVisible("Close workspace");
   await expect(readiness.getByRole("button", { name: "Close workspace", exact: true })).toBeFocused();
@@ -273,8 +275,10 @@ test("unsigned handoff offers only assessment review while stage navigation stay
 
 test("packet controls show attachments and retain explicit send confirmation and failure recovery", async ({ page }, info) => {
   const { referral } = await referralWithAssessment(page);
+  let previewedAssessment: { assessmentId: string; assessmentVersion: number };
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async (route) => {
     const response = await route.fetch(); const payload = await response.json();
+    previewedAssessment = payload.report;
     payload.email = { ...payload.email, example_only: false, can_send: true, configured: true, sender: "pipeline@example.invalid", eligible: true, ready: true, blockers: [], allowed_recipient_domains: ["example.invalid"],
       admission_packet: { files: [{ document_id: "synthetic-packet", name: "Synthetic referral packet.pdf", category: "admission", byte_size: 2048, ready: true }], total_bytes: 2048, ready: true, delivery_mode: "direct" } };
     await route.fulfill({ response, json: payload });
@@ -288,7 +292,7 @@ test("packet controls show attachments and retain explicit send confirmation and
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   await page.getByRole("button", { name: "Preview email", exact: true }).click();
   const send = page.getByRole("button", { name: "Send email & packet", exact: true });
-  await expect(page.getByRole("button", { name: /^(Add admission packet|Review packet files)$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^(Upload files|Review packet files)$/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Open Synthetic referral packet.pdf" })).toHaveAttribute("href", "/api/files/synthetic-packet/download");
   const recipients = page.getByRole("combobox", { name: /^To/ });
   await recipients.fill("care@example.invalid");
@@ -311,7 +315,7 @@ test("packet controls show attachments and retain explicit send confirmation and
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true }).getByRole("alert")).toContainText("Refresh the packet");
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).not.toHaveText("Sent");
   expect(sends).toBe(1);
-  expect(sentBody).toMatchObject({ confirmed: true, recipients: ["care@example.invalid"], if_match: expect.any(Number), client_mutation_id: expect.any(String) });
+  expect(sentBody).toMatchObject({ confirmed: true, recipients: ["care@example.invalid"], if_match: expect.any(Number), assessment_id: previewedAssessment!.assessmentId, if_match_assessment: previewedAssessment!.assessmentVersion, client_mutation_id: expect.any(String) });
   await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   const refreshed = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}/admission-summary`));
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
@@ -330,7 +334,7 @@ test("missing packet is repaired from email review, without a general files acti
   await overview.getByRole("button", { name: "Preview email", exact: true }).click();
   const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
   await expect(composer.getByRole("link", { name: "Open Client data sheet.html", exact: true })).toBeVisible();
-  await composer.getByRole("button", { name: "Add admission packet", exact: true }).click();
+  await composer.getByRole("button", { name: "Upload files", exact: true }).click();
   await expect(page).toHaveURL(/workspaceView=files/);
   await expect(composer).toHaveCount(0);
 });
@@ -432,4 +436,43 @@ for (const width of [1440, 390]) test(`review shows the record and opens an unre
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.signed_at).toBeNull();
   expect(saved.medications_at_intake).toEqual(["Synthetic recorded medication"]);
+});
+
+for (const width of [390, 834]) test(`demo admission packet includes every uploaded file and its message at ${width}px`, async ({ page }, info) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.setViewportSize({ width, height: 900 });
+  const uploaded = ["Admission note.txt", "Assessment notes.txt", "Medication list.txt"];
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=files`);
+  await page.getByLabel("Choose referral documents", { exact: true }).setInputFiles(uploaded.map((name) => ({ name, mimeType: "text/plain", buffer: Buffer.from(`Synthetic ${name}`) })));
+  await confirmReferralFileLabels(page, { "Admission note.txt": "referral_packet", "Assessment notes.txt": "assessment", "Medication list.txt": "medication_list" });
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/referrals/${referral.id}/admission-summary`);
+    const payload = await response.json();
+    return payload.email.admission_packet.files.filter((file: { generated: boolean }) => !file.generated).map((file: { name: string }) => file.name).sort();
+  }).toEqual([...uploaded].sort());
+  const payload = await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json();
+  expect(payload.email).toMatchObject({ example_only: true, ready: false, can_send: false });
+  expect(payload.email.admission_packet.files).toHaveLength(4);
+  expect(payload.email.preview.subject).toMatch(/^\[DEMO\]/);
+  for (const name of uploaded) expect(payload.email.preview.html).toContain(name);
+  let attempts = 0;
+  page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) attempts++; });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  await expect(page.getByRole("status").filter({ hasText: "Demo — not live" })).toBeVisible();
+  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
+  await expect(composer.getByRole("status").filter({ hasText: "Demo — not live" })).toBeInViewport();
+  const attachments = composer.getByRole("region", { name: "Referral packet attachments", exact: true });
+  await expect(attachments.getByRole("heading", { name: "Admission packet", exact: true })).toBeVisible();
+  for (const name of uploaded) await expect(attachments.getByRole("link", { name: `Open ${name}`, exact: true })).toBeVisible();
+  await expect(attachments.getByRole("link")).toHaveCount(4);
+  const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
+  await expect(preview.getByText("Demo — not live. This message and admission packet will not be sent.", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Hello team,", { exact: true })).toBeVisible();
+  await expect(composer.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
+  await expect(composer.getByRole("button", { name: "Done reviewing", exact: true })).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`demo-admission-packet-${width}.png`), animations: "disabled" });
+  await composer.getByRole("button", { name: "Done reviewing", exact: true }).click();
+  expect(attempts).toBe(0);
 });

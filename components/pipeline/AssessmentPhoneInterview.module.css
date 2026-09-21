@@ -68,7 +68,7 @@
   .question [data-working-field] > div > div:first-child { margin-bottom: 8px; }
   .question [data-working-field] > div > div:first-child > label { font-size: 22px; }
   .position { margin-bottom: 10px; }
-  .paging { padding-block: 2px; }
+  .paging { padding-block: 0; }
 }
 :global([data-mobile-keyboard="true"]) .question { padding-block: 10px 16px; }
 :global([data-mobile-keyboard="true"]) .paging { padding-block: 2px; }

@@ -17,7 +17,7 @@ test("normal shell, simple profile, real role restrictions and switching", async
   await expect(page.locator("[data-pipeline-demo-banner]")).toHaveCount(0);
   await page.getByRole("button", { name: "Open profile menu for Alex Morgan" }).click();
   const profile = page.getByRole("dialog", { name: "Profile settings" });
-  await expect(profile.getByRole("link", { name: "Profile", exact: true })).toBeVisible();
+  await expect(profile.getByRole("link", { name: "Settings", exact: true })).toBeVisible();
   await expect(profile).not.toContainText("God mode");
   await expect(profile).not.toContainText("Process tester");
   await page.keyboard.press("Escape");

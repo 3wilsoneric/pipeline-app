@@ -30,9 +30,9 @@
 .textButton:disabled { opacity: .6; }
 .chartActions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-bottom: 12px; }
 .attachments { padding: 10px 24px 16px; border-bottom: 1px solid #ededed; }
-.attachmentHeading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.attachmentHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .attachmentHeading > span { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: #59665f; }
-.attachmentList { display: flex; flex-wrap: wrap; gap: 9px; max-height: 200px; overflow-y: auto; margin: 4px 0 0; padding: 2px; list-style: none; }
+.attachmentList { display: flex; flex-wrap: wrap; gap: 9px; margin: 4px 0 0; padding: 2px; list-style: none; }
 .attachmentList > li { max-width: 100%; }
 .attachment { display: flex; align-items: center; gap: 10px; max-width: 380px; min-height: 60px; padding: 10px 14px; border: 1px solid #dce4df; border-radius: 4px; color: #08745d; background: #fafcfb; }
 .attachment:hover { border-color: #8bb8a6; background: #f0f7f3; }
@@ -135,3 +135,10 @@
   .confirmation span span { font-size: 13px; }
   .nextStep { padding: 10px 14px; }
 }
+
+.packetDescription { margin: 0 0 18px; color: #59665f; font-size: 15px; line-height: 1.5; }
+.attachmentHeading h3 { margin: 0; font-size: 17px; font-weight: 650; color: #263d33; }
+.messageHeading { margin: 0; padding: 18px 24px 0; font-size: 17px; font-weight: 650; }
+.previewNote, .demoNotice { padding: 14px 18px; border: 1px solid #d8c387; border-radius: 6px; background: #fff8e6; color: #684f17; font-size: 15px; font-weight: 650; line-height: 1.5; }
+.demoNotice { margin: 12px 24px; }
+@media (max-width: 640px) { .demoNotice { margin: 12px 14px; } .messageHeading { padding-inline: 14px; } }

@@ -176,7 +176,7 @@ test("profile navigation leaves through the save path and practice help stays in
   let assessment = await openWorkingAssessment(page);
   await revealAppNavigation(page);
   await page.getByRole("button", { name: /^Open profile menu for/ }).click();
-  await page.getByRole("link", { name: "Profile settings Account and display preferences", exact: true }).click();
+  await page.getByRole("link", { name: "Settings Your profile and contacts", exact: true }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(assessment).not.toBeVisible();
   assessment = await openWorkingAssessment(page);

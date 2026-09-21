@@ -55,6 +55,7 @@ test("keeps intake and later referral files in one workspace", async ({ page }) 
   expect(categorized.find((file: { name: string }) => file.name === "batch-face-sheet.pdf").category).toBe("Referral packet");
   expect(categorized.find((file: { name: string }) => file.name === "batch-referral-note.pdf").category).toBe("Assessment");
 
+  await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created" }).click();
   await page.getByRole("button", { name: "Workspace files" }).click();
   await page.getByLabel("Choose referral documents").setInputFiles({
     name: "later-care-note.pdf", mimeType: "application/pdf", buffer: Buffer.from(`later-${name}`),

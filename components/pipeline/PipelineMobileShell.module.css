@@ -125,10 +125,6 @@
     padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
     padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
   }
-  .shell [data-assessment-scheduling="fullscreen"] {
-    top: var(--mobile-viewport-top, 0px); bottom: auto; height: var(--mobile-viewport-height, 100dvh);
-    padding-top: env(safe-area-inset-top); padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
-  }
 }
 
 @media (max-width: 959px) {

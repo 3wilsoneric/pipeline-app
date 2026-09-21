@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmationDialog } from "./useConfirmationDialog";
+
 import { useEffect, useState } from "react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ReferralActivityEvent, ReferralWorkflowMetadata } from "@/lib/pipeline/referral-activity";
@@ -111,10 +113,11 @@ function ActivityTimeline({ events, metadata, referralId }: { events: ReferralAc
 }
 
 function RestoreDocument({ event, referralId }: { event: ReferralActivityEvent; referralId: number }) {
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const restore = async () => {
-    if (!event.undo || busy || !window.confirm("Restore this deleted file? Newer chart and checklist changes will be kept.")) return;
+    if (!event.undo || busy || !await confirm({ title: "Restore this deleted file?", message: "Newer chart and checklist changes will be kept.", confirmLabel: "Restore file" })) return;
     setBusy(true);
     setError("");
     try {
@@ -125,6 +128,7 @@ function RestoreDocument({ event, referralId }: { event: ReferralActivityEvent; 
     finally { setBusy(false); }
   };
   return <div className="mt-2 text-[11px]">
+    {confirmationDialog}
     <button type="button" disabled={busy} onClick={() => void restore()} className="font-bold text-[#0f7059] underline disabled:opacity-50">{busy ? "Restoring…" : "Restore file"}</button>
     <span className="ml-2 text-[#737373]">Available until {formatTimestamp(event.undo!.until)}</span>
     {error ? <p role="alert" className="mt-1 text-[#9aa7a0]">{error}</p> : null}

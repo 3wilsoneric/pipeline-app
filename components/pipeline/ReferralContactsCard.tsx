@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmationDialog } from "./useConfirmationDialog";
+
 import { useEffect, useState } from "react";
 import { Check, Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
 
@@ -43,6 +45,7 @@ export default function ReferralContactsCard({
   clientEmail: string;
 }) {
   const [links, setLinks] = useState<ReferralContactRecord[]>([]);
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const [loading, setLoading] = useState(Boolean(referralId));
   const [mode, setMode] = useState<"closed" | "search" | "new">("closed");
   const [query, setQuery] = useState("");
@@ -214,7 +217,7 @@ export default function ReferralContactsCard({
   };
 
   const unlink = async (link: ReferralContactRecord) => {
-    if (!referralId || !window.confirm(`Remove ${contactDisplayName(link.contact)} from this referral? The saved contact will remain in the directory.`)) return;
+    if (!referralId || !await confirm({ title: "Remove this contact?", message: `${contactDisplayName(link.contact)} will be removed from this referral. The saved contact will remain in the directory.`, confirmLabel: "Remove contact", destructive: true })) return;
     setBusy(link.id);
     setError("");
     try {
@@ -241,6 +244,7 @@ export default function ReferralContactsCard({
 
   return (
     <section aria-label="Contact and coordination" className="border border-[#d7ddd9] bg-white">
+      {confirmationDialog}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d7ddd9] bg-[#f8faf9] px-4 py-3">
         <div>
           <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#3f4745]">Saved contacts</h3>

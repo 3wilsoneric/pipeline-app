@@ -13,10 +13,13 @@ test.describe("mobile assessment", () => {
   test("phone app navigation shows destinations without guessing icons or horizontal scrolling", async ({ page }, info) => {
     await page.goto("/");
     const header = page.locator("[data-pipeline-header]");
+    const menu = page.getByRole("dialog", { name: "Pipeline pages", exact: true });
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });
       await header.getByRole("button", { name: /^Open page menu/ }).tap();
-      for (const label of ["Workspaces", "Calendar", "Clients", "Reports", "New"]) await expect(header.getByText(label, { exact: true })).toBeVisible();
+      for (const [name, label] of [["Open referrals", "Workspaces"], ["Open calendar", "Calendar"], ["Open client profiles", "Clients"], ["Open reports", "Reports"], ["Create new referral", "New"]]) {
+        await expect(menu.getByRole("button", { name, exact: true }).getByText(label, { exact: true })).toBeVisible();
+      }
       for (const control of await header.locator('[data-testid="primary-navigation"] button').all()) {
         const box = (await control.boundingBox())!;
         expect(box.width).toBeGreaterThanOrEqual(44);

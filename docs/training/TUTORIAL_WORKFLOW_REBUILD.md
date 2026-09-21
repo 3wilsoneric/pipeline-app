@@ -1,5 +1,39 @@
 # Tutorials: Workflow Rebuild
 
+## Access Check (2026-09-21)
+
+Checked against deployed revision `ead9008b73b3ee51` and its matching source.
+Production inspection was read-only: Microsoft application settings, staff
+assignments, account status, latest sign-in results, and anonymous HTTP responses.
+Eric, Andrew, Sandeep, Jazmine, Vince, and Annette each have enabled accounts,
+appropriate app roles, and a successful Pipeline sign-in in Microsoft's logs.
+All five invited staff have accepted their invitations. Production's client ID,
+API audience/scope, and sign-in redirect URLs match. This does not claim a fresh
+interactive login or MFA test as each person.
+
+Two local corrections follow the existing shared-workspace policy:
+
+- All approved Pipeline roles, including Viewer, receive every non-Reports
+  tutorial. Assignment is not required for the fictional referral.
+- The Reports tutorial uses the actual named-account Reports permission, not
+  only the supervisor role. The three authorized supervisors also match by their
+  verified, tenant-scoped Microsoft object IDs to tolerate guest/email aliases.
+  God mode uses the selected user's identity, not the administrator behind it.
+
+Evidence: 19 operational browser tests cover role resolution, personal filters,
+team calendar, cross-owner edits, uploads, assessment/signing/decision access,
+private draft isolation, Reports reads/exports, and tutorial access for every
+role. Another 26 browser tests cover the complete fictional flow, mobile layout,
+Reports visibility, and God mode. All 49 focused unit tests, API behavior
+fixtures, affected lint, and the production build passed.
+
+The operational fixture intentionally has no clinical database or extraction
+worker: those optional services report unavailable there. It is evidence for
+the exercised access/workflow paths, not a claim of complete production service
+health. Authentication, Note Lab-only isolation, concurrency checks, historical
+read-only records, and post-send finalization remain intact. No production
+deployment, Entra changes, or real referral mutations were performed.
+
 ## Current: Fictional Referral Walkthrough (2026-09-20)
 
 The current pass supersedes the live-referral selection behavior documented below.

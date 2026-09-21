@@ -84,6 +84,24 @@ const results = [
     for (const view of ["intake", "chart", "workflow", "email", "files", "activity"]) {
       assert(workContinuity.parsePipelineWorkspaceLocation({ view, assessmentMode: "review" }) === null, "Review mode belongs only to Assessment");
     }
+    const questionLocation = { view: "assessment", assessmentSection: "prior_history", assessmentQuestion: "prior_5150_5250_holds" };
+    const questionParams = new URLSearchParams();
+    workContinuity.applyPipelineWorkspaceLocation(questionParams, questionLocation);
+    assert(JSON.stringify(workContinuity.pipelineWorkspaceLocationFromSearchParams(questionParams)) === JSON.stringify(questionLocation), "The exact assessment question survives a URL round trip");
+    assert(workContinuity.parsePipelineWorkspaceLocation({ ...questionLocation, assessmentQuestion: "patient-provided-text" }) === null, "Bookmark questions must be canonical field keys");
+    assert(workContinuity.parsePipelineWorkspaceLocation({ ...questionLocation, assessmentQuestion: {} }) === null, "Malformed bookmark questions are rejected");
+    for (const view of ["intake", "chart", "workflow", "email", "files", "activity"]) {
+      assert(workContinuity.parsePipelineWorkspaceLocation({ view, assessmentQuestion: "prior_5150_5250_holds" }) === null, "A question cannot leak into another workspace surface");
+      workContinuity.applyPipelineWorkspaceLocation(questionParams, { view });
+      assert(!questionParams.has("assessmentQuestion"), "Changing workspace surfaces clears the question from the URL");
+    }
+    let bookmarks = workContinuity.mergePipelineWorkContinuityState(workContinuity.emptyPipelineWorkContinuityState(), {
+      lastWorkspace: { referralId: 42, location: questionLocation, visitedAt: "2026-09-03T00:00:00.000Z" },
+    });
+    bookmarks = workContinuity.mergePipelineWorkContinuityState(bookmarks, {
+      lastWorkspace: { referralId: 43, location: { view: "email" }, visitedAt: "2026-09-03T00:01:00.000Z" },
+    });
+    assert(workContinuity.parsePipelineWorkContinuityState(bookmarks)?.recentWorkspaces.find((item) => item.referralId === 42)?.location.assessmentQuestion === "prior_5150_5250_holds", "Another workspace does not replace this workspace's question bookmark");
     const review = { view: "assessment", assessmentSection: "medication", assessmentMode: "review" };
     const reviewParams = new URLSearchParams();
     workContinuity.applyPipelineWorkspaceLocation(reviewParams, review);

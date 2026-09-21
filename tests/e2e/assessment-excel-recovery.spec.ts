@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
-import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 import { changeWorkbook, closeRecoveryTools, openRecoveryTools } from "./support/workbook-runtime";
 import { pickAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
@@ -90,7 +90,7 @@ test.describe("workbook recovery integration boundaries", () => {
 
 async function createFixture(page: Page, name: string) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: "", tags: [] });
-  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const assessment = await startOperationalAssessment(page.request, await createOperationalAssessment(page.request, referral.id));
   return {
     referral, assessment,
     href: `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`,

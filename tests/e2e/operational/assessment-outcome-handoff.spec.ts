@@ -78,8 +78,8 @@ test.describe("assessment outcome and admission handoff", () => {
         await page.goto(`${workspace(referral.id)}&workspaceView=workflow`);
         await page.getByRole("radio", { name: outcome === "accepted" ? "Accept" : "Deny", exact: true }).check();
         if (outcome === "declined") await page.getByRole("textbox", { name: "Reason (optional)", exact: true }).fill("Synthetic referral needs a different level of care.");
-        page.once("dialog", (dialog) => dialog.accept());
         await page.getByRole("button", { name: "Record decision", exact: true }).click();
+        await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
         await expect.poll(async () => (await workflow(admin, referral.id)).decision?.outcome).toBe(outcome);
         await page.reload();
         await expect(page.getByRole("heading", { name: "Decision recorded", exact: true })).toBeVisible();

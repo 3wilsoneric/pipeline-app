@@ -36,12 +36,13 @@ const environment = { ...process.env, NODE_ENV: "test", PIPELINE_DATABASE_MODE: 
   PIPELINE_EXTRACTION_BACKEND: "mock", PIPELINE_DEMO_MODE: "false" };
 try {
   await writeFile(environment.PIPELINE_REFERRAL_STORE_PATH, JSON.stringify({ version: 1, revision: 1, next_id: 11, referrals }));
-  const globals = { process: Object.assign(Object.create(process), { env: environment }) };
+  const globals = { globalThis: {}, process: Object.assign(Object.create(process), { env: environment }) };
   const operations = loadTypeScriptModule(process.cwd(), "lib/pipeline/operations-snapshot.ts", globals);
   for (const [index, expected] of [[0, [5, 10, 2, 7, 6, 1]], [1, [5, 2, 3]], [2, [4]]]) {
     const summary = await operations.getHomeWorkflowSummary(users[index]);
     assert.deepEqual(Array.from(summary.board_items, (item) => item.referral_id), expected, `personal Board and receipt order for ${users[index].roles}`);
     assert.equal(summary.active_total, expected.filter((id) => ![6, 7].includes(id)).length);
+    assert.deepEqual(Array.from(summary.all_board_items, (item) => item.referral_id), [5, 10, 2, 4, 3, 7, 6, 1], "All is shared across roles and excludes Trash and historical imports");
   }
   const store = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-store.ts", globals);
   const first = await store.listReferrals({ workspaceStatus: "all", sort: "received_desc", limit: 3 });
@@ -60,6 +61,41 @@ try {
   const query = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-query.ts", globals);
   assert.equal(query.parseReferralListQuery(new URLSearchParams("sort=received_desc&initial=A&workspace=all&scope=team")).ok, true);
   assert.equal(query.parseReferralListQuery(new URLSearchParams("initial=AB")).ok, false);
+  const assessments = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-store.ts", globals);
+  const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts", globals);
+  const assigned = await assessments.createAssessment({ referral_id: 3, assigned_assessor: users[0],
+    data: { ...schema.createEmptyAssessmentToolData(), assessor: users[0].name } }, users[1]);
+  assert.equal(assigned.ok, true);
+  await assessments.createAssessment({ referral_id: 4, assigned_assessor: users[2],
+    data: { ...schema.createEmptyAssessmentToolData(), assessor: users[0].name } }, users[2]);
+  const withAssessor = await operations.getHomeWorkflowSummary(users[0]);
+  assert.equal(withAssessor.board_items.some((item) => item.referral_id === 3), true, "designated assessor sees work they do not own");
+  assert.equal(withAssessor.board_items.some((item) => item.referral_id === 4), false, "assessor ID takes precedence over a matching display name");
+  const withOwner = await operations.getHomeWorkflowSummary(users[1]);
+  assert.equal(withOwner.board_items.some((item) => item.referral_id === 3), true, "owner retains Mine when someone else assesses");
+  const noWork = await operations.getHomeWorkflowSummary({ id: "new-assessor", name: "New Assessor", roles: ["reviewer"] });
+  assert.equal(noWork.board_items.length, 0);
+  assert.equal(noWork.all_board_items.length, 8, "All remains available with an empty Mine");
+  const reassigned = await assessments.patchAssessment(assigned.assessment.assessment_id, { assigned_assessor: users[2] }, users[1], { expectedVersion: assigned.assessment.version });
+  assert.equal(reassigned.ok, true);
+  assert.equal((await operations.getHomeWorkflowSummary(users[0])).board_items.some((item) => item.referral_id === 3), false, "previous assessor leaves Mine after reassignment");
+  assert.equal((await operations.getHomeWorkflowSummary(users[2])).board_items.some((item) => item.referral_id === 3), true, "new assessor receives the referral in Mine");
+  // Exercise the production bulk projection without opening a database connection.
+  let assessmentReads = 0;
+  const projectionSql = async (parts) => {
+    const queryText = parts.join("?");
+    if (!queryText.includes("from pipeline.assessments")) return [];
+    assessmentReads += 1;
+    assert.match(queryText, /select[\s\S]*assessor_id[\s\S]*from pipeline\.assessments/);
+    return [{ ...reassigned.assessment, data: schema.pickAssessmentToolData(reassigned.assessment) }];
+  };
+  const projectionEnvironment = { ...environment, PIPELINE_DATABASE_MODE: "postgres", PIPELINE_REFERRAL_STORE_MODE: "postgres", PIPELINE_DATABASE_URL: "postgres://fixture@localhost/unused_projection_fixture" };
+  const workflow = loadTypeScriptModule(process.cwd(), "lib/pipeline/workflow-store.ts", {
+    globalThis: { __pipelineSql: projectionSql }, process: Object.assign(Object.create(process), { env: projectionEnvironment }),
+  });
+  const projected = await workflow.getReferralWorkflowContexts(referrals);
+  assert.equal(projected.get(3).assessmentAssessorId, users[2].id, "PostgreSQL projection and local store expose the same designated assessor");
+  assert.equal(assessmentReads, 1, "assessor scoping uses the existing bulk read, not per-referral queries");
   if (process.env.PIPELINE_TEST_DATABASE_URL) {
     const url = new URL(process.env.PIPELINE_TEST_DATABASE_URL);
     assert.equal(url.hostname, "localhost", "PostgreSQL fixture only permits the disposable local database");

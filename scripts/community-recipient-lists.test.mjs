@@ -159,3 +159,30 @@ test("API rejects unauthorized, unavailable, cross-origin, oversized, duplicate 
   assert.equal((await api.PUT(request(body))).status, 200);
   assert.equal((await api.GET(new Request('http://localhost'))).status, 200);
 });
+
+test("a fresh isolated demo reads empty community lists and persists only an explicit save", async (t) => {
+  const { store, path, load } = await fixture(t);
+  await fs.unlink(path);
+  const lists = await store.readCommunityRecipientLists();
+  assert.equal(lists.length, 5);
+  assert.ok(lists.every((list) => list.to.length === 0 && list.cc.length === 0 && list.version === 1 && list.sourceDates.length === 0));
+  await assert.rejects(fs.stat(path), { code: "ENOENT" });
+  const results = await Promise.all([store.saveCommunityRecipientList(command()), load().saveCommunityRecipientList(command())]);
+  assert.equal(results.filter((result) => result.ok).length, 1);
+  assert.equal(results.find((result) => !result.ok).status, 409);
+  const saved = await load().readCommunityRecipientLists();
+  assert.equal(saved.length, 5);
+  assert.equal(saved.find((list) => list.community === "San Pablo").version, 2);
+  assert.equal((await fs.stat(path)).mode & 0o777, 0o600);
+});
+
+test("missing configured templates outside a demo are not replaced with empty defaults", async (t) => {
+  const { path } = await fixture(t);
+  await fs.unlink(path);
+  const store = loadTypeScriptModule(root, "lib/pipeline/community-recipient-list-store.ts", {
+    process: { ...process, env: { PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH: path } },
+  });
+  await assert.rejects(store.readCommunityRecipientLists(), { code: "ENOENT" });
+  assert.equal((await store.saveCommunityRecipientList(command())).status, 403);
+  await assert.rejects(fs.stat(path), { code: "ENOENT" });
+});

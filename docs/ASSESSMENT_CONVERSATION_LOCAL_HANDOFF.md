@@ -434,3 +434,362 @@ email delivery, deployment, or full repository audit were performed.
 Scope limit: demo review completion is local UI state and resets when the workspace
 is reopened; no new persisted workflow stage was introduced. Revisit persistence
 only if cross-session demo review progress becomes a product requirement.
+
+## September 21: creation handoff and deliberate scheduling
+
+After a new referral and its queued files finish saving, the intake becomes the
+chart and a Workspace created dialog offers Schedule assessment or Prepare from
+records. Dismissing it leaves the existing workspace tabs available. The handoff
+is an in-session completion prompt, not a new persisted workflow stage; reopening
+an existing workspace does not replay it. Scheduling reuses the canonical
+assessment draft and schedule endpoint and stays separate from Begin assessment.
+The shared appointment UI is a centered desktop dialog and a full-height phone
+dialog, with scrollable fields and reachable actions. Preparation exposes booking
+directly rather than burying it in Details.
+
+The actual interview date no longer appears among client questions. Begin
+assessment initializes a blank date using the recorded start in Pacific time;
+existing historical dates are preserved. The shared local/PostgreSQL patch owner
+records the field change in the same audit/version operation as the start.
+Details > Interview date and chart field editing use the existing answer editor,
+provenance review, autosave and recovery paths. Canonical schema and Excel cell
+mapping are unchanged. Booking never supplies the actual interview date.
+
+Validation: production build including workbook contracts, focused ESLint and
+diff checks passed. All 41 affected browser cases passed across
+`test-results/creation-handoff-verified` and the corrected WebKit-menu rerun in
+`test-results/creation-handoff-webkit`. Eight scheduling API boundary fixtures
+also passed. Coverage includes creation choices, cancel/retry, persistence,
+historical dates, audit fields, optimistic concurrency, phone/iPad layouts,
+keyboard focus, accessibility, calendar operations and answer recovery. Desktop
+and phone screenshots were inspected; port 3385 was checked in the in-app
+browser. Test data used isolated local storage. No production deployment, email
+delivery or PostgreSQL integration run was performed.
+
+## September 21: distinct preparation and interview surfaces
+
+Preparation now presents all applicable record-based questions in one editable
+form. Filled answers remain in place when changing groups or reopening the
+assessment; there is no duplicate reference column while preparing. Begin
+assessment remains the explicit, confirmed transition. During the interview,
+the same canonical answers populate Current information alongside questions
+still needing an answer, verification or an unable-to-assess reason. Reference
+edits and newly revealed conditional fields retain the existing save owner.
+
+A shared section picker now names both columns instead of using an emerald
+block above only the question side. Section position, recorded counts and a
+thin progress line replace the previous unfinished-count badge. Paper surfaces,
+readable answer typography and restrained dividers keep the folder language.
+The reference page turn moves subtly without fading its text: diagnostic scans
+found transient contrast failures in the previous opacity animation.
+
+Phones use the scrollable record form before Begin and the existing focused
+question/swipe experience after it. Preparation instructions scroll away;
+group navigation and save/details remain reachable. Keyboard section changes
+focus the shared picker. No schema, Excel mapping, persistence or authorization
+rules changed, and source provenance is not presented as client confirmation.
+
+Scope ceiling: preparation is still a curated view of the canonical assessment,
+not a separate snapshot or a new clinical confirmation state. Revisit that
+model only if explicit per-answer interview confirmation becomes a requirement.
+
+Validation: build (including workbook contracts), focused ESLint and diff checks
+passed. All 47 affected checks passed in
+`test-results/assessment-reference-complete`, covering preparation persistence,
+explicit start/cancel/retry, conditional questions, source verification, offline
+save recovery, immediate navigation, keyboard focus, reduced motion, contrast
+at the start of the page-turn animation, 320-1440px layouts, phone Chromium and
+WebKit, and iPad WebKit. Desktop and phone screenshots were inspected and the
+updated port 3385 practice view was checked in the in-app browser. Isolated test
+stores were used; no production deployment or email delivery was performed.
+
+## September 21: deliberate entry and return
+
+"Assessment prep" replaces "Prepare from records" and "Open questionnaire" at
+the entry points. Appointment date/time (Pacific), Edit, and Begin assessment
+now sit together. Scheduling still books only the appointment; confirming Begin
+records the actual interview date and start through the existing save owner.
+An unplanned interview can still begin without booking an appointment first.
+
+Home appointments have explicit Begin, Resume, or Review actions. Begin opens
+the existing confirmation, never starts from a click on the Home card alone.
+Resume restores the last assessment section when available; otherwise the
+existing missing-question/recovery behavior applies. Entry requests are
+transient UI state, not persisted resume destinations. They recheck the loaded
+assessment and edit permission, so an outdated Begin card does not restart an
+already-started interview. Scheduling-queue actions open the booking dialog.
+
+Local-only verification: 39 focused tests passed in
+`test-results/assessment-entry-complete`, including actual schedule/start APIs,
+leave/cancel/reload/resume, a stale Home action, start failure/retry, existing
+historical dates, keyboard/contrast checks, phone and iPad layouts. The final
+phone Home adjustment stacks the action below the client name; all 8 targeted
+Home/return checks passed in `test-results/assessment-entry-mobile-final`, with
+the rebuilt phone screenshots inspected at 320px and the scheduled header at
+390px and 1440px. Focused ESLint and diff checks passed.
+No assessment schema, database migration, email delivery, or production
+deployment was added in this pass.
+
+## September 21: centered confirmation prompts
+
+Replaced the app's browser confirmation calls with a small confirmation variant
+of the existing HomeDialog. Prompts use the Pipeline paper/emerald palette,
+center in the viewport, and name the pending action instead of using OK. The
+shared hook cancels pending work when its screen unmounts and rejects duplicate
+requests. Cancel, Escape and backdrop dismissal never approve an action.
+Signing explicitly focuses its trigger before opening, following the existing
+Begin assessment pattern so Safari can restore focus after cancellation.
+
+Converted signing, decisions/admission/EHR handoffs, calendar outcomes and
+unsaved follow-ups, contact-list replacement, contact removal, identity review,
+and file restoration. Existing inline errors stay with their fields; no native
+alert calls were present. Browser tab-close/reload warnings still use the
+browser's required beforeunload mechanism, whose appearance cannot be styled.
+
+Validation: production build with workbook contracts, TypeScript, focused
+ESLint and diff checks passed. Fifteen browser checks passed in
+`test-results/confirmations-verified`, plus the isolated contact-list
+cancel/conflict/reload check in `test-results/confirmations-contact-lists`.
+Coverage includes 320–1440px positioning, Chrome/WebKit, accessibility, keyboard
+and pointer cancellation, focus return, single signature submission, retained
+answers, decisions, calendar edits, contacts and file restoration. Desktop and
+phone screenshots were inspected. The older contact journey setup now dismisses
+the existing Workspace created dialog before editing; the new fixture uses a
+valid owner value. These setup failures were separate from the Safari focus
+issue repaired above. No production deployment or email delivery was performed.
+
+## September 21: compact, persistent gap flow
+
+This supersedes the earlier all-fields preparation behavior above. Both prep
+and interview now filter completed answers on section reentry or reopening.
+They derive gaps from the same current assessment data, conditional questions,
+pending verification, and missing unable-to-assess reasons. Zero is a valid
+answer; clearing an answer restores its question. No separate progress cache,
+time-based reset, schema change, or new save owner was introduced.
+
+Prep's existing recorded count opens completed answers in a native popover;
+selecting an answer closes it and focuses that question for correction. The
+interview retains its Current information reference. Redundant editor headings
+and instructions were removed, section navigation is compact, and short grid
+rows no longer stretch into blank header space.
+
+Deliberate interaction limit: edited questions stay put during the current
+section visit so autosave cannot move the next pointer or keyboard target.
+The form contracts on return; it does not automatically skip completed sections.
+Revisit this only if user testing establishes a need for an explicit compact-now
+action. Existing completed sections remain available for review and correction.
+
+Validation: build, focused ESLint and diff checks passed. All 60 focused checks
+passed in `test-results/assessment-gaps-complete`, including repeated real-API
+save/reload/correct/clear cycles, prep-to-interview continuity, conditional fields,
+verification, offline replay and late recovery, explicit start/resume, keyboard
+focus, contrast, and 320-1440px layouts. The short-phone recorded-answer popover
+was checked for clipping and Escape dismissal. Desktop/phone screenshots were
+inspected, and the local in-app browser was checked. Repeated visits were tested;
+this was not a multi-day soak test. Isolated test stores only; no production
+deployment or email delivery.
+
+## September 21: local workflow and interruption check
+
+The check uses synthetic referrals in the isolated Playwright local-file stores,
+not the operator's port 3385 data. It exercises browser file drops, labeling,
+original-byte downloads, duplicate selections, same-name/new-content revisions,
+pending-draft recovery, assessment conditions, Excel mapping and restoration,
+conflict handling, scheduling, signing, decisions, and the example email preview.
+
+Upload, Excel, recommendation, and signing failures use neutral, readable notices
+instead of red text blocks. Alert semantics and retry controls remain. The compact
+workspace failure message is now 14px rather than 10px; successful saves remain
+quiet. Clinical status colors and destructive-action confirmations are unchanged.
+
+The new resilience tests simulate a committed upload whose response is lost,
+followed by another failed file in the same batch. Retry must preserve original
+bytes, upload only the remaining file, and avoid duplicate records. Another test
+loses an assessment save response and verifies mutation-ID reuse, exactly one
+audit update, and preservation of the next answer through navigation and reload.
+
+One later repetition exposed an intermittent first-entry loss before any PATCH.
+It did not recur in 28 traced pre-change repetitions. Inspection found that the
+selected assessment's initialization could reset answers in a passive effect
+after editable fields painted. Initialization now runs in the existing layout
+phase, before interaction; asynchronous recovery still preserves touched fields.
+A focused test enters an answer on the first focusable frame and checks both
+the saved record and the reference panel. A subsequent fast-navigation failure
+also exposed passive state-to-ref synchronization as a stale-answer window. The
+selected record, draft, dirty-section and remote-change refs now synchronize in
+the same layout phase, rather than after interaction. The 18 affected preparation,
+upload and interruption checks passed three consecutive runs (54 cases) against
+the rebuilt candidate. This closes the inspected timing windows, but passing
+tests are not proof that every timing failure is eliminated.
+
+Older test setups now explicitly start interviews when they require interview
+sections, dismiss the Workspace created modal before editing, and follow the
+current decision-status/email-preview controls. Save, conflict, provenance,
+signature, and no-send assertions remain; thresholds and release checks were not
+relaxed.
+
+The artificial phone file-drop test now waits for packet readiness before
+dispatching a native drop event. Unlike a user's interaction, programmatic event
+dispatch bypasses the uploader's disabled state during draft recovery. The
+read-only rejection test remains separate and unchanged.
+
+Final evidence: all 129 cases passed in `test-results/workflow-check-complete`,
+after 54 repeated cases passed in `test-results/workflow-race-fixed`. The final
+run includes name propagation, chart consistency, conditional questions,
+preparation/re-entry, phone/iPad WebKit, Excel recovery and conflicts, complete
+intake-to-unsent-handoff journeys, and the new interruption regressions. Build,
+focused ESLint and diff checks passed. Desktop/phone failure screenshots were
+inspected, and port 3385 responded successfully. Test-generated TypeScript
+include paths were removed. These results apply to the built workflow candidate;
+concurrent settings/header edits made after that build are outside this evidence.
+
+Scope limit: automatic referral-document extraction remains disabled. These
+checks prove attachment storage and mapped-workbook handling, not OCR accuracy.
+Live email delivery, Azure blob durability, and PostgreSQL capacity/recovery
+were not exercised. No production deployment was performed.
+
+## September 21: phone and iPad check
+
+Checked the assessment at narrow phone, portrait/landscape phone, iPad portrait
+and landscape, and 507px tablet-window sizes. The appointment modal was retaining
+the full layout-viewport height when the keyboard reduced the visible viewport.
+Its shared overlay now owns the existing `useMobileViewport` hook, including
+calendar portals outside the application shell. The title, focused input and
+footer remain inside the visible area. Removed the obsolete fullscreen-dialog
+CSS selector. Phone landscape also hides the completed prep/interview progress
+row, as portrait already does, and removes excess paging padding; touch targets
+and start-time retry messages remain available.
+
+The existing mobile checks needed two fixture repairs: explicitly begin an
+interview before testing interview controls, and scope the New navigation label
+to its button so it cannot match a notification badge. Neither changed product
+behavior or relaxed the assertions. New WebKit checks cover appointment keyboard
+contraction/offset, focus, retained input, dismissal, 44px controls and accessibility.
+The app manifest, icons, zoom availability and offline launch/reconnect also pass
+in WebKit. Its initial `setOffline` navigation failed inside the test browser;
+the replacement test cuts every connection at an isolated forwarding server and
+retains the actual cached-fallback and reconnect assertions.
+
+Evidence: 29 focused checks passed across `test-results/mobile-ipad-final`
+(17 passing cases), `test-results/mobile-ipad-recovery` (the two repaired cases),
+and `test-results/mobile-ipad-application` (10 cases). Coverage includes real
+answer saving/reload, rotation, reference editing, phone offline answers,
+encrypted recovery/conflict handling, calendar scheduling, explicit start,
+signature/decision confirmations and iPad email preview. The production build,
+TypeScript, focused ESLint and diff checks passed; screenshots were inspected. This is browser touch
+emulation, with simulated visual-viewport contraction, not a physical iPad or
+Home Screen installation test. Hardware keyboard/safe-area/OS install validation
+remains a device check. All data was synthetic in isolated test stores; no
+production deployment or email delivery.
+
+## September 21: assessment lifecycle and handoff logic
+
+Traced preparation, explicit start, section saves, leaving/reopening, recovery,
+review, signing, decision, email preview and confirmed delivery. Reproduced and
+repaired three gaps: stage navigation could leave while signing was pending;
+leaving Decision through a stage tab discarded an edited admission date; and
+the send endpoint validated the referral version but not the assessment version
+the user actually previewed, allowing unseen later assessment edits to be sent.
+
+The folder now owns shell navigation and invokes the current page's save guard
+dynamically. It no longer retains a departed assessment's callback. Assessment
+actions must settle before navigation; a late signature response cannot redirect
+a different assessment session. Decision navigation saves a pending admission
+date, remains in place on failure, and uses the existing centered confirmation
+for unrecorded decision changes (Keep editing or explicitly Discard changes).
+Inline decision links use the same guard as stage tabs and shell navigation.
+Reload/close and account-switch guards also recognize pending decision changes.
+Decision recording remains explicit; these changes do not auto-accept or deny.
+
+Meet the Client now submits `assessment_id` and `if_match_assessment` from its
+preview report. The server rejects missing, invalid, mismatched or stale values
+before reserving a send or calling the provider. The existing assessment lock
+still checks for edits during packet preparation. Signing remains editable and
+audited until confirmed delivery; opening or closing a preview sends nothing.
+Starting is recorded once, resuming retains its section, and a failed start-time
+request remains visible without preventing the interview or signing. Recovery
+copies do not falsely become canonical saved answers or a signed assessment.
+
+Validation: 55 distinct browser cases passed across
+`test-results/assessment-lifecycle-fixed` (50 passing cases) and
+`test-results/assessment-lifecycle-final` (8 cases, three repeated).
+These include desktop/phone/WebKit navigation, queued and lost-reply saves,
+reopening, failed start/signature/decision/date operations, explicit discard,
+unsigned/accepted/sent states, recipient preservation, stale-preview request
+contents, and delivery-in-progress controls. The initial new decision test
+incorrectly tried to change an already recorded decision; that fixture was split
+into accepted-date and unrecorded-decision cases without relaxing its assertions.
+Twenty save/send boundary checks passed across the three fixture suites, with
+the PostgreSQL store case skipped because no test database was configured.
+Build, TypeScript, focused ESLint and diff checks passed. No applied migrations,
+store adapters, real client data, email delivery or deployment were changed.
+
+## September 21: Settings clarity and contact access
+
+Settings now starts with Contacts: the existing community To/Cc editor is the
+first action, with contact/facility CSV import in a separate expandable row.
+Your profile follows, then Home layout and organization-managed account access.
+Repeated account copy was removed. Profile fields use 16px text; save and import
+controls have at least 44px touch targets, with a single-column phone form.
+
+The local 3385 preview was missing its recipient-list file. Restored the five
+lists from the private, ignored source at
+`/Users/eric/pipeline-app/.data/contact-lists/community-contact-lists.md` into
+`.data/persona-demo-3385/community-recipient-lists.json`, with canonical validation,
+original lane/order and source dates, exclusive creation and 0600 permissions.
+The source was preserved. Addresses remain outside tracked files. No email was
+sent and no deployment or live account-role change was made.
+
+Fresh isolated previews now read five empty community lists instead of failing;
+only an explicit Save creates the file through the existing atomic writer.
+Malformed data and missing production template files still fail closed. Readers
+can inspect recipients without being offered controls that would fail at Save;
+the API reports edit capability and retains admin/coordinator write enforcement.
+
+Profile saves disable editing and guarded navigation while pending. Failed
+loads can retry. Failed writes retain entered text. A version conflict preserves
+locally edited fields and carries remote changes forward on untouched fields,
+then requires an explicit reviewed save. Guarded navigation with unsaved edits
+uses the shared centered confirmation dialog; closing/reloading retains the
+browser unload warning. This is not an offline profile draft: save before using
+browser history to leave.
+
+Focused evidence is in `tests/e2e/staff-profile.spec.ts`,
+`tests/e2e/community-contact-lists.spec.ts`, and
+`scripts/community-recipient-lists.test.mjs`. Touch layout checks use WebKit
+emulation at 320, 390, 834, and 1194px; no physical iPad check was performed.
+
+Validation for this pass: 26 browser checks passed (15 Settings and 11 contact
+editor cases), plus nine recipient-store/API checks. Build, TypeScript, focused
+ESLint, and diff whitespace checks passed. Screenshots are under
+`test-results/settings-pass-final`; contact editor results are under
+`test-results/settings-contact-lists-final`. The account parity cases use
+synthetic profile responses with Eric's admin role and Andrew/Sandeep's
+coordinator roles; they do not sign in to or change those live accounts.
+
+
+## September 21: admission packet contents and demo labeling
+
+The admission packet preview now explicitly describes the message plus every
+file uploaded to the workspace. Its shared inventory follows every file cursor
+and includes all document categories, keeping unavailable files visible and
+retaining referral isolation. The delivery count/size/scanning checks still
+block an incomplete or oversized send; the display no longer truncates at the
+20-file delivery cap. The generated client data sheet remains included.
+
+Finish & send and its email preview display “Demo — not live. No email will be
+sent.” The generated demo message repeats the notice and uses a `[DEMO]` subject.
+Live template rendering remains separate, and the server's existing demo send
+rejection is retained. Attachment and Message headings identify both parts of
+the packet, with one scroll area for the uploaded file list and message.
+
+Focused evidence adds a 205-upload/two-page inventory case and actual mixed-label
+uploads in phone/iPad browser tests. The tests use synthetic documents and a
+separate local store, with no real mail provider calls or changes to user records.
+
+Validation: 22 packet/template/send checks passed, including a configured-provider
+demo rejection with no reservation or provider call. Thirty focused browser
+cases passed across `admission-packet-pass` and `admission-packet-final`; after
+removing the nested attachment scroller, the eight affected preview/upload cases
+passed again in `test-results/admission-packet-final-layout`. Build, TypeScript,
+focused ESLint, and diff whitespace checks passed. Changes remain local.

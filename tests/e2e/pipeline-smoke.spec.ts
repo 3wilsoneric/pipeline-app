@@ -2459,8 +2459,9 @@ test.describe("Referral home and packet canvas", () => {
     await workflowPanel.getByRole("radio", { name: "Accept", exact: true }).check();
     await workflowPanel.getByLabel("Reason (optional)").fill("Synthetic acceptance decision for the EHR handoff journey.");
     await expect(recordDecision).toBeEnabled();
-    page.once("dialog", async (dialog) => { expect(dialog.message()).toContain("accepted"); await dialog.accept(); });
     await recordDecision.click();
+    await expect(page.getByRole("alertdialog")).toContainText("accepted");
+    await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
     await expect(workflowPanel.getByRole("heading", { name: "Decision recorded", exact: true })).toBeVisible();
     const decisionReadback = await page.request.get(`/api/referrals/${referral.id}/decision`);
     expect(decisionReadback.ok()).toBe(true);
@@ -2478,11 +2479,9 @@ test.describe("Referral home and packet canvas", () => {
       await workflowPanel.getByLabel(`${label} status`).selectOption("received");
       await expect(workflowPanel.getByText(`${label} updated`, { exact: true })).toBeVisible();
     }
-    page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Mark this referral admitted?");
-      await dialog.accept();
-    });
     await workflowPanel.getByRole("button", { name: "Mark admitted" }).click();
+    await expect(page.getByRole("alertdialog")).toContainText("Mark this referral admitted?");
+    await page.getByRole("alertdialog").getByRole("button", { name: "Mark admitted", exact: true }).click();
     await expect(workflowPanel.getByText("Admission recorded", { exact: true })).toBeVisible();
     await workflowPanel.getByRole("button", { name: "Queue EHR handoff" }).click();
     await expect(workflowPanel.getByText("EHR handoff queued", { exact: true })).toBeVisible();
@@ -2500,11 +2499,9 @@ test.describe("Referral home and packet canvas", () => {
     });
     await workflowPanel.getByRole("button", { name: "Retry handoff" }).click();
     await expect(workflowPanel.getByText("EHR handoff queued", { exact: true })).toBeVisible();
-    page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Confirm the downstream transfer succeeded");
-      await dialog.accept();
-    });
     await workflowPanel.getByRole("button", { name: "Record sent" }).click();
+    await expect(page.getByRole("alertdialog")).toContainText("Confirm the downstream transfer succeeded");
+    await page.getByRole("alertdialog").getByRole("button", { name: "Record as sent", exact: true }).click();
     await expect(workflowPanel.getByText("EHR handoff recorded as sent", { exact: true })).toBeVisible();
     await expect(workflowPanel.getByText("Handoff recorded as sent.", { exact: true })).toBeVisible();
     await expect(workflowPanel.getByText(/admitted-client profile appears only after the governed Alamo roster contains the person/i)).toBeVisible();
@@ -2584,8 +2581,8 @@ test.describe("Referral home and packet canvas", () => {
     await admittedProfile.getByRole("button", { name: "Check Alamo roster" }).click();
     await expect(admittedProfile.getByText("Review required", { exact: true })).toBeVisible();
     await expect(admittedProfile.getByText("Avery Example", { exact: true })).toBeVisible();
-    page.once("dialog", (dialog) => dialog.accept());
     await admittedProfile.getByRole("button", { name: "Confirm identity" }).click();
+    await page.getByRole("alertdialog", { name: "Connect this client?", exact: true }).getByRole("button", { name: "Connect client", exact: true }).click();
     await expect(admittedProfile.getByText("Client identity confirmed", { exact: true })).toBeVisible();
     await page.route("**/api/profiles/client-sanitized-100", async (route) => {
       const profile = structuredClone(unifiedProfileFixture);

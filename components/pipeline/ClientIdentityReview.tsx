@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmationDialog } from "./useConfirmationDialog";
+
 import { useRef, useState, type ReactNode } from "react";
 
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
@@ -220,6 +222,7 @@ function canConfirmIdentity(referral: Referral, profile: UnifiedClientProfileRes
 }
 
 export function IdentitySuggestionControls({ profile, onConnectionChanged }: IdentityControlProps) {
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const resident = profile.resident;
   const canCreate = profile.pipeline.permissions?.can_create_identity_candidate ?? false;
   const [busyReferralId, setBusyReferralId] = useState<number | null>(null);
@@ -227,9 +230,7 @@ export function IdentitySuggestionControls({ profile, onConnectionChanged }: Ide
   const mutationIds = useRef(new Map<number, string>());
 
   async function createCandidate(suggestion: UnifiedClientProfileResponse["pipeline"]["connection"]["suggestions"][number]) {
-    if (!resident || !window.confirm(
-      `Create an identity review candidate between ${suggestion.client_name} and ${resident.display_name}? This will not join records until someone confirms the match.`,
-    )) return;
+    if (!resident || !await confirm({ title: "Create a review candidate?", message: `Create an identity review candidate between ${suggestion.client_name} and ${resident.display_name}. This will not join records until someone confirms the match.`, confirmLabel: "Create candidate" })) return;
 
     const mutationId = mutationIds.current.get(suggestion.referral_id) ?? createMutationId();
     mutationIds.current.set(suggestion.referral_id, mutationId);
@@ -266,6 +267,7 @@ export function IdentitySuggestionControls({ profile, onConnectionChanged }: Ide
 
   return (
     <div>
+      {confirmationDialog}
       <p className="text-[11px] leading-5 text-[#4f5c57]">These are possible referral matches only. Review the evidence, create a candidate, then confirm or reject it in a separate step.</p>
       <div className="mt-3 divide-y divide-[#d9d9d9] border-y border-[#d9d9d9]">
         {profile.pipeline.connection.suggestions.map((suggestion) => (
