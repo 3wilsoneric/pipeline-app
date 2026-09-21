@@ -11,8 +11,9 @@ test("iPad WebKit loads the app manifest and recovers from an offline launch", a
   const origin = new URL(baseURL!);
   const server = createServer((request, response) => {
     if (disconnected) { request.socket.destroy(); return; }
-    const upstream = httpRequest(new URL(request.url!, origin), {
-      method: request.method, headers: { ...request.headers, host: origin.host },
+    const upstream = httpRequest({
+      hostname: origin.hostname, port: origin.port, protocol: origin.protocol,
+      path: request.url, method: request.method, headers: { ...request.headers, host: origin.host },
     }, (result) => {
       response.writeHead(result.statusCode!, result.headers);
       result.pipe(response);
