@@ -5,7 +5,6 @@ import type { HomeBriefingSnapshot } from "../../lib/pipeline/home-briefing-type
 import type { ReferralWorklistItem } from "../../lib/pipeline/operations-types";
 import type { AdmissionRequirement, Referral } from "../../lib/pipeline/referral-types";
 import { getWorkspaceState } from "../../lib/pipeline/workspace-state";
-import { referralBoardStageForStatus } from "../../lib/pipeline/referral-flow";
 import { syntheticReferralInput } from "./support/pipeline-actors";
 
 async function mockHopper(page: Page, referrals: Referral[] = [], team = false) {
@@ -13,15 +12,16 @@ async function mockHopper(page: Page, referrals: Referral[] = [], team = false) 
   expect(response.ok()).toBe(true);
   const briefing = await response.json() as HomeBriefingSnapshot;
   const specs = [
-    ["Taylor Rivera", "ready_to_schedule", "ready_to_schedule", "Schedule the assessment", "intake"],
-    ["Morgan Bennett", "scheduled", "assessment_scheduled", "Attend the scheduled assessment", "assessment"],
-    ["Avery Chen", "scheduled", "assessment_scheduled", "Attend the scheduled assessment", "assessment"],
-    ["Jordan Reed", "assessment", "assessment_in_progress", "Continue the assessment", "assessment"],
-    ["Casey Brooks", "assessment", "changes_requested", "Update the medication details", "assessment"],
-    ["Riley Hart", "complete_chart", "recommendation_submitted", "Review the submitted assessment", "workflow"],
-    ["Quinn Patel", "complete_chart", "approved_for_placement", "Upload the medication list", "files"],
+    ["Taylor Rivera", "ready_to_schedule", "ready_to_schedule", "Schedule the assessment", "intake", "received", "Preparation"],
+    ["Morgan Bennett", "scheduled", "assessment_scheduled", "Attend the scheduled assessment", "assessment", "in_progress", "Preparation"],
+    ["Avery Chen", "scheduled", "assessment_scheduled", "Attend the scheduled assessment", "assessment", "in_progress", "Preparation"],
+    ["Jordan Reed", "assessment", "assessment_in_progress", "Continue the assessment", "assessment", "in_progress", "Preparation"],
+    ["Casey Brooks", "assessment", "changes_requested", "Update the medication details", "assessment", "in_progress", "Preparation"],
+    ["Riley Hart", "complete_chart", "recommendation_submitted", "Review the submitted assessment", "workflow", "decision", "Under review"],
+    ["Quinn Patel", "complete_chart", "approved_for_placement", "Upload the medication list", "files", "decision", "Accept"],
   ] as const;
   const items: ReferralWorklistItem[] = specs.map((spec, index) => ({
+    board: { stage: spec[5], detail: spec[6], next_action: spec[3], location: { view: spec[4] } },
     referral_id: referrals[index]?.id ?? 910001 + index,
     client_name: referrals[index]?.name ?? spec[0], community: "Santa Clarita", stage: "New",
     workflow_status: spec[2], flow_state: spec[1], assignment_state: "assigned",
@@ -145,7 +145,7 @@ for (const width of [390, 1440]) {
     const hopper = page.getByRole("region", { name: "Current work", exact: true });
     await expect(hopper.locator("[data-board-card]")).toHaveCount(7);
     for (const item of items) {
-      if (width < 1024) await hopper.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(referralBoardStageForStatus(item.workflow_status));
+      if (width < 1024) await hopper.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(item.board.stage!);
       await expect(hopper.getByRole("button", { name: `Open ${item.client_name}`, exact: true })).toBeVisible();
     }
     await expect(hopper.getByRole("button", { name: "Open Quinn Patel", exact: true })).toContainText("Documents needed2");

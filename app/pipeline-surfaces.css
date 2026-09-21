@@ -117,7 +117,7 @@
 
 .pipeline-surfaces [data-board-stage="in_progress"] { --stage-accent: #465fc2; --stage-tint: #eef1fc; --docket-index: "02"; --docket-paper: #e4eaf7; --docket-edge: #bec9e0; }
 .pipeline-surfaces [data-board-stage="decision"] { --stage-accent: #ac512d; --stage-tint: #fdf1e9; --docket-index: "03"; --docket-paper: #f3e8de; --docket-edge: #d9c3b0; }
-.pipeline-surfaces [data-board-stage="admitted"] { --stage-accent: #10728a; --stage-tint: #e9f5f9; --docket-index: "04"; --docket-paper: #dfeff0; --docket-edge: #b6cfd0; }
+.pipeline-surfaces [data-board-stage="awaiting_admit"] { --stage-accent: #10728a; --stage-tint: #e9f5f9; --docket-index: "04"; --docket-paper: #dfeff0; --docket-edge: #b6cfd0; }
 
 .pipeline-surfaces [data-board-stage]::before {
   content: "";

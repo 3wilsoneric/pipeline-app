@@ -7,7 +7,7 @@ import { getExtractionBackendReadiness } from "@/lib/extraction/backend-config";
 import { getReferralProgress, type ReferralProgress } from "@/lib/pipeline/referral-progress";
 import {
   activeReferralFlowStates,
-  isFinishedBoardReferral,
+  getReferralBoardState,
   referralFlowStateForWorkspaceFocus,
   type ActiveReferralFlowState,
 } from "@/lib/pipeline/referral-flow";
@@ -191,7 +191,7 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
   const requirementsByReferral = groupRequirementsByReferral(allWork.openRequirements);
   const referralsById = new Map(operational.referrals.map((referral) => [referral.id, referral]));
   const workByReferral = new Map(operational.activeWork.map((work) => [work.referral_id, work]));
-  const allActiveItems = allWork.activeWork.filter((work) => !isFinishedBoardReferral(work)).map((work) =>
+  const allActiveItems = allWork.work.filter((work) => work.board.stage !== null).map((work) =>
     toReferralWorklistItem(
       work,
       referralsById.get(work.referral_id)!,
@@ -199,12 +199,7 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
     ),
   ).sort(compareReferralWorklistItems);
   const activeItems = allActiveItems.filter((item) => mine.has(item.referral_id));
-  // Completing acceptance tasks is not admission; keep the file in Decision until admission is recorded.
-  const retainedItems = allWork.work
-    .filter((item) => isFinishedBoardReferral(item)
-      || item.flow_state === "complete" && ["approved_for_placement", "accepted"].includes(item.workflow_status))
-    .map((item) => toReferralWorklistItem(item, referralsById.get(item.referral_id)!, []));
-  const allBoardItems = [...allActiveItems, ...retainedItems].sort((left, right) =>
+  const allBoardItems = [...allActiveItems].sort((left, right) =>
     (right.received_at ?? "").localeCompare(left.received_at ?? "") || right.referral_id - left.referral_id);
   const readyToSchedule = activeItems.filter((item) =>
     workByReferral.get(item.referral_id)?.flow_state === "ready_to_schedule",
@@ -258,7 +253,7 @@ function homeWorkForViewer(operational: Awaited<ReturnType<typeof loadOperationa
   return {
     ...operational,
     work: operational.work.filter((item) => owned.has(item.referral_id)),
-    activeWork: operational.activeWork.filter((item) => owned.has(item.referral_id) && !isFinishedBoardReferral(item)),
+    activeWork: operational.work.filter((item) => owned.has(item.referral_id) && item.board.stage !== null),
     openRequirements: operational.openRequirements.filter((item) => owned.has(item.referral_id)),
   };
 }
@@ -676,6 +671,7 @@ function toWorkItem(
     && assignmentDueTime >= now.getTime()
     && assignmentDueTime <= now.getTime() + 72 * 36e5;
   return {
+    board: getReferralBoardState(referral, context, progress.state),
     referral_id: referral.id,
     client_id: referral.clientId,
     client_name: referral.name,
@@ -842,6 +838,7 @@ function toReferralWorklistItem(
       : work.next_action?.trim() || nextRequirement?.next_action.trim() || nextRequirement?.label || "Review the referral and record the next step";
 
   return {
+    board: work.board,
     referral_id: work.referral_id,
     client_name: work.client_name,
     community: referral.community,

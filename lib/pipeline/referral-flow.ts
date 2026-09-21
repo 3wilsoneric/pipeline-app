@@ -1,7 +1,10 @@
 import type { Referral, ReferralWorkflowStatus } from "./referral-types";
 import type { WorkflowContext } from "./workflow-records";
-import { getWorkspaceState, type WorkspaceFocus } from "./workspace-state";
+import { getWorkspaceState, isRequirementResolved, type WorkspaceFocus, type WorkspaceStateProjection } from "./workspace-state";
 import { resolveReferralWorkflowStatus } from "./workflow-status";
+import { getAssessmentToolCoverage } from "../assessment/assessment-tool-schema";
+import type { PipelineWorkspaceLocation } from "./work-continuity";
+import { isDocumentRequirementType } from "./document-requirements";
 
 export const activeReferralFlowStates = [
   { key: "ready_to_schedule", label: "Intake & scheduling", emptyLabel: "No intake or scheduling work" },
@@ -14,16 +17,81 @@ export const referralBoardStages = [
   { key: "received", label: "Referral received" },
   { key: "in_progress", label: "In progress" },
   { key: "decision", label: "Decision" },
-  { key: "admitted", label: "Admitted" },
+  { key: "awaiting_admit", label: "Awaiting admit" },
 ] as const;
 
 export type ReferralBoardStage = (typeof referralBoardStages)[number]["key"];
 
-export function referralBoardStageForStatus(status: ReferralWorkflowStatus): ReferralBoardStage {
-  if (status === "admitted") return "admitted";
-  if (["assessment_signed", "recommendation_submitted", "decision_pending", "approved_for_placement", "accepted", "declined", "changes_requested"].includes(status)) return "decision";
-  if (["assessment_scheduled", "assessment_in_progress", "waiting_for_information", "assessment_ready_to_sign"].includes(status)) return "in_progress";
-  return "received";
+export type ReferralBoardState = {
+  stage: ReferralBoardStage | null;
+  detail: string;
+  next_action: string;
+  location: PipelineWorkspaceLocation;
+};
+
+function boardCard(stage: ReferralBoardStage | null, detail: string, next_action: string, view: PipelineWorkspaceLocation["view"]): ReferralBoardState {
+  return { stage, detail, next_action, location: { view } };
+}
+
+/** The personal board tracks admission work, not extraction or later client reconciliation. */
+export function getReferralBoardState(
+  referral: Referral,
+  context: WorkflowContext = {},
+  state: WorkspaceStateProjection = getWorkspaceState(referral, context),
+): ReferralBoardState {
+  if (state.lifecycle !== "active" || referral.workflowStatus === "closed") {
+    return boardCard(null, "Closed", "Open workspace", "chart");
+  }
+  // A new assessment reopens current work without discarding the earlier admission.
+  const reassessmentOpen = state.assessment_is_reassessment
+    && !(state.assessment === "signed" && context.packetSentAt);
+  if (!reassessmentOpen) {
+    const decision = decisionBoardState(referral, context, state);
+    if (decision) return decision;
+  }
+  return assessmentBoardState(referral, context, state);
+}
+
+function decisionBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState | null {
+  if (referral.stage === "Accepted / Admitted" || referral.workflowStatus === "admitted") {
+    return context.packetSentAt
+      ? boardCard(null, "Completed", "Open workspace", "chart")
+      : boardCard("awaiting_admit", "Email not sent", "Send Meet the Client", "email");
+  }
+  if (state.outcome === "declined") return boardCard("decision", "Denied", "Review decision", "workflow");
+  if (state.outcome === "accepted") return acceptedBoardState(referral, context, state);
+  if (["recommendation_submitted", "decision_pending"].includes(referral.workflowStatus ?? "")) {
+    return boardCard("decision", "Under review", "Record decision", "workflow");
+  }
+  return null;
+}
+
+function acceptedBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState {
+  if (state.assessment === "ready_to_sign") return { ...boardCard("decision", "Accept", "Review and sign the assessment", "assessment"), location: { view: "assessment", assessmentMode: "review" } };
+  if (state.assessment !== "signed") return boardCard("decision", "Accept", "Complete the assessment", "assessment");
+  const outstanding = (context.requirements ?? referral.requirements ?? []).find((requirement) =>
+    ["admission_decision", "move_in"].includes(requirement.requiredFor) && !isRequirementResolved(requirement));
+  if (outstanding) return boardCard("decision", "Accept", outstanding.nextStep?.trim() || outstanding.label, isDocumentRequirementType(outstanding.type) ? "files" : "workflow");
+  return boardCard("awaiting_admit", "Ready for admission", "Record admission", "workflow");
+}
+
+function assessmentBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState {
+  if (state.assessment === "signed") return boardCard("decision", "Under review", "Record decision", "workflow");
+  if (state.assessment === "ready_to_sign") return { ...boardCard("in_progress", "Ready to sign", "Review and sign the assessment", "assessment"), location: { view: "assessment", assessmentMode: "review" } };
+  if (["in_progress", "waiting_for_information"].includes(state.assessment)) return boardCard("in_progress", "Assessment underway", "Continue assessment", "assessment");
+  if (state.assessment === "scheduled") return boardCard("in_progress", "Assessment scheduled", "Prepare for assessment", "assessment");
+  return hasReferralPreparation(referral, context, state)
+    ? boardCard("in_progress", "Preparation", "Continue preparation", "assessment")
+    : boardCard("received", "Referral received", "Add referral information", "intake");
+}
+
+function hasReferralPreparation(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection) {
+  return Boolean(referral.packetId || referral.additionalDocuments?.length
+    || ["Uploaded", "Reviewed"].includes(referral.documentStatus)
+    || !state.missing_profile_fields.includes("Date of birth")
+    || !state.missing_profile_fields.includes("Referral source")
+    || [referral.currentMedications, referral.phone, referral.email, referral.conserved].some((value) => value?.trim())
+    || context.assessmentData && getAssessmentToolCoverage(context.assessmentData).captured > 0);
 }
 
 export type ActiveReferralFlowState = (typeof activeReferralFlowStates)[number]["key"];
@@ -62,10 +130,4 @@ export function referralFlowStateForStatus(status: ReferralWorkflowStatus): Refe
     || status === "approved_for_placement"
   ) return "complete_chart";
   return "complete";
-}
-
-/** A later reassessment remains current work even after the original outcome. */
-export function isFinishedBoardReferral(item: { workflow_status: string; assessment_is_reassessment?: boolean; flow_state: string }) {
-  return ["admitted", "declined"].includes(item.workflow_status)
-    && (!item.assessment_is_reassessment || item.flow_state === "complete");
 }

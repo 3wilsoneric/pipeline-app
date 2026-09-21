@@ -7,7 +7,7 @@ import type { WorkflowResponse } from "@/components/pipeline/referral-workflow-p
 import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import { getWorkspaceState } from "@/lib/pipeline/workspace-state";
 import { resolveReferralWorkflowStatus } from "@/lib/pipeline/workflow-status";
-import { referralFlowStateForWorkspaceFocus } from "@/lib/pipeline/referral-flow";
+import { getReferralBoardState, referralFlowStateForWorkspaceFocus } from "@/lib/pipeline/referral-flow";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 
 export const tutorialReferralSteps = [
@@ -106,7 +106,7 @@ export function tutorialBoardItem(state: TutorialReferral): ReferralWorklistItem
   const progress = getReferralProgress(referral, context);
   const status = resolveReferralWorkflowStatus(referral, { assessment });
   return { referral_id: 0, client_name: referral.name, community: referral.community, stage: referral.stage,
-    workflow_status: status, packet_sent_at: state.sentAt, planned_admission_date: referral.plannedAdmissionDate,
+    workflow_status: status, board: getReferralBoardState(referral, context, workspace), packet_sent_at: state.sentAt, planned_admission_date: referral.plannedAdmissionDate,
     actual_admission_date: referral.actualAdmissionDate, flow_state: referralFlowStateForWorkspaceFocus(workspace.focus),
     assignment_state: workspace.assignment, assessment_state: workspace.assessment,
     outcome_state: workspace.outcome, document_state: workspace.documents, profile_state: workspace.profile, assessment_is_reassessment: false,
