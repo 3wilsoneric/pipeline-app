@@ -46,6 +46,16 @@ test("report text removes reconstituted markup but preserves clinical comparison
   assert.equal(reports.reportValue("<b>No</b>"), "No");
 });
 
+test("named supervisors retain Reports access across Microsoft guest aliases, never through the delegating administrator", () => {
+  for (const id of ["e9f39185-d751-45c0-bcf5-c24d3565bdd9", "f73371d5-d2b4-48b4-a32b-1edc7c88869f", "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2"]) {
+    const user = { id, email: "alias#EXT#@tenant.onmicrosoft.com", roles: ["assessment_coordinator"] };
+    assert.equal(access.canAccessOperationsReports(user), true);
+    assert.equal(access.canAccessOperationsReports({ ...user, roles: ["viewer"] }), false);
+    assert.equal(access.canAccessOperationsReports({ ...user, accessScope: "note_lab" }), false);
+    assert.equal(access.canAccessOperationsReports({ ...user, id: "someone-else", delegation: { initiatedBy: user } }), false);
+  }
+});
+
 test("both report routes require Pipeline authentication before reading data or exporting", async () => {
   let authenticationCalls = 0;
   const route = loadEntry("app/api/operations/reports/route.ts", {
@@ -80,6 +90,7 @@ test("report routes reject Note Lab-only scope before touching report stores", a
 test("every Reports data entry point checks the named account before any store access", async () => {
   const identities = [
     ...["ericwilsonalamo@outlook.com", "andrew@aaahealthservices.com", "sandeep@aaahealthservices.com"].map(email => ({ email, roles: ["admin"], allowed: true })),
+    ...["e9f39185-d751-45c0-bcf5-c24d3565bdd9", "f73371d5-d2b4-48b4-a32b-1edc7c88869f", "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2"].map(id => ({ id, email: "guest-alias@tenant.onmicrosoft.com", roles: ["assessment_coordinator"], allowed: true })),
     { email: "other@example.test", roles: ["admin"], allowed: false },
     { email: "andrew@aaahealthservices.com", roles: ["viewer"], allowed: false },
     { email: "andrew@aaahealthservices.com", roles: ["admin"], accessScope: "note_lab", allowed: false },

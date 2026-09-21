@@ -293,6 +293,21 @@ test("reports are hidden from assessor roles including dispatched starts", async
   await expect(page.getByTestId("guided-coach-panel")).toHaveCount(0);
 });
 
+test("an unnamed supervisor cannot see or dispatch the Reports tutorial", async ({ page }) => {
+  await page.route("**/api/auth/me", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    await route.fulfill({ response, json: { ...payload, user: { ...payload.user, id: "other-supervisor", email: "other@example.invalid", roles: ["assessment_coordinator", "reviewer", "viewer"] } } });
+  });
+  await page.goto("/");
+  const panel = await library(page);
+  await expect(panel.getByRole("button", { name: "Create a referral & add files", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "View reports", exact: true })).toHaveCount(0);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("pipeline:guided-coach", { detail: { type: "start", tutorialId: "run-report" } })));
+  await expect(panel).toBeVisible();
+  await expect(page.getByTestId("guided-coach-panel")).toHaveCount(0);
+});
+
 test("Escape closes the menu without navigating", async ({ page }) => {
   await page.goto("/");
   const panel = await library(page);

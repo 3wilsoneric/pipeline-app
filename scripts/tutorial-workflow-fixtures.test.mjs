@@ -15,7 +15,28 @@ test("four core topics plus team tools retain every guide exactly once", () => {
   assert.equal(new Set(ids).size, ids.length);
   assert.deepEqual([...ids].sort(), [...catalog.operatorGuidedTutorialIds].sort());
   const reviewerIds = catalog.guidedTutorialsForRoles(["reviewer"]).map((guide) => guide.id);
-  assert.equal(catalog.operatorGuideTopics.filter((topic) => topic.tutorialIds.some((id) => reviewerIds.includes(id))).length, 4);
+  assert.equal(catalog.operatorGuideTopics.filter((topic) => topic.tutorialIds.some((id) => reviewerIds.includes(id))).length, 5);
+  assert.equal(reviewerIds.includes("supervisor-shift"), true);
+  assert.equal(reviewerIds.includes("run-report"), false);
+});
+
+test("every Pipeline role gets all non-report tutorials without a referral assignment", () => {
+  const expected = [...catalog.operatorGuidedTutorialIds].filter((id) => id !== "run-report").sort();
+  for (const role of ["admin", "assessment_coordinator", "reviewer", "viewer"]) {
+    const user = { id: "unassigned-staff", email: "staff@example.invalid", roles: [role], accessScope: "pipeline" };
+    assert.deepEqual([...catalog.guidedTutorialsForUser(user)].map((guide) => guide.id).sort(), expected);
+  }
+  for (const user of [null, { roles: [] }, { roles: ["admin"], accessScope: "note_lab" }]) {
+    assert.equal(catalog.guidedTutorialsForUser(user).length, 0);
+  }
+});
+
+test("report tutorial follows the same named-account permission as Reports", () => {
+  for (const email of ["ericwilsonalamo@outlook.com", "andrew@aaahealthservices.com", "sandeep@aaahealthservices.com", "other@example.invalid"]) {
+    const user = { id: "account", email, roles: ["assessment_coordinator"] };
+    assert.equal(catalog.guidedTutorialsForUser(user).some((guide) => guide.id === "run-report"), email !== "other@example.invalid");
+    assert.equal(catalog.guidedTutorialsForUser({ ...user, roles: ["viewer"] }).some((guide) => guide.id === "run-report"), false);
+  }
 });
 
 test("every guide has distinct steps, local routes, and real source anchors", () => {

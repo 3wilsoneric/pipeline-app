@@ -22,7 +22,7 @@ import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
 import { PIPELINE_NAVIGATION_EVENT, pushPipelineHistory } from "@/lib/pipeline/client-navigation";
 import {
   getOperatorGuidedTutorial,
-  guidedTutorialsForRoles,
+  guidedTutorialsForUser,
   operatorGuideNextActions,
   operatorGuideStepTitle,
   type OperatorGuidedTutorial,
@@ -67,7 +67,7 @@ type PendingGuide = { id: string; stepIndex: number; resume: boolean };
 export default function PipelineGuidedCoach() {
   const [state, setState] = useState<OperatorGuideState>(() => emptyOperatorGuideState());
   const [hydrated, setHydrated] = useState(false);
-  const [roles, setRoles] = useState<readonly OperatorRole[]>(["viewer"]);
+  const [allowedGuides, setAllowedGuides] = useState<readonly OperatorGuidedTutorial[]>([]);
   const [target, setTarget] = useState<TargetView>(emptyTarget);
   const [locationKey, setLocationKey] = useState("");
   const [progressSyncState, setProgressSyncState] = useState<ProgressSyncState>("idle");
@@ -136,9 +136,9 @@ export default function PipelineGuidedCoach() {
 
   async function allowedTutorial(tutorialId: string) {
     const identity = await fetchCurrentPipelineUser().catch(() => null);
-    const effectiveRoles = normalizeRoles(identity?.user?.roles ?? []);
-    setRoles(effectiveRoles);
-    return guidedTutorialsForRoles(effectiveRoles).find((item) => item.id === tutorialId);
+    const allowed = guidedTutorialsForUser(identity?.user);
+    setAllowedGuides(allowed);
+    return allowed.find((item) => item.id === tutorialId);
   }
 
   async function startTutorial(tutorialId: string, requestedStepIndex = 0) {
@@ -175,7 +175,8 @@ export default function PipelineGuidedCoach() {
     const generation = ++navigationGeneration.current;
     const identity = await fetchCurrentPipelineUser().catch(() => null);
     if (generation !== navigationGeneration.current) return;
-    const allowed = guidedTutorialsForRoles(normalizeRoles(identity?.user?.roles ?? []));
+    const allowed = guidedTutorialsForUser(identity?.user);
+    setAllowedGuides(allowed);
     const tutorialIds = [...new Set(requestedIds)].filter((id) => allowed.some((item) => item.id === id && item.context !== "workspace" && item.context !== "intake"));
     const first = getOperatorGuidedTutorial(tutorialIds[0]);
     if (!first || !await openGuideRoute(first.steps[0].route, first.context, true)) return;
@@ -267,8 +268,8 @@ export default function PipelineGuidedCoach() {
     });
 
     fetchCurrentPipelineUser()
-      .then((payload) => setRoles(normalizeRoles(payload.user?.roles ?? [])))
-      .catch(() => setRoles(["viewer"]));
+      .then((payload) => setAllowedGuides(guidedTutorialsForUser(payload.user)))
+      .catch(() => setAllowedGuides([]));
 
     return () => {
       cancelled = true;
@@ -349,14 +350,15 @@ export default function PipelineGuidedCoach() {
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/tutorials/referral" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
   const currentTarget = target.stepId === step?.id && step && guideRouteMatches(step.route, locationKey) ? target : emptyTarget;
-  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={currentTarget} locationKey={locationKey} progressSyncState={progressSyncState} navigationError={navigationError} pendingGuide={pendingGuide} onCancelSelection={() => setPendingGuide(null)} onBrowse={(destination = "board") => { void openGuideRoute(destination === "board" ? "/" : "/?view=referrals", "app", true); }} onOpenRoute={() => { if (step) void openGuideRoute(step.route); }} onSkip={() => { void advance(undefined, true); }} onStart={startTutorial} onCommit={commit} onAdvance={() => advance()} onBack={goBack} onResume={resumeTutorial} onGoToStep={goToStep} /></>;
+  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} allowedGuides={allowedGuides} tutorial={tutorial} step={step} target={currentTarget} locationKey={locationKey} progressSyncState={progressSyncState} navigationError={navigationError} pendingGuide={pendingGuide} onCancelSelection={() => setPendingGuide(null)} onBrowse={(destination = "board") => { void openGuideRoute(destination === "board" ? "/" : "/?view=referrals", "app", true); }} onOpenRoute={() => { if (step) void openGuideRoute(step.route); }} onSkip={() => { void advance(undefined, true); }} onStart={startTutorial} onCommit={commit} onAdvance={() => advance()} onBack={goBack} onResume={resumeTutorial} onGoToStep={goToStep} /></>;
 }
 
-function GuideCoachSurface({ state, roles, tutorial, step, target, locationKey, progressSyncState, navigationError, pendingGuide, onCancelSelection, onBrowse, onOpenRoute, onSkip, onStart, onCommit, onAdvance, onBack, onResume, onGoToStep }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; progressSyncState: ProgressSyncState; navigationError: string; pendingGuide: PendingGuide | null; onCancelSelection: () => void; onBrowse: (destination?: "board" | "directory") => void; onOpenRoute: () => void; onSkip: () => void; onStart: (id: string, stepIndex?: number) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void; onGoToStep: (index: number) => void }) {
+function GuideCoachSurface({ state, allowedGuides, tutorial, step, target, locationKey, progressSyncState, navigationError, pendingGuide, onCancelSelection, onBrowse, onOpenRoute, onSkip, onStart, onCommit, onAdvance, onBack, onResume, onGoToStep }: { state: OperatorGuideState; allowedGuides: readonly OperatorGuidedTutorial[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; progressSyncState: ProgressSyncState; navigationError: string; pendingGuide: PendingGuide | null; onCancelSelection: () => void; onBrowse: (destination?: "board" | "directory") => void; onOpenRoute: () => void; onSkip: () => void; onStart: (id: string, stepIndex?: number) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void; onGoToStep: (index: number) => void }) {
   if (state.mode === "closed") return null;
-  if (state.mode === "library") return <GuideLibrary locationKey={locationKey} navigationError={navigationError} roles={roles} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} pending={pendingGuide} onCancelSelection={onCancelSelection} onBrowse={onBrowse} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
+  if (state.mode === "library") return <GuideLibrary locationKey={locationKey} navigationError={navigationError} tutorials={allowedGuides} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} pending={pendingGuide} onCancelSelection={onCancelSelection} onBrowse={onBrowse} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
-  if (state.mode === "finished") return <GuideNextActions tutorial={tutorial} roles={roles} locationKey={locationKey} navigationError={navigationError} onStart={onStart} onClose={() => onCommit({ type: "close" })} onLibrary={() => onCommit({ type: "open-library" })} onBrowse={onBrowse} />;
+  if (!allowedGuides.some((item) => item.id === tutorial.id)) return null;
+  if (state.mode === "finished") return <GuideNextActions tutorial={tutorial} allowed={allowedGuides} locationKey={locationKey} navigationError={navigationError} onStart={onStart} onClose={() => onCommit({ type: "close" })} onLibrary={() => onCommit({ type: "open-library" })} onBrowse={onBrowse} />;
   return <GuideConversation key={tutorial.id} tutorial={tutorial} step={step} stepIndex={state.stepIndex} sequenceIndex={state.sequenceIndex} sequenceCount={state.sequenceTutorialIds.length} target={target} routeMatches={guideRouteMatches(step.route, locationKey)} progressSyncState={progressSyncState} onBack={onBack} onAdvance={onAdvance} onOpenRoute={onOpenRoute} onSkip={onSkip} navigationError={navigationError} onPause={() => onCommit({ type: "close" })} onLibrary={() => onCommit({ type: "open-library" })} onGoToStep={onGoToStep} onStart={onStart} onBrowse={onBrowse} reviewedStepIds={state.reviewedStepIds} />;
 }
 
@@ -383,10 +385,9 @@ function targetView(candidate: HTMLElement | null): TargetView {
   return { element: candidate, rect, available: Boolean(candidate && rect && rect.width > 0 && rect.height > 0) };
 }
 
-function GuideLibrary({ roles, navigationError, onStart, onClose }: { roles: readonly OperatorRole[]; completed: readonly string[]; locationKey: string; navigationError: string; resumableTutorialId: string | null; pending: PendingGuide | null; onCancelSelection: () => void; onBrowse: (destination?: "board" | "directory") => void; onStart: (id: string, stepIndex?: number) => void; onResume: () => void; onClose: () => void }) {
+function GuideLibrary({ tutorials, navigationError, onStart, onClose }: { tutorials: readonly OperatorGuidedTutorial[]; completed: readonly string[]; locationKey: string; navigationError: string; resumableTutorialId: string | null; pending: PendingGuide | null; onCancelSelection: () => void; onBrowse: (destination?: "board" | "directory") => void; onStart: (id: string, stepIndex?: number) => void; onResume: () => void; onClose: () => void }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
-  const tutorials = guidedTutorialsForRoles(roles);
   const tasks = [
     ["create-referral", "Create a referral & add files"],
     ["start-assessment", "Schedule an appointment"],
@@ -413,14 +414,13 @@ function GuideLibrary({ roles, navigationError, onStart, onClose }: { roles: rea
   </section>;
 }
 
-function GuideNextActions({ tutorial, roles, locationKey, navigationError, onStart, onClose, onLibrary, onBrowse }: { tutorial: OperatorGuidedTutorial; roles: readonly OperatorRole[]; locationKey: string; navigationError: string; onStart: (id: string) => void; onClose: () => void; onLibrary: () => void; onBrowse: (destination?: "board" | "directory") => void }) {
+function GuideNextActions({ tutorial, allowed, locationKey, navigationError, onStart, onClose, onLibrary, onBrowse }: { tutorial: OperatorGuidedTutorial; allowed: readonly OperatorGuidedTutorial[]; locationKey: string; navigationError: string; onStart: (id: string) => void; onClose: () => void; onLibrary: () => void; onBrowse: (destination?: "board" | "directory") => void }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   const next = operatorGuideNextActions[tutorial.id];
   const message = tutorial.id === "create-referral" && new URL(locationKey, "https://pipeline.invalid").searchParams.has("referralId")
     ? "This referral has been created. Check its save and upload status, then schedule the assessment here or from its Home Board card. You can add more files to this same referral later."
     : next.message;
-  const allowed = guidedTutorialsForRoles(roles);
   return <aside data-guide-dock data-testid="guide-next-actions" aria-label="Next steps" className={styles.dock + " " + styles.nextActions} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
     <header className={styles.header}><button type="button" className={styles.libraryLink} onClick={onLibrary}><Compass size={17} /> Tutorials</button><div className={styles.headerActions}><button type="button" aria-label="Close help" onClick={onClose}><X size={18} /></button></div></header>
     <div className={styles.scroll}>
@@ -735,12 +735,6 @@ function primaryRole(roles: readonly string[]): OperatorRole {
   if (roles.includes("assessment_coordinator")) return "assessment_coordinator";
   if (roles.includes("reviewer")) return "reviewer";
   return "viewer";
-}
-
-function normalizeRoles(roles: readonly string[]): readonly OperatorRole[] {
-  const allowed: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"];
-  const normalized = allowed.filter((role) => roles.includes(role));
-  return normalized.length > 0 ? normalized : ["viewer"];
 }
 
 function guideAdvanceEvent(step: OperatorGuideStep, target: HTMLElement) {
