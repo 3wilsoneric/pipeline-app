@@ -100,14 +100,8 @@ const countyAliases = [
 ] as const;
 
 export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmissionOutcome {
-  if (referral.admissionDate?.trim()) {
-    return {
-      status: "admitted",
-      label: "Admitted",
-      evidence: "census_match",
-      explanation: "The workspace matches a client with a governed admission record.",
-    };
-  }
+  const admission = recordedAdmissionOutcome(referral);
+  if (admission) return admission;
 
   if (
     referral.stage === "Accepted / Admitted"
@@ -276,4 +270,20 @@ function escapeRegExp(value: string) {
 
 export function presentWorkspaceNote(note: string) {
   return note.replace(/^Historical workspace\b/i, "Imported workspace");
+}
+
+function recordedAdmissionOutcome(referral: Referral): WorkspaceAdmissionOutcome | null {
+  if (referral.actualAdmissionDate && referral.stage === "Accepted / Admitted") {
+    return { status: "admitted", label: "Admitted", evidence: "recorded", explanation: "The actual arrival date was explicitly confirmed in this workspace." };
+  }
+  if (referral.admissionDate?.trim() && referral.workspaceOrigin !== "pipeline") {
+    return {
+      status: "admitted",
+      label: "Admitted",
+      evidence: "census_match",
+      explanation: "The workspace matches a client with a governed admission record.",
+    };
+  }
+
+  return null;
 }

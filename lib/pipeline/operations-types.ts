@@ -19,6 +19,9 @@ export type OperationsWorkItem = {
   community: string;
   stage: ReferralStage;
   workflow_status: ReferralWorkflowStatus;
+  packet_sent_at?: string | null;
+  planned_admission_date?: string;
+  actual_admission_date?: string;
   flow_state: ActiveReferralFlowState | "complete";
   assignment_state: WorkspaceAssignmentState;
   assessment_state: WorkspaceAssessmentState;
@@ -82,6 +85,9 @@ export type ReferralWorklistItem = {
   community: PipelineCommunity;
   stage: ReferralStage;
   workflow_status: ReferralWorkflowStatus;
+  packet_sent_at?: string | null;
+  planned_admission_date?: string;
+  actual_admission_date?: string;
   flow_state: ActiveReferralFlowState | "complete";
   assignment_state: WorkspaceAssignmentState;
   assessment_state: WorkspaceAssessmentState;

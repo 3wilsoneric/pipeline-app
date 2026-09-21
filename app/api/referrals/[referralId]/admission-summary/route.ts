@@ -1,3 +1,4 @@
+import { getPlannedAdmissionDate, plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
 import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth";
 import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { buildAssessmentSummaryReport, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
@@ -68,6 +69,7 @@ export async function GET(
         snapshot.decision?.outcome,
         mail.configured,
         admissionPacket.blockers,
+        getPlannedAdmissionDate(snapshot.referral),
       );
       const exampleOnly = getPipelineDemoEnvironment().writable;
       const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
@@ -134,8 +136,11 @@ function meetClientEmailBlockers(
   outcome: string | undefined,
   configured: boolean,
   attachmentBlockers: string[],
+  admissionDate?: string,
 ) {
   const blockers: string[] = [];
+  const dateError = plannedAdmissionDateError(admissionDate);
+  if (dateError) blockers.push(dateError);
   if (!report) blockers.push("Complete an assessment before preparing the summary.");
   else if (!report.signed) blockers.push("Sign the assessment before preparing the summary.");
   if (outcome !== "accepted") blockers.push("Record an accepted admission decision before emailing the summary.");

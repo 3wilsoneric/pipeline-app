@@ -1,3 +1,4 @@
+import { actualAdmissionDateError } from "./admission-lifecycle";
 import type { ReferralWorkflowStatus } from "@/lib/reliability/referral-operating-model";
 import { isUnassignedOwner } from "./referral-ownership";
 import type { Referral } from "./referral-types";
@@ -169,7 +170,7 @@ export function getReferralTransitionBlockers(
   context: WorkflowContext = {},
 ): ReferralTransitionBlocker[] {
   return getReferralTransitionAlerts(referral, targetStage, context).filter((issue) =>
-    ["admission_decision_required", "decline_decision_required"].includes(issue.code),
+    ["admission_decision_required", "admission_actual_date_required", "decline_decision_required"].includes(issue.code),
   );
 }
 
@@ -217,6 +218,8 @@ function getInitialTransitionAlerts(
 
 function getAdmissionTransitionAlerts(referral: Referral, context: WorkflowContext): ReferralTransitionBlocker[] {
   const alerts: ReferralTransitionBlocker[] = [];
+  const dateError = actualAdmissionDateError(referral.actualAdmissionDate);
+  if (dateError) alerts.push({ code: "admission_actual_date_required", label: dateError });
   if (getDecisionOutcome(referral, context) !== "accepted") {
     alerts.push({ code: "admission_decision_required", label: "Record an admission decision of yes before acceptance." });
   }

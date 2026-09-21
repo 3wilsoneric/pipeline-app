@@ -1,3 +1,4 @@
+import { isAwaitingAdmission } from "./admission-lifecycle";
 import type { AdmissionRequirement, Referral } from "./referral-types";
 import { isUnassignedOwner } from "./referral-ownership";
 import type { WorkflowContext } from "./workflow-records";
@@ -83,14 +84,15 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
     .filter((current) => current.status !== "complete"
       && (current.blocker || current.key.startsWith("requirement:")))
     .map((current) => current.label))];
-  const nextAction = getNextAction(
+  const awaitingAdmission = isAwaitingAdmission(referral.stage, state.outcome, context.packetSentAt);
+  const nextAction = awaitingAdmission ? "Confirm admission after the client arrives" : getNextAction(
     referral,
     canonicalAssessment,
     state,
     activeRequirements,
   );
   const waiting = ["received", "normalizing", "extracting"].includes(referral.packetStatus ?? "")
-    || state.assessment === "waiting_for_information";
+    || state.assessment === "waiting_for_information" || awaitingAdmission;
   return {
     referral_id: referral.id,
     state,

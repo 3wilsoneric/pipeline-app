@@ -296,7 +296,12 @@ export type Referral = {
   /** Age as written in the source packet. DOB remains the canonical calculated-age source. */
   reportedAge?: string;
   ssn?: string;
+  /** Legacy admission date; imported records carry governed admission history here. */
   admissionDate?: string;
+  /** Planned arrival date supplied with the outgoing packet, separate from actual arrival. */
+  plannedAdmissionDate?: string;
+  /** Actual arrival date, recorded only by an explicit admission confirmation. */
+  actualAdmissionDate?: string;
   responsiblePerson?: string;
   /** Pre-assessment medication list or notes. This seeds assessment.medications_at_intake. */
   currentMedications?: string;

@@ -192,7 +192,7 @@ function appendClientReferral(groups: Map<string, ClientRecord>, referral: Refer
   group.community ||= cleanCommunity(referral.community);
   const admitted = referralAdmitted(referral);
   group.admitted ||= admitted;
-  if (admitted && !group.admissionDate) group.admissionDate = reportDate(referral.admissionDate);
+  if (admitted && !group.admissionDate) group.admissionDate = reportDate(referral.actualAdmissionDate ?? referral.admissionDate);
 }
 
 function mergeClientFields(group: ClientRecord) {
@@ -206,7 +206,7 @@ function mergeClientFields(group: ClientRecord) {
 function referralAdmitted(referral: Referral) {
   const historicalOutcome = (referral as Referral & { historicalOutcome?: string }).historicalOutcome;
   return referral.workflowStatus === "admitted" || historicalOutcome === "admitted"
-    || (referral.workspaceStatus === "historical" && referral.stage === "Accepted / Admitted" && Boolean(reportDate(referral.admissionDate)));
+    || (referral.workspaceStatus === "historical" && referral.stage === "Accepted / Admitted" && Boolean(reportDate(referral.actualAdmissionDate ?? referral.admissionDate)));
 }
 
 function cleanCommunity(value: unknown) {
@@ -217,16 +217,16 @@ function cleanCommunity(value: unknown) {
 function clientDateMatches(client: ClientRecord, filters: OperationsReportFilters) {
   if (filters.report_id === "clients_by_community") {
     return client.admitted && (client.admissionDate.startsWith(filters.month)
-      || client.referrals.some((referral) => referralAdmitted(referral) && reportDate(referral.admissionDate).startsWith(filters.month)));
+      || client.referrals.some((referral) => referralAdmitted(referral) && reportDate(referral.actualAdmissionDate ?? referral.admissionDate).startsWith(filters.month)));
   }
   return client.referrals.some((referral) => reportDate(referral.date).startsWith(filters.month));
 }
 
 function admissionMonthClient(client: ClientRecord, month: string): ClientRecord {
   if (client.resident && client.admissionDate.startsWith(month)) return client;
-  const event = client.referrals.filter((referral) => referralAdmitted(referral) && reportDate(referral.admissionDate).startsWith(month))
-    .sort((a, b) => String(b.admissionDate).localeCompare(String(a.admissionDate)))[0];
-  return event ? { ...client, community: cleanCommunity(event.community), county: reportValue(event.county), admissionDate: reportDate(event.admissionDate) } : client;
+  const event = client.referrals.filter((referral) => referralAdmitted(referral) && reportDate(referral.actualAdmissionDate ?? referral.admissionDate).startsWith(month))
+    .sort((a, b) => String(b.actualAdmissionDate ?? b.admissionDate).localeCompare(String(a.actualAdmissionDate ?? a.admissionDate)))[0];
+  return event ? { ...client, community: cleanCommunity(event.community), county: reportValue(event.county), admissionDate: reportDate(event.actualAdmissionDate ?? event.admissionDate) } : client;
 }
 
 function clientHasReportDate(client: ClientRecord, filters: OperationsReportFilters) {

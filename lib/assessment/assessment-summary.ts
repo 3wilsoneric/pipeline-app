@@ -1,3 +1,4 @@
+import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { getAssessmentCompletionSummary } from "./assessment-completion";
 import { assessmentInterviewOptionLabel, assessmentInterviewSections } from "./assessment-interview-schema";
 import type { PipelineAssessmentRecord } from "./assessment-records";
@@ -9,7 +10,7 @@ import {
 import type { AdmissionRequirement, Referral } from "@/lib/pipeline/referral-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 
-type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate">
+type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate" | "plannedAdmissionDate">
   & Partial<Pick<Referral, "county" | "conserved" | "payer" | "responsiblePerson" | "requirements">>;
 
 export type AssessmentSummaryItem = {
@@ -150,7 +151,7 @@ export function buildMeetClientSummary(
     dateOfBirth: assessment.date_of_birth || referral.dob,
     community: assessment.community || referral.community,
     assessmentDate: assessment.assessment_date || "",
-    admissionDate: referral.admissionDate || "",
+    admissionDate: getPlannedAdmissionDate(referral),
     admissionNotes: compactItems([
       buildAdmissionAgreementSummary(referral.requirements),
       item("Referring county", assessment.county || referral.county),

@@ -603,15 +603,16 @@ check("acceptance is independent and acknowledges only an actual matching submit
 check(
   "placement approval preserves admission gates until an explicit admission transition",
   workflowStore.includes(': "Community Review"')
-    && workflowStore.includes('targetStage === "Accepted / Admitted" ? { workflowStatus: "admitted" as const }')
+    && workflowStore.includes('targetStage === "Accepted / Admitted" ? { workflowStatus: "admitted" as const, actualAdmissionDate: normalizeCalendarDate(actualAdmissionDate as string)! }')
     && !workflowStore.includes("workflowTransitionValidated: true")
     && referralStore.match(/!metadata\?\.workflowTransitionValidated/g)?.length >= 2,
 );
 const acceptedGate = { ...referral, stage: "Community Review", admissionDecision: { outcome: "accepted" }, requirements: [] };
-check("explicit admission can proceed with an unanswered admission-date alert",
-  referralTransitions.getReferralTransitionAlerts(acceptedGate, "Accepted / Admitted").some((item) => item.code === "admission_date_required")
-    && referralTransitions.getReferralTransitionBlockers(acceptedGate, "Accepted / Admitted").length === 0
-    && !referralTransitions.getReferralTransitionAlerts({ ...acceptedGate, admissionDate: "2026-09-15" }, "Accepted / Admitted").some((item) => item.code === "admission_date_required"));
+check("explicit admission requires actual arrival while a planned date alone leaves it open",
+  referralTransitions.getReferralTransitionBlockers(acceptedGate, "Accepted / Admitted").some((item) => item.code === "admission_actual_date_required")
+    && referralTransitions.getReferralTransitionBlockers({ ...acceptedGate, plannedAdmissionDate: "2026-09-15" }, "Accepted / Admitted").some((item) => item.code === "admission_actual_date_required")
+    && referralTransitions.getReferralTransitionBlockers({ ...acceptedGate, actualAdmissionDate: "2026-09-15" }, "Accepted / Admitted").length === 0);
+
 check("review submissions are durable and assessment-specific",
   reviewMigration.includes("create table if not exists pipeline.assessment_reviews")
     && reviewMigration.includes("unique (assessment_id)")

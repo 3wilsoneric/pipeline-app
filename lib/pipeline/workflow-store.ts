@@ -1,6 +1,8 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { actualAdmissionDateError } from "./admission-lifecycle";
+import { normalizeCalendarDate } from "./calendar-date";
 
 import type { TransactionSql } from "postgres";
 
@@ -164,6 +166,7 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
         assessmentCreatedAt: latestAssessment?.created_at ?? null,
         assessmentComplete: latestAssessment ? latestAssessment.status === "complete" : Boolean(referral.assessment?.completedAt),
         assessmentSigned: Boolean(latestAssessment?.signed_at),
+        packetSentAt: assessmentPacketSentAt(latestAssessment),
         assessmentStarted: Boolean(latestAssessment?.started_at),
         assessmentScheduleStatus: latestAssessment?.schedule_status ?? null,
         assessmentDate: latestAssessment?.assessment_date ?? referral.assessment?.scheduledDate ?? null,
@@ -215,8 +218,8 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       where referral_id = ${referralId}
       order by submission_number desc, review_id desc
     `,
-    sql<{ assessment_id: string; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
-      select assessment_id, created_at, status, assessment_date, signed_at, started_at, schedule_status, data
+    sql<{ assessment_id: string; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
+      select assessment_id, created_at, status, assessment_date, signed_at, meet_client_sent_at, started_at, schedule_status, data
       from pipeline.assessments
       where referral_id = ${referralId}
       order by updated_at desc, assessment_id desc
@@ -245,6 +248,7 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       assessmentCreatedAt: latestAssessment?.created_at ? toIso(latestAssessment.created_at) : null,
       assessmentComplete: latestAssessment ? latestAssessment.status === "complete" : Boolean(referral.assessment?.completedAt),
       assessmentSigned: Boolean(latestAssessment?.signed_at),
+      packetSentAt: assessmentPacketSentAt(latestAssessment),
       assessmentStarted: Boolean(latestAssessment?.started_at),
       assessmentScheduleStatus: latestAssessment?.schedule_status ?? null,
       assessmentDate: latestAssessment?.assessment_date ? toIso(latestAssessment.assessment_date).slice(0, 10) : referral.assessment?.scheduledDate ?? null,
@@ -307,8 +311,8 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
       where referral_id = any(${ids}::bigint[])
       order by referral_id, submission_number desc, review_id desc
     `,
-    sql<{ referral_id: number | string; assessment_id: string; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
-      select distinct on (referral_id) referral_id, assessment_id, created_at, status, assessment_date, signed_at, started_at, schedule_status, data
+    sql<{ referral_id: number | string; assessment_id: string; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
+      select distinct on (referral_id) referral_id, assessment_id, created_at, status, assessment_date, signed_at, meet_client_sent_at, started_at, schedule_status, data
       from pipeline.assessments
       where referral_id = any(${ids}::bigint[])
       order by referral_id, updated_at desc, assessment_id desc
@@ -332,6 +336,7 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
       assessmentCreatedAt: assessmentRow?.created_at ? toIso(assessmentRow.created_at) : null,
       assessmentComplete: assessmentRow ? assessmentRow.status === "complete" : Boolean(referral.assessment?.completedAt),
       assessmentSigned: Boolean(assessmentRow?.signed_at),
+      packetSentAt: assessmentPacketSentAt(assessmentRow),
       assessmentStarted: Boolean(assessmentRow?.started_at),
       assessmentScheduleStatus: assessmentRow?.schedule_status ?? null,
       assessmentDate: assessmentRow?.assessment_date ? toIso(assessmentRow.assessment_date).slice(0, 10) : referral.assessment?.scheduledDate ?? null,
@@ -368,12 +373,20 @@ export async function transitionReferral(
   expectedWorkflowVersion: number,
   actor: ReferralActor,
   mutationId?: string,
+  actualAdmissionDate?: unknown,
 ): Promise<ReferralMutation | null> {
+  if (targetStage === "Accepted / Admitted") {
+    const error = actualAdmissionDateError(actualAdmissionDate);
+    if (error) {
+      const referral = await getReferral(referralId);
+      return referral ? { ok: false, blocked: true, referral, blockers: [{ code: "admission_actual_date_required", label: error }] } : null;
+    }
+  }
   return patchReferral(
     referralId,
     {
       stage: targetStage,
-      ...(targetStage === "Accepted / Admitted" ? { workflowStatus: "admitted" as const } : {}),
+      ...(targetStage === "Accepted / Admitted" ? { workflowStatus: "admitted" as const, actualAdmissionDate: normalizeCalendarDate(actualAdmissionDate as string)! } : {}),
       ...(targetStage === "Declined" ? { workflowStatus: "declined" as const } : {}),
     },
     expectedVersion,
@@ -1683,4 +1696,8 @@ function toIso(value: Date | string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function assessmentPacketSentAt(assessment: { meet_client_sent_at?: Date | string | null } | null | undefined) {
+  return assessment?.meet_client_sent_at ? toIso(assessment.meet_client_sent_at) : null;
 }

@@ -47,6 +47,7 @@ export async function POST(
       Number(body.value.if_match_section),
       pipelineAuditActor(auth.user),
       mutationId.value,
+      body.value.actual_admission_date,
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) {

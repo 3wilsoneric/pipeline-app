@@ -155,6 +155,18 @@ test("repeat admission dates display the event from the selected month", () => {
   assert.equal(result.rows[0].values.admission_date, "2024-02-01");
 });
 
+test("confirmed arrival controls admission reports while planned dates stay out of the admitted cohort", () => {
+  const rows = [
+    referral(1, { clientId: "same", workflowStatus: "admitted", actualAdmissionDate: "2026-09-16", plannedAdmissionDate: "2026-08-20", admissionDate: "2026-08-20" }),
+    referral(2, { clientId: "same", workflowStatus: "admitted", actualAdmissionDate: "2026-09-18", plannedAdmissionDate: "2026-08-21" }),
+    referral(3, { workflowStatus: "approved_for_placement", plannedAdmissionDate: "2026-09-19" }),
+  ];
+  const result = build("clients_by_community", rows, new Map(), { month: "2026-09", client_scope: "admitted" });
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].values.admission_date, "2026-09-18");
+  assert.equal(build("clients_by_community", rows, new Map(), { month: "2026-08", client_scope: "admitted" }).rows.length, 0);
+});
+
 test("admission month filters the community of that admission, not a later referral", () => {
   const rows = [referral(1, { clientId: "same", workflowStatus: "admitted", admissionDate: "2024-02-01", community: "San Pablo" }), referral(2, { clientId: "same", workflowStatus: "admitted", admissionDate: "2026-09-01", community: "Santa Clarita", updatedAt: "2026-09-03T12:00:00Z" })];
   assert.equal(build("clients_by_community", rows, new Map(), { month: "2024-02", community: "San Pablo" }).rows.length, 1);

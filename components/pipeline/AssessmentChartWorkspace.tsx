@@ -1,5 +1,6 @@
 "use client";
 
+import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, LoaderCircle, Mail, Paperclip, RefreshCw, Send, X } from "lucide-react";
 
@@ -151,6 +152,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
         </div>
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
+      {sent ? <p role="status" className="px-4 py-2 text-sm text-[#0f6f5e]">{readyPayload.referral.stage === "Accepted / Admitted" ? "Admission confirmed" : "Awaiting admission"}. <button type="button" className={styles.textButton} onClick={onOpenDecision}>Review admission</button></p> : null}
       <HandoffOverview payload={readyPayload} recipientCount={recipients.length + ccRecipients.length} sent={sent}
         onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {composerOpen ? <MeetClientComposeDialog sending={sending} onClose={() => { setComposerOpen(false); setConfirmed(false); }}>
@@ -197,7 +199,7 @@ function HandoffOverview({ payload, recipientCount, sent, onOpenFiles, onOpenAss
   return <div className={styles.handoffOverview}>
     <div className={styles.clientLine}>
       <h3>{summary?.name || referral.name}</h3>
-      <dl><div><dt>Community</dt><dd>{summary?.community || referral.community}</dd></div><div><dt>Admission</dt><dd>{referral.admissionDate ? formatDate(referral.admissionDate) : "Date not recorded"}</dd></div></dl>
+      <dl><div><dt>Community</dt><dd>{summary?.community || referral.community}</dd></div><div><dt>Planned admission</dt><dd>{getPlannedAdmissionDate(referral) ? formatDate(getPlannedAdmissionDate(referral)) : "Date not recorded"}</dd></div></dl>
     </div>
     {renderReadiness()}
     <HandoffClinicalSummary report={report} />

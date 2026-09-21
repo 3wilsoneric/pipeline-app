@@ -97,19 +97,19 @@ test.describe("assessment outcome and admission handoff", () => {
         }
         const before = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
         expect(before.email.ready).toBe(false);
-        expect(before.email.blockers.join(" ")).not.toContain("admission date");
-        await page.getByLabel("Admission date (optional)", { exact: true }).fill("2026-10-12");
+        expect(before.email.blockers.join(" ")).toContain("planned admission date");
+        await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-12");
         await page.getByRole("button", { name: "Review email & packet", exact: true }).click();
         await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
         await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("2026-10-12");
         const after = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
-        expect(after.referral.admissionDate).toBe("2026-10-12");
+        expect(after.referral.plannedAdmissionDate).toBe("2026-10-12");
         expect(after.report.meetClient.admissionDate).toBe("2026-10-12");
-        expect(after.email.blockers.join(" ")).not.toContain("Set the admission date");
+        expect(after.email.blockers.join(" ")).not.toContain("planned admission date");
         expect(after.referral.stage).not.toBe("Accepted / Admitted");
         await page.getByRole("button", { name: "Back to decision", exact: true }).click();
         await page.reload();
-        await expect(page.getByLabel("Admission date (optional)", { exact: true })).toHaveValue("2026-10-12");
+        await expect(page.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-12");
         await page.setViewportSize({ width: 390, height: 844 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         const unavailableSend = await assessor.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { confirmed: true, if_match: after.referral.version, recipients: ["synthetic@example.invalid"], client_mutation_id: randomUUID() } });
