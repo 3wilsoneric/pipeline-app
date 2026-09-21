@@ -21,6 +21,8 @@ test("four core topics plus team tools retain every guide exactly once", () => {
 test("every guide has distinct steps, local routes, and real source anchors", () => {
   assert.equal(new Set(catalog.operatorGuidedTutorialIds).size, catalog.operatorGuidedTutorials.length);
   for (const guide of catalog.operatorGuidedTutorials) {
+    assert.ok(catalog.operatorGuideNextActions[guide.id]?.message.length > 30, "A concrete next step: " + guide.id);
+    for (const id of catalog.operatorGuideNextActions[guide.id].tutorials) assert.ok(catalog.getOperatorGuidedTutorial(id), id);
     assert.equal(new Set(guide.steps.map((step) => step.id)).size, guide.steps.length);
     for (const step of guide.steps) {
       assert.ok(step.route.startsWith("/?") || step.route === "/");
@@ -33,6 +35,29 @@ test("every guide has distinct steps, local routes, and real source anchors", ()
       if (/sign|decision|packet-send|export/.test(step.id)) assert.equal(step.advance, "confirm");
     }
   }
+});
+
+test("finishing tips keeps an explicit next-action screen instead of silently returning to the menu", () => {
+  let current = state.reduceOperatorGuideState(state.emptyOperatorGuideState(), { type: "start", tutorialId: "create-referral", stepIndex: 4 });
+  current = state.reduceOperatorGuideState(current, { type: "finish" });
+  assert.equal(current.mode, "finished");
+  assert.equal(current.activeTutorialId, "create-referral");
+  assert.equal(current.completedTutorialIds.includes("create-referral"), false);
+  assert.equal(state.normalizeOperatorGuideState(current).mode, "finished");
+  assert.equal(state.reduceOperatorGuideState(current, { type: "close" }).mode, "closed");
+});
+
+test("real intake help reuses the open draft, never adds practice flags, and retains a created referral on later tips", () => {
+  const guide = catalog.getOperatorGuidedTutorial("create-referral");
+  assert.equal(guide.context, "intake");
+  const draft = navigation.resolveGuideDestination(packet, "/", "intake", "new-draft");
+  assert.equal(new URL(draft, "https://test.invalid").searchParams.get("draftId"), "new-draft");
+  assert.equal(new URL(draft, "https://test.invalid").searchParams.has("trainingIntake"), false);
+  assert.equal(navigation.resolveGuideDestination(packet, draft, "intake", "another-draft"), draft);
+  assert.equal(navigation.resolveGuideDestination(packet, packet + "&referralId=42", "intake"), packet + "&referralId=42");
+  assert.equal(navigation.resolveGuideDestination(packet, "/", "intake"), null);
+  const newFromSaved = navigation.resolveGuideDestination(packet, packet + "&referralId=42", "intake", "new-draft");
+  assert.equal(new URL(newFromSaved, "https://test.invalid").searchParams.has("referralId"), false);
 });
 
 test("jumping preserves reviewed steps without crediting skipped work", () => {

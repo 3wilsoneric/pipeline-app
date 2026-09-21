@@ -117,7 +117,7 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
     { label: "File progress", value: `${Math.round(item.completion_pct)}% complete` },
     { label: "Documents needed", value: String(item.missing_document_count) },
   ];
-  return <button type="button" data-board-card data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
+  return <button type="button" data-board-card data-guide-target="home-board-card" data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
     <span className={boardStyles.tabs}>
       <strong data-folder-name className={`${folderStyles.tab} ${boardStyles.nameTab}`}><span className={folderStyles.tabLabel}>{name}</span></strong>
       <span id={`${descriptionId}-status`} data-board-status className={boardStyles.statusTab}>{status}</span>

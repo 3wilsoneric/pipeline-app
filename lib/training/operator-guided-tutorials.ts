@@ -24,7 +24,7 @@ export type OperatorGuidedTutorial = {
   id: string;
   title: string;
   workflow: string;
-  context: "app" | "workspace" | "practice";
+  context: "app" | "workspace" | "practice" | "intake";
   summary: string;
   outcome: string;
   minutes: number;
@@ -86,6 +86,7 @@ const assessmentPractice = assessment + "&trainingAssessment=interview";
 // Expected screen states, not assertions that the user completed a clinical action.
 const expectedGuideResults: Readonly<Record<string, string>> = {
   "my-queue": "Referrals in the displayed scope, with a stage and a way to reopen each one.",
+  "home-board-card": "The client's workspace opens at the next action shown on their Board card.",
   "workspace-directory": "The referral directory with its current owner and stage filters.",
   "workspace-search": "Matching referrals as you type, or an empty result if no visible referral matches.",
   "workspace-results": "The selected referral opens with its client details and saved work.",
@@ -95,7 +96,7 @@ const expectedGuideResults: Readonly<Record<string, string>> = {
   "intake-identity": "Client identity and date of birth together, with age calculated from that date.",
   "intake-routing": "The referral source, contact details, and assigned assessor in the intake form.",
   "intake-medications": "The referral summary and available medication information in this intake.",
-  "create-workspace": "In live intake, a created referral opens as a workspace. This practice draft does not create a live referral.",
+  "create-workspace": "After creation succeeds, the referral has an ID and a saved status. If an error appears, the task is not finished.",
   "assessment-section-nav": "The section name and its questions change together. Existing answers stay recorded.",
   "assessment-recorded": "Recorded answers for this section. Selecting an editable answer brings it back into the question area.",
   "assessment-fields": "An unanswered question, or a completed-section message when nothing remains in this section.",
@@ -133,6 +134,7 @@ const expectedGuideResults: Readonly<Record<string, string>> = {
 // Acknowledging a tooltip is not evidence that a clinical or delivery action occurred.
 function step(id: string, route: string, target: string, title: string, instruction: string, advance: OperatorGuideAdvance = "confirm", optionalTarget = false): OperatorGuideStep {
   const completion = id === "practice-start" ? "A synthetic case with recorded answers beside fields still needing attention. Refreshing resets this practice case."
+    : target === "create-workspace" && route.includes("trainingIntake=") ? "This sample stops before a real referral is created. It is separate from your actual work."
     : target === "assessment-save-status" && route.includes("trainingAssessment=") ? "The practice status confirms edits in this open session. Refreshing or reopening the case resets its answers."
     : expectedGuideResults[target];
   return { id, route, target, title, phase: title, instruction, message: instruction, completion, why: instruction,
@@ -152,13 +154,23 @@ function assessmentSteps(route: string) {
   ];
 }
 
+function intakeSteps(route: string, practice: boolean) {
+  return [
+    step("referral-packet", route, "initial-packet-upload", "Add referral documents", practice ? "This is a sample intake, not a real referral. Try the form with fictional information only." : "Drop the documents you received into the upload area or choose files. Keep the form open while uploads finish. You can add more documents to this same referral later."),
+    step("referral-identity", route, "intake-identity", "Confirm client details", "Check the client's name and date of birth against the face sheet. Age is calculated. Enter and verify the details from your source documents."),
+    step("referral-routing", route, "intake-routing", "Assign the referral", "Enter the referral source and contact details, choose the community, and assign the assessor who will work on it."),
+    step("referral-medications", route, "intake-medications", "Add the summary and medications", "Enter the referral summary and medication information you have. You can return to this referral to add information later."),
+    step("referral-create", route, "create-workspace", practice ? "End of sample intake" : "Create the referral", practice ? "This sample does not create a real referral. When you are ready to work, use Create a referral from Tutorials." : "Select Create referral on the form, not in this help panel. Wait for Referral created or the saved status. If there is an error, use that message to fix it; the tutorial cannot save for you."),
+  ];
+}
+
 export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
-  tutorial({ id: "assessor-shift", title: "See my referrals", context: "app", persona: "assessor", audiences: writeRoles, summary: "Open your assigned referrals from Home.",
+  tutorial({ id: "assessor-shift", title: "Use my Home board", context: "app", persona: "assessor", audiences: writeRoles, summary: "Find your client's next action and open it from Home.",
     steps: [
-      step("assessor-home", "/", "my-queue", "Your work on Home", "Your assigned referrals show their current stage here. Open a referral to continue its saved work. An empty queue means no visible work in this scope."),
-      step("assessor-directory", "/?view=referrals", "workspace-directory", "Look across Workspaces", "Use Workspaces when you need a different referral. Check the current filters before searching."),
-      step("assessor-search", "/?view=referrals", "workspace-search", "Find a referral", "Search by client or referral details. Opening an existing result keeps its files and assessment together."),
-      step("assessor-open", "/?view=referrals", "workspace-results", "Choose the existing referral", "Check the matching client and community, then open that result to resume work. Keep later updates in the same workspace."),
+      step("assessor-home", "/", "my-queue", "Read the next action", "Your Board groups referrals by stage. Each card shows the client and what needs doing next. Scheduling moves work from Referral received into In progress. On a phone, use Referral stage to change the column."),
+      step("assessor-open", "/", "home-board-card", "Open the client's card", "Choose the client on the Board. Use the next action written on their card: it may be intake, scheduling, the assessment, or a decision. You do not need to search Workspaces first.", "target-click", true),
+      step("assessor-continue", packet, "workspace-stage-nav", "Continue in this referral", "The card opened this client's workspace at its next action. Use the tabs here to move between intake, assessment, decision, and files. Open Tutorials whenever you need help with one of those actions."),
+      step("assessor-check", packet, "workspace-stage-nav", "Keep updates in this workspace", "Check the client and saved status before continuing. Return to Intake or Files whenever more information arrives; keep those updates in this same referral."),
     ] }),
   tutorial({ id: "find-workspace", title: "Find a referral", context: "app", summary: "Find an existing referral and pick up where you left off.",
     steps: [
@@ -167,17 +179,11 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
       step("find-record", packet, "packet-workspace", "Continue this workspace", "Check the client and available pages. Chart, Assessment, Files, and Activity belong to this workspace. Do not create a new referral just to return to it."),
       step("find-pages", packet, "workspace-stage-nav", "Choose the workspace page", "Use the workspace tabs, or the Workspace view menu on a phone, to switch between the chart, assessment, files, and activity."),
     ] }),
-  tutorial({ id: "create-referral", title: "Create a referral", context: "practice", audiences: writeRoles, summary: "Practice adding files and client details. No real referral is created.",
-    steps: [
-      step("referral-packet", intakePractice, "initial-packet-upload", "Add referral documents", "This is a practice intake. In normal work, drop the packet here or choose multiple files. More files can be added to the same workspace later."),
-      step("referral-identity", intakePractice, "intake-identity", "Confirm client details", "Review the identity fields and date of birth. Enter and verify the details from your source documents; age is calculated from date of birth."),
-      step("referral-routing", intakePractice, "intake-routing", "Set referral details", "Set the referral source, contact information, and responsible assessor. These are referral details, not a confirmed admission."),
-      step("referral-medications", intakePractice, "intake-medications", "Summary and medications", "Use these intake fields for the information available now. Later additions belong in this same workspace."),
-      step("referral-create", intakePractice, "create-workspace", "Create once, then continue", "In live intake, Create referral establishes the referral. Later edits use that workspace. This practice guide stops here and creates no live referral."),
-    ] }),
+  tutorial({ id: "create-referral", title: "Create a referral", context: "intake", audiences: writeRoles, summary: "Help beside your real intake form. You choose when to create the referral.", steps: intakeSteps(packet, false) }),
+  tutorial({ id: "practice-intake", title: "Practice intake with a sample", context: "practice", audiences: writeRoles, summary: "Optional practice with fictional information. No real referral is created.", steps: intakeSteps(intakePractice, true) }),
   tutorial({ id: "start-assessment", title: "Schedule an assessment", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Set the appointment, then begin the assessment.",
     steps: [
-      step("schedule-open", assessment, "assessment-schedule-open", "Open scheduling", "Open the scheduling control under Assessment details. If an appointment already exists, review or change it there.", "target-click", true),
+      step("schedule-open", assessment, "assessment-schedule-open", "Open scheduling", "This is the referral you chose from the Board or Workspaces. Open Schedule assessment under Assessment details. If the appointment form is already open, go to Set the appointment.", "target-click", true),
       step("schedule-details", assessment, "assessment-schedule-fields", "Set the appointment", "Choose the date, time, and duration. Check the time zone displayed in the form. This is the open referral's appointment.", "confirm", true),
       step("schedule-method", assessment, "assessment-schedule-method", "Choose how to meet", "Choose the interview method and supply the matching phone number, address, or meeting link.", "confirm", true),
       step("schedule-save", assessment, "assessment-schedule-save", "Save the appointment", "Select Schedule assessment when the details are correct. The guide advances only after scheduling succeeds. Skip if you are only looking.", "target-click", true),
@@ -256,19 +262,39 @@ export const operatorGuidedTutorialIds = operatorGuidedTutorials.map((item) => i
 
 // Group the existing guides without changing their saved progress or permissions.
 export const operatorGuideTopics = [
-  { id: "create", title: "Create a referral", tutorialIds: ["create-referral"] },
+  { id: "create", title: "Start a referral", tutorialIds: ["create-referral", "practice-intake"] },
   { id: "assess", title: "Schedule & assess", tutorialIds: ["start-assessment", "complete-assessment", "review-chart", "practice-assessment"] },
   { id: "admit", title: "Decide & admit", tutorialIds: ["record-decision", "prepare-packet"] },
   { id: "find", title: "Find work & files", tutorialIds: ["assessor-shift", "find-workspace", "workspace-files", "workspace-history", "calendar", "clients"] },
   { id: "team", title: "Team & reports", tutorialIds: ["supervisor-shift", "run-report"] },
 ] as const;
+
+export const operatorGuideNextActions: Readonly<Record<string, { message: string; tutorials: readonly string[] }>> = {
+  "assessor-shift": { message: "Use the next action on your client's card. Need help with that task? Choose it below.", tutorials: ["start-assessment", "complete-assessment", "record-decision"] },
+  "find-workspace": { message: "Keep working in the referral you opened. Its tabs keep the assessment, files, and decision together.", tutorials: ["start-assessment", "workspace-files"] },
+  "create-referral": { message: "Choose Create referral on the form and wait for it to save. Then schedule from the client's Home Board card. These tips do not create it for you.", tutorials: ["start-assessment", "workspace-files"] },
+  "practice-intake": { message: "This was a sample only. To do the real task, open a real intake form. No referral has been created by this tutorial.", tutorials: ["create-referral", "practice-assessment"] },
+  "start-assessment": { message: "Check the appointment shown in Assessment details. A successful save adds it to Calendar and moves the Board card into In progress. You can continue the assessment here.", tutorials: ["complete-assessment", "calendar"] },
+  "complete-assessment": { message: "Keep filling in this assessment or check the full version before signing. Your answers and save status are in the workspace, not in this help panel.", tutorials: ["review-chart", "workspace-files"] },
+  "practice-assessment": { message: "This was a sample. For real work, go to your Board, open the client's card, and continue their assessment. Refreshing resets sample answers.", tutorials: ["assessor-shift"] },
+  "review-chart": { message: "Finishing these tips does not sign the assessment. Use Sign & continue to decision in the workspace and confirm it there. Then record the decision on the same referral.", tutorials: ["record-decision", "complete-assessment"] },
+  "record-decision": { message: "Check the saved decision in the workspace. For an accepted referral, add the admission date when known, then prepare the packet. Accepted is not the same as admitted.", tutorials: ["prepare-packet", "workspace-files"] },
+  "prepare-packet": { message: "Previewing or finishing this help sends nothing. Check the recipients and attachments, use the separate Send action, and check the actual delivery status.", tutorials: ["workspace-files", "workspace-history"] },
+  "workspace-files": { message: "Check that the files appear on this referral. You can add more here later without creating a second referral.", tutorials: ["complete-assessment", "workspace-history"] },
+  "workspace-history": { message: "Return to the part of this same referral you were working on. Activity records changes; it is not another copy of the assessment.", tutorials: ["complete-assessment", "workspace-files"] },
+  "calendar": { message: "Open an appointment to return to its referral. New appointments can also be scheduled from the client's Home Board card.", tutorials: ["assessor-shift", "start-assessment"] },
+  "clients": { message: "Use the client's chart for their information. For an active referral, use the Home Board or Workspaces.", tutorials: ["assessor-shift", "find-workspace"] },
+  "supervisor-shift": { message: "Open the relevant referral to see its details. Board visibility does not change anyone's editing permissions.", tutorials: ["run-report", "find-workspace"] },
+  "run-report": { message: "Check the dates and filters in the report. Export only when you need a copy; this help has not exported anything.", tutorials: ["supervisor-shift"] },
+};
 export const operatorGuideTargetIds = [...new Set(operatorGuidedTutorials.flatMap((item) => item.steps.map((item) => item.target)))];
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["packet-open-email", "workspace-results", "assessment-schedule-open", "assessment-schedule-save"],
+  "target-click": ["packet-open-email", "home-board-card", "workspace-results", "assessment-schedule-open", "assessment-schedule-save"],
   "target-input": ["workspace-search"],
   "target-change": [],
 };
 export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
+  "home-board-card": "components/pipeline/ReferralWorkflowTracker.tsx",
   "my-queue": "components/pipeline/PipelineWelcome.tsx",
   "workspace-directory": "components/pipeline/ReferralHomeDirectory.tsx",
   "workspace-search": "components/pipeline/ReferralHomeDirectory.tsx",

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:dc7356f6e9f9ad61",
-  "fingerprint": "dc7356f6e9f9ad618efbdccfe196b128dea35a9f3999b8d4c3778eae731f5620",
+  "generatedAt": "source-fingerprint:40b581165c0ba51c",
+  "fingerprint": "40b581165c0ba51c06c5c5668777029a237c439c36c271780f32fad877bba706",
   "totals": {
     "files": 1307,
-    "lines": 353529,
+    "lines": 354014,
     "coveredFiles": 1307
   },
   "entries": [
@@ -3324,7 +3324,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 101,
+      "lines": 114,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3336,7 +3336,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 694,
+      "lines": 837,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -7194,7 +7194,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 202,
+      "lines": 271,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -10209,7 +10209,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 41,
+      "lines": 61,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10221,7 +10221,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 301,
+      "lines": 299,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10233,7 +10233,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 326,
+      "lines": 352,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -13786,7 +13786,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 104,
+      "lines": 129,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14110,7 +14110,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 112,
+      "lines": 114,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15467,7 +15467,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 366,
+      "lines": 555,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
