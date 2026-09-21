@@ -143,11 +143,11 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   </button>;
 
   const renderEmailPage = () => (
-    <section className={styles.page} aria-label="Email and referral packet">
+    <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
         <div><h2>Meet the Client</h2><p>Review the handoff summary, then check the email before sending.</p></div>
-        <div className={styles.headerActions}><span role="status" aria-label="Email delivery status" className={styles.deliveryStatus} data-sent={sent || undefined}>{deliveryStatus}</span>{headerActions}
-          <button type="button" data-guide-target={composerOpen ? undefined : "chart-email-handoff"} className={styles.sendButton} onClick={(event) => { event.currentTarget.focus(); setConfirmed(false); setComposerOpen(true); }}><Mail size={18} aria-hidden="true" />{sent ? "View email" : "Preview email"}</button>
+        <div className={styles.headerActions}><span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={styles.deliveryStatus} data-sent={sent || undefined}>{deliveryStatus}</span>{headerActions}
+          <button type="button" data-guide-target={composerOpen ? undefined : "packet-open-email"} className={styles.sendButton} onClick={(event) => { event.currentTarget.focus(); setConfirmed(false); setComposerOpen(true); }}><Mail size={18} aria-hidden="true" />{sent ? "View email" : "Preview email"}</button>
         </div>
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
@@ -380,7 +380,7 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
   );
 
   const renderPacketAttachments = () => (
-    <section className={styles.attachments} aria-label="Referral packet attachments">
+    <section data-guide-target="packet-attachments" className={styles.attachments} aria-label="Referral packet attachments">
         <div className={styles.attachmentHeading}>
           <span><Paperclip size={15} />{email.admission_packet.files.length} attachment{email.admission_packet.files.length === 1 ? "" : "s"} · {formatBytes(email.admission_packet.total_bytes)}</span>
         </div>
@@ -406,7 +406,7 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
       <div className={styles.composeScroll}>
       <div className={styles.nextStep}><p role="status">{status}</p>{!email.example_only ? refresh : null}</div>
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
-      {emailDraft ? <div className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} composer value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={!email.can_edit_recipients || sending || sent} /></div> : null}
+      {emailDraft ? <div data-guide-target="packet-recipients" className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} composer value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={!email.can_edit_recipients || sending || sent} /></div> : null}
       <div className={styles.addressRow}><span>Subject</span><span className={styles.subject}>{email.preview?.subject || "Meet the Client"}</span></div>
       {renderPacketAttachments()}
       <div className={styles.messageBody}>

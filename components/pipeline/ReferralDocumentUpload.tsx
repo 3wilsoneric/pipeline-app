@@ -75,7 +75,7 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
     <UploadedDocumentList files={files} readOnly={readOnly} />
     {children}
   </>;
-  return <section aria-label="Document checklist" className={styles.surface} data-file-drag-active={dragging || undefined}
+  return <section data-guide-target="workspace-files-upload" aria-label="Document checklist" className={styles.surface} data-file-drag-active={dragging || undefined}
     onDragEnter={(event) => { if (readOnly || !event.dataTransfer.types.includes("Files")) return; event.preventDefault(); depth.current++; setDragging(true); if (panel.current) panel.current.open = true; }}
     onDragOver={(event) => { if (!event.dataTransfer.types.includes("Files")) return; event.preventDefault(); event.dataTransfer.dropEffect = readOnly ? "none" : "copy"; }}
     onDragLeave={(event) => { if (!event.dataTransfer.types.includes("Files")) return; depth.current = Math.max(0, depth.current - 1); if (!depth.current) setDragging(false); }}

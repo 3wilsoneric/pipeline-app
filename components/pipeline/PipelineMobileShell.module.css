@@ -1,4 +1,11 @@
 .body { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+.withGuide { display: flex; flex: 1; min-width: 0; min-height: 0; }
+/* Keep workspace overlays inside the working area while contextual help is open. */
+.withGuide:has(> [data-guide-dock]) > .body { contain: layout; }
+.withGuide:has(> [data-guide-dock]) > .body [data-assessment-scheduling="fullscreen"] { top: 0; height: 100%; }
+@media (max-width: 1199px) {
+  .withGuide { flex-direction: column; }
+}
 .navigation { --sidebar-rail-width: 68px; --sidebar-width: var(--sidebar-rail-width); flex: 0 0 var(--sidebar-rail-width); width: var(--sidebar-rail-width); min-height: 0; }
 .navigation[data-sidebar-expanded="true"] { --sidebar-width: 216px; }
 .navigation[data-sidebar-pinned="true"] { flex-basis: var(--sidebar-width); width: var(--sidebar-width); }

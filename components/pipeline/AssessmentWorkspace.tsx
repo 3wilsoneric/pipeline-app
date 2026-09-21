@@ -1815,7 +1815,7 @@ export default function AssessmentWorkspace({
             </div>;
 
   const renderChartReview = () => (
-    <section aria-label="Assessment chart review" className={workingStyles.chartReview}>
+    <section data-guide-target="assessment-review" aria-label="Assessment chart review" className={workingStyles.chartReview}>
             {renderChartReviewToolbar()}
             {assessmentReview ? renderReviewOverview() : conversationSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>Assessment has {conversationSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items. These stay visible and do not prevent continuing.</p> : null}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>

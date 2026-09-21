@@ -31,11 +31,13 @@ export default function PipelineAppShell({
         <Suspense fallback={null}>
           <DemoEnvironmentBanner />
         </Suspense>
-        <div className={mobileStyles.body}>
-          <AppNavigation />
-          <main ref={contentRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
+        <div className={mobileStyles.withGuide}>
+          <div className={mobileStyles.body}>
+            <AppNavigation />
+            <main ref={contentRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
+          </div>
+          <PipelineGuidedCoach />
         </div>
-        <PipelineGuidedCoach />
         <PipelinePerformanceObserver />
       </div>
     </PipelineShellProvider>
