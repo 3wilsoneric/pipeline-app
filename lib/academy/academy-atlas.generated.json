@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c09b05b485fc2fe5",
-  "fingerprint": "c09b05b485fc2fe52e760ab527eb06882da0f4ebc5614fc4bc0f77efaa6b4643",
+  "generatedAt": "source-fingerprint:ee17a264cb31e463",
+  "fingerprint": "ee17a264cb31e463ce2bc5b3e9dd8d963e1750ea2cdb275f3d90c5b5706111af",
   "totals": {
-    "files": 1361,
-    "lines": 361071,
-    "coveredFiles": 1361
+    "files": 1362,
+    "lines": 361252,
+    "coveredFiles": 1362
   },
   "entries": [
     {
@@ -2066,7 +2066,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 81,
+      "lines": 96,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2162,7 +2162,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 172,
+      "lines": 175,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2234,7 +2234,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 328,
+      "lines": 329,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2246,7 +2246,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 238,
+      "lines": 239,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2258,7 +2258,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2318,
+      "lines": 2344,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -7988,7 +7988,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 44,
+      "lines": 26,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -9103,7 +9103,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "critical",
-      "lines": 546,
+      "lines": 552,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -11723,7 +11723,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 124,
+      "lines": 159,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -11807,7 +11807,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 48,
+      "lines": 88,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14665,6 +14665,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 148,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "tests/e2e/assessment-full-questionnaire.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 72,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"

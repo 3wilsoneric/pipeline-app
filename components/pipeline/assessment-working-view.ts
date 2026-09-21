@@ -12,8 +12,23 @@ import { assessmentPreparationGroups, preparationQuestions } from "@/lib/assessm
 import { assessmentConversationSections } from "@/lib/assessment/assessment-interview-schema";
 export { assessmentConversationSections };
 
+// Focus the conversation without removing fields from the full questionnaire,
+// changing completion rules, or treating source records as client confirmation.
+const recordReviewFields = new Set<AssessmentToolFieldKey>([
+  "assessment_date", "community", "referral_received_date", "referrer_name", "referrer_contact",
+  "county", "referring_facility", "prior_hospitalizations_count",
+  "most_recent_hospitalization", "prior_5150_5250_holds", "diagnosis_categories",
+  "diagnosis_other_detail", "secondary_diagnoses", "conservatorship_status", "hold_type",
+  "most_recent_arrest_date", "most_recent_arrest_jail_time", "total_arrests", "court_dates",
+  "medication_refusals_30_days", "injection_frequency", "last_injection", "next_injection_due",
+]);
+
+export function isInterviewFocusField(field: AssessmentToolFieldKey) {
+  return !recordReviewFields.has(field);
+}
+
 export function assessmentWorkingSections(data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[], preparing = false) {
-  if (!preparing) return assessmentGapSections(data, pending);
+  if (!preparing) return assessmentGapSections(data, pending, true);
   return assessmentPreparationGroups.map((group) => {
     const questions = preparationQuestions(group, data);
     return { ...group, questions, remaining: questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured") };
@@ -31,12 +46,12 @@ export function assessmentAnswerOrigin(assessment: PipelineAssessmentRecord, dat
   return `Source: ${source.source_file}${source.source_page_no ? ` · page ${source.source_page_no}` : ""}`;
 }
 
-export function assessmentGapSections(data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[]) {
+export function assessmentGapSections(data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[], interviewOnly = false) {
   return assessmentConversationSections.map((section) => {
-    // Interview metadata belongs in Details, not in the questions for the client.
-    const questions = getAssessmentInterviewQuestions(section.key, data).filter((question) => question.field !== "assessment_date");
+    const referenceQuestions = getAssessmentInterviewQuestions(section.key, data);
+    const questions = referenceQuestions.filter((question) => interviewOnly ? isInterviewFocusField(question.field) : question.field !== "assessment_date");
     const remaining = questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured");
-    return { ...section, questions, remaining };
+    return { ...section, questions, referenceQuestions, remaining };
   });
 }
 

@@ -105,7 +105,7 @@ import { PracticeAssessmentReview } from "@/components/pipeline/AssessmentInterv
 import AssessmentWorkingSection, { AssessmentWorkingNavigation, AssessmentWorkMode, WorkingAssessmentField } from "@/components/pipeline/AssessmentWorkingSection";
 import HomeDialog from "@/components/pipeline/HomeDialog";
 import AssessmentInterviewHeader, { AssessmentFileDetails } from "@/components/pipeline/AssessmentInterviewHeader";
-import { assessmentGapSections, assessmentQuestionStatus } from "@/components/pipeline/assessment-working-view";
+import { assessmentGapSections, assessmentQuestionStatus, isInterviewFocusField } from "@/components/pipeline/assessment-working-view";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 import { assessmentScheduleDraft, type AssessmentScheduleDraft } from "@/lib/assessment/assessment-schedule-draft";
@@ -240,16 +240,21 @@ function autoFocusSection(assessment: PipelineAssessmentRecord | null, nextRequi
   return assessment?.started_at && nextRequiredSection && !initialSection ? nextRequiredSection : undefined;
 }
 
+function interviewWorkingTarget(field: AssessmentToolFieldKey | null) {
+  return field && isInterviewFocusField(field) ? { field } : null;
+}
+
 function assessmentResumeTarget(assessment: PipelineAssessmentRecord, section: AssessmentToolSection | undefined, field: AssessmentToolFieldKey | undefined, preparing: boolean) {
   if (!field) return null;
   const data = pickAssessmentToolData(assessment);
   const pending = getPendingFields(assessment);
   const questions = preparing
     ? preparationQuestions(preparationGroupForSection(section ?? "identity"), data)
-    : getAssessmentInterviewQuestions(section ?? "identity", data);
+    : getAssessmentInterviewQuestions(section ?? "identity", data).filter((question) => isInterviewFocusField(question.field));
+  // A saved position is an explicit return target, even after the answer was
+  // captured. Only fall back to a gap if that question is no longer applicable.
+  if (questions.some((question) => question.field === field)) return { field };
   const start = Math.max(0, questions.findIndex((question) => question.field === field));
-  // Keep recorded answers collapsed. Resume at this question or the next gap,
-  // wrapping to earlier unfinished questions only when nothing remains after it.
   const next = [...questions.slice(start), ...questions.slice(0, start)]
     .find((question) => assessmentQuestionStatus(question, data, pending) !== "captured");
   return next ? { field: next.field } : null;
@@ -356,9 +361,10 @@ export default function AssessmentWorkspace({
   const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "prepare" | "assessment" | "chart" } | null>(null);
   const [unrecordedStartId, setUnrecordedStartId] = useState<string | null>(null);
   const [isRecommendationSaving, setIsRecommendationSaving] = useState(false);
-  const phoneQuestionRef = useRef<AssessmentToolFieldKey | null>(initialQuestion ?? null);
+  const [phoneQuestion, setPhoneQuestion] = useState<AssessmentToolFieldKey | null>(() => initialQuestion ?? initialLocation?.assessmentQuestion ?? null);
+  const phoneQuestionRef = useRef(phoneQuestion);
+  const interviewReturnRef = useRef<{ assessmentId: string; section: AssessmentToolSection; field: AssessmentToolFieldKey | null } | null>(null);
   const questionSectionRef = useRef(initialSection);
-  const [phoneQuestion, setPhoneQuestion] = useState<AssessmentToolFieldKey | null>(null);
   const rememberPhoneQuestion = useCallback((field: AssessmentToolFieldKey) => {
     if (phoneQuestionRef.current === field && questionSectionRef.current === activeSection) return;
     phoneQuestionRef.current = field;
@@ -434,7 +440,8 @@ export default function AssessmentWorkspace({
     () => new Set(getRequiredAssessmentInterviewQuestions(draft).map((question) => question.field)),
     [draft],
   );
-  const conversationSections = assessmentGapSections(draft, pendingFields);
+  const reviewSections = assessmentGapSections(draft, pendingFields);
+  const conversationSections = assessmentGapSections(draft, pendingFields, true);
   const activeSectionIndex = conversationSections.findIndex((section) => section.key === activeSection);
   const sectionQuestions = conversationSections[activeSectionIndex].questions;
   const pageSections = preparing ? assessmentPreparationGroups : conversationSections;
@@ -602,7 +609,7 @@ export default function AssessmentWorkspace({
     }
   }, [initialSection, offlinePrincipal]);
 
-  const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord) => {
+  const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord, activate = true) => {
     if (!offlinePrincipal) return;
     if (isAssessmentFinalized(assessment) || !canEditClinical) {
       await removeOfflineAssessmentWorkingSet(offlinePrincipal, assessment.assessment_id);
@@ -623,12 +630,13 @@ export default function AssessmentWorkspace({
       baseData: pickAssessmentToolData(baseDataRef.current),
       workbookSources: structuredClone(workbookSourcesRef.current),
     };
-    await saveOfflineAssessmentWorkingSet(
-      offlinePrincipal,
-      workingDraft,
-      `${window.location.pathname}${window.location.search}`,
-      { editable: true },
-    );
+    const returnPath = `${window.location.pathname}${window.location.search}`;
+    // Serialize snapshots with recovery writes so an older encrypted copy
+    // cannot finish after an acknowledged save and become the newest draft.
+    const next = localRecoveryQueueRef.current.catch(() => undefined).then(() =>
+      saveOfflineAssessmentWorkingSet(offlinePrincipal, workingDraft, returnPath, { editable: true, activate }));
+    localRecoveryQueueRef.current = next.catch(() => undefined);
+    await next;
   }, [activeSection, canEditClinical, offlinePrincipal, phoneQuestion, referralId]);
 
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
@@ -670,11 +678,17 @@ export default function AssessmentWorkspace({
   }, [activeSection, offlinePrincipal, referralId, trainingAssessmentMode]);
 
   const clearRecoveryDraft = useCallback((assessmentId: string) => {
+    const canRetireRecovery = () => dirtySectionsRef.current.size === 0 && !pendingScheduleRef.current && selectedRef.current?.assessment_id === assessmentId;
     const next = recoveryQueueRef.current.then(async () => {
       await localRecoveryQueueRef.current;
-      if (dirtySectionsRef.current.size > 0 || pendingScheduleRef.current) return;
+      if (!canRetireRecovery()) return;
+      const current = selectedRef.current!;
       if (offlinePrincipal) {
         try {
+          // A fast tab change can cancel the debounced clean snapshot. Replace
+          // its dirty predecessor before retiring the separate recovery copy.
+          await persistOfflineWorkingSet(current, false);
+          if (!canRetireRecovery()) return;
           await removeOfflineAssessmentDraft(offlinePrincipal, assessmentId);
         } catch {
           // The expiring encrypted recovery copy is harmless if cleanup is unavailable.
@@ -693,7 +707,7 @@ export default function AssessmentWorkspace({
     });
     recoveryQueueRef.current = next.catch(() => undefined);
     return next;
-  }, [offlinePrincipal]);
+  }, [offlinePrincipal, persistOfflineWorkingSet]);
 
   useEffect(() => {
     let cancelled = false;
@@ -954,7 +968,7 @@ export default function AssessmentWorkspace({
   const enterInterview = () => {
     if (preparing) {
       setWorkingTarget(null);
-      setActiveSection(assessmentGapSections(draftRef.current, getPendingFields(selectedRef.current)).find((section) => section.remaining.length > 0)?.key ?? "identity");
+      setActiveSection(assessmentGapSections(draftRef.current, getPendingFields(selectedRef.current), true).find((section) => section.remaining.length > 0)?.key ?? "identity");
     }
     setNotebookView("assessment");
     setShowBeginDialog(false);
@@ -1850,8 +1864,13 @@ export default function AssessmentWorkspace({
     setShowBeginDialog(true);
   };
   const changeWorkingMode = (prepare: boolean) => {
+    if (prepare && !preparing) interviewReturnRef.current = { assessmentId: selectedId, section: activeSection, field: focusedFieldRef.current?.field ?? phoneQuestionRef.current };
     if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
-    setWorkingTarget(null);
+    const returning = interviewReturnRef.current;
+    if (!prepare && preparing && returning?.assessmentId === selectedId) {
+      setActiveSection(returning.section);
+      setWorkingTarget(interviewWorkingTarget(returning.field));
+    } else setWorkingTarget(null);
     setNotebookView(prepare ? "prepare" : "assessment");
   };
   const continueFromPreparation = () => changeWorkingMode(false);
@@ -1878,12 +1897,16 @@ export default function AssessmentWorkspace({
   );
 
   const saveIndicatorColor = () => error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]";
+  const renderReturnToInterview = () => !reviewingChart && preparing && interviewReturnRef.current?.assessmentId === selectedId
+    ? <button type="button" className={workingStyles.returnToInterview} disabled={isBusy || isClosing} onClick={() => changeWorkingMode(false)}>Return to interview</button>
+    : null;
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
           <span data-guide-target="assessment-save-status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
             {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
             <span>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
           </span>
+          {renderReturnToInterview()}
           {embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
         </div>
   );
@@ -1955,14 +1978,14 @@ export default function AssessmentWorkspace({
               <dl className={workingStyles.reviewFacts}>
                 <div><dt>Assessor</dt><dd>{draft.assessor || selected.assessor || "Not recorded"}</dd></div>
                 <div><dt>Assessment date</dt><dd>{draft.assessment_date || "Not recorded"}</dd></div>
-                <div><dt>Recorded answers</dt><dd>{conversationSections.reduce((count, section) => count + section.questions.length - section.remaining.length, 0)} of {conversationSections.reduce((count, section) => count + section.questions.length, 0)}</dd></div>
+                <div><dt>Recorded answers</dt><dd>{reviewSections.reduce((count, section) => count + section.questions.length - section.remaining.length, 0)} of {reviewSections.reduce((count, section) => count + section.questions.length, 0)}</dd></div>
               </dl>
-              {conversationSections.some((section) => section.remaining.length > 0) ? <details className={workingStyles.reviewChecklist}>
-                <summary>{conversationSections.reduce((count, section) => count + section.remaining.length, 0)} items still need an answer or verification<span>Review by section</span></summary>
+              {reviewSections.some((section) => section.remaining.length > 0) ? <details className={workingStyles.reviewChecklist}>
+                <summary>{reviewSections.reduce((count, section) => count + section.remaining.length, 0)} items still need an answer or verification<span>Review by section</span></summary>
                 <p>Unanswered items remain listed here. They do not prevent signing.</p>
-                <ul>{conversationSections.filter((section) => section.remaining.length > 0).map((section) => <li key={section.key}>
+                <ul>{reviewSections.filter((section) => section.remaining.length > 0).map((section) => <li key={section.key}>
                   <button type="button" disabled={isBusy || isClosing || !canEditClinical || isAssessmentFinalized(selected)} onClick={() => {
-                    setActiveSection(section.key); setWorkingTarget({ field: section.remaining[0].field }); setNotebookView("assessment"); onOpenAssessment?.();
+                    setActiveSection(section.key); setWorkingTarget({ field: section.remaining[0].field }); setNotebookView("prepare"); onOpenAssessment?.();
                   }}><span>{section.label}</span><span>{section.remaining.length} to review<ChevronRight size={15} aria-hidden="true" /></span></button>
                 </li>)}</ul>
               </details> : <p className={workingStyles.reviewComplete}><Check size={17} aria-hidden="true" />All visible questions have recorded answers. Review for accuracy before signing.</p>}
@@ -1971,14 +1994,14 @@ export default function AssessmentWorkspace({
   const renderChartReview = () => (
     <section data-guide-target="assessment-review" aria-label="Assessment chart review" className={workingStyles.chartReview}>
             {renderChartReviewToolbar()}
-            {assessmentReview ? renderReviewOverview() : conversationSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>Assessment has {conversationSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items. These stay visible and do not prevent continuing.</p> : null}
+            {assessmentReview ? renderReviewOverview() : reviewSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>Assessment has {reviewSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items. These stay visible and do not prevent continuing.</p> : null}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>
             <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
               onEditAssessmentField={!isBusy && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }
                 setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
                 setWorkingTarget({ field });
-                setNotebookView("assessment");
+                setNotebookView(isInterviewFocusField(field) ? "assessment" : "prepare");
                 onOpenAssessment?.();
               } : undefined}
               assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)} />
@@ -2092,6 +2115,8 @@ export default function AssessmentWorkspace({
               data={draft}
               pending={pendingFields}
               questions={preparing ? preparationQuestions(preparationGroup, draft) : sectionQuestions}
+              referenceQuestions={conversationSections[activeSectionIndex].referenceQuestions}
+              onAllQuestions={() => changeWorkingMode(true)}
               required={requiredInterviewFields}
               target={workingTarget}
               questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} /> : undefined}
@@ -2108,6 +2133,7 @@ export default function AssessmentWorkspace({
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
               onReferenceEdit={(field) => {
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }
+                if (!preparing && !isInterviewFocusField(field)) changeWorkingMode(true);
                 setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
                 setWorkingTarget({ field });
               }}

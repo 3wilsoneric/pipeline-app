@@ -21,8 +21,8 @@ test("preparation uses the same conditional answers without treating source acce
   expect(prepared).toHaveLength(5);
   expect(assessmentWorkingSections(data, [])).toHaveLength(12);
   const fields = prepared.flatMap((group) => group.questions.map((question) => question.field));
-  expect(fields).not.toContain("current_symptoms");
-  expect(fields).not.toContain("current_self_harm_ideation");
+  expect(fields).toContain("current_symptoms");
+  expect(fields).toContain("current_self_harm_ideation");
   expect(fields).toContain("secondary_diagnoses");
   data.im_injections = "yes";
   expect(assessmentWorkingSections(data, [], true).flatMap((group) => group.questions.map((q) => q.field))).toContain("im_injections_details");

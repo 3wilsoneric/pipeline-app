@@ -149,36 +149,42 @@ export async function saveOfflineAssessmentWorkingSet(
   principalId: string,
   draft: PipelineAssessmentDraft,
   returnPath: string,
-  options: { editable: boolean },
+  options: { editable: boolean; activate?: boolean },
 ) {
   const database = await openDatabase();
   const principal = await hashValue(principalId);
-  await enforceActivePrincipal(database, principal);
+  if (options.activate !== false) await enforceActivePrincipal(database, principal);
   const key = await getOrCreateKey(database, principal);
   const id = await recordId(principal, "assessment-working-set", draft.assessmentId);
   const workingSet = createWorkingSet(draft, returnPath, options.editable);
   const encrypted = await encryptPayload(key, principal, id, workingSet);
   const now = Date.now();
-  const previousActive = await request<StoredActiveAssessment | undefined>(database.transaction(activeStore).objectStore(activeStore).get(activeAssessmentKey));
   const transaction = database.transaction([recordsStore, activeStore], "readwrite");
-  if (previousActive?.recordId && previousActive.recordId !== id) {
-    transaction.objectStore(recordsStore).delete(previousActive.recordId);
-  }
-  transaction.objectStore(recordsStore).put({
-    id,
-    principal,
-    kind: "assessment-working-set",
-    updatedAt: now,
-    expiresAt: now + expiryMs,
-    ...encrypted,
-  } satisfies StoredRecord);
-  transaction.objectStore(activeStore).put({
-    id: activeAssessmentKey,
-    principal,
-    recordId: id,
-    updatedAt: now,
-    expiresAt: now + expiryMs,
-  } satisfies StoredActiveAssessment);
+  const activeRequest = transaction.objectStore(activeStore).get(activeAssessmentKey);
+  activeRequest.onsuccess = () => {
+    const previousActive = activeRequest.result as StoredActiveAssessment | undefined;
+    // A late save acknowledgment can refresh the active offline copy, but must
+    // never reactivate an old assessment or remove the one now being worked on.
+    if (options.activate === false && previousActive?.recordId !== id) return;
+    if (previousActive?.recordId && previousActive.recordId !== id) {
+      transaction.objectStore(recordsStore).delete(previousActive.recordId);
+    }
+    transaction.objectStore(recordsStore).put({
+      id,
+      principal,
+      kind: "assessment-working-set",
+      updatedAt: now,
+      expiresAt: now + expiryMs,
+      ...encrypted,
+    } satisfies StoredRecord);
+    transaction.objectStore(activeStore).put({
+      id: activeAssessmentKey,
+      principal,
+      recordId: id,
+      updatedAt: now,
+      expiresAt: now + expiryMs,
+    } satisfies StoredActiveAssessment);
+  };
   await transactionDone(transaction);
   database.close();
 }
