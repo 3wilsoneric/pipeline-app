@@ -11,6 +11,9 @@
 .phaseSteps { display: flex; align-items: center; gap: 12px; margin: 0; padding: 0; list-style: none; color: #61716a; }
 .phaseSteps li { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 550; }
 .phaseSteps li[aria-current="step"] { color: #164f40; font-weight: 750; }
+.phaseSteps button { min-height: 44px; text-align: left; cursor: pointer; }
+.phaseSteps button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; border-radius: 3px; }
+.phaseSteps button:disabled { opacity: .6; }
 .phaseSteps li > span { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1px solid #d3dfd9; border-radius: 50%; font-size: 12px; }
 .phaseSteps li[aria-current="step"] > span { border-color: #146c54; background: #146c54; color: #fff; }
 .workMode p { max-width: 72ch; margin: 0; color: #52675d; font-size: 13px; line-height: 1.45; }
@@ -259,7 +262,6 @@
   .phaseSummary { flex-basis: 100%; }
   .phaseSteps { gap: 8px; }
   .phaseSteps li { gap: 5px; font-size: 13px; }
-  .workMode[data-phase="interview"]:not(:has(.startPending)) { display: none; }
   .workMode p { font-size: 13px; line-height: 1.4; }
   .beginAssessment { flex: 1; padding-inline: 10px; font-size: 14px; }
   .prepActions { width: 100%; gap: 8px; }

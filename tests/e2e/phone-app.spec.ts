@@ -59,8 +59,8 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       await notifications.getByRole("button", { name: "Close notifications" }).tap();
       await expect(answer).toHaveValue("Synthetic phone answer");
       await page.locator('summary[aria-label="Assessment details"]').tap();
-      await page.getByRole("button", { name: "Schedule assessment", exact: true }).tap();
-      await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Schedule interview", exact: true }).tap();
+      await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Close schedule", exact: true }).tap();
       await expect(answer).toHaveValue("Synthetic phone answer");
       await pocket.getByRole("button", { name: "Client info" }).tap();

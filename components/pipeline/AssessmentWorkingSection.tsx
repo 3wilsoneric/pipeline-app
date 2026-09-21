@@ -55,21 +55,22 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
   </nav>;
 }
 
-export function AssessmentWorkMode({ preparing, disabled, canBegin, startRecorded, onBegin, scheduleAction, appointment }: { preparing: boolean; disabled: boolean; canBegin: boolean; startRecorded: boolean; onBegin: () => void; scheduleAction?: React.ReactNode; appointment?: string }) {
+export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttemptFailed, onChange, onBegin, scheduleAction, appointment }: { preparing: boolean; disabled: boolean; canBegin: boolean; startAttemptFailed: boolean; onChange: (prepare: boolean) => void; onBegin: () => void; scheduleAction?: React.ReactNode; appointment?: string }) {
   const renderPhaseSteps = () => (<div className={styles.phaseSummary}>
       <ol className={styles.phaseSteps} aria-label="Preparation and interview">
-        <li aria-current={preparing ? "step" : undefined}><span aria-hidden="true">{preparing ? "1" : <Check size={14} />}</span>Assessment prep<ChevronRight size={15} aria-hidden="true" /></li>
-        <li aria-current={!preparing ? "step" : undefined}><span aria-hidden="true">2</span>Interview</li>
+        <li aria-current={preparing ? "step" : undefined}><span aria-hidden="true">{preparing ? "1" : <Check size={14} />}</span><button type="button" aria-pressed={preparing} disabled={disabled} onClick={() => onChange(true)}>Prepare assessment</button><ChevronRight size={15} aria-hidden="true" /></li>
+        <li aria-current={!preparing ? "step" : undefined}><span aria-hidden="true">2</span><button type="button" aria-pressed={!preparing} disabled={disabled} onClick={() => onChange(false)}>Interview</button></li>
       </ol>
+      <p>{preparing ? "Enter what you know now. These answers stay with the assessment during the interview." : "The same assessment, with your prepared answers. Ask what is missing and check what has changed."}</p>
     </div>);
   const renderAppointment = () => (preparing && appointment ? <div className={styles.appointment} aria-label="Assessment appointment"><span>Scheduled</span><strong>{appointment}</strong>{scheduleAction ? <div className={styles.editAppointment}>{scheduleAction}</div> : null}</div> : scheduleAction ? <div className={styles.scheduleAction}>{scheduleAction}</div> : null);
   return <section className={styles.workMode} aria-label="Assessment progress" data-phase={preparing ? "preparation" : "interview"}>
     {renderPhaseSteps()}
-    {preparing || canBegin ? <div className={styles.prepActions}>
+    {preparing || canBegin || scheduleAction ? <div className={styles.prepActions}>
       {renderAppointment()}
-      {canBegin ? <button type="button" data-guide-target="assessment-begin" className={styles.beginAssessment} disabled={disabled} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); onBegin(); }}><Play size={16} aria-hidden="true" />{preparing ? "Begin assessment" : "Retry start time"}</button> : null}
+      {canBegin ? <button type="button" data-guide-target="assessment-begin" className={styles.beginAssessment} disabled={disabled} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); onBegin(); }}><Play size={16} aria-hidden="true" />{startAttemptFailed ? "Retry start time" : "Begin interview"}</button> : null}
     </div> : null}
-    {!preparing && !startRecorded ? <p role="status" className={styles.startPending}>Start time not saved. You can keep answering.</p> : null}
+    {startAttemptFailed && canBegin ? <p role="status" className={styles.startPending}>Start time not saved. You can keep answering.</p> : null}
   </section>;
 }
 

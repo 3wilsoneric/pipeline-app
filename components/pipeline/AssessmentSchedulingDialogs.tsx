@@ -28,6 +28,8 @@ export function AssessmentSchedulingDialogs({
   scheduleDuration,
   scheduleMethod,
   scheduleLocation,
+  draftStatus,
+  onDraftBlur,
   onScheduleStartChange,
   onScheduleDurationChange,
   onScheduleMethodChange,
@@ -48,6 +50,8 @@ export function AssessmentSchedulingDialogs({
   scheduleDuration: string;
   scheduleMethod: AssessmentScheduleMethod;
   scheduleLocation: string;
+  draftStatus?: string;
+  onDraftBlur?: () => void;
   onScheduleStartChange: (value: string) => void;
   onScheduleDurationChange: (value: string) => void;
   onScheduleMethodChange: (value: AssessmentScheduleMethod) => void;
@@ -57,13 +61,13 @@ export function AssessmentSchedulingDialogs({
 }) {
   return (
     <>
-      {showScheduleDialog ? <ScheduleAssessmentDialog modal={scheduleModal} assessment={assessment} isBusy={isBusy} error={error} scheduleStart={scheduleStart} scheduleDuration={scheduleDuration} scheduleMethod={scheduleMethod} scheduleLocation={scheduleLocation} onScheduleStartChange={onScheduleStartChange} onScheduleDurationChange={onScheduleDurationChange} onScheduleMethodChange={onScheduleMethodChange} onScheduleLocationChange={onScheduleLocationChange} onClose={onCloseSchedule} onSave={onSaveSchedule} /> : null}
+      {showScheduleDialog ? <ScheduleAssessmentDialog modal={scheduleModal} assessment={assessment} isBusy={isBusy} error={error} scheduleStart={scheduleStart} scheduleDuration={scheduleDuration} scheduleMethod={scheduleMethod} scheduleLocation={scheduleLocation} draftStatus={draftStatus} onDraftBlur={onDraftBlur} onScheduleStartChange={onScheduleStartChange} onScheduleDurationChange={onScheduleDurationChange} onScheduleMethodChange={onScheduleMethodChange} onScheduleLocationChange={onScheduleLocationChange} onClose={onCloseSchedule} onSave={onSaveSchedule} /> : null}
       {showBeginDialog ? <BeginAssessmentDialog assessment={assessment} isBusy={isBusy} error={error} canEditClinical={canEditClinical} onClose={onCloseBegin} onBegin={onBeginAssessment} /> : null}
     </>
   );
 }
 
-function ScheduleAssessmentDialog({ modal, assessment, isBusy, error, scheduleStart, scheduleDuration, scheduleMethod, scheduleLocation, onScheduleStartChange, onScheduleDurationChange, onScheduleMethodChange, onScheduleLocationChange, onClose, onSave }: {
+function ScheduleAssessmentDialog({ modal, assessment, isBusy, error, scheduleStart, scheduleDuration, scheduleMethod, scheduleLocation, draftStatus, onDraftBlur, onScheduleStartChange, onScheduleDurationChange, onScheduleMethodChange, onScheduleLocationChange, onClose, onSave }: {
   modal: boolean;
   assessment: PipelineAssessmentRecord;
   isBusy: boolean;
@@ -72,6 +76,8 @@ function ScheduleAssessmentDialog({ modal, assessment, isBusy, error, scheduleSt
   scheduleDuration: string;
   scheduleMethod: AssessmentScheduleMethod;
   scheduleLocation: string;
+  draftStatus?: string;
+  onDraftBlur?: () => void;
   onScheduleStartChange: (value: string) => void;
   onScheduleDurationChange: (value: string) => void;
   onScheduleMethodChange: (value: AssessmentScheduleMethod) => void;
@@ -81,25 +87,27 @@ function ScheduleAssessmentDialog({ modal, assessment, isBusy, error, scheduleSt
 }) {
   const detailField = scheduleDetailFields[scheduleMethod];
   const labels = assessment.scheduled_start_at
-    ? { title: "Reschedule assessment", save: "Save new time" }
-    : { title: "Schedule assessment", save: "Schedule assessment" };
+    ? { title: "Change appointment", save: "Save new time" }
+    : { title: "Schedule interview", save: scheduleMethod === "record_review" ? "Schedule record review" : "Schedule interview" };
+  const renderScheduleActions = () => (<>
+        <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to assessment</button>
+        <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#08765e] px-6 font-bold text-white hover:bg-[#065c49] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : labels.save}</button>
+      </>);
   return (
     <AssessmentScheduleLayout
       modal={modal}
-      label="Schedule assessment"
+      label="Schedule interview"
       title={labels.title}
       context={<>{formatClientIdentityTitle({ name: assessment.resident_name || "Client", community: assessment.community })}<span className="text-[#626a66]">Assigned to {assessment.assessor || "Unassigned"}</span></>}
       closeLabel="Close schedule"
       isBusy={isBusy}
       error={error}
       onClose={onClose}
-      footer={<>
-        <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Cancel</button>
-        <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#08765e] px-6 font-bold text-white hover:bg-[#065c49] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : labels.save}</button>
-      </>}
+      footer={renderScheduleActions()}
     >
-      <div data-guide-target="assessment-schedule-open" className="space-y-7">
-        <p className="text-[15px] leading-6 text-[#52675d]">Book the appointment. You can keep preparing afterward; the interview starts only when you choose Begin assessment.</p>
+      <div data-guide-target="assessment-schedule-open" className="space-y-7" onBlur={onDraftBlur}>
+        <p className="text-[14px] leading-6 text-[#59635d]">{assessment.scheduled_start_at ? "Your existing appointment stays booked until you save a new time." : "Not booked yet. Scheduling adds an appointment to the calendar; you can prepare answers before or after booking."}</p>
+        {draftStatus ? <p role="status" className="text-[14px] leading-6 text-[#315e50]">{draftStatus}</p> : null}
         {assessment.scheduled_start_at ? <p className="border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[14px] leading-6 text-[#315e50]">Currently scheduled for <strong>{new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })}</strong>.</p> : null}
         <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_200px]">
           <label className="min-w-0"><span className="mb-2 block text-[14px] font-bold text-[#303a34]">Date and time <span className="font-normal text-[#626a66]">(Pacific)</span></span><input data-guide-target="assessment-schedule-fields" data-schedule-autofocus aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => onScheduleStartChange(event.target.value)} /></label>
@@ -218,10 +226,10 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
     };
   }, []);
   return (
-    <dialog ref={dialogRef} aria-label="Begin assessment" aria-describedby="assessment-start-description" aria-busy={isBusy} className={styles.beginDialog}
+    <dialog ref={dialogRef} aria-label="Begin interview" aria-describedby="assessment-start-description" aria-busy={isBusy} className={styles.beginDialog}
       onCancel={(event) => { event.preventDefault(); if (!isBusy) onClose(); }}
       onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (!isBusy) onClose(); } }}>
-      <h2>Begin assessment</h2>
+      <h2>Begin interview</h2>
       <p id="assessment-start-description">Your prepared answers become the section reference. Continue with the remaining questions and check what has changed with the client.</p>
       <dl>
         <BeginAssessmentDetail label="Interview date and start time" value={assessment.assessment_date ? `Keeping recorded date: ${assessment.assessment_date}. Start time recorded when you confirm.` : "Recorded when you confirm (Pacific time)"} />
@@ -231,7 +239,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
       {error ? <p role="alert">{error}</p> : null}
       <footer>
         <button type="button" onClick={onClose} disabled={isBusy}>Keep preparing</button>
-        <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical}>{isBusy ? "Starting..." : "Begin assessment"}</button>
+        <button type="button" data-guide-target="assessment-begin-confirm" onClick={onBegin} disabled={isBusy || !canEditClinical}>{isBusy ? "Starting..." : "Begin interview"}</button>
       </footer>
     </dialog>
   );

@@ -240,7 +240,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     const source = `${window.location.pathname}${window.location.search}`;
     const saved = await loadPipelineWorkspaceResumeLocation(event.referralId).catch(() => undefined);
     if (source !== `${window.location.pathname}${window.location.search}`) return;
-    openWorkspace(selectionIdentity({ type: "event", event }), saved?.view === "assessment" ? saved : { view: "assessment" });
+    openWorkspace(selectionIdentity({ type: "event", event }), saved?.view === "assessment" ? saved : { view: "assessment", assessmentMode: "interview" });
   };
 
   const beginScheduling = (target: ScheduleTarget) => {

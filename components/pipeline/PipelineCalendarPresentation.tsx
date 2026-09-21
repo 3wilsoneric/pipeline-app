@@ -488,7 +488,7 @@ function CalendarDrawerActions({ model, busy, onOpenWorkspace, onOpenChart, onSc
   return (
     <div className="pipeline-commands grid shrink-0 grid-cols-2 gap-2 border-t border-[#d8dedb] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&_button]:rounded-md">
       {model.zoomUrl ? <a href={model.zoomUrl} target="_blank" rel="noreferrer" className="flex h-10 w-full items-center justify-center gap-2 bg-[#4b68ad] text-[12px] font-extrabold text-white hover:bg-[#3d578f]"><Video size={15} /> Join Zoom <ExternalLink size={13} /></a> : null}
-      {model.canSchedule ? <button type="button" disabled={busy} onClick={onSchedule} className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#167f6b] text-[12px] font-extrabold text-white hover:bg-[#116b5a] disabled:opacity-50"><CalendarClock size={15} /> {model.hasScheduledTime ? "Reschedule" : "Schedule assessment"}</button> : null}
+      {model.canSchedule ? <button type="button" disabled={busy} onClick={onSchedule} className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#167f6b] text-[12px] font-extrabold text-white hover:bg-[#116b5a] disabled:opacity-50"><CalendarClock size={15} /> {model.hasScheduledTime ? "Reschedule" : "Schedule interview"}</button> : null}
       <button type="button" onClick={onOpenWorkspace} className="flex h-11 w-full items-center justify-center gap-2 border border-[#cfd5d2] text-[13px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]"><FolderOpen size={15} /> {model.isAppointment ? "Open assessment" : "Open workspace"}</button>
       <button type="button" onClick={onOpenChart} className="min-h-11 border border-[#cfd5d2] px-3 text-[13px] font-bold text-[#326550]">Open chart</button>
       {model.showStatusActions && model.dateLabel ? <button type="button" disabled={busy} onClick={() => onStatus("completed")} className="min-h-11 bg-[#eef6f2] px-3 text-[13px] font-bold text-[#126b54] disabled:opacity-50">Interview completed</button> : null}
@@ -502,7 +502,7 @@ function ScheduleDialog({ target, start, duration, method, location, state, onSt
   return (
     <AssessmentScheduleLayout
       label={clientName}
-      title={target.reschedule ? "Reschedule assessment" : "Schedule assessment"}
+      title={target.reschedule ? "Change appointment" : "Schedule interview"}
       context={<>{clientName}{target.community ? <span className="text-[#626a66]">{target.community}</span> : null}</>}
       closeLabel="Close scheduling"
       isBusy={state.busy}

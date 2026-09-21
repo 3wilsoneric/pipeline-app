@@ -16,7 +16,7 @@ export function AssessmentFileNavigation({ hidden, disabled, preparing, reviewin
 }) {
   if (hidden) return null;
   return <nav aria-label="Client file pages" className={`${workspaceFolderStyles.stages} ${styles.filePages}`}>
-    <button type="button" className={workspaceFolderStyles.stageTab} data-folder-stage="2" disabled={disabled} aria-current={!reviewingChart ? "page" : undefined} onClick={onAssessment}>{preparing ? "Prepare" : "Assessment"}</button>
+    <button type="button" className={workspaceFolderStyles.stageTab} data-folder-stage="2" disabled={disabled} aria-current={!reviewingChart ? "page" : undefined} onClick={onAssessment}>{preparing ? "Prepare assessment" : "Interview"}</button>
     <button type="button" className={workspaceFolderStyles.stageTab} data-folder-stage="3" disabled={disabled} aria-current={reviewingChart ? "page" : undefined} onClick={onChart}>Chart</button>
   </nav>;
 }

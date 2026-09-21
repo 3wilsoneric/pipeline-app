@@ -386,7 +386,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("combobox", { name: "Referral facility / source", exact: true }).fill("Synthetic intake team");
     await page.getByRole("combobox", { name: "Assessor", exact: true }).selectOption(testAssessor.id);
     await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(1);
-    await expect(page.getByRole("button", { name: "Schedule assessment", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Schedule interview", exact: true })).toHaveCount(0);
     await page.waitForTimeout(2_000);
     expect(new URL(page.url()).searchParams.get("referralId")).toBeNull();
 
@@ -416,8 +416,8 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Assessment", exact: true }).click();
     await page.locator('summary[aria-label="Assessment details"]').click();
-    await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toBeVisible();
   });
 
   test("retries failed intake autosaves without losing edits made during saving", async ({ page }) => {
@@ -1746,9 +1746,9 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Assessment" }).click();
     await expect(page.getByRole("region", { name: "Assessment" })).toBeVisible();
     await page.locator('summary[aria-label="Assessment details"]').click();
-    await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Assessment interview" })).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "Schedule assessment" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Schedule interview" })).toBeVisible();
 
     const referralId = new URL(page.url()).searchParams.get("referralId");
     expect(referralId).toBeTruthy();
@@ -2237,11 +2237,11 @@ test.describe("Referral home and packet canvas", () => {
     await expect(section.locator("option")).toHaveCount(assessmentInterviewSections.length);
     for (const item of assessmentInterviewSections) await expect(section.locator('option[value="' + item.key + '"]')).toHaveCount(1);
     await page.locator('summary[aria-label="Assessment details"]').click();
-    await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-    const scheduleDialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    const scheduleDialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await scheduleDialog.getByLabel("Assessment date and time").fill("2026-08-26T09:00");
     await scheduleDialog.getByLabel("Assessment address").fill("San Pablo interview room");
-    await scheduleDialog.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await scheduleDialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
     await expect(scheduleDialog).toHaveCount(0);
     const read = async () => (await (await page.request.get('/api/referrals/' + referralId + '/assessments')).json()).assessments;
     expect((await read())[0].started_at).toBeNull();

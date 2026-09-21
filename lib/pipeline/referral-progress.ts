@@ -120,7 +120,7 @@ function getNextAction(
 ) {
   if (state.lifecycle !== "active") return null;
   if (state.assignment === "unassigned") return "Assign an owner";
-  if (state.assessment === "scheduled") return "Begin the scheduled assessment";
+  if (state.assessment === "scheduled") return "Open the scheduled interview";
   if (state.outcome === "declined" && !state.assessment_is_reassessment) return null;
 
   if (state.assessment_is_reassessment) {

@@ -30,7 +30,7 @@ const stages: ReadonlyArray<{
   {
     id: "schedule",
     step: "02",
-    label: "Schedule assessment",
+    label: "Schedule interview",
     detail: "Appointment date, time, method, location, and scheduling controls.",
     action: "Open scheduling",
     icon: CalendarDays,

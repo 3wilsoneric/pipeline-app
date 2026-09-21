@@ -449,6 +449,8 @@ function clearDestinationParams(params: URLSearchParams) {
     "assessmentSection",
     "assessmentQuestion",
     "assessmentMode",
+    "assessmentDialog",
+    "assessmentQuestion",
     "editHome",
     "workspaceStage",
     "workspaceView",

@@ -78,8 +78,8 @@ for (const width of [1440, 768]) {
     await section(page, "diagnosis_clinical");
     await editPreparedAnswer(page, "Secondary diagnosis");
     await expect(secondary).toHaveValue("Documented secondary diagnosis from the referral.");
-    await folder.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-    const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+    await folder.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByRole("button", { name: /Close/ }).click();
     await expect(schedule).toHaveCount(0);
     await folder.getByRole("button", { name: "Begin assessment", exact: true }).click();

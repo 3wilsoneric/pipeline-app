@@ -164,7 +164,7 @@ const intents: SearchableIntent[] = [
     title: "Begin or continue an assessment",
     prompt: "How do I begin or continue an assessment?",
     answer: "Open the assigned referral workspace and choose Assessment. You can prepare, answer questions, and return to the same saved draft without recording a start time. Schedule the appointment at the top of the questionnaire.",
-    steps: ["Open the referral workspace and choose Assessment.", "Use Schedule assessment if you need to book an appointment; it is separate from answering questions.", "Continue section by section, enter the date the assessment was performed, and review before signing."],
+    steps: ["Open the referral workspace and choose Assessment. Prepare assessment lets you enter what you know now.", "Use Schedule interview if you need an appointment; booking is separate from answering questions.", "Interview uses the same answers. Enter the date the assessment was performed, then review before signing."],
     action: { type: "search", label: "Show scheduled assessments", mode: "scheduled_assessments" },
     phrases: ["begin an assessment", "begin assessment", "start assessment", "continue assessment", "open assessment", "assessment questionnaire"],
     keywords: ["begin", "start", "continue", "open", "assessment", "questionnaire", "interview"],
