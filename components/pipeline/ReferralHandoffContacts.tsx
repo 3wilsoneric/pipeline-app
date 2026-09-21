@@ -28,7 +28,7 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
     } catch (failure) { setInputError((failure as Error).message); }
   };
   const renderRefresh = () => community && community !== "Unassigned" && <button type="button" className={styles.refreshList} disabled={disabled || applyingList || !value.editable} onClick={async () => {
-        if (!window.confirm(`Replace this handoff's To and Cc with the latest ${community} contact list? This does not send an email.`)) return;
+        if (!await confirm({ title: "Use latest community list?", message: `Replace this handoff's To and Cc with the latest ${community} contact list? This does not send an email.`, confirmLabel: "Use latest list", cancelLabel: "Keep recipients" })) return;
         setApplyingList(true); setInputError("");
         try { await value.applyCommunityList(); setText({ to: "", cc: "" }); }
         catch (failure) { setInputError(failure instanceof Error ? failure.message : "The community list could not be loaded. Your recipients are unchanged."); }
@@ -43,7 +43,7 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
         onText={(input) => setText((previous) => ({ ...previous, [lane]: input }))} onAdd={(input) => add(lane, input)}
         onRemove={(email) => value.change({ ...value.fields, [lane]: value.fields[lane].filter((item) => item.email !== email) })} />)}
       {inputError ? <p role="alert" className={styles.error}>{inputError}</p> : null}
-      {value.error ? <p role="alert" className={styles.error}>{value.error} <button type="button" onClick={() => void value.retry()}>Retry saving</button> <button type="button" onClick={() => { if (window.confirm("Reload the saved handoff draft? Any unsaved recipient and message edits will be replaced.")) value.reload(); }}><RotateCcw size={14} /> Reload saved draft</button></p> : null}
+      {value.error ? <p role="alert" className={styles.error}>{value.error} <button type="button" onClick={() => void value.retry()}>Retry saving</button> <button type="button" onClick={async () => { if (await confirm({ title: "Reload the saved handoff draft?", message: "Any unsaved recipient and message edits will be replaced.", confirmLabel: "Reload saved draft", cancelLabel: "Keep editing", destructive: true })) value.reload(); }}><RotateCcw size={14} /> Reload saved draft</button></p> : null}
       <HandoffContactStatus value={value} />
       {renderRefresh()}
     </div>;
