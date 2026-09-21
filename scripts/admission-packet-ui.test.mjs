@@ -13,6 +13,10 @@ for (const [name, engine, width, height] of [["desktop", chromium, 1440, 900], [
     try {
       const page = await browser.newPage({ viewport: { width, height }, ...(name === "ipad" ? { isMobile: true, hasTouch: true } : {}) });
       let verified = false;
+      const staffAuthRequests = [];
+      page.on("request", (request) => {
+        if (/\/api\/auth\/|login\.microsoftonline\.com/.test(request.url())) staffAuthRequests.push(request.url());
+      });
       await page.route(`**/api/admission-packets/${id}`, async (route) => {
         const request = route.request();
         if (request.method() === "POST") {
@@ -50,6 +54,7 @@ for (const [name, engine, width, height] of [["desktop", chromium, 1440, 900], [
       await page.getByRole("button", { name: "Close secure packet" }).click();
       await page.getByRole("button", { name: "Email me a code" }).waitFor();
       assert.equal(await page.getByText("Synthetic admission handoff").count(), 0);
+      assert.deepEqual(staffAuthRequests, [], "packet access must work without staff identity initialization");
     } finally { await browser.close(); }
   });
 }

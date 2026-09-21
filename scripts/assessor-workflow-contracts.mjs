@@ -533,7 +533,7 @@ check("assigned assessors and supervisors can submit a recommendation", recommen
 check("approved teammates record decisions with their actual role", decisionRoute.includes("requirePipelineUser(request)") && decisionRoute.includes("decidedByRole: auth.user.roles[0]"));
 check("authorized referral users can open signed assessment charts", admissionSummaryRoute.includes("requirePipelineUser(request)") && admissionSummaryRoute.includes("requireReferralAccess") && !admissionSummaryRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
 check("approved teammates can explicitly send Meet the Client", meetClientEmailRoute.includes("requirePipelineUser(request)") && meetClientEmailRoute.includes("requireMutableReferralAccess"));
-check("Meet the Client requires explicit recipient confirmation and same-origin protection", meetClientEmailRoute.includes("body.value.confirmed !== true") && meetClientEmailRoute.includes("requireSameOriginMutation"));
+check("Meet the Client requires explicit recipient confirmation and same-origin protection", meetClientEmailRoute.includes("if (!confirmedRequest(body.value))") && meetClientEmailRoute.includes("return isRecord(value) && value.confirmed === true") && meetClientEmailRoute.includes("requireSameOriginMutation"));
 check("Meet the Client requires an accepted decision and signed assessment", meetClientEmailRoute.includes('snapshot.decision?.outcome !== "accepted"') && meetClientEmailRoute.includes("selectSignedAssessment") && read("lib/assessment/assessment-summary.ts").includes("assessment?.signed_at"));
 check("summary and email select the signed assessment independently of the acceptance version",
   admissionSummaryRoute.includes("snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId")
@@ -587,7 +587,8 @@ check("the Chart and email surfaces retain the signed record and sandboxed hando
     && assessmentChartWorkspace.includes("<MeetClientMessageEditor")
     && meetClientMessageEditor.includes('srcDoc={rendered.html} sandbox=""')
     && meetClientMessageEditor.includes("renderMeetClientEmail(summary,")
-    && /renderMeetClientEmail\(\s*input\.summary,\s*input\.preparedBy,\s*input\.deliveryId,\s*input\.attachments\.map\(\(attachment\) => attachment\.name\),\s*input\.message,/.test(graphMail)
+    && /renderMeetClientEmail\(\s*input\.summary,\s*input\.preparedBy,\s*input\.deliveryId,\s*packetFiles\.map\(\(attachment\) => attachment\.name\),\s*input\.message,/.test(graphMail)
+    && graphMail.includes("const packetFiles = input.packetFiles ?? input.attachments;")
     && !assessmentChartWorkspace.includes("DecisionPanel")
     && !assessmentChartWorkspace.includes("overrideReason"));
 check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')

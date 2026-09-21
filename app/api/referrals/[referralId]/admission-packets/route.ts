@@ -12,28 +12,42 @@ export const runtime = "nodejs";
 type Context = { params: Promise<{ referralId: string }> };
 const json = (body: object, status = 200) => Response.json(body, { status, headers: packetPrivateHeaders });
 
-async function handle(request: Request, context: Context, mutate: boolean) {
+export async function GET(request: Request, context: Context) {
   return withApiLogging(request, "/api/referrals/[referralId]/admission-packets", async () => {
-    const auth = await requirePipelineUser(request);
-    if (!auth.ok) return auth.response;
-    const { referralId: value } = await context.params;
-    const referralId = Number(value);
-    if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(referralId)) return json({ error: "Invalid workspace." }, 400);
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await authorize(request, context);
     if (!access.ok) return access.response;
-    if (getPipelineDemoEnvironment().writable) return mutate ? json({ error: "Demo — not live. Recipient access cannot be changed." }, 403) : json({ packets: [] });
+    if (getPipelineDemoEnvironment().writable) return json({ packets: [] });
     try {
-      if (!mutate) return json({ packets: await listAdmissionPacketLinks(referralId) });
-      return await updateAccess(request, referralId, auth.user);
+      return json({ packets: await listAdmissionPacketLinks(access.referralId) });
     } catch (error) { return accessErrorResponse(error); }
   });
 }
-export const GET = (request: Request, context: Context) => handle(request, context, false);
-export const POST = (request: Request, context: Context) => handle(request, context, true);
+
+export async function POST(request: Request, context: Context) {
+  return withApiLogging(request, "/api/referrals/[referralId]/admission-packets", async () => {
+    const originFailure = requireSameOriginMutation(request);
+    if (originFailure) return originFailure;
+    const access = await authorize(request, context);
+    if (!access.ok) return access.response;
+    if (getPipelineDemoEnvironment().writable) return json({ error: "Demo — not live. Recipient access cannot be changed." }, 403);
+    try {
+      return await updateAccess(request, access.referralId, access.user);
+    } catch (error) { return accessErrorResponse(error); }
+  });
+}
+
+async function authorize(request: Request, context: Context) {
+  const auth = await requirePipelineUser(request);
+  if (!auth.ok) return auth;
+  const { referralId: value } = await context.params;
+  const referralId = Number(value);
+  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(referralId)) return { ok: false as const, response: json({ error: "Invalid workspace." }, 400) };
+  const access = await requireReferralAccess(auth.user, referralId);
+  if (!access.ok) return access;
+  return { ok: true as const, referralId, user: auth.user };
+}
 
 async function updateAccess(request: Request, referralId: number, user: PipelineUser) {
-  const originFailure = requireSameOriginMutation(request);
-  if (originFailure) return originFailure;
   const body = await readJsonBody(request, 2048);
   if (!body.ok) return json({ error: body.message }, body.status);
   if (!body.value || typeof body.value !== "object" || Array.isArray(body.value)) return json({ error: "Choose a packet and action." }, 400);

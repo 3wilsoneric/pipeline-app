@@ -109,9 +109,15 @@ test("PostgreSQL packet adapter: actual migrations, row locking, audit atomicity
     sql = postgres({ host: "127.0.0.1", port, database: "postgres", username: process.env.USER, ssl: false, max: 10, prepare: false, onnotice: () => {} });
     const migrationConnection = await sql.reserve();
     try { for (const file of readdirSync("database/migrations").filter((file) => file.endsWith(".sql")).sort()) await migrationConnection.unsafe(readFileSync(join("database/migrations", file), "utf8")); } finally { migrationConnection.release(); }
+    const rollback = readFileSync("database/rollbacks/0042_admission_packet_links.sql", "utf8").replace(/^\s*(begin|commit);$/gmi, "");
+    await sql.begin((tx) => tx.unsafe(rollback));
+    const restore = await sql.reserve();
+    try { await restore.unsafe(readFileSync("database/migrations/0042_admission_packet_links.sql", "utf8")); } finally { restore.release(); }
     const [person] = await sql`insert into pipeline.people(display_name) values ('Synthetic Packet Fixture') returning person_id`;
     await sql`insert into pipeline.referrals(referral_id,person_id,stage,community,owner_id,owner_name,data,created_by,created_by_name,updated_by,updated_by_name) values (1,${person.person_id},'New','San Pablo','test','Test','{}','test','Test','test','Test')`;
     await exerciseAccess(fixture(sql, directory));
+    await assert.rejects(sql.begin((tx) => tx.unsafe(rollback)), /Packet records exist/);
+    assert.ok((await sql`select packet_id from pipeline.admission_packet_links`).length > 0);
     const audits = await sql`select action, actor_id from pipeline.audit_events where action like 'packet_%'`;
     assert.ok(audits.some((row) => row.action === "packet_access_revoked" && row.actor_id === "staff"));
     assert.ok(audits.some((row) => row.action === "packet_recipient_verified"));
@@ -194,6 +200,41 @@ test("public packet API: no pre-verification content, same-origin codes, demo gu
     assert.equal((await send({ action: "close" }, undefined, cookie.split(";")[0])).status, 200);
     assert.equal((await route.GET(new Request(url, { headers: { Cookie: cookie.split(";")[0] } }), context)).status, 401);
   } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("staff packet controls enforce authentication, workspace access, origin and demo boundaries", async () => {
+  let authenticated = false, allowed = false, demo = false, mutations = 0, reads = 0;
+  const route = load("app/api/referrals/[referralId]/admission-packets/route.ts", {
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: async () => authenticated ? { ok: true, user: { id: "staff" } } : { ok: false, response: new Response(null, { status: 401 }) } },
+    "@/lib/auth/assessor-session-policy": { pipelineAccountableActor: (user) => user },
+    "@/lib/auth/request-security": load("lib/auth/request-security.ts"),
+    "@/lib/pipeline/referral-access": { requireReferralAccess: async () => allowed ? { ok: true } : { ok: false, response: new Response(null, { status: 404 }) } },
+    "@/lib/extraction/contracts": { readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
+    "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ writable: demo }) },
+    "@/lib/observability/api-logging": { withApiLogging: (_request, _name, handler) => handler() },
+    "@/lib/notifications/admission-packet-files": { packetPrivateHeaders: { "Cache-Control": "private, no-store" } },
+    "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {},
+      listAdmissionPacketLinks: async () => { reads++; return []; },
+      manageAdmissionPacketLink: async (id, referralId, action, actor) => { mutations++; assert.equal(referralId, 1); assert.equal(actor.id, "staff"); return { id, action }; } },
+  });
+  const url = "https://pipeline.invalid/api/referrals/1/admission-packets";
+  const context = { params: Promise.resolve({ referralId: "1" }) };
+  const get = () => route.GET(new Request(url), context);
+  const post = (origin = "https://pipeline.invalid", action = "renew") => route.POST(new Request(url, { method: "POST", headers: { Origin: origin }, body: JSON.stringify({ packet_id: randomUUID(), action }) }), context);
+  assert.equal((await get()).status, 401); assert.equal((await post()).status, 401);
+  authenticated = true;
+  assert.equal((await get()).status, 404); assert.equal((await post()).status, 404);
+  allowed = true;
+  assert.equal((await post("https://outsider.invalid")).status, 403);
+  demo = true;
+  assert.equal((await get()).status, 200); assert.equal((await post()).status, 403);
+  assert.equal(reads, 0); assert.equal(mutations, 0);
+  demo = false;
+  assert.equal((await post(undefined, "invalid")).status, 400);
+  assert.equal(mutations, 0);
+  assert.equal((await get()).status, 200); assert.equal(reads, 1);
+  assert.equal((await post()).status, 200); assert.equal((await post(undefined, "revoke")).status, 200);
+  assert.equal(mutations, 2);
 });
 
 test("blob downloads enforce identity and ETag, support byte ranges, and never expose storage URLs", async () => {
