@@ -69,7 +69,7 @@ for (const width of [1440, 1024, 390]) {
       expect(guideBox.y + guideBox.height).toBeLessThanOrEqual(901);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       if (index === 2) {
-        const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+        const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         await expect(dialog).toBeVisible();
         const box = (await dialog.boundingBox())!;
         if (width >= 960) expect(box.x + box.width).toBeLessThanOrEqual(guideBox.x + 1);
@@ -86,7 +86,7 @@ test("intake edits survive Next and Back; restart and refresh reset them", async
   await page.goto("/tutorials/referral?task=create-referral");
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Morgan Testcase");
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toContainText("Morgan Testcase");
+  await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toContainText("Morgan Testcase");
   await chooseStep(page, 1);
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Morgan Testcase");
   await page.getByRole("button", { name: "Restart tutorial", exact: true }).click();
@@ -102,11 +102,11 @@ test("intake edits survive Next and Back; restart and refresh reset them", async
 test("scheduling saves locally and retains the chosen time", async ({ page }) => {
   const writes = observeLiveWrites(page);
   await page.goto("/tutorials/referral?task=start-assessment");
-  const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-02T10:00");
   await dialog.getByLabel("Assessment method", { exact: true }).selectOption("phone");
   await dialog.getByLabel("Phone number to call", { exact: true }).fill("5550100200");
-  await dialog.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+  await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator("#tutorial-step")).toHaveValue("3");
   await chooseStep(page, 2);
@@ -192,7 +192,7 @@ test("Show me where focuses the field without changing it", async ({ page }) => 
 
 test("scheduling keeps tutorial controls keyboard-accessible", async ({ page }) => {
   await page.goto("/tutorials/referral?task=start-assessment");
-  const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(dialog).toHaveAttribute("aria-modal", "false");
   await page.getByRole("button", { name: "Show me where", exact: true }).click();
   await expect(dialog.getByLabel("Assessment date and time")).toBeFocused();

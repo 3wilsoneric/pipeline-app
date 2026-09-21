@@ -642,7 +642,7 @@ check(
     && read("components/pipeline/AssessmentPreparation.tsx").includes('aria-label="Assessment interview"')
     && assessmentWorkspace.includes("<AssessmentWorkingNavigation")
     && assessmentWorkspace.includes("<AssessmentSchedulingDialogs")
-    && /<AssessmentScheduleLayout\s+modal=\{modal\}\s+label="Schedule assessment"/.test(read("components/pipeline/AssessmentSchedulingDialogs.tsx"))
+    && /<AssessmentScheduleLayout\s+modal=\{modal\}\s+label="Schedule interview"/.test(read("components/pipeline/AssessmentSchedulingDialogs.tsx"))
     && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('role="dialog" aria-modal={modal} aria-label={label}') && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('scheduleModal = true')
     && read("components/pipeline/AssessmentWorkingSection.tsx").includes('aria-label="Assessment progress"')
     && assessmentWorkspace.includes('setShowBeginDialog(true)')

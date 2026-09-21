@@ -78,8 +78,8 @@ test.describe("assessment editing entry and return paths", () => {
         const full = page.locator("[data-assessment-view]");
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
         await full.locator('summary[aria-label="Assessment details"]').click();
-        await full.getByRole("button", { name: "Reschedule assessment", exact: true }).click();
-        const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+        await full.getByRole("button", { name: "Change appointment", exact: true }).click();
+        const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         await expect(schedule).toBeVisible();
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
         await schedule.getByRole("button", { name: "Save new time", exact: true }).click();

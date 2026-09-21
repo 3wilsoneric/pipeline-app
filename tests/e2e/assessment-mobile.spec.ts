@@ -177,7 +177,7 @@ test.describe("mobile assessment", () => {
 
   test("appointment entry also fits the visible viewport when its keyboard opens", async ({ page }) => {
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule");
-    const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+    const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByLabel("Assessment method").selectOption("phone");
     const phone = schedule.getByLabel("Phone number to call");
     await phone.fill("555-0101");

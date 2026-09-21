@@ -39,7 +39,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     const menu = footer.getByRole("group", { name: "Assessment details", exact: true });
     await expect(menu.getByRole("combobox", { name: "Placement recommendation", exact: true })).toHaveCount(0);
     await expect(menu.getByRole("button", { name: /^Interview date/ })).toBeVisible();
-    await expect(menu.getByRole("button", { name: "Schedule assessment", exact: true })).toHaveCount(0);
+    await expect(menu.getByRole("button", { name: "Schedule interview", exact: true })).toHaveCount(0);
     for (const button of await menu.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     const menuBounds = await menu.boundingBox();
     expect(menuBounds!.x).toBeGreaterThanOrEqual(0);
@@ -93,9 +93,9 @@ test("iPad WebKit keeps the details menu reachable without covering navigation",
     const bounds = (await menu.boundingBox())!;
     expect(bounds.y + bounds.height).toBeLessThanOrEqual((await footer.boundingBox())!.y + 1);
     await page.keyboard.press("Escape");
-    const beginButton = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true });
+    const beginButton = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin interview", exact: true });
     await beginButton.tap();
-    const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+    const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
     await expect(begin).toBeVisible();
     await begin.getByRole("button", { name: "Keep preparing", exact: true }).tap();
     await expect(begin).toBeHidden();

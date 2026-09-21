@@ -99,11 +99,11 @@ test.describe("uninterrupted workflow", () => {
       await createOperationalAssessment(api, referral.id);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
       await page.locator('summary[aria-label="Assessment details"]').click();
-      await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-      const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+      await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+      const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
       await schedule.getByLabel("Assessment date and time").fill("2027-01-15T10:00");
       await page.route("**/api/assessments/*/schedule", route => route.fulfill({ status: 503, json: { error: "Synthetic schedule outage" } }));
-      await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+      await schedule.getByRole("button", { name: "Schedule interview", exact: true }).click();
       const notice = schedule.getByRole("alert");
       await expect(notice).toContainText("Synthetic schedule outage");
       expect(await notice.evaluate(element => getComputedStyle(element).color)).toBe("rgb(89, 100, 94)");

@@ -28,13 +28,13 @@ test('assigned referral opens from Home, schedules, and resumes unfinished answe
     await expect.poll(async () => (await assessments())[0]?.referrer_contact).toBe('Synthetic contact; interview details unfinished');
     const id = (await assessments())[0].assessment_id;
     await page.locator('summary[aria-label="Assessment details"]').click();
-    await page.getByRole('group', { name: 'Assessment details', exact: true }).getByRole('button', { name: 'Schedule assessment', exact: true }).click();
-    const schedule = page.getByRole('dialog', { name: 'Schedule assessment', exact: true });
+    await page.getByRole('group', { name: 'Assessment details', exact: true }).getByRole('button', { name: 'Schedule interview', exact: true }).click();
+    const schedule = page.getByRole('dialog', { name: 'Schedule interview', exact: true });
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     await schedule.getByLabel('Assessment date and time').fill(`${today}T14:00`);
     await schedule.getByLabel('Assessment method').selectOption('phone');
     await schedule.getByLabel('Phone number to call').fill('555-0100');
-    await schedule.getByRole('button', { name: 'Schedule assessment', exact: true }).click();
+    await schedule.getByRole('button', { name: 'Schedule interview', exact: true }).click();
     await expect(schedule).toHaveCount(0);
     await page.goto('/?screen=calendar');
     await page.locator('button[title]').filter({ hasText: name }).first().click();

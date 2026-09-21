@@ -78,14 +78,14 @@ test("Help scheduling records a synthetic appointment and opens the same practic
   await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
   await page.getByRole("dialog", { name: "Guided tutorial library" }).getByRole("button", { name: /^Schedule an assessment/ }).click();
   const coach = page.getByRole("dialog", { name: "Schedule an assessment guided tutorial", exact: true });
-  const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+  const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(coach.getByRole("heading", { name: "Set the appointment" })).toBeVisible();
   const date = schedule.getByLabel("Assessment date and time");
   await date.fill("2027-10-14T09:30");
   await date.blur();
   await schedule.getByLabel("Assessment method").selectOption("zoom");
   await schedule.getByLabel("Zoom meeting link").fill("https://example.invalid/pipeline-practice");
-  await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+  await schedule.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=identity/);
   await expect(schedule).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);

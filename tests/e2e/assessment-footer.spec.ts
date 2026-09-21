@@ -30,30 +30,30 @@ for (const width of [1440, 768, 390, 320]) {
     const primary = footer.locator("[data-assessment-primary-action]");
     await expect(footer).toBeInViewport();
     await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
-    await expect(footer.getByRole("button", { name: "Schedule assessment", exact: true })).toBeHidden();
+    await expect(footer.getByRole("button", { name: "Schedule interview", exact: true })).toBeHidden();
     await expect(primary.getByRole("button")).toHaveCount(width < 640 ? 0 : 1);
     await expect(width < 640 ? page.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /Next/ }) : primary.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
     await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     expect((await read()).started_at).toBeNull();
 
     const appointment = page.getByRole("region", { name: "Assessment appointment" });
-    await appointment.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-    const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+    await appointment.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByLabel("Assessment date and time").fill("2027-09-20T10:00");
-    await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await schedule.getByRole("button", { name: "Schedule interview", exact: true }).click();
     await expect(schedule).toHaveCount(0);
     await expect.poll(async () => Boolean((await read()).scheduled_start_at)).toBe(true);
     expect((await read()).started_at).toBeNull();
     await expect(width < 640 ? page.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /Next/ }) : primary.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
 
     await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
-    await appointment.getByRole("button", { name: "Reschedule assessment", exact: true }).click();
+    await appointment.getByRole("button", { name: "Change appointment", exact: true }).click();
     await expect(schedule).toBeInViewport();
     await schedule.getByRole("button", { name: "Close schedule", exact: true }).click();
-    await expect(appointment.getByRole("button", { name: "Reschedule assessment", exact: true })).toBeFocused();
+    await expect(appointment.getByRole("button", { name: "Change appointment", exact: true })).toBeFocused();
     expect((await read()).started_at).toBeNull();
     await expect(primary.getByRole("button")).toHaveCount(width < 640 ? 0 : 1);
-    await expect(footer.getByRole("button", { name: /Schedule assessment|Reschedule assessment/ })).toHaveCount(0);
+    await expect(footer.getByRole("button", { name: /Schedule interview|Change appointment/ })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`assessment-footer-ready-${width}.png`) });
 
     await openAssessmentReview(page);
@@ -107,9 +107,9 @@ test("secondary actions close on Escape and outside press without exiting the as
     await more.tap();
     await surface.getByRole("textbox", { name: "Crisis / ER utilization", exact: true }).tap();
     await expect(menu).toBeHidden();
-    const appointmentButton = page.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Schedule assessment", exact: true });
+    const appointmentButton = page.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Schedule interview", exact: true });
     await appointmentButton.tap();
-    const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+    const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByRole("button", { name: "Close schedule", exact: true }).tap();
     await expect(appointmentButton).toBeFocused();
     await expect(surface).toBeVisible();

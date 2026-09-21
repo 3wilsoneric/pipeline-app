@@ -135,9 +135,9 @@ const presentationSlides: readonly PresentationSlide[] = [
     screenshots: [
       {
         src: "/training/presentation/assessment-schedule-current.png",
-        alt: "Synthetic Pipeline full-screen Schedule assessment form with date, duration, method, and meeting details.",
-        label: "Schedule assessment",
-        caption: "Set date and time in Pacific Time, choose the method, enter its meeting details, then select Schedule assessment.",
+        alt: "Synthetic Pipeline full-screen Schedule interview form with date, duration, method, and meeting details.",
+        label: "Schedule interview",
+        caption: "Set date and time in Pacific Time, choose the method, enter its meeting details, then select Schedule interview.",
       },
       {
         src: "/training/presentation/assessor-calendar.png",

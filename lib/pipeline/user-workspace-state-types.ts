@@ -17,6 +17,7 @@ import {
 } from "@/lib/assessment/assessment-sections";
 import type { AssessmentWorkbookRestoreSource } from "@/lib/assessment/assessment-records";
 import { isAssessmentWorkbookRestoreSource } from "@/lib/assessment/assessment-validation";
+import { parseAssessmentScheduleDraft, type AssessmentScheduleDraft } from "@/lib/assessment/assessment-schedule-draft";
 
 export const pipelineRecentDestinationKinds = ["page", "profile", "referral"] as const;
 export const pipelineRecentDestinationScreens = [
@@ -104,6 +105,7 @@ export type PipelineAssessmentDraft = {
   dirtySections: AssessmentToolSection[];
   activeSection?: AssessmentToolSection;
   activeQuestion?: AssessmentToolFieldKey;
+  scheduleDraft?: AssessmentScheduleDraft;
   data: AssessmentToolData;
   baseData: AssessmentToolData;
   workbookSources?: AssessmentDraftWorkbookSources;
@@ -235,6 +237,12 @@ function hasValidReferralDraftSummaryProgress(candidate: Partial<PipelineReferra
     && Number(candidate.completed_fields) <= Number(candidate.total_fields);
 }
 
+function parseOptionalScheduleDraft(value: unknown) {
+  if (value === undefined) return {};
+  const scheduleDraft = parseAssessmentScheduleDraft(value);
+  return scheduleDraft ? { scheduleDraft } : null;
+}
+
 export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessmentDraft | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const candidate = value as Partial<PipelineAssessmentDraft>;
@@ -243,7 +251,8 @@ export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessment
   const sections = parseAssessmentDraftSections(candidate);
   const values = parseAssessmentDraftValues(candidate);
   const workbook = parseAssessmentDraftWorkbookSources(candidate.workbookSources);
-  if (!identity || !referral || !sections || !values || !workbook) return null;
+  const schedule = parseOptionalScheduleDraft(candidate.scheduleDraft);
+  if (!identity || !referral || !sections || !values || !workbook || !schedule) return null;
 
   return {
     schema: 1,
@@ -253,6 +262,7 @@ export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessment
     ...sections,
     ...values,
     ...workbook,
+    ...schedule,
   };
 }
 

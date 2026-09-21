@@ -22,7 +22,7 @@ test.describe("assessment preparation", () => {
         const editor = page.locator("[data-assessment-view]");
         await expect(editor).toBeVisible();
         await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
-        await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toHaveCount(0);
+        await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toHaveCount(0);
         const list = await api.get(`/api/referrals/${referral.id}/assessments`);
         const records = (await list.json()).assessments as PipelineAssessmentRecord[];
         expect(records).toHaveLength(1);
@@ -52,12 +52,12 @@ test.describe("assessment preparation", () => {
         const scheduledAnswer = `${answer} Prepared before scheduling.`;
         await field.fill(scheduledAnswer);
         await editor.locator('summary[aria-label="Assessment details"]').click();
-        await editor.getByRole("button", { name: "Schedule assessment", exact: true }).click();
-        const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+        await editor.getByRole("button", { name: "Schedule interview", exact: true }).click();
+        const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         const future = new Date(Date.now() + (30 + referral.id) * 86_400_000).toISOString().slice(0, 16);
         await schedule.getByLabel("Assessment date and time").fill(future);
         await schedule.getByLabel("Assessment method").selectOption("record_review");
-        await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+        await schedule.getByRole("button", { name: "Schedule interview", exact: true }).click();
         await expect(schedule).toHaveCount(0);
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
         const scheduled = await readAssessment(api, id);
@@ -68,7 +68,7 @@ test.describe("assessment preparation", () => {
         const finalAnswer = `${scheduledAnswer} Last edit immediately before rescheduling.`;
         await field.fill(finalAnswer);
         await field.blur();
-        await editor.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Reschedule assessment", exact: true }).click();
+        await editor.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Change appointment", exact: true }).click();
         await schedule.getByLabel("Assessment date and time").fill("2027-10-20T10:00");
         await page.route(`**/api/assessments/${id}/schedule`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic schedule failure. Retry without losing preparation." } }));
         await schedule.getByRole("button", { name: "Save new time", exact: true }).click();

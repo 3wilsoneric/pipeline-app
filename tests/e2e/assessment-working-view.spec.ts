@@ -19,7 +19,7 @@ test("prepares answers before an appointment and finishes the same questionnaire
   await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1");
   const assessment = page.locator("[data-assessment-view]");
   await expect(assessment).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toHaveCount(0);
   const field = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
   await field.click();
   await expect(field).toBeFocused();

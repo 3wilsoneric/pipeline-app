@@ -114,7 +114,7 @@ test("personal Board keeps all active files and collapses finished outcomes", as
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
-    const item = { referral_id: 710001, client_name: "Avery Active", community: "Turlock", workflow_status: "ready_to_schedule", flow_state: "ready_to_schedule", outcome_state: "pending", owner: "Playwright QA", completion_pct: 30, missing_document_count: 0, received_at: "2026-09-18", next_action: "Schedule assessment", location: { view: "intake" } };
+    const item = { referral_id: 710001, client_name: "Avery Active", community: "Turlock", workflow_status: "ready_to_schedule", flow_state: "ready_to_schedule", outcome_state: "pending", owner: "Playwright QA", completion_pct: 30, missing_document_count: 0, received_at: "2026-09-18", next_action: "Schedule interview", location: { view: "intake" } };
     const items = Array.from({ length: 7 }, (_, index) => ({ ...item, referral_id: item.referral_id + index, client_name: `Avery Active ${index}` }));
     payload.scope = "personal";
     payload.workflow.active_total = 7;
