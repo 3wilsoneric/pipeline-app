@@ -13,7 +13,8 @@ export type PipelineWorkspaceLocation = {
   view: PipelineWorkspaceView;
   assessmentSection?: AssessmentToolSection;
   assessmentMode?: "prepare" | "interview" | "review";
-  assessmentDialog?: "schedule";
+  assessmentDialog?: "schedule" | "begin";
+  workspaceDialog?: "created";
   assessmentQuestion?: AssessmentToolFieldKey;
   intakeField?: ReferralCanvasFieldKey;
 };
@@ -51,6 +52,7 @@ export function parsePipelineWorkspaceLocation(value: unknown): PipelineWorkspac
   if (!candidate) return null;
   const view = pipelineWorkspaceViews.find((item) => item === candidate.view);
   if (!view) return null;
+  if (candidate.workspaceDialog !== undefined && (view !== "chart" || candidate.workspaceDialog !== "created")) return null;
   if (view === "assessment") return parseAssessmentLocation(candidate);
   if (view === "intake") return parseIntakeLocation(candidate);
   return parseSimpleLocation(view, candidate);
@@ -107,7 +109,7 @@ export function mergePipelineWorkContinuityState(
 export function pipelineWorkspaceLocationFromSearchParams(params: URLSearchParams): PipelineWorkspaceLocation {
   const workspaceView = params.get("workspaceView");
   if (workspaceView && workspaceView !== "assessment" && pipelineWorkspaceViews.includes(workspaceView as PipelineWorkspaceView)) {
-    return parsePipelineWorkspaceLocation({ view: workspaceView }) ?? { view: "intake" };
+    return simpleWorkspaceLocationFromSearchParams(params, workspaceView as PipelineWorkspaceView);
   }
   const stage = params.get("workspaceStage");
   if (workspaceView === "assessment" || stage === "assessment") {
@@ -119,11 +121,15 @@ export function pipelineWorkspaceLocationFromSearchParams(params: URLSearchParam
       assessmentDialog: params.get("assessmentDialog") ?? undefined,
     }) ?? { view: "assessment" };
   }
-  if (stage === "chart") return { view: "chart" };
+  if (stage === "chart") return simpleWorkspaceLocationFromSearchParams(params, "chart");
   return parsePipelineWorkspaceLocation({
     view: "intake",
     intakeField: params.get("workspaceField") ?? undefined,
   }) ?? { view: "intake" };
+}
+
+function simpleWorkspaceLocationFromSearchParams(params: URLSearchParams, view: PipelineWorkspaceView): PipelineWorkspaceLocation {
+  return parsePipelineWorkspaceLocation({ view, workspaceDialog: params.get("workspaceDialog") ?? undefined }) ?? { view };
 }
 
 export function applyPipelineWorkspaceLocation(
@@ -136,6 +142,7 @@ export function applyPipelineWorkspaceLocation(
   params.delete("assessmentQuestion");
   params.delete("assessmentMode");
   params.delete("assessmentDialog");
+  params.delete("workspaceDialog");
   params.delete("workspaceField");
   params.delete("workspaceEntry");
   if (location.view === "assessment") {
@@ -146,6 +153,7 @@ export function applyPipelineWorkspaceLocation(
     if (location.assessmentDialog) params.set("assessmentDialog", location.assessmentDialog);
   } else if (location.view === "chart") {
     params.set("workspaceStage", "chart");
+    if (location.workspaceDialog) params.set("workspaceDialog", location.workspaceDialog);
   } else if (location.view === "intake") {
     if (location.intakeField) params.set("workspaceField", location.intakeField);
   } else {
@@ -159,11 +167,11 @@ export function isReferralCanvasFieldKey(value: unknown): value is ReferralCanva
 
 function parseAssessmentMode(candidate: Record<string, unknown>) {
   if (candidate.assessmentMode !== undefined && (typeof candidate.assessmentMode !== "string" || !["prepare", "interview", "review"].includes(candidate.assessmentMode))) return null;
-  if (candidate.assessmentDialog !== undefined && candidate.assessmentDialog !== "schedule") return null;
+  if (candidate.assessmentDialog !== undefined && !["schedule", "begin"].includes(candidate.assessmentDialog as string)) return null;
   if (candidate.assessmentMode === "review" && candidate.assessmentDialog) return null;
   return {
     ...(candidate.assessmentMode ? { assessmentMode: candidate.assessmentMode as PipelineWorkspaceLocation["assessmentMode"] } : {}),
-    ...(candidate.assessmentDialog ? { assessmentDialog: "schedule" as const } : {}),
+    ...(candidate.assessmentDialog ? { assessmentDialog: candidate.assessmentDialog as PipelineWorkspaceLocation["assessmentDialog"] } : {}),
   };
 }
 
@@ -201,7 +209,7 @@ function parseSimpleLocation(
   candidate: Record<string, unknown>,
 ): PipelineWorkspaceLocation | null {
   return candidate.assessmentSection === undefined && candidate.assessmentMode === undefined && candidate.assessmentDialog === undefined && candidate.assessmentQuestion === undefined && candidate.intakeField === undefined
-    ? { view }
+    ? { view, ...(candidate.workspaceDialog === "created" ? { workspaceDialog: "created" as const } : {}) }
     : null;
 }
 

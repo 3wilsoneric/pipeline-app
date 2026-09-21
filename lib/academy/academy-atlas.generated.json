@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ab3d5b26348ecf10",
-  "fingerprint": "ab3d5b26348ecf1007eaff216ef0fd99f54e33ece4f2b0bf4c425143729a0326",
+  "generatedAt": "source-fingerprint:237754dfe748dc24",
+  "fingerprint": "237754dfe748dc244e0b31f7f42db6914aeb1448d44ddd16d5965aa84fb92cf9",
   "totals": {
     "files": 1335,
-    "lines": 358636,
+    "lines": 358747,
     "coveredFiles": 1335
   },
   "entries": [
@@ -2160,7 +2160,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2305,
+      "lines": 2318,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2748,7 +2748,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 586,
+      "lines": 587,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -3048,7 +3048,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4111,
+      "lines": 4115,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -10113,7 +10113,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 326,
+      "lines": 334,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -11373,7 +11373,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 41,
+      "lines": 63,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14530,7 +14530,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 107,
+      "lines": 147,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15983,7 +15983,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 114,
+      "lines": 137,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

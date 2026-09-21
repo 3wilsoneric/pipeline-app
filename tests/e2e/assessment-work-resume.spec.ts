@@ -104,3 +104,43 @@ test("a phone interview returns to the exact question and uses the prepared answ
   expect((await read()).assessment_date).toBeFalsy();
   await page.screenshot({ path: info.outputPath("interview-resume-phone.png") });
 });
+
+test("leaving scheduling through browser Back resumes the dialog from Workspaces and the Board", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Return", owner: "", tags: [] });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await page.goto("/?view=referrals");
+  await page.getByRole("button", { name: "Open Synthetic Return referral workspace", exact: true }).click();
+  await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
+  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+  await expect(dialog).toBeVisible();
+  await page.goBack();
+  await page.getByRole("button", { name: "Open Synthetic Return referral workspace", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Synthetic Return", exact: true }).locator("[data-folder-name]").click();
+  await expect(dialog).toBeVisible();
+  const current = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect(current.scheduled_start_at).toBeFalsy();
+  expect(current.started_at).toBeFalsy();
+});
+
+test("leaving Begin interview resumes confirmation without starting; Keep preparing changes the saved place", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Confirmation", owner: "", tags: [] });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+  await page.getByRole("button", { name: "Begin interview", exact: true }).click();
+  const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
+  await expect(begin).toBeVisible();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Synthetic Confirmation", exact: true }).locator("[data-folder-name]").click();
+  await expect(begin).toBeVisible();
+  const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect((await read()).started_at).toBeFalsy();
+  await begin.getByRole("button", { name: "Keep preparing", exact: true }).click();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Synthetic Confirmation", exact: true }).locator("[data-folder-name]").click();
+  await expect(begin).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  expect((await read()).started_at).toBeFalsy();
+});
