@@ -117,7 +117,7 @@ function assessmentSectionOrderIsCanonical() {
 }
 
 function compactTasksCoverWorkflows() {
-  const expected = ["assessor-shift", "find-workspace", "create-referral", "start-assessment", "complete-assessment", "practice-assessment", "review-chart", "record-decision", "workspace-files", "workspace-history", "prepare-packet", "calendar", "clients", "supervisor-shift", "run-report"];
+  const expected = ["assessor-shift", "find-workspace", "create-referral", "practice-intake", "start-assessment", "complete-assessment", "practice-assessment", "review-chart", "record-decision", "workspace-files", "workspace-history", "prepare-packet", "calendar", "clients", "supervisor-shift", "run-report"];
   const grouped = tutorials.operatorGuideTopics.flatMap((topic) => topic.tutorialIds);
   return JSON.stringify([...tutorials.operatorGuidedTutorialIds].sort()) === JSON.stringify(expected.sort())
     && unique(grouped) && JSON.stringify([...grouped].sort()) === JSON.stringify(expected)

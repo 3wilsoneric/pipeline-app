@@ -12,7 +12,7 @@
 .libraryLink { display: flex; align-items: center; gap: 8px; min-height: 40px; color: #16644e; font-size: 14px; font-weight: 650; }
 .headerActions { display: flex; }
 .headerActions button { display: grid; place-items: center; width: 36px; height: 40px; border-radius: 4px; color: #52675b; }
-.headerActions button:hover, .footer button:not(.continue):hover { background: #edf4ef; }
+.headerActions button:hover, .footer button:not(.continue):not(.browseReferrals):hover { background: #edf4ef; }
 .libraryHeading { display: flex; align-items: center; gap: 9px; margin: 0; color: #155f49; font-size: 19px; font-weight: 700; }
 .libraryBody { flex: 1; min-height: 0; padding: 16px; overflow-y: auto; overscroll-behavior: contain; }
 .topics { display: flex; flex-direction: column; gap: 4px; }
@@ -21,7 +21,6 @@
 .topicButton > svg { flex-shrink: 0; }
 .topicIcon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 6px; background: #e5f2e9; color: #126347; }
 .topicTitle { flex: 1; min-width: 0; font-size: 16px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
-.sampleLabel { display: block; margin-top: 3px; color: #486959; font-size: 12px; font-weight: 500; }
 .topicItems { padding: 4px 8px 8px 24px; }
 .tutorialItem { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 10px 12px; border-left: 2px solid #c6e0d0; text-align: left; color: #214d3a; font-size: 14px; line-height: 1.5; }
 .tutorialItem:hover { border-color: #1b7f59; background: #f0f7f2; }
@@ -35,6 +34,17 @@
 .sampleLink { margin-top: 16px; }
 .browseReferrals { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 6px; background: #146d50; color: #fff; font-size: 14px; font-weight: 600; }
 .browseReferrals:hover { background: #0b553c; }
+.boardHelp { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 10px; margin-bottom: 16px; border-radius: 6px; background: #e8f4ed; color: #135b41; font-size: 15px; font-weight: 650; text-align: left; }
+.boardHelp span { flex: 1; }
+.boardHelp small { display: block; margin-top: 3px; color: #466755; font-size: 12px; font-weight: 500; }
+.menuPrompt, .pageHelp h3 { margin: 8px 0; color: #4a6152; font-size: 12px; font-weight: 600; }
+.pageHelp { margin-bottom: 20px; }
+.nextMessage { margin: 16px 0 24px; font-size: 14px; line-height: 1.7; color: #314f3f; }
+.helpToggle { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 12px; border-top: 1px solid #dbe5df; color: #185f47; font-size: 13px; font-weight: 600; text-align: left; }
+.helpToggle > svg:last-child { margin-left: auto; }
+.recovery { padding: 12px; border-left: 2px solid #80ae95; background: #f0f7f2; color: #314f3e; font-size: 13px; line-height: 1.65; }
+.recovery p { margin: 0; }
+.recovery button { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; color: #135f45; font-weight: 650; text-align: left; }
 .scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 24px; }
 .context { margin: 0 0 8px; color: #61736a; font-size: 12px; font-weight: 600; }
 .task h2 { margin: 0; font-size: 21px; line-height: 1.3; font-weight: 700; }
@@ -65,6 +75,7 @@
 .footer .skip { padding-inline: 8px; margin-right: auto; color: #617267; font-size: 12px; }
 .footer .continue { padding-inline: 14px; background: #156e52; color: #fff; }
 .footer .continue:hover { background: #0c553e; }
+.footer .browseReferrals:hover { background: #0b553c; }
 .waiting { margin-left: auto; font-size: 12px; color: #12664b; }
 .collapsedTitle { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 600; }
 .dock[data-collapsed="true"] { flex-basis: 56px; width: 56px; }
@@ -84,6 +95,8 @@
   .scroll { padding: 0 16px 12px; }
   .task .context, .summary { display: none; }
   .task h2 { padding: 10px 0 8px; font-size: 14px; font-weight: 600; color: #617267; }
+  .nextActions .task h2 { color: #213b30; font-size: 18px; font-weight: 700; }
+  .nextActions .nextMessage { margin: 4px 0 16px; }
   .stepToggle { min-height: 36px; border-top: 0; font-size: 12px; }
   .instruction { padding-top: 12px; }
   .instruction h3 { font-size: 17px; }

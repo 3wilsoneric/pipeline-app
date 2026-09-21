@@ -43,9 +43,10 @@ the referral or bypassing a permission.
 ## Behavior
 
 - Workspace navigation preserves referral/draft identity and uses the existing
-  workspace-location helpers. From Home or an unsaved intake, selecting a
-  workspace guide opens Workspaces and waits for the user to choose a referral.
-  It starts only after a referral opens, with a fresh role check.
+  workspace-location helpers. From Home, selecting a workspace guide highlights
+  the Board and waits for the user's card selection. Workspaces is an alternate,
+  not a forced detour. An unsaved intake stays open and help continues after the
+  user creates it. Starting help rechecks the effective role.
 - Navigation awaits the shell's existing save guard. A failed guard leaves the
   current page and step in place and reports the failure.
 - Practice starts with a new draft identifier and never inherits a live referral
@@ -93,7 +94,10 @@ verify clinical competence or every business action. Only already-supported
 interaction/completion events advance automatically. Add new automatic checks
 only when a canonical success signal exists and has a failure-path test.
 
-## Menu Simplification (2026-09-20)
+## Earlier Menu Simplification (2026-09-20)
+
+Historical pass; the task-helper changes below supersede the sample-first entry
+and forced Workspaces selection described here.
 
 The gray disabled list and search box are removed. Create a referral starts the
 explicitly labeled sample intake. Schedule & assess, Decide & admit, and Find
@@ -112,6 +116,39 @@ not survive closing the menu; resuming an already-started guide still does.
 Deliberate ceiling: the menu has four core topics and one supervisor group, so
 search adds unnecessary clutter. Reconsider search if topic lists grow beyond
 the current six short actions in the largest group.
+
+## Task Helper Revision (2026-09-20)
+
+The guide is for getting unstuck in the application, not completing a course.
+The Home entry is "Where do I go next?" and current pages offer relevant help.
+Each guide has an explicit step picker, "I'm stuck here" instructions, and a
+concrete next-action screen. "Next tip" advances the explanation, not the task.
+"What next?" shows related help without claiming that a signature, save, decision,
+or delivery occurred. Conditional controls disappearing do not block reading tips.
+
+- Home Board cards are the first path to scheduling and ongoing work. Help
+  follows whichever card the user selects, not only the first card, and waits
+  for actual workspace navigation. Empty/filtered Board guidance points to the
+  stage selector, alternate Workspaces search, or supervisor ownership check.
+- Create a referral now accompanies real intake. Practice intake has a separate,
+  explicit entry. Existing drafts are reused; practice never inherits a live ID.
+  Pending scheduling help stays with an unsaved intake and starts on the same
+  referral after the user creates it. The last intake tip also remains usable
+  when creation removes its highlighted button; the next message recognizes the
+  newly created referral rather than telling the user to create another one.
+- Scheduling recognizes an already-open form and observes its opening only once.
+  A failed save leaves both form and guide in place. The existing success event
+  advances help; the guide itself never schedules an appointment.
+- Recovery text names actual controls and provides relevant routes for files,
+  saving, scheduling, signatures, decisions, admission dates, and packet delivery.
+  Existing permission and save guards remain authoritative.
+- Closing help leaves the working page intact. Going to the Board is explicit.
+  Practice is still optional and resets according to the existing practice code.
+
+Deliberate ceiling: next-step recommendations are curated per task, not a second
+workflow-state engine. The app's actual status, controls, errors, and permissions
+remain the source of truth. Revisit a recommendation when its workflow changes;
+do not infer a completed clinical action from tutorial progress.
 
 ## Deliberate Limits
 
@@ -133,6 +170,20 @@ as passing. Keep retired training routes disabled until the next scope explicitl
 replaces those legacy contracts.
 
 ## Focused Evidence
+
+Task-helper result: nine contract tests and twenty-five browser tests passed.
+The production Webpack build (including TypeScript), focused ESLint, and diff
+checks passed. Final desktop/phone screenshots were inspected, including the
+real intake recovery panel, next-action screen, Board handoff, and scheduling.
+Nothing was deployed or sent to the deployment task.
+
+Task-helper checks additionally cover Home Board selection (including a second
+card), real intake versus separate practice, pending help after referral creation,
+successful and failed real appointment saves in the local test store, already-open
+scheduling forms, and next-help navigation retaining the chosen referral.
+Desktop/phone next-action screens have scoped accessibility and hover-contrast
+checks. A double-advance on schedule opening was found and corrected during this
+pass; it is not accepted as baseline behavior.
 
 Menu-simplification result: seven contract tests and eighteen browser tests passed.
 Desktop and phone menu screenshots were inspected. Scoped axe WCAG A/AA checks

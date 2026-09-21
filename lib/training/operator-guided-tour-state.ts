@@ -6,7 +6,7 @@ export const OPERATOR_GUIDE_NAVIGATION_RESUME_KEY = "pipeline-guided-coach:navig
 export const OPERATOR_GUIDE_PENDING_EVENT_KEY = "pipeline-guided-coach:pending-event:v1";
 export const OPERATOR_GUIDE_STATE_VERSION = 5 as const;
 
-export type OperatorGuideMode = "closed" | "library" | "active";
+export type OperatorGuideMode = "closed" | "library" | "active" | "finished";
 
 export type OperatorGuideState = {
   version: typeof OPERATOR_GUIDE_STATE_VERSION;
@@ -64,7 +64,7 @@ export function normalizeOperatorGuideState(value: unknown): OperatorGuideState 
   const sequenceIndex = tutorial ? sequenceTutorialIds.indexOf(tutorial.id) : -1;
   return {
     version: OPERATOR_GUIDE_STATE_VERSION,
-    mode: mode === "active" && !tutorial ? "closed" : mode,
+    mode: (mode === "active" || mode === "finished") && !tutorial ? "closed" : mode,
     activeTutorialId: tutorial?.id ?? null,
     stepIndex,
     sequenceTutorialIds: sequenceIndex >= 0 ? sequenceTutorialIds : [],
@@ -173,9 +173,7 @@ function finishGuideState(state: OperatorGuideState, completedTutorialId: string
   }
   return {
     ...state,
-    mode: "library",
-    activeTutorialId: null,
-    stepIndex: 0,
+    mode: "finished",
     sequenceTutorialIds: [],
     sequenceIndex: 0,
     completedTutorialIds,
@@ -191,7 +189,7 @@ function normalizedStepIndex(value: unknown, stepCount: number) {
 }
 
 function normalizedGuideMode(value: unknown): OperatorGuideMode {
-  return value === "library" || value === "active" || value === "closed" ? value : "closed";
+  return value === "library" || value === "active" || value === "closed" || value === "finished" ? value : "closed";
 }
 
 function stringOrNull(value: unknown) {
