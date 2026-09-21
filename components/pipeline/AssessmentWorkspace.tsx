@@ -240,11 +240,11 @@ function autoFocusSection(assessment: PipelineAssessmentRecord | null, nextRequi
   return assessment?.started_at && nextRequiredSection && !initialSection ? nextRequiredSection : undefined;
 }
 
-function assessmentResumeTarget(assessment: PipelineAssessmentRecord, section: AssessmentToolSection | undefined, field: AssessmentToolFieldKey | undefined) {
+function assessmentResumeTarget(assessment: PipelineAssessmentRecord, section: AssessmentToolSection | undefined, field: AssessmentToolFieldKey | undefined, preparing: boolean) {
   if (!field) return null;
   const data = pickAssessmentToolData(assessment);
   const pending = getPendingFields(assessment);
-  const questions = assessmentReadyToBegin(assessment)
+  const questions = preparing
     ? preparationQuestions(preparationGroupForSection(section ?? "identity"), data)
     : getAssessmentInterviewQuestions(section ?? "identity", data);
   const start = Math.max(0, questions.findIndex((question) => question.field === field));
@@ -788,7 +788,7 @@ export default function AssessmentWorkspace({
       baseDataRef.current = data;
       draftRef.current = data;
       setDraft(data);
-      setWorkingTarget(assessmentResumeTarget(selected, initialSection, initialQuestion ?? initialLocation?.assessmentQuestion));
+      setWorkingTarget(assessmentResumeTarget(selected, initialSection, initialQuestion ?? initialLocation?.assessmentQuestion, preparing));
       dirtySectionsRef.current = new Set();
       setDirtySections(dirtySectionsRef.current);
       remoteChangeRef.current = null;
@@ -801,7 +801,7 @@ export default function AssessmentWorkspace({
     }
     setShowAddendum(false);
     loadRecoveryDraftForLiveAssessment(trainingAssessmentMode, loadRecoveryDraft, selected, data);
-  }, [initialLocation?.assessmentQuestion, initialQuestion, initialSection, loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
+  }, [initialLocation?.assessmentQuestion, initialQuestion, initialSection, loadRecoveryDraft, offlinePrincipal, preparing, selected, trainingAssessmentMode]);
 
   useEffect(() => {
     if (!referralDocumentAutofillEnabled || !referralId || !selected || isAssessmentFinalized(selected) || !packetEvidenceVersion || dirty) return;
