@@ -111,3 +111,26 @@ test("starting preserves a historical interview date, with normal optimistic con
   const stale = await request.post(url, { data: { ...mutation, client_mutation_id: randomUUID() } });
   expect(stale.status()).toBe(409);
 });
+
+test("leaving the intake handoff returns to the same choice until an option is chosen", async ({ page }) => {
+  await page.goto("/");
+  const { handoff, id } = await createFromIntake(page);
+  const name = await handoff.locator("p.text-xl").innerText();
+  await page.goBack();
+  await page.getByRole("button", { name: `Open ${name}`, exact: true }).locator("[data-folder-name]").click();
+  await expect(handoff).toBeVisible();
+  expect((await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments).toHaveLength(0);
+  await handoff.getByRole("button", { name: /Schedule assessment/ }).click();
+  const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+  await expect(schedule).toBeVisible();
+  await page.goto("/");
+  await page.getByRole("button", { name: `Open ${name}`, exact: true }).locator("[data-folder-name]").click();
+  await expect(handoff).toHaveCount(0);
+  await expect(schedule).toBeVisible();
+  await schedule.getByRole("button", { name: "Back to assessment", exact: true }).click();
+  await page.goto("/");
+  await page.getByRole("button", { name: `Open ${name}`, exact: true }).locator("[data-folder-name]").click();
+  await expect(handoff).toHaveCount(0);
+  await expect(schedule).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+});
