@@ -1,5 +1,5 @@
 import { expect, test, webkit } from "@playwright/test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createRequire } from "node:module";
 import { createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
@@ -55,8 +55,8 @@ test("save failure preserves edits; retry, conflict and switching are safe", asy
   await page.getByRole("button", { name: "Save list", exact: true }).click();
   await expect(page.getByRole("alert", { name: "Contact list error" })).toContainText("Temporarily unavailable");
   await expect(page.getByRole("button", { name: "Remove Alex Taylor from To" })).toHaveCount(0);
-  page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("button", { name: "Turlock 2 contacts" }).click();
+  await page.getByRole("alertdialog", { name: "Switch communities?", exact: true }).getByRole("button", { name: "Keep editing", exact: true }).click();
   await expect(page.getByRole("heading", { name: "San Pablo", exact: true })).toBeVisible();
   await page.unroute("**/api/community-recipient-lists");
   const current = (await (await request.get("/api/community-recipient-lists")).json()).lists[0];
@@ -64,8 +64,8 @@ test("save failure preserves edits; retry, conflict and switching are safe", asy
   expect(update.ok()).toBeTruthy();
   await page.getByRole("button", { name: "Save list", exact: true }).click();
   await expect(page.getByRole("alert", { name: "Contact list error" })).toContainText("changed in another tab");
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Reload saved list" }).click();
+  await page.getByRole("alertdialog", { name: "Reload the saved list?", exact: true }).getByRole("button", { name: "Reload saved list", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove Remote from To" })).toBeVisible();
 });
 
@@ -85,6 +85,10 @@ for (const width of [320, 390, 834, 1440]) {
       await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
     });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    // Measure settled controls, after the chip entrance transform has completed.
+    await page.getByRole("list", { name: /^(To|Cc) recipients$/ }).evaluateAll(async (lists) => {
+      await Promise.all(lists.flatMap((list) => list.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined))));
+    });
     for (const button of await page.getByRole("button", { name: /^Remove / }).all()) {
       const box = await button.boundingBox();
       expect(box!.x).toBeGreaterThanOrEqual(0);
@@ -146,11 +150,16 @@ test("assessors can load defaults but cannot manage shared lists", async ({ page
   const cookies = await request.storageState();
   await page.context().addCookies(cookies.cookies);
   await page.goto(destination);
-  await expect(page.getByRole("alert").filter({ hasText: "managed by designated supervisors" })).toBeVisible();
-  const response = await request.get("/api/community-recipient-lists");
-  expect(response.status()).toBe(200);
-  expect((await response.json()).canManage).toBe(false);
-  expect((await request.put("/api/community-recipient-lists", { data: {} })).status()).toBe(403);
+  await expect(page.getByRole("list", { name: "To recipients", exact: true }).locator("li")).toHaveCount(1);
+  await expect(page.getByText("View only. Change recipients on the individual handoff.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Remove / })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: /^(To|Cc)/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save list", exact: true })).toHaveCount(0);
+  const read = await request.get("/api/community-recipient-lists");
+  expect(read.status()).toBe(200);
+  expect((await read.json()).canManage).toBe(false);
+  expect((await request.put("/api/community-recipient-lists", { data: { ...seed().lists[0], mutationId: crypto.randomUUID() } })).status()).toBe(403);
+  expect((await (await request.get("/api/community-recipient-lists")).json()).lists[0].version).toBe(1);
 });
 
 test("navigation saves pending edits and stays put on failure", async ({ page }) => {
@@ -198,4 +207,21 @@ test("Safari: dense lists remain usable on phone and iPad; accessible chip edito
     });
     expect(violations).toEqual([]);
   } finally { await browser.close(); }
+});
+
+test("a fresh preview opens contact settings and saves its first recipient list", async ({ page }) => {
+  await unlink(resolve(".data/persona-demo-3355/community-recipient-lists.json"));
+  await page.goto("/settings");
+  const contacts = page.getByRole("region", { name: "Contacts", exact: true });
+  await expect(contacts).toBeInViewport();
+  await contacts.getByRole("link", { name: /Community contact lists/ }).click();
+  await expect(page.getByRole("heading", { name: "San Pablo", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /0 contacts/ })).toHaveCount(5);
+  await expect(page.getByRole("alert", { name: "Contact list error" })).toHaveCount(0);
+  const input = page.getByRole("combobox", { name: /^To/ });
+  await input.fill("First Contact <first@example.test>");
+  await page.getByRole("button", { name: "Save list", exact: true }).click();
+  await expect(page.getByText("List saved locally.", { exact: true }).first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Remove First Contact from To" })).toBeVisible();
 });

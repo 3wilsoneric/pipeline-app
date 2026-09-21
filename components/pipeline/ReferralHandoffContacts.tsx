@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmationDialog } from "./useConfirmationDialog";
+
 import { useState } from "react";
 import { Mail, RotateCcw } from "lucide-react";
 import { addListRecipients, parseRecipientText, type RecipientFields } from "@/lib/pipeline/community-recipient-lists";
@@ -11,6 +13,7 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
   value: HandoffRecipients; community: string; disabled?: boolean; compact?: boolean; composer?: boolean;
 }) {
   const [text, setText] = useState({ to: "", cc: "" });
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const [inputError, setInputError] = useState("");
   const [applyingList, setApplyingList] = useState(false);
   const count = value.fields.to.length + value.fields.cc.length;
@@ -33,6 +36,7 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
       }}><RotateCcw size={14} aria-hidden="true" />{applyingList ? "Loading community list…" : "Use latest community list"}</button>;
   const content =
     <div className={styles.content} aria-label="Handoff contacts">
+      {confirmationDialog}
       {!composer ? <p className={styles.explanation}>Changes apply to this handoff only. Confirm recipients before sending.</p> : null}
       {(["to", "cc"] as const).map((lane) => <RecipientChipField key={`${community}-${lane}`} compact label={lane === "to" ? "To" : "Cc"}
         recipients={value.fields[lane]} contacts={contacts} excluded={excluded} text={text[lane]} disabled={disabled || applyingList || !value.editable}

@@ -40,8 +40,8 @@ test.describe("independent assessor workflow steps", () => {
       const existing = existingDraft ? await createOperationalAssessment(assessor, referral.id) : null;
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
       await page.getByRole("radio", { name: "Accept", exact: true }).check();
-      page.once("dialog", (dialog) => dialog.accept());
       await page.getByRole("button", { name: "Record decision", exact: true }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
       await expect.poll(async () => (await workflow(admin, referral.id)).decision?.outcome).toBe("accepted");
       const accepted = await workflow(admin, referral.id);
       expect(accepted.context.assessmentExists).toBe(existingDraft);

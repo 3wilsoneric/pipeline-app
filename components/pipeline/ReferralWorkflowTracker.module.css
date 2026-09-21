@@ -73,6 +73,13 @@ dialog.expandedFolder > div:first-child > button:focus-visible { outline: 2px so
   background: radial-gradient(ellipse at 0 0, var(--stage-tint, #edf3f0), transparent 65%), linear-gradient(135deg, #f8faf9, #eff4f2);
   scrollbar-color: #9bafa3 transparent;
 }
+.scopeBar { display: flex; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 10px 16px; padding: 12px 20px; border-bottom: 1px solid #dce6e0; background: #fff; }
+.scopeBar p { margin: 0; color: #50655b; font-size: 13px; line-height: 1.5; }
+.scopeToggle { display: flex; gap: 3px; padding: 3px; border: 1px solid #d1dfd7; border-radius: 10px; background: #f1f5f3; }
+.scopeToggle button { min-width: 72px; min-height: 44px; padding: 8px 16px; border-radius: 7px; color: #456052; font-size: 14px; font-weight: 650; }
+.scopeToggle button[aria-pressed="true"] { background: #176f60; color: #fff; box-shadow: 0 1px 3px rgb(23 38 32 / 15%); }
+.scopeToggle button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.scopeToggle button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
 .expandedGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); align-items: start; gap: 24px; }
 .expandedGrid .folder, .expandedGrid .folder:not(:last-child), .expandedGrid .folder:not(:last-child):is(:hover, :focus-within) { margin: 0; transition: transform 160ms ease; }
 .expandedGrid .folder { --folder-fill: #fff; --folder-edge: #d1dfd7; min-width: 0; border-radius: 12px; }

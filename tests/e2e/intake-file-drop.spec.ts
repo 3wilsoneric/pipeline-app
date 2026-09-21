@@ -93,10 +93,13 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
     try {
       const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 } });
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
+      await expect(page.locator('[data-performance-ready="packet"]')).toBeVisible();
       const toggle = page.getByTestId("document-checklist-toggle");
       const panel = page.getByTestId("document-checklist-panel");
       await dragFiles(toggle, ["empty.txt"]);
       await expect(panel.getByRole("alert")).toContainText("choose a nonempty file");
+      await expect(panel.getByRole("alert")).toHaveCSS("color", "rgb(89, 100, 94)");
+      await expect(panel.getByRole("alert")).toHaveCSS("background-color", "rgb(247, 250, 249)");
       await expect(page.getByRole("dialog", { name: "Label your files" })).toHaveCount(0);
       const mutations: string[] = [];
       page.on("request", (request) => { if (request.method() === "POST" && /uploads/.test(request.url())) mutations.push(request.url()); });

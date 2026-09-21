@@ -25,9 +25,9 @@ test("interview completion preserves answers, editability, original appointment 
   await continuing.getByRole("button", { name: new RegExp(referral.name) }).first().click();
   const drawer = page.getByRole("dialog", { name: "Calendar item", exact: true });
   await expect(drawer.getByText("Appointment outcome not recorded", { exact: true }).last()).toBeVisible();
-  page.once("dialog", (dialog) => dialog.accept());
   const mutation = page.waitForRequest((request) => request.url().endsWith(`${assessmentUrl}/schedule`) && request.method() === "POST");
   await drawer.getByRole("button", { name: "Interview completed", exact: true }).click();
+  await page.getByRole("alertdialog", { name: "Record interview completion?", exact: true }).getByRole("button", { name: "Record completion", exact: true }).click();
   const body = (await mutation).postDataJSON();
   await expect(drawer).toHaveCount(0);
   const read = async () => (await (await page.request.get(assessmentUrl)).json()).assessment;
@@ -92,8 +92,8 @@ test("weekly calendar, contacts, previews, follow-up saves and layouts work on d
   await expect(drawer).toBeVisible();
   await drawer.locator("summary").filter({ hasText: "Medication list" }).click();
   await drawer.getByLabel("Next step for Medication list").fill("Confirm the returned records");
-  page.once("dialog", (dialog) => dialog.dismiss());
   await page.keyboard.press("Escape");
+  await page.getByRole("alertdialog", { name: "Leave without saving?", exact: true }).getByRole("button", { name: "Keep editing", exact: true }).click();
   await expect(drawer.getByLabel("Next step for Medication list")).toHaveValue("Confirm the returned records");
   await drawer.getByLabel("Follow-up date for Medication list").fill("2026-09-21");
   await drawer.getByRole("button", { name: "Save follow-up", exact: true }).click();

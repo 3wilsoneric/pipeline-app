@@ -13,6 +13,12 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Pocket ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
+      await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
+      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).tap();
+      const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+      await expect(begin).toBeInViewport();
+      await begin.getByRole("button", { name: "Begin assessment", exact: true }).tap();
+      await expect(begin).toHaveCount(0);
       const pocket = page.locator("[data-phone-interview]");
       await expect(pocket).toBeVisible();
       await expect(pocket.locator("[data-working-field]")).toHaveCount(1);
@@ -89,14 +95,14 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         return result.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => ({ id: v.id, targets: v.nodes.map((n) => n.target) }));
       });
       expect(violations).toEqual([]);
-      // The shared stage picker returns to this referral's chart without starting or signing.
+      // The shared stage picker returns to the same interview without signing.
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Chart" });
       await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
       expect(await page.getByTestId("packet-workspace").evaluate((el) => Boolean(el.closest("[inert]")))).toBe(false);
       const assessments = await read();
       expect(assessments).toHaveLength(1);
       expect(assessments[0].signed_at).toBeNull();
-      expect(assessments[0].started_at).toBeNull();
+      expect(assessments[0].started_at).toBeTruthy();
 
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
       await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
@@ -114,6 +120,9 @@ test("phone questions preserve source verification rather than counting suggesti
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic source review", owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
   expect(created.status()).toBe(201);
+  const { assessment } = await created.json();
+  const started = await page.request.post(`/api/assessments/${assessment.assessment_id}/start`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
+  expect(started.status()).toBe(200);
   await page.route(`**/api/referrals/${referral.id}/assessments`, async (route) => {
     const response = await route.fetch();
     const payload = await response.json();

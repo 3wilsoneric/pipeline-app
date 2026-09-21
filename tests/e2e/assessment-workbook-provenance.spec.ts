@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 import { changeWorkbook, closeRecoveryTools, openRecoveryTools } from "./support/workbook-runtime";
 import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
 import type { AssessmentWorkbookRestoreSource, PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
@@ -119,7 +119,7 @@ function expectWorkbookSource(record: PipelineAssessmentRecord, field: "current_
 
 async function createFixture(page: Page, name: string) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: "", tags: [] });
-  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const assessment = await startOperationalAssessment(page.request, await createOperationalAssessment(page.request, referral.id));
   const api = `/api/assessments/${assessment.assessment_id}`;
   return {
     api, draftApi: `/api/me/assessment-drafts/${assessment.assessment_id}`,

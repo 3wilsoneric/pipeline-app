@@ -48,7 +48,7 @@
 .footer button { min-height: 46px; padding: 10px 18px; border-radius: 6px; font-size: 15px; font-weight: 650; white-space: nowrap; }
 .commit { background: #08775a; color: #fff; box-shadow: 0 1px 2px #12362933; }
 .cancel { color: #425b4f; background: #f0f4f2; }
-.error { padding: 15px; border-left: 3px solid #a94836; background: #fff4ef; color: #793726; }
+.error { padding: 12px 15px; border-left: 3px solid #9aa7a0; background: #f7faf9; color: #59645e; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .panel button:disabled, .strip button:disabled { opacity: .55; cursor: default; }
 .import:disabled { opacity: 1; }
 .panel :is(button, input):focus-visible, .strip :is(button, input):focus-visible { outline: 2px solid #08775a; outline-offset: 3px; }

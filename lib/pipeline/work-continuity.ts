@@ -134,6 +134,7 @@ export function applyPipelineWorkspaceLocation(
   params.delete("assessmentQuestion");
   params.delete("assessmentMode");
   params.delete("workspaceField");
+  params.delete("workspaceEntry");
   if (location.view === "assessment") {
     params.set("workspaceStage", "assessment");
     if (location.assessmentSection) params.set("assessmentSection", location.assessmentSection);

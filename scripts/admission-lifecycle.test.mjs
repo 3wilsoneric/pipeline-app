@@ -8,6 +8,22 @@ const validation = load("lib/pipeline/referral-validation.ts");
 const sections = load("lib/pipeline/referral-sections.ts");
 const flow = load("lib/pipeline/referral-flow.ts");
 
+test("normal reopening follows handoff progress without inventing admission or redirecting unsigned work", () => {
+  const referral = { workspaceStatus: "active", stage: "Community Review" };
+  const signed = { signedAt: "2026-09-21T10:00:00Z" };
+  assert.equal(dates.handoffWorkspaceView(referral, {}), null);
+  assert.equal(dates.handoffWorkspaceView(referral, signed), "workflow");
+  const accepted = { ...referral, admissionDecision: { outcome: "accepted" } };
+  assert.equal(dates.handoffWorkspaceView(accepted, signed), "workflow");
+  const prepared = { ...accepted, plannedAdmissionDate: "2026-10-01" };
+  assert.equal(dates.handoffWorkspaceView(prepared, signed), "email");
+  assert.equal(dates.handoffWorkspaceView(prepared, { ...signed, packetSentAt: "2026-09-21T11:00:00Z" }), "workflow");
+  assert.equal(dates.handoffWorkspaceView(prepared, {}), null, "new unsigned reassessment does not inherit the old handoff route");
+  assert.equal(dates.handoffWorkspaceView({ ...prepared, workspaceStatus: "historical" }, signed), null);
+  assert.equal(dates.handoffWorkspaceView({ ...prepared, stage: "Accepted / Admitted" }, signed), null);
+  assert.equal(dates.handoffWorkspaceView({ ...prepared, admissionDecision: { outcome: "declined" } }, signed), "workflow");
+});
+
 test("planned date is separate, supports legacy previews, and can be cleared deliberately", () => {
   const imported = { workspaceOrigin: "allo", admissionDate: "2024-05-02", plannedAdmissionDate: "2026-10-12" };
   assert.equal(dates.getPlannedAdmissionDate(imported), "2026-10-12");

@@ -25,8 +25,8 @@ test("jumping through all steps preserves answers and never sends", () => {
     assert.equal(state.assessment.additional_information, "A locally edited answer");
     assert.equal(state.sentAt, null);
   }
-  assert.equal(state.referral.stage, "Accepted / Admitted");
-  assert.ok(state.referral.actualAdmissionDate);
+  assert.notEqual(state.referral.stage, "Accepted / Admitted");
+  assert.equal(state.referral.actualAdmissionDate, undefined, "tutorial navigation must not invent an arrival");
   assert.equal(sample.prepareTutorialStep(state, 3).assessment.additional_information, "A locally edited answer");
 });
 

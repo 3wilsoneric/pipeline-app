@@ -129,11 +129,11 @@ test("assessment edits survive review and return", async ({ page }) => {
   expect(writes).toEqual([]);
 });
 
-test("sign, accept, preview, simulate send and admit stay entirely local", async ({ page }, info) => {
+test("sign, accept, preview and simulate send stay local without confirming admission", async ({ page }, info) => {
   const writes = observeLiveWrites(page);
   await page.goto("/tutorials/referral?task=review-chart");
   await page.locator('[data-guide-target="assessment-sign"]').click();
-  const signature = page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true });
+  const signature = page.getByRole("dialog", { name: "Sign assessment", exact: true });
   await signature.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("5");
   await page.getByRole("radio", { name: "Accept", exact: true }).check();
@@ -146,10 +146,11 @@ test("sign, accept, preview, simulate send and admit stay entirely local", async
   await page.getByRole("button", { name: "Simulate send", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("No email was sent");
   await chooseStep(page, 7);
-  await page.getByRole("button", { name: "Confirm admitted", exact: true }).click();
-  await expect(page.locator("#tutorial-step")).toHaveValue("8");
-  await page.getByRole("button", { name: "Open finished referrals folder", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Finished referrals folder", exact: true }).getByRole("button", { name: "Open Taylor Rivera", exact: true })).toContainText("Admitted");
+  await expect(page.getByRole("button", { name: "Confirm admitted", exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Actual admission date", { exact: true })).toHaveCount(0);
+  await chooseStep(page, 8);
+  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Decision folder", exact: true }).getByRole("button", { name: "Open Taylor Rivera", exact: true })).toContainText("Awaiting admission");
   await page.screenshot({ path: info.outputPath("finished.png") });
   expect(writes).toEqual([]);
 });

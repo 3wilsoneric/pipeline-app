@@ -238,8 +238,9 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     if (nextScreen === "operations" && reportAccess !== true) return;
     const requestId = ++navigationRequestRef.current;
     const sourceLocation = `${window.location.pathname}${window.location.search}`;
-    const savedLocation = nextScreen === "packet" && referral?.id && resume
-      ? await loadPipelineWorkspaceResumeLocation(referral.id).catch(() => undefined)
+    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume;
+    const savedLocation = shouldResume
+      ? await loadPipelineWorkspaceResumeLocation(referral!.id).catch(() => undefined)
       : undefined;
     if (requestId !== navigationRequestRef.current || sourceLocation !== `${window.location.pathname}${window.location.search}`) return;
     const workspaceLocation = assessmentAction
@@ -248,6 +249,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     setEntryBriefing(null);
     setSearchOpen(false);
     const params = workspaceDestinationParams(activeSearchParams.toString(), nextScreen, referral, clientId, workspaceLocation);
+    if (shouldResume) params.set("workspaceEntry", "resume");
     pushPipelineHistory(params.size ? `/?${params.toString()}` : "/");
     recordNavigatedWorkspace(nextScreen, referral, workspaceLocation);
     recordCompleteNavigation(nextScreen, referral);
@@ -327,6 +329,8 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       initialWorkspaceLocation: pipelineWorkspaceLocationFromSearchParams(activeSearchParams),
       assessmentEntryAction: assessmentEntry?.referralId === selectedReferral?.id ? assessmentEntry?.action : undefined,
       onAssessmentEntryHandled: () => setAssessmentEntry(null),
+      resumeWorkflowOnOpen: !isDemoWorkspace && (activeSearchParams.get("workspaceEntry") === "resume"
+        || !["workspaceStage", "workspaceView", "workspaceField"].some((key) => activeSearchParams.has(key))),
       trainingAssessmentMode,
       trainingAssessmentSection: getTrainingAssessmentSection(activeSearchParams),
       trainingIntakeMode,
@@ -449,6 +453,7 @@ function clearDestinationParams(params: URLSearchParams) {
     "workspaceStage",
     "workspaceView",
     "workspaceField",
+    "workspaceEntry",
     "referralId",
     "draftId",
     "clientId",

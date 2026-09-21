@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmationDialog } from "./useConfirmationDialog";
+
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,13 +39,13 @@ export default function CommunityContactLists() {
       </header>
       {loading ? <p role="status" className={styles.loading}><LoaderCircle size={20} className="animate-spin motion-reduce:animate-none" /> Loading contact lists</p>
         : error ? <div role="alert" aria-label="Contact list error" className={styles.error}>{error}<button type="button" onClick={() => { setLoading(true); setError(""); setReloadKey((key) => key + 1); }}>Try again</button></div>
-        : !canManage ? <p role="alert">Community contact lists are managed by designated supervisors. You can still edit recipients on an individual handoff.</p>
-        : lists.length ? <ListEditor lists={lists} onSaved={setLists} /> : <p>No community lists have been added yet.</p>}
+        : lists.length ? <ListEditor lists={lists} canEdit={canManage} onSaved={setLists} /> : <p>No community lists have been added yet.</p>}
     </div>
   </div>;
 }
 
-function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSaved: (lists: CommunityRecipientList[]) => void }) {
+function ListEditor({ lists, canEdit, onSaved }: { lists: CommunityRecipientList[]; canEdit: boolean; onSaved: (lists: CommunityRecipientList[]) => void }) {
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const router = useRouter();
   const [community, setCommunity] = useState(lists[0].community);
   const current = lists.find((list) => list.community === community)!;
@@ -58,7 +60,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
   const mutation = useRef<{ payload: string; id: string } | null>(null);
   const { beforeNavigationRef } = usePipelineShell();
   const changed = JSON.stringify(fields) !== JSON.stringify({ to: current.to, cc: current.cc });
-  const dirty = changed || Boolean(text.to.trim() || text.cc.trim());
+  const dirty = changed || Object.values(text).some((value) => value.trim());
   const contacts = [...new Map(lists.flatMap((list) => [...list.to, ...list.cc]).map((item) => [item.email, item])).values()];
   const excluded = new Set([...fields.to, ...fields.cc].map((item) => item.email));
 
@@ -75,6 +77,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
   };
 
   const save = async () => {
+    if (!canEdit) return;
     if (pending.current) return pending.current;
     if (!dirty) return;
     const operation = async () => {
@@ -123,14 +126,14 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
     return () => { window.removeEventListener("beforeunload", leave); document.removeEventListener("click", link, true); };
   }, [dirty, router]);
 
-  const choose = (next: typeof community) => {
+  const choose = async (next: typeof community) => {
     if (next === community || saving) return;
-    if (dirty && !window.confirm("Discard unsaved changes to this list and switch communities?")) return;
+    if (dirty && !await confirm({ title: "Switch communities?", message: "Unsaved changes to this list will be discarded.", confirmLabel: "Discard & switch", cancelLabel: "Keep editing", destructive: true })) return;
     const list = lists.find((item) => item.community === next)!;
     setCommunity(next); setFields({ to: list.to, cc: list.cc }); setText(emptyText); setUndo(null); setError(""); setConflict(false); setMessage("");
   };
   const reload = async () => {
-    if (dirty && !window.confirm("Replace your unsaved edits with the latest saved list?")) return;
+    if (dirty && !await confirm({ title: "Reload the saved list?", message: "Your unsaved edits will be replaced with the latest saved list.", confirmLabel: "Reload saved list", cancelLabel: "Keep editing", destructive: true })) return;
     try {
       const result = await fetchPipelineJson<{ lists: CommunityRecipientList[] }>(endpoint, { cache: "no-store" });
       const list = result.lists.find((item) => item.community === community)!;
@@ -139,6 +142,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
   };
 
   return <div className={styles.layout}>
+    {confirmationDialog}
     <nav className={styles.communities} aria-label="Community contact lists">
       <span className={styles.navLabel}>Communities</span>
       {lists.map((list) => <button key={list.community} type="button" disabled={saving} aria-current={list.community === community ? "true" : undefined} onClick={() => choose(list.community)}>
@@ -156,14 +160,14 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
       </header>
       <fieldset disabled={saving} className={styles.fields}>
         <legend className="sr-only">Recipients</legend>
-        {(["to", "cc"] as const).map((lane) => <RecipientChipField key={`${community}-${lane}`} label={lane === "to" ? "To" : "Cc"} recipients={fields[lane]} contacts={contacts} excluded={excluded} text={text[lane]} disabled={saving}
+        {(["to", "cc"] as const).map((lane) => <RecipientChipField key={`${community}-${lane}`} label={lane === "to" ? "To" : "Cc"} recipients={fields[lane]} contacts={contacts} excluded={excluded} text={text[lane]} disabled={saving} readOnly={!canEdit}
           onText={(value) => { setText((previous) => ({ ...previous, [lane]: value })); setError(""); }} onAdd={(value) => add(lane, value)}
           onRemove={(email) => { const index = fields[lane].findIndex((item) => item.email === email); setUndo({ lane, recipient: fields[lane][index], index }); setFields({ ...fields, [lane]: fields[lane].filter((item) => item.email !== email) }); setError(""); setMessage("Contact removed from this list."); }} />)}
       </fieldset>
       <div className={styles.note}>These contacts prefill new handoffs for this community. Individually saved recipients stay unchanged; use the latest community list from the handoff when needed. Always review before sending.</div>
       {error && <div className={styles.error} role="alert" aria-label="Contact list error">{error}{conflict && <button type="button" disabled={saving} onClick={() => void reload()}>Reload saved list</button>}</div>}
       <footer className={styles.footer}>
-        <div className={styles.feedback}><span role="status">{listSaveStatus(saving, dirty, message)}</span>
+        <div className={styles.feedback}><span role="status">{canEdit ? listSaveStatus(saving, dirty, message) : "View only. Change recipients on the individual handoff."}</span>
           {undo && <button type="button" disabled={saving} onClick={() => {
             if (!excluded.has(undo.recipient.email)) {
               if (excluded.size >= recipientListLimit) { setError("Remove a contact before undoing: the list has reached 100 recipients."); return; }
@@ -174,7 +178,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
             setUndo(null); setMessage("Removal undone.");
           }}><Undo2 size={14} aria-hidden="true" /> Undo</button>}
         </div>
-        <button className={styles.save} type="submit" disabled={saving || !dirty}>{saving ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" /> : <Check size={16} aria-hidden="true" />} Save list</button>
+        {canEdit && <button className={styles.save} type="submit" disabled={saving || !dirty}>{saving ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" /> : <Check size={16} aria-hidden="true" />} Save list</button>}
       </footer>
       <span role="status" className="sr-only">{message}</span>
     </form>

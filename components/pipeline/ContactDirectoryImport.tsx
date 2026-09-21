@@ -43,7 +43,7 @@ export default function ContactDirectoryImport({ roles, className = "", onImport
   }, [roles]);
 
   const effectiveRoles = roles ?? resolvedRoles;
-  if (!effectiveRoles) return <p role={error ? "alert" : "status"} className={`bg-white py-4 text-[12px] ${error ? "text-[#a42d2d]" : "text-[#626b65]"}`}>{error ?? "Loading directory..."}</p>;
+  if (!effectiveRoles) return <p role={error ? "alert" : "status"} className={`bg-white py-4 text-[14px] ${error ? "text-[#a42d2d]" : "text-[#626b65]"}`}>{error ?? "Loading directory..."}</p>;
   if (!canAccessSupervisorOperations(effectiveRoles)) return null;
 
   const chooseFile = (selected: File | null) => {
@@ -117,32 +117,32 @@ type ContactDirectoryImportViewProps = {
 };
 
 function ContactDirectoryImportView({ id, className, file, preview, summary, operation, error, onChooseFile, onPreview, onCommit, onDownload }: ContactDirectoryImportViewProps) {
-  const buttonClass = "inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded border border-[#d8ddda] bg-white px-3 text-[12px] font-semibold text-[#202622] hover:bg-[#f4f6f5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16734a] disabled:cursor-not-allowed disabled:opacity-50";
+  const buttonClass = "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded border border-[#d8ddda] bg-white px-3 text-[14px] font-semibold text-[#202622] hover:bg-[#f4f6f5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16734a] disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <section aria-labelledby={`${id}-heading`} className={`min-w-0 border-t border-[#e2e6e3] bg-white py-5 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={`${id}-heading`} className="text-[15px] font-bold text-[#151a17]">Contact and facility directory</h2>
+        <h2 id={`${id}-heading`} className="text-[17px] font-bold text-[#151a17]">Contact and facility directory</h2>
         <button type="button" onClick={onDownload} className={buttonClass} title="Download CSV template">
           <Download size={15} aria-hidden="true" /> CSV template
         </button>
       </div>
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1 basis-64">
-          <label htmlFor={`${id}-file`} className="mb-1.5 block text-[12px] font-semibold text-[#424a45]">Contacts or referral facilities CSV</label>
+          <label htmlFor={`${id}-file`} className="mb-1.5 block text-[14px] font-semibold text-[#424a45]">Contacts or referral facilities CSV</label>
           <input id={`${id}-file`} type="file" accept=".csv,text/csv" disabled={!!operation}
             aria-describedby={`${id}-limits${error ? ` ${id}-error` : ""}`} aria-invalid={!!error}
             onChange={(event) => onChooseFile(event.target.files?.[0] ?? null)}
-            className="block w-full min-w-0 rounded border border-[#d8ddda] bg-white p-2 text-[12px] text-[#424a45] file:mr-3 file:cursor-pointer file:rounded file:border-0 file:bg-[#eef2f0] file:px-3 file:py-1 file:text-[12px] file:font-semibold focus-visible:outline-2 focus-visible:outline-[#16734a] disabled:opacity-50" />
+            className="block w-full min-w-0 rounded border border-[#d8ddda] bg-white p-2 text-[14px] text-[#424a45] file:mr-3 file:cursor-pointer file:rounded file:border-0 file:bg-[#eef2f0] file:px-3 file:py-2 file:text-[14px] file:font-semibold focus-visible:outline-2 focus-visible:outline-[#16734a] disabled:opacity-50" />
         </div>
         <button type="button" className={buttonClass} disabled={!file || !!operation} onClick={onPreview} title="Preview CSV">
           {operation === "preview" ? <LoaderCircle className="animate-spin" size={15} aria-hidden="true" /> : <FileSearch size={15} aria-hidden="true" />} Preview
         </button>
       </div>
-      <p id={`${id}-limits`} className="mt-2 text-[11px] text-[#626b65]">UTF-8 CSV. Maximum 1 MiB / 500 rows. Directory information only; no patient information.</p>
-      {error && <p id={`${id}-error`} role="alert" className="mt-3 break-words text-[12px] font-medium text-[#a42d2d]">{error}</p>}
+      <p id={`${id}-limits`} className="mt-2 text-[13px] text-[#626b65]">UTF-8 CSV. Maximum 1 MiB / 500 rows. Directory information only; no patient information.</p>
+      {error && <p id={`${id}-error`} role="alert" className="mt-3 break-words text-[14px] font-medium text-[#a42d2d]">{error}</p>}
       {preview && !summary && <ContactImportPreviewView preview={preview} operation={operation} onCommit={onCommit} buttonClass={buttonClass} />}
-      {summary && <p role="status" className="mt-4 flex items-start gap-2 text-[12px] font-semibold text-[#16734a]">
+      {summary && <p role="status" className="mt-4 flex items-start gap-2 text-[14px] font-semibold text-[#16734a]">
         <Check size={16} className="shrink-0" aria-hidden="true" />
         <span>{summary.counts.imported} entries imported. {summary.counts.duplicates} duplicates skipped. Existing entries unchanged.</span>
       </p>}
@@ -157,11 +157,11 @@ function ContactImportPreviewView({ preview, operation, onCommit, buttonClass }:
   buttonClass: string;
 }) {
   return <div className="mt-4 min-w-0">
-          <p role="status" className="text-[12px] font-semibold text-[#303a33]">
+          <p role="status" className="text-[14px] font-semibold text-[#303a33]">
             {preview.counts.total} rows: {preview.counts.ready} new, {preview.counts.duplicates} skipped duplicates, {preview.counts.invalid} invalid
           </p>
           <div className="mt-3 max-h-64 overflow-auto border-y border-[#e2e6e3]" tabIndex={0} role="region" aria-label="Contact import preview">
-            <table className="w-full min-w-[560px] table-fixed text-left text-[12px]">
+            <table className="w-full min-w-[560px] table-fixed text-left text-[14px]">
               <thead className="sticky top-0 bg-[#f4f6f5] text-[#505952]">
                 <tr><th scope="col" className="w-14 px-2 py-2">Line</th><th scope="col" className="w-[30%] px-2 py-2">Contact / facility</th><th scope="col" className="w-[25%] px-2 py-2">Phone / email</th><th scope="col" className="px-2 py-2">Validation</th></tr>
               </thead>
@@ -179,7 +179,7 @@ function ContactImportPreviewView({ preview, operation, onCommit, buttonClass }:
               </tbody>
             </table>
           </div>
-          {preview.counts.invalid > 0 && <p role="alert" className="mt-2 text-[12px] text-[#a42d2d]">Fix invalid rows and select the corrected file. No entries have been added.</p>}
+          {preview.counts.invalid > 0 && <p role="alert" className="mt-2 text-[14px] text-[#a42d2d]">Fix invalid rows and select the corrected file. No entries have been added.</p>}
           <button type="button" className={`${buttonClass} mt-3`} disabled={!!operation || !!preview.counts.invalid || !preview.counts.ready}
             onClick={onCommit} title="Import new directory entries">
             {operation === "commit" ? <LoaderCircle className="animate-spin" size={15} aria-hidden="true" /> : <Upload size={15} aria-hidden="true" />}

@@ -1,7 +1,7 @@
 "use client";
 import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   CalendarHeader,
@@ -14,6 +14,7 @@ import {
   CalendarDateDetails,
   SchedulingQueue,
 } from "@/components/pipeline/PipelineCalendarPresentation";
+import { useConfirmationDialog } from "./useConfirmationDialog";
 import calendarStyles from "./CalendarWork.module.css";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import {
@@ -70,7 +71,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const dataGeneration = usePipelineDataGeneration();
   const [selected, setSelected] = useState<CalendarSelection | null>(null);
   const pendingFollowUp = useRef(false);
-  const confirmLeaveDetails = () => !pendingFollowUp.current || window.confirm("Leave without saving this follow-up? Choose Cancel to keep editing.");
+  const { confirm, confirmationDialog } = useConfirmationDialog();
+  const confirmLeaveDetails = useCallback(async () => !pendingFollowUp.current || await confirm({ title: "Leave without saving?", message: "Your unsaved follow-up will be discarded.", confirmLabel: "Discard & leave", cancelLabel: "Keep editing", destructive: true }), [confirm]);
   const [scheduleTarget, setScheduleTarget] = useState<ScheduleTarget | null>(null);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
@@ -133,13 +135,14 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     if (!queueOpen && !selected && !scheduleTarget) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const closeTopOverlay = (event: KeyboardEvent) => {
+    const closeTopOverlay = async (event: KeyboardEvent) => {
       if (document.querySelector('[role="dialog"][aria-label^="Preview "]')) return;
       if (event.key !== "Escape" || mutationState.busy) return;
+      event.preventDefault();
       if (scheduleTarget) {
         scheduleAssessmentRef.current = null;
         setScheduleTarget(null);
-      } else if (selected) { if (!pendingFollowUp.current || window.confirm("Leave without saving this follow-up? Choose Cancel to keep editing.")) setSelected(null); }
+      } else if (selected) { if (await confirmLeaveDetails()) setSelected(null); }
       else setQueueOpen(false);
     };
     window.addEventListener("keydown", closeTopOverlay);
@@ -147,7 +150,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeTopOverlay);
     };
-  }, [mutationState.busy, queueOpen, scheduleTarget, selected]);
+  }, [mutationState.busy, queueOpen, scheduleTarget, selected, confirmLeaveDetails]);
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => { if (pendingFollowUp.current) { event.preventDefault(); event.returnValue = ""; } };
@@ -300,10 +303,10 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   };
 
   const updateAppointmentStatus = async (event: PipelineCalendarEvent, status: "cancelled" | "no_show" | "completed") => {
-    if (!confirmLeaveDetails()) return;
+    if (!await confirmLeaveDetails()) return;
     if (!event.assessmentId) return;
     const copy = calendarOutcomeCopy(status);
-    if (!window.confirm(copy.confirmation)) return;
+    if (!await confirm({ title: copy.title, message: copy.confirmation, confirmLabel: copy.action, destructive: status === "cancelled" })) return;
     setMutationState({ busy: true, error: "", message: copy.pending, canOverride: false });
     try {
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(`/api/assessments/${encodeURIComponent(event.assessmentId)}`, { cache: "no-store" });
@@ -398,6 +401,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
 
   return (
     <main ref={calendarElement} tabIndex={0} aria-label="Calendar" onScroll={(event) => { const saved = calendarNavigation.get(navigationKey); if (saved && restoreScroll.current === null) saved.scrollTop = event.currentTarget.scrollTop; }} data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className={calendarStyles.desktop}>
+      {confirmationDialog}
       <div className={calendarStyles.board}>
         <CalendarHeader
           view={view}
@@ -443,17 +447,17 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         scheduleLocation={scheduleLocation}
         mutationState={mutationState}
         scope={scope}
-        onCloseSelection={() => { if (confirmLeaveDetails()) setSelected(null); }}
+        onCloseSelection={async () => { if (await confirmLeaveDetails()) setSelected(null); }}
         onCloseSchedule={closeSchedule}
-        onOpenWorkspace={() => {
+        onOpenWorkspace={async () => {
           if (!selected) return;
-          if (!confirmLeaveDetails()) return;
+          if (!await confirmLeaveDetails()) return;
           if (selected.type === "event" && selected.event.kind === "assessment") void openAssessment(selected.event);
           else openWorkspace(selectionIdentity(selected));
         }}
-        onOpenChart={() => { if (selected && confirmLeaveDetails()) openWorkspace(selectionIdentity(selected), { view: "chart" }); }}
+        onOpenChart={async () => { if (selected && await confirmLeaveDetails()) openWorkspace(selectionIdentity(selected), { view: "chart" }); }}
         onDirtyChange={(dirty) => { pendingFollowUp.current = dirty; }}
-        onScheduleSelection={() => { if (selected && confirmLeaveDetails()) beginScheduling(scheduleTargetFromSelection(selected)); }}
+        onScheduleSelection={async () => { if (selected && await confirmLeaveDetails()) beginScheduling(scheduleTargetFromSelection(selected)); }}
         onStatus={(status) => selected?.type === "event" && updateAppointmentStatus(selected.event, status)}
         onStart={setScheduleStart}
         onDuration={setScheduleDuration}
@@ -468,14 +472,17 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
 
 function calendarOutcomeCopy(status: "cancelled" | "no_show" | "completed") {
   if (status === "completed") return {
+    title: "Record interview completion?", action: "Record completion",
     confirmation: "Record that this interview happened? Documentation stays editable. This does not sign, submit, or send the assessment.",
     pending: "Recording interview...", saved: "Interview recorded. Continue documentation whenever you are ready.",
   };
   if (status === "no_show") return {
+    title: "Mark as a no-show?", action: "Record no-show",
     confirmation: "Mark this assessment as a no-show? It will return to the scheduling queue.",
     pending: "Recording no-show...", saved: "No-show recorded",
   };
   return {
+    title: "Cancel this appointment?", action: "Cancel appointment",
     confirmation: "Cancel this assessment appointment? It will return to the scheduling queue.",
     pending: "Cancelling appointment...", saved: "Appointment cancelled",
   };

@@ -13,12 +13,13 @@ type Props = {
   text: string;
   disabled: boolean;
   compact?: boolean;
+  readOnly?: boolean;
   onText: (text: string) => void;
   onAdd: (text: string) => void;
   onRemove: (email: string) => void;
 };
 
-export default function RecipientChipField({ label, recipients, contacts, excluded, text, disabled, compact = false, onText, onAdd, onRemove }: Props) {
+export default function RecipientChipField({ label, recipients, contacts, excluded, text, disabled, compact = false, readOnly = false, onText, onAdd, onRemove }: Props) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
@@ -52,16 +53,16 @@ export default function RecipientChipField({ label, recipients, contacts, exclud
   };
 
   return <div className={`${styles.recipientRow} ${compact ? styles.compact : ""}`}>
-    <label className={styles.laneLabel} htmlFor={id}>{label}<span>{recipients.length}</span></label>
+    {readOnly ? <div className={styles.laneLabel}>{label}<span>{recipients.length}</span></div> : <label className={styles.laneLabel} htmlFor={id}>{label}<span>{recipients.length}</span></label>}
     <div className={styles.recipientBody}>
       <ul className={styles.chips} aria-label={`${label} recipients`}>
         {recipients.map((recipient) => <li key={recipient.email} className={styles.chip}>
           <span className={styles.avatar} aria-hidden="true">{(recipient.name || recipient.email).slice(0, 1).toUpperCase()}</span>
           <span className={styles.identity}><strong>{recipient.name || recipient.email}</strong>{recipient.name && <span>{recipient.email}</span>}</span>
-          <button type="button" disabled={disabled} className={styles.remove} aria-label={`Remove ${recipient.name || recipient.email} from ${label}`} title={`Remove ${recipient.email}`} onClick={() => { onRemove(recipient.email); input.current?.focus(); }}><X size={15} aria-hidden="true" /></button>
+          {!readOnly && <button type="button" disabled={disabled} className={styles.remove} aria-label={`Remove ${recipient.name || recipient.email} from ${label}`} title={`Remove ${recipient.email}`} onClick={() => { onRemove(recipient.email); input.current?.focus(); }}><X size={15} aria-hidden="true" /></button>}
         </li>)}
       </ul>
-      <div className={styles.addWrap}>
+      {!readOnly && <div className={styles.addWrap}>
         <div className={styles.addLine}>
           <input ref={input} id={id} value={text} disabled={disabled} autoComplete="off" spellCheck={false}
             role="combobox" aria-expanded={open} aria-controls={`${id}-suggestions`} aria-autocomplete="list"
@@ -91,8 +92,8 @@ export default function RecipientChipField({ label, recipients, contacts, exclud
             <strong>{recipient.name || recipient.email}</strong><span>{recipient.email}</span>
           </button></li>)}
         </ul>
-      </div>
-      <span id={`${id}-hint`} className={styles.hint}>Enter to add. You can also paste a list of addresses.</span>
+      </div>}
+      {!readOnly && <span id={`${id}-hint`} className={styles.hint}>Enter to add. You can also paste a list of addresses.</span>}
     </div>
   </div>;
 }

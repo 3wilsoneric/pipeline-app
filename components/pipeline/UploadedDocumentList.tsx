@@ -56,7 +56,7 @@ export default function UploadedDocumentList({ files, readOnly = false }: { file
     <dialog ref={dialog} onCancel={(event) => { if (busy) event.preventDefault(); else setDeleting(null); }} className="m-auto w-[min(92vw,440px)] rounded border border-[#ccd8d0] bg-white p-6 shadow-xl backdrop:bg-black/40" aria-labelledby="delete-document-title">
       <h2 id="delete-document-title" className="text-lg font-bold">Delete this file?</h2>
       <p className="mt-3 break-words text-sm"><strong>{deleting?.name}</strong> will leave this workspace. You can restore it from Change history for 24 hours. Entered chart values stay unchanged.</p>
-      {error ? <p role="alert" className="mt-3 text-sm text-[#a63d2f]">{error}</p> : null}
+      {error ? <p role="alert" className="mt-3 border-l-[3px] border-[#9aa7a0] bg-[#f7faf9] px-3 py-2 text-sm leading-6 text-[#59645e]">{error}</p> : null}
       <div className="mt-5 flex justify-end gap-3">
         <button type="button" autoFocus disabled={busy} onClick={() => setDeleting(null)} className="min-h-11 rounded border px-4 py-2 text-sm font-bold">Cancel</button>
         <button type="button" disabled={busy} onClick={() => void remove()} className="min-h-11 rounded bg-[#a63d2f] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{busy ? "Deleting…" : "Delete file"}</button>

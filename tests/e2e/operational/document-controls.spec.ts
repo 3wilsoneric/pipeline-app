@@ -56,8 +56,8 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     await page.getByRole("button", { name: "Workspace activity", exact: true }).click();
     await expect(history.getByText("Document uploaded", { exact: true }).first()).toBeVisible();
     await expect(history.getByText("Document deleted", { exact: true }).first()).toBeVisible();
-    page.once("dialog", (dialog) => dialog.accept());
     await history.getByRole("button", { name: "Restore file", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Restore this deleted file?", exact: true }).getByRole("button", { name: "Restore file", exact: true }).click();
     await expect.poll(async () => (await files()).length).toBe(1);
     await expect(history.getByText("Document restored", { exact: true }).first()).toBeVisible();
     await expect(history.getByRole("button", { name: "Restore file", exact: true })).toHaveCount(0);

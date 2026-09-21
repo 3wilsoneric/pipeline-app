@@ -11,25 +11,32 @@ for (const viewport of [
   { width: 320, height: 568 },
   { width: 740, height: 360 },
 ]) {
-  test(`scheduling fits the full screen at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+  test(`scheduling modal fits at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     await page.goto(scheduleUrl);
     const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
     await expect(dialog).toBeVisible();
-    await expect(dialog).toHaveAttribute("data-assessment-scheduling", "fullscreen");
-    expect(await dialog.boundingBox()).toEqual({ x: 0, y: 0, ...viewport });
+    await expect(dialog).toHaveAttribute("data-assessment-scheduling", "modal");
+    const bounds = (await dialog.boundingBox())!;
+    if (viewport.width < 640) expect(bounds).toEqual({ x: 0, y: 0, ...viewport });
+    else {
+      expect(bounds.width).toBeLessThanOrEqual(660);
+      expect(bounds.x).toBeGreaterThan(0);
+      expect(bounds.y).toBeGreaterThanOrEqual(24);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height - 24);
+    }
     const date = dialog.getByLabel("Assessment date and time");
     await expect(date).toBeFocused();
     expect(await date.evaluate((input) => ({
       height: input.getBoundingClientRect().height,
       fontSize: getComputedStyle(input).fontSize,
-    }))).toEqual({ height: 56, fontSize: "16px" });
+    }))).toEqual({ height: 48, fontSize: "16px" });
     await expect(dialog.getByRole("button", { name: "Schedule assessment", exact: true })).toBeDisabled();
     await date.fill("2027-09-14T09:30");
     await dialog.getByLabel("Assessment method").selectOption("zoom");
     await dialog.getByLabel("Zoom meeting link").fill("https://example.invalid/synthetic-appointment");
 
-    for (const name of ["Close schedule", "Back to questionnaire", "Schedule assessment"]) {
+    for (const name of ["Close schedule", "Cancel", "Schedule assessment"]) {
       const bounds = await dialog.getByRole("button", { name, exact: true }).boundingBox();
       expect(bounds).not.toBeNull();
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -48,7 +55,7 @@ for (const viewport of [
     await page.addScriptTag({ content: axeSource });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (context: Element, options: object) => Promise<{ violations: { id: string; impact: string }[] }> } }).axe;
-      const result = await axe.run(document.querySelector('[data-assessment-scheduling="fullscreen"]')!, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } });
+      const result = await axe.run(document.querySelector('[data-assessment-scheduling="modal"]')!, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } });
       return result.violations.filter((violation) => ["serious", "critical"].includes(violation.impact)).map((violation) => violation.id);
     });
     expect(violations).toEqual([]);
@@ -78,7 +85,6 @@ test("keeps scheduling methods, keyboard focus, and unsaved appointment edits us
   await expect(save).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
-  await page.locator('summary[aria-label="Assessment details"]').click();
   await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(date).toHaveValue("2027-09-14T09:30");

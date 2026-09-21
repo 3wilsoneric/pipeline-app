@@ -1,7 +1,10 @@
 "use client";
 
 import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useConfirmationDialog } from "./useConfirmationDialog";
+
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
+import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
 import {
   ReferralWorkflowPanelLoading,
@@ -35,6 +38,7 @@ type ReferralWorkflowPanelProps = {
   compactRecommendation?: boolean;
   recommendationAssessmentId?: string;
   onSavingChange?: (saving: boolean) => void;
+  beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
 };
 
 type RecommendationDraft = {
@@ -55,7 +59,9 @@ export default function ReferralWorkflowPanel({
   compactRecommendation = false,
   recommendationAssessmentId,
   onSavingChange,
+  beforeWorkspaceNavigationRef,
 }: ReferralWorkflowPanelProps) {
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -68,6 +74,40 @@ export default function ReferralWorkflowPanel({
   const mutationIds = useRef(new Map<string, string>());
   const recommendationDirty = useRef(false);
   const admissionDateDirty = useRef(false);
+  const mutationInFlight = useRef(false);
+
+  const guardNavigation = useEffectEvent(async () => {
+    try {
+      if (mutationInFlight.current) throw new Error("Wait for the decision changes to finish saving before leaving.");
+      if (recommendationDirty.current) {
+        if (!await confirm({ title: "Leave without recording these changes?", message: "Your changes to the admission decision have not been recorded. Stay to finish them, or discard these changes and leave.", confirmLabel: "Discard changes", cancelLabel: "Keep editing" })) {
+          throw new Error("Your decision changes are still open. Record them when you are ready.");
+        }
+        recommendationDirty.current = false;
+      }
+      if (admissionDateDirty.current && !await saveAdmissionDate(false)) throw new Error("The admission date could not be saved. Stay here and retry.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "The decision changes could not be saved.");
+      throw failure;
+    }
+  });
+  useEffect(() => {
+    if (compactRecommendation || !beforeWorkspaceNavigationRef) return;
+    const guard = () => guardNavigation();
+    beforeWorkspaceNavigationRef.current = guard;
+    return () => { if (beforeWorkspaceNavigationRef.current === guard) beforeWorkspaceNavigationRef.current = null; };
+  }, [beforeWorkspaceNavigationRef, compactRecommendation]);
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!mutationInFlight.current && !recommendationDirty.current && !admissionDateDirty.current) return;
+      event.preventDefault(); event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, []);
+  usePersonaSwitchSave(async () => {
+    if (mutationInFlight.current || recommendationDirty.current || admissionDateDirty.current) throw new Error("Finish saving the decision changes before switching accounts.");
+  });
 
   const loadWorkflow = useCallback(async (signal?: AbortSignal) => {
     const payload = await fetchPipelineJson<WorkflowResponse>(`/api/referrals/${referral.id}/workflow`, {
@@ -112,6 +152,8 @@ export default function ReferralWorkflowPanel({
     body: Record<string, unknown>,
     successMessage: string,
   ) => {
+    if (mutationInFlight.current) return null;
+    mutationInFlight.current = true;
     const clientMutationId = mutationIds.current.get(key) ?? createMutationId();
     mutationIds.current.set(key, clientMutationId);
     setBusy(key);
@@ -138,6 +180,7 @@ export default function ReferralWorkflowPanel({
       setError(mutationError instanceof Error ? mutationError.message : "The workflow change could not be saved.");
       return null;
     } finally {
+      mutationInFlight.current = false;
       setBusy("");
       onSavingChange?.(false);
     }
@@ -191,14 +234,14 @@ export default function ReferralWorkflowPanel({
       draft.outcome === "needs_more_information" ? "Under review saved. The referral remains open." : "Recommendation saved. You can keep editing and sign separately.",
     );
   };
-  const submitDecision = () => {
+  const submitDecision = async () => {
     if (!recommendationDraft.outcome) return;
     if (recommendationDraft.outcome === "needs_more_information") {
       saveRecommendation(recommendationDraft);
       return;
     }
     const outcome = recommendationDraft.outcome === "accept" ? "accepted" : "declined";
-    if (!window.confirm(decisionConfirmationMessage(outcome, false))) return;
+    if (!await confirm({ title: outcome === "accepted" ? "Accept this referral?" : "Deny this referral?", message: decisionConfirmationMessage(outcome, false), confirmLabel: outcome === "accepted" ? "Record acceptance" : "Record denial", destructive: outcome === "declined" })) return;
     void runMutation(
       `decision:${currentReferral.version}:${sections.decision}:${JSON.stringify(recommendationDraft)}`,
       `/api/referrals/${currentReferral.id}/decision`,
@@ -214,10 +257,8 @@ export default function ReferralWorkflowPanel({
     );
   };
 
-  const submitTransition = (target: ReferralStage, actualAdmissionDate?: string) => {
-    if (target === "Accepted / Admitted" && !window.confirm(
-      `Confirm the client arrived on ${actualAdmissionDate}? This moves the referral to Finished referrals. Its workspace and files remain available.`,
-    )) return;
+  const submitTransition = async (target: ReferralStage, actualAdmissionDate?: string) => {
+    if (target === "Accepted / Admitted" && !await confirm({ title: "Mark this referral admitted?", message: "Missing dates and documents will remain visible and unresolved. This closes the active referral stage.", confirmLabel: "Mark admitted" })) return;
     void runMutation(
       `transition:${target}:${currentReferral.version}`,
       `/api/referrals/${currentReferral.id}/transition`,
@@ -281,8 +322,8 @@ export default function ReferralWorkflowPanel({
     );
   };
 
-  const recordHandoffSent = () => {
-    if (!window.confirm("Record this EHR handoff as sent? Confirm the downstream transfer succeeded before continuing.")) return;
+  const recordHandoffSent = async () => {
+    if (!await confirm({ title: "Record EHR handoff as sent?", message: "Confirm the downstream transfer succeeded before continuing.", confirmLabel: "Record as sent" })) return;
     updateHandoff("mark_sent");
   };
 
@@ -303,7 +344,7 @@ export default function ReferralWorkflowPanel({
   </div>;
 
   return (
-    <ReferralWorkflowPanelPresentation
+    <>{confirmationDialog}<ReferralWorkflowPanelPresentation
       workflow={workflow}
       busy={busy}
       message={message}
@@ -342,6 +383,6 @@ export default function ReferralWorkflowPanel({
       onOpenAssessment={onOpenAssessment}
       onOpenFiles={onOpenFiles}
       onOpenProfile={onOpenProfile}
-    />
+    /></>
   );
 }

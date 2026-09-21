@@ -185,23 +185,26 @@ export async function getMyQueueSnapshot(user: PipelineUser): Promise<MyQueueSna
 }
 
 export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWorkflowSummary> {
-  const operational = homeWorkForViewer(await loadOperationalWork(user), user);
-  const requirementsByReferral = groupRequirementsByReferral(operational.openRequirements);
+  const allWork = await loadOperationalWork(user);
+  const operational = homeWorkForViewer(allWork, user);
+  const mine = new Set(operational.work.map((item) => item.referral_id));
+  const requirementsByReferral = groupRequirementsByReferral(allWork.openRequirements);
   const referralsById = new Map(operational.referrals.map((referral) => [referral.id, referral]));
   const workByReferral = new Map(operational.activeWork.map((work) => [work.referral_id, work]));
-  const activeItems = operational.activeWork.map((work) =>
+  const allActiveItems = allWork.activeWork.filter((work) => !isFinishedBoardReferral(work)).map((work) =>
     toReferralWorklistItem(
       work,
       referralsById.get(work.referral_id)!,
       requirementsByReferral.get(work.referral_id) ?? [],
     ),
   ).sort(compareReferralWorklistItems);
+  const activeItems = allActiveItems.filter((item) => mine.has(item.referral_id));
   // Completing acceptance tasks is not admission; keep the file in Decision until admission is recorded.
-  const retainedItems = operational.work
+  const retainedItems = allWork.work
     .filter((item) => isFinishedBoardReferral(item)
       || item.flow_state === "complete" && ["approved_for_placement", "accepted"].includes(item.workflow_status))
     .map((item) => toReferralWorklistItem(item, referralsById.get(item.referral_id)!, []));
-  const boardItems = [...activeItems, ...retainedItems].sort((left, right) =>
+  const allBoardItems = [...allActiveItems, ...retainedItems].sort((left, right) =>
     (right.received_at ?? "").localeCompare(left.received_at ?? "") || right.referral_id - left.referral_id);
   const readyToSchedule = activeItems.filter((item) =>
     workByReferral.get(item.referral_id)?.flow_state === "ready_to_schedule",
@@ -230,7 +233,8 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
     overall_completion_pct: overallCompletion,
     flow_counts: flowCounts,
     active_items: activeItems,
-    board_items: boardItems,
+    board_items: allBoardItems.filter((item) => mine.has(item.referral_id)),
+    all_board_items: allBoardItems,
     ready_to_schedule: {
       total: readyToSchedule.length,
       items: readyToSchedule.slice(0, 6),
@@ -244,7 +248,13 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
 }
 
 function homeWorkForViewer(operational: Awaited<ReturnType<typeof loadOperationalWork>>, user: PipelineUser) {
-  const owned = new Set(operational.referrals.filter((referral) => isReferralOwner(referral, user)).map((referral) => referral.id));
+  const owned = new Set(operational.referrals.filter((referral) => {
+    const context = operational.workflowContexts.get(referral.id);
+    return isReferralOwner(referral, user) || isAssignedToUser({
+      ownerId: context?.assessmentAssessorId,
+      owner: context?.assessmentData?.assessor,
+    }, user);
+  }).map((referral) => referral.id));
   return {
     ...operational,
     work: operational.work.filter((item) => owned.has(item.referral_id)),
@@ -507,6 +517,7 @@ async function loadOperationalWork(user?: PipelineUser) {
     source,
     work,
     referrals,
+    workflowContexts,
   };
 }
 

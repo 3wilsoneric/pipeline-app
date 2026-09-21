@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/community-config";
+import { handoffWorkspaceView } from "@/lib/pipeline/admission-lifecycle";
 import { formatPhoneForEntry } from "@/lib/pipeline/phone-display";
 import {
   californiaCountyOptions,
@@ -185,6 +186,7 @@ type ReferralPacketCanvasProps = {
   initialWorkspaceLocation?: PipelineWorkspaceLocation;
   assessmentEntryAction?: AssessmentEntryAction;
   onAssessmentEntryHandled?: () => void;
+  resumeWorkflowOnOpen?: boolean;
   trainingAssessmentMode?: TrainingAssessmentMode;
   trainingAssessmentSection?: AssessmentToolSection;
   trainingIntakeMode?: boolean;
@@ -381,6 +383,7 @@ export default function ReferralPacketCanvas({
   initialWorkspaceLocation,
   assessmentEntryAction,
   onAssessmentEntryHandled,
+  resumeWorkflowOnOpen = false,
   trainingAssessmentMode,
   trainingAssessmentSection,
   trainingIntakeMode = false,
@@ -428,9 +431,13 @@ export default function ReferralPacketCanvas({
     total: 52,
     status: "not_started",
   });
+  const [entryAssessment, setEntryAssessment] = useState<PipelineAssessmentRecord | null>();
+  const entryResolvedRef = useRef(false);
+  const publishedAssessmentSectionRef = useRef<AssessmentToolSection | undefined>(undefined);
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
+  const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
@@ -442,15 +449,14 @@ export default function ReferralPacketCanvas({
     return () => setAssessmentFocused(false);
   }, [setAssessmentFocused]);
   useEffect(() => {
-    const previous = beforeNavigationRef.current;
     const waitForDelivery = async () => {
       if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
       await flushHandoff();
-      await previous?.();
+      await assessmentNavigationRef.current?.();
     };
     beforeNavigationRef.current = waitForDelivery;
     return () => {
-      if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = previous;
+      if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = null;
     };
   }, [beforeNavigationRef, emailSending, flushHandoff]);
   const extraction = usePacketExtraction(extractionPacketId(loadedReferral));
@@ -491,7 +497,6 @@ export default function ReferralPacketCanvas({
     || isWorkspacePermissionReadOnly(loadedReferral, viewer, trainingAssessmentMode);
   const editableReferralId = mutableReferralId(loadedReferral, referral?.id, permissionReadOnly);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
   const loadedReferralRef = useRef<Referral | null>(null);
   const fieldsRef = useRef(fields);
   const tagsInputRef = useRef(tagsInput);
@@ -611,11 +616,13 @@ export default function ReferralPacketCanvas({
       return;
     }
     setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
+    setEntryAssessment(undefined);
     let cancelled = false;
     fetchPipelineJson<AssessmentListResponse>(`/api/referrals/${referralId}/assessments`, { cache: "no-store" })
       .then((payload) => {
         if (cancelled) return;
         const assessment = payload.assessments[0];
+        setEntryAssessment(assessment ?? null);
         if (!assessment) return;
         setAssessmentSummary({
           captured: 0,
@@ -630,11 +637,23 @@ export default function ReferralPacketCanvas({
       })
       .catch(() => {
         // Workspace navigation remains usable if the assessment summary cannot be loaded.
+        if (!cancelled) setEntryAssessment(null);
       });
     return () => {
       cancelled = true;
     };
   }, [referralWorkspaceId]);
+
+  useEffect(() => {
+    if (!resumeWorkflowOnOpen || entryResolvedRef.current || entryAssessment === undefined || !loadedReferral || draftRecoveryLoading) return;
+    entryResolvedRef.current = true;
+    // Never pull someone away after they have started editing or chosen a tab.
+    if (dirtyKeysRef.current.size || locallyFocusedFieldRef.current) return;
+    const view = handoffWorkspaceView(loadedReferral, { signedAt: entryAssessment?.signed_at, packetSentAt: entryAssessment?.meet_client_sent_at });
+    if (!view) return;
+    setActivePage(view);
+    onWorkspaceLocationChange?.({ view });
+  }, [resumeWorkflowOnOpen, entryAssessment, loadedReferral, draftRecoveryLoading, onWorkspaceLocationChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1436,6 +1455,7 @@ export default function ReferralPacketCanvas({
   };
 
   const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review") => {
+    entryResolvedRef.current = true;
     if (emailSendingRef.current) return;
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
@@ -1451,6 +1471,7 @@ export default function ReferralPacketCanvas({
   };
 
   const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField) => {
+    entryResolvedRef.current = true;
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.();
@@ -2478,7 +2499,7 @@ export default function ReferralPacketCanvas({
             <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)} className="flex min-h-28 flex-col items-start gap-2 rounded-lg bg-[#08765e] p-5 text-left text-white hover:bg-[#065c49] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><CalendarClock size={22} aria-hidden="true" /><span className="text-lg font-bold">Schedule assessment</span><span className="text-sm">Choose a date, time and meeting details.</span></button>
             <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(false)} className="flex min-h-28 flex-col items-start gap-2 rounded-lg border border-[#c6d6ce] bg-[#f5f8f6] p-5 text-left text-[#234a3c] hover:bg-[#eaf2ed] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><FolderOpen size={22} aria-hidden="true" /><span className="text-lg font-bold">Assessment prep</span><span className="text-sm">Fill in what is known before the interview.</span></button>
           </div>
-          {saveError ? <p role="alert" className="text-sm text-[#8b3e24]">{saveError}</p> : null}
+          {saveError ? <p role="alert" className="text-sm leading-6 text-[#59645e]">{saveError}</p> : null}
           <p className="text-sm leading-6 text-[#586c63]">Neither option starts the interview. Use <strong>Begin assessment</strong> when you are with the client.</p>
         </div>
       </HomeDialog> : null);
@@ -2698,11 +2719,12 @@ export default function ReferralPacketCanvas({
               <WorkspaceChartFolder>
               <ReferralWorkflowPanel
                 referral={loadedReferral}
+                beforeWorkspaceNavigationRef={assessmentNavigationRef}
                 onDone={onOpenAssignedWork ? openAssignedWork : undefined}
                 onReferralChange={applyConfirmedWorkflowReferral}
-                onOpenIntake={() => openPage(1)}
-                onOpenAssessment={() => openPage(2)}
-                onOpenFiles={() => openPage("files")}
+                onOpenIntake={() => void navigatePage(1)}
+                onOpenAssessment={() => void navigatePage(2)}
+                onOpenFiles={() => void navigatePage("files")}
                 onOpenEmail={() => openPage("email")}
                 onOpenProfile={onOpenProfile}
               />
@@ -2754,6 +2776,11 @@ export default function ReferralPacketCanvas({
                   onActiveSectionChange={(section, question) => {
                     lastAssessmentSectionRef.current = section;
                     lastAssessmentQuestionRef.current = question;
+                    const previous = publishedAssessmentSectionRef.current;
+                    publishedAssessmentSectionRef.current = section;
+                    // Mount-time section publication is not a deliberate navigation choice.
+                    if (resumeWorkflowOnOpen && !entryResolvedRef.current && previous === undefined) return;
+                    if (previous !== undefined && previous !== section) entryResolvedRef.current = true;
                     if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section, assessmentQuestion: question, assessmentMode: routedWorkspaceLocation.assessmentMode });
                   }}
                   onAssessmentSaved={async (assessment, savedReferral) => {
@@ -2958,7 +2985,7 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
       <span className="block truncate">{presentation.label}</span>
       {created ? <span className="sr-only">Workspace created</span> : null}
       {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
-      {error ? <span role="alert" className="block break-words text-[10px] font-medium">{error}</span> : null}
+      {error ? <span role="alert" className="block break-words text-[14px] font-medium leading-6">{error}</span> : null}
     </span>
   </div>;
 }

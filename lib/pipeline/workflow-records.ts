@@ -15,6 +15,7 @@ import { normalizeOwnerName } from "./referral-owner-identity";
 export type WorkflowContext = {
   assessmentExists?: boolean;
   assessmentId?: string | null;
+  assessmentAssessorId?: string | null;
   assessmentCreatedAt?: string | null;
   assessmentComplete?: boolean;
   assessmentSigned?: boolean;

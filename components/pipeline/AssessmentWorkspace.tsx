@@ -720,23 +720,24 @@ export default function AssessmentWorkspace({
     if (trainingAssessmentMode && selected) publishTrainingAssessment(selected);
   }, [selected, trainingAssessmentMode]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     draftRef.current = draft;
   }, [draft]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     dirtySectionsRef.current = dirtySections;
   }, [dirtySections]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     remoteChangeRef.current = remoteChange;
   }, [remoteChange]);
 
-  useEffect(() => {
+  // Initialize before editable fields paint; a passive reset can erase immediate input.
+  useLayoutEffect(() => {
     if (!selected) return;
     const previous = initializedAssessmentIdRef.current;
     if (previous?.id === selected.assessment_id && previous.principal === offlinePrincipal) return;
@@ -1309,6 +1310,7 @@ export default function AssessmentWorkspace({
   });
 
   const saveAndCloseAssessment = async (onClosed?: () => void | Promise<void>) => {
+    if (isBusy) throw new Error("Wait for the assessment action to finish before leaving.");
     if (closingRef.current) throw new Error("Assessment navigation is already in progress.");
     closingRef.current = true;
     setIsClosing(true);
@@ -1332,6 +1334,7 @@ export default function AssessmentWorkspace({
   const saveForHeaderNavigation = useEffectEvent(async () => {
     if (!embeddedFolder) return saveAndCloseAssessment();
     try {
+      if (isBusy) throw new Error("Wait for the assessment action to finish before leaving.");
       await saveBeforeExit();
       if (phoneInterview && phoneQuestionRef.current) setWorkingTarget({ field: phoneQuestionRef.current });
     } catch (saveError) {
@@ -1344,20 +1347,13 @@ export default function AssessmentWorkspace({
     if (!isFocused) return;
     if (!embeddedFolder) setAssessmentFocused(true);
     const content = contentRef.current;
-    const previousIsolation = content?.style.isolation ?? "";
-    if (content && !embeddedFolder) content.style.isolation = "isolate";
-    // The open folder covers the workspace; do not tab into controls behind it.
-    const backgrounds = !embeddedFolder && content ? Array.from(content.children)
-      .filter((element): element is HTMLElement => element instanceof HTMLElement && !element.matches("[data-assessment-view]"))
-      .map((element) => ({ element, inert: element.inert })) : [];
-    for (const { element } of backgrounds) element.inert = true;
+    const restoreIsolation = isolateAssessmentContent(content, embeddedFolder);
     const save = () => saveForHeaderNavigation();
-    beforeNavigationRef.current = save;
+    if (!embeddedFolder) beforeNavigationRef.current = save;
     if (beforeWorkspaceNavigationRef) beforeWorkspaceNavigationRef.current = save;
     return () => {
       if (!embeddedFolder) setAssessmentFocused(false);
-      if (content) content.style.isolation = previousIsolation;
-      for (const { element, inert } of backgrounds) element.inert = inert;
+      restoreIsolation();
       if (beforeNavigationRef.current === save) beforeNavigationRef.current = null;
       if (beforeWorkspaceNavigationRef?.current === save) beforeWorkspaceNavigationRef.current = null;
     };
@@ -1415,6 +1411,8 @@ export default function AssessmentWorkspace({
   const canSignSelectedAssessment = (assessmentId: string) => reviewingChart && !isRecommendationSaving && !isBusy && !isClosing && canEditClinical && assessmentId === selectedRef.current?.assessment_id;
   const signAssessment = async (assessmentId: string) => {
     if (!canSignSelectedAssessment(assessmentId)) return;
+    const initialization = initializedAssessmentIdRef.current;
+    const isCurrent = () => initialization !== null && initializedAssessmentIdRef.current === initialization;
     setIsBusy(true);
     setError("");
     setMessage("Signing assessment...");
@@ -1447,8 +1445,10 @@ export default function AssessmentWorkspace({
           }),
         },
       );
+      if (!isCurrent()) return;
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
+      if (!isCurrent()) return;
       void clearRecoveryDraft(payload.assessment.assessment_id);
       void persistOfflineWorkingSet(payload.assessment);
       setMessage("Assessment signed");
@@ -1973,7 +1973,7 @@ export default function AssessmentWorkspace({
               <p>{trainingAssessmentMode ? "Practice answers stay local; they are not a live client record." : "Changes sync automatically when connected. If you lose connection, keep this assessment open and check its save status before switching devices."}</p>
             </>} />
 
-          {error && !reviewingChart ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[11px] font-semibold text-[#59645e]">{error}</div> : null}
+          {error && !reviewingChart ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[14px] font-semibold leading-6 text-[#59645e]">{error}</div> : null}
           {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
             <div className="flex items-center gap-2 border-b border-[#c9d9d3] bg-[#f7fbf9] px-5 py-2 text-[11px] font-semibold text-[#315e50]" aria-live="polite">
               <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-[#20a464]" />
@@ -2218,4 +2218,18 @@ function remoteAssessmentMessage(conflicts: number, updatedBy: string) {
   return conflicts > 0
     ? `${conflicts} field conflict${conflicts === 1 ? "" : "s"} need review`
     : `Updated by ${updatedBy}`;
+}
+
+function isolateAssessmentContent(content: HTMLElement | null, embeddedFolder: boolean) {
+    const previousIsolation = content?.style.isolation ?? "";
+    if (content && !embeddedFolder) content.style.isolation = "isolate";
+    // The open folder covers the workspace; do not tab into controls behind it.
+    const backgrounds = !embeddedFolder && content ? Array.from(content.children)
+      .filter((element): element is HTMLElement => element instanceof HTMLElement && !element.matches("[data-assessment-view]"))
+      .map((element) => ({ element, inert: element.inert })) : [];
+    for (const { element } of backgrounds) element.inert = true;
+    return () => {
+      if (content) content.style.isolation = previousIsolation;
+      for (const { element, inert } of backgrounds) element.inert = inert;
+    };
 }

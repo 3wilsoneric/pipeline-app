@@ -880,8 +880,8 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     await page.getByRole("button", { name: /Avery Example/ }).click();
     await expect(page.getByRole("heading", { name: "Identity connection", exact: true })).toBeVisible();
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Create review candidate" }).click();
+    await page.getByRole("alertdialog", { name: "Create a review candidate?", exact: true }).getByRole("button", { name: "Create candidate", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Identity review", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
     await expect(page.getByText(/version 1/i)).toHaveCount(0);

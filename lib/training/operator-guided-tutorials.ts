@@ -205,7 +205,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
     steps: [
       step("decision", decision, "workspace-decision", "Record the decision", "Choose Accept, Deny, or Under review, then use the form's save action. An existing decision appears in this same area. Opening the page records nothing."),
       step("decision-check", decision, "workspace-decision", "Check the recorded decision", "After saving, check the decision shown for this referral. Acceptance does not sign an assessment or send a packet; those actions remain separate."),
-      step("decision-date", decision, "workspace-admit-date", "Set the planned admission date", "For an accepted referral, enter the planned admission date before sending Meet the Client. You can still preview without it. Confirm admitted separately after the client arrives.", "confirm", true),
+      step("decision-date", decision, "workspace-admit-date", "Set the planned admission date", "For an accepted referral, enter the planned admission date, then review the email and packet. You can still preview without a date. Nothing sends until you confirm Send.", "confirm", true),
       step("decision-packet", decision, "workspace-finish-send", "Continue to the packet", "Continue to finish & send opens the packet and email workspace. Opening it does not send or notify recipients.", "confirm", true),
     ] }),
   tutorial({ id: "workspace-files", title: "Add or open files", context: "workspace", audiences: writeRoles, summary: "Keep new documents with the same referral.",

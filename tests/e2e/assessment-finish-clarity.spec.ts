@@ -85,7 +85,6 @@ for (const width of [1440, 834, 390]) {
     expect(sends).toBe(0);
 
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
-    page.once("dialog", (dialog) => dialog.accept());
     await decision.getByRole("button", { name: "Record decision", exact: true }).click();
     await expect(decision.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
     await expect(decision.getByLabel("Planned admission date", {exact: true})).toHaveValue("");
@@ -98,8 +97,11 @@ for (const width of [1440, 834, 390]) {
     expect((await readAssessment()).meet_client_sent_at).toBeFalsy();
     expect((await readWorkflow()).decision.outcome).toBe("accepted");
     await page.screenshot({ path: info.outputPath(`handoff-next-step-${width}.png`) });
-    await email.getByRole("button", { name: "Review assessment", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
+    await email.getByRole("button", { name: "Preview email", exact: true }).click();
+    const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
+    await expect(composer.getByRole("status").filter({ hasText: "Demo — not live" })).toHaveText("Demo — not live. No email will be sent.");
+    await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
+    await composer.getByRole("button", { name: "Close email preview", exact: true }).click();
     await openStage(page, "Chart", width);
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
     await expect(footer.locator('[data-guide-target="assessment-sign"]')).toHaveCount(0);

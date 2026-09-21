@@ -166,6 +166,8 @@ export type HomeWorkflowSummary = {
   active_items: ReferralWorklistItem[];
   /** Active work plus a bounded set of recent completed decisions for the full-screen board. */
   board_items?: ReferralWorklistItem[];
+  /** Same stage folders across the shared workspace; personal summaries remain scoped to the viewer. */
+  all_board_items?: ReferralWorklistItem[];
   ready_to_schedule: {
     total: number;
     items: ReferralWorklistItem[];

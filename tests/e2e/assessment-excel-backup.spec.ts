@@ -2,7 +2,7 @@ import { expect, test, webkit } from "@playwright/test";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { strToU8, unzipSync, zipSync } from "fflate";
-import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, signOperationalAssessment } from "./support/operational-api";
+import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, signOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
 import { changeWorkbook, closeRecoveryTools, openRecoveryTools, workbookRuntime } from "./support/workbook-runtime";
 import type * as Backup from "../../lib/assessment/assessment-excel-backup";
 import type * as Contract from "../../lib/assessment/assessment-workbook-contract";
@@ -132,6 +132,7 @@ test("download current unsynced answers, drop Excel changes, review conflicts an
   expect(created.status(), await created.text()).toBe(201);
   const { assessment } = await created.json();
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  await startOperationalAssessment(page.request, assessment);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   await expect(page.locator("[data-phone-interview]")).toBeVisible();
   await page.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true }).fill("Latest device answer");
@@ -181,7 +182,7 @@ test("download current unsynced answers, drop Excel changes, review conflicts an
 
 test("offline workbook restore never overwrites a concurrent server answer", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic concurrent Excel", owner: "", tags: [] });
-  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const assessment = await startOperationalAssessment(page.request, await createOperationalAssessment(page.request, referral.id));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   await openRecoveryTools(page);
   const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
@@ -276,6 +277,8 @@ test("invalid or different-client workbooks cannot be committed, and Escape canc
   for (const bytes of [Buffer.from("not an Excel file"), Buffer.from(wrong)]) {
     await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: bytes });
     await expect(dialog.getByRole("alert")).toBeVisible();
+    await expect(dialog.getByRole("alert")).toHaveCSS("color", "rgb(89, 100, 94)");
+    await expect(dialog.getByRole("alert")).toHaveCSS("background-color", "rgb(247, 250, 249)");
     await expect(dialog.getByRole("button", { name: "Commit changes", exact: true })).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
@@ -291,7 +294,7 @@ test.describe("compact touch assessment", () => {
 test.use({ hasTouch: true, isMobile: true });
 test("backup tools stay off the phone questionnaire and return to the same question", async ({ page }, info) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic compact strip", owner: "", tags: [] });
-  await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, await createOperationalAssessment(page.request, referral.id));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {

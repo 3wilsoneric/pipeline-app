@@ -97,8 +97,8 @@ for (const width of [1440, 390]) {
     await expect(decision.getByRole("radio")).toHaveCount(3);
     await decision.getByLabel("Reason (optional)", { exact: true }).fill("Synthetic placement decision.");
     await page.screenshot({ path: testInfo.outputPath(`decision-${width}.png`), animations: "disabled" });
-    page.once("dialog", (dialog) => dialog.accept());
     await decision.getByRole("button", { name: "Record decision", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
     const admitDate = decision.getByLabel("Admission date (optional)", { exact: true });
     await expect(admitDate).toBeVisible();
     await admitDate.fill("2026-10-01");
@@ -110,7 +110,7 @@ for (const width of [1440, 390]) {
     const workflow = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
     expect(workflow.review).toBeNull();
     expect(workflow.reviews).toEqual([]);
-    await expect(page.getByRole("status").filter({ hasText: "Example only" })).toHaveText("Example only · no email will be sent.");
+    await expect(page.getByRole("status").filter({ hasText: "Demo — not live" })).toHaveText("Demo — not live. No email will be sent.");
     await expect(page.getByRole("navigation", { name: "Assessment chart views" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Send email & packet" })).toHaveCount(0);
     await page.getByRole("button", { name: "Back to decision", exact: true }).click();
@@ -136,7 +136,7 @@ test("unsigned Workflow links keep the decision and questionnaire reachable", as
   await page.goto(workspaceUrl(referral.id, "workflow"));
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
-  await page.getByRole("button", { name: "Open questionnaire", exact: true }).click();
+  await page.getByRole("button", { name: "Assessment prep", exact: true }).click();
   await expect(page.locator("[data-assessment-view]")).toBeVisible();
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toHaveCount(0);
 });
@@ -172,8 +172,8 @@ test("the simplified activity timeline retains file restoration and refreshes it
   const activity = page.getByRole("region", { name: "Referral ownership and activity" });
   await activity.locator("summary").filter({ hasText: "Detailed history" }).click();
   await expect(activity.getByRole("button", { name: "Restore file", exact: true })).toHaveCount(1);
-  page.once("dialog", dialog => dialog.accept());
   await activity.getByRole("button", { name: "Restore file", exact: true }).click();
+  await page.getByRole("alertdialog", { name: "Restore this deleted file?", exact: true }).getByRole("button", { name: "Restore file", exact: true }).click();
   await expect(activity.locator('[data-activity-event="document_restored"]:visible')).toHaveCount(2);
   await expect(activity.getByRole("button", { name: "Restore file", exact: true })).toHaveCount(0);
 });
@@ -191,8 +191,8 @@ for (const outcome of ["Deny", "Under review"] as const) {
     await panel.getByRole("radio", { name: outcome, exact: true }).check();
     await panel.getByLabel(outcome === "Deny" ? "Reason (optional)" : "What needs review?", { exact: true }).fill("Synthetic placement rationale.");
     if (outcome === "Deny") {
-      page.once("dialog", (dialog) => dialog.accept());
       await panel.getByRole("button", { name: "Record decision", exact: true }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
     } else await panel.getByRole("button", { name: "Save under review", exact: true }).click();
     await expect(panel.getByRole("button", { name: "Done", exact: true })).toBeVisible();
     await expect(panel.getByLabel("Admission date (optional)", { exact: true })).toHaveCount(0);
@@ -212,8 +212,8 @@ for (const outcome of ["Deny", "Under review"] as const) {
       await expect(panel.getByRole("textbox", { name: "What needs review?", exact: true })).toHaveValue("Synthetic placement rationale.");
       await panel.getByRole("radio", { name: "Accept", exact: true }).check();
       await expect(panel.getByRole("button", { name: "Done", exact: true })).toHaveCount(0);
-      page.once("dialog", (dialog) => dialog.accept());
       await panel.getByRole("button", { name: "Record decision", exact: true }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
       await expect(panel.getByRole("heading", { name: "Decision recorded", exact: true })).toBeVisible();
       const accepted = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
       expect(accepted.decision.outcome).toBe("accepted");

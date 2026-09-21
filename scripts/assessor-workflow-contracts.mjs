@@ -546,7 +546,7 @@ check("email recipients are constrained to approved organization domains", graph
 check("email subject excludes the client name", meetClientTemplateSource.includes('Meet the Client | ${summary.community') && !meetClientTemplateSource.match(/subject\s*=.*summary\.name/));
 check("admission packet selection is server-owned and referral-scoped", meetClientEmailRoute.includes("getMeetClientAttachmentInventory")
   && meetClientAttachments.includes("referralId: referral.id")
-  && meetClientAttachments.includes("file.referralId === referral.id")
+  && meetClientAttachments.includes("if (file.referralId !== referral.id || candidates.has(file.id)) return false;")
   && meetClientAttachments.includes("renderClientDataSheet(options.report ?? null, referral)")
   && !meetClientEmailRoute.includes("document_ids"));
 check("owner-approved unscanned and clean attachments are available; unsafe and unknown states are blocked",
@@ -554,7 +554,7 @@ check("owner-approved unscanned and clean attachments are available; unsafe and 
   && ["pending", "infected", "failed", "unknown", undefined].every((status) => !documentAccess.isDocumentContentAvailable(status))
   && meetClientAttachments.includes("!isDocumentContentAvailable(status)")
   && meetClientAttachments.includes("files.some((file) => !file.ready)")
-  && meetClientAttachments.includes("file.referralId === referral.id"));
+  && meetClientAttachments.includes("if (file.referralId !== referral.id || candidates.has(file.id)) return false;"));
 check("packet delivery supports direct and resumable Graph attachment paths", graphMail.includes("sendDirectMessage")
   && graphMail.includes("createUploadSession")
   && graphMail.includes('Range: `bytes=${start}-${end}`')

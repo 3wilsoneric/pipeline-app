@@ -1,9 +1,11 @@
-import styles from "./AssessmentPreparation.module.css";
+
 import { ChevronDown, X } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
 
 import type { AssessmentScheduleMethod, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { useMobileViewport } from "./use-mobile-viewport";
+import styles from "./AssessmentPreparation.module.css";
 
 const scheduleDetailFields = {
   in_person: { label: "Assessment address", placeholder: "Street address, facility, and room", type: "text" },
@@ -122,6 +124,7 @@ export function AssessmentScheduleLayout({ modal = true, label, title, context, 
   children: ReactNode;
   footer: ReactNode;
 }) {
+  const viewportRef = useMobileViewport();
   const dialogRef = useRef<HTMLElement>(null);
   const handleModalKey = useEffectEvent((event: KeyboardEvent) => {
     const dialog = dialogRef.current;
@@ -160,8 +163,8 @@ export function AssessmentScheduleLayout({ modal = true, label, title, context, 
   }, []);
 
   return (
-    <div data-assessment-scheduling-backdrop className="fixed inset-0 z-[100] flex items-center justify-center bg-[#102c23]/35 sm:p-6">
-    <section ref={dialogRef} role="dialog" aria-modal={modal} aria-label={label} aria-busy={isBusy} tabIndex={-1} data-assessment-scheduling="modal" className="flex max-h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-white text-[#202822] shadow-2xl max-sm:h-[100dvh] sm:max-h-[calc(100dvh-3rem)] sm:max-w-[660px] sm:rounded-xl">
+    <div data-assessment-scheduling-backdrop ref={viewportRef} className={`${styles.scheduleOverlay} z-[100] flex items-center justify-center bg-[#102c23]/35`}>
+    <section ref={dialogRef} role="dialog" aria-modal={modal} aria-label={label} aria-busy={isBusy} tabIndex={-1} data-assessment-scheduling="modal" className="flex max-h-full w-full min-w-0 flex-col overflow-hidden bg-white text-[#202822] shadow-2xl max-sm:h-full sm:max-w-[660px] sm:rounded-xl">
       <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d9dfdb] px-5 py-5 sm:px-10 sm:py-6">
         <div className="min-w-0">
           <h2 className="text-[22px] font-black leading-7 sm:text-[24px]">{title}</h2>

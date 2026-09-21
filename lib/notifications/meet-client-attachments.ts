@@ -46,10 +46,20 @@ export async function getMeetClientAttachmentInventory(
   referral: Referral,
   options: { largeAttachmentDeliveryConfigured?: boolean; report?: AssessmentSummaryReport | null } = {},
 ): Promise<MeetClientAttachmentInventory> {
-  const result = await listReferralFiles({ referralId: referral.id, limit: 200 });
-  const candidates = [...new Map(result.files.filter((file) => file.referralId === referral.id).map((file) => [file.id, file])).values()];
+  const candidates = new Map<string, ReferralFile>();
+  const files: MeetClientAttachmentItem[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await listReferralFiles({ referralId: referral.id, limit: 200, cursor });
+    const page = result.files.filter((file) => {
+      if (file.referralId !== referral.id || candidates.has(file.id)) return false;
+      candidates.set(file.id, file);
+      return true;
+    });
+    files.push(...await Promise.all(page.map(toAttachmentItem)));
+    cursor = result.next_cursor;
+  } while (cursor);
   const maximumCount = maximumAttachmentCount();
-  const files = await Promise.all(candidates.slice(0, maximumCount).map(toAttachmentItem));
   const generatedContent = renderClientDataSheet(options.report ?? null, referral);
   files.unshift({ documentId: `chart:${referral.id}:${referral.version}:${options.report?.assessmentVersion ?? 0}`, name: clientDataSheetName,
     category: "Assessment", contentType: "text/html", byteSize: Buffer.byteLength(generatedContent, "utf8"), ready: true, generatedContent });
@@ -61,12 +71,12 @@ export async function getMeetClientAttachmentInventory(
   const blockers = attachmentBlockers({
     files,
     totalBytes,
-    candidateCount: candidates.length + 1,
+    candidateCount: candidates.size + 1,
     maximumCount,
     deliveryMode,
     largeAttachmentDeliveryConfigured,
   });
-  if (candidates.length === 0) blockers.unshift("Attach at least one admission packet document before sending.");
+  if (candidates.size === 0) blockers.unshift("Upload at least one file to this workspace before sending the admission packet.");
   return {
     files,
     totalBytes,

@@ -204,8 +204,12 @@ test.describe("Pipeline calendar characterization", () => {
     await queue.locator("li").filter({ hasText: "Ready Adams" }).getByRole("button", { name: "Schedule", exact: true }).click();
 
     const scheduleDialog = page.getByRole("dialog").filter({ hasText: "Ready Adams" });
-    await expect(scheduleDialog).toHaveAttribute("data-assessment-scheduling", "fullscreen");
-    expect(await scheduleDialog.boundingBox()).toEqual({ x: 0, y: 0, width: 1440, height: 900 });
+    await expect(scheduleDialog).toHaveAttribute("data-assessment-scheduling", "modal");
+    const modalBounds = (await scheduleDialog.boundingBox())!;
+    expect(modalBounds.width).toBe(660);
+    expect(modalBounds.x).toBe(390);
+    expect(modalBounds.y).toBeGreaterThan(0);
+    expect(modalBounds.y + modalBounds.height).toBeLessThan(900);
     await scheduleDialog.getByLabel("Date and time").fill("2026-09-10T09:00");
     await scheduleDialog.getByLabel("Method").selectOption("zoom");
     await scheduleDialog.getByLabel("Zoom link").fill("https://zoom.us/j/calendar-characterization");
@@ -251,11 +255,11 @@ test.describe("Pipeline calendar characterization", () => {
       }),
     ]);
 
-    page.on("dialog", (dialog) => dialog.accept());
     await page.locator('button[title^="Scheduled Client - Assessment scheduled"]').first().click();
     const itemDrawer = page.getByRole("dialog", { name: "Calendar item" });
     await expect(itemDrawer.getByRole("link", { name: /Join Zoom/ })).toHaveAttribute("href", "https://zoom.us/j/existing-assessment");
     await itemDrawer.getByRole("button", { name: "Mark no-show" }).click();
+    await page.getByRole("alertdialog", { name: "Mark as a no-show?" }).getByRole("button", { name: "Record no-show", exact: true }).click();
     await expect(itemDrawer).toHaveCount(0);
 
     const noShow = scheduleRequests.find((request) => request.assessmentId === "existing-assessment");

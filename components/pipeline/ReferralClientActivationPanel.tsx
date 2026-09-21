@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmationDialog } from "./useConfirmationDialog";
+
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, CircleAlert, LoaderCircle, RefreshCw, UserRoundCheck } from "lucide-react";
 
@@ -32,6 +34,7 @@ export default function ReferralClientActivationPanel({
   onOpenProfile: (canonicalClientId: string) => void;
 }) {
   const [link, setLink] = useState<PipelineResidentLink | null>(null);
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const [resident, setResident] = useState<ClinicalResident | null>(null);
   const [candidateCount, setCandidateCount] = useState(0);
   const [identityConflict, setIdentityConflict] = useState(false);
@@ -113,7 +116,8 @@ export default function ReferralClientActivationPanel({
   }
 
   async function review(action: "confirm" | "reject") {
-    if (!isCandidateLink(link) || !reviewConfirmationAccepted(action, resident)) return;
+    if (!isCandidateLink(link)) return;
+    if (action === "confirm" && (!resident || !await confirm({ title: "Connect this client?", message: `Connect this referral to ${resident.display_name} at ${resident.community_name}. Confirm only after verifying they are the same person.`, confirmLabel: "Connect client" }))) return;
 
     setBusy(action);
     setError("");
@@ -141,6 +145,7 @@ export default function ReferralClientActivationPanel({
 
   return (
     <section aria-label="Admitted client profile" className="border border-[#cfd8d3] bg-white">
+      {confirmationDialog}
       <div className="flex items-start gap-3 border-b border-[#e0e5e2] px-4 py-3">
         <UserRoundCheck size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" aria-hidden="true" />
         <div className="min-w-0 flex-1">
@@ -188,14 +193,6 @@ export default function ReferralClientActivationPanel({
 
 function isCandidateLink(link: PipelineResidentLink | null): link is PipelineResidentLink {
   return link?.status === "candidate";
-}
-
-function reviewConfirmationAccepted(action: "confirm" | "reject", resident: ClinicalResident | null) {
-  if (action === "reject") return true;
-  if (!resident) return false;
-  return window.confirm(
-    `Connect this referral to ${resident.display_name} at ${resident.community_name}? Confirm only after verifying they are the same person.`,
-  );
 }
 
 function ConfirmedIdentity({

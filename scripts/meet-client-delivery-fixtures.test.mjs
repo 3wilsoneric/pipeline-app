@@ -63,6 +63,27 @@ test("an edit while preparing the packet stops the stale send before the provide
   assert.equal(fixture.providerCalls(), 0);
 });
 
+test("an assessment edited after preview cannot send unseen changes", async () => {
+  const fixture = deliveryFixture({ previewAssessmentVersion: 6 });
+  assert.equal((await fixture.send()).status, 409);
+  assert.equal(fixture.providerCalls(), 0);
+  assert.equal(fixture.reservationCalls(), 0);
+});
+
+test("the preview must identify a valid assessment and its exact version", async () => {
+  for (const body of [
+    { assessment_id: undefined }, { assessment_id: "different-assessment" },
+    { assessment_id: "../invalid" }, { if_match_assessment: undefined },
+    { if_match_assessment: 0 }, { if_match_assessment: -1 },
+    { if_match_assessment: 1.5 }, { if_match_assessment: "7" },
+  ]) {
+    const fixture = deliveryFixture();
+    assert.equal((await fixture.send("6", body)).status, 409);
+    assert.equal(fixture.providerCalls(), 0);
+    assert.equal(fixture.reservationCalls(), 0);
+  }
+});
+
 test("accepted mail is never reported as failed when finalization storage fails", async () => {
   const fixture = deliveryFixture({ finalizationFailure: true });
   const response = await fixture.send();
@@ -140,17 +161,17 @@ test("delivery and its generated chart use fresh agreement work items and the ca
 test("edited message reaches the provider unchanged, and malformed edits never reserve a send", async () => {
   const message = { subject: "Meet the Client — arrival", body: "Hello team,\nPlease call before arrival. <script>text only</script>" };
   const fixture = deliveryFixture();
-  assert.equal((await fixture.send("6", message)).status, 200);
+  assert.equal((await fixture.send("6", { message })).status, 200);
   assert.deepEqual(JSON.parse(JSON.stringify(fixture.messages[0].message)), message);
   for (const invalid of [{ subject: "Bad\r\nBcc: x@example.invalid", body: "Hello" }, { subject: "Okay", body: "x".repeat(20_001) }, { subject: [], body: "Hello" }]) {
     const rejected = deliveryFixture();
-    assert.equal((await rejected.send("6", invalid)).status, 400);
+    assert.equal((await rejected.send("6", { message: invalid })).status, 400);
     assert.equal(rejected.providerCalls(), 0);
     assert.equal(rejected.reservationCalls(), 0);
   }
 });
 
-function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
+function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, previewAssessmentVersion = 7, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
   let calls = 0;
   let reservations = 0;
   const mutationIds = new Set();
@@ -231,8 +252,8 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
   });
   return {
     auditStates, metrics, audits, messages, packetReports, providerCalls: () => calls, reservationCalls: () => reservations,
-    send: (referralId = "6", message) => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
-      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", message }),
+    send: (referralId = "6", body = {}) => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
+      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", ...body }),
     }), { params: Promise.resolve({ referralId }) }),
   };
 }

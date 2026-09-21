@@ -140,7 +140,7 @@
 .quickRecommendation { min-width: 0; padding: 8px 10px 14px; }
 .quickRecommendation label > span { display: block; margin-bottom: 6px; color: #314b3e; font-size: 13px; font-weight: 600; }
 .quickRecommendation select { width: 100%; min-height: 44px; border: 1px solid #c9d3ce; border-radius: 5px; padding: 6px 10px; background: #fff; color: #314b3e; font-size: 16px; font-weight: 600; }
-.quickRecommendation [role="alert"] { display: block; max-width: 30ch; padding-top: 4px; color: #9c342f; font-size: 12px; }
+.quickRecommendation [role="alert"] { display: block; max-width: 30ch; padding-top: 4px; color: #59645e; font-size: 14px; line-height: 1.6; }
 .recommendationStatus { display: block; padding-top: 6px; color: #68746e; font-size: 12px; line-height: 1.5; }
 .chartReview { padding: 0 0 32px; background: #fff; }
 .chartReviewToolbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding-inline: 20px; border-bottom: 1px solid #dde3df; background: #fff; font-size: 14px; color: #54645c; }
@@ -163,7 +163,7 @@
 .reviewChecklist button:disabled { color: #72766e; cursor: default; }
 .reviewChecklist button:hover:enabled { text-decoration: underline; }
 .reviewComplete { display: flex; align-items: center; gap: 9px; margin: 20px 0 0; font-size: 15px; color: #286350; }
-.reviewError { flex-basis: 100%; max-height: 22dvh; overflow-y: auto; margin: 0; padding: 10px 12px; border-left: 3px solid #a54236; background: #fff5f1; font-size: 15px; line-height: 1.5; color: #773d33; }
+.reviewError { flex-basis: 100%; max-height: 22dvh; overflow-y: auto; margin: 0; padding: 10px 12px; border-left: 3px solid #9aa7a0; background: #f7faf9; font-size: 15px; line-height: 1.5; color: #59645e; }
 .reviewDocument { max-width: 1280px; margin: 24px auto 0; padding: 0 clamp(16px, 3vw, 48px); }
 .reviewDocument [data-assessment-record] { border-color: #d6dfd9; border-radius: 6px; box-shadow: 0 2px 8px #233e3310; overflow: hidden; }
 .reviewDocument [data-assessment-record] > section { padding: 28px clamp(20px, 3vw, 36px); }
@@ -302,6 +302,7 @@
 
 @media (max-width: 959px) and (max-height: 500px) and (pointer: coarse) {
   .workMode { display: flex; padding: 2px 12px; }
+  .workMode[data-phase="interview"]:not(:has(.startPending)) { display: none; }
   .workMode p { display: none; }
   .phaseSummary { flex-basis: auto; }
   .phaseSteps { margin: 0; }
