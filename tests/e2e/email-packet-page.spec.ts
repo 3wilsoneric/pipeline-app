@@ -458,16 +458,16 @@ for (const width of [390, 834]) test(`demo admission packet includes every uploa
   let attempts = 0;
   page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) attempts++; });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  await expect(page.getByRole("status").filter({ hasText: "Demo — not live" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Not production yet" })).toBeVisible();
   await page.getByRole("button", { name: "Preview email", exact: true }).click();
   const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
-  await expect(composer.getByRole("status").filter({ hasText: "Demo — not live" })).toBeInViewport();
+  await expect(composer.getByRole("status").filter({ hasText: "Not production yet" })).toBeInViewport();
   const attachments = composer.getByRole("region", { name: "Referral packet attachments", exact: true });
   await expect(attachments.getByRole("heading", { name: "Admission packet", exact: true })).toBeVisible();
   for (const name of uploaded) await expect(attachments.getByRole("link", { name: `Open ${name}`, exact: true })).toBeVisible();
   await expect(attachments.getByRole("link")).toHaveCount(4);
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
-  await expect(preview.getByText("Demo — not live. This message and admission packet will not be sent.", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Not production yet — no email will be sent. This admission packet is a demo.", { exact: true })).toBeVisible();
   await expect(preview.getByText("Hello team,", { exact: true })).toBeVisible();
   await expect(composer.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
   await expect(composer.getByRole("button", { name: "Done reviewing", exact: true })).toBeInViewport();
@@ -475,4 +475,62 @@ for (const width of [390, 834]) test(`demo admission packet includes every uploa
   await page.screenshot({ path: info.outputPath(`demo-admission-packet-${width}.png`), animations: "disabled" });
   await composer.getByRole("button", { name: "Done reviewing", exact: true }).click();
   expect(attempts).toBe(0);
+});
+
+for (const width of [1440, 834, 390]) test(`Outlook handoff clearly remains nonproduction at ${width}px`, async ({ page }, info) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.setViewportSize({ width, height: 900 });
+  let writes = 0;
+  page.on("request", request => { if (request.method() === "POST" && /outlook-draft|meet-client-email/.test(request.url())) writes++; });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  await settleHandoff(page);
+  await expect(page.getByRole("status").filter({ hasText: "Not production yet" })).toBeVisible();
+  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
+  await composer.getByRole("button", { name: "My Outlook", exact: true }).click();
+  const outlook = composer.getByRole("region", { name: "Outlook handoff" });
+  await expect(outlook.getByText("Not production yet", { exact: true })).toBeVisible();
+  await expect(outlook.getByRole("button", { name: "Open in Outlook", exact: true })).toBeDisabled();
+  await expect(outlook.getByRole("button", { name: "Open in Outlook", exact: true })).toBeInViewport();
+  await expect(outlook).toContainText("no email will be sent");
+  await expect(composer.getByRole("button", { name: "Close email preview", exact: true })).toBeInViewport();
+  await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+  const violations = await page.evaluate(async () => (await (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe.run('dialog[aria-label="Meet the Client email"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target }) => target) })));
+  expect(violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`outlook-nonproduction-${width}.png`), animations: "disabled" });
+  expect(writes).toBe(0);
+});
+
+for (const width of [834, 390]) test(`saved Outlook draft reopens without offering a second handoff at ${width}px`, async ({ page }, info) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.setViewportSize({ width, height: 900 });
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
+    const response = await route.fetch(); const payload = await response.json();
+    payload.email = { ...payload.email, example_only: false, can_send: true };
+    await route.fulfill({ response, json: payload });
+  });
+  await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: { occupied: false, draft: {
+    packet_id: randomUUID(), status: "draft", mailbox: "assessor@example.invalid", web_link: "https://outlook.office.com/mail/drafts/fixture",
+    prepared_at: "2026-09-21T00:00:00Z", assessment_version: 2, file_count: 1,
+  } } }));
+  let sent = 0;
+  page.on("request", request => { if (request.method() === "POST" && request.url().includes("meet-client-email")) sent++; });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
+  const outlook = composer.getByRole("region", { name: "Outlook handoff" });
+  await expect(outlook.getByRole("heading", { name: "Your Outlook draft" })).toBeVisible();
+  await expect(composer.getByRole("button", { name: "Pipeline", exact: true })).toBeDisabled();
+  await expect(composer.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
+  await expect(outlook.getByRole("link", { name: "Reopen draft" })).toHaveAttribute("href", "https://outlook.office.com/mail/drafts/fixture");
+  await expect(outlook).toContainText("not sent");
+  await outlook.getByRole("button", { name: "Remove draft", exact: true }).click();
+  const confirmation = page.getByRole("alertdialog", { name: "Remove this Outlook draft?" });
+  await expect(confirmation).toBeVisible();
+  const bounds = (await confirmation.boundingBox())!;
+  expect(Math.abs(bounds.x + bounds.width / 2 - width / 2)).toBeLessThan(3);
+  await page.screenshot({ path: info.outputPath(`outlook-existing-draft-${width}.png`), animations: "disabled" });
+  await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(sent).toBe(0);
 });

@@ -99,7 +99,7 @@ for (const width of [1440, 834, 390]) {
     await page.screenshot({ path: info.outputPath(`handoff-next-step-${width}.png`) });
     await email.getByRole("button", { name: "Preview email", exact: true }).click();
     const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
-    await expect(composer.getByRole("status").filter({ hasText: "Demo — not live" })).toHaveText("Demo — not live. No email will be sent.");
+    await expect(composer.getByRole("status").filter({ hasText: "Not production yet" })).toHaveText("Not production yet — no email will be sent.");
     await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
     await composer.getByRole("button", { name: "Close email preview", exact: true }).click();
     await openStage(page, "Chart", width);

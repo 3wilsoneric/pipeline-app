@@ -4,6 +4,8 @@ import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { getPipelineDatabaseMode, getPipelineSql } from "@/lib/database/pipeline-database";
+import type { DeliveryAudit } from "@/lib/pipeline/meet-client-delivery-audit";
+import type { OutlookDraftState } from "./outlook-draft-contract";
 
 export type PacketFile = {
   id: string; name: string; contentType: string; byteSize: number;
@@ -20,6 +22,11 @@ export type AdmissionPacket = {
   createdAt: string; expiresAt: string; revokedAt?: string;
   files: PacketFile[]; recipients: PacketRecipient[];
   message: { subject: string; body: string };
+  outlook?: {
+    ownerId: string; mailbox: string; status: OutlookDraftState; audit: DeliveryAudit;
+    referralVersion: number; packetRevision: string; messageId?: string; webLink?: string;
+    note?: string;
+  };
   events: { action: string; at: string; recipient?: string; file?: string; actorId?: string; actorName?: string }[];
 };
 export class PacketAccessError extends Error {
@@ -112,6 +119,7 @@ export async function listAdmissionPacketLinks(referralId: number) {
 export async function manageAdmissionPacketLink(id: string, referralId: number, action: "renew" | "revoke", actor: { id: string; name: string }) {
   return withAdmissionPacket(id, (packet) => {
     if (!packet || packet.referralId !== referralId) throw new PacketAccessError("Packet not found.", 404);
+    if (action === "renew" && packet.outlook && packet.outlook.status !== "sent") throw new PacketAccessError("Prepare a new handoff to share this packet again.", 409);
     const now = new Date();
     if (action === "revoke") packet.revokedAt = now.toISOString();
     else { delete packet.revokedAt; packet.expiresAt = new Date(now.getTime() + 30 * 86400_000).toISOString(); }
@@ -119,4 +127,22 @@ export async function manageAdmissionPacketLink(id: string, referralId: number, 
     packet.events.push({ action: `packet_access_${action === "renew" ? "renewed" : "revoked"}`, at: now.toISOString(), actorId: actor.id, actorName: actor.name });
     return { ok: true };
   });
+}
+
+export async function findWorkspaceOutlookDraft(referralId: number): Promise<AdmissionPacket | null> {
+  if (getPipelineDatabaseMode() === "postgres") {
+    const sql = getPipelineSql();
+    const [row] = await sql<{ record: AdmissionPacket }[]>`select record from pipeline.admission_packet_links
+      where referral_id = ${referralId} and record->'outlook' is not null
+      and record->'outlook'->>'status' <> 'discarded' order by created_at desc limit 1`;
+    return row?.record ?? null;
+  }
+  const directory = dirname(localPath("00000000-0000-4000-8000-000000000000"));
+  const names = await readdir(directory).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return []; throw error; });
+  const records: AdmissionPacket[] = [];
+  for (const name of names.filter((name) => validPacketId(name.replace(/\.json$/, "")) && name.endsWith(".json"))) {
+    const packet = JSON.parse(await readFile(join(directory, name), "utf8")) as AdmissionPacket;
+    if (packet.referralId === referralId && packet.outlook && packet.outlook.status !== "discarded") records.push(packet);
+  }
+  return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
 }

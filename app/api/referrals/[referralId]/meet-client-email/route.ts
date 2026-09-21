@@ -8,11 +8,12 @@ import { deliverAssessmentPacket, listAssessments, requireAssessmentStore } from
 import { buildAssessmentSummaryReport, buildMeetClientSummary, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
-import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet-files";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
-import { PacketAccessError } from "@/lib/notifications/admission-packet-store";
+import { findWorkspaceOutlookDraft, PacketAccessError } from "@/lib/notifications/admission-packet-store";
+import { connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
+import { prepareOutlookHandoff } from "@/lib/notifications/outlook-handoff";
 import {
   getMeetClientAttachmentInventory,
   prepareMeetClientMailAttachments,
@@ -20,6 +21,7 @@ import {
 import {
   GraphMailDeliveryError,
   getGraphMailReadiness,
+  isMeetClientLive,
   sendMeetClientMail,
   validateMeetClientRecipients,
 } from "@/lib/notifications/microsoft-graph-mail";
@@ -42,32 +44,29 @@ export async function POST(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]/meet-client-email", async () => {
-    const auth = await requirePipelineUser(request);
-    if (!auth.ok) return auth.response;
-    const originFailure = requireSameOriginMutation(request);
-    if (originFailure) return originFailure;
-    const storeFailure = meetClientStoreFailure();
-    if (storeFailure) return storeFailure;
-
-    const referralId = await parseReferralId(context);
-    if (!referralId) return jsonError("referralId is invalid.");
-    const access = await requireMutableReferralAccess(auth.user, referralId);
+    const access = await authorize(request, context);
     if (!access.ok) return access.response;
-    if (getPipelineDemoEnvironment().writable) {
-      return jsonError("Meet the Client is example only in this demo. No email will be sent.", 403);
-    }
+    const { referralId, user } = access;
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;
+    const outlook = new URL(request.url).searchParams.get("delivery") === "outlook";
+    const activeDraft = await findWorkspaceOutlookDraft(referralId);
+    if (activeDraft?.outlook && !["sent", "discarded"].includes(activeDraft.outlook.status)) return jsonError("This workspace already has an Outlook draft. Reopen or remove it before preparing another handoff.", 409);
+    let mailbox: Awaited<ReturnType<typeof connectedOutlookMailbox>> | undefined;
+    if (outlook) {
+      try { mailbox = await connectedOutlookMailbox(request, user); }
+      catch (error) { return outlookFailure(error); }
+    }
     const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion, prepared.assessmentId, prepared.assessmentVersion);
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
-    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision);
+    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook);
     if (!attachmentContext.ok) return attachmentContext.response;
 
     const reserveAndDeliver = async () => {
       const deliveryId = randomUUID();
-      const accountableActor = pipelineAccountableActor(auth.user);
+      const accountableActor = pipelineAccountableActor(user);
       const audit = buildDeliveryAudit({
         mutationId: prepared.mutationId,
         deliveryId,
@@ -81,8 +80,18 @@ export async function POST(
         attachmentCount: attachmentContext.inventory.files.length,
         attachmentBytes: attachmentContext.inventory.totalBytes,
       });
+      if (outlook) audit.provider = "outlook_draft";
       const reserved = await reserveMeetClientDelivery(audit);
       if (!reserved) return jsonError("This assessment already has a send in progress or awaiting confirmation. Check the workspace activity and the sending mailbox before retrying; refreshing will not send a duplicate.", 409);
+
+      if (mailbox) {
+        try {
+          const draft = await prepareOutlookHandoff({ mailbox, audit, referralVersion: prepared.referralVersion, packetRevision: prepared.packetRevision,
+            recipients: prepared.recipients, ccRecipients: prepared.ccRecipients, summary: buildMeetClientSummary(assessment, handoffReferral),
+            preparedBy: accountableActor.name, message: prepared.message, inventory: attachmentContext.inventory, requestUrl: request.url });
+          return Response.json({ draft }, { headers: privateHeaders() });
+        } catch (error) { return outlookFailure(error); }
+      }
 
       return deliverMeetClientEmail({
         audit,
@@ -277,7 +286,7 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   };
 }
 
-async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord, packetRevision: string) {
+async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord, packetRevision: string, outlook = false) {
   try {
     const readiness = getGraphMailReadiness();
     const inventory = await getMeetClientAttachmentInventory(referral, {
@@ -288,11 +297,16 @@ async function loadAdmissionPacket(referral: Referral, assessment: PipelineAsses
       return { ok: false as const, response: jsonError(inventory.blockers.join(" "), 422) };
     }
     if (inventory.revision !== packetRevision) return { ok: false as const, response: jsonError("The packet files changed. Refresh the preview to include every current file before sending.", 409) };
-    const attachments = inventory.deliveryMode === "secure_link" ? [] : await prepareMeetClientMailAttachments(inventory);
+    const attachments = outlook || inventory.deliveryMode === "secure_link" ? [] : await prepareMeetClientMailAttachments(inventory);
     return { ok: true as const, inventory, attachments };
   } catch {
     return { ok: false as const, response: jsonError("The admission packet could not be prepared. Refresh the chart and try again.", 503) };
   }
+}
+
+function outlookFailure(error: unknown) {
+  if (error instanceof PacketAccessError || error instanceof OutlookMailError) return jsonError(error.message, error.status === 401 ? 428 : error.status);
+  return jsonError("Outlook could not confirm the draft. Check its status before trying again.", 503);
 }
 
 function buildDeliveryAudit({
@@ -412,4 +426,22 @@ async function failedDeliveryResponse(input: Parameters<typeof deliverMeetClient
 
 function confirmedRequest(value: unknown): value is Record<string, unknown> {
   return isRecord(value) && value.confirmed === true;
+}
+
+async function authorize(request: Request, context: { params: Promise<{ referralId: string }> }) {
+    const auth = await requirePipelineUser(request);
+    if (!auth.ok) return auth;
+    const originFailure = requireSameOriginMutation(request);
+    if (originFailure) return { ok: false as const, response: originFailure };
+    const storeFailure = meetClientStoreFailure();
+    if (storeFailure) return { ok: false as const, response: storeFailure };
+
+    const referralId = await parseReferralId(context);
+    if (!referralId) return { ok: false as const, response: jsonError("referralId is invalid.") };
+    const access = await requireMutableReferralAccess(auth.user, referralId);
+    if (!access.ok) return access;
+    if (!isMeetClientLive()) {
+      return { ok: false as const, response: jsonError("Not production yet — no email will be sent. This admission packet is a demo.", 403) };
+    }
+    return { ok: true as const, referralId, user: auth.user };
 }

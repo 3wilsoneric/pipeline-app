@@ -142,7 +142,7 @@ test("an isolated demo cannot reserve or send even with a configured mail provid
   const fixture = deliveryFixture({ exampleOnly: true });
   const response = await fixture.send();
   assert.equal(response.status, 403);
-  assert.match((await response.json()).error, /example only/);
+  assert.match((await response.json()).error, /Not production yet/);
   assert.equal(fixture.providerCalls(), 0);
   assert.equal(fixture.reservationCalls(), 0);
   assert.deepEqual(fixture.auditStates, []);
@@ -185,12 +185,14 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
+    "@/lib/notifications/outlook-mail": {},
+    "@/lib/notifications/outlook-handoff": {},
     "@/lib/notifications/admission-packet-files": { prepareAdmissionPacketLink: async (input) => { assert.equal(input.inventory.files.length, 2); return "https://pipeline.invalid/admission-packet/synthetic"; } },
-    "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {} },
+    "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {}, findWorkspaceOutlookDraft: async () => null },
     "@/lib/notifications/meet-client-email-template": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-email-template.ts"),
     "@/lib/notifications/meet-client-message": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-message.ts"),
     "@/lib/pipeline/admission-lifecycle": loadTypeScriptModule(process.cwd(), "lib/pipeline/admission-lifecycle.ts"),
-    "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ writable: exampleOnly }) },
+    "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ enabled: exampleOnly, writable: exampleOnly }) },
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
       assert.equal(roles, undefined);
       return denied ? { ok: false, response: jsonError("Forbidden", 403) } : { ok: true, user: { id: "synthetic-coordinator" } };
@@ -216,6 +218,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
     },
     "@/lib/notifications/microsoft-graph-mail": {
       GraphMailDeliveryError,
+      isMeetClientLive: () => !exampleOnly,
       getGraphMailReadiness: () => ({ configured: true }),
       validateMeetClientRecipients: (recipients) => ({ ok: true, recipients }),
       sendMeetClientMail: async (message) => {
@@ -247,7 +250,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   };
   const exports = {};
   vm.runInNewContext(source, {
-    exports, Request, Response, DOMException, Error,
+    exports, Request, Response, DOMException, Error, URL,
     require: (name) => {
       if (name === "node:crypto") return require(name);
       if (dependencies[name]) return dependencies[name];
