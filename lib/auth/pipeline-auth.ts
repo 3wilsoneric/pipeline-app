@@ -216,6 +216,11 @@ export function clearPipelineSessionCookie(request: Request) {
 }
 
 export function isProtectedPath(pathname: string) {
+  // These narrowly scoped endpoints enforce packet-specific recipient sessions.
+  // Neither the opaque URL nor a normal Pipeline login grants access to files.
+  const packetId = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}";
+  if (new RegExp(`^/admission-packet/${packetId}$`).test(pathname)
+    || new RegExp(`^/api/admission-packets/${packetId}(?:/files/[^/]+)?$`).test(pathname)) return false;
   const publicPrefixes = ["/sign-in", "/auth", "/api/health", "/api/auth/session"];
 
   return !publicPrefixes.some(

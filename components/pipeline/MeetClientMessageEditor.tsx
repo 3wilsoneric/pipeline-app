@@ -8,7 +8,7 @@ import { emptyMeetClientMessage, meetClientBodyLimit, meetClientSubjectLimit, ty
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import styles from "./MeetClientEmailPage.module.css";
 
-export default function MeetClientMessageEditor({ summary, preview, preparedBy, attachments, children, draft, admissionDate, disabled, onEdited, demo = false }: {
+export default function MeetClientMessageEditor({ summary, preview, preparedBy, attachments, children, draft, admissionDate, disabled, onEdited, demo = false, packetLink = false }: {
   summary?: MeetClientSummary;
   preview: { subject: string; html: string; text?: string } | null;
   preparedBy: string;
@@ -19,15 +19,17 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
   disabled: boolean;
   onEdited: () => void;
   demo?: boolean;
+  packetLink?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const content = draft?.fields.message ?? emptyMeetClientMessage();
-  const rendered = summary ? renderMeetClientEmail(summary, preparedBy, "Preview — assigned when sent", attachments, content, { demo }) : preview;
+  const rendered = summary ? renderMeetClientEmail(summary, preparedBy, "Preview — assigned when sent", attachments, content, { demo, packetLinkPreview: packetLink }) : preview;
+  const editableText = summary ? renderMeetClientEmail(summary, preparedBy, "Preview", [], content).text : preview?.text;
   const editable = Boolean(draft?.editable) && !disabled;
   const change = (patch: Partial<MeetClientMessage>) => { draft?.changeMessage({ ...content, ...patch }); onEdited(); };
   const flush = () => { void draft?.flush().catch(() => undefined); };
   const renderBody = () => editing ? <label className={styles.messageEditor}><span>Message</span><textarea aria-label="Meet the Client message" rows={18} maxLength={meetClientBodyLimit}
-    value={content.body ?? rendered?.text ?? ""} readOnly={!editable} onChange={(event) => change({ body: event.target.value })} onBlur={flush} /></label>
+    value={content.body ?? editableText ?? ""} readOnly={!editable} onChange={(event) => change({ body: event.target.value })} onBlur={flush} /></label>
     : rendered ? <iframe title="Meet the Client email preview" srcDoc={rendered.html} sandbox="" referrerPolicy="no-referrer" className={styles.emailFrame} />
       : <div className={styles.emptyPreview}><Mail size={30} /><h3>Your email preview will appear here</h3><p>You can edit the message and review files and recipients now. The summary is prepared from your signed assessment.</p></div>;
   return <>

@@ -38,7 +38,7 @@ test("an unconfirmed provider outcome remains unconfirmed even if the failure au
   const body = await response.json();
   assert.match(body.error, /did not confirm acceptance/);
   assert.doesNotMatch(body.error, /No email was sent/);
-  assert.deepEqual(fixture.auditStates, ["failed"]);
+  assert.deepEqual(fixture.auditStates, ["unconfirmed"]);
   assert.equal(fixture.providerCalls(), 1);
   assert.ok(fixture.metrics.includes("failure_audit_pending"));
 });
@@ -171,7 +171,7 @@ test("edited message reaches the provider unchanged, and malformed edits never r
   }
 });
 
-function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, previewAssessmentVersion = 7, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
+function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, previewAssessmentVersion = 7, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
   let calls = 0;
   let reservations = 0;
   const mutationIds = new Set();
@@ -183,8 +183,11 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
   const assessment = { ...schemaOwner.createEmptyAssessmentToolData(), assessment_id: "synthetic-assessment", version: 7, updated_by: { name: "Synthetic Assessor" }, signed_at: signed ? "2026-09-11T10:00:00Z" : null, im_injections: "yes", last_injection: "Synthetic injection - date unknown", assault_history: "yes", last_assault_details: "Synthetic historical incident" };
   const referral = { id: 6, version: 4, name: "Synthetic Client", dob: "1970-01-01", source: "Synthetic Clinic", community: "San Pablo", admissionDate, requirements: [{ type: "signed_admission_agreement", status: "needed" }] };
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
-  class GraphMailDeliveryError extends Error {}
+  class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
+    "@/lib/notifications/admission-packet-files": { prepareAdmissionPacketLink: async (input) => { assert.equal(input.inventory.files.length, 2); return "https://pipeline.invalid/admission-packet/synthetic"; } },
+    "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {} },
+    "@/lib/notifications/meet-client-email-template": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-email-template.ts"),
     "@/lib/notifications/meet-client-message": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-message.ts"),
     "@/lib/pipeline/admission-lifecycle": loadTypeScriptModule(process.cwd(), "lib/pipeline/admission-lifecycle.ts"),
     "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ writable: exampleOnly }) },
@@ -208,7 +211,7 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
     "@/lib/assessment/assessment-summary": summaryOwner,
     "@/lib/extraction/contracts": { jsonError, readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
     "@/lib/notifications/meet-client-attachments": {
-      getMeetClientAttachmentInventory: async (_referral, { report }) => { packetReports.push(report); return { ready: true, totalBytes: 800, blockers: [] }; },
+      getMeetClientAttachmentInventory: async (_referral, { report }) => { packetReports.push(report); return { ready: true, revision: "1".repeat(64), totalBytes: 800, blockers: [], deliveryMode: secureLink ? "secure_link" : "direct", files: [{ name: "one.pdf", byteSize: 300 }, { name: "two.pdf", byteSize: 500 }] }; },
       prepareMeetClientMailAttachments: async () => [{ byteSize: 300 }, { byteSize: 500 }],
     },
     "@/lib/notifications/microsoft-graph-mail": {
@@ -218,6 +221,7 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
       sendMeetClientMail: async (message) => {
         calls += 1;
         messages.push(message);
+        if (rejectedSize && calls === 1) throw new GraphMailDeliveryError("graph_send_message_rejected", "Too large", 413);
         if (providerFailure) throw new Error("Synthetic transport outcome unknown");
         return { acceptedAt: "2026-09-11T12:00:00.000Z", attachmentCount: 2, attachmentBytes: 800 };
       },
@@ -253,7 +257,34 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
   return {
     auditStates, metrics, audits, messages, packetReports, providerCalls: () => calls, reservationCalls: () => reservations,
     send: (referralId = "6", body = {}) => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
-      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", ...body }),
+      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", packet_revision: "1".repeat(64), ...body }),
     }), { params: Promise.resolve({ referralId }) }),
   };
 }
+
+
+test("oversized packets send one verified-recipient link containing all files", async () => {
+  const fixture = deliveryFixture({ secureLink: true });
+  assert.equal((await fixture.send()).status, 200);
+  assert.equal(fixture.providerCalls(), 1);
+  assert.equal(fixture.messages[0].attachments.length, 0);
+  assert.equal(fixture.messages[0].packetFiles.length, 2);
+  assert.match(fixture.messages[0].packetUrl, /^https:/);
+});
+test("a definite size refusal switches to a complete linked packet exactly once", async () => {
+  const fixture = deliveryFixture({ rejectedSize: true });
+  assert.equal((await fixture.send()).status, 200);
+  assert.equal(fixture.providerCalls(), 2);
+  assert.equal(fixture.messages[1].attachments.length, 0);
+  assert.equal(fixture.messages[1].packetFiles.length, 2);
+  assert.equal((await fixture.send()).status, 409);
+  assert.equal(fixture.providerCalls(), 2);
+});
+
+
+test("files changed after preview require fresh review without reserving a send", async () => {
+  const fixture = deliveryFixture();
+  assert.equal((await fixture.send("6", { packet_revision: "2".repeat(64) })).status, 409);
+  assert.equal(fixture.reservationCalls(), 0);
+  assert.equal(fixture.providerCalls(), 0);
+});

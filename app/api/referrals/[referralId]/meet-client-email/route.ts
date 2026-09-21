@@ -10,6 +10,9 @@ import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-recor
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
+import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet-files";
+import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
+import { PacketAccessError } from "@/lib/notifications/admission-packet-store";
 import {
   getMeetClientAttachmentInventory,
   prepareMeetClientMailAttachments,
@@ -61,6 +64,7 @@ export async function POST(
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
     const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment);
     if (!attachmentContext.ok) return attachmentContext.response;
+    if (attachmentContext.inventory.revision !== prepared.packetRevision) return jsonError("The packet files changed. Refresh the preview to include every current file before sending.", 409);
 
     const reserveAndDeliver = async () => {
       const deliveryId = randomUUID();
@@ -75,11 +79,11 @@ export async function POST(
         reviewVersion: contextResult.reviewVersion,
         actor: accountableActor,
         recipients: [...prepared.recipients, ...prepared.ccRecipients],
-        attachmentCount: attachmentContext.attachments.length,
+        attachmentCount: attachmentContext.inventory.files.length,
         attachmentBytes: attachmentContext.inventory.totalBytes,
       });
       const reserved = await reserveMeetClientDelivery(audit);
-      if (!reserved) return jsonError("This email request was already processed. Refresh the summary before trying again.", 409);
+      if (!reserved) return jsonError("This assessment already has a send in progress or awaiting confirmation. Check the workspace activity and the sending mailbox before retrying; refreshing will not send a duplicate.", 409);
 
       return deliverMeetClientEmail({
         audit,
@@ -89,6 +93,14 @@ export async function POST(
         preparedBy: accountableActor.name,
         deliveryId,
         attachments: attachmentContext.attachments,
+        inventory: attachmentContext.inventory,
+        requestUrl: request.url,
+        beforeSend: async () => {
+          const fresh = await getReferralWorkflowSnapshot(referralId);
+          if (!fresh || fresh.referral.version !== prepared.referralVersion || fresh.decision?.outcome !== "accepted" || fresh.decision.decisionId !== contextResult.decisionId) throw new PacketAccessError("The admission details changed while preparing the packet. Refresh and review them before sending.", 409);
+          const currentFiles = await getMeetClientAttachmentInventory(handoffReferral, { largeAttachmentDeliveryConfigured: getGraphMailReadiness().largeAttachmentDeliveryConfigured, report: buildAssessmentSummaryReport(assessment, handoffReferral) });
+          if (!currentFiles.ready || currentFiles.revision !== prepared.packetRevision) throw new PacketAccessError("The packet files changed while preparing the email. Refresh and review them before sending.", 409);
+        },
         message: prepared.message,
       });
     };
@@ -105,12 +117,38 @@ async function deliverMeetClientEmail(input: {
   deliveryId: string;
   attachments: Awaited<ReturnType<typeof prepareMeetClientMailAttachments>>;
   message: MeetClientMessage;
+  inventory: Awaited<ReturnType<typeof getMeetClientAttachmentInventory>>;
+  requestUrl: string;
+  beforeSend: () => Promise<void>;
 }) {
   let result: Awaited<ReturnType<typeof sendMeetClientMail>> | undefined;
   let auditPending = false;
+  const validateBeforeSend = () => input.beforeSend().catch((error) => {
+    if (error instanceof PacketAccessError) throw error;
+    throw new PacketAccessError("The workspace could not be checked before sending. No email was sent. Try again.", 503);
+  });
   try {
     await deliverAssessmentPacket(input.audit.assessmentId, input.audit.assessmentVersion, async () => {
-      result = await sendMeetClientMail(input);
+      const sendLinkedPacket = async () => {
+        const content = renderMeetClientEmail(input.summary, input.preparedBy, input.deliveryId, [], input.message);
+        const packetUrl = await prepareAdmissionPacketLink({ id: input.deliveryId, referralId: input.audit.referralId,
+          assessmentId: input.audit.assessmentId, assessmentVersion: input.audit.assessmentVersion,
+          recipients: [...input.recipients, ...input.ccRecipients], inventory: input.inventory,
+          message: { subject: content.subject, body: content.text }, requestUrl: input.requestUrl })
+          .catch((error) => { if (error instanceof PacketAccessError) throw error; throw new PacketAccessError("The packet could not be prepared. No email was sent. Try again without removing any files.", 503); });
+        await validateBeforeSend();
+        return sendMeetClientMail({ ...input, attachments: [], packetUrl, packetFiles: input.inventory.files });
+      };
+      if (input.inventory.deliveryMode === "secure_link") result = await sendLinkedPacket();
+      else {
+        try { await validateBeforeSend(); result = await sendMeetClientMail(input); }
+        catch (error) {
+          // Only a definite refusal can safely switch delivery methods. A timeout
+          // might already have sent the email and must never trigger a second send.
+          if (!(error instanceof GraphMailDeliveryError) || (error.status !== 413 && error.code !== "packet_size_rejected" && error.code !== "large_attachment_permission_missing")) throw error;
+          result = await sendLinkedPacket();
+        }
+      }
       return result;
     });
   } catch (error) {
@@ -121,7 +159,7 @@ async function deliverMeetClientEmail(input: {
       recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "finalization_pending" });
     } else {
       try {
-        await completeMeetClientDelivery(input.audit, "failed", deliveryErrorCode(error));
+        await completeMeetClientDelivery(input.audit, definitelyNotSent(error) ? "failed" : "unconfirmed", deliveryErrorCode(error), definitelyNotSent(error));
       } catch {
         recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failure_audit_pending" });
       }
@@ -129,7 +167,11 @@ async function deliverMeetClientEmail(input: {
       if (error instanceof Error && error.message.startsWith("The assessment changed.")) {
         return jsonError(error.message, 409);
       }
-      return jsonError(deliveryFailureMessage(error), 502);
+      if (error instanceof PacketAccessError) return Response.json({ error: error.message, retryable: true }, { status: error.status, headers: privateHeaders() });
+      if (error instanceof GraphMailDeliveryError && definitelyNotSent(error)) {
+        return Response.json({ error: error.status === 429 ? "Microsoft 365 is busy. No email was sent. Wait a minute, then try again." : "Microsoft 365 declined this send. No email was sent. Check the sending account and try again.", retryable: true }, { status: 503, headers: privateHeaders() });
+      }
+      return jsonError(`${deliveryFailureMessage(error)} Reference: ${input.deliveryId}.`, 502);
     }
   }
   if (!result) return jsonError("The packet send was not confirmed.", 502);
@@ -149,8 +191,16 @@ async function deliverMeetClientEmail(input: {
     recipient_count: input.recipients.length + input.ccRecipients.length,
     attachment_count: result.attachmentCount,
     attachment_bytes: result.attachmentBytes,
+    delivery_mode: result.deliveryMode,
     ...(auditPending ? { audit_pending: true } : {}),
   }, { headers: privateHeaders() });
+}
+
+function definitelyNotSent(error: unknown) {
+  return error instanceof PacketAccessError
+    || (error instanceof Error && error.message.startsWith("The assessment changed."))
+    || (error instanceof GraphMailDeliveryError && (error.code.startsWith("attachment_source_") || error.code === "mail_preparation_failed"
+      || Boolean(error.status && [400, 401, 403, 404, 405, 413, 415, 422, 429].includes(error.status))));
 }
 
 function meetClientStoreFailure() {
@@ -166,7 +216,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 256_000);
@@ -176,6 +226,8 @@ async function prepareEmailRequest(request: Request): Promise<
   }
   const message = parseMeetClientMessage(body.value.message);
   if (!message) return { ok: false, response: jsonError("Use a subject up to 200 characters and message up to 20,000 characters, without unsupported control characters.") };
+  const packetRevision = body.value.packet_revision;
+  if (typeof packetRevision !== "string" || !/^[a-f0-9]{64}$/.test(packetRevision)) return { ok: false, response: jsonError("Refresh the preview before sending the packet.", 409) };
   const mutationId = body.value.client_mutation_id;
   if (!isMutationId(mutationId)) return { ok: false, response: jsonError("client_mutation_id is invalid.") };
   const referralVersion = body.value.if_match;
@@ -192,7 +244,7 @@ async function prepareEmailRequest(request: Request): Promise<
     return { ok: false, response: jsonError("Refresh and review the assessment summary before sending.", 409) };
   }
   const audience = prepareHandoffAudience(body.value, readiness);
-  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number } : audience;
+  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision } : audience;
 }
 
 function prepareHandoffAudience(body: Record<string, unknown>, readiness: ReturnType<typeof getGraphMailReadiness>) {
@@ -249,7 +301,7 @@ async function loadAdmissionPacket(referral: Referral, assessment: PipelineAsses
     if (!inventory.ready) {
       return { ok: false as const, response: jsonError(inventory.blockers.join(" "), 422) };
     }
-    const attachments = await prepareMeetClientMailAttachments(inventory);
+    const attachments = inventory.deliveryMode === "secure_link" ? [] : await prepareMeetClientMailAttachments(inventory);
     return { ok: true as const, inventory, attachments };
   } catch {
     return { ok: false as const, response: jsonError("The admission packet could not be prepared. Refresh the chart and try again.", 503) };
