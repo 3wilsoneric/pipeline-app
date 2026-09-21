@@ -13,6 +13,8 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
 import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import type { HandoffRecipients } from "./useHandoffRecipients";
+import MeetClientMessageEditor from "./MeetClientMessageEditor";
+import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import styles from "./MeetClientEmailPage.module.css";
@@ -24,7 +26,8 @@ type ChartPayload = {
     example_only: boolean;
     configured: boolean;
     sender: string;
-    preview: { subject: string; html: string } | null;
+    preview: { subject: string; html: string; text?: string } | null;
+    prepared_by?: string;
     allowed_recipient_domains: string[];
     eligible: boolean;
     can_send: boolean;
@@ -99,7 +102,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
     if (!handoffDraftReady(emailDraft)) return;
     const recipientList = recipients;
-    const requestKey = handoffRequestKey(payload, recipientList, ccRecipients);
+    const requestKey = handoffRequestKey(payload, recipientList, ccRecipients, emailDraft.fields.message);
     if (sendRequest.current?.key !== requestKey) sendRequest.current = { key: requestKey, mutationId: crypto.randomUUID() };
     sendInFlight.current = true;
     setSending(true);
@@ -118,6 +121,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
             confirmed: true,
             if_match: payload.referral.version,
             client_mutation_id: sendRequest.current.mutationId,
+            message: emailDraft.fields.message,
           }),
         },
         { timeoutMs: 300_000 },
@@ -156,7 +160,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       <HandoffOverview payload={readyPayload} recipientCount={recipients.length + ccRecipients.length} sent={sent}
         onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {composerOpen ? <MeetClientComposeDialog sending={sending} onClose={() => { setComposerOpen(false); setConfirmed(false); }}>
-      <MeetClientEmailPreview email={readyPayload.email} emailDraft={emailDraft} referral={readyPayload.referral} confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
+      <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral} confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
         onConfirmed={setConfirmed}
         onSend={() => void emailMeetClient()} />
       </MeetClientComposeDialog> : null}
@@ -242,12 +246,13 @@ function MeetClientComposeDialog({ sending, onClose, children }: { sending: bool
   </dialog>;
 }
 
-function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRecipients: string[]) {
+function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRecipients: string[], message: MeetClientMessage) {
   return JSON.stringify([
       payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
       [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
       [...ccRecipients].sort(),
       payload.email.admission_packet.files.map((file) => file.document_id).sort(),
+      message,
     ]);
 }
 
@@ -354,8 +359,9 @@ function ChartSourceFooter({ report }: { report: AssessmentSummaryReport }) {
   );
 }
 
-function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onConfirmed, onSend }: {
+function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onConfirmed, onSend }: {
   email: ChartPayload["email"];
+  report: AssessmentSummaryReport | null;
   emailDraft?: HandoffRecipients;
   referral: Referral;
   confirmed: boolean;
@@ -409,12 +415,10 @@ function MeetClientEmailPreview({ email, emailDraft, referral, confirmed, sendin
       <div className={styles.nextStep}><p role="status">{status}</p>{!email.example_only ? refresh : null}</div>
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
       {emailDraft ? <div data-guide-target="packet-recipients" className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} composer value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={!email.can_edit_recipients || sending || sent} /></div> : null}
-      <div className={styles.addressRow}><span>Subject</span><span className={styles.subject}>{email.preview?.subject || "Meet the Client"}</span></div>
-      {renderPacketAttachments()}
-      <div className={styles.messageBody}>
-        {email.preview ? <iframe title="Meet the Client email preview" srcDoc={email.preview.html} sandbox="" referrerPolicy="no-referrer" className={styles.emailFrame} />
-          : <div className={styles.emptyPreview}><Mail size={30} /><h3>Your email preview will appear here</h3><p>You can review files and recipients now. The summary is prepared from your signed assessment.</p></div>}
-      </div>
+      <MeetClientMessageEditor summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""} attachments={email.admission_packet.files.map((file) => file.name)}
+        draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={!email.can_edit_recipients || sending || sent} onEdited={() => onConfirmed(false)}>
+        {renderPacketAttachments()}
+      </MeetClientMessageEditor>
       <footer className={styles.footer}>
         {renderDeliveryDetails()}
       </footer>

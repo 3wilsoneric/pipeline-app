@@ -9,6 +9,7 @@ import { buildAssessmentSummaryReport, buildMeetClientSummary, selectSignedAsses
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
+import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import {
   getMeetClientAttachmentInventory,
   prepareMeetClientMailAttachments,
@@ -88,6 +89,7 @@ export async function POST(
         preparedBy: accountableActor.name,
         deliveryId,
         attachments: attachmentContext.attachments,
+        message: prepared.message,
       });
     };
     return reserveAndDeliver();
@@ -102,6 +104,7 @@ async function deliverMeetClientEmail(input: {
   preparedBy: string;
   deliveryId: string;
   attachments: Awaited<ReturnType<typeof prepareMeetClientMailAttachments>>;
+  message: MeetClientMessage;
 }) {
   let result: Awaited<ReturnType<typeof sendMeetClientMail>> | undefined;
   let auditPending = false;
@@ -163,18 +166,20 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage }
   | { ok: false; response: Response }
 > {
-  const body = await readJsonBody(request, 32_000);
+  const body = await readJsonBody(request, 256_000);
   if (!body.ok) return { ok: false, response: jsonError(body.message, body.status) };
   if (!isRecord(body.value) || body.value.confirmed !== true) {
     return { ok: false, response: jsonError("Confirm that every recipient is authorized to receive this client information.") };
   }
+  const message = parseMeetClientMessage(body.value.message);
+  if (!message) return { ok: false, response: jsonError("Use a subject up to 200 characters and message up to 20,000 characters, without unsupported control characters.") };
   const mutationId = body.value.client_mutation_id;
   if (!isMutationId(mutationId)) return { ok: false, response: jsonError("client_mutation_id is invalid.") };
   const referralVersion = body.value.if_match;
-  if (typeof referralVersion !== "number" || !Number.isSafeInteger(referralVersion) || referralVersion < 1) {
+  if (!isReferralVersion(referralVersion)) {
     return { ok: false, response: jsonError("Refresh the summary before sending.", 409) };
   }
   const readiness = getGraphMailReadiness();
@@ -182,7 +187,7 @@ async function prepareEmailRequest(request: Request): Promise<
     return { ok: false, response: jsonError("Microsoft 365 email is not configured for Pipeline.", 503) };
   }
   const audience = prepareHandoffAudience(body.value, readiness);
-  return audience.ok ? { ...audience, mutationId, referralVersion } : audience;
+  return audience.ok ? { ...audience, mutationId, referralVersion, message } : audience;
 }
 
 function prepareHandoffAudience(body: Record<string, unknown>, readiness: ReturnType<typeof getGraphMailReadiness>) {
@@ -298,6 +303,10 @@ async function parseReferralId(context: { params: Promise<{ referralId: string }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isReferralVersion(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
 function isMutationId(value: unknown): value is string {

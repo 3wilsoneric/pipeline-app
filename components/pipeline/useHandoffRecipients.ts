@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import type { CommunityRecipientList, RecipientFields } from "@/lib/pipeline/community-recipient-lists";
+import { emptyMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
 
-const empty = (): RecipientFields => ({ to: [], cc: [] });
-type Session = { key: string; version: number; fields: RecipientFields; saved: string; queue: Promise<void>; error: string };
+type DraftFields = RecipientFields & { message: MeetClientMessage };
+const empty = (): DraftFields => ({ to: [], cc: [], message: emptyMeetClientMessage() });
+type Session = { key: string; version: number; fields: DraftFields; saved: string; queued: string; queue: Promise<void>; error: string };
 
 export function useHandoffRecipients(referralId: number | undefined, community: string) {
-  const [fields, setFields] = useState<RecipientFields>(empty);
+  const [fields, setFields] = useState<DraftFields>(empty);
   const [lists, setLists] = useState<CommunityRecipientList[]>([]);
   const [loadedKey, setLoadedKey] = useState("");
   const [message, setMessage] = useState("");
@@ -18,48 +20,77 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
   const loadKey = JSON.stringify([referralId, community, reloadKey]);
   const loading = loadedKey !== loadKey;
   const session = useRef<Session | null>(null);
+  const messageSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endpoint = referralId ? `/api/referrals/${referralId}/handoff-recipients` : "";
   useEffect(() => {
     const controller = new AbortController();
-    const current: Session = { key: `${referralId}:${community}`, version: 0, fields: empty(), saved: "", queue: Promise.resolve(), error: "" };
+    const current: Session = { key: `${referralId}:${community}`, version: 0, fields: empty(), saved: "", queued: "", queue: Promise.resolve(), error: "" };
     session.current = current;
     const load = async () => {
       let templates: CommunityRecipientList[] = [];
       let note = "";
       try { templates = (await fetchPipelineJson<{ lists: CommunityRecipientList[] }>("/api/community-recipient-lists", { signal: controller.signal })).lists; }
       catch { note = "Community list unavailable. Add authorized recipients below."; }
-      const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string }) | null; version: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0 };
+      const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage }) | null; version: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0 };
       if (session.current !== current || controller.signal.aborted) return;
       const template = templates.find((list) => list.community === community);
       const values = stored.draft?.community === community ? stored.draft : template ?? empty();
       current.version = stored.version;
-      current.fields = { to: values.to, cc: values.cc };
+      current.fields = { to: values.to, cc: values.cc, message: stored.draft?.message ?? emptyMeetClientMessage() };
       current.saved = JSON.stringify(current.fields);
+      current.queued = current.saved;
       setFields(current.fields); setLists(templates); setError("");
       setMessage(recipientLoadMessage(stored.draft?.community === community, note, Boolean(template), community));
     };
     void load().catch(() => { if (!controller.signal.aborted) setError("Recipient drafts could not be loaded. Retry before editing."); })
       .finally(() => { if (!controller.signal.aborted) setLoadedKey(loadKey); });
-    return () => { controller.abort(); if (session.current === current) session.current = null; };
+    return () => { controller.abort(); if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current); messageSaveTimer.current = null; if (session.current === current) session.current = null; };
   }, [community, endpoint, referralId, loadKey]);
 
-  const change = (next: RecipientFields) => {
+  const save = useCallback(() => {
     const current = session.current;
-    if (!current || !endpoint || loading || current.error) return;
-    current.fields = next; setFields(next); setMessage("Saving recipients...");
+    if (!current || !endpoint || !current.saved || current.error) return;
+    const next = current.fields;
+    const serialized = JSON.stringify(next);
+    if (serialized === current.queued) return;
+    current.queued = serialized;
     current.queue = current.queue.then(async () => {
       if (session.current !== current) throw new Error("The workspace changed before recipients were saved.");
       const result = await fetchPipelineJson<{ version: number }>(endpoint, { method: "PUT", body: JSON.stringify({ if_match: current.version, draft: { ...next, community } }) });
       current.version = result.version;
-      current.saved = JSON.stringify(next);
-      if (session.current === current && current.saved === JSON.stringify(current.fields)) setMessage("Recipients saved for this handoff");
+      current.saved = serialized;
+      if (session.current === current && current.saved === JSON.stringify(current.fields)) setMessage("Handoff draft saved");
     });
     void current.queue.catch((failure) => {
-      current.error = failure instanceof Error ? failure.message : "Recipients could not be saved.";
+      current.error = failure instanceof Error ? failure.message : "The handoff draft could not be saved.";
       if (session.current === current) { setError(current.error); setMessage("Not saved"); }
     });
+  }, [community, endpoint]);
+  const change = (next: RecipientFields) => {
+    const current = session.current;
+    if (!current || !endpoint || loading || current.error) return;
+    current.fields = { ...next, message: current.fields.message }; setFields(current.fields); setMessage("Saving handoff draft...");
+    save();
   };
-  const flush = useCallback(async () => { await session.current?.queue; }, []);
+  const changeMessage = (next: MeetClientMessage) => {
+    const current = session.current;
+    if (!current || !endpoint || loading || current.error) return;
+    current.fields = { ...current.fields, message: next }; setFields(current.fields); setMessage("Saving handoff draft...");
+    if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
+    messageSaveTimer.current = setTimeout(() => { messageSaveTimer.current = null; save(); }, 400);
+  };
+  const flush = useCallback(async () => {
+    if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
+    messageSaveTimer.current = null;
+    save();
+    await session.current?.queue;
+  }, [save]);
+  const retry = async () => {
+    const current = session.current;
+    if (!current) return;
+    current.queue = current.queue.catch(() => undefined); current.error = ""; current.queued = ""; setError("");
+    save();
+  };
   usePersonaSwitchSave(flush);
   useEffect(() => {
     const leave = (event: BeforeUnloadEvent) => {
@@ -69,7 +100,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
   }, []);
-  return { fields: loading ? empty() : fields, lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, flush, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
+  return { fields: loading ? empty() : fields, lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, retry, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;

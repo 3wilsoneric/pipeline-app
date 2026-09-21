@@ -13,6 +13,7 @@ const lists = [
 async function openHandoff(page: Page, referralId: number) {
   await page.route("**/api/community-recipient-lists", (route) => route.fulfill({ json: { lists } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceView=email`);
+  await page.getByRole("button", { name: "Preview email", exact: true }).click();
   await expect(page.getByRole("combobox", { name: /^To/ })).toBeEnabled();
 }
 
@@ -29,13 +30,14 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   const input = page.getByRole("combobox", { name: /^Cc/ });
   await input.fill("Transport <transport@example.invalid>");
   await input.press("Enter");
-  await expect(page.getByRole("status").filter({ hasText: "Recipients saved for this handoff" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
   const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
   const saved = await (await page.request.get(endpoint)).json();
   expect(saved.version).toBe(2);
   expect(saved.draft.to.map((item: { email: string }) => item.email)).toEqual(["care@example.invalid"]);
   expect(saved.draft.cc.map((item: { email: string }) => item.email)).toEqual(["admissions@example.invalid", "transport@example.invalid"]);
   await page.reload();
+  await page.getByRole("button", { name: "Preview email", exact: true }).click();
   await expect(to).not.toContainText("Medication team");
   await expect(cc).toContainText("Transport");
   const download = page.waitForEvent("download");
@@ -54,12 +56,13 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   const changed = await page.request.patch(`/api/referrals/${referral.id}`, { data: { if_match: current.version, patch: { community: "Turlock" } } });
   expect(changed.status(), await changed.text()).toBe(200);
   await page.reload();
+  await page.getByRole("button", { name: "Preview email", exact: true }).click();
   await expect(to).toContainText("Turlock team");
   await expect(to).not.toContainText("Care team");
   await expect(cc).not.toContainText("Transport");
   await input.fill("New member <new@example.invalid>");
   await input.press("Enter");
-  await expect(page.getByRole("status").filter({ hasText: "Recipients saved for this handoff" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
   expect((await (await page.request.get(endpoint)).json()).draft.community).toBe("Turlock");
   expect(sends).toBe(0);
 });
@@ -84,7 +87,7 @@ test("recipient keyboard suggestions, dismissal, add and chip focus preserve the
   await expect(remove).toBeFocused();
   await input.fill("Keyboard <keyboard@example.invalid>");
   await input.press(";");
-  await expect(page.getByRole("status").filter({ hasText: "Recipients saved for this handoff" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
   const saved = await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json();
   expect(saved.draft.to.map((item: { email: string }) => item.email)).toEqual(["care@example.invalid", "meds@example.invalid", "keyboard@example.invalid"]);
   expect(saved.draft.cc.map((item: { email: string }) => item.email)).toEqual(["admissions@example.invalid"]);

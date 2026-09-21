@@ -137,6 +137,19 @@ test("delivery and its generated chart use fresh agreement work items and the ca
   assert.deepEqual(fixture.packetReports[0].meetClient, summary);
 });
 
+test("edited message reaches the provider unchanged, and malformed edits never reserve a send", async () => {
+  const message = { subject: "Meet the Client — arrival", body: "Hello team,\nPlease call before arrival. <script>text only</script>" };
+  const fixture = deliveryFixture();
+  assert.equal((await fixture.send("6", message)).status, 200);
+  assert.deepEqual(JSON.parse(JSON.stringify(fixture.messages[0].message)), message);
+  for (const invalid of [{ subject: "Bad\r\nBcc: x@example.invalid", body: "Hello" }, { subject: "Okay", body: "x".repeat(20_001) }, { subject: [], body: "Hello" }]) {
+    const rejected = deliveryFixture();
+    assert.equal((await rejected.send("6", invalid)).status, 400);
+    assert.equal(rejected.providerCalls(), 0);
+    assert.equal(rejected.reservationCalls(), 0);
+  }
+});
+
 function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
   let calls = 0;
   let reservations = 0;
@@ -151,6 +164,7 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error {}
   const dependencies = {
+    "@/lib/notifications/meet-client-message": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-message.ts"),
     "@/lib/pipeline/admission-lifecycle": loadTypeScriptModule(process.cwd(), "lib/pipeline/admission-lifecycle.ts"),
     "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ writable: exampleOnly }) },
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
@@ -217,8 +231,8 @@ function deliveryFixture({ exampleOnly = false, auditFailure = false, providerFa
   });
   return {
     auditStates, metrics, audits, messages, packetReports, providerCalls: () => calls, reservationCalls: () => reservations,
-    send: (referralId = "6") => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
-      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture" }),
+    send: (referralId = "6", message) => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
+      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", message }),
     }), { params: Promise.resolve({ referralId }) }),
   };
 }
