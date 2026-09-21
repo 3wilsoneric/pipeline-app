@@ -250,3 +250,21 @@ and closing the email preview with zero send requests. The seven state/navigatio
 fixtures, source/route contracts, production Webpack build, scoped lint, and
 unchanged complexity ratchet passed. This verifies guide behavior, not live
 email delivery or clinical competence.
+
+## Task-helper production integration (2026-09-20)
+
+Integrated the task helper with production a0d921e, preserving the current Files,
+signing dialog, admission follow-through, and separate email preview. The Home
+Board walkthrough retains four checkpoints, including keeping updates in the
+selected workspace. Recovery copy and rendering reuse small local helpers;
+existing complexity ceilings remain unchanged. The catalog contract now includes
+the separate practice-intake guide, and completion contracts assert the new
+next-action screen while retaining skipped-step and premature-finish checks.
+
+Integrated evidence: production Webpack build and TypeScript, scoped ESLint,
+nine state/navigation fixtures, training source/route contracts, and the
+unchanged complexity ratchet pass. All 27 focused browser cases pass: 26 in the
+full run plus the Board case after updating its expected fourth checkpoint.
+Coverage includes desktop/phone help, actual local appointment save/failure,
+referral handoff, preview with zero sends, and scoped accessibility. The Board
+next-action screenshot was inspected. No production records were used.

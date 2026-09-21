@@ -182,6 +182,8 @@ test("Board help follows the chosen card, not only the first card", async ({ pag
   await page.getByRole("button", { name: "Open Tutorial Board", exact: true }).click();
   await expect(coach.getByRole("heading", { name: "Continue in this referral" })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("referralId")).toBe(String(referral.id));
+  await coach.getByRole("button", { name: "Next tip", exact: true }).click();
+  await expect(coach.getByRole("heading", { name: "Keep updates in this workspace" })).toBeVisible();
   await coach.getByRole("button", { name: "What next?", exact: true }).click();
   await expect(page.getByTestId("guide-next-actions").getByRole("button", { name: "Help: Schedule an assessment", exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("board-help-next-step.png") });
