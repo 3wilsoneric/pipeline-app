@@ -646,7 +646,7 @@ check(
     && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('role="dialog" aria-modal={modal} aria-label={label}') && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('scheduleModal = true')
     && read("components/pipeline/AssessmentWorkingSection.tsx").includes('aria-label="Assessment progress"')
     && assessmentWorkspace.includes('setShowBeginDialog(true)')
-    && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('aria-label="Begin assessment"')
+    && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('aria-label="Begin interview"')
     && !assessmentWorkspace.includes("assessmentWorkbookTemplatePath")
     && !assessmentWorkspace.includes('role="tablist" aria-label="Assessment sections"'),
 );
