@@ -16,6 +16,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
     const response = await route.fetch();
     const payload = await response.json();
     const item = {
+      board: { stage: "received", detail: "Referral received", next_action: "Add referral information", location: { view: "intake" } },
       referral_id: 910501, client_name: "Avery Board", community: "San Pablo", stage: "New",
       workflow_status: "ready_to_schedule", flow_state: "ready_to_schedule", assessment_state: "not_started",
       outcome_state: "pending", assignment_state: "assigned", document_state: "partial", profile_state: "partial",
@@ -33,24 +34,27 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       ...item, referral_id: 920000 + stageIndex * 100 + index,
       client_name: `${stage.name} ${["Rivera", "Brooks", "Chen", "Patel", "Torres", "Bennett", "Parker", "Reed", "Hayes", "Ellis"][index]}`,
       workflow_status: stage.workflow_status, assessment_state: stage.assessment_state,
+      board: { stage: ["received", "in_progress", "decision"][stageIndex], detail: ["Referral received", "Assessment underway", "Under review"][stageIndex], next_action: ["Add referral information", "Continue assessment", "Record decision"][stageIndex], location: { view: ["intake", "assessment", "workflow"][stageIndex] } },
     }))) : [item];
     if (longLabels) Object.assign(boardItems[0], {
       client_name: "Alexandria Montgomery-Rivera", owner: "Christopher Montgomery-Williams",
       next_action: "Confirm the current medication list and the assessment location with the referring case manager.",
+      board: { ...boardItems[0].board, next_action: "Confirm the current medication list and the assessment location with the referring case manager." },
     });
     payload.workflow = { ...payload.workflow, active_items: boardItems, board_items: boardItems, active_total: boardItems.length };
     if (withFinished) {
       payload.workflow.board_items = [...boardItems,
-        { ...item, referral_id: 930001, client_name: "Accepted Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete_chart" },
-        { ...item, referral_id: 930002, client_name: "Denied Client", workflow_status: "declined", outcome_state: "declined", flow_state: "complete" },
-        { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete" },
+        { ...item, referral_id: 930001, client_name: "Accepted Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete_chart", board: { stage: "decision", detail: "Accept", next_action: "Review and sign the assessment", location: { view: "assessment" } } },
+        { ...item, referral_id: 930002, client_name: "Denied Client", workflow_status: "declined", outcome_state: "declined", flow_state: "complete", board: { stage: "decision", detail: "Denied", next_action: "Review decision", location: { view: "workflow" } } },
+        { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", board: { stage: "awaiting_admit", detail: "Email not sent", next_action: "Send Meet the Client", location: { view: "email" } } },
       ];
     }
     payload.workflow.all_board_items = [...payload.workflow.board_items];
     if (scope) {
-      for (const [index, workflow_status] of ["ready_to_schedule", "assessment_in_progress", "decision_pending", "declined"].entries()) {
+      for (const [index, workflow_status] of ["ready_to_schedule", "assessment_in_progress", "decision_pending", "admitted"].entries()) {
         payload.workflow.all_board_items.push({ ...item, referral_id: 940000 + index, client_name: `Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, workflow_status,
-          owner: "Another Assessor", outcome_state: workflow_status === "declined" ? "declined" : "pending" });
+          owner: "Another Assessor", outcome_state: workflow_status === "admitted" ? "accepted" : "pending",
+          board: { stage: ["received", "in_progress", "decision", "awaiting_admit"][index], detail: ["Referral received", "Assessment underway", "Under review", "Email not sent"][index], next_action: "Open workspace", location: { view: "workflow" } } });
       }
       if (scope === "team-only") Object.assign(payload.workflow, { active_items: [], board_items: [], active_total: 0 });
     }
@@ -73,8 +77,8 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
   await page.setViewportSize({ width, height: 900 });
   await homeFixture(page, undefined, 2, true, false, "mixed");
   await page.goto("/");
-  for (const [index, title] of ["Referral received", "In progress", "Decision", "Finished referrals"].entries()) {
-    if (width < 1024 && index < 3) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision"][index]);
+  for (const [index, title] of ["Referral received", "In progress", "Decision", "Awaiting admit"].entries()) {
+    if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision", "awaiting_admit"][index]);
     const opener = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
     await opener.click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
@@ -102,10 +106,10 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
   }
 });
 
-test("All is reachable when Mine is empty, including finished referrals", async ({ page }) => {
+test("All is reachable when Mine is empty, including admitted referrals awaiting email", async ({ page }) => {
   await homeFixture(page, undefined, 0, false, false, "team-only");
   await page.goto("/");
-  for (const title of ["Referral received", "Finished referrals"]) {
+  for (const title of ["Referral received", "Awaiting admit"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toContainText("None assigned to you here.");
@@ -344,20 +348,19 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   await expect(page).toHaveURL(/referralId=920009/);
 });
 
-test("accepted stays active; denied and admitted files remain accessible in Finished", async ({ page }) => {
+test("decision tabs use distinct colors and admitted files await email without a Finished folder", async ({ page }, info) => {
   await homeFixture(page, undefined, 1, true);
   await page.goto("/");
   await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Accepted Client", exact: true })).toBeVisible();
-  await expect(page.locator('[data-current-work-board]').getByRole("button", { name: "Open Denied Client", exact: true })).toHaveCount(0);
-  const finished = page.getByRole("button", { name: "Open finished referrals folder", exact: true });
-  await finished.click();
-  const dialog = page.getByRole("dialog", { name: "Finished referrals folder", exact: true });
-  await expect(dialog.locator("[data-board-card]")).toHaveCount(2);
-  await expect(dialog.getByRole("button", { name: "Open Denied Client", exact: true })).toContainText("Denied");
-  await expect(dialog.getByRole("button", { name: "Open Admitted Client", exact: true })).toContainText("Admitted");
-  await dialog.getByRole("button", { name: "Close finished referrals folder", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(finished).toBeFocused();
+  await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Denied Client", exact: true })).toBeVisible();
+  await expect(page.locator('[data-board-stage="awaiting_admit"]').getByRole("button", { name: "Open Admitted Client", exact: true })).toContainText("Email not sent");
+  await expect(page.getByRole("button", { name: "Open finished referrals folder", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
+  await expect(dialog.locator("[data-board-status]")).toHaveText(["Under review", "Accept", "Denied"]);
+  const colors = await dialog.locator("[data-board-status]").evaluateAll(tabs => tabs.map(tab => getComputedStyle(tab).backgroundColor));
+  expect(new Set(colors).size).toBe(3);
+  await dialog.screenshot({ path: info.outputPath("decision-tabs.png"), animations: "disabled" });
 });
 
 test("folder expansion respects reduced motion and empty stages", async ({ page }) => {
@@ -411,7 +414,7 @@ test("expanded folders retain stage accents and long file labels stay readable",
   await homeFixture(page, undefined, 3, true, true);
   await page.goto("/");
   const colors = new Set<string>();
-  for (const title of ["Referral received", "In progress", "Decision", "Finished referrals"]) {
+  for (const title of ["Referral received", "In progress", "Decision", "Awaiting admit"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toBeVisible();

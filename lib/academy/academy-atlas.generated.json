@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a2dae52f15c0b501",
-  "fingerprint": "a2dae52f15c0b5014155f41dd0df2f7ec0289dfb5149ef09ccd23379bc3e67a2",
+  "generatedAt": "source-fingerprint:ab3d5b26348ecf10",
+  "fingerprint": "ab3d5b26348ecf1007eaff216ef0fd99f54e33ece4f2b0bf4c425143729a0326",
   "totals": {
-    "files": 1334,
-    "lines": 358476,
-    "coveredFiles": 1334
+    "files": 1335,
+    "lines": 358636,
+    "coveredFiles": 1335
   },
   "entries": [
     {
@@ -3096,7 +3096,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 264,
+      "lines": 262,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3108,7 +3108,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 285,
+      "lines": 249,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -9545,7 +9545,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 977,
+      "lines": 974,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -9557,7 +9557,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 247,
+      "lines": 249,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -9713,7 +9713,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 72,
+      "lines": 134,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -11157,7 +11157,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 61,
+      "lines": 63,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13588,6 +13588,18 @@
       ]
     },
     {
+      "path": "scripts/referral-board-lifecycle.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 131,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/referral-intake-recovery-contracts.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -14962,7 +14974,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 46,
+      "lines": 47,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14974,7 +14986,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 462,
+      "lines": 465,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

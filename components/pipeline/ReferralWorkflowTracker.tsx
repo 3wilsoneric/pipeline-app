@@ -1,17 +1,16 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ArrowRight, ChevronDown, FolderClosed, FolderOpen, Maximize2 } from "lucide-react";
+import { ArrowRight, ChevronDown, FolderOpen, Maximize2 } from "lucide-react";
 
 import HomeDialog, { type HomeDialogOrigin } from "@/components/pipeline/HomeDialog";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
-import { activeReferralFlowStates, isFinishedBoardReferral, referralBoardStageForStatus, referralBoardStages, type ReferralBoardStage } from "@/lib/pipeline/referral-flow";
+import { referralBoardStages, type ReferralBoardStage } from "@/lib/pipeline/referral-flow";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import folderStyles from "./ClientFolder.module.css";
 import boardStyles from "./ReferralWorkflowTracker.module.css";
 
@@ -62,16 +61,14 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const [mobileStage, setMobileStage] = useState<ReferralBoardStage>("received");
-  const [expanded, setExpanded] = useState<{ stage: ReferralBoardStage | "finished"; origin: HomeDialogOrigin } | null>(null);
-  const finished = items.filter(isFinishedBoardReferral);
-  const active = items.filter((item) => !finished.includes(item));
-  const allFinished = allItems.filter(isFinishedBoardReferral);
-  const allActive = allItems.filter((item) => !isFinishedBoardReferral(item));
-  const stages = referralBoardStages.filter((stage) => stage.key !== "admitted" || allActive.some((item) => referralBoardStageForStatus(item.workflow_status) === "admitted"));
+  const [expanded, setExpanded] = useState<{ stage: ReferralBoardStage; origin: HomeDialogOrigin } | null>(null);
+  const active = items.filter((item) => item.board.stage !== null);
+  const allActive = allItems.filter((item) => item.board.stage !== null);
+  const stages = referralBoardStages;
 
-  function openFolder(stage: ReferralBoardStage | "finished", element: HTMLElement) {
-    if (stage !== "finished") setMobileStage(stage);
-    const folder = element.closest<HTMLElement>("[data-board-stage], [data-finished-folder]") ?? element;
+  function openFolder(stage: ReferralBoardStage, element: HTMLElement) {
+    setMobileStage(stage);
+    const folder = element.closest<HTMLElement>("[data-board-stage]") ?? element;
     folder.querySelector<HTMLButtonElement>("[data-open-folder]")?.focus({ preventScroll: true });
     const { left, top, width, height } = folder.getBoundingClientRect();
     setExpanded({ stage, origin: { left, top, width, height } });
@@ -86,13 +83,13 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
       <label className="relative mb-4 block lg:hidden">
         <span className="sr-only">Referral stage</span>
         <select value={mobileStage} onChange={(event) => setMobileStage(event.target.value as ReferralBoardStage)} className="h-11 w-full appearance-none border border-[#c7d1cb] bg-white px-3 pr-10 text-[13px] font-bold text-[#202320] focus-visible:outline-[#0f8b73]">
-          {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label} ({active.filter((item) => referralBoardStageForStatus(item.workflow_status) === stage.key).length})</option>)}
+          {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label} ({active.filter((item) => item.board.stage === stage.key).length})</option>)}
         </select>
         <ChevronDown size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#176f60]" aria-hidden="true" />
       </label>
-      <div data-current-work-board className={`grid items-start gap-4 lg:grid-cols-2 ${stages.length === 4 ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
+      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {stages.map((stage) => {
-          const stageItems = active.filter((item) => referralBoardStageForStatus(item.workflow_status) === stage.key);
+          const stageItems = active.filter((item) => item.board.stage === stage.key);
           return <div key={stage.key} data-board-stage={stage.key} className={`${boardStyles.docket} ${mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`} onClick={(event) => {
             if (!(event.target as HTMLElement).closest("button, a, input, select, textarea, dialog")) openFolder(stage.key, event.currentTarget);
           }}>
@@ -104,17 +101,13 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
               </button></h2>
             </div>
             <div data-folder-stack className={boardStyles.stack}>
-              {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} stage={stage.key} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
+              {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
               {stageItems.length === 0 ? <p className="py-5 text-center text-[11px] font-medium text-[#77817a]">No referrals here</p> : null}
             </div>
-            {expanded?.stage === stage.key ? <ExpandedStageFolder title={stage.label} items={stageItems} allItems={allActive.filter((item) => referralBoardStageForStatus(item.workflow_status) === stage.key)} origin={expanded.origin} showOwner={showOwner} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
+            {expanded?.stage === stage.key ? <ExpandedStageFolder title={stage.label} items={stageItems} allItems={allActive.filter((item) => item.board.stage === stage.key)} origin={expanded.origin} showOwner={showOwner} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
           </div>;
         })}
       </div>
-      {allFinished.length > 0 ? <div data-finished-folder className={boardStyles.finished}>
-        <button type="button" data-open-folder aria-label="Open finished referrals folder" aria-haspopup="dialog" aria-expanded={expanded?.stage === "finished"} onClick={(event) => openFolder("finished", event.currentTarget)}><FolderClosed size={21} aria-hidden="true" /><span>Finished referrals</span><strong>{finished.length}</strong><Maximize2 size={18} aria-hidden="true" /></button>
-        {expanded?.stage === "finished" ? <ExpandedStageFolder title="Finished referrals" items={finished} allItems={allFinished} origin={expanded.origin} showOwner={showOwner} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
-      </div> : null}
     </>
   );
 }
@@ -143,22 +136,20 @@ function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClos
     </div>
     <div className={boardStyles.expandedScroll}>
       {visibleItems.length ? <div data-expanded-folder className={boardStyles.expandedGrid}>
-        {visibleItems.map((item) => <LifecycleCard key={item.referral_id} item={item} stage={referralBoardStageForStatus(item.workflow_status)} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
+        {visibleItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
       </div> : <p className={boardStyles.emptyFolder}>{scope === "mine" && allItems.length ? "None assigned to you here. Choose All to see everyone’s referrals." : "No referrals in this folder."}</p>}
     </div>
   </HomeDialog>;
 }
 
-function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
+function LifecycleCard({ item, showOwner, onOpenPacket }: {
   item: ReferralWorklistItem;
-  stage: ReferralBoardStage;
   showOwner: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const descriptionId = useId();
   const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
-  const decision = stage === "decision" ? decisionPresentation(item) : null;
-  const status = decision?.label ?? (stage === "in_progress" && item.assessment_state === "scheduled" ? "Assessment scheduled" : workflowStatusLabels[item.workflow_status]);
+  const status = item.board.detail;
   const details = [
     { label: "Community", value: item.community },
     ...plannedAdmissionDetail(item),
@@ -166,7 +157,7 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
     { label: "File progress", value: `${Math.round(item.completion_pct)}% complete` },
     { label: "Documents needed", value: String(item.missing_document_count) },
   ];
-  return <button type="button" data-board-card data-guide-target="home-board-card" data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
+  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
     <span className={boardStyles.tabs}>
       <strong data-folder-name className={`${folderStyles.tab} ${boardStyles.nameTab}`}><span className={folderStyles.tabLabel}>{name}</span></strong>
       <span id={`${descriptionId}-status`} data-board-status className={boardStyles.statusTab}>{status}</span>
@@ -178,7 +169,7 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
           {item.received_at ? <span>Received {formatProfileDate(item.received_at)}</span> : null}
         </span>
         <span className={boardStyles.nextStep}>
-          <span id={`${descriptionId}-action`} className={boardStyles.actionText}>{item.next_action}</span>
+          <span id={`${descriptionId}-action`} className={boardStyles.actionText}>{item.board.next_action}</span>
           <ArrowRight size={15} aria-hidden="true" />
         </span>
         <span data-folder-details className={boardStyles.details}>
@@ -190,12 +181,6 @@ function LifecycleCard({ item, stage, showOwner, onOpenPacket }: {
       </span>
     </span>
   </button>;
-}
-
-function decisionPresentation(item: ReferralWorklistItem) {
-  if (item.outcome_state === "accepted") return { label: item.packet_sent_at ? "Awaiting admission" : "Accepted", tone: "text-[#176f60]", accent: "border-l-[#0f8b73]" };
-  if (item.outcome_state === "declined") return { label: "Denied", tone: "text-[#a74338]", accent: "border-l-[#b84b3d]" };
-  return { label: "Under review", tone: "text-[#936116]", accent: "border-l-[#b77b27]" };
 }
 
 export function WorkflowCardSkeleton() {
@@ -216,15 +201,15 @@ function WorkflowRibbon({ item, showOwner, onOpenPacket, current }: {
 }) {
   const clientName = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const owner = showOwner ? item.owner || "Unassigned" : null;
-  const presentation = workCardStatusPresentation(item, showOwner);
-  const stage = activeReferralFlowStates.find((state) => state.key === item.flow_state);
+  const presentation = { status: item.board.detail, nextAction: item.board.next_action, tone: "text-[#176f60]" };
+  const stage = referralBoardStages.find((state) => state.key === item.board.stage);
 
   return (
     <button
       type="button"
       aria-label={`Open ${clientName}`}
       aria-current={current ? "true" : undefined}
-      onClick={() => onOpenPacket({ id: item.referral_id, name: clientName, community: item.community as Referral["community"] }, item.location)}
+      onClick={() => onOpenPacket({ id: item.referral_id, name: clientName, community: item.community as Referral["community"] }, item.board.location)}
       className={`group grid min-h-[66px] w-full grid-cols-[3px_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#e1e7e3] px-2 py-2.5 text-left outline-none hover:bg-[#f5f9f7] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_auto_18px] sm:gap-x-4 sm:px-3 ${current ? "bg-[#eff8f3]" : "bg-white"}`}
     >
       <span aria-hidden="true" className={`h-9 w-[3px] ${stageAccent(item.flow_state)}`} />
@@ -241,27 +226,6 @@ function WorkflowRibbon({ item, showOwner, onOpenPacket, current }: {
       <ArrowRight size={16} className="hidden shrink-0 text-[#7b837e] group-hover:text-[#0f8b73] sm:block" aria-hidden="true" />
     </button>
   );
-}
-
-function workCardStatusPresentation(item: ReferralWorklistItem, team: boolean) {
-  const awaitingSupervisor = item.outcome_state !== "accepted"
-    && (item.workflow_status === "recommendation_submitted" || item.workflow_status === "decision_pending");
-  const waiting = awaitingSupervisor && !team;
-  const attention = item.urgency !== "normal" && !waiting;
-  return {
-    status: workCardStatus(item, awaitingSupervisor, team),
-    tone: waiting ? "text-[#626b65]" : attention || item.workflow_status === "changes_requested" ? "text-[#936116]" : "text-[#176f60]",
-    nextAction: waiting ? "Assessment submitted for review" : item.next_action,
-  };
-}
-
-function workCardStatus(item: ReferralWorklistItem, awaitingSupervisor: boolean, team: boolean) {
-  if (item.outcome_state === "accepted") {
-    const count = item.missing_document_count;
-    return count > 0 ? `Accepted · ${count.toLocaleString()} ${count === 1 ? "document" : "documents"} needed` : "Accepted · Complete client data";
-  }
-  if (awaitingSupervisor) return team ? "Supervisor review needed" : "Waiting for supervisor";
-  return workflowStatusLabels[item.workflow_status] ?? "In progress";
 }
 
 function stageAccent(state: ReferralWorklistItem["flow_state"]) {

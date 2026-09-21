@@ -41,7 +41,7 @@ try {
   for (const [index, expected] of [[0, [5, 10, 2, 7, 6, 1]], [1, [5, 2, 3]], [2, [4]]]) {
     const summary = await operations.getHomeWorkflowSummary(users[index]);
     assert.deepEqual(Array.from(summary.board_items, (item) => item.referral_id), expected, `personal Board and receipt order for ${users[index].roles}`);
-    assert.equal(summary.active_total, expected.filter((id) => ![6, 7].includes(id)).length);
+    assert.equal(summary.active_total, expected.length, "decisions and unsent admissions remain current board work");
     assert.deepEqual(Array.from(summary.all_board_items, (item) => item.referral_id), [5, 10, 2, 4, 3, 7, 6, 1], "All is shared across roles and excludes Trash and historical imports");
   }
   const store = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-store.ts", globals);
@@ -57,7 +57,7 @@ try {
   const access = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-access.ts", globals);
   for (const user of users) assert.equal((await access.requireMutableReferralAccess(user, 3)).ok, true, "personal Board does not change edit access");
   const flow = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-flow.ts", globals);
-  assert.equal(flow.isFinishedBoardReferral({ workflow_status: "admitted", assessment_is_reassessment: true, flow_state: "assessment" }), false);
+  assert.equal(flow.getReferralBoardState(referrals[6], { assessmentStarted: true, assessmentCreatedAt: "2026-09-21T12:00:00Z", decision: { outcome: "accepted", decidedAt: "2026-09-20T12:00:00Z" } }).stage, "in_progress");
   const query = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-query.ts", globals);
   assert.equal(query.parseReferralListQuery(new URLSearchParams("sort=received_desc&initial=A&workspace=all&scope=team")).ok, true);
   assert.equal(query.parseReferralListQuery(new URLSearchParams("initial=AB")).ok, false);

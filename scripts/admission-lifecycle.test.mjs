@@ -37,11 +37,13 @@ test("planned arrival and sending never prove actual admission", () => {
   const referral = { workspaceOrigin: "pipeline", stage: "Community Review", admissionDecision: { outcome: "accepted" }, plannedAdmissionDate: "2026-01-01" };
   assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).status, "accepted");
   assert.equal(dates.isAwaitingAdmission(referral.stage, "accepted", "2026-01-01T10:00:00Z"), true);
-  assert.equal(flow.isFinishedBoardReferral({ workflow_status: "approved_for_placement", flow_state: "complete_chart" }), false);
+  assert.notEqual(flow.getReferralBoardState(referral, { assessmentSigned: true, packetSentAt: "2026-01-01T10:00:00Z" }).stage, null);
   assert.equal(dates.isAwaitingAdmission("Declined", "declined", "2026-01-01T10:00:00Z"), false);
   assert.equal(presentation.getWorkspaceAdmissionOutcome({ ...referral, actualAdmissionDate: "2026-01-02", stage: "Accepted / Admitted" }).status, "admitted");
-  assert.equal(flow.isFinishedBoardReferral({ workflow_status: "admitted", flow_state: "complete" }), true);
-  assert.equal(flow.isFinishedBoardReferral({ workflow_status: "admitted", flow_state: "assessment", assessment_is_reassessment: true }), false);
+  const admitted = { ...referral, stage: "Accepted / Admitted", workflowStatus: "admitted" };
+  assert.notEqual(flow.getReferralBoardState(admitted, { assessmentSigned: true }).stage, null, "admission without email stays on the board");
+  assert.equal(flow.getReferralBoardState(admitted, { assessmentSigned: true, packetSentAt: "2026-01-01T10:00:00Z" }).stage, null);
+  assert.equal(flow.getReferralBoardState(admitted, { assessmentStarted: true, assessmentCreatedAt: "2026-01-02T10:00:00Z", decision: { outcome: "accepted", decidedAt: "2026-01-01T10:00:00Z" } }).stage, "in_progress");
 });
 
 test("date boundaries validate real dates and keep actual admission behind explicit confirmation", () => {

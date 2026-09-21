@@ -2,7 +2,7 @@ import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { PipelineCommunity } from "@/lib/pipeline/community-config";
 import type { ReferralWorkflowStatus, RequirementStatus, RequirementType } from "@/lib/pipeline/referral-types";
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
-import type { ActiveReferralFlowState } from "@/lib/pipeline/referral-flow";
+import type { ActiveReferralFlowState, ReferralBoardState } from "@/lib/pipeline/referral-flow";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type {
   WorkspaceAssessmentState,
@@ -13,6 +13,7 @@ import type {
 } from "@/lib/pipeline/workspace-state";
 
 export type OperationsWorkItem = {
+  board: ReferralBoardState;
   referral_id: number;
   client_id?: string;
   client_name: string;
@@ -80,6 +81,7 @@ export type ReferralWorklistBucket =
   | "blocked";
 
 export type ReferralWorklistItem = {
+  board: ReferralBoardState;
   referral_id: number;
   client_name: string;
   community: PipelineCommunity;
@@ -164,7 +166,7 @@ export type HomeWorkflowSummary = {
   overall_completion_pct: number | null;
   flow_counts: Record<ActiveReferralFlowState, number>;
   active_items: ReferralWorklistItem[];
-  /** Active work plus a bounded set of recent completed decisions for the full-screen board. */
+  /** Personal admission work; admitted referrals leave after confirmed email delivery. */
   board_items?: ReferralWorklistItem[];
   /** Same stage folders across the shared workspace; personal summaries remain scoped to the viewer. */
   all_board_items?: ReferralWorklistItem[];
