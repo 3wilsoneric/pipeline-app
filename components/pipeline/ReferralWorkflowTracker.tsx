@@ -87,7 +87,7 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
         </select>
         <ChevronDown size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#176f60]" aria-hidden="true" />
       </label>
-      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-3">
         {stages.map((stage) => {
           const stageItems = active.filter((item) => item.board.stage === stage.key);
           return <div key={stage.key} data-board-stage={stage.key} className={`${boardStyles.docket} ${mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`} onClick={(event) => {

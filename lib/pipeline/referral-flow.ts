@@ -17,7 +17,6 @@ export const referralBoardStages = [
   { key: "received", label: "Referral received" },
   { key: "in_progress", label: "In progress" },
   { key: "decision", label: "Decision" },
-  { key: "awaiting_admit", label: "Awaiting admit" },
 ] as const;
 
 export type ReferralBoardStage = (typeof referralBoardStages)[number]["key"];
@@ -56,7 +55,7 @@ function decisionBoardState(referral: Referral, context: WorkflowContext, state:
   if (referral.stage === "Accepted / Admitted" || referral.workflowStatus === "admitted") {
     return context.packetSentAt
       ? boardCard(null, "Completed", "Open workspace", "chart")
-      : boardCard("awaiting_admit", "Email not sent", "Send Meet the Client", "email");
+      : boardCard("decision", "Email not sent", "Send Meet the Client", "email");
   }
   if (state.outcome === "declined") return boardCard("decision", "Denied", "Review decision", "workflow");
   if (state.outcome === "accepted") return acceptedBoardState(referral, context, state);
@@ -72,7 +71,7 @@ function acceptedBoardState(referral: Referral, context: WorkflowContext, state:
   const outstanding = (context.requirements ?? referral.requirements ?? []).find((requirement) =>
     ["admission_decision", "move_in"].includes(requirement.requiredFor) && !isRequirementResolved(requirement));
   if (outstanding) return boardCard("decision", "Accept", outstanding.nextStep?.trim() || outstanding.label, isDocumentRequirementType(outstanding.type) ? "files" : "workflow");
-  return boardCard("awaiting_admit", "Ready for admission", "Record admission", "workflow");
+  return boardCard("decision", "Awaiting admit", "Record admission", "workflow");
 }
 
 function assessmentBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState {
