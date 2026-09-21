@@ -263,6 +263,12 @@ function assessmentReadyToBegin(assessment: PipelineAssessmentRecord | null) {
   return Boolean(assessment && !assessment.started_at && !assessment.signed_at && assessment.status !== "complete");
 }
 
+function assessmentDialogLocation(reviewing: boolean, scheduling: boolean, beginning: boolean): Pick<PipelineWorkspaceLocation, "assessmentDialog"> {
+  if (reviewing) return {};
+  if (beginning) return { assessmentDialog: "begin" };
+  return scheduling ? { assessmentDialog: "schedule" } : {};
+}
+
 function applyAssessmentFocus(state: AssessmentFocusState, setters: AssessmentAutoFocusSetters) {
   if (state.section) setters.setActiveSection(state.section);
   setters.setIsFocused(true);
@@ -344,7 +350,7 @@ export default function AssessmentWorkspace({
   const [error, setError] = useState("");
   const [showScheduleDialog, setShowScheduleDialog] = useState(initialLocation?.assessmentDialog === "schedule");
   const [showInterviewDate, setShowInterviewDate] = useState(false);
-  const [showBeginDialog, setShowBeginDialog] = useState(false);
+  const [showBeginDialog, setShowBeginDialog] = useState(initialLocation?.assessmentDialog === "begin");
   const [isFocused, setIsFocused] = useState(false);
   const [workingTarget, setWorkingTarget] = useState<{ field: AssessmentToolFieldKey } | null>(initialLocation?.assessmentQuestion ? { field: initialLocation.assessmentQuestion } : null);
   const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "prepare" | "assessment" | "chart" } | null>(null);
@@ -490,10 +496,10 @@ export default function AssessmentWorkspace({
     onActiveSectionChangeRef.current?.(activeSection, {
       view: "assessment", assessmentSection: activeSection,
       assessmentMode: reviewingChart ? "review" : preparing ? "prepare" : "interview",
-      ...(!reviewingChart && showScheduleDialog ? { assessmentDialog: "schedule" } : {}),
+      ...assessmentDialogLocation(reviewingChart, showScheduleDialog, showBeginDialog),
       ...(phoneQuestion && questionSectionRef.current === activeSection && !reviewingChart ? { assessmentQuestion: phoneQuestion } : {}),
     });
-  }, [activeSection, preparing, reviewingChart, showScheduleDialog, phoneQuestion, selectedId]);
+  }, [activeSection, preparing, reviewingChart, showScheduleDialog, showBeginDialog, phoneQuestion, selectedId]);
 
   const upsertAssessment = useCallback((assessment: PipelineAssessmentRecord, select = false) => {
     setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
@@ -872,6 +878,13 @@ export default function AssessmentWorkspace({
   }, [beginRequested, selected, isLoading, isBusy, viewer, trainingAssessmentMode, canEditClinical, onBeginRequestHandled]);
 
   const closeFromEscape = useEffectEvent(() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace));
+
+  useEffect(() => {
+    if (!selected || (!trainingAssessmentMode && !viewer)) return;
+    // A saved confirmation is only a place to return to; it must never restart
+    // an interview already begun or signed elsewhere.
+    if (!canEditClinical || !assessmentReadyToBegin(selected)) setShowBeginDialog(false);
+  }, [selected, viewer, trainingAssessmentMode, canEditClinical]);
 
   useEffect(() => {
     if (!isFocused || (embeddedFolder && !showScheduleDialog)) return;

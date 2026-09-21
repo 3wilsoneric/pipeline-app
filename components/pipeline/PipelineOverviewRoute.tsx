@@ -456,6 +456,7 @@ function clearDestinationParams(params: URLSearchParams) {
     "workspaceView",
     "workspaceField",
     "workspaceEntry",
+    "workspaceDialog",
     "referralId",
     "draftId",
     "clientId",

@@ -38,3 +38,25 @@ test("appointment draft is bounded and remains separate from booked dates and an
   assert.equal(schedule.assessmentScheduleDraft({ ...assessment, version: 99, referrer_name: "Changed" }).base, scheduleDraft.base);
   assert.notEqual(schedule.assessmentScheduleDraft({ ...assessment, scheduled_start_at: "2026-10-13T18:00:00Z" }).base, scheduleDraft.base);
 });
+
+test("unfinished workflow dialogs round trip and deliberate destinations clear them", () => {
+  for (const location of [
+    { view: "assessment", assessmentMode: "prepare", assessmentDialog: "begin" },
+    { view: "chart", workspaceDialog: "created" },
+  ]) {
+    const params = new URLSearchParams();
+    continuity.applyPipelineWorkspaceLocation(params, location);
+    assert.deepEqual(JSON.parse(JSON.stringify(continuity.pipelineWorkspaceLocationFromSearchParams(params))), location);
+    const state = continuity.parsePipelineWorkContinuityPatch({ lastWorkspace: { referralId: 1, location, visitedAt: "2026-09-21T12:00:00Z" } });
+    assert.deepEqual(JSON.parse(JSON.stringify(state.lastWorkspace.location)), location);
+    continuity.applyPipelineWorkspaceLocation(params, { view: "assessment", assessmentMode: "prepare" });
+    assert.equal(params.has("assessmentDialog"), false);
+    assert.equal(params.has("workspaceDialog"), false);
+  }
+  for (const location of [
+    { view: "assessment", assessmentMode: "review", assessmentDialog: "begin" },
+    { view: "assessment", workspaceDialog: "created" },
+    { view: "intake", workspaceDialog: "created" },
+    { view: "chart", workspaceDialog: "send" },
+  ]) assert.equal(continuity.parsePipelineWorkspaceLocation(location), null);
+});

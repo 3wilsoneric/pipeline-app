@@ -476,8 +476,12 @@ export default function ReferralPacketCanvas({
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState<number | null>(null);
-  const [showCreationHandoff, setShowCreationHandoff] = useState(false);
+  const [showCreationHandoff, setShowCreationHandoff] = useState(routedWorkspaceLocation.workspaceDialog === "created");
   const creationHandoffPendingRef = useRef(false);
+  useEffect(() => {
+    if (!showCreationHandoff || activePage !== 3 || !referral?.id || initialWorkspaceLocation?.workspaceDialog === "created") return;
+    onWorkspaceLocationChange?.({ view: "chart", workspaceDialog: "created" });
+  }, [showCreationHandoff, activePage, referral?.id, initialWorkspaceLocation?.workspaceDialog, onWorkspaceLocationChange]);
   const [scheduleRequested, setScheduleRequested] = useState(false);
   const [preparingReferralId, setPreparingReferralId] = useState<number | null>(null);
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
@@ -2502,7 +2506,7 @@ export default function ReferralPacketCanvas({
     </ReferralDocumentUpload>
   );
 
-  const renderCreationHandoff = () => (showCreationHandoff && loadedReferral ? <HomeDialog label="Workspace created" title="Workspace created" onClose={() => setShowCreationHandoff(false)} className="rounded-xl">
+  const renderCreationHandoff = () => (showCreationHandoff && loadedReferral ? <HomeDialog label="Workspace created" title="Workspace created" onClose={() => { setShowCreationHandoff(false); onWorkspaceLocationChange?.({ view: "chart" }); }} className="rounded-xl">
         <div className="space-y-5 p-5 sm:p-6">
           <div><p className="text-xl font-bold text-[#243d34]">{loadedReferral.name}</p><p className="mt-1 text-[15px] leading-6 text-[#586c63]">The intake is now the chart. Book a time, or prepare from the records first.</p></div>
           <div className="grid gap-3 sm:grid-cols-2">
