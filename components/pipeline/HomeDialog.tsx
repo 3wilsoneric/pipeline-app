@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+
+const dialogSizes = {
+  default: "max-w-[760px]",
+  gallery: "h-[90dvh] max-w-[1360px]",
+  browser: "max-sm:m-0 max-sm:h-dvh max-sm:max-h-dvh max-sm:w-full h-[88dvh] max-w-[1120px] overflow-hidden open:flex open:flex-col",
+  confirmation: "max-w-[480px] rounded-lg border-t-[3px] border-t-[#087d66]",
+} as const;
 
 export type HomeDialogOrigin = Pick<DOMRect, "left" | "top" | "width" | "height">;
 
-export default function HomeDialog({ label, title, description, size = "default", open = true, className = "", expandFrom, onClose, children }: {
+export default function HomeDialog({ label, title, description, size = "default", role = "dialog", open = true, className = "", expandFrom, onClose, children }: {
   label: string;
   title: ReactNode;
   description?: string;
-  size?: "default" | "gallery" | "browser";
+  size?: "default" | "gallery" | "browser" | "confirmation";
+  role?: "dialog" | "alertdialog";
   open?: boolean;
   className?: string;
   expandFrom?: HomeDialogOrigin;
@@ -19,6 +27,7 @@ export default function HomeDialog({ label, title, description, size = "default"
   const dialogRef = useRef<HTMLDialogElement>(null);
   const animationRef = useRef<Animation | null>(null);
   const closingRef = useRef(false);
+  const descriptionId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -57,7 +66,9 @@ export default function HomeDialog({ label, title, description, size = "default"
   return (
     <dialog
       ref={dialogRef}
+      role={role}
       aria-label={label}
+      aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => { event.preventDefault(); event.stopPropagation(); requestClose(); }}
       onKeyDown={(event) => event.stopPropagation()}
       onClick={(event) => {
@@ -65,16 +76,16 @@ export default function HomeDialog({ label, title, description, size = "default"
         const bounds = event.currentTarget.getBoundingClientRect();
         if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) requestClose();
       }}
-      className={`${className} m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] overflow-y-auto overscroll-contain border border-[#cbd6d2] bg-white p-0 text-[#202723] shadow-2xl backdrop:bg-[#102019]/30 ${size === "browser" ? "max-sm:m-0 max-sm:h-dvh max-sm:max-h-dvh max-sm:w-full h-[88dvh] max-w-[1120px] overflow-hidden open:flex open:flex-col" : size === "gallery" ? "h-[90dvh] max-w-[1360px]" : "max-w-[760px]"}`}
+      className={`${className} m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] overflow-y-auto overscroll-contain border border-[#cbd6d2] bg-white p-0 text-[#202723] shadow-2xl backdrop:bg-[#102019]/30 ${dialogSizes[size]}`}
     >
-      <div className="sticky top-0 z-10 flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-[#dfe5e2] bg-white px-5">
-        <div className={description ? "py-4" : undefined}>
-          <h2 className="text-[19px] font-bold">{title}</h2>
-          {description ? <p className="mt-1 max-w-3xl text-[13px] leading-5 text-[#65716b]">{description}</p> : null}
+      <div className={`shrink-0 bg-white ${size === "confirmation" ? "px-6 py-6" : "sticky top-0 z-10 flex min-h-16 items-center justify-between gap-3 border-b border-[#dfe5e2] px-5"}`}>
+        <div className={description && size !== "confirmation" ? "py-4" : undefined}>
+          <h2 className={size === "confirmation" ? "text-[21px] font-bold leading-7 text-[#243b32]" : "text-[19px] font-bold"}>{title}</h2>
+          {description ? <p id={descriptionId} className={size === "confirmation" ? "mt-3 text-[15px] leading-6 text-[#53665d]" : "mt-1 max-w-3xl text-[13px] leading-5 text-[#65716b]"}>{description}</p> : null}
         </div>
-        <button type="button" aria-label={`Close ${label.toLowerCase()}`} onClick={requestClose} className="flex h-11 w-11 items-center justify-center text-[#58625d] hover:bg-[#f0f4f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+        {size !== "confirmation" ? <button type="button" aria-label={`Close ${label.toLowerCase()}`} onClick={requestClose} className="flex h-11 w-11 items-center justify-center text-[#58625d] hover:bg-[#f0f4f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
           <X size={19} aria-hidden="true" />
-        </button>
+        </button> : null}
       </div>
       {children}
     </dialog>

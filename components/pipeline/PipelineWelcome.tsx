@@ -16,7 +16,7 @@ import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib
 import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import { acknowledgePipelineAssignments, initializePipelineAssignmentTracking } from "@/lib/pipeline/work-continuity-client";
-import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import type { AssessmentEntryAction, PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
@@ -39,7 +39,7 @@ export default function PipelineWelcome({
   initialBriefing,
   viewerId,
 }: {
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation, action?: AssessmentEntryAction) => void;
   onOpenProfile: (residentKey: string) => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   onViewAllSearchResults: (query: string) => void;
@@ -313,6 +313,7 @@ function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnsche
       onClick={() => onOpenPacket(
         { id: item.referralId, name: clientDisplayName(item.clientName, item.community), community: item.community as Referral["community"] },
         item.nextAction === "complete_intake" ? { view: "intake" } : item.nextAction === "assign" ? { view: "workflow" } : { view: "assessment" },
+        item.nextAction === "schedule" ? "schedule" : undefined,
       )}
       className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
     >
@@ -329,28 +330,30 @@ function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnsche
 }
 
 function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } & Pick<BriefingPanelProps, "onOpenPacket">) {
+  const action = event.status === "complete" ? "review" : event.startedAt ? "resume" : "begin";
   return (
     <button
       type="button"
       onClick={() => onOpenPacket(
         { id: event.referralId, name: clientDisplayName(event.clientName, event.community), community: event.community as Referral["community"] },
         { view: "assessment" },
+        action,
       )}
       className={deckStyles.scheduleRow}
     >
       <span className={deckStyles.scheduleDate}>{formatScheduleDate(event)}</span>
       <span className={deckStyles.scheduleClient}>
         <strong>{clientDisplayName(event.clientName, event.community)}</strong>
-        <span>{event.title} · {event.community}</span>
+        <span>{event.community} · {methodLabel(event.method)}</span>
       </span>
-      <span className={deckStyles.scheduleMethod}>{methodLabel(event.method)}</span>
+      <span className={deckStyles.scheduleAction}>{action === "review" ? "Review assessment" : action === "resume" ? "Resume assessment" : "Begin assessment"}<ArrowRight size={16} aria-hidden="true" /></span>
     </button>
   );
 }
 
 type BriefingPanelProps = {
   briefing: HomeBriefingSnapshot;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation, action?: AssessmentEntryAction) => void;
 };
 
 function SectionHeader({ title, detail, icon }: { title: string; detail: string; icon?: ReactNode }) {

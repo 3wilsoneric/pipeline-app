@@ -6,6 +6,9 @@ export const pipelineWorkspaceViews = ["intake", "assessment", "chart", "workflo
 
 export type PipelineWorkspaceView = (typeof pipelineWorkspaceViews)[number];
 
+// A deliberate entry action is consumed by the UI, never stored as a resume location.
+export type AssessmentEntryAction = "begin" | "resume" | "review" | "schedule";
+
 export type PipelineWorkspaceLocation = {
   view: PipelineWorkspaceView;
   assessmentSection?: AssessmentToolSection;

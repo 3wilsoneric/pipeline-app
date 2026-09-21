@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
 
-const practiceUrl = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1";
+const practiceUrl = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1";
 
 async function openPractice(page: Page, width = 1440) {
   await page.setViewportSize({ width, height: 950 });
@@ -41,6 +41,10 @@ for (const width of [1440, 1024, 768, 640]) {
     await chooseSection(page, "diagnosis_clinical");
     await expect(secondary).toHaveCount(0);
     await expect(editor).toContainText("This section is complete");
+    if (width >= 760) {
+      const nav = (await page.getByRole("navigation", { name: "Assessment sections", exact: true }).boundingBox())!;
+      expect((await editor.boundingBox())!.y - (nav.y + nav.height)).toBeLessThan(24);
+    }
     await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     await expect(secondary).toBeFocused();
     await expect(secondary).toHaveValue("Synthetic prepared diagnosis");
@@ -326,7 +330,7 @@ for (const width of [1440, 390]) {
     await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
     await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
-    await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
     await expect(chart).toHaveCount(1);
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;

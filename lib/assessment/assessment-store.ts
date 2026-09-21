@@ -1397,6 +1397,14 @@ function assertPatchMatchesSection(
   }
 }
 
+function initializeInterviewDate(current: PipelineAssessmentRecord, requestedData: Partial<AssessmentToolData>, markStarted: boolean | undefined, now: string) {
+  // Starting is an explicit interview action. Booking never supplies this date,
+  // and a previously recorded/historical interview date must not be overwritten.
+  if (markStarted && !current.started_at && !current.assessment_date && requestedData.assessment_date === undefined) {
+    requestedData.assessment_date = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now));
+  }
+}
+
 function prepareAssessmentPatch(
   current: PipelineAssessmentRecord,
   patch: AssessmentPatchInput,
@@ -1420,6 +1428,8 @@ function prepareAssessmentPatch(
   }
   const currentData = pickAssessmentToolData(current);
   const requestedData = { ...(patch.data ?? {}) };
+  const now = new Date().toISOString();
+  initializeInterviewDate(current, requestedData, patch.mark_started, now);
   if (requestedData.resident_name !== undefined && requestedData.resident_name !== current.resident_name) {
     requestedData.resident_name = normalizeClientName(requestedData.resident_name ?? "");
     if (!requestedData.resident_name) throw new Error("Enter a client name before saving.");
@@ -1465,7 +1475,6 @@ function prepareAssessmentPatch(
       ? "draft"
       : current.status
   );
-  const now = new Date().toISOString();
   const schedule = patch.schedule;
   const candidate: PipelineAssessmentRecord = {
     ...current,

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatc
 import dynamic from "next/dynamic";
 import {
   ArrowRight,
+  CalendarClock,
   CheckCircle2,
   FolderOpen,
   History,
@@ -41,6 +42,7 @@ import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
+import HomeDialog from "@/components/pipeline/HomeDialog";
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import DuplicateReferralReviewDialog, {
   type ReferralDuplicateReview,
@@ -137,7 +139,7 @@ import {
   type ReferralSaveSnapshot,
   type DraftValueSnapshot,
 } from "@/components/pipeline/referral-canvas-save-state";
-import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import type { AssessmentEntryAction, PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
 import ReferralContactsCard from "@/components/pipeline/ReferralContactsCard";
 import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
@@ -181,6 +183,8 @@ type ReferralPacketCanvasProps = {
   newDraftKey?: `new-${string}`;
   initialWorkspaceStage?: WorkspaceStageName;
   initialWorkspaceLocation?: PipelineWorkspaceLocation;
+  assessmentEntryAction?: AssessmentEntryAction;
+  onAssessmentEntryHandled?: () => void;
   trainingAssessmentMode?: TrainingAssessmentMode;
   trainingAssessmentSection?: AssessmentToolSection;
   trainingIntakeMode?: boolean;
@@ -375,6 +379,8 @@ export default function ReferralPacketCanvas({
   newDraftKey,
   initialWorkspaceStage = "intake",
   initialWorkspaceLocation,
+  assessmentEntryAction,
+  onAssessmentEntryHandled,
   trainingAssessmentMode,
   trainingAssessmentSection,
   trainingIntakeMode = false,
@@ -458,6 +464,9 @@ export default function ReferralPacketCanvas({
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState<number | null>(null);
+  const [showCreationHandoff, setShowCreationHandoff] = useState(false);
+  const creationHandoffPendingRef = useRef(false);
+  const [scheduleRequested, setScheduleRequested] = useState(false);
   const [preparingReferralId, setPreparingReferralId] = useState<number | null>(null);
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
   const [isBulkReviewing, setIsBulkReviewing] = useState(false);
@@ -1754,6 +1763,21 @@ export default function ReferralPacketCanvas({
     setSavedAt(referralSaveStatus(remainingDirtyKeys.size, Boolean(snapshot.initialPacket)));
   };
 
+  const completeCreationHandoff = () => {
+    if (!creationHandoffPendingRef.current) return;
+    creationHandoffPendingRef.current = false;
+    openPage(3);
+    setShowCreationHandoff(true);
+  };
+
+  const assessmentEntryProps = () => ({
+    startQuestionnaire: preparingReferralId === referralWorkspaceId || Boolean(assessmentEntryAction),
+    scheduleRequested: scheduleRequested || assessmentEntryAction === "schedule",
+    onScheduleRequestHandled: () => { setScheduleRequested(false); onAssessmentEntryHandled?.(); },
+    beginRequested: assessmentEntryAction === "begin",
+    onBeginRequestHandled: onAssessmentEntryHandled,
+  });
+
   const saveDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
     setSaveError("");
     const blockedMessage = referralSaveBlockedMessage(uploadingDocumentIds.size, Boolean(remoteChange?.conflicts.length));
@@ -1802,6 +1826,7 @@ export default function ReferralPacketCanvas({
       loadedReferralRef.current = savedReferral;
       setLoadedReferral(savedReferral);
       if (persisted.created) {
+        creationHandoffPendingRef.current = true;
         setCreatedWorkspaceId(savedReferral.id);
         recoveryDraftReferenceRef.current = savedReferral.id;
         onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
@@ -1815,6 +1840,7 @@ export default function ReferralPacketCanvas({
       savedReferral = await uploadAdditionalFiles(savedReferral, additionalFilesSnapshot);
       await finishReferralSave(savedReferral, snapshot);
       retainQueuedAdditionalFileDraft();
+      completeCreationHandoff();
       return savedReferral;
     } catch (error) {
       let latestConflict: Referral | null = null;
@@ -1879,6 +1905,16 @@ export default function ReferralPacketCanvas({
       return;
     }
     await openQuestionnaireFromIntake();
+  };
+
+  const continueCreatedWorkspace = async (schedule: boolean) => {
+    try {
+      await openQuestionnaireFromIntake();
+      setScheduleRequested(schedule);
+      setShowCreationHandoff(false);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not open assessment preparation. Please try again.");
+    }
   };
 
   const reviewExtractedField = async (
@@ -2434,6 +2470,18 @@ export default function ReferralPacketCanvas({
     </ReferralDocumentUpload>
   );
 
+  const renderCreationHandoff = () => (showCreationHandoff && loadedReferral ? <HomeDialog label="Workspace created" title="Workspace created" onClose={() => setShowCreationHandoff(false)} className="rounded-xl">
+        <div className="space-y-5 p-5 sm:p-6">
+          <div><p className="text-xl font-bold text-[#243d34]">{loadedReferral.name}</p><p className="mt-1 text-[15px] leading-6 text-[#586c63]">The intake is now the chart. Book a time, or prepare from the records first.</p></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)} className="flex min-h-28 flex-col items-start gap-2 rounded-lg bg-[#08765e] p-5 text-left text-white hover:bg-[#065c49] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><CalendarClock size={22} aria-hidden="true" /><span className="text-lg font-bold">Schedule assessment</span><span className="text-sm">Choose a date, time and meeting details.</span></button>
+            <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(false)} className="flex min-h-28 flex-col items-start gap-2 rounded-lg border border-[#c6d6ce] bg-[#f5f8f6] p-5 text-left text-[#234a3c] hover:bg-[#eaf2ed] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><FolderOpen size={22} aria-hidden="true" /><span className="text-lg font-bold">Assessment prep</span><span className="text-sm">Fill in what is known before the interview.</span></button>
+          </div>
+          {saveError ? <p role="alert" className="text-sm text-[#8b3e24]">{saveError}</p> : null}
+          <p className="text-sm leading-6 text-[#586c63]">Neither option starts the interview. Use <strong>Begin assessment</strong> when you are with the client.</p>
+        </div>
+      </HomeDialog> : null);
+
   const renderIntakePage = () => (
     <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
             <IntakeEditScope readOnly={permissionReadOnly || draftRecoveryLoading}>
@@ -2686,7 +2734,7 @@ export default function ReferralPacketCanvas({
                   trainingAssessmentSection={trainingAssessmentSection}
                   initialSection={routedWorkspaceLocation.assessmentSection ?? lastAssessmentSectionRef.current}
                   assignedAssessorId={loadedReferral?.ownerId}
-                  startQuestionnaire={preparingReferralId === referralWorkspaceId}
+                  {...assessmentEntryProps()}
                   workspaceTitle={workspaceTitle}
                   chartReview={displayedPage === 3 || routedWorkspaceLocation.assessmentMode === "review"}
                   assessmentReview={displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review"}
@@ -2733,6 +2781,7 @@ export default function ReferralPacketCanvas({
           )}
         </div>
       </div>
+      {renderCreationHandoff()}
       {deleteDialogOpen && loadedReferral ? (
         <DeleteWorkspaceDialog
           name={loadedReferral.name}

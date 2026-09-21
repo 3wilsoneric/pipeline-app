@@ -38,6 +38,7 @@ import { loadPipelineWorkspaceResumeLocation, recordLastPipelineWorkspace } from
 import {
   applyPipelineWorkspaceLocation,
   pipelineWorkspaceLocationFromSearchParams,
+  type AssessmentEntryAction,
   type PipelineWorkspaceLocation,
 } from "@/lib/pipeline/work-continuity";
 
@@ -153,6 +154,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const { selectedClientId, routeReferral, newReferralDraftKey } = selectedRouteDetails(screen, activeSearchParams);
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
+  const [assessmentEntry, setAssessmentEntry] = useState<{ referralId: number; action: AssessmentEntryAction } | null>(null);
   const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser) : undefined);
   const [teamAccess, setTeamAccess] = useState<boolean | undefined>(() => initialUser ? canAccessSupervisorOperations(initialUser.roles) : undefined);
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
@@ -160,7 +162,10 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   // Header links and browser history also leave Home without calling navigate.
   // The server seed is only for entry, never for a later return to Home.
   useEffect(() => {
-    const discardEntry = () => setEntryBriefing(null);
+    const discardEntry = () => {
+      setEntryBriefing(null);
+      if (getScreenFromParams(new URLSearchParams(window.location.search)) !== "packet") setAssessmentEntry(null);
+    };
     window.addEventListener("pipeline:navigation", discardEntry);
     window.addEventListener("popstate", discardEntry);
     return () => {
@@ -228,6 +233,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     clientId?: string,
     location?: PipelineWorkspaceLocation,
     resume = true,
+    assessmentAction?: AssessmentEntryAction,
   ) => {
     if (nextScreen === "operations" && reportAccess !== true) return;
     const requestId = ++navigationRequestRef.current;
@@ -236,7 +242,9 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       ? await loadPipelineWorkspaceResumeLocation(referral.id).catch(() => undefined)
       : undefined;
     if (requestId !== navigationRequestRef.current || sourceLocation !== `${window.location.pathname}${window.location.search}`) return;
-    const workspaceLocation = defaultWorkspaceLocation(savedLocation ?? location);
+    const workspaceLocation = assessmentAction
+      ? { view: "assessment" as const, assessmentSection: savedLocation?.view === "assessment" ? savedLocation.assessmentSection : undefined, ...(assessmentAction === "review" ? { assessmentMode: "review" as const } : {}) }
+      : defaultWorkspaceLocation(savedLocation ?? location);
     setEntryBriefing(null);
     setSearchOpen(false);
     const params = workspaceDestinationParams(activeSearchParams.toString(), nextScreen, referral, clientId, workspaceLocation);
@@ -244,6 +252,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     recordNavigatedWorkspace(nextScreen, referral, workspaceLocation);
     recordCompleteNavigation(nextScreen, referral);
     setReferralDetails(referral);
+    setAssessmentEntry((assessmentAction === "begin" || assessmentAction === "schedule") && referral ? { referralId: referral.id, action: assessmentAction } : null);
   };
 
   const resumeReferralDraft = (draftKey: `new-${string}`, intakeField?: PipelineWorkspaceLocation["intakeField"]) => {
@@ -284,7 +293,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         viewerId={viewerId}
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
-        onOpenPacket={(referral, location) => navigate("packet", referral, undefined, location)}
+        onOpenPacket={(referral, location, action) => navigate("packet", referral, undefined, location, true, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
         onViewAllSearchResults={(query) => {
@@ -316,6 +325,8 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       referral: selectedReferral,
       newDraftKey: newReferralDraftKey,
       initialWorkspaceLocation: pipelineWorkspaceLocationFromSearchParams(activeSearchParams),
+      assessmentEntryAction: assessmentEntry?.referralId === selectedReferral?.id ? assessmentEntry?.action : undefined,
+      onAssessmentEntryHandled: () => setAssessmentEntry(null),
       trainingAssessmentMode,
       trainingAssessmentSection: getTrainingAssessmentSection(activeSearchParams),
       trainingIntakeMode,

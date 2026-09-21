@@ -33,7 +33,8 @@ export function assessmentAnswerOrigin(assessment: PipelineAssessmentRecord, dat
 
 export function assessmentGapSections(data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[]) {
   return assessmentConversationSections.map((section) => {
-    const questions = getAssessmentInterviewQuestions(section.key, data);
+    // Interview metadata belongs in Details, not in the questions for the client.
+    const questions = getAssessmentInterviewQuestions(section.key, data).filter((question) => question.field !== "assessment_date");
     const remaining = questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured");
     return { ...section, questions, remaining };
   });

@@ -1,5 +1,11 @@
 import type { Page } from "@playwright/test";
 
+export async function editPreparedAnswer(page: Page, label: string) {
+  const recorded = page.getByRole("region", { name: "Recorded answers", exact: true });
+  if (!await recorded.isVisible()) await page.getByRole("button", { name: /^Recorded answers:/ }).click();
+  await recorded.getByRole("button", { name: `Edit ${label}`, exact: true }).click();
+}
+
 export async function openAssessmentChart(page: Page) {
   const stagePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await stagePicker.isVisible()) {

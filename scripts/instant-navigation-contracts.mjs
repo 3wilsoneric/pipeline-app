@@ -205,7 +205,7 @@ const rootStubs = {
 };
 const Overview = load("components/pipeline/PipelineOverviewRoute.tsx", {}, {
   require: (id) => rootStubs[id] ?? (id.startsWith("@/") ? {} : require(id)),
-  window: { addEventListener: (name, run) => rootNavigationEvents.set(name, run), removeEventListener: (name) => rootNavigationEvents.delete(name) },
+  window: { location: { search: "?view=referrals" }, addEventListener: (name, run) => rootNavigationEvents.set(name, run), removeEventListener: (name) => rootNavigationEvents.delete(name) },
 }).default;
 Overview({ initialBriefing: entrySeed });
 const entrySetter = seededSetters[seededStates.indexOf(entrySeed)];

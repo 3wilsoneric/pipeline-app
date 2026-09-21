@@ -133,7 +133,7 @@ test("sign, accept, preview, simulate send and admit stay entirely local", async
   const writes = observeLiveWrites(page);
   await page.goto("/tutorials/referral?task=review-chart");
   await page.locator('[data-guide-target="assessment-sign"]').click();
-  const signature = page.getByRole("dialog", { name: "Sign assessment", exact: true });
+  const signature = page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true });
   await signature.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("5");
   await page.getByRole("radio", { name: "Accept", exact: true }).check();

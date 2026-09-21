@@ -17,28 +17,29 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     const bounds = await footer.boundingBox();
     expect(bounds!.height).toBeLessThanOrEqual(width >= 640 ? 80 : 64);
 
-    const steps = footer.getByRole("navigation", { name: "Assessment section steps" });
-    if (width >= 640) {
+    const steps = page.getByRole("navigation", { name: "Assessment section steps" });
       await expect(steps.getByRole("button", { name: "Previous section", exact: true })).toBeDisabled();
       await expect(steps.locator('[aria-label="Section 1 of 5"]')).toHaveText("1 of 5");
       await steps.getByRole("button", { name: "Next section", exact: true }).click();
       await expect(steps.locator('[aria-label="Section 2 of 5"]')).toHaveText("2 of 5");
+      await expect(page.getByRole("combobox", { name: "Assessment section", exact: true })).toBeFocused();
       await steps.getByRole("button", { name: "Previous section", exact: true }).click();
       await expect(steps.locator('[aria-label="Section 1 of 5"]')).toBeVisible();
+    if (width >= 640) {
       const navBounds = await steps.boundingBox();
       const detailsBounds = await details.boundingBox();
       expect(detailsBounds!.x + detailsBounds!.width).toBeLessThanOrEqual(navBounds!.x);
     } else {
-      await expect(steps).toHaveCount(0);
-      await expect(page.getByRole("navigation", { name: "Question steps" })).toBeVisible();
+      await expect(steps).toBeInViewport();
+      await expect(page.getByRole("navigation", { name: "Question steps" })).toHaveCount(0);
     }
     await footer.scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath(`assessment-footer-${width}.png`), animations: "disabled" });
     await details.click();
     const menu = footer.getByRole("group", { name: "Assessment details", exact: true });
-    await expect(menu.getByRole("combobox", { name: "Placement recommendation", exact: true })).toBeVisible();
+    await expect(menu.getByRole("combobox", { name: "Placement recommendation", exact: true })).toHaveCount(0);
+    await expect(menu.getByRole("button", { name: /^Interview date/ })).toBeVisible();
     await expect(menu.getByRole("button", { name: "Schedule assessment", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Schedule assessment", exact: true })).toBeVisible();
     for (const button of await menu.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     const menuBounds = await menu.boundingBox();
     expect(menuBounds!.x).toBeGreaterThanOrEqual(0);
@@ -92,14 +93,13 @@ test("iPad WebKit keeps the details menu reachable without covering navigation",
     const bounds = (await menu.boundingBox())!;
     expect(bounds.y + bounds.height).toBeLessThanOrEqual((await footer.boundingBox())!.y + 1);
     await page.keyboard.press("Escape");
-    await expect(menu).toBeHidden();
-    await expect(details).toBeFocused();
-    const schedule = page.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Schedule assessment", exact: true });
-    await schedule.tap();
-    const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Close schedule", exact: true }).tap();
-    await expect(schedule).toBeFocused();
+    const beginButton = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true });
+    await beginButton.tap();
+    const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+    await expect(begin).toBeVisible();
+    await begin.getByRole("button", { name: "Keep preparing", exact: true }).tap();
+    await expect(begin).toBeHidden();
+    await expect(beginButton).toBeFocused();
     await footer.getByRole("button", { name: "Next section", exact: true }).tap();
     await expect(footer.locator('[aria-label="Section 2 of 5"]')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
