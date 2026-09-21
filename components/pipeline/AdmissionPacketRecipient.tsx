@@ -58,14 +58,7 @@ export default function AdmissionPacketRecipient({ packetId, downloadError = fal
     } catch (reason) { setError(reason instanceof Error && !(reason instanceof TypeError) ? reason.message : "Check your internet connection, then try again."); }
     finally { setBusy(false); }
   };
-  return <main className={styles.page}>
-    <div className={styles.brand}>Pipeline</div>
-    <section className={`${styles.card} ${packet ? styles.open : ""}`} aria-labelledby="packet-title" aria-busy={busy}>
-      <div className={styles.symbol}><LockKeyhole size={26} aria-hidden="true" /></div>
-      <h1 ref={heading} tabIndex={-1} id="packet-title">{packet ? "Your admission packet" : "Open your admission packet"}</h1>
-      {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-      {notice ? <p role="status" className={styles.notice}>{notice}</p> : null}
-      {packet ? <>
+  const renderPacketContent = () => packet ? <>
         <p className={styles.muted}>Access through {new Date(packet.expires_at).toLocaleDateString()}. Download files you need for care coordination.</p>
         <h2>{packet.message.subject}</h2><p className={styles.message}>{packet.message.body}</p>
         <h2>Files <span className={styles.muted}>({packet.files.length})</span></h2>
@@ -82,7 +75,15 @@ export default function AdmissionPacketRecipient({ packetId, downloadError = fal
           <button type="submit" disabled={busy}><Mail size={18} aria-hidden="true" />{busy ? "Please wait…" : codeRequested ? "Verify & open packet" : "Email me a code"}</button>
         </form>
         {codeRequested ? <div className={styles.secondary}><button type="button" disabled={busy} onClick={() => void submit("request_code")}>Send a new code</button><button type="button" disabled={busy} onClick={() => { setCodeRequested(false); setCode(""); setNotice(""); setError(""); }}>Use a different email</button></div> : null}
-      </>}
+      </>;
+  return <main className={styles.page}>
+    <div className={styles.brand}>Pipeline</div>
+    <section className={`${styles.card} ${packet ? styles.open : ""}`} aria-labelledby="packet-title" aria-busy={busy}>
+      <div className={styles.symbol}><LockKeyhole size={26} aria-hidden="true" /></div>
+      <h1 ref={heading} tabIndex={-1} id="packet-title">{packet ? "Your admission packet" : "Open your admission packet"}</h1>
+      {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+      {notice ? <p role="status" className={styles.notice}>{notice}</p> : null}
+      {renderPacketContent()}
     </section>
     <p className={styles.footer}>Private care coordination · Share only with authorized recipients.</p>
   </main>;

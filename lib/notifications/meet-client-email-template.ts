@@ -13,11 +13,7 @@ export function renderMeetClientEmail(
   const demoNotice = options.demo ? '<p style="padding:14px 16px;border:1px solid #d8c387;border-radius:6px;background:#fff8e6;color:#684f17;font-size:16px;font-weight:700">Demo — not live. This message and admission packet will not be sent.</p>' : "";
   const linked = Boolean(options.packetUrl || options.packetLinkPreview);
   const content = meetClientContent(summary, linked ? [] : attachmentNames, message?.body);
-  if (linked) {
-    const link = options.packetUrl ? `<a href="${escapeHtml(options.packetUrl)}" style="display:inline-block;padding:12px 20px;background:#087d66;color:#fff;border-radius:6px;font-weight:700;text-decoration:none">Open admission packet</a>` : '<strong>Open admission packet — link created when sent</strong>';
-    content.html += `<section style="margin-top:24px;padding:20px;border:1px solid #cbd6d2;border-radius:6px"><h2 style="margin-top:0">Admission packet · ${attachmentNames.length} files</h2><p>All files are included in the secure packet. Verify the email address that received this message with a one-time code. No Pipeline account is needed.</p>${link}</section>`;
-    content.text += `\n\nAdmission packet: ${attachmentNames.length} files. Verify your email with a one-time code. ${options.packetUrl ?? "The secure link is created when sent."}`;
-  }
+  if (linked) appendPacketLink(content, attachmentNames.length, options.packetUrl);
   const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>@media(max-width:600px){.email-sheet{padding:24px 16px!important}.email-table td{display:block!important;width:auto!important}.email-table td:first-child{border:0!important;padding:14px 0 2px!important}.email-table td:last-child{padding:0 0 14px!important}}</style></head><body style="margin:0;background:#fff;color:#243b32;font-family:Arial,sans-serif;font-size:17px;line-height:1.65;overflow-wrap:anywhere"><div class="email-sheet" style="max-width:1100px;margin:0 auto;padding:32px;box-sizing:border-box"><div style="border-top:3px solid #0f8b73;padding-top:24px"><div style="font-size:13px;font-weight:700;letter-spacing:.08em;color:#08745d;text-transform:uppercase">Pipeline</div><h1 style="margin:8px 0 24px;font-size:30px;line-height:1.2">Meet the Client</h1>${demoNotice}${content.html}<div style="margin-top:32px;border-top:1px solid #d9dfdb;padding-top:18px;font-size:13px;line-height:1.6;color:#59665f">${content.edited ? "Sender-edited handoff based on" : "Prepared from"} signed Pipeline assessment ${escapeHtml(summary.preparedFromAssessmentId)} version ${summary.preparedFromAssessmentVersion} by ${escapeHtml(preparedBy)}.<br>Agreement status and coordination details come from the referral record; signing an assessment does not sign the admission agreement.<br>Confidential: contains protected health information. Use only for authorized care coordination. Delivery ${escapeHtml(deliveryId)}.</div></div></div></body></html>`;
   return { subject, html, text: `${options.demo ? "Demo — not live. This message and admission packet will not be sent.\n\n" : ""}${content.text}` };
 }
@@ -83,4 +79,10 @@ export function escapeHtml(value: string) {
     '"': "&quot;",
     "'": "&#39;",
   })[character] ?? character).replace(/\n/g, "<br>");
+}
+
+function appendPacketLink(content: { html: string; text: string }, fileCount: number, packetUrl?: string) {
+  const link = packetUrl ? `<a href="${escapeHtml(packetUrl)}" style="display:inline-block;padding:12px 20px;background:#087d66;color:#fff;border-radius:6px;font-weight:700;text-decoration:none">Open admission packet</a>` : '<strong>Open admission packet — link created when sent</strong>';
+  content.html += `<section style="margin-top:24px;padding:20px;border:1px solid #cbd6d2;border-radius:6px"><h2 style="margin-top:0">Admission packet · ${fileCount} files</h2><p>All files are included in the secure packet. Verify the email address that received this message with a one-time code. No Pipeline account is needed.</p>${link}</section>`;
+  content.text += `\n\nAdmission packet: ${fileCount} files. Verify your email with a one-time code. ${packetUrl ?? "The secure link is created when sent."}`;
 }

@@ -35,23 +35,35 @@ export async function POST(request: Request, context: Context) {
     if (!body.ok) return json({ error: body.message }, body.status);
     try {
       const { packetId } = await context.params;
-      if (!body.value || typeof body.value !== "object" || Array.isArray(body.value)) return json({ error: "Enter your email address." }, 400);
-      const { action, email, code } = body.value as Record<string, unknown>;
-      if (action === "close") {
-        await closePacketSession(packetId, packetSessionToken(request, packetId));
-        return json({ ok: true }, 200, { "Set-Cookie": `${packetCookieName(packetId)}=; Path=${toPipelinePath(`/api/admission-packets/${packetId}`)}; HttpOnly; SameSite=Strict; Max-Age=0` });
-      }
-      if (typeof email !== "string" || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter your email address." }, 400);
-      if (action === "request_code") {
-        const challenge = await requestPacketCode(packetId, email);
-        if (challenge) await sendPacketVerificationCode(challenge.email, challenge.code);
-        // The same response for unknown packets, wrong recipients, and rate limits.
-        return json({ message: "If this email received the packet, a code is on its way. Check your inbox and junk folder. Wait one minute before requesting another." });
-      }
-      if (action !== "verify" || typeof code !== "string" || code.length > 16) return json({ error: "Enter the code from your email." }, 400);
-      const session = await verifyPacketCode(packetId, email, code.trim());
-      const secure = new URL(request.url).protocol === "https:" || (process.env.NODE_ENV === "production" && process.env.PIPELINE_AUTH_MODE !== "mock") ? "; Secure" : "";
-      return json({ ok: true }, 200, { "Set-Cookie": `${packetCookieName(packetId)}=${session.token}; Path=${toPipelinePath(`/api/admission-packets/${packetId}`)}; HttpOnly; SameSite=Strict; Max-Age=${session.expiresIn}${secure}` });
+      return await packetMutation(request, packetId, body.value);
     } catch (error) { return errorResponse(error); }
   });
+}
+
+async function packetMutation(request: Request, packetId: string, value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return json({ error: "Enter your email address." }, 400);
+  const { action, email, code } = value as Record<string, unknown>;
+  if (action === "close") {
+    await closePacketSession(packetId, packetSessionToken(request, packetId));
+    return json({ ok: true }, 200, { "Set-Cookie": `${packetCookieName(packetId)}=; Path=${toPipelinePath(`/api/admission-packets/${packetId}`)}; HttpOnly; SameSite=Strict; Max-Age=0` });
+  }
+  if (!validEmail(email)) return json({ error: "Enter your email address." }, 400);
+  if (action === "request_code") return emailPacketCode(packetId, email);
+  if (action !== "verify" || typeof code !== "string" || code.length > 16) return json({ error: "Enter the code from your email." }, 400);
+  const session = await verifyPacketCode(packetId, email, code.trim());
+  const secure = secureCookieFlag(request);
+  return json({ ok: true }, 200, { "Set-Cookie": `${packetCookieName(packetId)}=${session.token}; Path=${toPipelinePath(`/api/admission-packets/${packetId}`)}; HttpOnly; SameSite=Strict; Max-Age=${session.expiresIn}${secure}` });
+}
+
+function validEmail(email: unknown): email is string {
+  return typeof email === "string" && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+function secureCookieFlag(request: Request) {
+  return new URL(request.url).protocol === "https:" || (process.env.NODE_ENV === "production" && process.env.PIPELINE_AUTH_MODE !== "mock") ? "; Secure" : "";
+}
+async function emailPacketCode(packetId: string, email: string) {
+  const challenge = await requestPacketCode(packetId, email);
+  if (challenge) await sendPacketVerificationCode(challenge.email, challenge.code);
+  // Unknown packets, recipients and throttled requests share this response.
+  return json({ message: "If this email received the packet, a code is on its way. Check your inbox and junk folder. Wait one minute before requesting another." });
 }
