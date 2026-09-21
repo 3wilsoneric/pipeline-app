@@ -23,6 +23,7 @@ export async function prepareAdmissionPacketLink(input: {
   id: string; referralId: number; assessmentId: string; assessmentVersion: number;
   recipients: string[]; inventory: MeetClientAttachmentInventory; message: AdmissionPacket["message"];
   requestUrl: string;
+  outlook?: AdmissionPacket["outlook"];
 }) {
   const url = admissionPacketUrl(input.id, input.requestUrl);
   if ((process.env.PIPELINE_ENTRA_SESSION_SECRET?.length ?? 0) < 32) throw new PacketAccessError("Email verification is not configured. Configure the packet verification secret before sending.", 503);
@@ -45,7 +46,7 @@ export async function prepareAdmissionPacketLink(input: {
   }
   const packet: AdmissionPacket = { schema: 1, id: input.id, referralId: input.referralId, assessmentId: input.assessmentId,
     assessmentVersion: input.assessmentVersion, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(),
-    files, message: input.message, recipients: [...new Set(input.recipients.map((email) => email.trim().toLowerCase()))].map((email) => ({ email, sessions: [], requestedAt: [] })), events: [] };
+    files, message: input.message, ...(input.outlook ? { outlook: input.outlook } : {}), recipients: [...new Set(input.recipients.map((email) => email.trim().toLowerCase()))].map((email) => ({ email, sessions: [], requestedAt: [] })), events: [] };
   await createAdmissionPacket(packet);
   return url;
 }

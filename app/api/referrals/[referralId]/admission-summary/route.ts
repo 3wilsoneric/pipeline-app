@@ -3,11 +3,10 @@ import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth
 import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { buildAssessmentSummaryReport, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import { jsonError } from "@/lib/extraction/contracts";
-import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
-import { getGraphMailReadiness } from "@/lib/notifications/microsoft-graph-mail";
+import { getGraphMailReadiness, isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
@@ -71,7 +70,7 @@ export async function GET(
         admissionPacket.blockers,
         getPlannedAdmissionDate(snapshot.referral),
       );
-      const exampleOnly = getPipelineDemoEnvironment().writable;
+      const exampleOnly = !isMeetClientLive();
       const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
 
       return Response.json({

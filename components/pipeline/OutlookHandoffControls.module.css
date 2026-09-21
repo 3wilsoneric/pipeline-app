@@ -1,0 +1,24 @@
+.panel { width: 100%; min-width: 0; color: #253e34; }
+.heading { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.heading h3 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.35; }
+.heading p { margin: 3px 0 0; color: #5c6d65; font-size: 14px; overflow-wrap: anywhere; }
+.icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border: 1px solid #bcd9cf; border-radius: 10px; color: #087d66; background: #eaf5f0; }
+.badge { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 4px 7px; border: 1px solid #cfddd6; border-radius: 5px; color: #466358; background: white; font-size: 12px; font-weight: 600; }
+.hint { margin: 12px 0; font-size: 14px; line-height: 1.55; color: #52665b; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.actions button, .actions a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 15px; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.primary { background: #087d66; border: 1px solid #087d66; color: white; }
+.primary:hover { background: #06634f; }
+.secondary { background: white; border: 1px solid #c5d5cc; color: #215547; }
+.quiet { background: transparent; border: 1px solid transparent; color: #4c6256; }
+.actions :disabled { opacity: .5; cursor: not-allowed; }
+.actions :focus-visible, .setup summary:focus-visible { outline: 3px solid #087d66; outline-offset: 3px; }
+.error { margin: 12px 0; padding: 10px 12px; border-left: 3px solid #b25144; background: #fff1ee; color: #873c31; font-size: 14px; line-height: 1.5; }
+.setup { margin-top: 12px; font-size: 13px; color: #53675c; line-height: 1.6; }
+.setup summary { width: fit-content; min-height: 30px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.setup ol { padding-left: 22px; margin: 8px 0; }
+.setup li + li { margin-top: 6px; }
+.spin { animation: outlook-spin 1s linear infinite; }
+@keyframes outlook-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+@media (max-width: 560px) { .heading { grid-template-columns: 42px minmax(0, 1fr); gap: 8px; } .heading h3 { font-size: 16px; } .badge { grid-column: 2; margin-left: 0; justify-self: start; } .actions .primary { width: 100%; } }

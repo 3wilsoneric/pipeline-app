@@ -44,10 +44,19 @@ async function exerciseAccess(f) {
   assert.equal(await f.audit.reserveMeetClientDelivery(audit), true);
   await f.audit.completeMeetClientDelivery(audit, "unconfirmed", "provider_timeout");
   assert.equal(await f.audit.reserveMeetClientDelivery({ ...audit, mutationId: randomUUID(), deliveryId: randomUUID() }), false, "unknown sends survive new request identities");
-  const safe = { ...audit, assessmentVersion: 4, mutationId: randomUUID(), deliveryId: randomUUID() };
+  assert.equal(await f.audit.reserveMeetClientDelivery({ ...audit, assessmentVersion: 4, mutationId: randomUUID(), deliveryId: randomUUID() }), false, "a changed assessment must not bypass an unresolved workspace handoff");
+  const safe = { ...audit, referralId: 2, assessmentVersion: 4, mutationId: randomUUID(), deliveryId: randomUUID() };
   assert.equal(await f.audit.reserveMeetClientDelivery(safe), true);
   await f.audit.completeMeetClientDelivery(safe, "failed", "graph_send_message_rejected", true);
   assert.equal(await f.audit.reserveMeetClientDelivery({ ...safe, mutationId: randomUUID(), deliveryId: randomUUID() }), true, "definite rejections permit a safe retry");
+  const concurrent = await Promise.all([10, 11].map(assessmentVersion => f.audit.reserveMeetClientDelivery({ ...audit, referralId: 3, assessmentVersion, mutationId: randomUUID(), deliveryId: randomUUID() })));
+  assert.equal(concurrent.filter(Boolean).length, 1, "one workspace handoff wins across concurrent versions");
+  const sentChanged = { ...audit, referralId: 4, mutationId: randomUUID(), deliveryId: randomUUID() };
+  assert.equal(await f.audit.reserveMeetClientDelivery(sentChanged), true);
+  await f.audit.completeMeetClientDelivery(sentChanged, "sent_needs_review", "owner_acknowledged_outlook_changes");
+  assert.equal(await f.audit.reserveMeetClientDelivery({ ...sentChanged, mutationId: randomUUID(), deliveryId: randomUUID() }), true, "explicit review permits a replacement without certifying the old assessment");
+  await f.audit.completeMeetClientDelivery(sentChanged, "sent_needs_review", "replayed_acknowledgment");
+  assert.equal(await f.audit.reserveMeetClientDelivery({ ...sentChanged, mutationId: randomUUID(), deliveryId: randomUUID() }), false, "replaying an old completion cannot release a replacement reservation");
   const id = await f.create();
   const now = Date.now();
   await assert.rejects(f.access.readVerifiedPacket(id, ""), { status: 401 });
@@ -171,12 +180,12 @@ test("public packet API: no pre-verification content, same-origin codes, demo gu
     const route = load("app/api/admission-packets/[packetId]/route.ts", {
       "@/lib/auth/request-security": load("lib/auth/request-security.ts"),
       "@/lib/extraction/contracts": { readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
-      "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ writable: demo }) },
+      "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ enabled: demo, writable: demo }) },
       "@/lib/observability/api-logging": { withApiLogging: (_request, _name, handler) => handler() },
       "@/lib/notifications/admission-packet-access": f.access,
       "@/lib/notifications/admission-packet-store": f.store,
       "@/lib/notifications/admission-packet-files": { packetPrivateHeaders: { "Cache-Control": "private, no-store" } },
-      "@/lib/notifications/microsoft-graph-mail": { sendPacketVerificationCode: async (email, code) => { emailed = { email, code }; } },
+      "@/lib/notifications/microsoft-graph-mail": { isMeetClientLive: () => !demo, sendPacketVerificationCode: async (email, code) => { emailed = { email, code }; } },
       "@/lib/pipeline/base-path": { toPipelinePath: (path) => `/pipeline${path}` },
     });
     const context = { params: Promise.resolve({ packetId: id }) };
@@ -210,7 +219,7 @@ test("staff packet controls enforce authentication, workspace access, origin and
     "@/lib/auth/request-security": load("lib/auth/request-security.ts"),
     "@/lib/pipeline/referral-access": { requireReferralAccess: async () => allowed ? { ok: true } : { ok: false, response: new Response(null, { status: 404 }) } },
     "@/lib/extraction/contracts": { readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
-    "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ writable: demo }) },
+    "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ enabled: demo, writable: demo }) },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _name, handler) => handler() },
     "@/lib/notifications/admission-packet-files": { packetPrivateHeaders: { "Cache-Control": "private, no-store" } },
     "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {},

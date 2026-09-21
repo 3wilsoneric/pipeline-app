@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 
-type DeliveryAudit = {
+export type DeliveryAudit = {
   mutationId: string;
   deliveryId: string;
   referralId: number;
@@ -15,7 +15,7 @@ type DeliveryAudit = {
   decisionId: string;
   reviewId?: string;
   reviewVersion?: number;
-  status: "reserved" | "sent" | "failed" | "unconfirmed";
+  status: "reserved" | "sent" | "failed" | "unconfirmed" | "sent_needs_review";
   actorId: string;
   actorName: string;
   recipientCount: number;
@@ -37,13 +37,21 @@ export async function reserveMeetClientDelivery(input: DeliveryAudit) {
   if (getPipelineDatabaseReadiness().ready) {
     const sql = getPipelineSql();
     return sql.begin(async (tx) => {
+      const active = await tx`insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
+        values ('meet_client_workspace_delivery', ${String(input.referralId)}, 'delivery', ${input.deliveryId})
+        on conflict (scope, mutation_id) do nothing returning mutation_id`;
+      if (!active.length) return false;
       const rows = await tx<{ mutation_id: string }[]>`
         insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
         values ('meet_client_assessment_delivery', ${reservationId(input)}, 'referral', ${String(input.referralId)})
         on conflict (scope, mutation_id) do nothing
         returning mutation_id
       `;
-      if (!rows.length) return false;
+      if (!rows.length) {
+        await tx`delete from pipeline.idempotency_keys where scope = 'meet_client_workspace_delivery'
+          and mutation_id = ${String(input.referralId)} and entity_id = ${input.deliveryId}`;
+        return false;
+      }
       await tx`insert into pipeline.audit_events (entity_type, entity_id, action, actor_id, actor_name, changed_fields, metadata)
         values ('referral', ${String(input.referralId)}, 'meet_client_summary_started', ${input.actorId}, ${input.actorName}, ${[] as string[]},
         ${tx.json({ delivery_id: input.deliveryId, mutation_id: input.mutationId, assessment_id: input.assessmentId, assessment_version: input.assessmentVersion, recipient_count: input.recipientCount, attachment_count: input.attachmentCount })})`;
@@ -52,8 +60,9 @@ export async function reserveMeetClientDelivery(input: DeliveryAudit) {
   }
   return queueLocal(async () => {
     const records = await readLocal();
+    if (records.some((record) => record.referralId === input.referralId && record.status !== "sent" && !deliveryMayBeRetried(record))) return false;
     const previous = records.findLast((record) => reservationId(record) === reservationId(input));
-    if (previous && !(previous.status === "failed" && previous.retryable)) return false;
+    if (previous && !deliveryMayBeRetried(previous)) return false;
     await writeLocal([...records, input]);
     return true;
   });
@@ -61,7 +70,7 @@ export async function reserveMeetClientDelivery(input: DeliveryAudit) {
 
 export async function completeMeetClientDelivery(
   input: DeliveryAudit,
-  status: "sent" | "failed" | "unconfirmed",
+  status: "sent" | "failed" | "unconfirmed" | "sent_needs_review",
   errorCode = "",
   retryable = false,
 ) {
@@ -90,7 +99,7 @@ export async function completeMeetClientDelivery(
           entity_type, entity_id, action, actor_id, actor_name, changed_fields, metadata
         ) values (
           'referral', ${String(input.referralId)},
-          ${status === "sent" ? "meet_client_summary_sent" : status === "unconfirmed" ? "meet_client_summary_unconfirmed" : "meet_client_summary_failed"},
+          ${deliveryEvent(status)},
           ${input.actorId}, ${input.actorName}, ${[] as string[]},
           ${tx.json({
             mutation_id: input.mutationId,
@@ -109,10 +118,14 @@ export async function completeMeetClientDelivery(
           })}
         )
       `;
-      // Release only a positively rejected send. An ambiguous network outcome
-      // keeps its assessment reservation across refreshes, tabs and server restarts.
-      if (completed.retryable) await tx`delete from pipeline.idempotency_keys
+      // Only the owning attempt may release reservations. Replayed removal of
+      // an older draft must not unlock a replacement that is being prepared.
+      const [active] = await tx`select entity_id from pipeline.idempotency_keys
+        where scope = 'meet_client_workspace_delivery' and mutation_id = ${String(input.referralId)} for update`;
+      if (active?.entity_id === input.deliveryId && deliveryMayBeRetried(completed)) await tx`delete from pipeline.idempotency_keys
         where scope = 'meet_client_assessment_delivery' and mutation_id = ${reservationId(input)}`;
+      if (status === "sent" || deliveryMayBeRetried(completed)) await tx`delete from pipeline.idempotency_keys
+        where scope = 'meet_client_workspace_delivery' and mutation_id = ${String(input.referralId)} and entity_id = ${input.deliveryId}`;
     });
     return;
   }
@@ -121,6 +134,14 @@ export async function completeMeetClientDelivery(
     const next = records.map((record) => record.deliveryId === input.deliveryId ? completed : record);
     await writeLocal(next);
   });
+}
+
+function deliveryMayBeRetried(record: DeliveryAudit) {
+  return (record.status === "failed" && record.retryable) || record.status === "sent_needs_review";
+}
+function deliveryEvent(status: Exclude<DeliveryAudit["status"], "reserved">) {
+  return { sent: "meet_client_summary_sent", unconfirmed: "meet_client_summary_unconfirmed",
+    failed: "meet_client_summary_failed", sent_needs_review: "meet_client_outlook_sent_reviewed" }[status];
 }
 
 function queueLocal<T>(operation: () => Promise<T>) {

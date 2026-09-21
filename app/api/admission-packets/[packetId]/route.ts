@@ -2,7 +2,7 @@ import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { closePacketSession, packetCookieName, packetSessionToken, readVerifiedPacket, requestPacketCode, verifyPacketCode } from "@/lib/notifications/admission-packet-access";
-import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
+import { isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
 import { packetPrivateHeaders } from "@/lib/notifications/admission-packet-files";
 import { PacketAccessError } from "@/lib/notifications/admission-packet-store";
 import { sendPacketVerificationCode } from "@/lib/notifications/microsoft-graph-mail";
@@ -30,7 +30,7 @@ export async function POST(request: Request, context: Context) {
     if (failure) return failure;
     // Public mutations require an explicit matching Origin; no CSRF fallback.
     if (!request.headers.get("origin")) return json({ error: "Open this packet in your browser and try again." }, 403);
-    if (getPipelineDemoEnvironment().writable) return json({ error: "Demo — not live. No verification email will be sent." }, 403);
+    if (!isMeetClientLive()) return json({ error: "Not production yet — no verification email will be sent." }, 403);
     const body = await readJsonBody(request, 2048);
     if (!body.ok) return json({ error: body.message }, body.status);
     try {

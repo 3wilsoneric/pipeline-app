@@ -142,3 +142,11 @@
 .previewNote, .demoNotice { padding: 14px 18px; border: 1px solid #d8c387; border-radius: 6px; background: #fff8e6; color: #684f17; font-size: 15px; font-weight: 650; line-height: 1.5; }
 .demoNotice { margin: 12px 24px; }
 @media (max-width: 640px) { .demoNotice { margin: 12px 14px; } .messageHeading { padding-inline: 14px; } }
+
+.deliveryChoice { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cbd9d1; border-radius: 7px; background: #f4f7f5; }
+.deliveryChoice button { min-height: 38px; padding: 6px 15px; border: 1px solid transparent; border-radius: 4px; color: #54675b; font-size: 14px; font-weight: 600; cursor: pointer; }
+.deliveryChoice button[aria-pressed="true"] { border-color: #bed4c8; background: white; color: #096b56; box-shadow: 0 1px 3px #233e3112; }
+.deliveryChoice button:focus-visible { outline: 3px solid #087d66; outline-offset: 2px; }
+.senderCaption { display: block; margin-top: 5px; color: #58695f; font-size: 14px; }
+.outlookToolbar { flex-direction: column; align-items: stretch; gap: 14px; max-height: 48dvh; overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 560px) { .deliveryChoice button { min-height: 44px; padding-inline: 12px; } .outlookToolbar { max-height: 44dvh; } }

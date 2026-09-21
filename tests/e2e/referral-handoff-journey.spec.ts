@@ -123,7 +123,7 @@ for (const width of [1440, 834, 390]) {
     await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Preview email", exact: true }).click();
     await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
-    await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true }).getByRole("status").filter({ hasText: "Demo — not live" })).toHaveText("Demo — not live. No email will be sent.");
+    await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true }).getByRole("status").filter({ hasText: "Not production yet" })).toHaveText("Not production yet — no email will be sent.");
     await expect(page.getByRole("navigation", { name: "Assessment chart views" })).toHaveCount(0);
     await expect(page.getByLabel("Authorized recipients", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Send email & packet|Back to outcome/ })).toHaveCount(0);
@@ -297,7 +297,7 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
     await stages.getByRole("button", { name: /Finish & send$/ }).tap();
     await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("status").filter({ hasText: "Demo — not live" })).toHaveText("Demo — not live. No email will be sent.");
+    await expect(page.getByRole("status").filter({ hasText: "Not production yet" })).toHaveText("Not production yet — no email will be sent.");
     await page.getByRole("button", { name: "Preview email", exact: true }).tap();
     const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
     await expect(preview.locator("li").first()).toHaveCSS("font-size", "17px");
