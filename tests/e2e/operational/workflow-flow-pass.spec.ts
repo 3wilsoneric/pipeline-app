@@ -109,8 +109,7 @@ test.describe("uninterrupted workflow", () => {
       expect(await notice.evaluate(element => getComputedStyle(element).color)).toBe("rgb(89, 100, 94)");
       await schedule.getByRole("button", { name: "Close schedule", exact: true }).click();
       await expect(schedule).toHaveCount(0);
-      await page.getByRole("button", { name: "Begin assessment", exact: true }).click();
-      await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
       const editor = page.locator("[data-assessment-view]");
       await expect(editor.getByRole("button", { name: "Next section", exact: true })).toBeEnabled();
       await editor.getByRole("button", { name: "Next section", exact: true }).click();

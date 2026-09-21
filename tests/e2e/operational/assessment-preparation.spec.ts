@@ -8,7 +8,7 @@ test.describe("assessment preparation", () => {
   test.setTimeout(60_000);
 
   for (const actor of ["assessorA", "assessmentCoordinator"] as const) {
-    test(`${actor} prepares from intake, resumes and begins with the last answer intact`, async ({ browser, baseURL }) => {
+    test(`${actor} prepares from intake, resumes and reschedules with the last answer intact`, async ({ browser, baseURL }) => {
       const url = requireOperationalBaseURL(baseURL);
       const api = await actorApiContext(actor, url);
       const { page, context } = await actorPage(browser, actor, url);
@@ -65,24 +65,22 @@ test.describe("assessment preparation", () => {
         expect(scheduled.scheduled_start_at).toBeTruthy();
         expect(scheduled.prior_5150_5250_holds).toBe(scheduledAnswer);
 
-        const finalAnswer = `${scheduledAnswer} Last edit immediately before starting.`;
+        const finalAnswer = `${scheduledAnswer} Last edit immediately before rescheduling.`;
         await field.fill(finalAnswer);
-        await editor.getByRole("button", { name: "Begin assessment", exact: true }).click();
-        const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-        await page.route(`**/api/assessments/${id}/start`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic start failure. Retry without losing preparation." } }));
-        await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
-        await expect(begin).toHaveCount(0);
-        await expect(editor.getByRole("alert")).toContainText("Synthetic start failure");
+        await field.blur();
+        await editor.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Reschedule assessment", exact: true }).click();
+        await schedule.getByLabel("Assessment date and time").fill("2027-10-20T10:00");
+        await page.route(`**/api/assessments/${id}/schedule`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic schedule failure. Retry without losing preparation." } }));
+        await schedule.getByRole("button", { name: "Save new time", exact: true }).click();
+        await expect(schedule.getByRole("alert")).toContainText("Synthetic schedule failure");
         expect((await readAssessment(api, id)).started_at).toBeNull();
-        await page.unroute(`**/api/assessments/${id}/start`);
-        await editor.getByRole("button", { name: "Retry start time", exact: true }).click();
-        await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
-        await expect(begin).toHaveCount(0);
-        await findHistory();
+        await page.unroute(`**/api/assessments/${id}/schedule`);
+        await schedule.getByRole("button", { name: "Save new time", exact: true }).click();
+        await expect(schedule).toHaveCount(0);
         await expect(field).toHaveValue(finalAnswer);
-        const started = await readAssessment(api, id);
-        expect(started.started_at).toBeTruthy();
-        expect(started.prior_5150_5250_holds).toBe(finalAnswer);
+        const saved = await readAssessment(api, id);
+        expect(saved.started_at).toBeNull();
+        expect(saved.prior_5150_5250_holds).toBe(finalAnswer);
         await page.reload();
         await findHistory();
         await expect(field).toHaveValue(finalAnswer);

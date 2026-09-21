@@ -636,15 +636,17 @@ check("review change requests and revision creation share one PostgreSQL transac
 check("review rollback delegates transaction ownership to the drill", !/^\s*(begin|commit)\s*;/im.test(reviewRollback));
 check("requirements cannot drift from the referral assignment", workItemRoute.includes("Change the referral assignment to change requirement ownership") && !workItemRoute.includes('"ownerId",'));
 check(
-  "assessment interview delegates its focused shell, grouped navigation, and explicit schedule/begin dialogs",
+  "assessment interview has a visible appointment and no separate begin step",
   assessmentWorkspace.includes("<AssessmentFileSurface")
     && read("components/pipeline/AssessmentPreparation.tsx").includes("createPortal(")
     && read("components/pipeline/AssessmentPreparation.tsx").includes('aria-label="Assessment interview"')
     && assessmentWorkspace.includes("<AssessmentWorkingNavigation")
     && assessmentWorkspace.includes("<AssessmentSchedulingDialogs")
-    && /<AssessmentScheduleLayout\s+label="Schedule assessment"/.test(read("components/pipeline/AssessmentSchedulingDialogs.tsx"))
-    && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('role="dialog" aria-modal="true" aria-label={label}')
-    && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('aria-label="Begin assessment"')
+    && /<AssessmentScheduleLayout\s+modal=\{modal\}\s+label="Schedule assessment"/.test(read("components/pipeline/AssessmentSchedulingDialogs.tsx"))
+    && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('role="dialog" aria-modal={modal} aria-label={label}') && read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('scheduleModal = true')
+    && assessmentWorkspace.includes('aria-label="Assessment appointment"')
+    && !assessmentWorkspace.includes('assessment-begin')
+    && !read("components/pipeline/AssessmentSchedulingDialogs.tsx").includes('aria-label="Begin assessment"')
     && !assessmentWorkspace.includes("assessmentWorkbookTemplatePath")
     && !assessmentWorkspace.includes('role="tablist" aria-label="Assessment sections"'),
 );

@@ -71,7 +71,7 @@ function requiredFieldLabel(field: AssessmentToolFieldKey) {
     resident_name: "Resident name",
     date_of_birth: "Date of birth",
     community: "Community",
-    assessment_date: "Assessment date",
+    assessment_date: "Date assessment performed",
     assessor: "Assessor",
   } as Partial<Record<AssessmentToolFieldKey, string>>)[field] ?? assessmentInterviewFieldLabel(field);
 }

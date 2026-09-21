@@ -407,9 +407,7 @@ test.describe("workflow interaction and durable feedback", () => {
       const scheduled = (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment;
       expect(scheduled.scheduled_start_at).toBe("2026-09-18T17:30:00.000Z");
       expect(scheduled.scheduled_method).toBe("zoom");
-      await page.locator('summary[aria-label="Assessment details"]').click();
-      await page.getByRole("button", { name: "Begin assessment", exact: true }).click();
-      await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
       const editor = page.locator('[data-assessment-view]');
       const sectionSelect = editor.getByRole("combobox", { name: "Assessment section", exact: true });
       const sectionBody = editor.locator('[data-assessment-working-section]');

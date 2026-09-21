@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
+import { ChevronDown, Pencil } from "lucide-react";
 import {
   assessmentInterviewFieldLabel,
   getAssessmentUnableReason,
@@ -53,18 +53,14 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
   </nav>;
 }
 
-export function AssessmentWorkMode({ preparing, disabled, canBegin, startRecorded, onBegin }: { preparing: boolean; disabled: boolean; canBegin: boolean; startRecorded: boolean; onBegin: () => void }) {
-  return <section className={styles.workMode} aria-label="Assessment progress">
-    <div className={styles.phaseSummary}>
-      <ol className={styles.phaseSteps} aria-label="Preparation and interview">
-        <li aria-current={preparing ? "step" : undefined}><span aria-hidden="true">{preparing ? "1" : <Check size={14} />}</span>Prepare from records<ChevronRight size={15} aria-hidden="true" /></li>
-        <li aria-current={!preparing ? "step" : undefined}><span aria-hidden="true">2</span>Interview</li>
-      </ol>
-      <p>{preparing ? "Before meeting the client, record what you know. Unknowns can wait." : "Use the section reference as you ask what is missing or has changed."}</p>
+export function AssessmentWorkMode({ preparing, disabled, onChange }: { preparing: boolean; disabled: boolean; onChange: (preparing: boolean) => void }) {
+  return <div className={styles.workMode}>
+    <div role="group" aria-label="Assessment working mode" className={styles.modeChoices}>
+      <button type="button" aria-pressed={preparing} disabled={disabled} onClick={() => onChange(true)}>Prepare from records</button>
+      <button type="button" aria-pressed={!preparing} disabled={disabled} onClick={() => onChange(false)}>Interview</button>
     </div>
-    {canBegin ? <button type="button" data-guide-target="assessment-begin" className={styles.beginAssessment} disabled={disabled} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); onBegin(); }}><Play size={16} aria-hidden="true" />{preparing ? "Begin assessment" : "Retry start time"}</button> : null}
-    {!preparing && !startRecorded ? <p role="status" className={styles.startPending}>Start time not saved. You can keep answering.</p> : null}
-  </section>;
+    <p>{preparing ? "Complete what the referral supports. Leave the rest for the interview." : "Ask what is missing; check what has changed."}</p>
+  </div>;
 }
 
 export type WorkingSectionProps = WorkingData & {

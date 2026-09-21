@@ -18,23 +18,26 @@ export default function CommunityContactLists() {
   const [lists, setLists] = useState<CommunityRecipientList[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [canManage, setCanManage] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    fetchPipelineJson<{ lists: CommunityRecipientList[] }>(endpoint, { cache: "no-store", signal: controller.signal })
-      .then((result) => setLists(result.lists))
+    fetchPipelineJson<{ lists: CommunityRecipientList[]; canManage: boolean }>(endpoint, { cache: "no-store", signal: controller.signal })
+      .then((result) => { if (!controller.signal.aborted) { setLists(result.lists); setCanManage(result.canManage); } })
       .catch((failure) => { if (!controller.signal.aborted) setError(failure instanceof PipelineApiError ? failure.message : "Contact lists could not be loaded. Please reload to try again."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, []);
+  }, [reloadKey]);
   return <div className={styles.page}>
     <div className={styles.content}>
       <header className={styles.pageHeader}>
         <Link href="/settings" className={styles.back}><ArrowLeft size={16} aria-hidden="true" /> Settings</Link>
-        <div className={styles.headingLine}><h1>Contact lists</h1><span className={styles.draftLabel}>Local drafts</span></div>
-        <p>Community recipients for admission packets. Editing a list never sends an email.</p>
+        <div className={styles.headingLine}><h1>Community contact lists</h1></div>
+        <p>Choose a community to manage its Meet the Client recipients. Saving updates the defaults for the team; it never sends an email.</p>
       </header>
       {loading ? <p role="status" className={styles.loading}><LoaderCircle size={20} className="animate-spin motion-reduce:animate-none" /> Loading contact lists</p>
-        : error ? <p role="alert" aria-label="Contact list error" className={styles.error}>{error}</p>
+        : error ? <div role="alert" aria-label="Contact list error" className={styles.error}>{error}<button type="button" onClick={() => { setLoading(true); setError(""); setReloadKey((key) => key + 1); }}>Try again</button></div>
+        : !canManage ? <p role="alert">Community contact lists are managed by designated supervisors. You can still edit recipients on an individual handoff.</p>
         : lists.length ? <ListEditor lists={lists} onSaved={setLists} /> : <p>No community lists have been added yet.</p>}
     </div>
   </div>;
@@ -88,7 +91,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
         const result = await fetchPipelineJson<{ list: CommunityRecipientList }>(endpoint, { method: "PUT", body: JSON.stringify({ ...JSON.parse(payload), mutationId: mutation.current.id }) });
         onSaved(lists.map((list) => list.community === community ? result.list : list));
         setFields({ to: result.list.to, cc: result.list.cc }); setText(emptyText); setUndo(null); setConflict(false);
-        setMessage("List saved locally.");
+        setMessage("Contact list saved.");
       } catch (failure) {
         setError(failure instanceof Error ? failure.message : "Could not save. Your edits are still here; try again.");
         setConflict(failure instanceof PipelineApiError && failure.status === 409);
@@ -149,7 +152,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
     <form className={styles.editor} aria-label={`${community} contact list`} onSubmit={(event) => { event.preventDefault(); void save().catch(() => undefined); }}>
       <header className={styles.editorHeader}>
         <span className={styles.mailIcon}><Mail size={23} aria-hidden="true" /></span>
-        <div><h2>{community === "JC Wallace" ? "JC Wallace House" : community}</h2><p>Admission packet <span aria-hidden="true">/</span> {fields.to.length + fields.cc.length} recipients</p></div>
+        <div><h2>{community === "JC Wallace" ? "JC Wallace House" : community}</h2><p>Meet the Client <span aria-hidden="true">/</span> {fields.to.length + fields.cc.length} recipients</p></div>
       </header>
       <fieldset disabled={saving} className={styles.fields}>
         <legend className="sr-only">Recipients</legend>
@@ -157,7 +160,7 @@ function ListEditor({ lists, onSaved }: { lists: CommunityRecipientList[]; onSav
           onText={(value) => { setText((previous) => ({ ...previous, [lane]: value })); setError(""); }} onAdd={(value) => add(lane, value)}
           onRemove={(email) => { const index = fields[lane].findIndex((item) => item.email === email); setUndo({ lane, recipient: fields[lane][index], index }); setFields({ ...fields, [lane]: fields[lane].filter((item) => item.email !== email) }); setError(""); setMessage("Contact removed from this list."); }} />)}
       </fieldset>
-      <div className={styles.note}>Built from your admission emails. Meet the Client recipients still need confirmation.</div>
+      <div className={styles.note}>These contacts prefill new handoffs for this community. Individually saved recipients stay unchanged; use the latest community list from the handoff when needed. Always review before sending.</div>
       {error && <div className={styles.error} role="alert" aria-label="Contact list error">{error}{conflict && <button type="button" disabled={saving} onClick={() => void reload()}>Reload saved list</button>}</div>}
       <footer className={styles.footer}>
         <div className={styles.feedback}><span role="status">{listSaveStatus(saving, dirty, message)}</span>
@@ -185,5 +188,5 @@ function isUnmodifiedClick(event: MouseEvent) {
 function listSaveStatus(saving: boolean, dirty: boolean, message: string) {
   if (saving) return "Saving...";
   if (dirty) return "Unsaved changes";
-  return message || "Saved locally";
+  return message || "All changes saved";
 }

@@ -3,11 +3,6 @@
 import {
   ArrowLeft,
   ArrowRight,
-  FolderPlus,
-  ClipboardList,
-  FolderSearch,
-  Send,
-  ChartNoAxesCombined,
   LayoutDashboard,
   CircleHelp,
   Check,
@@ -28,7 +23,6 @@ import { PIPELINE_NAVIGATION_EVENT, pushPipelineHistory } from "@/lib/pipeline/c
 import {
   getOperatorGuidedTutorial,
   guidedTutorialsForRoles,
-  operatorGuideTopics,
   operatorGuideNextActions,
   operatorGuideStepTitle,
   type OperatorGuidedTutorial,
@@ -53,10 +47,11 @@ import {
   type OperatorTutorialResult,
 } from "@/lib/training/operator-training-progress-contract";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
-import { guideIntakeAvailable, guideRouteMatches, guideWorkspaceAvailable, resolveGuideDestination } from "@/lib/training/operator-guide-navigation";
+import { guideRouteMatches, guideWorkspaceAvailable, resolveGuideDestination } from "@/lib/training/operator-guide-navigation";
 import { operatorGuideCanComplete } from "@/lib/training/operator-guided-tour-state";
 import type { OperatorRole } from "@/lib/training/operator-training-types";
 import styles from "./PipelineGuidedCoach.module.css";
+import { tutorialReferralEntry } from "@/lib/training/tutorial-referral";
 
 type TargetView = {
   stepId?: string;
@@ -151,6 +146,16 @@ export default function PipelineGuidedCoach() {
     const selected = await allowedTutorial(tutorialId);
     if (generation !== navigationGeneration.current) return;
     if (!selected) return;
+    if (tutorialReferralEntry(selected.id) !== undefined) {
+      try {
+        await beforeNavigationRef.current?.();
+        if (generation !== navigationGeneration.current) return;
+        const params = new URLSearchParams({ task: selected.id, returnTo: fromPipelinePath(window.location.pathname) === "/" ? `/${window.location.search}` : "/" });
+        commit({ type: "close" });
+        window.location.assign(toPipelinePath(`/tutorials/referral?${params}`));
+      } catch { setNavigationError("Your current work could not be saved. Resolve its save error before opening the sample."); }
+      return;
+    }
     if (selected.context === "workspace" && !guideWorkspaceAvailable(currentGuideLocationKey())) {
       commit({ type: "open-library" });
       setPendingGuide({ id: tutorialId, stepIndex: requestedStepIndex, resume: false });
@@ -165,6 +170,8 @@ export default function PipelineGuidedCoach() {
   }
 
   async function startTutorialSequence(requestedIds: readonly string[]) {
+    const sampleTutorial = requestedIds.find((id) => tutorialReferralEntry(id) !== undefined);
+    if (sampleTutorial) return startTutorial(sampleTutorial);
     const generation = ++navigationGeneration.current;
     const identity = await fetchCurrentPipelineUser().catch(() => null);
     if (generation !== navigationGeneration.current) return;
@@ -218,6 +225,7 @@ export default function PipelineGuidedCoach() {
   }
 
   async function resumeTutorial() {
+    if (tutorial && tutorialReferralEntry(tutorial.id) !== undefined) return startTutorial(tutorial.id);
     if (!tutorial || !step || !await allowedTutorial(tutorial.id)) { commit({ type: "open-library" }); return; }
     if (tutorial.context === "workspace" && !guideWorkspaceAvailable(currentGuideLocationKey())) {
       setPendingGuide({ id: tutorial.id, stepIndex: state.stepIndex, resume: true });
@@ -339,7 +347,7 @@ export default function PipelineGuidedCoach() {
 
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
-  if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
+  if (pathname === "/training/demo" || pathname === "/tutorials/referral" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
   const currentTarget = target.stepId === step?.id && step && guideRouteMatches(step.route, locationKey) ? target : emptyTarget;
   return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={currentTarget} locationKey={locationKey} progressSyncState={progressSyncState} navigationError={navigationError} pendingGuide={pendingGuide} onCancelSelection={() => setPendingGuide(null)} onBrowse={(destination = "board") => { void openGuideRoute(destination === "board" ? "/" : "/?view=referrals", "app", true); }} onOpenRoute={() => { if (step) void openGuideRoute(step.route); }} onSkip={() => { void advance(undefined, true); }} onStart={startTutorial} onCommit={commit} onAdvance={() => advance()} onBack={goBack} onResume={resumeTutorial} onGoToStep={goToStep} /></>;
 }
@@ -375,52 +383,19 @@ function targetView(candidate: HTMLElement | null): TargetView {
   return { element: candidate, rect, available: Boolean(candidate && rect && rect.width > 0 && rect.height > 0) };
 }
 
-const topicIcons = { create: FolderPlus, assess: ClipboardList, admit: Send, find: FolderSearch, team: ChartNoAxesCombined };
-
-function guidePageSuggestions(locationKey: string) {
-  const params = new URL(locationKey, "https://pipeline.invalid").searchParams;
-  return guideIntakeAvailable(locationKey) ? ["create-referral"]
-    : params.get("workspaceView") === "files" ? ["workspace-files"]
-    : params.get("workspaceView") === "activity" ? ["workspace-history"]
-    : params.get("workspaceView") === "workflow" ? ["record-decision"]
-    : params.get("workspaceView") === "email" ? ["prepare-packet"]
-    : params.get("workspaceStage") === "assessment" ? ["start-assessment", params.get("assessmentMode") === "review" ? "review-chart" : "complete-assessment"]
-    : params.get("screen") === "calendar" ? ["calendar"]
-    : params.get("screen") === "operations" ? ["run-report"] : [];
-}
-
-function GuideLibrary({ roles, completed, locationKey, navigationError, resumableTutorialId, pending, onCancelSelection, onBrowse, onStart, onResume, onClose }: { roles: readonly OperatorRole[]; completed: readonly string[]; locationKey: string; navigationError: string; resumableTutorialId: string | null; pending: PendingGuide | null; onCancelSelection: () => void; onBrowse: (destination?: "board" | "directory") => void; onStart: (id: string, stepIndex?: number) => void; onResume: () => void; onClose: () => void }) {
-  const [expanded, setExpanded] = useState<string | null>(null);
+function GuideLibrary({ roles, navigationError, onStart, onClose }: { roles: readonly OperatorRole[]; completed: readonly string[]; locationKey: string; navigationError: string; resumableTutorialId: string | null; pending: PendingGuide | null; onCancelSelection: () => void; onBrowse: (destination?: "board" | "directory") => void; onStart: (id: string, stepIndex?: number) => void; onResume: () => void; onClose: () => void }) {
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [pending?.id]);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   const tutorials = guidedTutorialsForRoles(roles);
-  const workspace = guideWorkspaceAvailable(locationKey);
-  const resumable = tutorials.find((item) => item.id === resumableTutorialId && !completed.includes(item.id));
-  const waitingForReferral = tutorials.find((item) => item.id === pending?.id);
-  const onHome = guideRouteMatches("/", locationKey);
-  const suggestions = guidePageSuggestions(locationKey);
-  const startPending = useEffectEvent(() => {
-    if (!waitingForReferral || !pending) return;
-    if (pending.resume) onResume();
-    else onStart(waitingForReferral.id, pending.stepIndex);
-  });
-  useEffect(() => { if (pending && workspace) startPending(); }, [pending, workspace]);
-
-  function choose(item: OperatorGuidedTutorial, resume = false) {
-    if (resume) onResume();
-    else onStart(item.id);
-  }
-
-  const renderWaitingForReferral = (waitingForReferral: OperatorGuidedTutorial) => <div className={styles.pickReferral}>
-        <button type="button" className={styles.backToTopics} onClick={onCancelSelection}><ArrowLeft size={16} /> All tutorials</button>
-        <h3>{guideIntakeAvailable(locationKey) ? "Create this referral first" : "Start with the client's card"}</h3>
-        <p>{guideIntakeAvailable(locationKey) ? "This intake is still a draft. Choose Create referral on the form and wait for the saved confirmation. Then this help will continue on the same referral." : <>On your Home Board, open the client&apos;s card. <strong>{waitingForReferral.title}</strong> will {pending?.resume ? "resume" : "start"} there.</>}</p>
-        {waitingForReferral.id === "start-assessment" && !guideIntakeAvailable(locationKey) ? <p>Look in <strong>Referral received</strong>. If the card says documents or intake are needed, finish those first. Already scheduled? Look in <strong>In progress</strong>.</p> : null}
-        <GuideSelectionCue locationKey={locationKey} />
-        {!onHome && !guideIntakeAvailable(locationKey) ? <button type="button" onClick={() => onBrowse("board")} className={styles.browseReferrals}><LayoutDashboard size={17} /> Go to my Board</button> : null}
-        <button type="button" onClick={() => onBrowse("directory")} className={styles.sampleLink}><FolderSearch size={17} /> Find a referral in Workspaces</button>
-        {waitingForReferral.id === "complete-assessment" ? <button type="button" className={styles.sampleLink} onClick={() => { onCancelSelection(); onStart("practice-assessment"); }}>Use a sample assessment instead <ArrowRight size={16} /></button> : null}
-      </div>;
+  const tasks = [
+    ["create-referral", "Create a referral & add files"],
+    ["start-assessment", "Schedule an appointment"],
+    ["complete-assessment", "Fill out the assessment"],
+    ["review-chart", "Review & sign"],
+    ["record-decision", "Record a decision"],
+    ["prepare-packet", "Prepare the admission packet"],
+    ["run-report", "View reports"],
+  ];
 
   return <section role="dialog" aria-label="Tutorials" data-guide-dock onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }} className={styles.dock + " " + styles.library}>
     <header className={styles.header}>
@@ -429,49 +404,13 @@ function GuideLibrary({ roles, completed, locationKey, navigationError, resumabl
     </header>
     <div className={styles.libraryBody}>
       {navigationError ? <p role="alert" className={styles.error}>{navigationError}</p> : null}
-      {waitingForReferral ? renderWaitingForReferral(waitingForReferral) : <>
-      {resumable ? <button type="button" onClick={() => choose(resumable, true)} className={styles.resume}><span>Resume <strong>{resumable.title}</strong></span><ArrowRight size={17} /></button> : null}
-      {onHome && tutorials.some((item) => item.id === "assessor-shift") ? <button type="button" className={styles.boardHelp} onClick={() => onStart("assessor-shift")}><LayoutDashboard size={20} /><span>Where do I go next?<small>Help with my Home Board</small></span><ArrowRight size={17} /></button> : null}
-      {suggestions.length ? <section className={styles.pageHelp}><h3>Help on this page</h3>{suggestions.flatMap((id) => tutorials.filter((item) => item.id === id)).map((item) => <button key={item.id} type="button" className={styles.tutorialItem} onClick={() => onStart(item.id)}>Help: {item.title}<ArrowRight size={16} /></button>)}</section> : null}
-      <p className={styles.menuPrompt}>What do you need help with?</p>
+      {tutorials.some((item) => item.id === "assessor-shift") ? <button type="button" className={styles.boardHelp} onClick={() => onStart("assessor-shift")}><LayoutDashboard size={20} /><span>Walk through a referral<small>Fictional client, from Home to admission</small></span><ArrowRight size={17} /></button> : null}
+      <p className={styles.menuPrompt}>Or jump to a task</p>
       <div className={styles.topics} aria-label="Tutorial topics">
-      {operatorGuideTopics.map((topic) => {
-        const items = topic.tutorialIds.flatMap((id) => tutorials.filter((item) => item.id === id && (!onHome || id !== "assessor-shift")));
-        if (!items.length) return null;
-        const Icon = topicIcons[topic.id];
-        const isOpen = expanded === topic.id;
-        return <section key={topic.id} className={styles.topic}>
-          <button type="button" className={styles.topicButton} aria-label={topic.title} aria-expanded={isOpen} aria-controls={"tutorial-topic-" + topic.id} onClick={() => setExpanded(isOpen ? null : topic.id)}>
-            <span className={styles.topicIcon}><Icon size={20} aria-hidden="true" /></span>
-            <span className={styles.topicTitle}>{topic.title}</span>
-            <ChevronDown size={17} className={isOpen ? styles.rotated : undefined} aria-hidden="true" />
-          </button>
-          {isOpen ? <div id={"tutorial-topic-" + topic.id} className={styles.topicItems}>{items.map((item) => <button key={item.id} type="button" onClick={() => choose(item)} aria-label={"Start tutorial: " + item.title} className={styles.tutorialItem}>
-            <span>{item.title}</span>{completed.includes(item.id) ? <Check size={16} aria-label="Guide reviewed" /> : <ChevronRight size={16} aria-hidden="true" />}
-          </button>)}</div> : null}
-        </section>;
-      })}
+      {tasks.filter(([id]) => tutorials.some((item) => item.id === id)).map(([id, label]) => <button type="button" className={styles.tutorialItem} key={id} onClick={() => onStart(id)}>{label}<ChevronRight size={16} aria-hidden="true" /></button>)}
       </div>
-      </>}
     </div>
   </section>;
-}
-
-function GuideSelectionCue({ locationKey }: { locationKey: string }) {
-  const [view, setView] = useState<TargetView>(emptyTarget);
-  useEffect(() => {
-    const targetId = guideIntakeAvailable(locationKey) ? "create-workspace" : guideRouteMatches("/", locationKey) ? "my-queue" : "workspace-results";
-    let frame = 0;
-    const measure = () => setView(targetView(findVisibleGuideTarget(targetId)));
-    const update = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
-    const observer = new MutationObserver(update);
-    observer.observe(document.body, { subtree: true, childList: true });
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    update();
-    return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener("scroll", update, true); window.removeEventListener("resize", update); };
-  }, [locationKey]);
-  return view.rect && view.element ? <><button type="button" className={styles.locate} onClick={() => { view.element?.scrollIntoView({ block: "center", behavior: "smooth" }); }}><LocateFixed size={16} /> Show me where</button><GuideSpotlight rect={view.rect} element={view.element} stepNumber={1} /></> : null;
 }
 
 function GuideNextActions({ tutorial, roles, locationKey, navigationError, onStart, onClose, onLibrary, onBrowse }: { tutorial: OperatorGuidedTutorial; roles: readonly OperatorRole[]; locationKey: string; navigationError: string; onStart: (id: string) => void; onClose: () => void; onLibrary: () => void; onBrowse: (destination?: "board" | "directory") => void }) {
@@ -529,17 +468,15 @@ function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceC
           <div className={styles.task}>
             <p className={styles.context}>{guideContextNames[tutorial.context]}{sequenceCount > 1 ? ` · ${sequenceIndex + 1}/${sequenceCount}` : ""}</p>
             <h2 ref={heading} tabIndex={-1}>{tutorial.title}</h2>
-            <p className={styles.summary}>{tutorial.outcome}</p>
           </div>
           <button type="button" className={styles.stepToggle} aria-expanded={showSteps} aria-controls="tutorial-step-list" onClick={() => setShowSteps(!showSteps)}><ListOrdered size={16} /><span>Choose a step · {stepIndex + 1} of {tutorial.steps.length}</span><ChevronDown size={16} className={showSteps ? styles.rotated : undefined} /></button>
           {showSteps ? renderSteps() : null}
           <div className={styles.instruction} aria-live="polite" aria-atomic="true">
             <h3>{operatorGuideStepTitle(step)}</h3>
             <p>{step.instruction}</p>
-            <div className={styles.result}><span>What you should see</span><p>{step.completion}</p></div>
           </div>
           {navigationError ? <p role="alert" className={styles.error}>{navigationError}</p> : null}
-          {!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : <button type="button" className={styles.locate} onClick={showControl}><LocateFixed size={16} /> Show control</button>}
+          {!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : <button type="button" className={styles.locate} onClick={showControl}><LocateFixed size={16} /> Show me where</button>}
           {renderRecovery()}
           <GuideProgressSync state={progressSyncState} />
         </div>
@@ -598,7 +535,7 @@ function guideRecoveryMessage(target: string, practice: boolean) {
   if (target === "create-workspace") return practice ? "This sample intentionally does not create a real referral. Use Create a referral below when you are ready for real work." : "The Create referral button is on the workspace header. If it is gone and the referral has an ID, it has already been created. Check the save status and upload errors before scheduling; do not create another copy.";
   return guideRecoveryMessages.find((item) => item.targets.includes(target))?.message
     ?? guideRecoveryPrefixes.find((item) => item.pattern.test(target))?.message
-    ?? "Use Show control to locate this item. Choose a step above to get help with a different part of this task. Closing help leaves your work open.";
+    ?? "Use Show me where to find this item, or choose another step above.";
 }
 
 function GuideRecovery({ step, tutorial, onStart, onGoToStep, onBrowse }: { step: OperatorGuideStep; tutorial: OperatorGuidedTutorial; onStart: (id: string) => void; onGoToStep: (index: number) => void; onBrowse: (destination?: "board" | "directory") => void }) {
@@ -627,25 +564,8 @@ function unavailableGuideMessage(step: OperatorGuideStep, routeMatches: boolean)
   return "This item is not visible on the current page. Check the help below, or choose the step you need above.";
 }
 
-function GuideConversationFooter({ step, stepIndex, stepCount, canConfirm, hasPreviousModule, hasNextModule, onSkip, onBack, onAdvance }: { step: OperatorGuideStep; stepIndex: number; stepCount: number; canConfirm: boolean; hasPreviousModule: boolean; hasNextModule: boolean; onSkip: () => void; onBack: () => void; onAdvance: () => void }) {
-  return <footer className={styles.footer}><div className={styles.footerActions}><button type="button" aria-label="Previous tutorial step" title="Previous step" disabled={stepIndex === 0 && !hasPreviousModule} onClick={onBack}><ArrowLeft size={17} /></button><button type="button" onClick={onSkip} className={styles.skip}>{guideSkipLabel(stepIndex, stepCount, hasNextModule)}</button>{canConfirm ? <button type="button" onClick={onAdvance} className={styles.continue}>{guideAdvanceLabel(stepIndex, stepCount, hasNextModule)}<ArrowRight size={16} /></button> : <span className={styles.waiting}>{guideInteractionLabel(step)}</span>}</div></footer>;
-}
-
-function guideInteractionLabel(step: OperatorGuideStep) {
-  if (step.target === "assessment-schedule-save") return "Save the appointment";
-  if (step.advance === "target-input") return "Use highlighted field";
-  if (step.advance === "target-change") return "Use highlighted field";
-  return "Select highlighted item";
-}
-
-function guideAdvanceLabel(stepIndex: number, stepCount: number, hasNextModule: boolean) {
-  if (stepIndex === stepCount - 1) return hasNextModule ? "Next guide" : "What next?";
-  return "Next tip";
-}
-
-function guideSkipLabel(stepIndex: number, stepCount: number, hasNextModule: boolean) {
-  if (stepIndex !== stepCount - 1) return "Skip step";
-  return hasNextModule ? "Skip to next" : "End tips";
+function GuideConversationFooter({ stepIndex, stepCount, canConfirm, hasPreviousModule, hasNextModule, onSkip, onBack, onAdvance }: { step: OperatorGuideStep; stepIndex: number; stepCount: number; canConfirm: boolean; hasPreviousModule: boolean; hasNextModule: boolean; onSkip: () => void; onBack: () => void; onAdvance: () => void }) {
+  return <footer className={styles.footer}><div className={styles.footerActions}><button type="button" aria-label="Previous tutorial step" title="Previous step" disabled={stepIndex === 0 && !hasPreviousModule} onClick={onBack}><ArrowLeft size={17} />Back</button><button type="button" onClick={canConfirm ? onAdvance : onSkip} className={styles.continue}>{stepIndex === stepCount - 1 && !hasNextModule ? "Done" : "Next"}<ArrowRight size={16} /></button></div></footer>;
 }
 
 function visibleGuideBounds(rect: DOMRect, element: HTMLElement | null) {

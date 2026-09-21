@@ -267,7 +267,7 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("resident_name", "Resident name", "identity", "string", true, ["referral.full_name", "demographics.full_name", "resident.name"]),
   field("date_of_birth", "Date of birth", "identity", "date", true, ["referral.date_of_birth", "demographics.date_of_birth"]),
   field("community", "Community", "identity", "string", true, ["assessment.community", "resident.community"]),
-  field("assessment_date", "Assessment date", "identity", "date", true),
+  field("assessment_date", "Date assessment performed", "identity", "date", true),
   field("assessor", "Assessor", "identity", "string", true),
   field("referral_received_date", "Date referral received", "identity", "date", true, ["referral.received_date"]),
   field("referrer_name", "Referrer", "identity", "string", true, ["referral.referrer_name", "referral.contact_name"]),

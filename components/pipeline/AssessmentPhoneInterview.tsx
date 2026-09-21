@@ -100,7 +100,7 @@ export default function AssessmentPhoneInterview(props: Props) {
             const destination = sections.find((item) => item.questions.some((q) => q.field === question.field));
             if (destination) chooseSection(destination.key, question.field);
           }}><strong>{assessmentInterviewFieldLabel(question.field)}</strong><span>{capturedAssessmentAnswer(question, data)}</span></button>) : <>
-          <button type="button" onClick={() => chooseSection("identity", "assessment_date")}><strong>Assessment date</strong><span>{data.assessment_date || "Add the interview date"}</span><ChevronRight size={17} aria-hidden="true" /></button>
+          <button type="button" onClick={() => chooseSection("identity", "assessment_date")}><strong>Date assessment performed</strong><span>{data.assessment_date || "Add the interview date"}</span><ChevronRight size={17} aria-hidden="true" /></button>
           {sections.map((item, index) => {
             const count = assessmentWorkingCounts(item.questions, data, pending);
             return <button type="button" key={item.key} aria-current={item.key === section.key ? "step" : undefined} onClick={() => chooseSection(item.key)}><strong>{index + 1}. {item.label}</strong><span>{assessmentWorkingCountLabel(count)}</span><ChevronRight size={17} aria-hidden="true" /></button>;

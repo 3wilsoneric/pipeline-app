@@ -29,7 +29,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     const load = async () => {
       let templates: CommunityRecipientList[] = [];
       let note = "";
-      try { templates = (await fetchPipelineJson<{ lists: CommunityRecipientList[] }>("/api/community-recipient-lists", { signal: controller.signal })).lists; }
+      try { templates = (await fetchPipelineJson<{ lists: CommunityRecipientList[] }>("/api/community-recipient-lists", { cache: "no-store", signal: controller.signal })).lists; }
       catch { note = "Community list unavailable. Add authorized recipients below."; }
       const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage }) | null; version: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0 };
       if (session.current !== current || controller.signal.aborted) return;
@@ -91,6 +91,18 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     current.queue = current.queue.catch(() => undefined); current.error = ""; current.queued = ""; setError("");
     save();
   };
+  const applyCommunityList = async () => {
+    const current = session.current;
+    if (!current || loading || current.error || !endpoint) throw new Error("Save or reload these recipients before replacing the list.");
+    await flush();
+    const result = await fetchPipelineJson<{ lists: CommunityRecipientList[] }>("/api/community-recipient-lists", { cache: "no-store" });
+    if (session.current !== current) throw new Error("The workspace changed. Open its contacts again.");
+    const template = result.lists.find((list) => list.community === community);
+    if (!template) throw new Error("No contact list is saved for this community yet.");
+    setLists(result.lists);
+    change({ to: template.to, cc: template.cc });
+    await current.queue;
+  };
   usePersonaSwitchSave(flush);
   useEffect(() => {
     const leave = (event: BeforeUnloadEvent) => {
@@ -100,7 +112,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
   }, []);
-  return { fields: loading ? empty() : fields, lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, retry, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
+  return { fields: loading ? empty() : fields, lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;

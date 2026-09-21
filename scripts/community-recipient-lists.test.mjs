@@ -128,10 +128,11 @@ test("corrupt files fail closed; draft storage unavailable outside local demo", 
   await assert.rejects(disabled.readCommunityRecipientLists(), /unavailable/);
 });
 
-function route(store, { authorized = true, enabled = true } = {}) {
+function route(store, { authorized = true, enabled = true, manager = true } = {}) {
   return loadEntry("app/api/community-recipient-lists/route.ts", {
     "@/lib/pipeline/community-recipient-lists": model,
     "@/lib/pipeline/community-recipient-list-store": { ...store, recipientListsAvailable: () => enabled },
+    "@/lib/pipeline/report-access": { canManageCommunityContactLists: () => manager },
     "@/lib/auth/pipeline-auth": { requirePipelineUser: (request, roles) => { if (request.method === "PUT") assert.deepEqual(clean(roles), ["admin", "assessment_coordinator"]); else assert.equal(roles, undefined); return authorized ? { ok: true, user: { id: "test-editor" } } : { ok: false, response: Response.json({ error: "Forbidden" }, { status: 403 }) }; } },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _route, handler) => handler() },
   });
@@ -145,7 +146,9 @@ test("API rejects unauthorized, unavailable, cross-origin, oversized, duplicate 
   const api = route(store);
   assert.equal((await route(store, { authorized: false }).GET(new Request('http://localhost'))).status, 403);
   assert.equal((await route(store, { authorized: false }).PUT(request(body))).status, 403);
-  assert.equal((await route(store, { enabled: false }).PUT(request(body))).status, 404);
+  assert.equal((await route(store, { enabled: false }).PUT(request(body))).status, 503);
+  assert.equal((await route(store, { manager: false }).PUT(request(body))).status, 403);
+  assert.equal((await (await route(store, { manager: false }).GET(new Request('http://localhost'))).json()).canManage, false);
   assert.equal((await api.PUT(request(body, 'https://elsewhere.test'))).status, 403);
   assert.equal((await api.PUT(request({ ...body, to: [recipient()], cc: [recipient()] }))).status, 400);
   assert.equal((await api.PUT(request({ ...body, community: "Unknown" }))).status, 400);

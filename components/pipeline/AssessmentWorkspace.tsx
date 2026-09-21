@@ -123,6 +123,8 @@ type AssessmentWorkspaceProps = {
   referral?: Referral;
   recommendationControl?: (assessmentId: string, onSavingChange: (saving: boolean) => void) => ReactNode;
   trainingAssessmentMode?: TrainingAssessmentMode;
+  initialTrainingAssessment?: PipelineAssessmentRecord;
+  onTrainingAssessmentChange?: (assessment: PipelineAssessmentRecord, action?: "scheduled") => void;
   trainingAssessmentSection?: AssessmentToolSection;
   initialSection?: AssessmentToolSection;
   assignedAssessorId?: string;
@@ -174,9 +176,7 @@ const assessmentSectionGuideTargets: Readonly<Record<AssessmentToolSection, stri
 };
 
 type AssessmentEscapeContext = {
-  showBeginDialog: boolean;
   showScheduleDialog: boolean;
-  setShowBeginDialog: (show: boolean) => void;
   setShowScheduleDialog: (show: boolean) => void;
   closeAssessment: () => void;
 };
@@ -184,7 +184,6 @@ type AssessmentEscapeContext = {
 type AssessmentFocusState = {
   section?: AssessmentToolSection;
   showScheduleDialog: boolean;
-  showBeginDialog: boolean;
 };
 
 type AssessmentAutoFocusState = AssessmentFocusState & { assessmentId: string };
@@ -193,12 +192,10 @@ type AssessmentAutoFocusSetters = {
   setActiveSection: (section: AssessmentToolSection) => void;
   setIsFocused: (focused: boolean) => void;
   setShowScheduleDialog: (show: boolean) => void;
-  setShowBeginDialog: (show: boolean) => void;
 };
 
 function handleAssessmentEscape(event: KeyboardEvent, context: AssessmentEscapeContext) {
   if (event.key !== "Escape" || event.defaultPrevented) return;
-  if (context.showBeginDialog) { context.setShowBeginDialog(false); return; }
   if (context.showScheduleDialog) { context.setShowScheduleDialog(false); return; }
   context.closeAssessment();
 }
@@ -226,7 +223,6 @@ function resolveAssessmentFocusState(
   return {
     section: autoFocusSection(assessment, nextRequiredSection, initialSection),
     showScheduleDialog: false,
-    showBeginDialog: false,
   };
 }
 
@@ -242,7 +238,6 @@ function applyAssessmentFocus(state: AssessmentFocusState, setters: AssessmentAu
   if (state.section) setters.setActiveSection(state.section);
   setters.setIsFocused(true);
   setters.setShowScheduleDialog(state.showScheduleDialog);
-  setters.setShowBeginDialog(state.showBeginDialog);
 }
 
 function assessmentWorkspacePermissions(
@@ -271,6 +266,8 @@ export default function AssessmentWorkspace({
   referral,
   recommendationControl,
   trainingAssessmentMode,
+  initialTrainingAssessment,
+  onTrainingAssessmentChange,
   trainingAssessmentSection,
   initialSection,
   assignedAssessorId,
@@ -293,6 +290,7 @@ export default function AssessmentWorkspace({
   onActiveSectionChange,
 }: AssessmentWorkspaceProps) {
   const { contentRef, beforeNavigationRef, setAssessmentFocused } = usePipelineShell();
+  const initialTrainingAssessmentRef = useRef(initialTrainingAssessment);
   const phoneInterview = usePhoneAssessment();
   const secondaryActionsRef = useRef<HTMLDetailsElement>(null);
   const [recoveryToolsAssessment, setRecoveryToolsAssessment] = useState<string | null>(null);
@@ -309,12 +307,10 @@ export default function AssessmentWorkspace({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
-  const [showBeginDialog, setShowBeginDialog] = useState(false);
   const [signingAssessmentId, setSigningAssessmentId] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [workingTarget, setWorkingTarget] = useState<{ field: AssessmentToolFieldKey } | null>(null);
-  const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "assessment" | "chart" } | null>(null);
-  const [unrecordedStartId, setUnrecordedStartId] = useState<string | null>(null);
+  const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "prepare" | "assessment" | "chart" } | null>(null);
   const [isRecommendationSaving, setIsRecommendationSaving] = useState(false);
   const phoneQuestionRef = useRef<AssessmentToolFieldKey | null>(null);
   const [phoneQuestion, setPhoneQuestion] = useState<AssessmentToolFieldKey | null>(null);
@@ -356,10 +352,11 @@ export default function AssessmentWorkspace({
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : null;
-  const setNotebookView = (view: "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
+  const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
   const reviewingChart = chartReview ?? notebookView === "chart";
   const embeddedFolder = Boolean(workspaceTitle);
-  const preparing = assessmentReadyToBegin(selected) && unrecordedStartId !== selectedId;
+  const preparationActive = () => notebookView === "prepare" || (!embeddedFolder && !trainingAssessmentMode && notebookView === null && assessmentReadyToBegin(selected));
+  const preparing = preparationActive();
   const preparationGroup = preparationGroupForSection(activeSection);
   const preparationIndex = assessmentPreparationGroups.indexOf(preparationGroup);
   const visibleSectionKey = preparing ? preparationGroup.key : activeSection;
@@ -384,14 +381,13 @@ export default function AssessmentWorkspace({
   const nextSection = pageSections[pageIndex + 1];
   const previousSection = pageSections[pageIndex - 1];
   const showSecondaryActions = Boolean(
-    selected && !selected.signed_at && !selected.started_at && canEditClinical
-    || recommendationControl && !preparing && !selected?.signed_at
+    recommendationControl && !preparing && !selected?.signed_at
     || selected?.signed_at && canAddAddendum
   );
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
   const practiceReview = useMemo(
-    () => trainingAssessmentMode ? getAssessmentPracticeReview(draft) : null,
-    [draft, trainingAssessmentMode],
+    () => trainingAssessmentMode && !initialTrainingAssessment ? getAssessmentPracticeReview(draft) : null,
+    [draft, trainingAssessmentMode, initialTrainingAssessment],
   );
 
   useEffect(() => {
@@ -414,7 +410,7 @@ export default function AssessmentWorkspace({
   const openFocusedAssessment = () => {
     applyAssessmentFocus(
       resolveAssessmentFocusState(selected, nextRequiredTarget?.section, activeSection),
-      { setActiveSection, setIsFocused, setShowScheduleDialog, setShowBeginDialog },
+      { setActiveSection, setIsFocused, setShowScheduleDialog },
     );
   };
 
@@ -554,6 +550,7 @@ export default function AssessmentWorkspace({
   }, [activeSection, canEditClinical, offlinePrincipal, phoneQuestion, referralId]);
 
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
+    if (trainingAssessmentMode) return;
     if (dirtySectionsRef.current.size === 0) return;
     const recovery: PipelineAssessmentDraft = {
       schema: 1,
@@ -587,7 +584,7 @@ export default function AssessmentWorkspace({
     // One confirmed durable copy is sufficient for navigation. Never report
     // success when both persistence paths fail.
     await Promise.any([local, server]);
-  }, [activeSection, offlinePrincipal, referralId]);
+  }, [activeSection, offlinePrincipal, referralId, trainingAssessmentMode]);
 
   const clearRecoveryDraft = useCallback((assessmentId: string) => {
     const next = recoveryQueueRef.current.then(async () => {
@@ -642,7 +639,7 @@ export default function AssessmentWorkspace({
 
   useEffect(() => {
     if (trainingAssessmentMode) {
-      const assessment = buildTrainingAssessment(trainingAssessmentMode);
+      const assessment = initialTrainingAssessmentRef.current ?? buildTrainingAssessment(trainingAssessmentMode);
       setAssessments([assessment]);
       setSelectedId(assessment.assessment_id);
       setIsLoading(false);
@@ -675,6 +672,11 @@ export default function AssessmentWorkspace({
       });
     return () => controller.abort();
   }, [referralId, trainingAssessmentMode]);
+
+  const publishTrainingAssessment = useEffectEvent((assessment: PipelineAssessmentRecord) => onTrainingAssessmentChange?.(assessment));
+  useEffect(() => {
+    if (trainingAssessmentMode && selected) publishTrainingAssessment(selected);
+  }, [selected, trainingAssessmentMode]);
 
   useEffect(() => {
     selectedRef.current = selected;
@@ -717,7 +719,6 @@ export default function AssessmentWorkspace({
     setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
     setScheduleMethod(normalizeScheduleMethod(selected.scheduled_method));
     setScheduleLocation(selected.scheduled_location ?? "");
-    setShowBeginDialog(false);
     setShowAddendum(false);
     loadRecoveryDraftForLiveAssessment(trainingAssessmentMode, loadRecoveryDraft, selected, data);
   }, [loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
@@ -766,19 +767,16 @@ export default function AssessmentWorkspace({
       setActiveSection,
       setIsFocused,
       setShowScheduleDialog,
-      setShowBeginDialog,
     });
   }, [initialSection, nextRequiredTarget, selected, trainingAssessmentMode, trainingAssessmentSection]);
 
   const closeFromEscape = useEffectEvent(() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace));
 
   useEffect(() => {
-    if (!isFocused || (embeddedFolder && !showBeginDialog && !showScheduleDialog)) return;
+    if (!isFocused || (embeddedFolder && !showScheduleDialog)) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => handleAssessmentEscape(event, {
-      showBeginDialog,
       showScheduleDialog,
-      setShowBeginDialog,
       setShowScheduleDialog,
       closeAssessment: closeFromEscape,
     });
@@ -788,7 +786,7 @@ export default function AssessmentWorkspace({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isFocused, embeddedFolder, showBeginDialog, showScheduleDialog]);
+  }, [isFocused, embeddedFolder, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -821,7 +819,6 @@ export default function AssessmentWorkspace({
       setActiveSection("identity");
       setIsFocused(true);
       setShowScheduleDialog(false);
-      setShowBeginDialog(false);
     } catch (createError) {
       setError(messageFor(createError, "The assessment record could not be created."));
       setMessage("");
@@ -839,64 +836,6 @@ export default function AssessmentWorkspace({
     preparationRequestedRef.current = true;
     prepareFromIntake();
   }, [canCreateAssignedAssessment, isLoading, selected, startQuestionnaire]);
-
-  const enterInterview = () => {
-    if (preparing) {
-      setWorkingTarget(null);
-      setActiveSection(assessmentGapSections(draftRef.current, getPendingFields(selectedRef.current)).find((section) => section.remaining.length > 0)?.key ?? "identity");
-    }
-    setNotebookView("assessment");
-    setShowBeginDialog(false);
-    setShowScheduleDialog(false);
-  };
-
-  const beginAssessment = async () => {
-    if (!assessmentReadyToBegin(selectedRef.current) || isBusy) return;
-    setIsBusy(true);
-    setError("");
-    setMessage("Recording interview start...");
-    try {
-      await saveBeforeExit();
-      await saveQueueRef.current;
-      const current = selectedRef.current;
-      if (!current || !assessmentReadyToBegin(current)) return;
-      if (trainingAssessmentMode) {
-        const updated = updateTrainingAssessment(current, {
-          started_at: new Date().toISOString(),
-        });
-        upsertAssessment(updated, true);
-        enterInterview();
-        setMessage("Interview start recorded locally");
-        return;
-      }
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-        `/api/assessments/${encodeURIComponent(current.assessment_id)}/start`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            if_match: current.version,
-            client_mutation_id: mutationId("assessment-start"),
-          }),
-        },
-      );
-      // Merge the lifecycle response without replacing locally queued answers.
-      receiveRemoteAssessment(payload.assessment, false);
-      enterInterview();
-      await onAssessmentSaved?.(payload.assessment);
-      setMessage("Interview start recorded");
-    } catch (startError) {
-      // A failed timestamp/save request must not prevent an in-person interview.
-      // Do not invent a persisted start; expose a retry until the server confirms it.
-      if (assessmentReadyToBegin(selectedRef.current)) {
-        setUnrecordedStartId(selectedRef.current!.assessment_id);
-        enterInterview();
-      }
-      setError(messageFor(startError, "The interview start could not be recorded. You can keep answering and retry the start time."));
-      setMessage("");
-    } finally {
-      setIsBusy(false);
-    }
-  };
 
   const receiveRemoteAssessment = useCallback((latest: PipelineAssessmentRecord, announce = true) => {
     const current = selectedRef.current;
@@ -1014,6 +953,7 @@ export default function AssessmentWorkspace({
       setMessage(nextDirty.size > 0 ? "Unsaved changes" : trainingAssessmentMode ? "Practice changes saved locally" : "All changes saved");
       setError("");
       if (nextDirty.size === 0 && !trainingAssessmentMode) void clearRecoveryDraft(saved.assessment_id);
+      if (trainingAssessmentMode) onTrainingAssessmentChange?.(saved);
       if (payload.referral) void Promise.resolve(onAssessmentSaved?.(saved, payload.referral)).catch(() => undefined);
     };
     try {
@@ -1045,7 +985,7 @@ export default function AssessmentWorkspace({
       setMessage("");
       throw saveError;
     }
-  }, [clearRecoveryDraft, offlinePrincipal, onAssessmentSaved, receiveRemoteAssessment, referral?.name, trainingAssessmentMode]);
+  }, [clearRecoveryDraft, offlinePrincipal, onAssessmentSaved, onTrainingAssessmentChange, receiveRemoteAssessment, referral?.name, trainingAssessmentMode]);
 
   const syncOfflineChanges = useCallback(async () => {
     if (!offlinePrincipal || !window.navigator.onLine || offlineSyncRef.current) return;
@@ -1254,7 +1194,6 @@ export default function AssessmentWorkspace({
       await saveBeforeExit();
       setMessage("");
       setShowScheduleDialog(false);
-      setShowBeginDialog(false);
       await onClosed?.();
       setIsFocused(false);
     } catch (saveError) {
@@ -1372,6 +1311,8 @@ export default function AssessmentWorkspace({
         upsertAssessment(updated, true);
         setMessage("Practice assessment signed locally");
         setSigningAssessmentId(null);
+        onTrainingAssessmentChange?.(updated);
+        onContinueToWorkflow?.();
         return;
       }
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
@@ -1438,6 +1379,7 @@ export default function AssessmentWorkspace({
         setMessage("Practice appointment saved locally");
         dispatchGuideCompletion("assessment-schedule-save");
         setShowScheduleDialog(false);
+        onTrainingAssessmentChange?.(updated, "scheduled");
         return;
       }
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; warnings?: string[] }>(
@@ -1462,7 +1404,6 @@ export default function AssessmentWorkspace({
       setMessage(payload.warnings?.length ? `Assessment scheduled. ${payload.warnings.join(" ")}` : "Assessment scheduled");
       dispatchGuideCompletion("assessment-schedule-save");
       setShowScheduleDialog(false);
-      setShowBeginDialog(false);
     } catch (scheduleError) {
       setError(messageFor(scheduleError, "The assessment schedule could not be saved."));
       setMessage("");
@@ -1667,7 +1608,7 @@ export default function AssessmentWorkspace({
     return (
       <AssessmentEmpty
         title="Questionnaire"
-        detail="Fill in what you know from the referral. Schedule and begin the interview when ready."
+        detail="Fill in what you know from the referral. Return to the same questionnaire for the interview; schedule the appointment separately."
         action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-open" onClick={createAssessmentDraft} disabled={isBusy} className="h-10 bg-[#0f8b73] px-5 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] disabled:opacity-50">Open questionnaire</button> : null}
         error={error}
       />
@@ -1692,19 +1633,17 @@ export default function AssessmentWorkspace({
     );
   }
 
-  const renderScheduleDetail = () => (!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button> : null);
   const renderAssessmentDetails = () => showSecondaryActions ? <>
     {!preparing && !selected.signed_at ? recommendationControl?.(selected.assessment_id, setIsRecommendationSaving) : null}
-    {renderScheduleDetail()}
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
   </> : null;
   const assessmentDetails = <>{renderAssessmentDetails()}
     <button type="button" onClick={() => setRecoveryToolsAssessment(selected.assessment_id)}><ShieldCheck size={15} aria-hidden="true" />Backup & recovery</button>
   </>;
   const continueFromPreparation = () => {
-    if (!canEditClinical || isBusy || isClosing) return;
-    if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
-    setShowBeginDialog(true);
+    setWorkingTarget(null);
+    setActiveSection(conversationSections.find((section) => section.remaining.length > 0)?.key ?? "identity");
+    setNotebookView("assessment");
   };
 
   const nextConversationSection = () => {
@@ -1743,7 +1682,7 @@ export default function AssessmentWorkspace({
   const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={() => { setError(""); setSigningAssessmentId(selected.assessment_id); }} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
 
   const renderScheduleAction = () => (
-    <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
+    <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus(); setError(""); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} aria-hidden="true" />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
   );
 
   const renderPrimaryAssessmentActions = () => (
@@ -1754,7 +1693,7 @@ export default function AssessmentWorkspace({
             <button type="button" onClick={() => void reviewChart()} disabled={isBusy || isClosing}>Review assessment<ChevronRight size={14} /></button>
           ) : canEditClinical ? (
             renderSignAction()
-          ) : !selected.started_at && canSupervise ? (
+          ) : canSupervise ? (
             renderScheduleAction()
           ) : null}
         </div>
@@ -1844,7 +1783,8 @@ export default function AssessmentWorkspace({
         details={assessmentDetails} detailsRef={secondaryActionsRef}
         returnLabel={!preparing && !trainingAssessmentMode && onOpenAssignedWork ? "Workspaces" : onOpenWorkspace ? "Back to referral" : "Back to workspace"}
         onClose={() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace)}
-        pages={<AssessmentFileNavigation hidden={phoneInterview} disabled={isClosing} preparing={preparing} reviewingChart={reviewingChart}
+        pages={<AssessmentFileNavigation hidden={phoneInterview} disabled={isClosing} preparing={preparing} reviewingChart={reviewingChart} preparationAvailable={!trainingAssessmentMode}
+          onPrepare={() => { setWorkingTarget(null); setNotebookView("prepare"); }}
           onAssessment={() => { if (!reviewingChart) setWorkingTarget(null); setNotebookView("assessment"); }}
           onChart={() => void reviewChart()}
         />}
@@ -1860,10 +1800,9 @@ export default function AssessmentWorkspace({
       /> : null}<AssessmentSchedulingDialogs
         assessment={selected}
         showScheduleDialog={!readOnly && showScheduleDialog}
-        showBeginDialog={!readOnly && showBeginDialog}
+        scheduleModal={!initialTrainingAssessment}
         isBusy={isBusy}
         error={error}
-        canEditClinical={canEditClinical}
         scheduleStart={scheduleStart}
         scheduleDuration={scheduleDuration}
         scheduleMethod={scheduleMethod}
@@ -1872,10 +1811,8 @@ export default function AssessmentWorkspace({
         onScheduleDurationChange={setScheduleDuration}
         onScheduleMethodChange={setScheduleMethod}
         onScheduleLocationChange={setScheduleLocation}
-        onCloseSchedule={() => setShowScheduleDialog(false)}
+        onCloseSchedule={() => { setShowScheduleDialog(false); if (initialTrainingAssessment) onOpenAssessment?.(); }}
         onSaveSchedule={() => void saveSchedule()}
-        onCloseBegin={() => setShowBeginDialog(false)}
-        onBeginAssessment={() => void beginAssessment()}
       /></>}
     >
 
@@ -1890,10 +1827,20 @@ export default function AssessmentWorkspace({
       ) : null}
 
       {renderSignatureHistory()}
-      {!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startRecorded={Boolean(selected.started_at)} onBegin={continueFromPreparation} /> : null}
+      {!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} onChange={(prepare) => {
+        if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
+        setWorkingTarget(null);
+        setNotebookView(prepare ? "prepare" : "assessment");
+      }} /> : null}
 
       <div className="flex min-h-0 flex-1">
         <main ref={chartScrollRef} className={`min-w-0 flex-1 bg-[#f7faf4] ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : workingStyles.readingMain}`}>
+          {!reviewingChart && !selected.signed_at ? <section aria-label="Assessment appointment" className={workingStyles.appointment}>
+            <div><strong>Appointment</strong><span>{hasActiveAssessmentSchedule(selected) && selected.scheduled_start_at
+              ? new Date(selected.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })
+              : "Not scheduled"}</span></div>
+            {canEditClinical ? renderScheduleAction() : null}
+          </section> : null}
           <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook}
             importFile={workbookImport} onImportFileRead={onWorkbookImportRead}
             toolsOpen={recoveryToolsAssessment === selected.assessment_id} onCloseTools={() => setRecoveryToolsAssessment(null)}
@@ -1978,7 +1925,7 @@ export default function AssessmentWorkspace({
         {!reviewingChart && !phoneInterview ? <nav aria-label="Assessment section steps" className={workingStyles.sectionSteps}>
           <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isBusy || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" />Previous</button>
           <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
-          <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Begin assessment" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
+          <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Continue to interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
         </nav> : (reviewingChart || selected.signed_at) ? <div>
         {renderPrimaryAssessmentActions()}
         </div> : null}

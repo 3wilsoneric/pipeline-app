@@ -3,20 +3,23 @@ import "server-only";
 import { open, rename, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import { isPersonaDemo } from "@/lib/demo/persona-session";
+import { getPipelineDatabaseMode } from "@/lib/database/pipeline-database";
+import { readSharedCommunityLists, saveSharedCommunityList } from "./community-recipient-list-postgres";
 import { isListCommunity, parseRecipientFields, type CommunityRecipientList, type ListCommunity, type RecipientFields } from "./community-recipient-lists";
 
 type StoredList = CommunityRecipientList & { lastMutation?: { id: string; actorId: string } };
 type ListFile = { schema: 1; lists: StoredList[] };
 
-// Community templates are read-only outside the isolated demo. Per-referral
-// recipient edits use the private workspace-state owner, not this source file.
+const sharedLists = () => !isPersonaDemo() && getPipelineDatabaseMode() === "postgres";
+
+// The private file seeds shared PostgreSQL lists once. Demo edits remain local.
 export function recipientListsAvailable() {
-  return Boolean(process.env.PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH?.trim())
+  return sharedLists() || Boolean(process.env.PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH?.trim())
     || (isPersonaDemo() && Boolean(process.env.PIPELINE_PERSONA_DEMO_ROOT));
 }
 
 function storePath() {
-  if (!recipientListsAvailable()) throw new Error("Local contact lists are unavailable.");
+  if (!process.env.PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH?.trim() && !(isPersonaDemo() && process.env.PIPELINE_PERSONA_DEMO_ROOT)) throw new Error("Local contact lists are unavailable. Configure the private compiled source to initialize shared lists.");
   return process.env.PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH?.trim()
     ? resolve(process.env.PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH.trim())
     : resolve(process.env.PIPELINE_PERSONA_DEMO_ROOT!, "community-recipient-lists.json");
@@ -59,12 +62,14 @@ function validStoredList(list: StoredList) {
 }
 
 export async function readCommunityRecipientLists() {
+  if (sharedLists()) return readSharedCommunityLists(async () => (await readStore()).lists.map(publicList));
   return (await readStore()).lists.map(publicList);
 }
 
 export async function saveCommunityRecipientList(input: {
   community: ListCommunity; version: number; recipients: RecipientFields; mutationId: string; actorId: string;
 }): Promise<{ ok: true; list: CommunityRecipientList } | { ok: false; status: number; error: string }> {
+  if (sharedLists()) return saveSharedCommunityList(input);
   if (!isPersonaDemo()) return { ok: false, status: 403, error: "Shared contact lists are read-only here. Edit recipients on the individual handoff." };
   const path = storePath();
   const lock = await open(`${path}.lock`, "wx", 0o600).catch((error: NodeJS.ErrnoException) => {

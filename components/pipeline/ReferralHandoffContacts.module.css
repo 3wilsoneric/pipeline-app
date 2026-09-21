@@ -21,3 +21,7 @@
 .composer .status { margin-top: 4px; }
 .composer label > span, .composer input::placeholder { color: #596e62; }
 @media(max-width:640px) { .summaryNote { display: none; } .section summary { padding: 12px; } .content { padding: 0 12px 12px; } }
+.refreshList { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: #08765f; font-size: 13px; font-weight: 600; }
+.refreshList:hover { text-decoration: underline; }
+.refreshList:focus-visible { outline: 2px solid #08765f; outline-offset: 3px; }
+.refreshList:disabled { opacity: .5; }

@@ -13,6 +13,7 @@ type OperationsReportPrincipal = {
   email?: string | null;
   roles: readonly string[];
   accessScope?: string;
+  demoPersona?: string;
 };
 
 export function canAccessSupervisorOperations(roles: readonly string[]) {
@@ -26,4 +27,9 @@ export function canAccessOperationsReports(principal: OperationsReportPrincipal 
   if (!email) return false;
   // Retain the reserved local/demo identity contract; real accounts require the named allowlist.
   return operationsReportEmails.has(email) || Boolean(principal.id && email.endsWith("@pipeline.local"));
+}
+
+export function canManageCommunityContactLists(principal: OperationsReportPrincipal | null | undefined) {
+  return canAccessOperationsReports(principal) || Boolean(principal?.demoPersona === "supervisor"
+    && operationsReportRoles.some((role) => principal.roles.includes(role)));
 }

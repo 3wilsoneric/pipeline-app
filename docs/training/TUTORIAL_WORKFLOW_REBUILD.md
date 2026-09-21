@@ -1,5 +1,47 @@
 # Tutorials: Workflow Rebuild
 
+## Current: Fictional Referral Walkthrough (2026-09-20)
+
+The current pass supersedes the live-referral selection behavior documented below.
+Those sections remain as implementation history, not current instructions.
+
+- Tutorials opens one complete referral walkthrough or a direct task shortcut.
+- Referral tasks use `/tutorials/referral`, with a new browser-local Taylor Rivera
+  sample. They never select or create a real referral. Existing live edits are
+  flushed through the shell's save guard before leaving for the tutorial.
+- Nine steps cover the Home board, intake, scheduling, assessment, signing,
+  decision, email/packet, admission, and the resulting board. Each has one short
+  instruction, a numbered step picker, and Back/Next step (Done at the end).
+- `Show control` is now `Show me where`: scroll to and focus the highlighted
+  control without activating it or changing a value.
+- Scheduling, signing, decisions, and confirming admission use the existing
+  component controls with local callbacks. Saving an appointment advances into
+  the sample assessment. Signing advances to Decision.
+- Jumping ahead supplies missing sample prerequisites; it does not replace edited
+  answers, reverse a denial/under-review outcome, or claim that an email was sent.
+- Intake and assessment edits are retained while moving between tutorial steps.
+  Restart and page refresh restore the original fictional case. Closing returns
+  to ordinary work, without setting any global demo/persona flags.
+- File selection and labels stay in browser memory. Packet/email previews use
+  the existing summary and email renderers; Simulate send sends nothing.
+- Reports remains a role-restricted, read-only guide to the existing report UI.
+  No new access is granted and this walkthrough does not award training credit.
+
+Deliberate limits: this is application navigation help, not assessor competency
+training or a replica of extraction, delivery, and audit infrastructure. The
+sample intake reuses the real field and upload controls but shows the core intake
+fields; it does not run OCR, create appointments on a server, upload documents,
+or send emails. Revisit those boundaries only if a requested tutorial needs to
+demonstrate their real server outcomes; do not connect this sample to production.
+
+Focused evidence: `scripts/tutorial-referral-fixtures.test.mjs` and
+`tests/e2e/tutorial-workflows.spec.ts` cover progression, reset, edit retention,
+decision branches, file selection, no clinical mutation requests, role filtering,
+return navigation, and desktop/tablet/phone layout. Production build and affected
+component lint are also checked. No deployment is included in this pass.
+
+## Earlier Passes
+
 First implementation pass, 2026-09-19. Base: 991c9a279e848e49578131504d16c49d5bb92ba0.
 Branch: codex/tutorial-workflows-20260919.
 

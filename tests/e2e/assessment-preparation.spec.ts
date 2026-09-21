@@ -77,12 +77,7 @@ for (const width of [1440, 768]) {
     const schedule = page.locator('[data-assessment-scheduling="fullscreen"]');
     await schedule.getByRole("button", { name: /Close/ }).click();
     await expect(schedule).toHaveCount(0);
-    await folder.getByRole("button", { name: "Begin assessment", exact: true }).click();
-    const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
-    await expect(begin).toHaveCount(0);
-    await section(page, "diagnosis_clinical");
-    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
     await expect(secondary).toHaveValue("Documented secondary diagnosis from the referral.");
     await secondary.fill("Updated during the interview.");
     await openAssessmentChart(page);
@@ -93,7 +88,7 @@ for (const width of [1440, 768]) {
     await expect(folder).toBeVisible();
     const records = (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
     expect(records).toHaveLength(1);
-    expect(records[0].started_at).toBeTruthy();
+    expect(records[0].started_at).toBeNull();
     expect(records[0].secondary_diagnoses).toEqual(["Updated during the interview."]);
     expect(records[0].current_location).toBe("Synthetic referring facility");
     expect(records[0].current_self_harm_ideation).toBeNull();

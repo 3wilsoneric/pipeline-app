@@ -10,7 +10,7 @@ type FocusModule = typeof homeFocusModules[number];
 const labels = {
   "current-work": { title: "Board", short: "Board", icon: BriefcaseBusiness },
   "upcoming-assessments": { title: "Upcoming assessments", short: "Upcoming", icon: CalendarClock },
-  "new-assignments": { title: "New assignments", short: "Assignments", icon: UserPlus },
+  "new-assignments": { title: "New assignments", short: "New", icon: UserPlus },
 };
 
 export default function HomeFocusDeck({ modules, moduleIds, counts }: {
@@ -33,7 +33,7 @@ export default function HomeFocusDeck({ modules, moduleIds, counts }: {
 
   function startGesture(event: PointerEvent<HTMLDivElement>) {
     if (!event.isPrimary || event.button !== 0 || moduleIds.length < 2) return;
-    if ((event.target as HTMLElement).closest("button, a, input, select, textarea, summary, [contenteditable]")) return;
+    if ((event.target as HTMLElement).closest("button, a, input, select, textarea, summary, dialog, [role=dialog], [contenteditable]")) return;
     gesture.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, captured: false };
   }
 

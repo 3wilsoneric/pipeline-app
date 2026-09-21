@@ -28,13 +28,7 @@ test("prepares answers before an appointment and finishes the same questionnaire
   await expect(field).toHaveValue(answer);
   await field.blur();
   await expect(assessment.locator("[data-assessment-question-editor]")).toContainText("Recorded");
-  await assessment.getByRole("button", { name: "Begin assessment", exact: true }).click();
-  const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-  await expect(begin).toContainText("Your prepared answers become the section reference");
-  await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
-  await expect(begin).toHaveCount(0);
-  await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("diagnosis_clinical");
-  await assessment.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
   await expect(field).toHaveValue(answer);
   await expect(assessment.getByRole("complementary", { name: "Current information" })).toContainText(answer);
   expect(errors).toEqual([]);
