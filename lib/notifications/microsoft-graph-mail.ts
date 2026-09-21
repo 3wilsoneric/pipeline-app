@@ -71,28 +71,31 @@ export async function sendMeetClientMail(input: {
   deliveryId: string;
   attachments: MeetClientMailAttachment[];
   message?: MeetClientMessage;
+  packetUrl?: string;
+  packetFiles?: { name: string; byteSize: number }[];
 }) {
   const readiness = getGraphMailReadiness();
   if (!readiness.configured) throw new Error("Microsoft 365 email is not configured.");
-  if (input.attachments.length === 0) {
+  if (input.attachments.length === 0 && !input.packetUrl) {
     throw new GraphMailDeliveryError("admission_packet_empty", "The admission packet has no files.");
   }
-  const accessToken = await graphAccessToken();
+  const accessToken = await graphAccessToken().catch(() => { throw new GraphMailDeliveryError("mail_preparation_failed", "Microsoft 365 authentication could not be completed. No email was sent."); });
   const content = renderMeetClientEmail(
     input.summary,
     input.preparedBy,
     input.deliveryId,
-    input.attachments.map((attachment) => attachment.name),
+    (input.packetFiles ?? input.attachments).map((attachment) => attachment.name),
     input.message,
+    { packetUrl: input.packetUrl },
   );
-  const mode = meetClientAttachmentDeliveryMode(input.attachments);
+  const mode = input.packetUrl ? "secure_link" : meetClientAttachmentDeliveryMode(input.attachments);
   if (mode === "draft_upload" && !readiness.largeAttachmentDeliveryConfigured) {
     throw new GraphMailDeliveryError(
       "large_attachment_permission_missing",
       "Microsoft 365 large-attachment delivery is not configured.",
     );
   }
-  if (mode === "direct") {
+  if (mode === "direct" || mode === "secure_link") {
     await sendDirectMessage(readiness, accessToken, content, input);
   } else {
     await sendDraftWithAttachments(readiness, accessToken, content, input);
@@ -100,14 +103,14 @@ export async function sendMeetClientMail(input: {
   return {
     provider: "microsoft_graph" as const,
     acceptedAt: new Date().toISOString(),
-    attachmentCount: input.attachments.length,
-    attachmentBytes: input.attachments.reduce((total, attachment) => total + attachment.byteSize, 0),
+    attachmentCount: (input.packetFiles ?? input.attachments).length,
+    attachmentBytes: (input.packetFiles ?? input.attachments).reduce((total, attachment) => total + attachment.byteSize, 0),
     deliveryMode: mode,
   };
 }
 
 export class GraphMailDeliveryError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(public readonly code: string, message: string, public readonly status?: number) {
     super(message);
     this.name = "GraphMailDeliveryError";
   }
@@ -124,7 +127,7 @@ async function sendDirectMessage(
     name: attachment.name,
     contentType: attachment.contentType,
     contentBytes: (await readSourceBytes(attachment)).toString("base64"),
-  })));
+  }))).catch((error) => { if (error instanceof GraphMailDeliveryError) throw error; throw new GraphMailDeliveryError("attachment_source_unavailable", "An admission packet file could not be loaded. No email was sent."); });
   const response = await fetch(
     `${graphBaseUrl}/users/${encodeURIComponent(readiness.sender)}/sendMail`,
     {
@@ -148,7 +151,7 @@ async function sendDirectMessage(
     },
   );
   if (response.status !== 202) {
-    throw graphRejection(response.status, "send_message");
+    throw await graphRejection(response, "send_message");
   }
 }
 
@@ -168,12 +171,13 @@ async function sendDraftWithAttachments(
       ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
       internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
     }),
-  }, 201, "create_draft");
+  }, 201, "create_draft").catch((error) => { if (error instanceof GraphMailDeliveryError) throw error; throw new GraphMailDeliveryError("mail_preparation_failed", "The email draft could not be prepared. No email was sent."); });
   const draft = await draftResponse.json() as { id?: unknown };
   if (typeof draft.id !== "string" || !draft.id) {
     throw new GraphMailDeliveryError("draft_id_missing", "Microsoft Graph did not return a draft identifier.");
   }
   const messagePath = `${senderPath}/messages/${encodeURIComponent(draft.id)}`;
+  let sending = false;
   try {
     for (const attachment of input.attachments) {
       if (attachment.byteSize <= graphInlineAttachmentLimitBytes) {
@@ -182,9 +186,13 @@ async function sendDraftWithAttachments(
         await addLargeAttachment(messagePath, accessToken, attachment);
       }
     }
+    sending = true;
     await graphRequest(`${messagePath}/send`, accessToken, { method: "POST" }, 202, "send_draft");
   } catch (error) {
-    await deleteDraft(messagePath, accessToken);
+    // Keep the provider evidence when acceptance is unknown. Deleting a message
+    // after an ambiguous send could delete a successfully sent handoff.
+    if (!sending || (error instanceof GraphMailDeliveryError && error.status && error.status < 500)) await deleteDraft(messagePath, accessToken);
+    if (!sending && !(error instanceof GraphMailDeliveryError)) throw new GraphMailDeliveryError("mail_preparation_failed", "The email draft could not be prepared. No email was sent.");
     throw error;
   }
 }
@@ -240,7 +248,7 @@ async function addLargeAttachment(
     });
     const finalChunk = index === ranges.length - 1;
     if ((!finalChunk && response.status !== 202) || (finalChunk && ![200, 201].includes(response.status))) {
-      throw graphRejection(response.status, "upload_attachment_chunk");
+      throw await graphRejection(response, "upload_attachment_chunk");
     }
   }
 }
@@ -295,7 +303,7 @@ async function graphRequest(
     },
     signal: AbortSignal.timeout(20_000),
   });
-  if (response.status !== expectedStatus) throw graphRejection(response.status, operation);
+  if (response.status !== expectedStatus) throw await graphRejection(response, operation);
   return response;
 }
 
@@ -307,11 +315,29 @@ async function deleteDraft(messagePath: string, accessToken: string) {
   }
 }
 
-function graphRejection(status: number, operation: string) {
-  const code = status === 403 && operation !== "send_message"
+async function graphRejection(response: Response, operation: string) {
+  const status = response.status;
+  const payload = await response.json().catch(() => null) as { error?: { code?: string } } | null;
+  // Only inspect machine codes, never provider messages containing client data.
+  const tooLarge = status === 413 || (status === 400 && ["ErrorMessageSizeExceeded", "MessageSizeExceeded", "ErrorAttachmentSizeLimitExceeded"].includes(payload?.error?.code ?? ""));
+  const code = tooLarge ? "packet_size_rejected" : status === 403 && operation !== "send_message" && operation !== "send_verification_code"
     ? "large_attachment_permission_missing"
     : `graph_${operation}_rejected`;
-  return new GraphMailDeliveryError(code, `Microsoft Graph rejected ${operation} with status ${status}.`);
+  return new GraphMailDeliveryError(code, `Microsoft Graph rejected ${operation} with status ${status}.`, status);
+}
+
+export async function sendPacketVerificationCode(recipient: string, code: string) {
+  const readiness = getGraphMailReadiness();
+  if (!readiness.configured) throw new Error("Email verification is temporarily unavailable. Please try again.");
+  if (!/^\d{8}$/.test(code)) throw new Error("Invalid verification code.");
+  // The recipient comes exclusively from the stored, sender-approved packet audience.
+  await graphRequest(`/users/${encodeURIComponent(readiness.sender)}/sendMail`, await graphAccessToken(), {
+    method: "POST", body: JSON.stringify({ message: {
+      subject: "Your Pipeline packet verification code",
+      body: { contentType: "Text", content: `Your verification code is ${code}. It expires in 10 minutes and can be used once.\n\nEnter it on the Pipeline packet page. If you did not request this code, you can ignore this email.` },
+      toRecipients: [{ emailAddress: { address: recipient } }],
+    }, saveToSentItems: true }),
+  }, 202, "send_verification_code");
 }
 
 async function graphAccessToken() {

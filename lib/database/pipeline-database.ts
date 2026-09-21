@@ -56,6 +56,7 @@ const REQUIRED_PIPELINE_MIGRATIONS = [
   "0037_document_undo",
   "0038_assessment_packet_finalization",
   "0041_community_recipient_lists",
+  "0042_admission_packet_links",
 ] as const;
 
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {

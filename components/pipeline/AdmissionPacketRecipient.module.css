@@ -1,0 +1,31 @@
+.page { min-height: 100dvh; background: #f0f5f2; color: #243b32; padding: 48px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.55; }
+.brand { color: #087d66; font-size: 22px; font-weight: 750; margin-bottom: 24px; }
+.card { width: 100%; max-width: 480px; padding: 32px; background: white; border: 1px solid #ccd9d1; border-top: 4px solid #087d66; border-radius: 12px; box-shadow: 0 12px 40px #243b3210; overflow-wrap: anywhere; }
+.open { max-width: 800px; }
+.symbol { color: #087d66; margin-bottom: 16px; }
+.card h1 { font-size: 26px; line-height: 1.25; margin: 0 0 14px; font-weight: 700; }
+.card h2 { font-size: 20px; line-height: 1.4; margin: 28px 0 14px; font-weight: 700; }
+.muted, .footer, .card small { color: #53665c; }
+.card form { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.card label { font-weight: 650; }
+.card input { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #92a89a; border-radius: 6px; font-size: 18px; color: #243b32; background: white; }
+.card input:read-only { background: #f0f5f2; }
+.card button { min-height: 48px; border: 0; cursor: pointer; font: inherit; border-radius: 6px; }
+.card form button { margin-top: 12px; padding: 12px 16px; background: #087d66; color: white; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.card button:disabled { opacity: .6; cursor: wait; }
+.card :is(button, input, a):focus-visible { outline: 3px solid #087d66; outline-offset: 3px; }
+.secondary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 16px; }
+.secondary button { color: #086d59; background: transparent; text-decoration: underline; text-underline-offset: 3px; }
+.notice, .error { padding: 12px 14px; border-radius: 6px; margin: 16px 0; }
+.notice { background: #edf7f1; color: #244b37; }
+.error { background: #fff1ed; color: #84361f; border: 1px solid #e6c6bc; }
+.message { white-space: pre-wrap; }
+.files { list-style: none; margin: 0; padding: 0; border-top: 1px solid #d7e1db; }
+.files li { border-bottom: 1px solid #d7e1db; }
+.files a { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; min-height: 64px; color: #086d59; text-decoration: none; }
+.files a:hover strong { text-decoration: underline; }
+.files a span { min-width: 0; }
+.files svg { flex-shrink: 0; }
+.files small { display: block; }
+.footer { font-size: 13px; margin: 20px 0 0; text-align: center; max-width: 440px; }
+@media (max-width: 520px) { .page { padding: 24px 16px; justify-content: flex-start; } .brand { margin-bottom: 20px; } .card { padding: 24px 20px; } .card h1 { font-size: 24px; } }

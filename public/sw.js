@@ -51,6 +51,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Recipient packets always require the network and must not open a staff
+  // assessment fallback (which can contain locally saved staff work).
+  if (url.pathname.startsWith(scopedPath("/admission-packet/")) || url.pathname.startsWith(scopedPath("/api/admission-packets/"))) return;
 
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(async () => {
