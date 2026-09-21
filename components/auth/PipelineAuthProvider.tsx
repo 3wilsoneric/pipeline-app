@@ -5,6 +5,7 @@ import {
   type AccountInfo,
 } from "@azure/msal-browser";
 import { MsalProvider, useMsal } from "@azure/msal-react";
+import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 import AuthenticationProgress from "@/components/auth/AuthenticationProgress";
@@ -34,7 +35,7 @@ import {
   restorePipelineAccountSilently,
   type PipelineSessionUser,
 } from "@/lib/auth/browser-session";
-import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
 import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
 import {
   clearPipelineOfflineData,
@@ -68,7 +69,9 @@ const disabledContext: PipelineAuthContextValue = {
 const PipelineAuthContext = createContext<PipelineAuthContextValue>(disabledContext);
 
 export default function PipelineAuthProvider({ children, initialUser }: { children: React.ReactNode; initialUser?: PipelineSessionUser | null }) {
-  if (!pipelineAuthRequired) {
+  const pathname = fromPipelinePath(usePathname());
+  // Recipient verification is independent of staff identity and Microsoft bootstrapping.
+  if (!pipelineAuthRequired || pathname.startsWith("/admission-packet/")) {
     return <PipelineAuthContext.Provider value={disabledContext}>{children}</PipelineAuthContext.Provider>;
   }
 

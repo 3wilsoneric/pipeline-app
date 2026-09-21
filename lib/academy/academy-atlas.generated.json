@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:549d0bfff478079b",
-  "fingerprint": "549d0bfff478079badfcdd7ed8462a698477da4615ba0341c646fe4f8f5a3a1d",
+  "generatedAt": "source-fingerprint:2ef54eea3958415e",
+  "fingerprint": "2ef54eea3958415ebe665aa1b6c3a855852972a2da096fd6e37c8217e420ac9d",
   "totals": {
     "files": 1350,
-    "lines": 359931,
+    "lines": 359947,
     "coveredFiles": 1350
   },
   "entries": [
@@ -1909,7 +1909,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 344,
+      "lines": 347,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -11338,7 +11338,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 56,
+      "lines": 61,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13030,7 +13030,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 365,
+      "lines": 373,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
