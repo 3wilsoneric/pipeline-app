@@ -1,8 +1,9 @@
 # Community recipient editor
 
-Local draft editor at `/settings/contact-lists`, linked from Profile settings for
-admins and assessment coordinators in the isolated persona demo. This is a
-product feature, not a structural refactor or live mail activation.
+Community editor at `/settings/contact-lists`, linked from Profile settings for
+Andrew, Sandeep, and the existing owner account under the named supervisor access
+policy. The isolated demo retains its supervisor editor. This does not activate
+email delivery or change signing, decisions, or sending authorization.
 
 ## Scope
 
@@ -21,7 +22,32 @@ product feature, not a structural refactor or live mail activation.
 - Removed entries are removed only from this community list, not from the
   client-contact directory or other community lists.
 
-## Local data boundary
+## Shared data and private seed
+
+Production uses migration `0041_community_recipient_lists.sql`. Every committed
+version is retained with the editor's principal ID and timestamp in the shared
+database. Reading the latest version supplies the default To/Cc audience to
+assessors. Saves serialize per community, check the expected version, and replay
+identical mutation IDs without another history entry. Failed saves leave the
+previous version intact. History and current data are the same append-only
+record, not two non-atomic writes. An application rollback can leave this table
+in place; the database rollback refuses to remove populated contact lists.
+
+Provide the compiled private JSON through `PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH`
+when initializing the database. It must contain all five canonical communities.
+The first list read imports missing seed versions atomically without overwriting
+existing versions. Once initialized, the database no longer depends on the file
+or reapplies it on restart/deploy. Do not bake real addresses into public assets,
+the client bundle, fixtures, or committed source. A missing or corrupt seed fails
+visibly instead of installing a guessed or empty audience.
+
+The private compiled source already exists locally at
+`/Users/eric/pipeline-community-recipient-editor-20260918/.data/persona-demo-3354/community-recipient-lists.json`.
+It matches the subsequent handoff source: five communities, 80 To/Cc entries
+across the lists (not 80 unique people). Stage that reviewed source privately for
+deployment; do not use the synthetic port-3355 test list.
+
+## Local/demo boundary
 
 The authoritative editable file is
 `$PIPELINE_PERSONA_DEMO_ROOT/community-recipient-lists.json`. The five initial
@@ -30,10 +56,10 @@ remains a source snapshot, not a second synchronized store. No real addresses or
 patient details are checked into source or fixtures.
 
 The read endpoint requires an authenticated Pipeline user so assessors can load
-their community's default audience. Editing templates requires admin/coordinator
-roles and the isolated persona demo. A configured
-`PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH` can supply a private, read-only template
-file outside that demo. Mutations retain same-origin protection, bounded
+their community's default audience. Editing templates requires both the named
+supervisor policy and an admin/coordinator role (or the isolated demo supervisor).
+With PostgreSQL disconnected, a configured private file remains read-only outside
+the demo. Mutations retain same-origin protection, bounded
 validation and no-cache responses. Recipient inclusion is not approval to send
 clinical information; admission examples are a starting audience, not evidence
 of approval for every Meet the Client handoff.
@@ -45,11 +71,8 @@ list. Failed replacement preserves the previous file. A crashed process can
 leave a `.lock` file; stop the owning local server and confirm no save process is
 running before removing that lock. Never force-clear an active writer's lock.
 
-This deliberately does not introduce a production mailing-list database or
-borrow the client-specific scheduling-contact store. Shared template editing is
-still local-only. Before enabling team-wide template administration, provide a
-database-backed shared owner with audit/recovery evidence and defined management
-permissions. Do not represent this as a deployed mailing-list manager.
+The client-specific scheduling-contact directory is separate and unchanged.
+The local lock/file adapter is not used as multi-instance production storage.
 
 ## Intake and handoff
 
@@ -59,6 +82,10 @@ permissions. Do not represent this as a deployed mailing-list manager.
 - A saved draft matches both referral and community. A different community
   loads its own template, never the previous community's audience. No source
   list means an explicit empty state, not a guessed corporate-wide list.
+- New handoffs load the current community list. Individually saved handoffs are
+  not silently rewritten when a supervisor changes defaults. **Use latest
+  community list** fetches the current shared version and replaces To/Cc only
+  after confirmation, using the same versioned draft-save path. It sends nothing.
 - Existing private `user_workspace_state` owns recipient drafts, using referral
   ID as key, principal ownership, version checks, and a 30-day expiration. Input
   must be added with Enter or the plus control before it becomes a recipient.
@@ -97,15 +124,28 @@ permissions. Do not represent this as a deployed mailing-list manager.
   limits include the generated sheet (default 20 total files, 25 MB); larger
   Graph upload-session packets retain the existing configuration checks.
 
-Production activation requires the reviewed private template source, migration,
+Production activation requires the reviewed private template source, migrations 0040/0041,
 approved recipient domains, existing Graph delivery configuration, and release
 approval. No production settings or real messages were changed by this feature.
 
 ## Evidence
 
+Local implementation check, 2026-09-20: production webpack build/TypeScript and
+targeted ESLint passed. Nine parser/local-store/API checks and the named-access
+plus disposable-PostgreSQL tests passed. All 15 contact-editor/handoff browser
+scenarios passed across the focused runs; the final five-layout rerun waits for
+chip entrance animations to settle before measuring unchanged 44px/contrast
+requirements. Desktop, 320/390px phones, iPad, WebKit, keyboard interaction,
+save/retry/conflict, and shared-default-to-handoff behavior were exercised with
+synthetic data. The two private compiled sources were compared and match.
+No deployment, production import, live-account check, or email sending occurred.
+
 - `node --test scripts/community-recipient-lists.test.mjs`: parser/validation,
   atomic persistence, replay, competing writers, corrupt files, rejected writes,
   origin/auth gates, and permissions. Synthetic contacts only.
+- `PIPELINE_COMMUNITY_LIST_POSTGRES=true node --test scripts/community-recipient-postgres.test.mjs`:
+  disposable local PostgreSQL seed-once, parallel saves, retry, retained history,
+  failed-write atomicity, protected rollback, and named supervisor authorization.
 - Start `npm run demo:personas -- --port=3355`, then run
   `PIPELINE_E2E_EXTERNAL_SERVER=true PORT=3355 npx playwright test tests/e2e/community-contact-lists.spec.ts --project=chromium`.
   This spec seeds only port 3355's dedicated synthetic contact-list file. Never

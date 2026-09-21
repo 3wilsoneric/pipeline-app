@@ -2,7 +2,7 @@
 
 import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, LoaderCircle, Mail, Paperclip, RefreshCw, Send, X } from "lucide-react";
+import { ArrowRight, Check, FileText, LoaderCircle, Mail, Paperclip, RefreshCw, Send, X } from "lucide-react";
 
 import type {
   AssessmentSummaryItem,
@@ -51,12 +51,12 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, headerActions, onSendingChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
   emailDraft?: HandoffRecipients;
-  headerActions?: React.ReactNode;
+  finishActions?: React.ReactNode;
   onSendingChange?: (sending: boolean) => void;
   onOpenFiles?: () => void;
   onOpenAssessment?: () => void;
@@ -71,6 +71,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const ccRecipients = emailDraft?.fields.cc.map((contact) => contact.email) ?? [];
   const [confirmed, setConfirmed] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [exampleReviewed, setExampleReviewed] = useState(false);
   const [acceptedReferralId, setAcceptedReferralId] = useState<number | null>(null);
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
   const sendInFlight = useRef(false);
@@ -150,17 +151,17 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const renderEmailPage = () => (
     <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
-        <div><h2>Meet the Client</h2><p>Review the handoff summary, then check the email before sending.</p></div>
-        <div className={styles.headerActions}><span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={styles.deliveryStatus} data-sent={sent || undefined}>{deliveryStatus}</span>{headerActions}
-          <button type="button" data-guide-target={composerOpen ? undefined : "packet-open-email"} className={styles.sendButton} onClick={(event) => { event.currentTarget.focus(); setConfirmed(false); setComposerOpen(true); }}><Mail size={18} aria-hidden="true" />{sent ? "View email" : "Preview email"}</button>
-        </div>
+        <div><h2>Meet the Client</h2><p>{readyPayload.report?.meetClient.name || readyPayload.referral.name} · {readyPayload.report?.meetClient.community || readyPayload.referral.community}</p></div>
+        <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={sent ? styles.deliveryStatus : "sr-only"} data-sent={sent || undefined}>{deliveryStatus}</span>
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
-      {sent ? <p role="status" className="px-4 py-2 text-sm text-[#0f6f5e]">{readyPayload.referral.stage === "Accepted / Admitted" ? "Admission confirmed" : "Awaiting admission"}. <button type="button" className={styles.textButton} onClick={onOpenDecision}>Review admission</button></p> : null}
-      <HandoffOverview payload={readyPayload} recipientCount={recipients.length + ccRecipients.length} sent={sent}
-        onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
+      {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Example only · no email will be sent.</p> : null}
+      <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
+        composerOpen={composerOpen} onPreviewEmail={() => { setConfirmed(false); setComposerOpen(true); }}
+        onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {composerOpen ? <MeetClientComposeDialog sending={sending} onClose={() => { setComposerOpen(false); setConfirmed(false); }}>
       <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral} confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
+        onOpenFiles={onOpenFiles} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setComposerOpen(false); setConfirmed(false); }}
         onConfirmed={setConfirmed}
         onSend={() => void emailMeetClient()} />
       </MeetClientComposeDialog> : null}
@@ -179,41 +180,56 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   );
 }
 
-function HandoffOverview({ payload, recipientCount, sent, onOpenFiles, onOpenAssessment, onOpenDecision }: {
-  payload: ChartPayload; recipientCount: number; sent: boolean;
-  onOpenFiles?: () => void; onOpenAssessment?: () => void; onOpenDecision?: () => void;
+function HandoffOverview({ payload, sent, exampleReviewed, finishActions, composerOpen, onPreviewEmail, onOpenAssessment, onOpenDecision }: {
+  payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean;
+  finishActions?: React.ReactNode;
+  onPreviewEmail: () => void;
+  onOpenAssessment?: () => void; onOpenDecision?: () => void;
 }) {
-  const { referral, report, email } = payload;
-  const summary = report?.meetClient;
-  const renderReadiness = () => <aside className={styles.handoffReadiness} aria-label="Handoff readiness">
-      <p role="status">{meetClientPreviewStatus(email, sent, false)}</p>
-      <dl>
-        <div><dt>Assessment</dt><dd>{report?.signed ? `Signed by ${report.signedBy || report.assessor}` : "Not signed"}</dd></div>
-        <div><dt>Admission decision</dt><dd>{email.eligible ? "Accepted" : "Acceptance not recorded"}</dd></div>
-        <div><dt>Email recipients</dt><dd>{recipientCount} on the To / Cc list</dd></div>
-        <div><dt>Attachments</dt><dd>{email.admission_packet.files.length} total, including the chart when available</dd></div>
-      </dl>
-      <div className={styles.detailActions}>
-        {onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>{report?.signed ? "Review assessment" : "Review & sign assessment"}</button> : null}
-        {!email.eligible && onOpenDecision ? <button type="button" className={styles.textButton} onClick={onOpenDecision}>Open decision</button> : null}
-        {onOpenFiles ? <button type="button" className={styles.textButton} onClick={onOpenFiles}>Manage files</button> : null}
-      </div>
-      {email.blockers.length ? <details className={styles.deliveryDetails}><summary>What is needed to send</summary><ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></details> : null}
-    </aside>;
-  return <div className={styles.handoffOverview}>
-    <div className={styles.clientLine}>
-      <h3>{summary?.name || referral.name}</h3>
-      <dl><div><dt>Community</dt><dd>{summary?.community || referral.community}</dd></div><div><dt>Planned admission</dt><dd>{getPlannedAdmissionDate(referral) ? formatDate(getPlannedAdmissionDate(referral)) : "Date not recorded"}</dd></div></dl>
-    </div>
-    {renderReadiness()}
+  const { report, email } = payload;
+  const complete = sent || (email.example_only && exampleReviewed);
+  const finishRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (complete && !composerOpen) finishRef.current?.querySelector("button")?.focus();
+  }, [complete, composerOpen]);
+  const previewButton = <button type="button" data-guide-target={composerOpen ? undefined : ["chart-email-handoff", "packet-open-email"].join(" ")} className={styles.sendButton}
+    onClick={(event) => { event.currentTarget.focus(); onPreviewEmail(); }}>
+    {complete ? "View email" : "Preview email"}<ArrowRight size={18} aria-hidden="true" />
+  </button>;
+
+  if (complete) return <section className={styles.guidedTask} aria-label="Handoff readiness">
+    <Check className={styles.taskIcon} size={32} aria-hidden="true" />
+    <h3>{sent ? "Handoff sent" : "Example review complete"}</h3>
+    <p>{sent ? "Microsoft 365 accepted the handoff. Delivery is not yet confirmed." : "No email was sent."}</p>
+    <footer ref={finishRef} aria-label="Handoff actions" className={styles.taskActions}>{finishActions}</footer>
+    <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details>
+  </section>;
+
+  if (!report?.signed || !email.eligible) return <HandoffPendingTask signed={Boolean(report?.signed)} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />;
+
+  return <section aria-label="Handoff readiness" className={styles.handoffOverview}>
+    <h3 className={styles.reviewHeading}>Review the client summary</h3>
     <HandoffClinicalSummary report={report} />
-  </div>;
+    <footer aria-label="Handoff actions" className={styles.reviewActions}><span>Next: recipients & attachments</span>{previewButton}</footer>
+  </section>;
 }
 
-function HandoffClinicalSummary({ report }: { report: AssessmentSummaryReport | null }) {
-  const summary = report?.meetClient;
+function HandoffPendingTask({ signed, onOpenAssessment, onOpenDecision }: { signed: boolean; onOpenAssessment?: () => void; onOpenDecision?: () => void }) {
+  const needsAssessment = !signed;
+  const onContinue = needsAssessment ? onOpenAssessment : onOpenDecision;
+  return <section className={styles.guidedTask} aria-label="Handoff readiness">
+      <FileText className={styles.taskIcon} size={32} aria-hidden="true" />
+      <h3>{needsAssessment ? "Sign the assessment" : "Record the admission decision"}</h3>
+      <p>{needsAssessment ? "The signed assessment becomes the email summary." : "An accepted decision is required to send this handoff."}</p>
+      <footer aria-label="Handoff actions" className={styles.taskActions}>
+        {onContinue ? <button type="button" className={styles.sendButton} onClick={onContinue}>{needsAssessment ? "Review & sign assessment" : "Open decision"}<ArrowRight size={18} aria-hidden="true" /></button> : null}
+      </footer>
+    </section>;
+}
+
+export function HandoffClinicalSummary({ report }: { report: AssessmentSummaryReport }) {
+  const summary = report.meetClient;
   return <div className={styles.handoffReading}>
-      {summary ? <>
         <HandoffSection title="Medications & injections" items={summary.medicationNotes}>
           {summary.medications.length ? <ul className={styles.medicationList}>{summary.medications.map((medication, index) => <li key={index}><ReadableChartText value={medication} /></li>)}</ul> : <p className={styles.missing}>Medication list not recorded. Confirm with the referring team.</p>}
         </HandoffSection>
@@ -222,8 +238,7 @@ function HandoffClinicalSummary({ report }: { report: AssessmentSummaryReport | 
         <HandoffSection title="Daily support & diet" items={Array.from(new Map([...summary.supportSnapshot, ...(summary.dietaryNotes ?? [])].map((item) => [item.label, item])).values())} />
         <HandoffSection title="Billing & benefits" items={summary.billingNotes ?? []} />
         {summary.bio.length ? <HandoffSection title="Getting to know the client" items={[]}><ul className={styles.medicationList}>{summary.bio.map((line, index) => <li key={index}><ReadableChartText value={line} /></li>)}</ul></HandoffSection> : null}
-        <p className={styles.sourceNote}>From signed assessment version {report!.assessmentVersion}. Corrections belong in the chart; the email uses the same record.</p>
-      </> : <div className={styles.unsignedSummary}><FileText size={28} aria-hidden="true" /><h3>Review the assessment first</h3><p>The clinical handoff is prepared from the signed assessment. You can inspect recipients and files in Preview email now; opening it does not send anything.</p></div>}
+        <p className={styles.sourceNote}>From signed assessment version {report.assessmentVersion}. Corrections belong in the chart; the email uses the same record.</p>
     </div>;
 }
 
@@ -359,7 +374,7 @@ function ChartSourceFooter({ report }: { report: AssessmentSummaryReport }) {
   );
 }
 
-function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onConfirmed, onSend }: {
+function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onConfirmed, onSend, onOpenFiles, onReviewComplete }: {
   email: ChartPayload["email"];
   report: AssessmentSummaryReport | null;
   emailDraft?: HandoffRecipients;
@@ -372,10 +387,12 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
   refresh: React.ReactNode;
   onConfirmed: (value: boolean) => void;
   onSend: () => void;
+  onOpenFiles?: () => void;
+  onReviewComplete: () => void;
 }) {
   const status = meetClientPreviewStatus(email, sent, sending);
   const renderSendToolbar = () => (
-    email.example_only || sent ? null : <footer className={styles.toolbar}>
+    email.example_only || sent ? <footer className={styles.toolbar}><span>{sent ? "Handoff sent" : "No email will be sent"}</span><button type="button" className={styles.sendButton} onClick={onReviewComplete}>{sent ? "Done" : "Done reviewing"}<Check size={18} aria-hidden="true" /></button></footer> : <footer className={styles.toolbar}>
         {email.can_send ? <label className={styles.confirmation}>
           <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={sending} aria-label="I verified that each recipient is authorized to receive this summary and the attached files." />
           <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the attached files.</span></span>
@@ -392,6 +409,7 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
         <div className={styles.attachmentHeading}>
           <span><Paperclip size={15} />{email.admission_packet.files.length} attachment{email.admission_packet.files.length === 1 ? "" : "s"} · {formatBytes(email.admission_packet.total_bytes)}</span>
         </div>
+        {!email.admission_packet.ready && !sent && onOpenFiles ? <button type="button" className={styles.textButton} disabled={sending} onClick={onOpenFiles}>{email.admission_packet.files.every((file) => file.generated) ? "Add admission packet" : "Review packet files"}<ArrowRight size={16} aria-hidden="true" /></button> : null}
         {email.admission_packet.files.length ? <ul className={styles.attachmentList}>
           {email.admission_packet.files.map((file) => <li key={file.document_id}>
             <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>

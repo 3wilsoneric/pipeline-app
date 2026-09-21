@@ -12,6 +12,7 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
 }) {
   const [text, setText] = useState({ to: "", cc: "" });
   const [inputError, setInputError] = useState("");
+  const [applyingList, setApplyingList] = useState(false);
   const count = value.fields.to.length + value.fields.cc.length;
   const contacts = [...new Map(value.lists.flatMap((list) => [...list.to, ...list.cc]).map((item) => [item.email, item])).values()];
   const excluded = new Set([...value.fields.to, ...value.fields.cc].map((item) => item.email));
@@ -23,16 +24,24 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
       setText((previous) => ({ ...previous, [lane]: "" })); setInputError("");
     } catch (failure) { setInputError((failure as Error).message); }
   };
+  const renderRefresh = () => community && community !== "Unassigned" && <button type="button" className={styles.refreshList} disabled={disabled || applyingList || !value.editable} onClick={async () => {
+        if (!window.confirm(`Replace this handoff's To and Cc with the latest ${community} contact list? This does not send an email.`)) return;
+        setApplyingList(true); setInputError("");
+        try { await value.applyCommunityList(); setText({ to: "", cc: "" }); }
+        catch (failure) { setInputError(failure instanceof Error ? failure.message : "The community list could not be loaded. Your recipients are unchanged."); }
+        finally { setApplyingList(false); }
+      }}><RotateCcw size={14} aria-hidden="true" />{applyingList ? "Loading community list…" : "Use latest community list"}</button>;
   const content =
     <div className={styles.content} aria-label="Handoff contacts">
       {!composer ? <p className={styles.explanation}>Changes apply to this handoff only. Confirm recipients before sending.</p> : null}
       {(["to", "cc"] as const).map((lane) => <RecipientChipField key={`${community}-${lane}`} compact label={lane === "to" ? "To" : "Cc"}
-        recipients={value.fields[lane]} contacts={contacts} excluded={excluded} text={text[lane]} disabled={disabled || !value.editable}
+        recipients={value.fields[lane]} contacts={contacts} excluded={excluded} text={text[lane]} disabled={disabled || applyingList || !value.editable}
         onText={(input) => setText((previous) => ({ ...previous, [lane]: input }))} onAdd={(input) => add(lane, input)}
         onRemove={(email) => value.change({ ...value.fields, [lane]: value.fields[lane].filter((item) => item.email !== email) })} />)}
       {inputError ? <p role="alert" className={styles.error}>{inputError}</p> : null}
       {value.error ? <p role="alert" className={styles.error}>{value.error} <button type="button" onClick={() => void value.retry()}>Retry saving</button> <button type="button" onClick={() => { if (window.confirm("Reload the saved handoff draft? Any unsaved recipient and message edits will be replaced.")) value.reload(); }}><RotateCcw size={14} /> Reload saved draft</button></p> : null}
       <HandoffContactStatus value={value} />
+      {renderRefresh()}
     </div>;
   if (composer) return <div className={styles.composer}>{content}</div>;
   return <details className={styles.section} open={!compact || undefined}>

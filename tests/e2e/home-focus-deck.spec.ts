@@ -1,6 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, webkit, type Page } from "@playwright/test";
+import type { AxeResults } from "axe-core";
 
-async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0) {
+async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false) {
   const acknowledgments: unknown[] = [];
   let layout = { schema: 3, module_ids: moduleIds, locked: true };
   const { viewer } = await (await page.request.get("/api/operations/home")).json();
@@ -33,7 +34,18 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       client_name: `${stage.name} ${["Rivera", "Brooks", "Chen", "Patel", "Torres", "Bennett", "Parker", "Reed", "Hayes", "Ellis"][index]}`,
       workflow_status: stage.workflow_status, assessment_state: stage.assessment_state,
     }))) : [item];
+    if (longLabels) Object.assign(boardItems[0], {
+      client_name: "Alexandria Montgomery-Rivera", owner: "Christopher Montgomery-Williams",
+      next_action: "Confirm the current medication list and the assessment location with the referring case manager.",
+    });
     payload.workflow = { ...payload.workflow, active_items: boardItems, board_items: boardItems, active_total: boardItems.length };
+    if (withFinished) {
+      payload.workflow.board_items = [...boardItems,
+        { ...item, referral_id: 930001, client_name: "Accepted Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete_chart" },
+        { ...item, referral_id: 930002, client_name: "Denied Client", workflow_status: "declined", outcome_state: "declined", flow_state: "complete" },
+        { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete" },
+      ];
+    }
     payload.upcoming = [{ id: "synthetic-appointment", referralId: 910502, clientName: "Jordan Appointment", community: "San Pablo", owner: "Example Assessor", date: "2026-09-22", startsAt: "2026-09-22T17:00:00Z", method: "in_person", kind: "assessment", status: "scheduled", title: "Assessment" }];
     payload.continuity = { ...payload.continuity, unavailable: false, needs_assignment_tracking_initialization: false,
       new_assignments: Array.from({ length: 7 }, (_, index) => ({ event_id: `focus-assignment-${index}`, action: "referral_assigned", actor_id: "coordinator", actor_name: "Example Coordinator", created_at: new Date().toISOString(), workspace: { referral_id: 910510 + index, client_name: `New Client ${index + 1}`, community: "San Pablo", owner: "Example Assessor", workflow_status: "intake_in_progress", workspace_status: "active" }, attention: null })),
@@ -55,7 +67,7 @@ for (const width of [1440, 834, 390, 320]) test(`focus deck keeps the foreground
   await page.goto("/");
   const deck = page.getByTestId("home-focus-deck");
   const tabs = deck.getByRole("tab");
-  await expect(tabs).toHaveText(["BoardBoard1", "Upcoming assessmentsUpcoming1", "New assignmentsAssignments7"]);
+  await expect(tabs).toHaveText(["BoardBoard1", "Upcoming assessmentsUpcoming1", "New assignmentsNew7"]);
   await expect(deck.getByRole("button", { name: /^(Previous|Next) Home panel$/ })).toHaveCount(0);
   await expect(deck.getByRole("tabpanel", { name: "Board", exact: true })).toBeVisible();
   await expect(deck.getByRole("button", { name: "Open Avery Board" })).toBeVisible();
@@ -205,4 +217,182 @@ test("existing Home customization remains intact and never removes the board", a
   await expect(page.getByRole("button", { name: "Next Home panel" })).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("tablist", { name: "Home panels" }).getByRole("tab")).toHaveCount(1);
+});
+
+for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place with all ten files at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 950 });
+  await homeFixture(page, undefined, 10);
+  await page.goto("/");
+  const source = page.locator('[data-board-stage="received"]');
+  const open = source.getByRole("button", { name: "Open referral received folder", exact: true });
+  await expect(open).toBeVisible();
+  await expect(open).toContainText("View all");
+  const hitArea = (await open.boundingBox())!;
+  expect(hitArea.height).toBeGreaterThanOrEqual(72);
+  expect(hitArea.width).toBeGreaterThan((await source.boundingBox())!.width * .85);
+  if (width === 1440) {
+    await page.getByRole("tab", { name: "Board", exact: true }).hover();
+    const before = (await source.boundingBox())!;
+    await open.hover();
+    await expect.poll(async () => (await source.boundingBox())!.width).toBeGreaterThan(before.width);
+  }
+  const originalUrl = page.url();
+  let homeReads = 0;
+  page.on("request", request => { if (request.url().endsWith("/api/operations/home")) homeReads++; });
+  await open.click({ position: { x: hitArea.width - 12, y: hitArea.height / 2 } });
+  const dialog = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+  await expect(dialog).toBeVisible();
+  await dialog.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
+  await expect(dialog.getByRole("heading", { name: /^Referral received 10 files$/i })).toBeVisible();
+  await expect(dialog.locator("[data-board-card]")).toHaveCount(10);
+  await expect(dialog.getByRole("combobox")).toHaveCount(0);
+  expect(page.url()).toBe(originalUrl);
+  expect(homeReads).toBe(0);
+  const bounds = (await dialog.boundingBox())!;
+  expect(bounds.width).toBeGreaterThan(width * .9);
+  expect(bounds.height).toBeGreaterThan(900);
+  const cards = dialog.locator("[data-board-card]");
+  const positions = await cards.evaluateAll(elements => elements.map(element => {
+    const { left, top, bottom } = element.getBoundingClientRect();
+    return { left, top, bottom, margin: getComputedStyle(element).marginBottom };
+  }));
+  for (let index = 0; index < positions.length; index++) {
+    expect(positions[index].margin).toBe("0px");
+    const above = positions.slice(0, index).filter(card => Math.abs(card.left - positions[index].left) < 1).at(-1);
+    if (above) expect(positions[index].top).toBeGreaterThan(above.bottom);
+  }
+  await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+  const violations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+    return (await axe.run('dialog[open]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
+  });
+  expect(violations).toEqual([]);
+  await page.screenshot({ path: info.outputPath(`folder-open-${width}.png`), animations: "disabled" });
+  await cards.last().scrollIntoViewIfNeeded();
+  await expect(cards.last()).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(open).toBeFocused();
+  await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
+  await open.click();
+  await dialog.getByRole("button", { name: "Open Avery Ellis", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/referralId=920009/);
+});
+
+test("accepted stays active; denied and admitted files remain accessible in Finished", async ({ page }) => {
+  await homeFixture(page, undefined, 1, true);
+  await page.goto("/");
+  await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Accepted Client", exact: true })).toBeVisible();
+  await expect(page.locator('[data-current-work-board]').getByRole("button", { name: "Open Denied Client", exact: true })).toHaveCount(0);
+  const finished = page.getByRole("button", { name: "Open finished referrals folder", exact: true });
+  await finished.click();
+  const dialog = page.getByRole("dialog", { name: "Finished referrals folder", exact: true });
+  await expect(dialog.locator("[data-board-card]")).toHaveCount(2);
+  await expect(dialog.getByRole("button", { name: "Open Denied Client", exact: true })).toContainText("Denied");
+  await expect(dialog.getByRole("button", { name: "Open Admitted Client", exact: true })).toContainText("Admitted");
+  await dialog.getByRole("button", { name: "Close finished referrals folder", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(finished).toBeFocused();
+});
+
+test("folder expansion respects reduced motion and empty stages", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await homeFixture(page);
+  await page.goto("/");
+  const open = page.getByRole("button", { name: "Open decision folder", exact: true });
+  await open.click();
+  const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
+  await expect(dialog).toContainText("No referrals in this folder.");
+  expect(await dialog.evaluate(element => element.getAnimations().length)).toBe(0);
+  await dialog.getByRole("button", { name: "Close decision folder", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(open).toBeFocused();
+});
+
+test("Escape closes only the expanded folder inside the existing board view", async ({ page }) => {
+  await homeFixture(page, undefined, 3);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open current work", exact: true }).click();
+  const board = page.getByRole("dialog", { name: "Current work", exact: true });
+  await expect(board).toBeVisible();
+  const open = board.getByRole("button", { name: "Open referral received folder", exact: true });
+  await open.click();
+  const folder = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+  await expect(folder).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(folder).toHaveCount(0);
+  await expect(board).toBeVisible();
+  await expect(open).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(board).toHaveCount(0);
+});
+
+test("an expanded stage stays visible when the window becomes narrow", async ({ page }) => {
+  await homeFixture(page, undefined, 3);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+  const folder = page.getByRole("dialog", { name: "In progress folder", exact: true });
+  await expect(folder).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(folder).toBeVisible();
+  await expect(folder.getByRole("button", { name: "Open Jordan Chen", exact: true })).toBeVisible();
+  await folder.getByRole("button", { name: "Close in progress folder", exact: true }).click();
+  await expect(folder).toHaveCount(0);
+  await expect(page.getByLabel("Referral stage")).toHaveValue("in_progress");
+  await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeFocused();
+});
+
+test("expanded folders retain stage accents and long file labels stay readable", async ({ page }, info) => {
+  await homeFixture(page, undefined, 3, true, true);
+  await page.goto("/");
+  const colors = new Set<string>();
+  for (const title of ["Referral received", "In progress", "Decision", "Finished referrals"]) {
+    await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
+    const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
+    await expect(folder).toBeVisible();
+    await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
+    colors.add(await folder.locator("h2 svg").evaluate(element => getComputedStyle(element).color));
+    await page.screenshot({ path: info.outputPath(`stage-${title.toLowerCase().replaceAll(" ", "-")}.png`), animations: "disabled" });
+    await folder.getByRole("button", { name: `Close ${title.toLowerCase()} folder`, exact: true }).click();
+    await expect(folder).toHaveCount(0);
+  }
+  expect(colors.size).toBe(4);
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.getByLabel("Referral stage").selectOption("received");
+  await page.getByRole("button", { name: "Open referral received folder", exact: true }).click();
+  const folder = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+  const file = folder.getByRole("button", { name: "Open Alexandria Montgomery-Rivera", exact: true });
+  await expect(file).toContainText("Christopher Montgomery-Williams");
+  const clipped = await file.evaluate(element => [...element.querySelectorAll("span, strong")].filter(node => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1).map(node => node.textContent));
+  expect(clipped).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath("long-labels-phone.png"), animations: "disabled" });
+  await page.emulateMedia({ forcedColors: "active" });
+  await expect(folder.getByRole("button", { name: "Close referral received folder", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("folder-high-contrast.png"), animations: "disabled" });
+});
+
+test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
+    await homeFixture(page, undefined, 10);
+    await page.goto("/");
+    const open = page.getByRole("button", { name: "Open referral received folder", exact: true });
+    await open.tap();
+    const dialog = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+    await expect(dialog).toBeVisible();
+    const grid = dialog.locator("[data-expanded-folder]");
+    await grid.dispatchEvent("pointerdown", { pointerId: 8, isPrimary: true, pointerType: "touch", button: 0, clientX: 200, clientY: 300 });
+    await grid.dispatchEvent("pointermove", { pointerId: 8, clientX: 80, clientY: 304 });
+    await grid.dispatchEvent("pointerup", { pointerId: 8, clientX: 80, clientY: 304 });
+    await dialog.locator("[data-board-card]").last().scrollIntoViewIfNeeded();
+    await expect(dialog.locator("[data-board-card]").last()).toBeInViewport();
+    await dialog.getByRole("button", { name: "Close referral received folder", exact: true }).tap();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(open).toBeFocused();
+  } finally { await browser.close(); }
 });

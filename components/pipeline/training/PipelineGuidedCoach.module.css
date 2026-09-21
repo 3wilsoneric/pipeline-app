@@ -70,7 +70,7 @@
 .error { color: #a23529; font-size: 13px; }
 .sync { margin-top: 12px; color: #67736c; font-size: 11px; }
 .footer { flex-shrink: 0; padding: 12px 16px; border-top: 1px solid #dbe5de; background: #f8fbf9; }
-.footerActions { display: flex; align-items: center; gap: 6px; }
+.footerActions { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .footer button { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 40px; min-height: 42px; border-radius: 5px; font-size: 13px; font-weight: 600; }
 .footer .skip { padding-inline: 8px; margin-right: auto; color: #617267; font-size: 12px; }
 .footer .continue { padding-inline: 14px; background: #156e52; color: #fff; }

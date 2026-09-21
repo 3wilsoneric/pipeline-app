@@ -99,13 +99,9 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       expect(assessments[0].started_at).toBeNull();
 
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
-      await page.getByRole("button", { name: "Begin assessment", exact: true }).tap();
-      const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-      await expect(begin).toBeInViewport();
-      await begin.getByRole("button", { name: "Begin assessment", exact: true }).tap();
-      await expect(begin).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
       await expect(pocket).toBeVisible();
-      await expect.poll(async () => Boolean((await read())[0]?.started_at)).toBe(true);
+      expect((await read())[0]?.started_at).toBeNull();
       await findQuestion(page, "Secondary diagnosis");
       await expect(diagnosis).toHaveValue("Synthetic rotation edit");
       expect((await read())[0].assessment_id).toBe(assessments[0].assessment_id);

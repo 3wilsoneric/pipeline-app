@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
-import { createOperationalReferral, readOperationalReferral } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
 
@@ -11,6 +11,9 @@ const lists = [
 ].map((list) => ({ ...list, version: 1, sourceDates: ["2026-09-15"], updatedAt: null }));
 
 async function openHandoff(page: Page, referralId: number) {
+  const assessment = await createOperationalAssessment(page.request, referralId);
+  await signOperationalAssessment(page.request, assessment);
+  await recordOperationalAcceptance(page.request, await readOperationalReferral(page.request, referralId));
   await page.route("**/api/community-recipient-lists", (route) => route.fulfill({ json: { lists } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceView=email`);
   await page.getByRole("button", { name: "Preview email", exact: true }).click();

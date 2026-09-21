@@ -121,7 +121,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "assessment_completion",
     label: "Completed assessments",
-    description: "Signed assessments, elapsed time, and linked Accepted decisions by staff member. Elapsed time includes pauses; Accepted is recorded to date.",
+    description: "Signed assessments and linked Accepted decisions by staff member. Accepted is recorded to date.",
     cadence: "Monthly",
     audience: "Supervisors",
     filters: ["month"],
@@ -670,7 +670,6 @@ async function assessmentCompletionRows(_user: PipelineUser, filters: Operations
       values: {
         staff: row.assessor_name,
         signed: row.completed_assessments,
-        average_minutes: row.average_duration_minutes,
         accepted: row.accepted_clients,
       },
     }));
@@ -765,7 +764,6 @@ function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
   ];
   if (reportId === "assessment_completion") return [
     column("staff", "Staff member"), column("signed", "Signed", "right"),
-    column("average_minutes", "Average time", "right", "duration"),
     column("accepted", "Accepted", "right"),
   ];
   if (reportId === "decisions") return [

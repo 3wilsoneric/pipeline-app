@@ -277,7 +277,7 @@ function showWorkspaceTrashControl(referral: Referral | null, canSupervise: bool
   return Boolean(referral && canSupervise && !readOnly);
 }
 
-const initialFields: Record<FieldKey, PacketField> = {
+export const initialFields: Record<FieldKey, PacketField> = {
   name: { label: "NAME", value: "", placeholder: "Client name" },
   gender: { label: "GENDER", value: "", placeholder: "" },
   age: { label: "AGE", value: "", placeholder: "" },
@@ -2666,15 +2666,12 @@ export default function ReferralPacketCanvas({
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={handoff}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2, undefined, "review")}
-                onOpenDecision={() => openPage("workflow")} />
-              </WorkspaceChartFolder>
-              <footer aria-label="Handoff actions" className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-[#dce4df] bg-white/95 px-3 py-3 backdrop-blur-sm">
-                <button type="button" onClick={() => openPage("workflow")} disabled={emailSending || emailFinishing} className="min-h-11 px-3 text-[14px] font-semibold text-[#53615a] focus-visible:outline-2 disabled:opacity-50">Back to decision</button>
-                {onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
+                onOpenDecision={() => openPage("workflow")}
+                finishActions={onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
                   setEmailFinishing(true);
                   void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));
-                }} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null}
-              </footer>
+                }} className="min-h-12 rounded-md bg-[#087d66] px-6 text-[16px] font-semibold text-white hover:bg-[#06634f] focus-visible:outline-2 disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null} />
+              </WorkspaceChartFolder>
             </PacketPage>
           ) : readingAssessment ? (
             <PacketPage id="packet-page-2" title={displayedPage === 3 ? "Chart" : "Assessment"} flush>
@@ -2998,7 +2995,7 @@ function WorkspaceAssignedWorkControl({ referral, available, onOpen, disabled }:
   return <AssignedWorkButton onOpen={() => void onOpen().catch(() => undefined)} disabled={disabled} />;
 }
 
-function ChartSection({
+export function ChartSection({
   title,
   complete,
   total,
@@ -3252,7 +3249,7 @@ type EditablePacketFieldProps = {
   onFocus: (key: FieldKey) => void;
 };
 
-function EditablePacketField({
+export function EditablePacketField({
   fieldKey,
   field,
   suggestion,

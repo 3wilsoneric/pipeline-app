@@ -224,3 +224,213 @@ Enter during workspace restoration; it now asserts the canonical recovery-ready 
 before acting and passed three isolated repeats plus the final combined run. A first
 cold-load assertion timed out once; subsequent combined runs passed that case without
 retries. The wider repository suite was not run and full certification is still held.
+
+## Follow-up: decision hierarchy and outcome-specific continuation
+
+Local only. The decision page now has a wider reading area, distinct Accept / Deny /
+Under review choices, a readable note field, and a contextual client/assessment column.
+The current assessment state is shown without assuming it has been started or signed.
+The generic stage-forward action is now inside Admission details, not competing with
+the placement decision. Administrative stage changes and their existing safeguards
+remain available; this is not a change to the backend lifecycle.
+
+Recorded acceptance reveals the optional admission date and packet-preview action.
+Deny and Under review do not present an admission handoff. An unchanged saved Under
+review no longer offers a redundant save button; editing its note restores that action.
+Recording acceptance/denial moves keyboard focus to the saved result. Read-only accounts
+cannot edit the decision note. Existing confirmations, version checks, audit mutations,
+failed-save recovery, signature requirements and example-only email behavior are retained.
+
+Validation: production build and focused lint passed. **14 tests passed** in
+`test-results/decision-refinement-final`, covering 320/390/834/1440px layouts, WCAG A/AA
+scans, cancellation, acceptance, denial, Under review, reload persistence, read-only
+presentation, keyboard focus, full intake-to-handoff journeys and failure recovery,
+including iPad WebKit. Desktop/tablet/phone screenshots were inspected. The updated
+page was also verified in the port 3385 in-app preview without changing referral data.
+No email or deployment occurred. The wider repository suite was not run for this pass;
+the owner's current bounded-change policy supersedes historical mandatory audit rituals.
+
+## Follow-up: Home folder expansion and outcome visibility
+
+Local only. Each board stage now lifts slightly on hover and expands from its own
+header/background into a near-full-screen folder. Existing individual file clicks
+still open the workspace directly. The expanded folder shows every supplied stage
+file in a non-overlapping, scrollable grid; phone uses one column and the full screen.
+One close control, Escape, or desktop backdrop returns to the source folder with focus
+restored. Reduced motion skips the transition. Scrolling inside a folder cannot turn
+the Home carousel, and resizing keeps the selected stage visible. Finished referrals
+uses the same folder treatment instead of a separate plain disclosure list.
+
+Outcome behavior remains: Under review stays active, accepted work stays in Decision,
+and denied referrals / recorded admissions are available under Finished referrals.
+An active later reassessment remains current work. Fixed a Home projection gap where
+accepted work disappeared after its tasks were complete but before admission was
+recorded. This only retains the file on the existing owner-scoped board; lifecycle,
+active-task totals, authorization, mutations and audit events are unchanged.
+
+Validation: production build, focused ESLint and diff checks passed. **21 tests passed**
+in `test-results/home-folder-final`, covering 320/390/834/1440px layouts, ten-file
+folders, WCAG A/AA scans, focus return, nested-dialog Escape, reduced motion, resize,
+iPad WebKit touch, and unchanged card destinations. A real-API acceptance-to-admission
+regression reproduced the missing board file before the fix and passes afterward.
+Desktop and phone screenshots were inspected; opening/closing was also verified in
+the port 3385 in-app preview without changing referral data. No deployment or email.
+The wider repository suite was not run.
+
+Deliberate limit: expansion reuses the board's existing authorized dataset and load
+ceiling, with no extra request or pagination layer. Revisit server-side paging if
+measured stage sizes make this full-list rendering slow; do not silently truncate files.
+
+## Follow-up: expanded folder materials and hierarchy
+
+Local only. Expanded board folders now have a shaped, stage-colored jacket, raised
+paper label, file count and folded lower rim rather than a rectangular modal header.
+The interior is neutral paper with a shallow spine crease. Client files have larger
+name tabs, layered paper edges, restrained lift/shadows and readable metadata without
+the boxed four-cell appearance. These treatments are scoped to the expanded folder;
+collapsed stacks, destinations, lifecycle and data loading are unchanged. Phones use
+a compact label bar and single-column reading surface instead of the desktop tab shape.
+The existing native dialog, close control, focus return and reduced-motion behavior
+remain in use. No image assets, dependencies or new navigation controls were added.
+
+Validation: production build and focused lint passed. The 21-test Home suite passed
+in `test-results/home-folder-design`; the additional stage-color/long-label/high-contrast
+case passed in `test-results/home-folder-materials`. Desktop, tablet and phone layouts,
+ten-file contents, WCAG A/AA, iPad WebKit touch and lifecycle checks are covered.
+Screenshots were inspected at desktop and 320px, including long names, Decision and
+forced colors. The expanded folder is also verified in the port 3385 in-app preview.
+No deployment, client-data edits or email occurred; the wider repository suite was not run.
+
+## Follow-up: cleaner expanded folders and explicit collection target
+
+Supersedes the preceding material-heavy visual treatment, which the owner rejected.
+Expanded folders now borrow the app's clean white surfaces, soft depth, restrained
+stage accents and translucent header treatment. Removed the cardboard jacket,
+beveled label frame, paper seams and oversized lip; retained the tab silhouette and
+readable client information. The collapsed client-file design remains unchanged.
+
+The entire stage header is now an 82px-high native button spanning the column, with
+the stage name, file count, visible View all cue and expand icon. The redundant stage
+number stamp is removed. Existing background/rim clicks still expand the collection;
+client clicks still open that client's workspace. Finished referrals also shows the
+expand icon. No lifecycle, data-loading or authorization changes in this pass.
+
+Validation: build, focused ESLint and diff checks passed. **22 tests passed** in
+`test-results/home-folder-modern`, including full-width hit-area assertions and clicks
+at the control's far edge at 320/390/834/1440px. Ten-file layouts, WCAG A/AA, iPad
+WebKit touch, long labels, stage accents, reduced motion, nested dialogs, focus return
+and the real-API acceptance/admission regression pass. Desktop and phone screenshots
+were inspected, and local in-app opening/closing was verified without editing data.
+Local preview remains on port 3385. Nothing deployed; the wider suite was not run.
+
+## Follow-up: aligned acrylic Home trays
+
+The outer Home carousel now uses a translucent edge treatment, recessed white
+content surface, contact shadows and three aligned tray rims. Attached selector
+tabs replace the floating segmented pill; selection moves the existing panels
+with a short 420ms depth transition. The Home background is neutral rather than
+warm green/beige. No images, dependencies, extra buttons or data changes. Existing
+client folders and expanded collections retain their own styling and destinations.
+
+The active tray still owns page height for five-to-ten-file vertical stacks.
+Background content stays inert and visually hidden. Reduced motion, forced colors,
+keyboard tabs, swipe cancellation and normal vertical scrolling remain supported.
+At 320px the tab counts sit below labels instead of crowding them.
+
+Validation: production build, focused ESLint and diff checks passed; all 22 Home
+carousel tests passed in `test-results/home-acrylic-tray-final`. Added label-bound
+checks and WCAG A/AA/touch-target checks for all three foreground panels. Inspected
+desktop, iPad, 320px and high-contrast screenshots, and switched trays in the local
+in-app preview. Local only on port 3385; no deployment or client-data edits.
+
+Color follow-up: increased the outer tray's sea-glass tint, with distinct slate-blue
+and muted copper rear layers, against a neutral gray Home canvas. Reading surfaces
+stay white and client-folder colors are unchanged. Build and five focused visual/
+accessibility checks passed in `test-results/home-tray-color`; inspected desktop,
+320px and the local in-app preview. No layout, motion, workflow or data changes.
+
+Superseding material correction: the owner rejected reusing the folder palette.
+All outer trays now share smoked graphite with silver edge reflections and neutral
+shadows. Removed module-specific shell and selector colors; only the selected tab
+uses emerald. Colored stage folders and warm client files are unchanged. Build,
+focused lint and five visual/accessibility checks passed in
+`test-results/home-graphite-tray-final`; desktop and 320px screenshots inspected.
+The new shared-material assertion initially ran before Home loaded; it now waits
+for exactly three tray panels before comparing them. Local only, no data changes.
+
+Owner-requested rollback: removed the entire acrylic/graphite carousel experiment
+and restored the pre-pass plain, lightly stacked panels, original selectors and
+Home background. Removed tests specific to that discarded treatment. Earlier
+folder designs, expansion targets, dialog gesture protection and workflows remain.
+The preceding material/color entries are historical, not the current design.
+
+Navigation follow-up: Home selectors are three separate rounded navigation buttons,
+white at rest with an emerald active state and small count badges. Phone labels are
+Board / Upcoming / New; full accessible labels remain unchanged. Plain carousel and
+folders are untouched. Build, lint and five responsive/keyboard checks passed in
+`test-results/home-nav-buttons`; desktop, 320px and in-app visuals inspected. Local only.
+
+
+## Follow-up: contextual Finish & send hierarchy
+
+Local only. Replaced the handoff sidebar and detached action list with a three-step
+progress row and a single prominent next action: review/sign the assessment, review
+the admission decision, then preview the email and packet. The next action comes
+from the existing signed-report and admission eligibility flags. Preview remains
+available before prerequisites are complete; the clinical record, file management,
+recipient editing, explicit send confirmation, draft recovery, navigation guards,
+and delivery behavior are preserved. Close workspace is now a secondary control.
+The phone header is compact so the primary action stays above the sticky footer.
+
+Validation: production build (including workbook contracts and TypeScript), focused
+ESLint, and diff checks passed. All **24 tests passed** in
+`test-results/handoff-flow-verified`, covering 320/390/834/1280/1440px previews,
+state-dependent action destinations, full primary-button visibility above the footer,
+WCAG A/AA scans, keyboard focus return, recipient draft recovery, explicit send
+confirmation, send failure recovery, recorded sends, navigation while sending, and
+iPad WebKit touch. Desktop and phone screenshots were inspected; the running Chrome
+preview on port 3385 was also visually checked. An initial test run hit the build
+startup timeout; the build was completed separately. A lost status role was restored,
+and an incorrect new footer test locator was corrected before the passing final run.
+No live data or email was changed; no deployment or full repository audit was run.
+
+Scope limit: this is next-step guidance using existing server readiness, not a new
+workflow gate. Delivery configuration and attachment blockers remain visible through
+the existing details and composer. Revisit the three-step presentation if the server
+introduces an additional operator-resolvable handoff prerequisite.
+
+
+## Follow-up: one task at a time in Finish & send
+
+Supersedes the preceding contextual-hierarchy presentation after owner feedback
+that it still offered too much prose and too many competing choices. The Finish
+page now offers only assessment review until signed, then only Decision until
+acceptance, then the client summary with a single sticky Preview email action.
+Removed the extra progress strip, overview file controls, premature preview, and
+Back to decision/Close workspace footer. Existing workspace stage navigation remains
+available. Client identity stays in the header; clinical summary content is unchanged.
+
+Packet repair belongs inside email review and is shown only when attachment readiness
+fails: Add admission packet when only the generated chart is present, otherwise
+Review packet files. Healthy packets have no file-management action. Demo review has
+an explicit Done reviewing action that leads to Close workspace; actual sends use
+the recorded/provider-accepted result. Neither demo review nor preview marks an
+email sent. The completion screen focuses its Close workspace button and retains
+email inspection under a disclosure. Closing still uses the existing flush/recovery
+handler; send authorization, recipient confirmation, idempotency, and pending-send
+navigation guards are unchanged.
+
+Validation: build (including workbook contracts), TypeScript, focused ESLint, and
+diff checks passed. All **25 tests passed** in `test-results/handoff-guided-final`.
+They cover exactly one visible action per task, blocked premature preview, stage
+navigation, keyboard focus on completion, packet repair, normal packet controls,
+320/390/834/1280/1440px layouts, WCAG A/AA scans, recipient recovery, explicit send
+confirmation, failed and recorded sends, pending-send navigation, and iPad WebKit.
+Accessibility scans wait for the actual page and its finite entry animation before
+measurement; no contrast assertions were relaxed. Desktop and phone images were
+inspected and the current port 3385 Chrome preview was checked. No live data edits,
+email delivery, deployment, or full repository audit were performed.
+
+Scope limit: demo review completion is local UI state and resets when the workspace
+is reopened; no new persisted workflow stage was introduced. Revisit persistence
+only if cross-session demo review progress becomes a product requirement.

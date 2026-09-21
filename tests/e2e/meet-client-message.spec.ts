@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
-import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, signOperationalAssessment } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Handoff drafts use the isolated workspace-state store.");
 
@@ -9,6 +9,7 @@ async function messageCase(page: Page) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Message Client", community: "San Pablo", owner: "", plannedAdmissionDate: "2026-10-01" });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await signOperationalAssessment(page.request, assessment);
+  await recordOperationalAcceptance(page.request, await readOperationalReferral(page.request, referral.id));
   await page.route("**/api/community-recipient-lists", (route) => route.fulfill({ json: { lists: [] } }));
   return referral;
 }

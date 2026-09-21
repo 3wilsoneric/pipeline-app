@@ -73,8 +73,8 @@ for (const width of [1440, 834, 390]) {
     await page.reload();
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open assessment", exact: true })).toHaveCount(0);
-    await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
-    await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Assessment appointment" })).toBeVisible();
     if (width >= 640) {
       await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentSection=provenance_qc`);
       await page.getByRole("button", { name: "Review assessment", exact: true }).click();
@@ -128,7 +128,7 @@ for (const width of [1440, 834, 390]) {
     await expect(page.getByLabel("Authorized recipients", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Send email & packet|Back to outcome/ })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.getByRole("button", { name: "Close email preview", exact: true }).click();
+    await page.getByRole("button", { name: "Done reviewing", exact: true }).click();
     await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Preview");
     await expect(page.locator('footer[aria-label="Handoff actions"]').getByRole("button", { name: "Close workspace", exact: true })).toBeInViewport();
     await page.screenshot({ path: info.outputPath(`example-handoff-${width}.png`), fullPage: true });
@@ -185,24 +185,26 @@ test("future delivery cannot be abandoned through the handoff controls while its
   const recipients = page.getByRole("combobox", { name: /^To/ });
   await recipients.fill("Example recipient <example@example.invalid>");
   await recipients.press("Enter");
-  await expect(page.getByRole("status").filter({ hasText: "Recipients saved for this handoff" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
   await page.getByRole("checkbox", { name: /I verified that each recipient/ }).check();
   try {
     await page.getByRole("button", { name: "Send email & packet", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Back to decision", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Back to decision", exact: true })).toHaveCount(0);
+    await page.locator('[data-folder-stage="workflow"]').evaluate((element: HTMLButtonElement) => element.click());
+    await expect(page).toHaveURL(/workspaceView=email/);
     await expect(page.getByRole("button", { name: "Close email preview", exact: true })).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/workspaceView=email/);
-    await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toHaveCount(0);
   } finally { release(); }
   await expect(page.getByRole("button", { name: "Close email preview", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Close email preview", exact: true }).click();
   await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeEnabled();
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Sent");
   await expect(page.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Back to decision", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Back to decision", exact: true })).toHaveCount(0);
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.meet_client_sent_at).toBeFalsy();
   await expect(page.getByRole("navigation", { name: "Primary navigation", exact: true })).toBeVisible();
@@ -222,7 +224,7 @@ test("a failed signature or decision stays in place; retry advances only after s
   await page.route(signRoute, (route) => route.fulfill({ status: 503, json: { error: "Synthetic signature unavailable. Retry signing." } }));
   await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
   await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "Synthetic signature unavailable" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("alert").filter({ hasText: "Synthetic signature unavailable" })).toBeVisible();
   await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
   expect((await read()).signed_at).toBeNull();
   expect((await read()).current_location).toBe("Synthetic referral source");
@@ -271,7 +273,7 @@ test("practice signing stays in assessment review and never creates a decision",
   await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-  await expect(page.locator('footer[aria-label="Assessment actions"]')).toContainText("Signed");
+  await expect(page.locator('footer[aria-label="Assessment actions"]')).toContainText("Practice assessment signed locally");
   await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(stages.getByRole("button", { name: "Decision", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toHaveCount(0);
@@ -290,6 +292,10 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).tap();
     const stages = page.getByRole("navigation", { name: "Workspace stages" });
     await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
+    const decision = page.getByRole("region", { name: "Admission decision", exact: true });
+    await decision.getByRole("radio", { name: "Accept", exact: true }).check();
+    page.once("dialog", (dialog) => dialog.accept());
+    await decision.getByRole("button", { name: "Record decision", exact: true }).tap();
     await stages.getByRole("button", { name: /Finish & send$/ }).tap();
     await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("status").filter({ hasText: "Example only" })).toHaveText("Example only · no email will be sent.");

@@ -232,12 +232,12 @@
   .answerLabel svg { visibility: visible; }
 }
 @media (max-width: 639px) {
-  .workMode { padding: 8px 12px; }
-  .phaseSummary { flex-basis: 100%; }
-  .phaseSteps { gap: 8px; margin: 0; }
-  .phaseSteps li { gap: 5px; font-size: 13px; }
+  .workMode { display: flex; padding: 0 12px; }
+  .modeChoices { display: flex; width: 100%; padding: 0; border: 0; border-radius: 0; background: #fff; }
+  .modeChoices button { flex: 1; min-height: 44px; padding-inline: 8px; font-size: 13px; }
+  .modeChoices button:first-child { flex: 1.5; }
+  .modeChoices button[aria-pressed="true"] { border-color: transparent; border-bottom-color: #08775a; border-radius: 0; background: #f5f9f7; box-shadow: none; }
   .workMode p { display: none; }
-  .beginAssessment { width: 100%; }
   .chartReviewToolbar:has(.reviewHeading) { gap: 4px; padding: 8px 16px; }
   .reviewHeading h3 { font-size: 18px; }
   .chartReviewNotice { padding: 8px 16px; font-size: 13px; }
@@ -272,3 +272,10 @@
   .readingPage { animation: reading-page-in 160ms ease-out; }
   @keyframes reading-page-in { from { opacity: .65; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 }
+.appointment { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 6px 16px; border-bottom: 1px solid #d9dfdb; background: #fff; color: #33483e; }
+.appointment > div { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; line-height: 1.5; }
+.appointment strong { font-weight: 650; }
+.appointment button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 10px; border: 1px solid #b8ccc3; border-radius: 5px; background: #f8fbf9; color: #08644f; font-size: 14px; font-weight: 650; }
+.appointment button:hover { background: #eaf3ee; }
+.appointment button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
+.appointment button:disabled { opacity: .5; }

@@ -8,7 +8,7 @@ import { ArrowRight, BriefcaseBusiness, LayoutDashboard, LoaderCircle, Phone, Sa
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { StaffProfilePreferences } from "@/lib/pipeline/staff-profile";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
-import { canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
+import { canAccessOperationsReports, canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import ContactDirectoryImport from "@/components/pipeline/ContactDirectoryImport";
 
 type ProfileResponse = { member: WorkspaceMember };
@@ -119,7 +119,7 @@ function StaffProfileSettingsView({ member, form, loading, saving, message, onSa
         </header>
 
         <ProfileSettingsBody member={member} form={form} loading={loading} saving={saving} message={message} onSave={onSave} onUpdateField={onUpdateField} />
-        {process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" && member?.roles.some((role) => role === "admin" || role === "assessment_coordinator") ? (
+        {member && (canAccessOperationsReports({ ...member, id: member.principal_id }) || (process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" && member.roles.some((role) => role === "admin" || role === "assessment_coordinator"))) ? (
           <Link href="/settings/contact-lists" className="mt-7 flex min-h-14 items-center justify-between gap-3 rounded-lg border border-[#cbd9d0] bg-white px-5 py-4 text-[15px] font-semibold text-[#08765f] hover:bg-[#f4faf6]">Community contact lists <ArrowRight size={18} aria-hidden="true" /></Link>
         ) : null}
         {member && canAccessSupervisorOperations(member.roles) ? (

@@ -196,10 +196,12 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
       requirementsByReferral.get(work.referral_id) ?? [],
     ),
   ).sort(compareReferralWorklistItems);
-  const finishedItems = operational.work
-    .filter(isFinishedBoardReferral)
+  // Completing acceptance tasks is not admission; keep the file in Decision until admission is recorded.
+  const retainedItems = operational.work
+    .filter((item) => isFinishedBoardReferral(item)
+      || item.flow_state === "complete" && ["approved_for_placement", "accepted"].includes(item.workflow_status))
     .map((item) => toReferralWorklistItem(item, referralsById.get(item.referral_id)!, []));
-  const boardItems = [...activeItems, ...finishedItems].sort((left, right) =>
+  const boardItems = [...activeItems, ...retainedItems].sort((left, right) =>
     (right.received_at ?? "").localeCompare(left.received_at ?? "") || right.referral_id - left.referral_id);
   const readyToSchedule = activeItems.filter((item) =>
     workByReferral.get(item.referral_id)?.flow_state === "ready_to_schedule",

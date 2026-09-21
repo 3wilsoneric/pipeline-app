@@ -1,0 +1,64 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { loadTypeScriptModule } from "./ts-module-loader.mjs";
+const sample = loadTypeScriptModule(process.cwd(), "lib/training/tutorial-referral.ts");
+
+test("referral tutorials open local samples while reports stay separate", () => {
+  for (const id of ["assessor-shift", "create-referral", "start-assessment", "complete-assessment", "review-chart", "record-decision", "prepare-packet", "workspace-files"]) assert.equal(typeof sample.tutorialReferralEntry(id), "number");
+  assert.equal(sample.tutorialReferralEntry("run-report"), undefined);
+  const state = sample.createTutorialReferral();
+  assert.equal(state.referral.id, 0);
+  assert.equal(state.assessment.referral_id, 0);
+  assert.equal(state.assessment.signed_at, null);
+  assert.equal(state.sentAt, null);
+  assert.equal(sample.tutorialBoardItem(state).next_action, "Schedule the assessment");
+  assert.equal(sample.tutorialBoardItem(state).workflow_status, "ready_to_schedule");
+});
+
+test("jumping through all steps preserves answers and never sends", () => {
+  let state = sample.createTutorialReferral();
+  state.assessment.additional_information = "A locally edited answer";
+  const id = state.assessment.assessment_id;
+  for (let index = 0; index < sample.tutorialReferralSteps.length; index++) {
+    state = sample.prepareTutorialStep(state, index);
+    assert.equal(state.assessment.assessment_id, id);
+    assert.equal(state.assessment.additional_information, "A locally edited answer");
+    assert.equal(state.sentAt, null);
+  }
+  assert.equal(state.referral.stage, "Accepted / Admitted");
+  assert.ok(state.referral.actualAdmissionDate);
+  assert.equal(sample.prepareTutorialStep(state, 3).assessment.additional_information, "A locally edited answer");
+});
+
+test("denied and under-review samples never silently become accepted", () => {
+  for (const outcome of ["declined", "under-review"]) {
+    let state = sample.createTutorialReferral();
+    if (outcome === "declined") state.referral.admissionDecision = sample.tutorialDecision(state, "declined");
+    else state.underReview = true;
+    state = sample.prepareTutorialStep(state, 8);
+    assert.equal(state.referral.actualAdmissionDate, undefined);
+    assert.notEqual(state.referral.admissionDecision?.outcome, "accepted");
+    assert.equal(state.sentAt, null);
+  }
+});
+
+test("restart produces independent original data", () => {
+  const first = sample.prepareTutorialStep(sample.createTutorialReferral(), 8);
+  first.assessment.additional_information = "Changed";
+  first.referral.name = "Changed";
+  first.sentAt = new Date().toISOString();
+  const reset = sample.createTutorialReferral();
+  assert.equal(reset.referral.name, "Taylor Rivera");
+  assert.notEqual(reset.assessment.additional_information, "Changed");
+  assert.equal(reset.referral.admissionDecision, undefined);
+  assert.equal(reset.referral.actualAdmissionDate, undefined);
+  assert.equal(reset.sentAt, null);
+});
+
+test("instructions are short and steps have distinct names", () => {
+  assert.equal(new Set(sample.tutorialReferralSteps.map((step) => step.title)).size, sample.tutorialReferralSteps.length);
+  for (const step of sample.tutorialReferralSteps) {
+    assert.ok(step.instruction.split(/\s+/).length <= 25, step.title);
+    assert.ok(step.target);
+  }
+});

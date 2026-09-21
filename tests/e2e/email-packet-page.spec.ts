@@ -1,10 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { createOperationalReferral } from "./support/operational-api";
+import { createOperationalReferral, recordOperationalAcceptance } from "./support/operational-api";
 import { renderMeetClientEmail } from "../../lib/notifications/meet-client-email-template";
 import type { AxeResults } from "axe-core";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
+
+async function settleHandoff(page: Page) {
+  const overview = page.getByRole("region", { name: "Email and referral packet", exact: true });
+  await expect(overview).toBeVisible();
+  await overview.evaluate(async (element) => {
+    const surface = element.closest(".pipeline-step-enter") ?? element;
+    for (const animation of surface.getAnimations({ subtree: true })) {
+      if (animation.effect?.getComputedTiming().iterations !== Infinity) await animation.finished;
+    }
+  });
+}
 
 async function referralWithAssessment(page: Page, signed = true) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
@@ -29,6 +40,10 @@ async function referralWithAssessment(page: Page, signed = true) {
     if_match: agreement.version, client_mutation_id: randomUUID(), patch: { status: "received", evidenceDocumentName: "Synthetic admission agreement.pdf" },
   } });
   expect(received.status()).toBe(200);
+  if (signed) {
+    const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+    await recordOperationalAcceptance(page.request, current);
+  }
   return { referral, assessment };
 }
 
@@ -53,7 +68,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   if (width < 640) await expect(stagePicker.locator("option:checked")).toHaveText("Finish & send");
   else await expect(finishTab).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("navigation", { name: "Chart pages" })).toHaveCount(0);
-  await expect(email).toContainText("Review the handoff summary");
+  await expect(email.getByRole("heading", { name: "Review the client summary", exact: true })).toBeVisible();
   await expect(email.getByRole("region", { name: "Medications & injections", exact: true })).toContainText("Synthetic recorded medication");
   await expect(email.getByRole("region", { name: "Behavior & safety", exact: true })).toContainText("Historical incident; no current incident described");
   await expect(email.locator("iframe")).toHaveCount(0);
@@ -101,7 +116,9 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   await recipients.press("Enter");
   await expect(email.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   await composer.getByRole("button", { name: "Close email preview", exact: true }).click();
-  await email.getByRole("button", { name: "Manage files", exact: true }).click();
+  await expect(email.getByRole("button", { name: "Manage files", exact: true })).toHaveCount(0);
+  if (width < 640) await stagePicker.selectOption({ label: "Files" });
+  else await page.getByRole("button", { name: "Workspace files", exact: true }).click();
   await expect(page).toHaveURL(/workspaceView=files/);
   if (width < 640) await stagePicker.selectOption({ label: "Chart" });
   else await stages.getByRole("button", { name: /Chart/ }).click();
@@ -150,6 +167,82 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   expect(sends).toBe(0);
 });
 
+for (const width of [1440, 390, 320]) test(`handoff points to the next unfinished step at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: width > 640 ? 768 : 850 });
+  const { referral, assessment } = await referralWithAssessment(page, false);
+  const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
+  let sends = 0;
+  page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
+  await page.goto(url);
+  const readiness = page.getByRole("region", { name: "Handoff readiness", exact: true });
+  const expectNextActionVisible = async (name: string) => {
+    const action = readiness.getByRole("button", { name, exact: true });
+    await expect(action).toBeInViewport({ ratio: 1 });
+    const bounds = (await action.boundingBox())!;
+    expect(await action.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+    })).toBe(true);
+    expect(bounds.height).toBeGreaterThanOrEqual(44);
+    return action;
+  };
+  await expect(readiness.getByRole("heading", { name: "Sign the assessment", exact: true })).toBeVisible();
+  const reviewAssessment = await expectNextActionVisible("Review & sign assessment");
+  await expect(readiness.getByRole("button")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Preview email", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Manage files", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toHaveCount(0);
+  await expect(readiness.getByRole("button", { name: "Open decision", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await settleHandoff(page);
+  await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+  const violations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+    return (await axe.run('[aria-label="Email and referral packet"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
+  });
+  expect(violations).toEqual([]);
+  await page.screenshot({ path: info.outputPath(`next-step-unsigned-${width}.png`), animations: "disabled" });
+  await reviewAssessment.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/assessmentMode=review/);
+  await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toBeVisible();
+
+  // Sign only the synthetic test record to exercise the next presentation state.
+  const current = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect(current.signed_at).toBeNull();
+  expect((await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: current.version, client_mutation_id: randomUUID() } })).status()).toBe(200);
+  await page.goto(url);
+  await expect(readiness.getByRole("heading", { name: "Record the admission decision", exact: true })).toBeVisible();
+  await expectNextActionVisible("Open decision");
+  await expect(readiness.getByRole("button")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Preview email", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath(`next-step-decision-${width}.png`), animations: "disabled" });
+  await readiness.getByRole("button", { name: "Open decision", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+
+  // Eligibility is a presentation fixture; no admission decision or email is submitted.
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async (route) => {
+    const response = await route.fetch(); const payload = await response.json();
+    payload.email.eligible = true;
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto(url);
+  await expect(readiness.getByRole("heading", { name: "Review the client summary", exact: true })).toBeVisible();
+  await expectNextActionVisible("Preview email");
+  await expect(readiness.getByRole("button")).toHaveCount(1);
+  await expect(readiness.getByRole("button", { name: "Open decision", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath(`next-step-email-${width}.png`), animations: "disabled" });
+  await readiness.getByRole("button", { name: "Preview email", exact: true }).click();
+  await page.getByRole("button", { name: "Done reviewing", exact: true }).click();
+  await expect(readiness.getByRole("heading", { name: "Example review complete", exact: true })).toBeVisible();
+  await expect(readiness.getByRole("button")).toHaveCount(1);
+  await expectNextActionVisible("Close workspace");
+  await expect(readiness.getByRole("button", { name: "Close workspace", exact: true })).toBeFocused();
+  await readiness.getByRole("button", { name: "Close workspace", exact: true }).click();
+  await expect(page).not.toHaveURL(/screen=packet/);
+  expect(sends).toBe(0);
+});
+
 test("chart load failure leaves the finish tab reachable", async ({ page }) => {
   const { referral } = await referralWithAssessment(page, false);
   await page.route(`**/api/referrals/${referral.id}/assessments*`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic unavailable chart" } }));
@@ -159,18 +252,17 @@ test("chart load failure leaves the finish tab reachable", async ({ page }) => {
   await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Finish & send/ }).click();
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Review the assessment first" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign the assessment" })).toBeVisible();
 });
 
-test("unsigned packet preview and acceptance stay accessible without signing or sending", async ({ page }) => {
+test("unsigned handoff offers only assessment review while stage navigation stays available", async ({ page }) => {
   const { referral, assessment } = await referralWithAssessment(page, false);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
   await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart/ })).toHaveAttribute("aria-current", "page");
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Finish & send/ }).click();
-  await expect(page.getByRole("heading", { name: "Review the assessment first" })).toBeVisible();
-  await page.getByRole("button", { name: "Preview email", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Your email preview will appear here" })).toBeVisible();
-  await page.getByRole("button", { name: "Close email preview", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Sign the assessment" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Preview email", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Handoff readiness", exact: true }).getByRole("button")).toHaveCount(1);
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Decision/ }).click();
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
   await expect(page.getByRole("radio", { name: "Accept", exact: true })).toBeVisible();
@@ -196,6 +288,7 @@ test("packet controls show attachments and retain explicit send confirmation and
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   await page.getByRole("button", { name: "Preview email", exact: true }).click();
   const send = page.getByRole("button", { name: "Send email & packet", exact: true });
+  await expect(page.getByRole("button", { name: /^(Add admission packet|Review packet files)$/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Open Synthetic referral packet.pdf" })).toHaveAttribute("href", "/api/files/synthetic-packet/download");
   const recipients = page.getByRole("combobox", { name: /^To/ });
   await recipients.fill("care@example.invalid");
@@ -228,6 +321,20 @@ test("packet controls show attachments and retain explicit send confirmation and
   await page.unrouteAll({ behavior: "wait" });
 });
 
+test("missing packet is repaired from email review, without a general files action", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  const overview = page.getByRole("region", { name: "Email and referral packet", exact: true });
+  await expect(overview.getByRole("button", { name: "Preview email", exact: true })).toBeVisible();
+  await expect(overview.getByRole("button")).toHaveCount(1);
+  await overview.getByRole("button", { name: "Preview email", exact: true }).click();
+  const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
+  await expect(composer.getByRole("link", { name: "Open Client data sheet.html", exact: true })).toBeVisible();
+  await composer.getByRole("button", { name: "Add admission packet", exact: true }).click();
+  await expect(page).toHaveURL(/workspaceView=files/);
+  await expect(composer).toHaveCount(0);
+});
+
 test("a recorded send remains distinct from preview after reopening", async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
   const original = await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json();
@@ -241,9 +348,12 @@ test("a recorded send remains distinct from preview after reopening", async ({ p
   page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) sends++; });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Sent");
+  await expect(page.getByRole("heading", { name: "Handoff sent", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Sent");
   await expect(page.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
+  await page.locator("summary").filter({ hasText: "Review email again" }).click();
   await page.getByRole("button", { name: "View email", exact: true }).click();
   await expect(page.getByRole("combobox", { name: /^To/ })).toBeDisabled();
   expect(sends).toBe(0);
@@ -286,7 +396,8 @@ for (const width of [1440, 390]) test(`handoff stays readable with a full recipi
   await page.route("**/api/community-recipient-lists", (route) => route.fulfill({ json: { lists: [{ community: "San Pablo", to, cc: [], version: 1, sourceDates: [], updatedAt: null }] } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const overview = page.getByRole("region", { name: "Email and referral packet", exact: true });
-  await expect(overview).toContainText("18 on the To / Cc list");
+  await settleHandoff(page);
+  await expect(overview.getByRole("button", { name: "Manage files", exact: true })).toHaveCount(0);
   await expect(overview.locator("iframe")).toHaveCount(0);
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const checkA11y = (selector: string) => page.evaluate(async (scope) => {
