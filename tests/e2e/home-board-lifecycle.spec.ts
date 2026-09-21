@@ -41,6 +41,6 @@ test("Home retains owned acceptance and admission until the handoff email is con
   expect(admitted.status()).toBe(200);
   expect((await admitted.json()).workflow.board_items).toEqual(expect.arrayContaining([expect.objectContaining({
     referral_id: referral.id, workflow_status: "admitted", flow_state: "complete",
-    board: expect.objectContaining({ stage: "awaiting_admit", detail: "Email not sent", location: { view: "email" } }),
+    board: expect.objectContaining({ stage: "decision", detail: "Email not sent", location: { view: "email" } }),
   })]));
 });

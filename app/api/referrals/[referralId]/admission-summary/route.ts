@@ -85,7 +85,7 @@ export async function GET(
           preview: report ? renderMeetClientEmail(
             report.meetClient, auth.user.name, "Preview — assigned when sent",
             admissionPacket.files.map((file) => file.name),
-            undefined, { demo: exampleOnly },
+            undefined, { demo: exampleOnly, packetLinkPreview: admissionPacket.deliveryMode === "secure_link" },
           ) : null,
           allowed_recipient_domains: mail.allowedRecipientDomains,
           eligible: snapshot.decision?.outcome === "accepted",
@@ -95,6 +95,7 @@ export async function GET(
           sent_at: assessment?.meet_client_sent_at ?? null,
           blockers: emailBlockers,
           admission_packet: {
+            revision: admissionPacket.revision,
             files: admissionPacket.files.map((file) => ({
               document_id: file.documentId,
               name: file.name,
@@ -124,6 +125,7 @@ async function loadAdmissionPacketInventory(
   } catch {
     return {
       files: [],
+      revision: "",
       totalBytes: 0,
       ready: false,
       blockers: ["Admission packet files are temporarily unavailable. Refresh before sending."],

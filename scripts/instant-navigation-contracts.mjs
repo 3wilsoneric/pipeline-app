@@ -114,17 +114,25 @@ assert.equal((await proxy.proxy(proxyRequest("/"))).status, 307);
 auth = { ok: false, response: new Response(null, { status: 401 }) };
 assert.equal((await proxy.proxy(proxyRequest("/"))).status, 307);
 
+let providerPath = "/";
 const providerModule = load("components/auth/PipelineAuthProvider.tsx", {
+  "next/navigation": { usePathname: () => providerPath },
   "@azure/msal-react": { MsalProvider: ({ children }) => children, useMsal: () => ({ accounts: [], instance: {} }) },
   "@/components/auth/AuthenticationProgress": () => React.createElement("p", null, "Authenticating"),
   "@/lib/auth/entra-client": { pipelineAuthRequired: true, isEntraClientConfigured: true },
   "@/lib/auth/post-login-path": {}, "@/lib/auth/authenticated-fetch": {}, "@/lib/auth/browser-session": {},
-  "@/lib/pipeline/base-path": {}, "@/lib/desktop/desktop-config": {}, "@/lib/offline/offline-assessment-store": {},
+  "@/lib/pipeline/base-path": { fromPipelinePath: (path) => path.replace(/^\/pipeline(?=\/)/, "") }, "@/lib/desktop/desktop-config": {}, "@/lib/offline/offline-assessment-store": {},
 });
 const Provider = providerModule.default;
 const visible = React.createElement("main", null, "Useful work before JavaScript");
 assert.match(renderToStaticMarkup(React.createElement(Provider, { initialUser: { id: "validated" } }, visible)), /Useful work before JavaScript/);
 assert.equal(renderToStaticMarkup(React.createElement(Provider, {}, visible)), "<p>Authenticating</p>");
+for (const prefix of ["", "/pipeline"]) {
+  providerPath = `${prefix}/admission-packet/10000000-0000-4000-8000-000000000001`;
+  assert.match(renderToStaticMarkup(React.createElement(Provider, {}, visible)), /Useful work before JavaScript/, "external recipients must not wait for staff sign-in");
+}
+providerPath = "/";
+assert.equal(renderToStaticMarkup(React.createElement(Provider, {}, visible)), "<p>Authenticating</p>", "staff pages must still initialize their authenticated session");
 
 const Header = load("components/pipeline/PipelineHeader.tsx", {
   "@/components/pipeline/PipelinePhoneNotifications": () => null,

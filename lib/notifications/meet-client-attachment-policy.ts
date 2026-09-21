@@ -6,7 +6,15 @@ export type MailAttachmentSize = {
   byteSize: number;
 };
 
-export type MeetClientAttachmentDeliveryMode = "direct" | "draft_upload";
+export type MeetClientAttachmentDeliveryMode = "direct" | "draft_upload" | "secure_link";
+
+export function admissionPacketDeliveryMode(attachments: readonly MailAttachmentSize[], largeAttachmentDeliveryConfigured: boolean): MeetClientAttachmentDeliveryMode {
+  const mode = meetClientAttachmentDeliveryMode(attachments);
+  const count = deliveryThreshold(process.env.PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_COUNT, 50);
+  const bytes = deliveryThreshold(process.env.PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_BYTES, 20 * 1024 * 1024);
+  return attachments.length > count || attachments.reduce((sum, file) => sum + file.byteSize, 0) > bytes
+    || (mode === "draft_upload" && !largeAttachmentDeliveryConfigured) ? "secure_link" : mode;
+}
 
 export function meetClientAttachmentDeliveryMode(
   attachments: readonly MailAttachmentSize[],
@@ -25,4 +33,9 @@ export function graphUploadRanges(byteSize: number) {
     ranges.push({ start, end: Math.min(byteSize - 1, start + graphUploadChunkBytes - 1) });
   }
   return ranges;
+}
+
+function deliveryThreshold(configured: string | undefined, ceiling: number) {
+  const value = Number(configured || ceiling);
+  return Number.isSafeInteger(value) && value > 0 ? Math.min(value, ceiling) : ceiling;
 }

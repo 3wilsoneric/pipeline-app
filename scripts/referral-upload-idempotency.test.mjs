@@ -18,11 +18,13 @@ test("upload policy permits only the configured valid storage account without we
   assert.match(pipelineContentSecurityPolicy({ development: true }), /'unsafe-eval'/);
 });
 
-function fixture({ azure = false, lostReservation = false, lostCompletion = false, failWrites = false } = {}) {
+function fixture({ azure = false, lostReservation = false, lostCompletion = false, failWrites = false, stalledPuts = 0, stallTarget = "original" } = {}) {
   const reservations = new Map();
-  const calls = { reservations: [], local: [], blobs: [], completions: [] };
+  const deadlines = new Map();
+  let nextDeadline = 0;
+  const calls = { reservations: [], local: [], blobs: [], completions: [], timeouts: [] };
   class ApiError extends Error {
-    constructor(status) { super("Synthetic interrupted response"); this.status = status; }
+    constructor(message, status = 0) { super(message); this.status = status; }
   }
   const fetchPipelineJson = async (url, init) => {
     if (url === "/api/uploads/create-url") {
@@ -30,7 +32,7 @@ function fixture({ azure = false, lostReservation = false, lostCompletion = fals
       calls.reservations.push(body);
       if (!reservations.has(body.packet_id)) reservations.set(body.packet_id, { body, documentId: `document-${reservations.size + 1}` });
       await new Promise((resolve) => setTimeout(resolve, 10));
-      if (lostReservation) { lostReservation = false; throw new ApiError(503); }
+      if (lostReservation) { lostReservation = false; throw new ApiError("Synthetic interrupted response", 503); }
       const host = azure ? "synthetic.blob.core.windows.net" : "mock-storage.local";
       return { packet_id: body.packet_id, sentinel_url: `https://${host}/${body.packet_id}/done`, uploads: [{ file_id: body.files[0].file_id, signed_url: `https://${host}/${body.packet_id}/original` }] };
     }
@@ -42,7 +44,7 @@ function fixture({ azure = false, lostReservation = false, lostCompletion = fals
       const body = JSON.parse(init.body);
       calls.completions.push(body);
       const saved = reservations.get(body.packet_id);
-      if (lostCompletion) { lostCompletion = false; throw new ApiError(503); }
+      if (lostCompletion) { lostCompletion = false; throw new ApiError("Synthetic interrupted response", 503); }
       return { packet_id: body.packet_id, status: "received", documents: [{ file_id: saved.body.files[0].file_id, document_id: saved.documentId }] };
     }
     if (url.endsWith("/status")) return { status: "received", page_count: 0 };
@@ -52,13 +54,33 @@ function fixture({ azure = false, lostReservation = false, lostCompletion = fals
     "@/lib/auth/authenticated-fetch": { fetchPipelineJson, PipelineApiError: ApiError },
   }, {
     crypto: webcrypto, Blob, File, FormData, Error,
-    window: { setTimeout: (callback) => setTimeout(callback, 0) },
+    window: {
+      setTimeout: (callback, delay) => {
+        if (delay < 1_000) return setTimeout(callback, 0); // Retry backoff only.
+        calls.timeouts.push(delay);
+        const id = ++nextDeadline;
+        deadlines.set(id, callback);
+        return id;
+      },
+      clearTimeout: (id) => { deadlines.delete(id); },
+    },
     fetch: async (url, init) => {
-      calls.blobs.push({ url, bytes: await init.body.text(), type: init.headers["Content-Type"] });
+      calls.blobs.push({ url, bytes: await init.body.text(), type: init.headers["Content-Type"], signal: init.signal });
+      assert.ok(init.signal instanceof AbortSignal);
+      assert.equal(init.signal.aborted, false);
+      if (stalledPuts > 0 && url.endsWith(`/${stallTarget}`)) {
+        stalledPuts -= 1;
+        return new Promise((_resolve, reject) => {
+          init.signal.addEventListener("abort", () => reject(new Error("Synthetic stalled transfer aborted")), { once: true });
+          assert.equal(deadlines.size, 1);
+          const [id, expire] = [...deadlines][0];
+          queueMicrotask(() => { deadlines.delete(id); expire(); });
+        });
+      }
       return { ok: !failWrites, status: failWrites ? 503 : 201 };
     },
   });
-  return { client, calls, reservations, allowWrites: () => { failWrites = false; } };
+  return { client, calls, reservations, deadlines, allowWrites: () => { failWrites = false; stalledPuts = 0; } };
 }
 
 test("eight simultaneous selections of the same packet share one reservation, transfer and document", async () => {
@@ -117,7 +139,55 @@ test("a failed binary transfer cannot complete an upload and an explicit retry r
   assert.equal(saved.documents.length, 1);
   assert.equal(current.reservations.size, 1);
   assert.deepEqual(current.calls.reservations[0], current.calls.reservations[1]);
+  assert.equal(current.deadlines.size, 0);
 });
+
+for (const stallTarget of ["original", "done"]) {
+  test(`a stalled ${stallTarget} PUT aborts and retries with a fresh deadline and the same document`, async () => {
+    const current = fixture({ azure: true, stalledPuts: 1, stallTarget });
+    const file = packet();
+    const saved = await current.client().uploadReferralSupportingDocument(referral, file, "other");
+    const attempts = current.calls.blobs.filter(({ url }) => url.endsWith(`/${stallTarget}`));
+    assert.equal(attempts.length, 2);
+    assert.equal(attempts[0].signal.aborted, true);
+    assert.equal(attempts[1].signal.aborted, false);
+    assert.notEqual(attempts[0].signal, attempts[1].signal);
+    assert.equal(attempts[0].url, attempts[1].url);
+    assert.equal(attempts[0].bytes, attempts[1].bytes);
+    assert.deepEqual(current.calls.timeouts, [120_000, 120_000, 120_000]);
+    assert.equal(current.deadlines.size, 0);
+    assert.equal(current.calls.reservations.length, 1);
+    assert.equal(current.calls.completions.length, 1);
+    assert.equal(saved.documents.length, 1);
+    assert.equal(current.calls.blobs.find(({ url }) => url.endsWith("/original")).bytes, await file.text());
+  });
+
+  test(`three stalled ${stallTarget} PUTs stop without completing; an explicit retry keeps the original file and identity`, async () => {
+    const current = fixture({ azure: true, stalledPuts: 3, stallTarget });
+    const client = current.client();
+    const file = packet();
+    await assert.rejects(client.uploadReferralSupportingDocument(referral, file, "other"), (error) => {
+      assert.equal(error.status, 408);
+      assert.match(error.message, /timed out.*still queued.*retry/);
+      assert.doesNotMatch(error.message, /https:\/\//);
+      return true;
+    });
+    const attempts = current.calls.blobs.filter(({ url }) => url.endsWith(`/${stallTarget}`));
+    assert.equal(attempts.length, 3);
+    assert.ok(attempts.every(({ signal }) => signal.aborted));
+    assert.equal(new Set(attempts.map(({ signal }) => signal)).size, 3);
+    assert.equal(current.calls.completions.length, 0);
+    assert.equal(current.deadlines.size, 0);
+    current.allowWrites();
+    const saved = await client.uploadReferralSupportingDocument(referral, file, "other");
+    assert.equal(saved.documents.length, 1);
+    assert.equal(current.reservations.size, 1);
+    assert.deepEqual(current.calls.reservations[0], current.calls.reservations[1]);
+    assert.ok(current.calls.blobs.filter(({ url }) => url.endsWith("/original")).every(({ bytes }) => bytes === current.calls.blobs[0].bytes));
+    assert.equal(await file.text(), current.calls.blobs[0].bytes);
+    assert.equal(current.deadlines.size, 0);
+  });
+}
 
 test("production reservation serializes the same identity before checking or inserting its document", async () => {
   const calls = [];

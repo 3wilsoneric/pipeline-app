@@ -241,6 +241,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run database:migrate
+      - name: Verify recipient packet access, delivery recovery and rollback guards
+        run: npm run check:meet-client-delivery
       - run: npm run database:assurance:integration
       - run: npm run database:seed:production
       - run: npm run build

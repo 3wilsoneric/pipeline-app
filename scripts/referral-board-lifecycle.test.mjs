@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
-const { getReferralBoardState: board } = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-flow.ts");
+const { getReferralBoardState: board, referralBoardStages } = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-flow.ts");
 const { createEmptyAssessmentToolData } = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const referral = {
   id: 1, name: "Synthetic Client", community: "Turlock", date: "2026-09-21", dob: "", source: "Referral packet",
@@ -16,6 +16,13 @@ const accepted = { outcome: "accepted", decidedAt: "2026-09-20T00:00:00Z" };
 const signed = { assessmentExists: true, assessmentComplete: true, assessmentSigned: true };
 const admitted = { ...referral, stage: "Accepted / Admitted", workflowStatus: "admitted" };
 const sent = "2026-09-21T12:00:00Z";
+
+test("the board has three folders; awaiting admit is a decision detail", () => {
+  assert.deepEqual(Array.from(referralBoardStages, stage => stage.key), ["received", "in_progress", "decision"]);
+  const ready = board(referral, { ...signed, decision: accepted });
+  assert.equal(ready.stage, "decision");
+  assert.equal(ready.detail, "Awaiting admit");
+});
 
 test("received becomes preparation from real input, not an empty assessment", () => {
   assert.equal(board(referral).stage, "received");
@@ -53,17 +60,18 @@ test("acceptance needs signing and admission requirements, not later profile rec
   assert.equal(board(referral, { ...signed, decision: accepted, requirements: [requirement] }).location.view, "files");
   for (const status of ["received", "reviewed", "waived", "not_applicable"]) {
     const result = board(referral, { ...signed, decision: accepted, requirements: [{ ...requirement, status }, { ...requirement, requiredFor: "profile_completion" }] });
-    assert.equal(result.stage, "awaiting_admit");
+    assert.equal(result.stage, "decision");
+    assert.equal(result.detail, "Awaiting admit");
     assert.equal(result.location.view, "workflow");
   }
 });
 
 test("admission and confirmed email are both required to leave, in either order", () => {
-  assert.equal(board(referral, { ...signed, decision: accepted, packetSentAt: sent }).stage, "awaiting_admit");
-  assert.equal(board(admitted, { ...signed, decision: accepted }).stage, "awaiting_admit");
+  assert.equal(board(referral, { ...signed, decision: accepted, packetSentAt: sent }).detail, "Awaiting admit");
+  assert.equal(board(admitted, { ...signed, decision: accepted }).stage, "decision");
   assert.equal(board(admitted, { ...signed, decision: accepted }).detail, "Email not sent");
   assert.equal(board(admitted, { ...signed, decision: accepted, packetSentAt: sent }).stage, null);
-  assert.equal(board({ ...referral, admissionDate: "2026-09-21" }, { ...signed, decision: accepted, packetSentAt: sent }).stage, "awaiting_admit", "a planned admission date is not admission");
+  assert.equal(board({ ...referral, admissionDate: "2026-09-21" }, { ...signed, decision: accepted, packetSentAt: sent }).detail, "Awaiting admit", "a planned admission date is not admission");
 });
 
 test("reassessment reopens current work; archives never return to the board", () => {
@@ -125,6 +133,6 @@ test("PostgreSQL context projection selects persisted email evidence for each re
   assert.equal(contexts.get(1).packetSentAt, new Date(sent).toISOString());
   assert.equal(contexts.get(2).packetSentAt, null);
   assert.equal(board(admitted, contexts.get(1)).stage, null);
-  assert.equal(board({ ...admitted, id: 2 }, contexts.get(2)).stage, "awaiting_admit");
+  assert.equal(board({ ...admitted, id: 2 }, contexts.get(2)).stage, "decision");
   assert.ok(queries.every(query => /^\s*select\s/.test(query)), "the board is a read-only projection");
 });

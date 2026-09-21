@@ -24,6 +24,9 @@ type PacketUploadResult = {
 
 let mutationSequence = 0;
 const activeUploads = new Map<string, Promise<UploadedFile>>();
+// Match the local upload allowance. If legitimate large mobile uploads repeatedly
+// exceed this per-attempt limit, revisit with progress-aware transfers.
+const blobUploadTimeoutMs = 120_000;
 
 type UploadedFile = {
   packetId: string;
@@ -179,19 +182,29 @@ async function writeReservedBlob(signedUrl: string, sentinelUrl: string, file: F
 
 async function putBlob(url: string, body: Blob, contentType: string) {
   await retryIdempotentOperation(async () => {
-    const response = await fetch(url, {
-      method: "PUT",
-      credentials: "omit",
-      headers: {
-        "Content-Type": contentType,
-        "x-ms-blob-type": "BlockBlob",
-      },
-      body,
-    });
-    if (!response.ok) {
-      const error = new Error("The packet could not be written to secure storage. Retry the upload.") as Error & { status?: number };
-      error.status = response.status;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), blobUploadTimeoutMs);
+    try {
+      const response = await fetch(url, {
+        method: "PUT",
+        credentials: "omit",
+        headers: {
+          "Content-Type": contentType,
+          "x-ms-blob-type": "BlockBlob",
+        },
+        body,
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new PipelineApiError("The packet could not be written to secure storage. Retry the upload.", response.status);
+      }
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new PipelineApiError("The file upload timed out. Your file is still queued; retry the upload.", 408);
+      }
       throw error;
+    } finally {
+      window.clearTimeout(timeout);
     }
   }, (error) => {
     const status = error && typeof error === "object" && "status" in error ? Number(error.status) : 0;

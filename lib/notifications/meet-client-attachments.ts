@@ -1,10 +1,11 @@
 import "server-only";
+import { createHash } from "node:crypto";
 
 import { getDocumentFileMetadata, getDocumentOriginalAsset } from "@/lib/extraction/document-assets";
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
 import {
-  meetClientAttachmentDeliveryMode,
+  admissionPacketDeliveryMode,
   type MeetClientAttachmentDeliveryMode,
 } from "@/lib/notifications/meet-client-attachment-policy";
 import { listReferralFiles } from "@/lib/pipeline/referral-store";
@@ -12,8 +13,6 @@ import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { AssessmentSummaryReport } from "@/lib/assessment/assessment-summary";
 import { clientDataSheetName, renderClientDataSheet } from "./client-data-sheet";
 
-const defaultMaximumAttachmentCount = 20;
-const defaultMaximumTotalBytes = 25 * 1024 * 1024;
 
 export type MeetClientAttachmentItem = {
   documentId: string;
@@ -28,6 +27,7 @@ export type MeetClientAttachmentItem = {
 
 export type MeetClientAttachmentInventory = {
   files: MeetClientAttachmentItem[];
+  revision: string;
   totalBytes: number;
   ready: boolean;
   blockers: string[];
@@ -59,26 +59,19 @@ export async function getMeetClientAttachmentInventory(
     files.push(...await Promise.all(page.map(toAttachmentItem)));
     cursor = result.next_cursor;
   } while (cursor);
-  const maximumCount = maximumAttachmentCount();
   const generatedContent = renderClientDataSheet(options.report ?? null, referral);
   files.unshift({ documentId: `chart:${referral.id}:${referral.version}:${options.report?.assessmentVersion ?? 0}`, name: clientDataSheetName,
     category: "Assessment", contentType: "text/html", byteSize: Buffer.byteLength(generatedContent, "utf8"), ready: true, generatedContent });
   const totalBytes = files.reduce((total, file) => total + file.byteSize, 0);
   const deliveryMode = files.length > 0 && files.every((file) => file.ready)
-    ? meetClientAttachmentDeliveryMode(files)
+    ? admissionPacketDeliveryMode(files, options.largeAttachmentDeliveryConfigured === true)
     : null;
   const largeAttachmentDeliveryConfigured = options.largeAttachmentDeliveryConfigured === true;
-  const blockers = attachmentBlockers({
-    files,
-    totalBytes,
-    candidateCount: candidates.size + 1,
-    maximumCount,
-    deliveryMode,
-    largeAttachmentDeliveryConfigured,
-  });
+  const blockers = files.some((file) => !file.ready) ? ["A packet file is missing, empty, or awaiting a safety review. Review the listed files and try again."] : [];
   if (candidates.size === 0) blockers.unshift("Upload at least one file to this workspace before sending the admission packet.");
   return {
     files,
+    revision: createHash("sha256").update(JSON.stringify(files.map((file) => [file.documentId, file.name, file.byteSize, file.contentType, file.ready]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))))).digest("hex"),
     totalBytes,
     ready: blockers.length === 0,
     blockers,
@@ -150,47 +143,6 @@ function metadataIssue(status: string, byteSize: number): MeetClientAttachmentIt
   if (status === "failed") return "scan_failed";
   if (!isDocumentContentAvailable(status)) return "scan_pending";
   return undefined;
-}
-
-function attachmentBlockers(input: {
-  files: MeetClientAttachmentItem[];
-  totalBytes: number;
-  candidateCount: number;
-  maximumCount: number;
-  deliveryMode: MeetClientAttachmentDeliveryMode | null;
-  largeAttachmentDeliveryConfigured: boolean;
-}) {
-  const blockers: string[] = [];
-  if (input.candidateCount === 0) blockers.push("Attach at least one admission packet document before sending.");
-  if (input.candidateCount > input.maximumCount) {
-    blockers.push(`The admission packet exceeds the ${input.maximumCount}-file delivery limit.`);
-  }
-  if (input.files.some((file) => !file.ready)) {
-    blockers.push("Every admission packet file must finish safety scanning before sending.");
-  }
-  if (input.totalBytes > maximumTotalBytes()) {
-    blockers.push(`The admission packet exceeds the ${formatMegabytes(maximumTotalBytes())} MB email limit.`);
-  }
-  if (input.deliveryMode === "draft_upload" && !input.largeAttachmentDeliveryConfigured) {
-    blockers.push("Microsoft 365 large-attachment delivery is not configured for this packet size.");
-  }
-  return blockers;
-}
-
-function maximumAttachmentCount() {
-  const parsed = Number.parseInt(process.env.PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_COUNT ?? "", 10);
-  return Number.isInteger(parsed) ? Math.min(50, Math.max(1, parsed)) : defaultMaximumAttachmentCount;
-}
-
-function maximumTotalBytes() {
-  const parsed = Number.parseInt(process.env.PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_BYTES ?? "", 10);
-  return Number.isInteger(parsed)
-    ? Math.min(100 * 1024 * 1024, Math.max(1024 * 1024, parsed))
-    : defaultMaximumTotalBytes;
-}
-
-function formatMegabytes(bytes: number) {
-  return Math.floor(bytes / (1024 * 1024));
 }
 
 function safeFileName(value: string) {

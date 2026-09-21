@@ -8,12 +8,13 @@ import type {
   AssessmentSummaryItem,
   AssessmentSummaryReport,
 } from "@/lib/assessment/assessment-summary";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
 import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import MeetClientMessageEditor from "./MeetClientMessageEditor";
+import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
@@ -36,6 +37,7 @@ type ChartPayload = {
     sent_at?: string | null;
     blockers: string[];
     admission_packet: {
+      revision: string;
       files: Array<{
         document_id: string;
         name: string;
@@ -46,7 +48,7 @@ type ChartPayload = {
       }>;
       total_bytes: number;
       ready: boolean;
-      delivery_mode: "direct" | "draft_upload" | null;
+      delivery_mode: "direct" | "draft_upload" | "secure_link" | null;
     };
   };
 };
@@ -124,6 +126,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
             assessment_id: payload.report?.assessmentId,
             if_match_assessment: payload.report?.assessmentVersion,
             client_mutation_id: sendRequest.current.mutationId,
+            packet_revision: payload.email.admission_packet.revision,
             message: emailDraft.fields.message,
           }),
         },
@@ -133,6 +136,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       setAcceptedReferralId(payload.referral.id);
       setMessage(`Microsoft 365 accepted the summary and ${result.attachment_count} admission file${result.attachment_count === 1 ? "" : "s"} for ${result.recipient_count} recipient${result.recipient_count === 1 ? "" : "s"}.${result.audit_pending ? ` Send history is pending; do not resend. Reference: ${result.delivery_id}.` : ""}`);
     } catch (sendError) {
+      if (retryableSendError(sendError)) sendRequest.current = null;
       setError(sendError instanceof Error ? sendError.message : "Meet the Client could not be emailed.");
     } finally {
       sendInFlight.current = false;
@@ -411,8 +415,9 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
     <section data-guide-target="packet-attachments" className={styles.attachments} aria-label="Referral packet attachments">
         <div className={styles.attachmentHeading}>
           <h3>Admission packet</h3>
-          <span><Paperclip size={15} aria-hidden="true" />{email.admission_packet.files.length} attachment{email.admission_packet.files.length === 1 ? "" : "s"} · {formatBytes(email.admission_packet.total_bytes)}</span>
+          <span><Paperclip size={15} aria-hidden="true" />{email.admission_packet.files.length} file{email.admission_packet.files.length === 1 ? "" : "s"} · {formatBytes(email.admission_packet.total_bytes)}</span>
         </div>
+        {email.admission_packet.delivery_mode === "secure_link" ? <p>All files will be included in one secure link. Recipients verify their email with a code; no account needed. Access lasts 30 days and can be renewed.</p> : <p>All files are included. If the packet is too large for email, a secure download link is used automatically.</p>}
         {!email.admission_packet.ready && !sent && onOpenFiles ? <button type="button" className={styles.textButton} disabled={sending} onClick={onOpenFiles}>{email.admission_packet.files.every((file) => file.generated) ? "Upload files" : "Review packet files"}<ArrowRight size={16} aria-hidden="true" /></button> : null}
         {email.admission_packet.files.length ? <ul className={styles.attachmentList}>
           {email.admission_packet.files.map((file) => <li key={file.document_id}>
@@ -437,10 +442,11 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
       <div className={`${styles.nextStep} ${email.example_only ? styles.demoNotice : ""}`}><p role="status">{status}</p>{!email.example_only ? refresh : null}</div>
       <div className={styles.addressRow}><span>From</span><span>{email.sender || "Sending account not connected"}</span></div>
       {emailDraft ? <div data-guide-target="packet-recipients" className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} composer value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={!email.can_edit_recipients || sending || sent} /></div> : null}
-      <MeetClientMessageEditor demo={email.example_only} summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""} attachments={email.admission_packet.files.map((file) => file.name)}
+      <MeetClientMessageEditor demo={email.example_only} packetLink={email.admission_packet.delivery_mode === "secure_link"} summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""} attachments={email.admission_packet.files.map((file) => file.name)}
         draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={!email.can_edit_recipients || sending || sent} onEdited={() => onConfirmed(false)}>
         {renderPacketAttachments()}
       </MeetClientMessageEditor>
+      {renderPacketAccess(email, sent, referral.id)}
       <footer className={styles.footer}>
         {renderDeliveryDetails()}
       </footer>
@@ -484,4 +490,12 @@ function formatBytes(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0 KB";
   if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
   return `${(value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+function retryableSendError(error: unknown) {
+  return error instanceof PipelineApiError && (error.payload as { retryable?: boolean } | undefined)?.retryable === true;
+}
+
+function renderPacketAccess(email: ChartPayload["email"], sent: boolean, referralId: number) {
+  return email.can_edit_recipients && !email.example_only ? <AdmissionPacketAccessControls key={sent ? "sent" : "pending"} referralId={referralId} /> : null;
 }

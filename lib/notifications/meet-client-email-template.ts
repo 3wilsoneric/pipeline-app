@@ -7,11 +7,13 @@ export function renderMeetClientEmail(
   deliveryId: string,
   attachmentNames: string[] = [],
   message?: MeetClientMessage,
-  options: { demo?: boolean } = {},
+  options: { demo?: boolean; packetUrl?: string; packetLinkPreview?: boolean } = {},
 ) {
   const subject = `${options.demo ? "[DEMO] " : ""}${message?.subject ?? `Meet the Client | ${summary.community || "New admission"}`}`;
   const demoNotice = options.demo ? '<p style="padding:14px 16px;border:1px solid #d8c387;border-radius:6px;background:#fff8e6;color:#684f17;font-size:16px;font-weight:700">Demo — not live. This message and admission packet will not be sent.</p>' : "";
-  const content = meetClientContent(summary, attachmentNames, message?.body);
+  const linked = Boolean(options.packetUrl || options.packetLinkPreview);
+  const content = meetClientContent(summary, linked ? [] : attachmentNames, message?.body);
+  if (linked) appendPacketLink(content, attachmentNames.length, options.packetUrl);
   const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>@media(max-width:600px){.email-sheet{padding:24px 16px!important}.email-table td{display:block!important;width:auto!important}.email-table td:first-child{border:0!important;padding:14px 0 2px!important}.email-table td:last-child{padding:0 0 14px!important}}</style></head><body style="margin:0;background:#fff;color:#243b32;font-family:Arial,sans-serif;font-size:17px;line-height:1.65;overflow-wrap:anywhere"><div class="email-sheet" style="max-width:1100px;margin:0 auto;padding:32px;box-sizing:border-box"><div style="border-top:3px solid #0f8b73;padding-top:24px"><div style="font-size:13px;font-weight:700;letter-spacing:.08em;color:#08745d;text-transform:uppercase">Pipeline</div><h1 style="margin:8px 0 24px;font-size:30px;line-height:1.2">Meet the Client</h1>${demoNotice}${content.html}<div style="margin-top:32px;border-top:1px solid #d9dfdb;padding-top:18px;font-size:13px;line-height:1.6;color:#59665f">${content.edited ? "Sender-edited handoff based on" : "Prepared from"} signed Pipeline assessment ${escapeHtml(summary.preparedFromAssessmentId)} version ${summary.preparedFromAssessmentVersion} by ${escapeHtml(preparedBy)}.<br>Agreement status and coordination details come from the referral record; signing an assessment does not sign the admission agreement.<br>Confidential: contains protected health information. Use only for authorized care coordination. Delivery ${escapeHtml(deliveryId)}.</div></div></div></body></html>`;
   return { subject, html, text: `${options.demo ? "Demo — not live. This message and admission packet will not be sent.\n\n" : ""}${content.text}` };
 }
@@ -40,7 +42,7 @@ function meetClientMessageText(summary: MeetClientSummary) {
   const items = (title: string, values: Array<{ label: string; value: string }>) => values.length
     ? `${title}\n${values.map(({ label, value }) => `${label}: ${value}`).join("\n")}` : "";
   return [
-    "Hello team,\n\nPlease review the handoff details below and the attached records.",
+    "Hello team,\n\nPlease review the handoff details below and the admission packet.",
     items("Admission & coordination", summary.admissionNotes ?? []),
     summary.bio.length ? `Meet the client\n${summary.bio.join("\n")}` : "",
     items("Med room", [{ label: "Recorded medications", value: summary.medications.join("\n") || "Not recorded; confirm the medication list with the referring team." }, ...summary.medicationNotes]),
@@ -52,7 +54,7 @@ function meetClientMessageText(summary: MeetClientSummary) {
 }
 function admissionIntroduction(summary: MeetClientSummary) {
   const arrival = summary.admissionDate ? `scheduled for admission on ${summary.admissionDate}` : "being prepared for admission (date to be confirmed)";
-  return `<p>Hello team,</p><p>The admission packet includes every file uploaded to this workspace, along with the client data sheet for <strong>${escapeHtml(summary.name)}</strong>, ${escapeHtml(arrival)}${summary.community ? ` at ${escapeHtml(summary.community)}` : ""}.</p><p>Please review the handoff details below and the attached records. Unrecorded information is marked for confirmation, not assumed.</p>`;
+  return `<p>Hello team,</p><p>The admission packet includes every file uploaded to this workspace, along with the client data sheet for <strong>${escapeHtml(summary.name)}</strong>, ${escapeHtml(arrival)}${summary.community ? ` at ${escapeHtml(summary.community)}` : ""}.</p><p>Please review the handoff details below and the admission packet. Unrecorded information is marked for confirmation, not assumed.</p>`;
 }
 
 function table(rows: string[][]) {
@@ -77,4 +79,10 @@ export function escapeHtml(value: string) {
     '"': "&quot;",
     "'": "&#39;",
   })[character] ?? character).replace(/\n/g, "<br>");
+}
+
+function appendPacketLink(content: { html: string; text: string }, fileCount: number, packetUrl?: string) {
+  const link = packetUrl ? `<a href="${escapeHtml(packetUrl)}" style="display:inline-block;padding:12px 20px;background:#087d66;color:#fff;border-radius:6px;font-weight:700;text-decoration:none">Open admission packet</a>` : '<strong>Open admission packet — link created when sent</strong>';
+  content.html += `<section style="margin-top:24px;padding:20px;border:1px solid #cbd6d2;border-radius:6px"><h2 style="margin-top:0">Admission packet · ${fileCount} files</h2><p>All files are included in the secure packet. Verify the email address that received this message with a one-time code. No Pipeline account is needed.</p>${link}</section>`;
+  content.text += `\n\nAdmission packet: ${fileCount} files. Verify your email with a one-time code. ${packetUrl ?? "The secure link is created when sent."}`;
 }

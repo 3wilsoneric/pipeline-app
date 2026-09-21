@@ -42,6 +42,7 @@
     "0038_assessment_packet_finalization.sql": "67b27bc1d87f54b87c1f50b8efe33365bc971bdaa272191ec2cc9a11cad54e1c",
     "0039_document_scan_not_required.sql": "4777c61dbb63b0db1bc5999290fabfe852a406d45f65644dd56c54745da20705",
     "0040_referral_email_drafts.sql": "457f3238710e0030c7b8d1003def47bf30e5c7c759a37b2e7e513e1f85e78e5f",
-    "0041_community_recipient_lists.sql": "ea75c6ddd9366ab24ad53ab1fd355b8e91fcdc020a860974156a40c286314f7f"
+    "0041_community_recipient_lists.sql": "ea75c6ddd9366ab24ad53ab1fd355b8e91fcdc020a860974156a40c286314f7f",
+    "0042_admission_packet_links.sql": "21ea59253a651c93df1f6c014d7a71528208dab794cd92c8106a7226c68526cb"
   }
 }

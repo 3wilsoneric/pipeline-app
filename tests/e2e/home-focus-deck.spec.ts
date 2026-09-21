@@ -46,7 +46,8 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       payload.workflow.board_items = [...boardItems,
         { ...item, referral_id: 930001, client_name: "Accepted Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete_chart", board: { stage: "decision", detail: "Accept", next_action: "Review and sign the assessment", location: { view: "assessment" } } },
         { ...item, referral_id: 930002, client_name: "Denied Client", workflow_status: "declined", outcome_state: "declined", flow_state: "complete", board: { stage: "decision", detail: "Denied", next_action: "Review decision", location: { view: "workflow" } } },
-        { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", board: { stage: "awaiting_admit", detail: "Email not sent", next_action: "Send Meet the Client", location: { view: "email" } } },
+        { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", board: { stage: "decision", detail: "Email not sent", next_action: "Send Meet the Client", location: { view: "email" } } },
+        { ...item, referral_id: 930004, client_name: "Awaiting Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete", board: { stage: "decision", detail: "Awaiting admit", next_action: "Record admission", location: { view: "workflow" } } },
       ];
     }
     payload.workflow.all_board_items = [...payload.workflow.board_items];
@@ -353,11 +354,14 @@ test("decision tabs use distinct colors and admitted files await email without a
   await page.goto("/");
   await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Accepted Client", exact: true })).toBeVisible();
   await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Denied Client", exact: true })).toBeVisible();
-  await expect(page.locator('[data-board-stage="awaiting_admit"]').getByRole("button", { name: "Open Admitted Client", exact: true })).toContainText("Email not sent");
+  await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Admitted Client", exact: true })).toContainText("Email not sent");
+  await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Awaiting Client", exact: true })).toContainText("Awaiting admit");
+  await expect(page.locator('[data-board-stage]')).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "Open awaiting admit folder", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open finished referrals folder", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
-  await expect(dialog.locator("[data-board-status]")).toHaveText(["Under review", "Accept", "Denied"]);
+  await expect(dialog.locator("[data-board-status]")).toHaveText(["Under review", "Accept", "Denied", "Email not sent", "Awaiting admit"]);
   const colors = await dialog.locator("[data-board-status]").evaluateAll(tabs => tabs.map(tab => getComputedStyle(tab).backgroundColor));
   expect(new Set(colors).size).toBe(3);
   await dialog.screenshot({ path: info.outputPath("decision-tabs.png"), animations: "disabled" });
@@ -414,7 +418,7 @@ test("expanded folders retain stage accents and long file labels stay readable",
   await homeFixture(page, undefined, 3, true, true);
   await page.goto("/");
   const colors = new Set<string>();
-  for (const title of ["Referral received", "In progress", "Decision", "Awaiting admit"]) {
+  for (const title of ["Referral received", "In progress", "Decision"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toBeVisible();
@@ -424,7 +428,7 @@ test("expanded folders retain stage accents and long file labels stay readable",
     await folder.getByRole("button", { name: `Close ${title.toLowerCase()} folder`, exact: true }).click();
     await expect(folder).toHaveCount(0);
   }
-  expect(colors.size).toBe(4);
+  expect(colors.size).toBe(3);
   await page.setViewportSize({ width: 320, height: 844 });
   await page.getByLabel("Referral stage").selectOption("received");
   await page.getByRole("button", { name: "Open referral received folder", exact: true }).click();
