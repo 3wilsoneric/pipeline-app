@@ -80,11 +80,12 @@ export async function sendMeetClientMail(input: {
     throw new GraphMailDeliveryError("admission_packet_empty", "The admission packet has no files.");
   }
   const accessToken = await graphAccessToken().catch(() => { throw new GraphMailDeliveryError("mail_preparation_failed", "Microsoft 365 authentication could not be completed. No email was sent."); });
+  const packetFiles = input.packetFiles ?? input.attachments;
   const content = renderMeetClientEmail(
     input.summary,
     input.preparedBy,
     input.deliveryId,
-    (input.packetFiles ?? input.attachments).map((attachment) => attachment.name),
+    packetFiles.map((attachment) => attachment.name),
     input.message,
     { packetUrl: input.packetUrl },
   );
@@ -103,8 +104,8 @@ export async function sendMeetClientMail(input: {
   return {
     provider: "microsoft_graph" as const,
     acceptedAt: new Date().toISOString(),
-    attachmentCount: (input.packetFiles ?? input.attachments).length,
-    attachmentBytes: (input.packetFiles ?? input.attachments).reduce((total, attachment) => total + attachment.byteSize, 0),
+    attachmentCount: packetFiles.length,
+    attachmentBytes: packetFiles.reduce((total, attachment) => total + attachment.byteSize, 0),
     deliveryMode: mode,
   };
 }
@@ -189,11 +190,7 @@ async function sendDraftWithAttachments(
     sending = true;
     await graphRequest(`${messagePath}/send`, accessToken, { method: "POST" }, 202, "send_draft");
   } catch (error) {
-    // Keep the provider evidence when acceptance is unknown. Deleting a message
-    // after an ambiguous send could delete a successfully sent handoff.
-    if (!sending || (error instanceof GraphMailDeliveryError && error.status && error.status < 500)) await deleteDraft(messagePath, accessToken);
-    if (!sending && !(error instanceof GraphMailDeliveryError)) throw new GraphMailDeliveryError("mail_preparation_failed", "The email draft could not be prepared. No email was sent.");
-    throw error;
+    await handleFailedDraft(messagePath, accessToken, sending, error);
   }
 }
 
@@ -375,4 +372,12 @@ function isEmail(value: string) {
 
 function emailDomain(value: string) {
   return value.slice(value.lastIndexOf("@") + 1).toLowerCase();
+}
+
+async function handleFailedDraft(messagePath: string, accessToken: string, sending: boolean, error: unknown): Promise<never> {
+  // Keep the provider evidence when acceptance is unknown. Deleting a message
+  // after an ambiguous send could delete a successfully sent handoff.
+  if (!sending || (error instanceof GraphMailDeliveryError && error.status && error.status < 500)) await deleteDraft(messagePath, accessToken);
+  if (!sending && !(error instanceof GraphMailDeliveryError)) throw new GraphMailDeliveryError("mail_preparation_failed", "The email draft could not be prepared. No email was sent.");
+  throw error;
 }

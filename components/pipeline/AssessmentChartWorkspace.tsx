@@ -136,7 +136,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       setAcceptedReferralId(payload.referral.id);
       setMessage(`Microsoft 365 accepted the summary and ${result.attachment_count} admission file${result.attachment_count === 1 ? "" : "s"} for ${result.recipient_count} recipient${result.recipient_count === 1 ? "" : "s"}.${result.audit_pending ? ` Send history is pending; do not resend. Reference: ${result.delivery_id}.` : ""}`);
     } catch (sendError) {
-      if (sendError instanceof PipelineApiError && (sendError.payload as { retryable?: boolean } | undefined)?.retryable === true) sendRequest.current = null;
+      if (retryableSendError(sendError)) sendRequest.current = null;
       setError(sendError instanceof Error ? sendError.message : "Meet the Client could not be emailed.");
     } finally {
       sendInFlight.current = false;
@@ -446,7 +446,7 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
         draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={!email.can_edit_recipients || sending || sent} onEdited={() => onConfirmed(false)}>
         {renderPacketAttachments()}
       </MeetClientMessageEditor>
-      {email.can_edit_recipients && !email.example_only ? <AdmissionPacketAccessControls key={sent ? "sent" : "pending"} referralId={referral.id} /> : null}
+      {renderPacketAccess(email, sent, referral.id)}
       <footer className={styles.footer}>
         {renderDeliveryDetails()}
       </footer>
@@ -490,4 +490,12 @@ function formatBytes(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0 KB";
   if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
   return `${(value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+function retryableSendError(error: unknown) {
+  return error instanceof PipelineApiError && (error.payload as { retryable?: boolean } | undefined)?.retryable === true;
+}
+
+function renderPacketAccess(email: ChartPayload["email"], sent: boolean, referralId: number) {
+  return email.can_edit_recipients && !email.example_only ? <AdmissionPacketAccessControls key={sent ? "sent" : "pending"} referralId={referralId} /> : null;
 }

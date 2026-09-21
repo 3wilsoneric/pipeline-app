@@ -63,6 +63,10 @@ export async function packetFileResponse(file: PacketFile, referralId: number, r
   if (range && !isValidHttpByteRange(range)) return new Response(null, { status: 416, headers: packetPrivateHeaders });
   const url = await getAzureBlobUploadSigner().createReadUrl(file.source.container, file.source.key, 120);
   const response = await fetch(url, { headers: { "If-Match": file.source.etag, ...(range ? { Range: range } : {}) }, cache: "no-store", signal: AbortSignal.any([request.signal, AbortSignal.timeout(300_000)]) });
+  return relayPacketDownload(response, file, headers);
+}
+
+function relayPacketDownload(response: Response, file: PacketFile, headers: Record<string, string>) {
   if (response.status === 416) return new Response(null, { status: 416, headers: { ...packetPrivateHeaders, "Content-Range": `bytes */${file.byteSize}` } });
   if (response.status === 412) throw new PacketAccessError("This file was replaced. Ask the sender for an updated packet.", 409);
   if (![200, 206].includes(response.status) || !response.body) throw new PacketAccessError("The download could not start. Try again; the packet has not been changed.", 503);

@@ -62,9 +62,8 @@ export async function POST(
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
-    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment);
+    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision);
     if (!attachmentContext.ok) return attachmentContext.response;
-    if (attachmentContext.inventory.revision !== prepared.packetRevision) return jsonError("The packet files changed. Refresh the preview to include every current file before sending.", 409);
 
     const reserveAndDeliver = async () => {
       const deliveryId = randomUUID();
@@ -158,20 +157,7 @@ async function deliverMeetClientEmail(input: {
       auditPending = true;
       recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "finalization_pending" });
     } else {
-      try {
-        await completeMeetClientDelivery(input.audit, definitelyNotSent(error) ? "failed" : "unconfirmed", deliveryErrorCode(error), definitelyNotSent(error));
-      } catch {
-        recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failure_audit_pending" });
-      }
-      recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failed" });
-      if (error instanceof Error && error.message.startsWith("The assessment changed.")) {
-        return jsonError(error.message, 409);
-      }
-      if (error instanceof PacketAccessError) return Response.json({ error: error.message, retryable: true }, { status: error.status, headers: privateHeaders() });
-      if (error instanceof GraphMailDeliveryError && definitelyNotSent(error)) {
-        return Response.json({ error: error.status === 429 ? "Microsoft 365 is busy. No email was sent. Wait a minute, then try again." : "Microsoft 365 declined this send. No email was sent. Check the sending account and try again.", retryable: true }, { status: 503, headers: privateHeaders() });
-      }
-      return jsonError(`${deliveryFailureMessage(error)} Reference: ${input.deliveryId}.`, 502);
+      return failedDeliveryResponse(input, error);
     }
   }
   if (!result) return jsonError("The packet send was not confirmed.", 502);
@@ -221,13 +207,13 @@ async function prepareEmailRequest(request: Request): Promise<
 > {
   const body = await readJsonBody(request, 256_000);
   if (!body.ok) return { ok: false, response: jsonError(body.message, body.status) };
-  if (!isRecord(body.value) || body.value.confirmed !== true) {
+  if (!confirmedRequest(body.value)) {
     return { ok: false, response: jsonError("Confirm that every recipient is authorized to receive this client information.") };
   }
   const message = parseMeetClientMessage(body.value.message);
   if (!message) return { ok: false, response: jsonError("Use a subject up to 200 characters and message up to 20,000 characters, without unsupported control characters.") };
   const packetRevision = body.value.packet_revision;
-  if (typeof packetRevision !== "string" || !/^[a-f0-9]{64}$/.test(packetRevision)) return { ok: false, response: jsonError("Refresh the preview before sending the packet.", 409) };
+  if (!validPacketRevision(packetRevision)) return { ok: false, response: jsonError("Refresh the preview before sending the packet.", 409) };
   const mutationId = body.value.client_mutation_id;
   if (!isMutationId(mutationId)) return { ok: false, response: jsonError("client_mutation_id is invalid.") };
   const referralVersion = body.value.if_match;
@@ -291,7 +277,7 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   };
 }
 
-async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord) {
+async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord, packetRevision: string) {
   try {
     const readiness = getGraphMailReadiness();
     const inventory = await getMeetClientAttachmentInventory(referral, {
@@ -301,6 +287,7 @@ async function loadAdmissionPacket(referral: Referral, assessment: PipelineAsses
     if (!inventory.ready) {
       return { ok: false as const, response: jsonError(inventory.blockers.join(" "), 422) };
     }
+    if (inventory.revision !== packetRevision) return { ok: false as const, response: jsonError("The packet files changed. Refresh the preview to include every current file before sending.", 409) };
     const attachments = inventory.deliveryMode === "secure_link" ? [] : await prepareMeetClientMailAttachments(inventory);
     return { ok: true as const, inventory, attachments };
   } catch {
@@ -400,4 +387,29 @@ function privateHeaders() {
 function validAssessmentPreview(id: unknown, version: unknown) {
   return typeof id === "string" && /^[a-zA-Z0-9_.:-]{1,160}$/.test(id)
     && typeof version === "number" && Number.isSafeInteger(version) && version >= 1;
+}
+
+function validPacketRevision(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+async function failedDeliveryResponse(input: Parameters<typeof deliverMeetClientEmail>[0], error: unknown) {
+  try {
+    await completeMeetClientDelivery(input.audit, definitelyNotSent(error) ? "failed" : "unconfirmed", deliveryErrorCode(error), definitelyNotSent(error));
+  } catch {
+    recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failure_audit_pending" });
+  }
+  recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failed" });
+  if (error instanceof Error && error.message.startsWith("The assessment changed.")) {
+    return jsonError(error.message, 409);
+  }
+  if (error instanceof PacketAccessError) return Response.json({ error: error.message, retryable: true }, { status: error.status, headers: privateHeaders() });
+  if (error instanceof GraphMailDeliveryError && definitelyNotSent(error)) {
+    return Response.json({ error: error.status === 429 ? "Microsoft 365 is busy. No email was sent. Wait a minute, then try again." : "Microsoft 365 declined this send. No email was sent. Check the sending account and try again.", retryable: true }, { status: 503, headers: privateHeaders() });
+  }
+  return jsonError(`${deliveryFailureMessage(error)} Reference: ${input.deliveryId}.`, 502);
+}
+
+function confirmedRequest(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && value.confirmed === true;
 }
