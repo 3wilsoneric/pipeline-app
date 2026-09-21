@@ -31,7 +31,7 @@ export default function ReferralHandoffContacts({ value, community, disabled = f
         onText={(input) => setText((previous) => ({ ...previous, [lane]: input }))} onAdd={(input) => add(lane, input)}
         onRemove={(email) => value.change({ ...value.fields, [lane]: value.fields[lane].filter((item) => item.email !== email) })} />)}
       {inputError ? <p role="alert" className={styles.error}>{inputError}</p> : null}
-      {value.error ? <p role="alert" className={styles.error}>{value.error} <button type="button" onClick={() => { if (window.confirm("Reload the saved list? Any unsaved contact edits will be replaced.")) value.reload(); }}><RotateCcw size={14} /> Reload saved list</button></p> : null}
+      {value.error ? <p role="alert" className={styles.error}>{value.error} <button type="button" onClick={() => void value.retry()}>Retry saving</button> <button type="button" onClick={() => { if (window.confirm("Reload the saved handoff draft? Any unsaved recipient and message edits will be replaced.")) value.reload(); }}><RotateCcw size={14} /> Reload saved draft</button></p> : null}
       <HandoffContactStatus value={value} />
     </div>;
   if (composer) return <div className={styles.composer}>{content}</div>;

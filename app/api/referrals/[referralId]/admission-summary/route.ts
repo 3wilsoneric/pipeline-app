@@ -81,6 +81,7 @@ export async function GET(
           example_only: exampleOnly,
           configured: mail.configured,
           sender: mail.sender,
+          prepared_by: auth.user.name,
           preview: report ? renderMeetClientEmail(
             report.meetClient, auth.user.name, "Preview — assigned when sent",
             admissionPacket.files.map((file) => file.name),

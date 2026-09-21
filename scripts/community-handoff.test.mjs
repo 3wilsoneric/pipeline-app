@@ -19,6 +19,22 @@ test("email copy follows admission handoff sections without inventing example-cl
   assert.doesNotMatch(email.html, /30 days of meds|No Food Allergy|SSI application has not started|<script>/i);
 });
 
+test("editable handoff text keeps linked admission details, source provenance, and escaped content", () => {
+  const summary = summaryOwner.buildMeetClientSummary(assessment, { ...referral, plannedAdmissionDate: "2026-10-01" });
+  const defaults = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview");
+  assert.match(defaults.text, /Recorded medication/);
+  const message = { subject: "Arrival arrangements", body: "Hello team,\nPlease call first. <img src=x onerror=alert(1)>" };
+  const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", ["Admission packet.pdf", "Client data sheet.html"], message);
+  assert.equal(email.subject, message.subject);
+  assert.equal(email.text, message.body);
+  for (const value of ["2026-10-01", "Admission packet.pdf", "Client data sheet.html", "Sender-edited handoff", "&lt;img"]) assert.ok(email.html.includes(value), value);
+  assert.doesNotMatch(email.html, /<img|<script/);
+  const changed = emailOwner.renderMeetClientEmail({ ...summary, admissionDate: "2026-10-02" }, "Synthetic sender", "preview", [], message);
+  assert.ok(changed.html.includes("2026-10-02"));
+  assert.ok(!changed.html.includes("2026-10-01"));
+  assert.equal(changed.text, message.body);
+});
+
 test("injection handoff preserves named dates and exposes missing details without calculating a due date", () => {
   const recorded = { ...assessment, im_injections: "yes", im_injections_details: "Synthetic injection A - recorded dose", injection_frequency: "A - every 4 weeks", last_injection: "A - around September 2\nB - unknown", next_injection_due: "A - confirm with clinic" };
   const notes = Object.fromEntries(summaryOwner.buildMeetClientSummary(recorded, referral).medicationNotes.map(({ label, value }) => [label, value]));
@@ -103,12 +119,14 @@ test("Graph direct send keeps To and Cc separate and attaches exact generated da
   } });
   const html = sheetOwner.renderClientDataSheet(summaryOwner.buildAssessmentSummaryReport(assessment, referral), referral);
   const bytes = Buffer.from(html);
-  const result = await graph.sendMeetClientMail({ recipients: ["care@example.test"], ccRecipients: ["billing@example.test"], summary: summaryOwner.buildMeetClientSummary(assessment, referral), preparedBy: "Synthetic sender", deliveryId: "synthetic-delivery", attachments: [{ documentId: "chart:7", name: "Client data sheet.html", contentType: "text/html", byteSize: bytes.length, contentBytes: bytes }] });
+  const result = await graph.sendMeetClientMail({ message: { subject: "Custom arrival", body: "Hello team, please call first." }, recipients: ["care@example.test"], ccRecipients: ["billing@example.test"], summary: summaryOwner.buildMeetClientSummary(assessment, referral), preparedBy: "Synthetic sender", deliveryId: "synthetic-delivery", attachments: [{ documentId: "chart:7", name: "Client data sheet.html", contentType: "text/html", byteSize: bytes.length, contentBytes: bytes }] });
   assert.equal(result.attachmentCount, 1);
   assert.equal(requests.length, 2);
   const sent = JSON.parse(requests[1].init.body).message;
   assert.deepEqual(sent.toRecipients, [{ emailAddress: { address: "care@example.test" } }]);
   assert.deepEqual(sent.ccRecipients, [{ emailAddress: { address: "billing@example.test" } }]);
+  assert.equal(sent.subject, "Custom arrival");
+  assert.match(sent.body.content, /Hello team, please call first/);
   assert.equal(Buffer.from(sent.attachments[0].contentBytes, "base64").toString(), html);
 });
 

@@ -8,6 +8,7 @@ import {
 } from "@/lib/notifications/meet-client-attachment-policy";
 import type { MeetClientMailAttachment } from "@/lib/notifications/meet-client-attachments";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
+import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import { recipientListLimit } from "@/lib/pipeline/community-recipient-lists";
 
 export { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
@@ -69,6 +70,7 @@ export async function sendMeetClientMail(input: {
   preparedBy: string;
   deliveryId: string;
   attachments: MeetClientMailAttachment[];
+  message?: MeetClientMessage;
 }) {
   const readiness = getGraphMailReadiness();
   if (!readiness.configured) throw new Error("Microsoft 365 email is not configured.");
@@ -81,6 +83,7 @@ export async function sendMeetClientMail(input: {
     input.preparedBy,
     input.deliveryId,
     input.attachments.map((attachment) => attachment.name),
+    input.message,
   );
   const mode = meetClientAttachmentDeliveryMode(input.attachments);
   if (mode === "draft_upload" && !readiness.largeAttachmentDeliveryConfigured) {

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:40b581165c0ba51c",
-  "fingerprint": "40b581165c0ba51c06c5c5668777029a237c439c36c271780f32fad877bba706",
+  "generatedAt": "source-fingerprint:3e544fd446c60148",
+  "fingerprint": "3e544fd446c6014823aa2b5b244370faed4f6a37e29c228bd46892305e0c892c",
   "totals": {
-    "files": 1307,
-    "lines": 354014,
-    "coveredFiles": 1307
+    "files": 1310,
+    "lines": 354314,
+    "coveredFiles": 1310
   },
   "entries": [
     {
@@ -1183,7 +1183,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 161,
+      "lines": 162,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1336,7 +1336,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 54,
+      "lines": 57,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1375,7 +1375,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 330,
+      "lines": 339,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1980,7 +1980,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 462,
+      "lines": 466,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2520,7 +2520,19 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 132,
+      "lines": 141,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/MeetClientMessageEditor.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 50,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3444,7 +3456,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 83,
+      "lines": 114,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -8621,7 +8633,19 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 49,
+      "lines": 79,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/meet-client-message.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 24,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8633,7 +8657,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 350,
+      "lines": 353,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -11793,7 +11817,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 137,
+      "lines": 155,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12825,7 +12849,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 225,
+      "lines": 239,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14554,7 +14578,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 124,
+      "lines": 127,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14807,6 +14831,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 33,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/meet-client-message.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 101,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
