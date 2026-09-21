@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8ba7bafb3bc99b1d",
-  "fingerprint": "8ba7bafb3bc99b1db4c5b4147b0b540b3f39e3f08436eab167cba8841047cc36",
+  "generatedAt": "source-fingerprint:c72640180305a1a7",
+  "fingerprint": "c72640180305a1a7e4c3f10d898bf0e9fe15c878fc4431dba2b5e31788f5e471",
   "totals": {
-    "files": 1294,
-    "lines": 351971,
-    "coveredFiles": 1294
+    "files": 1299,
+    "lines": 352771,
+    "coveredFiles": 1299
   },
   "entries": [
     {
@@ -2592,7 +2592,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 102,
+      "lines": 104,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2688,7 +2688,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 135,
+      "lines": 142,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3283,12 +3283,24 @@
       ]
     },
     {
+      "path": "components/pipeline/training/PipelineGuidedCoach.module.css",
+      "subsystem": "Pipeline UI",
+      "kind": "repository-file",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 101,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/training/PipelineGuidedCoach.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 716,
+      "lines": 694,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -7141,6 +7153,18 @@
       ]
     },
     {
+      "path": "docs/training/TUTORIAL_WORKFLOW_REBUILD.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 202,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/TWO_PERSONA_DEMO.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -10132,12 +10156,24 @@
       ]
     },
     {
+      "path": "lib/training/operator-guide-navigation.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 41,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/training/operator-guided-tour-state.ts",
       "subsystem": "Repository configuration",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 281,
+      "lines": 301,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10149,7 +10185,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 379,
+      "lines": 326,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -12813,7 +12849,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 114,
+      "lines": 140,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12825,7 +12861,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 95,
+      "lines": 101,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13682,6 +13718,18 @@
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/tutorial-workflow-fixtures.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 104,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
@@ -15312,6 +15360,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 88,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/tutorial-workflows.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 366,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

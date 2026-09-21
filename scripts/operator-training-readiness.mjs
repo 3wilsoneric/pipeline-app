@@ -13,6 +13,7 @@ const refresh = process.argv.includes("--refresh");
 const curriculum = loadTypeScriptModule(root, "lib/training/operator-training-curriculum.ts");
 const resources = loadTypeScriptModule(root, "lib/training/operator-training-resources.ts");
 const tutorials = loadTypeScriptModule(root, "lib/training/operator-guided-tutorials.ts");
+const guideState = loadTypeScriptModule(root, "lib/training/operator-guided-tour-state.ts");
 const assessmentSchema = loadTypeScriptModule(root, "lib/assessment/assessment-tool-schema.ts");
 const assessmentInterview = loadTypeScriptModule(root, "lib/assessment/assessment-interview-schema.ts");
 const videos = loadTypeScriptModule(root, "lib/training/operator-training-video-catalog.ts");
@@ -76,17 +77,13 @@ check("final decision training is restricted to the runtime administrator role",
 check("every guided step has a local route, authored rationale, and safety boundary", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.every((step) => step.route.startsWith("/") && !step.route.startsWith("//") && step.message.length >= 40 && step.instruction.length >= 20 && step.why.length >= 30 && step.safety.length >= 30)));
 check("guided target registry exactly covers the authored steps", unique(tutorials.operatorGuideTargetIds) && tutorials.operatorGuideTargetIds.length === Object.keys(tutorials.operatorGuideTargetSources).length && tutorials.operatorGuideTargetIds.every((id) => typeof tutorials.operatorGuideTargetSources[id] === "string"));
 check("every guided target remains declared by its source component", tutorials.operatorGuideTargetIds.every((id) => { const source = tutorials.operatorGuideTargetSources[id]; return validRepositoryFile(source) && readFileSync(source, "utf8").includes(`\"${id}\"`); }));
-check("guided workflows are action-led", tutorials.operatorGuidedTutorials.every((tutorial) => (
-  tutorial.id === "complete-assessment"
-    ? tutorial.steps.filter((step) => step.id.startsWith("assessment-section-") && step.advance === "confirm" && step.route.includes("trainingAssessment=guided") && step.route.includes("assessmentSection=")).length === 12
-      && tutorial.steps.some((step) => step.target === "assessment-answer" && step.advance === "target-input")
-      && tutorial.steps.some((step) => step.id === "assessment-sign" && step.target === "assessment-section-review" && step.advance === "target-click")
-    : tutorial.steps.filter((step) => step.advance !== "confirm").length / tutorial.steps.length >= 0.6
-) && tutorial.steps.every((step) => step.phase.trim() && step.instruction.trim() && step.completion.trim())));
+check("compact task groups retain complete workflow coverage", compactTasksCoverWorkflows());
+check("guided progress requires every step and never credits skipped work", guidedProgressRequiresEveryStep());
 check("Loom video URLs are fail-closed to the reviewed host and route shape", videos.parseLoomVideoUrl("https://www.loom.com/share/1234567890abcdef")?.id === "1234567890abcdef" && videos.parseLoomVideoUrl("https://www.loom.com/embed/1234567890abcdef")?.id === "1234567890abcdef" && videos.parseLoomVideoUrl("https://attacker.example/share/1234567890abcdef") === null && videos.parseLoomVideoUrl("http://www.loom.com/share/1234567890abcdef") === null);
 check("configured training videos map uniquely to current activities and valid Loom embeds", unique(videos.operatorTrainingVideoDefinitions.map((video) => `${video.moduleId}:${video.activityId}`)) && videos.operatorTrainingVideoDefinitions.every((video) => curriculum.operatorActivityIds.includes(`${video.moduleId}:${video.activityId}`) && videos.resolveOperatorTrainingVideo(video)?.embedUrl.startsWith("https://www.loom.com/embed/")));
 check("verified interactions use an explicitly allowed action target", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.filter((step) => step.advance !== "confirm").every((step) => tutorials.operatorGuideVerifiedActionTargets[step.advance]?.includes(step.target))));
-check("creation, assessment, handoff, and export boundaries remain human checkpoints", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.filter((step) => ["create-workspace", "assessment-begin-confirm", "assessment-sign", "assessment-schedule-save", "chart-email-handoff", "operations-report-export"].includes(step.target)).every((step) => step.advance === "confirm")));
+check("creation, assessment, handoff, and export boundaries remain human checkpoints", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.filter((step) => ["create-workspace", "assessment-begin-confirm", "assessment-sign", "chart-email-handoff", "operations-report-export"].includes(step.target)).every((step) => step.advance === "confirm")));
+check("scheduling advances only after the user's successful save", tutorials.getOperatorGuidedTutorial("start-assessment").steps.find((step) => step.target === "assessment-schedule-save")?.advance === "target-click" && readFileSync("components/pipeline/training/PipelineGuidedCoach.tsx", "utf8").includes('step.target === "assessment-schedule-save"') && readFileSync("components/pipeline/AssessmentWorkspace.tsx", "utf8").includes('dispatchGuideCompletion("assessment-schedule-save")'));
 check("all required training documents exist", registry.requiredDocuments.every(validRepositoryFile));
 check("all required commands remain declared", requiredCommandsExist());
 
@@ -108,6 +105,35 @@ function prerequisitesAreOrdered() { const positions = new Map(curriculum.operat
 function findCycles() { const graph = new Map(curriculum.operatorModules.map((module) => [module.id, module.prerequisites])); const visited = new Set(); const active = new Set(); const cycles = []; const visit = (id) => { if (active.has(id)) { cycles.push(id); return; } if (visited.has(id)) return; visited.add(id); active.add(id); for (const prerequisite of graph.get(id) ?? []) visit(prerequisite); active.delete(id); }; for (const id of graph.keys()) visit(id); return cycles; }
 function fingerprintSources(paths) { const records = paths.map((relativePath) => `${relativePath}:${validRepositoryFile(relativePath) ? createHash("sha256").update(readFileSync(relativePath)).digest("hex") : "missing"}`); return createHash("sha256").update(records.join("\n")).digest("hex"); }
 function requiredCommandsExist() { const scripts = readJson("package.json").scripts ?? {}; return registry.requiredCommands.every((command) => typeof scripts[command] === "string"); }
-function assessmentSectionOrderIsCanonical() { const keys = assessmentInterview.assessmentInterviewSections.map((section) => section.key); const guide = tutorials.operatorGuidedTutorials.find((tutorial) => tutorial.id === "complete-assessment"); const guideLabels = guide?.steps.filter((step) => step.id.startsWith("assessment-section-")).map((step) => step.title) ?? []; const labels = assessmentInterview.assessmentInterviewSections.map((section) => section.label); return JSON.stringify(keys) === JSON.stringify(assessmentSchema.assessmentToolSections) && JSON.stringify(guideLabels) === JSON.stringify(labels); }
+function assessmentSectionOrderIsCanonical() {
+  const keys = assessmentInterview.assessmentInterviewSections.map((section) => section.key);
+  const guide = tutorials.getOperatorGuidedTutorial("complete-assessment");
+  const workspace = readFileSync("components/pipeline/AssessmentWorkspace.tsx", "utf8");
+  return JSON.stringify(keys) === JSON.stringify(assessmentSchema.assessmentToolSections)
+    && workspace.includes("assessmentInterviewSections")
+    && guide.context === "workspace"
+    && guide.steps.some((step) => step.target === "assessment-section-nav")
+    && guide.steps.every((step) => !step.route.includes("trainingAssessment="));
+}
+
+function compactTasksCoverWorkflows() {
+  const expected = ["assessor-shift", "find-workspace", "create-referral", "start-assessment", "complete-assessment", "practice-assessment", "review-chart", "record-decision", "workspace-files", "workspace-history", "prepare-packet", "calendar", "clients", "supervisor-shift", "run-report"];
+  const grouped = tutorials.operatorGuideTopics.flatMap((topic) => topic.tutorialIds);
+  return JSON.stringify([...tutorials.operatorGuidedTutorialIds].sort()) === JSON.stringify(expected.sort())
+    && unique(grouped) && JSON.stringify([...grouped].sort()) === JSON.stringify(expected)
+    && tutorials.operatorGuideTopics.every((topic) => topic.tutorialIds.flatMap((id) => tutorials.getOperatorGuidedTutorial(id).steps).length >= 4);
+}
+
+function guidedProgressRequiresEveryStep() {
+  return tutorials.operatorGuidedTutorials.every((tutorial) => {
+    const started = guideState.reduceOperatorGuideState(guideState.emptyOperatorGuideState(), { type: "start", tutorialId: tutorial.id });
+    const early = guideState.reduceOperatorGuideState(started, { type: "finish", skipped: true });
+    if (early.completedTutorialIds.includes(tutorial.id)) return false;
+    let reviewed = started;
+    for (let index = 0; index < tutorial.steps.length - 1; index++) reviewed = guideState.reduceOperatorGuideState(reviewed, { type: "next" });
+    const finished = guideState.reduceOperatorGuideState(reviewed, { type: "finish" });
+    return finished.completedTutorialIds.includes(tutorial.id) && !guideState.operatorGuideCanComplete(reviewed, true);
+  });
+}
 function finalDecisionTrainingMatchesRuntime() { const trainingModule = curriculum.getOperatorModule("final-decision"); const aid = resources.operatorJobAids.find((candidate) => candidate.id === "decision"); return JSON.stringify(trainingModule?.audiences) === JSON.stringify(["admin"]) && JSON.stringify(aid?.audiences) === JSON.stringify(["admin"]); }
 function currentCommit() { try { return execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(); } catch { return "unknown"; } }

@@ -3118,7 +3118,7 @@ function PacketPage({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} aria-label={title} className={id === "admission-workflow" || id === "packet-email" ? "overflow-clip bg-white" : "overflow-hidden bg-white"}>
+    <section id={id} data-guide-target={id === "packet-files" ? "workspace-files" : undefined} aria-label={title} className={id === "admission-workflow" || id === "packet-email" ? "overflow-clip bg-white" : "overflow-hidden bg-white"}>
       <h2 className="sr-only">{title}</h2>
       <div className={flush ? undefined : "px-0 py-1 sm:px-2 sm:py-2"}>{children}</div>
     </section>

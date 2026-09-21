@@ -107,7 +107,7 @@ export function ReferralWorkflowPanelPresentation({
   const view = deriveWorkflowPanelView(workflow);
 
   return (
-    <section aria-label="Admission decision" className="mx-auto max-w-3xl space-y-4 py-4 sm:px-3">
+    <section data-guide-target="workspace-decision" aria-label="Admission decision" className="mx-auto max-w-3xl space-y-4 py-4 sm:px-3">
       {message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
       {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
 
@@ -219,9 +219,9 @@ function CurrentGateCard({
         <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-[#e3e6e4] pb-4">
           <label className="block min-w-[180px] flex-1 text-[11px] font-bold text-[#303b34]" htmlFor="workflow-admit-date">
             Admission date (optional)
-            <input id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={!workflow.capabilities.can_update || Boolean(busy)} className="mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]" />
+            <input data-guide-target="workspace-admit-date" id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={!workflow.capabilities.can_update || Boolean(busy)} className="mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]" />
           </label>
-          <PrimaryButton busy={busy.startsWith("admit-date:")} disabled={Boolean(busy)} onClick={onSaveAdmissionDate}>Review email &amp; packet</PrimaryButton>
+          <span data-guide-target="workspace-finish-send"><PrimaryButton busy={busy.startsWith("admit-date:")} disabled={Boolean(busy)} onClick={onSaveAdmissionDate}>Review email &amp; packet</PrimaryButton></span>
         </div>
       ) : null}
       {forwardTransition ? (
