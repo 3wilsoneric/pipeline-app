@@ -13,7 +13,7 @@ test("source preparation retains canonical questions and conditional fields", ()
   expect(new Set(fields).size).toBe(fields.length);
   for (const field of fields) expect(assessmentInterviewQuestions.some((question) => question.field === field)).toBe(true);
   for (const section of assessmentInterviewSections) expect(preparationGroupForSection(section.key).sections).toContain(section.key);
-  for (const field of ["current_symptoms", "cognition_orientation", "current_self_harm_ideation", "active_substance_use", "substance_use_insight", "overall_hygiene_rating", "peer_interaction_rating", "placement_preferences_concerns"]) expect(fields).not.toContain(field);
+  expect([...fields].sort()).toEqual(assessmentInterviewQuestions.map((question) => question.field).sort());
   const data = createEmptyAssessmentToolData();
   const daily = preparationGroupForSection("functional_adl");
   expect(preparationQuestions(daily, data).some((question) => question.field === "mobility")).toBe(false);
@@ -55,7 +55,7 @@ for (const width of [1440, 768]) {
     await section(page, "identity");
     const reference = folder.getByRole("complementary", { name: "Current information" });
     await expect(reference).toHaveCount(0);
-    await expect(page.locator('#assessment-resident_name')).toHaveCount(0);
+    await expect(page.locator('#assessment-resident_name')).toHaveValue(referral.name!);
     await editPreparedAnswer(page, "Resident name");
     await expect(page.locator('#assessment-resident_name')).toHaveValue(referral.name!);
     await page.locator("#assessment-current_location").fill("Synthetic referring facility");
@@ -69,7 +69,7 @@ for (const width of [1440, 768]) {
     await openPage(page, "Chart");
     await openPage(page, "Assessment");
     await section(page, "functional_adl");
-    await expect(page.locator('#assessment-mobility')).toHaveCount(0);
+    await expect(page.locator('#assessment-mobility')).toHaveValue("Uses a walker according to the referral.");
     await editPreparedAnswer(page, "Type of device");
     await expect(page.locator('#assessment-mobility')).toHaveValue("Uses a walker according to the referral.");
     await page.reload();

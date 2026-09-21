@@ -135,6 +135,7 @@
 .footer[aria-label="Assessment actions"] { border: 0; border-top: 1px solid #dce3de; border-radius: 0; background: #fff; box-shadow: 0 -2px 8px #213d2f06; }
 .footer > div:last-child:not(.footerUtilities) { margin-left: auto; }
 .footerUtilities { position: relative; display: flex; flex: 1 1 160px; align-items: center; gap: 20px; min-width: 0; }
+.footerUtilities .returnToInterview { min-height: 44px; padding: 4px 8px; border: 0; background: transparent; box-shadow: none; color: #0f705a; font-size: 13px; font-weight: 600; line-height: 1.2; }
 .footerUtilities > details { position: static; flex: 0 0 auto; }
 .footerUtilities > details > summary { gap: 5px; padding-inline: 10px; border-radius: 5px; color: #57685e; font-weight: 500; }
 .footerUtilities > details > summary:hover, .footerUtilities > details[open] > summary { background: #edf2ef; color: #254f3c; }

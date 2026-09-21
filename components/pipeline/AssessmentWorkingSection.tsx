@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useLayoutEffect, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
 import {
   assessmentInterviewFieldLabel,
   getAssessmentUnableReason,
@@ -58,10 +58,10 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
 export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttemptFailed, onChange, onBegin, scheduleAction, appointment }: { preparing: boolean; disabled: boolean; canBegin: boolean; startAttemptFailed: boolean; onChange: (prepare: boolean) => void; onBegin: () => void; scheduleAction?: React.ReactNode; appointment?: string }) {
   const renderPhaseSteps = () => (<div className={styles.phaseSummary}>
       <ol className={styles.phaseSteps} aria-label="Preparation and interview">
-        <li aria-current={preparing ? "step" : undefined}><span aria-hidden="true">{preparing ? "1" : <Check size={14} />}</span><button type="button" aria-pressed={preparing} disabled={disabled} onClick={() => onChange(true)}>Prepare assessment</button><ChevronRight size={15} aria-hidden="true" /></li>
+        <li aria-current={preparing ? "step" : undefined}><span aria-hidden="true">1</span><button type="button" aria-pressed={preparing} disabled={disabled} onClick={() => onChange(true)}>{preparing ? "Prepare assessment" : "All questions"}</button><ChevronRight size={15} aria-hidden="true" /></li>
         <li aria-current={!preparing ? "step" : undefined}><span aria-hidden="true">2</span><button type="button" aria-pressed={!preparing} disabled={disabled} onClick={() => onChange(false)}>Interview</button></li>
       </ol>
-      <p>{preparing ? "Enter what you know now. These answers stay with the assessment during the interview." : "The same assessment, with your prepared answers. Ask what is missing and check what has changed."}</p>
+      <p>{preparing ? "All assessment questions. Add or update what you know before, during, or after the interview." : "Focused questions for the conversation. Open All questions to add or update any other detail, then return here."}</p>
     </div>);
   const renderAppointment = () => (preparing && appointment ? <div className={styles.appointment} aria-label="Assessment appointment"><span>Scheduled</span><strong>{appointment}</strong>{scheduleAction ? <div className={styles.editAppointment}>{scheduleAction}</div> : null}</div> : scheduleAction ? <div className={styles.scheduleAction}>{scheduleAction}</div> : null);
   return <section className={styles.workMode} aria-label="Assessment progress" data-phase={preparing ? "preparation" : "interview"}>
@@ -76,6 +76,7 @@ export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttempt
 
 export type WorkingSectionProps = WorkingData & {
   preparing?: boolean;
+  referenceQuestions?: readonly AssessmentInterviewQuestion[];
   section: AssessmentToolSection;
   assessment: PipelineAssessmentRecord;
   questions: readonly AssessmentInterviewQuestion[];
@@ -117,7 +118,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   }
 
   // Keep edited fields in place for this section visit; never move a pointer's next target.
-  const remaining = questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured" || visited.includes(question.field) || localTarget?.field === question.field || !entryFields.includes(question.field));
+  const remaining = questions.filter((question) => props.preparing || assessmentQuestionStatus(question, data, pending) !== "captured" || visited.includes(question.field) || localTarget?.field === question.field || !entryFields.includes(question.field));
   const groups = groupWorkingQuestions(remaining);
   const referenceData = editing ? { ...data, [editing.field]: editing.value, unable_to_assess_reasons: { ...data.unable_to_assess_reasons, [editing.field]: editing.reason } } : data;
   const focusField = (field: AssessmentToolFieldKey) => {
@@ -151,7 +152,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
 
   const renderReference = () => <>
     {props.questionNavigation?.(props.preparing ? <CapturedAssessmentAnswers {...props} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} /> : undefined)}
-    {!props.preparing ? <CapturedAssessmentAnswers {...props} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} /> : null}
+    {!props.preparing ? <CapturedAssessmentAnswers {...props} questions={props.referenceQuestions ?? questions} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} /> : null}
   </>;
 
   return <div data-assessment-working-section data-assessment-section={props.section} data-assessment-phase={props.preparing ? "preparation" : "interview"} className={`${styles.book} ${props.preparing ? styles.preparing : ""}`}>

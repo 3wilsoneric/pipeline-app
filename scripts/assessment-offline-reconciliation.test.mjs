@@ -121,3 +121,38 @@ test("switching principal while a queued sender waits preserves the mutation wit
   assert.deepEqual(f.removed, []);
   assert.deepEqual(f.messages, []);
 });
+
+test("save acknowledgments refresh only the currently active offline assessment", async () => {
+  const file = ts.createSourceFile("offline-assessment-store.ts", readFileSync("lib/offline/offline-assessment-store.ts", "utf8"), ts.ScriptTarget.Latest, true);
+  const fn = file.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "saveOfflineAssessmentWorkingSet");
+  assert.ok(fn);
+  const code = ts.transpileModule(fn.getText(file).replace(/^export /, ""), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  for (const activeId of ["principal-a:assessment-a", "principal-a:assessment-b", "principal-b:assessment-a", null]) {
+    const writes = [];
+    const activated = [];
+    const activeRequest = { result: activeId ? { recordId: activeId } : undefined };
+    const transaction = { objectStore: (store) => ({
+      get: () => activeRequest,
+      put: (record) => writes.push([store, record]),
+      delete: (id) => writes.push([store, "delete", id]),
+    }) };
+    const context = {
+      openDatabase: async () => ({ transaction: () => transaction, close: () => {} }),
+      hashValue: async (value) => value,
+      enforceActivePrincipal: async (_database, principal) => activated.push(principal),
+      getOrCreateKey: async () => ({}), recordId: async (principal, _kind, id) => `${principal}:${id}`,
+      createWorkingSet: (draft) => ({ draft }), encryptPayload: async () => ({ ciphertext: "synthetic" }),
+      recordsStore: "records", activeStore: "active", activeAssessmentKey: "current-assessment", expiryMs: 1000,
+      transactionDone: async () => activeRequest.onsuccess(),
+    };
+    const save = new Function(...Object.keys(context), `${code}; return saveOfflineAssessmentWorkingSet;`)(...Object.values(context));
+    await save("principal-a", { assessmentId: "assessment-a" }, "/assessment", { editable: true, activate: false });
+    assert.deepEqual(activated, [], "An acknowledgment must not switch the signed-in principal");
+    assert.equal(writes.length, activeId === "principal-a:assessment-a" ? 2 : 0);
+    assert.ok(writes.every(([, record]) => record !== "delete"));
+    writes.length = 0;
+    await save("principal-a", { assessmentId: "assessment-a" }, "/assessment", { editable: true });
+    assert.deepEqual(activated, ["principal-a"], "Deliberately opening an assessment still activates it");
+    assert.equal(writes.at(-1)[1].recordId, "principal-a:assessment-a");
+  }
+});

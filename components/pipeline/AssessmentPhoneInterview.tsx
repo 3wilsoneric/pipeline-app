@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue } from "@/lib/assessment/assessment-interview-schema";
-import type { AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
+import { assessmentToolFieldDefinitions, type AssessmentToolFieldKey, type AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import { AssessmentAnswerSource, WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
 import { assessmentQuestionStatus, assessmentWorkingSections, capturedAssessmentAnswer, assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
 import styles from "./AssessmentPhoneInterview.module.css";
@@ -14,13 +14,15 @@ type Props = WorkingSectionProps & {
   onSectionChange: (section: AssessmentToolSection) => void;
   onFinish: () => void;
   onQuestionChange: (field: AssessmentToolFieldKey) => void;
+  onAllQuestions: () => void;
 };
 
 export default function AssessmentPhoneInterview(props: Props) {
   const { questions, data, pending, target } = props;
   const { onQuestionChange } = props;
   const sections = assessmentWorkingSections(data, pending, props.preparing);
-  const section = sections.find((section) => section.questions.some((q) => questions.some((question) => question.field === q.field))) ?? sections.find((section) => section.key === props.section) ?? sections[0];
+  const findCurrentSection = () => sections.find((section) => section.questions.some((q) => questions.some((question) => question.field === q.field))) ?? sections.find((section) => section.key === props.section) ?? sections[0];
+  const section = findCurrentSection();
   const initial = () => target?.field ?? questions.find((question) => assessmentQuestionStatus(question, data, pending) !== "captured")?.field;
   const [field, setField] = useState<AssessmentToolFieldKey | undefined>(initial);
   const [entryFields, setEntryFields] = useState(() => questions.map((question) => question.field));
@@ -48,9 +50,9 @@ export default function AssessmentPhoneInterview(props: Props) {
   const sectionIndex = sections.findIndex((item) => item.key === section.key);
   const nextSection = sections[sectionIndex + 1];
   const counts = assessmentWorkingCounts(questions, data, pending);
-  const allQuestions = sections.flatMap((section) => section.questions);
+  const allQuestions = assessmentWorkingSections(data, pending, true).flatMap((section) => section.questions);
   const matchedQuestions = allQuestions.filter((question) => assessmentInterviewFieldLabel(question.field).toLowerCase().includes(search.trim().toLowerCase()));
-  const shownReference = (referenceScope === "all" ? allQuestions : questions)
+  const shownReference = (referenceScope === "all" ? allQuestions : props.referenceQuestions ?? questions)
     .filter((question) => hasAssessmentInterviewValue(data[question.field]) || pending.includes(question.field))
     .filter((question) => `${assessmentInterviewFieldLabel(question.field)} ${capturedAssessmentAnswer(question, data)}`.toLowerCase().includes(search.trim().toLowerCase()));
 
@@ -94,11 +96,12 @@ export default function AssessmentPhoneInterview(props: Props) {
 
   const renderSectionChoices = () => (
 <>
-          <p>Go in any order. Unknown answers can stay blank.</p>
+          <p>Go in any order. Search includes the full questionnaire.</p>
+          <button type="button" onClick={() => { commit(); dialog.current?.close(); props.onAllQuestions(); }}><strong>All questions</strong><span>Add or update any assessment detail, then return to the interview</span><ChevronRight size={17} aria-hidden="true" /></button>
           <input type="search" aria-label="Find a question" placeholder="Find a question…" value={search} onChange={(event) => setSearch(event.target.value)} className={styles.sheetSearch} />
           {search.trim() ? matchedQuestions.map((question) => <button type="button" key={question.field} onClick={() => {
-            const destination = sections.find((item) => item.questions.some((q) => q.field === question.field));
-            if (destination) chooseSection(destination.key, question.field);
+            const destination = assessmentToolFieldDefinitions.find((item) => item.key === question.field);
+            if (destination) chooseSection(destination.section, question.field);
           }}><strong>{assessmentInterviewFieldLabel(question.field)}</strong><span>{capturedAssessmentAnswer(question, data)}</span></button>) : <>
           {sections.map((item, index) => {
             const count = assessmentWorkingCounts(item.questions, data, pending);
@@ -113,9 +116,9 @@ export default function AssessmentPhoneInterview(props: Props) {
 <> <label className={styles.sheetScope}>Reference information<select aria-label="Reference information" value={referenceScope} onChange={(event) => setReferenceScope(event.target.value)}><option value="section">This section</option><option value="all">All sections</option></select></label>
           <input type="search" aria-label="Find recorded information" placeholder="Find a detail or answer…" value={search} onChange={(event) => setSearch(event.target.value)} className={styles.sheetSearch} />
           {!shownReference.length ? <p>{search.trim() ? "No matching information. Try another search or choose All sections." : referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} className={readingStyles.answer} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
-            const destination = sections.find((section) => section.questions.some((question) => question.field === item.field));
-            if (destination) chooseSection(destination.key, item.field);
-          }} disabled={!sections.some((section) => section.questions.some((question) => question.field === item.field))}>
+            const destination = assessmentToolFieldDefinitions.find((field) => field.key === item.field);
+            if (destination) chooseSection(destination.section, item.field);
+          }}>
             <strong className={readingStyles.answerLabel}>{assessmentInterviewFieldLabel(item.field)}{!props.disabled ? <Pencil size={15} aria-hidden="true" /> : null}</strong><span className={readingStyles.answerValue}>{capturedAssessmentAnswer(item, data)}</span><AssessmentAnswerSource assessment={props.assessment} data={data} field={item.field} />{getAssessmentUnableReason(data, item.field) ? <span className={readingStyles.answerReason}>{getAssessmentUnableReason(data, item.field)}</span> : null}{pending.includes(item.field) ? <small className={readingStyles.attention}>Needs verification</small> : null}
           </button>)}
         </>
