@@ -412,6 +412,7 @@ export default function ReferralPacketCanvas({
   const [tagsInput, setTagsInput] = useState("");
   const routedWorkspaceLocation = initialWorkspaceLocationOrStage(initialWorkspaceLocation, initialWorkspaceStage);
   const lastAssessmentSectionRef = useRef(routedWorkspaceLocation.assessmentSection);
+  const lastAssessmentQuestionRef = useRef(routedWorkspaceLocation.assessmentQuestion);
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
@@ -1442,7 +1443,7 @@ export default function ReferralPacketCanvas({
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(page === 1 && loadedReferralRef.current
       ? { view: "intake", intakeField: editField && editField !== "conserved" ? editField : "name" }
-      : page === 2 ? { view: "assessment", assessmentSection: lastAssessmentSectionRef.current, assessmentMode }
+      : page === 2 ? { view: "assessment", assessmentSection: lastAssessmentSectionRef.current, assessmentQuestion: lastAssessmentQuestionRef.current, assessmentMode }
       : workspaceLocationForPage(page));
     requestAnimationFrame(() => {
       if (!editField) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -2733,6 +2734,7 @@ export default function ReferralPacketCanvas({
                   trainingAssessmentMode={trainingAssessmentMode}
                   trainingAssessmentSection={trainingAssessmentSection}
                   initialSection={routedWorkspaceLocation.assessmentSection ?? lastAssessmentSectionRef.current}
+                  initialQuestion={routedWorkspaceLocation.assessmentQuestion ?? lastAssessmentQuestionRef.current}
                   assignedAssessorId={loadedReferral?.ownerId}
                   {...assessmentEntryProps()}
                   workspaceTitle={workspaceTitle}
@@ -2749,9 +2751,10 @@ export default function ReferralPacketCanvas({
                   onContinueToWorkflow={() => openPage("workflow")}
                   onOpenWorkspace={() => openPage(3)}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
-                  onActiveSectionChange={(section) => {
+                  onActiveSectionChange={(section, question) => {
                     lastAssessmentSectionRef.current = section;
-                    if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section, assessmentMode: routedWorkspaceLocation.assessmentMode });
+                    lastAssessmentQuestionRef.current = question;
+                    if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section, assessmentQuestion: question, assessmentMode: routedWorkspaceLocation.assessmentMode });
                   }}
                   onAssessmentSaved={async (assessment, savedReferral) => {
                     if (savedReferral) {

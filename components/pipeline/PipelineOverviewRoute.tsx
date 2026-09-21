@@ -243,7 +243,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       : undefined;
     if (requestId !== navigationRequestRef.current || sourceLocation !== `${window.location.pathname}${window.location.search}`) return;
     const workspaceLocation = assessmentAction
-      ? { view: "assessment" as const, assessmentSection: savedLocation?.view === "assessment" ? savedLocation.assessmentSection : undefined, ...(assessmentAction === "review" ? { assessmentMode: "review" as const } : {}) }
+      ? { ...(savedLocation?.view === "assessment" ? savedLocation : {}), view: "assessment" as const, assessmentMode: undefined, ...(assessmentAction === "review" ? { assessmentMode: "review" as const } : {}) }
       : defaultWorkspaceLocation(savedLocation ?? location);
     setEntryBriefing(null);
     setSearchOpen(false);
@@ -443,6 +443,7 @@ function clearDestinationParams(params: URLSearchParams) {
     "trainingAssessment",
     "trainingIntake",
     "assessmentSection",
+    "assessmentQuestion",
     "assessmentMode",
     "editHome",
     "workspaceStage",

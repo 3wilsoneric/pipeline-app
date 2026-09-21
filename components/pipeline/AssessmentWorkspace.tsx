@@ -105,7 +105,7 @@ import { PracticeAssessmentReview } from "@/components/pipeline/AssessmentInterv
 import AssessmentWorkingSection, { AssessmentWorkingNavigation, AssessmentWorkMode, WorkingAssessmentField } from "@/components/pipeline/AssessmentWorkingSection";
 import HomeDialog from "@/components/pipeline/HomeDialog";
 import AssessmentInterviewHeader, { AssessmentFileDetails } from "@/components/pipeline/AssessmentInterviewHeader";
-import { assessmentGapSections } from "@/components/pipeline/assessment-working-view";
+import { assessmentGapSections, assessmentQuestionStatus } from "@/components/pipeline/assessment-working-view";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 import { AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
@@ -129,6 +129,7 @@ type AssessmentWorkspaceProps = {
   onTrainingAssessmentChange?: (assessment: PipelineAssessmentRecord, action?: "scheduled") => void;
   trainingAssessmentSection?: AssessmentToolSection;
   initialSection?: AssessmentToolSection;
+  initialQuestion?: AssessmentToolFieldKey;
   assignedAssessorId?: string;
   startQuestionnaire?: boolean;
   scheduleRequested?: boolean;
@@ -158,7 +159,7 @@ type AssessmentWorkspaceProps = {
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord, referral?: Referral) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
   onOpenWorkspace?: () => void;
-  onActiveSectionChange?: (section: AssessmentToolSection) => void;
+  onActiveSectionChange?: (section: AssessmentToolSection, question?: AssessmentToolFieldKey) => void;
   onOpenAssignedWork?: () => void | Promise<void>;
 };
 
@@ -236,6 +237,21 @@ function autoFocusSection(assessment: PipelineAssessmentRecord | null, nextRequi
   return assessment?.started_at && nextRequiredSection && !initialSection ? nextRequiredSection : undefined;
 }
 
+function assessmentResumeTarget(assessment: PipelineAssessmentRecord, section: AssessmentToolSection | undefined, field: AssessmentToolFieldKey | undefined) {
+  if (!field) return null;
+  const data = pickAssessmentToolData(assessment);
+  const pending = getPendingFields(assessment);
+  const questions = assessmentReadyToBegin(assessment)
+    ? preparationQuestions(preparationGroupForSection(section ?? "identity"), data)
+    : getAssessmentInterviewQuestions(section ?? "identity", data);
+  const start = Math.max(0, questions.findIndex((question) => question.field === field));
+  // Keep recorded answers collapsed. Resume at this question or the next gap,
+  // wrapping to earlier unfinished questions only when nothing remains after it.
+  const next = [...questions.slice(start), ...questions.slice(0, start)]
+    .find((question) => assessmentQuestionStatus(question, data, pending) !== "captured");
+  return next ? { field: next.field } : null;
+}
+
 function canScheduleUnstartedAssessment(assessment: PipelineAssessmentRecord, canEdit: boolean) {
   return canEdit && !assessment.started_at && !assessment.signed_at;
 }
@@ -280,6 +296,7 @@ export default function AssessmentWorkspace({
   onTrainingAssessmentChange,
   trainingAssessmentSection,
   initialSection,
+  initialQuestion,
   assignedAssessorId,
   startQuestionnaire = false,
   scheduleRequested = false,
@@ -329,9 +346,17 @@ export default function AssessmentWorkspace({
   const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "assessment" | "chart" } | null>(null);
   const [unrecordedStartId, setUnrecordedStartId] = useState<string | null>(null);
   const [isRecommendationSaving, setIsRecommendationSaving] = useState(false);
-  const phoneQuestionRef = useRef<AssessmentToolFieldKey | null>(null);
+  const phoneQuestionRef = useRef<AssessmentToolFieldKey | null>(initialQuestion ?? null);
+  const questionSectionRef = useRef(initialSection);
   const [phoneQuestion, setPhoneQuestion] = useState<AssessmentToolFieldKey | null>(null);
-  const rememberPhoneQuestion = useCallback((field: AssessmentToolFieldKey) => { phoneQuestionRef.current = field; setPhoneQuestion(field); }, []);
+  const rememberPhoneQuestion = useCallback((field: AssessmentToolFieldKey) => {
+    if (phoneQuestionRef.current === field && questionSectionRef.current === activeSection) return;
+    phoneQuestionRef.current = field;
+    questionSectionRef.current = activeSection;
+    setPhoneQuestion(field);
+    sectionRevisionRef.current += 1;
+    onActiveSectionChangeRef.current?.(activeSection, field);
+  }, [activeSection]);
   const chartScrollRef = useRef<HTMLElement>(null);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
@@ -448,7 +473,7 @@ export default function AssessmentWorkspace({
   // Publish the committed section before a reflected route effect can restore an older choice.
   useLayoutEffect(() => {
     sectionRevisionRef.current += 1;
-    onActiveSectionChangeRef.current?.(activeSection);
+    onActiveSectionChangeRef.current?.(activeSection, questionSectionRef.current === activeSection ? phoneQuestionRef.current ?? undefined : undefined);
   }, [activeSection]);
 
   const upsertAssessment = useCallback((assessment: PipelineAssessmentRecord, select = false) => {
@@ -501,7 +526,7 @@ export default function AssessmentWorkspace({
       if (sectionRevisionRef.current !== positionRevision) return;
       if (touchedFieldsRef.current.size === 0 && (!initialSection || initialSection === recovered.activeSection)) {
         if (recovered.activeSection) setActiveSection(recovered.activeSection);
-        if (recovered.activeQuestion) setWorkingTarget({ field: recovered.activeQuestion });
+        if (recovered.activeQuestion) setWorkingTarget((current) => current ?? { field: recovered.activeQuestion! });
       }
     };
     const applyRecoveryAnswers = (recovered: PipelineAssessmentDraft, assessment: PipelineAssessmentRecord) => {
@@ -727,6 +752,7 @@ export default function AssessmentWorkspace({
       baseDataRef.current = data;
       draftRef.current = data;
       setDraft(data);
+      setWorkingTarget(assessmentResumeTarget(selected, initialSection, initialQuestion));
       dirtySectionsRef.current = new Set();
       setDirtySections(dirtySectionsRef.current);
       remoteChangeRef.current = null;
@@ -738,7 +764,7 @@ export default function AssessmentWorkspace({
     setScheduleLocation(selected.scheduled_location ?? "");
     setShowAddendum(false);
     loadRecoveryDraftForLiveAssessment(trainingAssessmentMode, loadRecoveryDraft, selected, data);
-  }, [loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
+  }, [initialQuestion, initialSection, loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
 
   useEffect(() => {
     if (!referralDocumentAutofillEnabled || !referralId || !selected || isAssessmentFinalized(selected) || !packetEvidenceVersion || dirty) return;
@@ -1578,6 +1604,7 @@ export default function AssessmentWorkspace({
   };
 
   const focusAnswer = (field: AssessmentToolFieldKey) => {
+    rememberPhoneQuestion(field);
     if (focusedFieldRef.current?.field === field) return;
     focusedFieldRef.current = { field, value: JSON.stringify(draftRef.current[field]), reason: getAssessmentUnableReason(draftRef.current, field) };
   };

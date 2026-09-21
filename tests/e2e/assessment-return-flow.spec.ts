@@ -26,12 +26,12 @@ async function scheduledWorkspace(page: Page) {
     await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
     return page.getByRole("region", { name: "Upcoming assessments", exact: true }).getByRole("button", { name: new RegExp(name) });
   };
-  return { referral, assessment, read, home };
+  return { referral, assessment, read, home, name };
 }
 
 for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the same section at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
-  const { referral, read, home } = await scheduledWorkspace(page);
+  const { referral, read, home, name } = await scheduledWorkspace(page);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
   const progress = page.getByRole("region", { name: "Assessment progress", exact: true });
   await expect(progress).toContainText("Assessment prep");
@@ -76,12 +76,44 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
     await sections.getByRole("button", { name: /^Secondary diagnosis/ }).click();
   } else await picker.selectOption("diagnosis_clinical");
   await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
+  const answer = page.locator("#assessment-secondary_diagnoses");
+  await answer.fill("Synthetic answer saved before closing");
+  await answer.blur();
+  await expect.poll(async () => (await read()).secondary_diagnoses).toContain("Synthetic answer saved before closing");
+  await expect(page).toHaveURL(/assessmentQuestion=secondary_diagnoses/);
+  if (width < 640) {
+    await page.getByRole("button", { name: /^Open page menu/ }).click();
+    await page.getByRole("dialog", { name: "Pipeline pages", exact: true }).getByRole("button", { name: "Open referrals", exact: true }).click();
+  } else await page.getByRole("button", { name: "Workspaces", exact: true }).click();
+  await page.locator("#workspace-directory-search").fill(name);
+  await page.getByRole("button", { name: new RegExp(`Open ${name}.*referral workspace`) }).click();
+  const remainingAnswer = page.locator("#assessment-current_symptoms");
+  await expect(remainingAnswer).toBeInViewport();
+  // Leave an earlier gap blank and move farther into the section. Resume must
+  // retain this working question instead of always jumping to the first gap.
+  const unfinishedAnswer = page.locator("#assessment-cognition_orientation");
+  if (width < 640) await page.getByRole("navigation", { name: "Question steps", exact: true }).getByRole("button", { name: "Next", exact: true }).click();
+  else await unfinishedAnswer.focus();
+  await expect(unfinishedAnswer).toBeInViewport();
+  await expect(page).toHaveURL(/assessmentQuestion=cognition_orientation/);
+  // The helper below creates a fresh document. Confirm the server bookmark
+  // before unloading, then verify the next document reads that durable value.
+  await expect.poll(async () => {
+    const { state } = await (await page.request.get("/api/me/work-continuity")).json();
+    return state.recentWorkspaces.find((item: { referralId: number }) => item.referralId === referral.id)?.location.assessmentQuestion;
+  }).toBe("cognition_orientation");
   const resume = await home();
   await expect(resume).toContainText("Resume assessment");
   await resume.click();
   await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
   if (width < 640) await expect(page.getByRole("region", { name: "Guided assessment", exact: true })).toBeVisible();
   else await expect(picker).toHaveValue("diagnosis_clinical");
+  await expect(page).toHaveURL(/assessmentQuestion=cognition_orientation/);
+  await expect(unfinishedAnswer).toBeInViewport();
+  // A full reload must use the saved bookmark after the answer is no longer dirty.
+  await page.reload();
+  await expect(unfinishedAnswer).toBeInViewport();
+  expect((await read()).secondary_diagnoses).toContain("Synthetic answer saved before closing");
   await expect(begin).toHaveCount(0);
   expect((await read()).started_at).toBe(started.started_at);
   expect((await read()).audit_events.filter((event: { action: string }) => event.action === "assessment_started")).toHaveLength(1);

@@ -1,5 +1,5 @@
-import { isAssessmentToolSection } from "@/lib/assessment/assessment-sections";
-import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
+import { assessmentSectionForField, isAssessmentToolSection } from "@/lib/assessment/assessment-sections";
+import type { AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import { referralCanvasFieldKeys, type ReferralCanvasFieldKey } from "@/lib/pipeline/referral-types";
 
 export const pipelineWorkspaceViews = ["intake", "assessment", "chart", "workflow", "email", "files", "activity"] as const;
@@ -12,6 +12,7 @@ export type AssessmentEntryAction = "begin" | "resume" | "review" | "schedule";
 export type PipelineWorkspaceLocation = {
   view: PipelineWorkspaceView;
   assessmentSection?: AssessmentToolSection;
+  assessmentQuestion?: AssessmentToolFieldKey;
   assessmentMode?: "review";
   intakeField?: ReferralCanvasFieldKey;
 };
@@ -112,6 +113,7 @@ export function pipelineWorkspaceLocationFromSearchParams(params: URLSearchParam
     return parsePipelineWorkspaceLocation({
       view: "assessment",
       assessmentSection: params.get("assessmentSection") ?? undefined,
+      assessmentQuestion: params.get("assessmentQuestion") ?? undefined,
       assessmentMode: params.get("assessmentMode") ?? undefined,
     }) ?? { view: "assessment" };
   }
@@ -129,11 +131,13 @@ export function applyPipelineWorkspaceLocation(
   params.delete("workspaceStage");
   params.delete("workspaceView");
   params.delete("assessmentSection");
+  params.delete("assessmentQuestion");
   params.delete("assessmentMode");
   params.delete("workspaceField");
   if (location.view === "assessment") {
     params.set("workspaceStage", "assessment");
     if (location.assessmentSection) params.set("assessmentSection", location.assessmentSection);
+    if (location.assessmentQuestion) params.set("assessmentQuestion", location.assessmentQuestion);
     if (location.assessmentMode) params.set("assessmentMode", location.assessmentMode);
   } else if (location.view === "chart") {
     params.set("workspaceStage", "chart");
@@ -152,15 +156,24 @@ function parseAssessmentLocation(candidate: Record<string, unknown>): PipelineWo
   if (candidate.intakeField !== undefined) return null;
   if (candidate.assessmentSection !== undefined && !isAssessmentToolSection(candidate.assessmentSection)) return null;
   if (candidate.assessmentMode !== undefined && candidate.assessmentMode !== "review") return null;
+  const question = parseOptionalAssessmentQuestion(candidate.assessmentQuestion);
+  if (!question) return null;
   return {
     view: "assessment",
     ...(candidate.assessmentSection !== undefined ? { assessmentSection: candidate.assessmentSection as AssessmentToolSection } : {}),
     ...(candidate.assessmentMode === "review" ? { assessmentMode: "review" } : {}),
+    ...question,
   };
 }
 
+function parseOptionalAssessmentQuestion(value: unknown): Pick<PipelineWorkspaceLocation, "assessmentQuestion"> | null {
+  if (value === undefined) return {};
+  if (typeof value !== "string" || !assessmentSectionForField(value as AssessmentToolFieldKey)) return null;
+  return { assessmentQuestion: value as AssessmentToolFieldKey };
+}
+
 function parseIntakeLocation(candidate: Record<string, unknown>): PipelineWorkspaceLocation | null {
-  if (candidate.assessmentSection !== undefined || candidate.assessmentMode !== undefined) return null;
+  if (candidate.assessmentSection !== undefined || candidate.assessmentMode !== undefined || candidate.assessmentQuestion !== undefined) return null;
   if (candidate.intakeField === undefined) return { view: "intake" };
   return isReferralCanvasFieldKey(candidate.intakeField)
     ? { view: "intake", intakeField: candidate.intakeField }
@@ -171,7 +184,7 @@ function parseSimpleLocation(
   view: Exclude<PipelineWorkspaceView, "assessment" | "intake">,
   candidate: Record<string, unknown>,
 ): PipelineWorkspaceLocation | null {
-  return candidate.assessmentSection === undefined && candidate.assessmentMode === undefined && candidate.intakeField === undefined
+  return candidate.assessmentSection === undefined && candidate.assessmentMode === undefined && candidate.assessmentQuestion === undefined && candidate.intakeField === undefined
     ? { view }
     : null;
 }
