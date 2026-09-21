@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:6486a3b3983e5fb6",
-  "fingerprint": "6486a3b3983e5fb66b378c84c5f0c8a0108310a56039a1bff21d13b29bc74e90",
+  "generatedAt": "source-fingerprint:549d0bfff478079b",
+  "fingerprint": "549d0bfff478079badfcdd7ed8462a698477da4615ba0341c646fe4f8f5a3a1d",
   "totals": {
-    "files": 1349,
-    "lines": 359819,
-    "coveredFiles": 1349
+    "files": 1350,
+    "lines": 359931,
+    "coveredFiles": 1350
   },
   "entries": [
     {
@@ -74,7 +74,7 @@
       "kind": "repository-file",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 278,
+      "lines": 280,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -1231,7 +1231,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 48,
+      "lines": 62,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -3673,7 +3673,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 48,
+      "lines": 49,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4622,6 +4622,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 11,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0042_admission_packet_links.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 13,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -11314,7 +11326,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 218,
+      "lines": 259,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11506,7 +11518,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 264,
+      "lines": 286,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11710,7 +11722,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 673,
+      "lines": 674,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12118,7 +12130,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 194,
+      "lines": 202,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13162,7 +13174,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 291,
+      "lines": 301,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

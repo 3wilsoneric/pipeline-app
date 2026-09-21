@@ -14,6 +14,13 @@ const publicMethods = new Set([
   "app/api/auth/session/route.ts#POST",
   "app/api/auth/session/route.ts#DELETE",
 ]);
+// These routes establish and enforce recipient-only packet sessions. They do
+// not grant Pipeline staff access or expose packet content before verification.
+const packetRecipientMethods = new Set([
+  "app/api/admission-packets/[packetId]/route.ts#GET",
+  "app/api/admission-packets/[packetId]/route.ts#POST",
+  "app/api/admission-packets/[packetId]/files/[fileId]/route.ts#GET",
+]);
 const personalStateWrites = new Set([
   "app/api/me/recents/route.ts#POST",
   "app/api/me/recents/route.ts#DELETE",
@@ -87,18 +94,33 @@ for (const absoluteFile of routeFiles) {
     const body = resolvedFunctionText(statement, source, declarations);
     const isInternal = route.startsWith("/api/internal/");
     const isPublic = publicMethods.has(key);
+    const isPacketRecipient = packetRecipientMethods.has(key);
     const isMutation = mutationMethods.has(method);
     const sharedWorkspace = /^\/api\/(referrals|assessments|files|packets|uploads|contacts|resident-links|trash)(\/|$)/.test(route);
     const personalRecovery = /^\/api\/me\/(assessment-drafts|referral-drafts)(\/|$)/.test(route);
     const roleList = pipelineRoles(body);
 
-    methods.push({ key, route, method, boundary: isInternal ? "worker" : isPublic ? "public" : "user" });
+    methods.push({ key, route, method, boundary: isInternal ? "worker" : isPacketRecipient ? "packet_recipient" : isPublic ? "public" : "user" });
     check(`${key} uses centralized API logging`, body.includes("withApiLogging("));
     check(`${key} logs the canonical route template`, body.includes(`withApiLogging(request, "${route}"`));
 
     if (isInternal) {
       check(`${key} requires internal-worker authentication`, body.includes("requireInternalWorker("));
       check(`${key} does not accept browser-user authentication`, !body.includes("requirePipelineUser("));
+    } else if (isPacketRecipient) {
+      check(`${key} uses the canonical recipient access owner`, sourceText.includes('from "@/lib/notifications/admission-packet-access"'));
+      if (method === "GET") {
+        check(`${key} requires a verified packet-scoped session`, body.includes("await readVerifiedPacket(packetId, packetSessionToken(request, packetId)"));
+        if (route.includes("/files/")) check(`${key} checks the requested file within that packet`, body.includes("packetSessionToken(request, packetId), fileId)"));
+      } else {
+        const mutation = declarations.get("packetMutation")?.getText(source) ?? "";
+        const codeRequest = declarations.get("emailPacketCode")?.getText(source) ?? "";
+        check(`${key} requires an explicit browser origin`, body.includes('!request.headers.get("origin")'));
+        check(`${key} delegates bounded recipient authentication actions`, body.includes("await packetMutation(request, packetId, body.value)") && body.includes("readJsonBody(request, 2048)"));
+        check(`${key} issues sessions only after one-time code verification`, mutation.includes("await verifyPacketCode(packetId, email, code.trim())") && mutation.includes("HttpOnly; SameSite=Strict"));
+        check(`${key} sends codes only through recipient authorization`, mutation.includes("return emailPacketCode(packetId, email)") && codeRequest.includes("await requestPacketCode(packetId, email)") && codeRequest.includes("if (challenge) await sendPacketVerificationCode("));
+        check(`${key} closes only the presented packet session`, mutation.includes("await closePacketSession(packetId, packetSessionToken(request, packetId))"));
+      }
     } else if (key === "app/api/health/route.ts#GET") {
       check(`${key} is the only unauthenticated readiness endpoint`, !body.includes("requirePipelineUser(") && body.includes("getPipelineAuthReadiness("));
     } else if (key === "app/api/health/live/route.ts#GET") {
@@ -139,7 +161,7 @@ for (const absoluteFile of routeFiles) {
     if (route.includes("/assessments/[assessmentId]")) {
       check(`${key} resolves assessment ownership before access`, enforcesReferralAccess(body));
     }
-    if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key) && !ownerScopedMethods.has(key) && !authenticatedBaseMethods.has(key) && !authenticatedPipelineSelfMethods.has(key) && !governedReadMutations.has(key)) {
+    if (isMutation && !isInternal && !isPublic && !isPacketRecipient && !personalStateWrites.has(key) && !ownerScopedMethods.has(key) && !authenticatedBaseMethods.has(key) && !authenticatedPipelineSelfMethods.has(key) && !governedReadMutations.has(key)) {
       if (sharedWorkspace || personalRecovery) check(`${key} permits every authenticated Pipeline role`, body.includes("requirePipelineUser(request)") || roleList.includes("viewer"));
       else check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));
     }
@@ -181,7 +203,7 @@ check("central logging enforces private no-store responses", readFileSync(path.j
 check("central logging applies the overload governor", readFileSync(path.join(root, "lib/observability/api-logging.ts"), "utf8").includes("acquireRequestCapacity("));
 
 const failed = checks.filter((item) => !item.ok);
-const boundaryCounts = Object.fromEntries(["public", "user", "worker"].map((boundary) => [
+const boundaryCounts = Object.fromEntries(["public", "packet_recipient", "user", "worker"].map((boundary) => [
   boundary,
   methods.filter((entry) => entry.boundary === boundary).length,
 ]));

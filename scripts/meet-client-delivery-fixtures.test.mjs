@@ -288,3 +288,13 @@ test("files changed after preview require fresh review without reserving a send"
   assert.equal(fixture.reservationCalls(), 0);
   assert.equal(fixture.providerCalls(), 0);
 });
+
+
+test("unconfirmed recipients never reserve or send, including truthy non-boolean values", async () => {
+  for (const confirmed of [false, undefined, 1, "true", null]) {
+    const fixture = deliveryFixture();
+    assert.equal((await fixture.send("6", { confirmed })).status, 400);
+    assert.equal(fixture.reservationCalls(), 0);
+    assert.equal(fixture.providerCalls(), 0);
+  }
+});
