@@ -19,8 +19,8 @@ test.describe("assessment outcome and admission handoff", () => {
     try {
       const { referral, assessment } = await completedAssessment(assessor);
       await page.goto(`${workspace(referral.id)}&workspaceStage=assessment&assessmentMode=review`);
-      page.once("dialog", (dialog) => dialog.accept());
       await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+      await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
       await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
       await expect(page.getByRole("radio", { name: "Accept", exact: true })).not.toBeChecked();
       await expect(page.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();

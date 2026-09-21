@@ -104,6 +104,7 @@ import AssessmentWorkingSection, { AssessmentWorkingNavigation, AssessmentWorkMo
 import AssessmentInterviewHeader, { AssessmentFileDetails } from "@/components/pipeline/AssessmentInterviewHeader";
 import { assessmentGapSections } from "@/components/pipeline/assessment-working-view";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
+import AssessmentSignDialog from "@/components/pipeline/AssessmentSignDialog";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 import { AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
 import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
@@ -309,6 +310,7 @@ export default function AssessmentWorkspace({
   const [error, setError] = useState("");
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [showBeginDialog, setShowBeginDialog] = useState(false);
+  const [signingAssessmentId, setSigningAssessmentId] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [workingTarget, setWorkingTarget] = useState<{ field: AssessmentToolFieldKey } | null>(null);
   const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "assessment" | "chart" } | null>(null);
@@ -1348,8 +1350,9 @@ export default function AssessmentWorkspace({
     }
   };
 
+  const canSignSelectedAssessment = () => reviewingChart && !isRecommendationSaving && !isBusy && !isClosing && canEditClinical && signingAssessmentId === selectedRef.current?.assessment_id;
   const signAssessment = async () => {
-    if (!reviewingChart || isRecommendationSaving) return;
+    if (!canSignSelectedAssessment()) return;
     setIsBusy(true);
     setError("");
     setMessage("Signing assessment...");
@@ -1368,6 +1371,7 @@ export default function AssessmentWorkspace({
         });
         upsertAssessment(updated, true);
         setMessage("Practice assessment signed locally");
+        setSigningAssessmentId(null);
         return;
       }
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
@@ -1385,6 +1389,7 @@ export default function AssessmentWorkspace({
       void clearRecoveryDraft(payload.assessment.assessment_id);
       void persistOfflineWorkingSet(payload.assessment);
       setMessage("Assessment signed");
+      setSigningAssessmentId(null);
       onContinueToWorkflow?.();
     } catch (signError) {
       setError(messageFor(signError, "The assessment could not be signed."));
@@ -1735,7 +1740,7 @@ export default function AssessmentWorkspace({
   );
 
   const renderSignedAction = () => (onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>);
-  const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={() => window.confirm("Sign this assessment? You can still edit it until Meet the Client is sent. Changes are logged.") && void signAssessment()} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
+  const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={() => { setError(""); setSigningAssessmentId(selected.assessment_id); }} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
 
   const renderScheduleAction = () => (
     <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}><CalendarClock size={15} />{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</button>
@@ -1844,7 +1849,15 @@ export default function AssessmentWorkspace({
           onChart={() => void reviewChart()}
         />}
       />}
-      dialogs={<AssessmentSchedulingDialogs
+      dialogs={<>{signingAssessmentId === selected.assessment_id && reviewingChart && canEditClinical ? <AssessmentSignDialog
+        key={selected.assessment_id}
+        clientName={draft.resident_name || referral?.name || "Unnamed client"}
+        signerName={viewer?.name || "Signed-in assessor"}
+        isBusy={isBusy || isClosing || isRecommendationSaving}
+        error={error}
+        onClose={() => setSigningAssessmentId(null)}
+        onConfirm={signAssessment}
+      /> : null}<AssessmentSchedulingDialogs
         assessment={selected}
         showScheduleDialog={!readOnly && showScheduleDialog}
         showBeginDialog={!readOnly && showBeginDialog}
@@ -1863,7 +1876,7 @@ export default function AssessmentWorkspace({
         onSaveSchedule={() => void saveSchedule()}
         onCloseBegin={() => setShowBeginDialog(false)}
         onBeginAssessment={() => void beginAssessment()}
-      />}
+      /></>}
     >
 
       {showAddendum && canAddAddendum ? (

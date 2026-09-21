@@ -36,8 +36,8 @@ for (const width of [1440, 834, 390]) test(`intake through signed assessment and
       await page.goto(`/?view=referrals&screen=packet&referralId=${id}&workspaceStage=assessment&assessmentSection=provenance_qc`);
       await page.getByRole('button', { name: 'Review assessment', exact: true }).click();
     } else await openAssessmentChart(page);
-    page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Sign & continue to decision', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Sign assessment', exact: true }).getByRole('button', { name: 'Sign assessment', exact: true }).click();
     const decision = page.getByRole('region', { name: 'Admission decision', exact: true });
     await decision.getByRole('radio', { name: 'Accept', exact: true }).check();
     page.once('dialog', dialog => dialog.accept());

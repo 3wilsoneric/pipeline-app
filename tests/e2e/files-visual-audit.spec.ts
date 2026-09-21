@@ -15,11 +15,11 @@ test('partial batch keeps successful files and retries only remaining files with
   ]);
   await confirmReferralFileLabels(page);
   await expect(page.getByRole('button',{name:'Retry saving',exact:true})).toBeEnabled();
-  expect((await listFiles()).map((f: { name: string })=>f.name)).toEqual(['first-note.txt']);
+  expect((await listFiles()).map((f: {name:string})=>f.name)).toEqual(['first-note.txt']);
   await expect(page.getByRole('list',{name:'Queued referral files'})).toContainText('second-note.txt');
   await page.unroute('**/api/uploads/create-url');
   await page.getByRole('button',{name:'Retry saving',exact:true}).click();
-  await expect.poll(async()=>(await listFiles()).map((f: { name: string })=>f.name).sort()).toEqual(['first-note.txt','second-note.txt']);
+  await expect.poll(async()=>(await listFiles()).map((f: {name:string})=>f.name).sort()).toEqual(['first-note.txt','second-note.txt']);
   await expect(page.getByRole('list',{name:'Queued referral files'})).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('region',{name:'Uploaded documents',exact:true}).getByRole('listitem')).toHaveCount(2);
@@ -45,7 +45,7 @@ test('Files page browser audit: previews, repeated upload, X, confirmation, fail
   await page.screenshot({path:info.outputPath('files-desktop.png')});
   await list.getByRole('button',{name:`Preview ${packet.name}`,exact:true}).click();
   const preview=page.getByRole('dialog',{name:`Preview ${packet.name}`,exact:true});
-  await expect(preview.locator('iframe')).toBeVisible();
+  await expect(preview.getByRole('img', {name: `Preview ${packet.name}`, exact: true})).toBeVisible();
   console.log('PREVIEW_FOCUS_ON_OPEN',await page.evaluate(()=>({label:document.activeElement?.getAttribute('aria-label'),inside:!!document.activeElement?.closest('[role="dialog"]')})));
   await page.keyboard.press('Tab');
   console.log('PREVIEW_FOCUS_AFTER_TAB',await page.evaluate(()=>({label:document.activeElement?.getAttribute('aria-label'),text:document.activeElement?.textContent?.slice(0,80),inside:!!document.activeElement?.closest('[role="dialog"]')})));
@@ -80,7 +80,7 @@ test('Files page browser audit: previews, repeated upload, X, confirmation, fail
   await page.getByText('Document checklist',{exact:true}).click();
   console.log('CHECKLIST_AFTER_DELETE',await page.getByRole('region',{name:'Document checklist',exact:true}).innerText());
   const activity=(await (await page.request.get(`/api/referrals/${referral.id}/activity`)).json()).events;
-  console.log('DOCUMENT_AUDIT_ACTIONS',activity.filter((e: { action: string })=>e.action.startsWith('document_')).map((e: { action: string })=>e.action));
+  console.log('DOCUMENT_AUDIT_ACTIONS',activity.filter((e: {action:string})=>e.action.startsWith('document_')).map((e: {action:string})=>e.action));
   const latest=(await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   expect(latest.phone).toBe('555-0101');
   await upload();

@@ -1,6 +1,6 @@
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { createOperationalReferral } from "./support/operational-api";
+import { createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 
 async function openInterview(page: Page) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Mobile", owner: "", tags: [] });
@@ -9,6 +9,7 @@ async function openInterview(page: Page) {
   } });
   expect(response.status(), await response.text()).toBe(201);
   const { assessment } = await response.json();
+  await startOperationalAssessment(page.request, assessment);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
@@ -38,6 +39,9 @@ for (const [width, height] of [[320, 650], [390, 844], [437, 536]]) {
     await pocket.getByRole("button", { name: "Client info", exact: true }).click();
     const reference = page.getByRole("dialog", { name: "Client information", exact: true });
     await expect(reference).toContainText("Synthetic placement notes for reference.");
+    await reference.getByRole("searchbox", { name: "Find recorded information" }).fill("interview answer");
+    await expect(reference.getByRole("button", { name: "Review Prior AWOL / failed placements", exact: true })).toBeVisible();
+    await expect(reference.getByRole("button", { name: "Review Prior placements", exact: true })).toHaveCount(0);
     await reference.getByRole("button", { name: "Close information panel", exact: true }).click();
     await expect(pocket.getByRole("button", { name: "Client info", exact: true })).toBeFocused();
 
@@ -95,7 +99,7 @@ test("mobile notification center shows readable assignments and keeps failed ack
   await expect(page.getByRole("button", { name: "Notifications", exact: true })).toBeFocused();
 });
 
-test("phone keyboard viewport keeps the question and next control reachable", async ({ page }) => {
+test("phone keyboard viewport keeps the question and next control reachable", async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openInterview(page);
   const answer = page.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true });
@@ -109,6 +113,7 @@ test("phone keyboard viewport keeps the question and next control reachable", as
   const next = (await page.locator("[data-phone-interview]").getByRole("button", { name: "Next", exact: true }).boundingBox())!;
   expect(next.y + next.height).toBeLessThanOrEqual(430);
   expect((await page.locator("[data-phone-question-scroll]").boundingBox())!.height).toBeGreaterThan(100);
+  await page.screenshot({ path: info.outputPath("assessment-keyboard-open.png"), animations: "disabled" });
 });
 
 test("phone retains offline answers and syncs when reconnected", async ({ page }) => {

@@ -2283,8 +2283,8 @@ test.describe("Referral home and packet canvas", () => {
     await section.selectOption("provenance_qc");
     await page.getByRole("button", { name: "Review assessment", exact: true }).click();
     await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toContainText("Schizoaffective disorder");
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+    await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
 
     const history = await page.request.get(`/api/referrals/${referralId}/assessments`);

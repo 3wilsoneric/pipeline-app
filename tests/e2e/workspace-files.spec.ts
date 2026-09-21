@@ -69,7 +69,7 @@ test("preview retries in place, contains focus, and restores it after close or E
   await expect(preview.getByRole("button", { name: "Retry preview" })).toBeFocused();
   await page.unroute(/\/api\/files\/[^/?]+\?after_page=/);
   await preview.getByRole("button", { name: "Retry preview" }).click();
-  await expect(preview.locator("iframe")).toBeVisible();
+  await expect(preview.getByRole("img", { name: `Preview ${file.name}`, exact: true })).toBeVisible();
   await expect(preview.getByRole("alert")).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("preview-desktop.png") });
   await close.click();
