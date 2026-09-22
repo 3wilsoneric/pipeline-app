@@ -178,21 +178,26 @@ export async function getClinicalClientWorkspaceSummaries(
       from reviewed_people people
       join visible_referrals referral on referral.person_id = people.person_id
       group by people.canonical_client_id
-    ), document_counts as (
-      select requested.canonical_client_id, count(distinct document.document_id)::integer as document_count
+    ), matching_documents as (
+      -- Separate indexed identity joins avoid comparing every client with every
+      -- document. UNION preserves one count when both identities match a file.
+      select requested.canonical_client_id, document.document_id, document.referral_id
       from requested_clients requested
       join pipeline.documents document
-        on document.deleted_at is null
+        on document.canonical_client_id = requested.canonical_client_id
+       and document.deleted_at is null
        and document.identity_status = 'linked'
-       and (
-         document.canonical_client_id = requested.canonical_client_id
-         or exists (
-           select 1 from reviewed_people people
-           where people.canonical_client_id = requested.canonical_client_id
-             and people.person_id = document.person_id
-         )
-       )
-       and (
+      union
+      select people.canonical_client_id, document.document_id, document.referral_id
+      from reviewed_people people
+      join pipeline.documents document
+        on document.person_id = people.person_id
+       and document.deleted_at is null
+       and document.identity_status = 'linked'
+    ), document_counts as (
+      select document.canonical_client_id, count(distinct document.document_id)::integer as document_count
+      from matching_documents document
+      where (
          ${ownerId}::text is null
          or document.referral_id is null
          or exists (
@@ -200,7 +205,7 @@ export async function getClinicalClientWorkspaceSummaries(
            where access_referral.referral_id = document.referral_id
          )
        )
-      group by requested.canonical_client_id
+      group by document.canonical_client_id
     )
     select
       requested.canonical_client_id,

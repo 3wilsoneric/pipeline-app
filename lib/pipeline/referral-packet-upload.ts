@@ -90,6 +90,9 @@ export async function uploadReferralSupportingDocument(
 }
 
 async function uploadFileOnce(referral: Referral, file: File, sha256: string, category: DocumentCategory, processingIntent?: "preview_only") {
+  if (referral.workspaceStatus === "historical") {
+    throw new Error("Files in this imported chart are read-only. Add new files to the current referral.");
+  }
   // Stable across retries/reloads, but never deduplicated across referrals or file roles.
   const packetId = await uploadIdentity(referral.id, file, sha256, category, processingIntent);
   const existing = activeUploads.get(packetId);

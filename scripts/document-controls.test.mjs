@@ -52,7 +52,7 @@ test("disposable PostgreSQL document deletion, audit, undo and retention", async
       values (${person.person_id}, 'New', 'San Pablo', 'fixture', 'Fixture', ${sql.json({ name: "Synthetic", ownerId: "fixture", owner: "Fixture", documentName: "", documentStatus: "Missing", note: "Keep chart" })}, 'fixture','Fixture','fixture','Fixture') returning referral_id`)[0];
     const id = Number(row.referral_id);
     // Use the actual PostgreSQL upload owner: mixed attachments must save once,
-    // queue only supported previews, and never queue field extraction.
+    // expose native previews directly, and never queue field extraction.
     const processing = loadEntry("lib/extraction/document-processing.ts", {
       "@/lib/database/pipeline-database": { getPipelineSql: () => sql },
       "@/lib/extraction/azure-blob": { getAzureBlobUploadSigner: () => ({
@@ -62,7 +62,7 @@ test("disposable PostgreSQL document deletion, audit, undo and retention", async
         getBlobProperties: async () => ({ exists: true, byteSize: 1 }),
       }) },
     });
-    for (const contentTypes of [["application/octet-stream"], ["application/pdf", "application/zip", "text/plain"]]) {
+    for (const contentTypes of [["application/octet-stream"], ["application/pdf", "application/zip", "text/plain", "image/png", "image/tiff", "image/heic"]]) {
       const packetId = randomUUID();
       const input = { packet_id: packetId, referral_id: String(id), source_type: "manual", submitting_facility: "Synthetic", processing_intent: "preview_only", files: contentTypes.map((content_type, index) => ({
         file_id: `file_${index}`, filename: `attachment-${index}`, content_type, size: 1, sha256: "b".repeat(64), category: "other",
@@ -73,15 +73,17 @@ test("disposable PostgreSQL document deletion, audit, undo and retention", async
       const replay = await processing.completeDurableUpload(completion);
       assert.deepEqual(JSON.parse(JSON.stringify(replay.documents)), JSON.parse(JSON.stringify(saved.documents)));
       const jobs = await sql`select job_type from pipeline.extraction_jobs where packet_id = ${packetId}`;
-      assert.deepEqual(jobs.map((job) => job.job_type), contentTypes.includes("application/pdf") ? ["document_preview"] : []);
+      assert.equal(jobs.length, 0, "attachment-only uploads must not wait for an excluded worker");
+      assert.equal(saved.status, "reviewed");
       const documents = await sql`select content_type, processing_status, preview_status, malware_scan_status from pipeline.documents where document_id in ${sql(saved.documents.map((file) => file.document_id))}`;
       assert.equal(documents.length, contentTypes.length);
       for (const document of documents) {
         assert.equal(document.processing_status, "uploaded");
         assert.equal(document.malware_scan_status, "not_scanned");
-        assert.equal(document.preview_status, document.content_type === "application/pdf" ? "pending" : "unavailable");
+        assert.equal(document.preview_status, ["application/pdf", "text/plain", "image/png"].includes(document.content_type) ? "ready" : "unavailable");
       }
     }
+    await verifyNativePreviewReconciliation(sql, id);
     const documentId = randomUUID();
     await sql`insert into pipeline.documents(document_id, referral_id, category, file_name, content_type, byte_size, sha256, blob_container, blob_key, processing_status, uploaded_by)
       values (${documentId}, ${id}, 'other', 'synthetic.pdf', 'application/pdf', 20, ${"a".repeat(64)}, 'raw', ${documentId}, 'uploaded', 'fixture')`;
@@ -153,3 +155,42 @@ test("disposable PostgreSQL document deletion, audit, undo and retention", async
     rmSync(directory, { recursive: true, force: true }); // Exact directory created by this fixture.
   }
 });
+
+async function verifyNativePreviewReconciliation(sql, id) {
+  const nativePreviews = loadEntry("lib/extraction/native-document-previews.ts", {
+    "@/lib/database/pipeline-database": { getPipelineSql: () => sql },
+  });
+  const nativeFixtures = [
+    { type: "application/pdf", scan: "clean", status: "uploaded", job: "queued" },
+    { type: "image/png", scan: "not_scanned", status: "uploaded", job: "dead_letter" },
+    { type: "application/pdf", scan: "clean", status: "uploaded", job: "queued", deleted: true },
+    { type: "application/pdf", scan: "infected", status: "uploaded", job: "queued" },
+    { type: "application/pdf", scan: "pending", status: "reserved", job: "queued" },
+    { type: "image/tiff", scan: "clean", status: "uploaded", job: "queued" },
+    { type: "application/pdf", scan: "clean", status: "uploaded", job: "running" },
+    { type: "application/pdf", scan: "clean", status: "uploaded", job: "queued", kind: "referral_packet" },
+  ];
+  const fixtureIds = [];
+  for (const fixture of nativeFixtures) {
+    const documentId = randomUUID(); fixtureIds.push(documentId);
+    await sql`insert into pipeline.documents(document_id, referral_id, category, file_name, content_type, byte_size, sha256, blob_container, blob_key, processing_status, malware_scan_status, uploaded_by, deleted_at)
+      values (${documentId}, ${id}, 'other', 'synthetic', ${fixture.type}, 20, ${"a".repeat(64)}, 'raw', ${documentId}, ${fixture.status}, ${fixture.scan}, 'fixture', ${fixture.deleted ? new Date() : null})`;
+    await sql`insert into pipeline.extraction_jobs(document_id,job_type,status) values (${documentId},${fixture.kind ?? "document_preview"},${fixture.job})`;
+  }
+  const beforeNative = await sql`select data from pipeline.referrals where referral_id=${id}`;
+  assert.deepEqual(JSON.parse(JSON.stringify(await nativePreviews.reconcileNativeDocumentPreviews())), { native_ready: 2, deleted_cancelled: 1 });
+  for (const [index, fixture] of nativeFixtures.entries()) {
+    const [actual] = await sql`select d.preview_status,d.processing_status,d.malware_scan_status,j.status from pipeline.documents d join pipeline.extraction_jobs j using(document_id) where d.document_id=${fixtureIds[index]}`;
+    assert.equal(actual.preview_status, index < 2 ? "ready" : "pending");
+    assert.equal(actual.status, index < 3 ? "cancelled" : fixture.job);
+    assert.equal(actual.processing_status, fixture.status);
+    assert.equal(actual.malware_scan_status, fixture.scan);
+  }
+  const audits = await sql`select metadata from pipeline.audit_events where action='document_preview_reconciled'`;
+  assert.equal(audits.length, 3);
+  assert.ok(audits.every((event) => event.metadata.previous_job_status && event.metadata.reason));
+  assert.deepEqual(await sql`select data from pipeline.referrals where referral_id=${id}`, beforeNative);
+  assert.deepEqual(JSON.parse(JSON.stringify(await nativePreviews.reconcileNativeDocumentPreviews())), { native_ready: 0, deleted_cancelled: 0 });
+  assert.equal((await sql`select entity_id from pipeline.audit_events where action='document_preview_reconciled'`).length, 3);
+
+}

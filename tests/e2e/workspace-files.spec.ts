@@ -31,6 +31,23 @@ async function addImage(page: Page) {
   return file;
 }
 
+test("imported read-only charts expose existing files, not upload or workbook controls", async ({ page }) => {
+  const referral = await openWorkspace(page);
+  await page.route(`**/api/referrals/${referral.id}/canvas`, async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.referral.workspaceStatus = "historical";
+    await route.fulfill({ response, json: payload });
+  });
+  let uploadAttempts = 0;
+  await page.route("**/api/uploads/create-url", (route) => { uploadAttempts++; return route.abort(); });
+  await page.reload();
+  await expect(page.getByText("Files in this imported chart can be opened and downloaded. Add new files to the current referral.")).toBeVisible();
+  await expect(page.getByLabel("Choose referral documents")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Drop files or choose files/ })).toHaveCount(0);
+  expect(uploadAttempts).toBe(0);
+});
+
 test("file-list failures are explicit, preserve known files, and retry without a page reload", async ({ page }) => {
   const referral = await openWorkspace(page);
   await expect(page.getByText("No files added yet.", { exact: true })).toBeVisible();

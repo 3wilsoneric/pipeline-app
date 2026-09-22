@@ -15,6 +15,7 @@ import {
   toPreviewPageRows,
 } from "@/lib/extraction/worker-report-provenance";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
+import { reconcileNativeDocumentPreviews } from "@/lib/extraction/native-document-previews";
 import {
   validateWorkerReport,
   type ExtractionFieldInput,
@@ -61,6 +62,7 @@ export type ExtractionQueueHealth = {
 
 export async function dispatchExtractionJobs(limit = 10, workerId = "pipeline-dispatch") {
   const sql = getPipelineSql();
+  const nativePreviews = await reconcileNativeDocumentPreviews();
   const boundedLimit = Math.min(50, Math.max(1, Math.trunc(limit)));
   const jobs = await sql.begin(async (tx) => tx<JobRow[]>`
     with candidates as (
@@ -124,7 +126,7 @@ export async function dispatchExtractionJobs(limit = 10, workerId = "pipeline-di
       metric("dispatch", outcome, job.job_type);
     }
   }
-  return { claimed: jobs.length, dispatched, retried, dead_lettered: deadLettered };
+  return { claimed: jobs.length, dispatched, retried, dead_lettered: deadLettered, native_previews: nativePreviews };
 }
 
 export async function reconcileExtractionJobs(limit = 25) {
