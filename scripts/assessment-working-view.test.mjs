@@ -17,7 +17,7 @@ test("preparation contains every canonical question exactly once, including inte
   for (const section of tool.assessmentToolSections) assert.ok(preparation.preparationGroupForSection(section).sections.includes(section));
 });
 
-test("full preparation preserves all conditional visibility rules and never mutates answers", () => {
+test("full preparation preserves conditional visibility without exposing the lifecycle-owned interview date", () => {
   const cases = [tool.createEmptyAssessmentToolData(), ...schema.assessmentInterviewQuestions.filter((question) => question.showWhen).map((question) => {
     const rule = question.showWhen;
     const value = rule.operator === "not_equals" ? "lps" : Array.isArray(rule.value) ? rule.value[0] : rule.value;
@@ -26,7 +26,7 @@ test("full preparation preserves all conditional visibility rules and never muta
   for (const data of cases) {
     const before = JSON.stringify(data);
     const fields = view.assessmentWorkingSections(data, [], true).flatMap((section) => section.questions.map((question) => question.field));
-    const expected = schema.assessmentInterviewQuestions.filter((question) => schema.isAssessmentQuestionVisible(question, data)).map((question) => question.field);
+    const expected = schema.assessmentInterviewQuestions.filter((question) => question.field !== "assessment_date" && schema.isAssessmentQuestionVisible(question, data)).map((question) => question.field);
     assert.deepEqual([...fields].sort(), [...expected].sort());
     assert.equal(JSON.stringify(data), before);
   }

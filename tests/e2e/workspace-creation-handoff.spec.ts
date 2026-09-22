@@ -23,38 +23,38 @@ for (const width of [1440, 390]) {
     expect(await handoff.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`created-${width}.png`) });
     await handoff.getByRole("button", { name: /Schedule assessment/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await expect(dialog).toBeVisible();
     const read = async () => (await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments;
     expect(await read()).toHaveLength(1);
     expect((await read())[0]).toMatchObject({ started_at: null, assessment_date: null, schedule_status: "unscheduled" });
     // Canceling never creates an appointment, and leaves a visible route to booking.
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await dialog.getByRole("button", { name: "Back to assessment", exact: true }).click();
     expect((await read())[0].scheduled_start_at).toBeUndefined();
     await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
-    await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
     await dialog.getByLabel("Assessment date and time").fill("2028-09-21T10:00");
     await dialog.getByLabel("Assessment method").selectOption("phone");
     await dialog.getByLabel("Phone number to call").fill("555-010-2000");
     await page.screenshot({ path: info.outputPath(`schedule-${width}.png`) });
     // A failed booking keeps the modal, entered values and retry action.
     await page.route("**/api/assessments/*/schedule", (route) => route.fulfill({ status: 503, json: { error: "Synthetic booking unavailable" } }));
-    await dialog.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
     await expect(dialog.getByRole("alert")).toContainText("Synthetic booking unavailable");
     await expect(dialog.getByLabel("Assessment date and time")).toHaveValue("2028-09-21T10:00");
     expect((await read())[0].scheduled_start_at).toBeUndefined();
     await page.unroute("**/api/assessments/*/schedule");
-    await dialog.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     const scheduled = (await read())[0];
     expect(scheduled).toMatchObject({ schedule_status: "scheduled", started_at: null, assessment_date: null, scheduled_start_at: "2028-09-21T17:00:00.000Z", scheduled_method: "phone", scheduled_location: "555-010-2000" });
     await expect(page.locator('#assessment-assessment_date')).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit assessment appointment", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Begin assessment", exact: true }).click();
-    const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
+    await page.getByRole("button", { name: "Begin interview", exact: true }).click();
+    const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
     await expect(begin).toBeVisible();
     expect((await read())[0].started_at).toBeNull();
-    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await begin.getByRole("button", { name: "Begin interview", exact: true }).click();
     await expect(begin).toHaveCount(0);
     const started = (await read())[0];
     expect(started.started_at).toBeTruthy();
@@ -78,9 +78,9 @@ for (const width of [1440, 390]) {
 test("prepare first and dismiss both leave usable workspace navigation", async ({ page }) => {
   const { handoff, id } = await createFromIntake(page);
   await handoff.getByRole("button", { name: "Assessment prep", exact: false }).click();
-  await expect(page.getByRole("region", { name: "Assessment progress" })).toContainText("Assessment prep");
-  await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Assessment progress" })).toContainText("Prepare assessment");
+  await expect(page.getByRole("button", { name: "Begin interview", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toHaveCount(0);
   const records = (await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments;
   expect(records).toHaveLength(1);
   expect(records[0]).toMatchObject({ started_at: null, schedule_status: "unscheduled" });
@@ -90,7 +90,7 @@ test("prepare first and dismiss both leave usable workspace navigation", async (
   const tabs = page.getByRole("navigation", { name: "Workspace stages" });
   await expect(tabs.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
   await tabs.getByRole("button", { name: /Assessment$/ }).click();
-  await expect(page.getByRole("button", { name: "Schedule assessment", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Schedule interview", exact: true })).toBeVisible();
 });
 
 test("starting preserves a historical interview date, with normal optimistic concurrency", async ({ request }) => {
