@@ -83,6 +83,17 @@ function fixture({ azure = false, lostReservation = false, lostCompletion = fals
   return { client, calls, reservations, deadlines, allowWrites: () => { failWrites = false; stalledPuts = 0; } };
 }
 
+test("archived charts reject upload locally before reserving or transferring files", async () => {
+  const current = fixture();
+  const client = current.client();
+  const historical = { ...referral, workspaceStatus: "historical" };
+  await assert.rejects(client.uploadReferralPacket(historical, packet(), "a".repeat(64), "face_sheet"), /imported chart.*read-only/);
+  await assert.rejects(client.uploadReferralSupportingDocument(historical, packet(), "other"), /imported chart.*read-only/);
+  assert.equal(current.calls.reservations.length, 0);
+  assert.equal(current.calls.blobs.length, 0);
+  assert.equal(current.calls.completions.length, 0);
+});
+
 test("eight simultaneous selections of the same packet share one reservation, transfer and document", async () => {
   for (const azure of [false, true]) {
     const current = fixture({ azure });

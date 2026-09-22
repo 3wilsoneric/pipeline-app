@@ -4,8 +4,10 @@ export function isDocumentContentAvailable(scanStatus: string | undefined): bool
   return scanStatus === "clean" || scanStatus === "not_scanned";
 }
 
+export const browserPreviewContentTypes = ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "text/plain"];
+
 export function isBrowserPreviewable(contentType: string | undefined): boolean {
-  return ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "text/plain"].includes(contentType ?? "");
+  return browserPreviewContentTypes.includes(contentType ?? "");
 }
 
 export function originalDocumentDisposition(contentType: string | undefined): "inline" | "attachment" {

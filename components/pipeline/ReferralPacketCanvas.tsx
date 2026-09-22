@@ -1280,7 +1280,7 @@ export default function ReferralPacketCanvas({
   };
 
   const attachAdditionalFiles = (files: LabeledReferralFile[]) => {
-    if (!files.length) return;
+    if (permissionReadOnly || loadedReferralRef.current?.workspaceStatus === "historical" || !files.length) return;
     const error = validateReferralDocumentFiles(files.map(({ file }) => file));
     if (error) {
       setSaveError(error);
@@ -1431,7 +1431,7 @@ export default function ReferralPacketCanvas({
   };
 
   const addLabeledFiles = (files: LabeledReferralFile[]) => {
-    if (permissionReadOnly) return;
+    if (permissionReadOnly || loadedReferralRef.current?.workspaceStatus === "historical") return;
     const invalid = validateReferralDocumentFiles(files.map(({ file }) => file));
     if (invalid) { setSaveError(invalid); return; }
     // Only establish a primary document when there isn't one already.
@@ -2469,7 +2469,7 @@ export default function ReferralPacketCanvas({
 
   const renderDocumentUpload = (collapsible: boolean) => (
     <ReferralDocumentUpload
-      readOnly={permissionReadOnly || draftRecoveryLoading}
+      readOnly={readOnly || draftRecoveryLoading}
       collapsible={collapsible}
       queued={[
         ...(initialPacket ? [{ file: initialPacket, category: initialPacketCategory }] : []),
@@ -2486,8 +2486,9 @@ export default function ReferralPacketCanvas({
       onAdd={addLabeledFiles}
       onRemove={removeQueuedFile}
       uploading={isSaving || uploadingDocumentIds.size > 0}
-      onWorkbook={loadedReferral && assessmentSummary.assessmentId && !permissionReadOnly ? (file) => { setWorkbookImport(file); void navigatePage(2); } : undefined}
+      onWorkbook={loadedReferral && assessmentSummary.assessmentId && !readOnly ? (file) => { setWorkbookImport(file); void navigatePage(2); } : undefined}
     >
+      {historicalReadOnly ? <p className="text-sm text-[#52655d]">Files in this imported chart can be opened and downloaded. Add new files to the current referral.</p> : null}
       {renderPacketReview()}
       <details className="mt-4 border-t border-[#dce4df] pt-3">
         <summary className="cursor-pointer text-[13px] font-semibold text-[#52655d]">Document checklist</summary>

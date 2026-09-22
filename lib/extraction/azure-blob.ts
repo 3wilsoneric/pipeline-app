@@ -36,6 +36,19 @@ let delegationKeyCache: {
   key: UserDelegationKey;
   expiresAtMs: number;
 } | undefined;
+let delegationKeyRequest: { account: string; promise: Promise<UserDelegationKey> } | undefined;
+
+// The existing minute dispatcher warms only signing credentials, never patient
+// files or a user session. Actual reads still perform all access checks.
+export async function warmDocumentReadSigner() {
+  if (!process.env.AZURE_STORAGE_ACCOUNT?.trim()) return;
+  try {
+    await getDelegationKey(required("AZURE_STORAGE_ACCOUNT"), new Date(Date.now() + 300_000));
+  } catch {
+    // getDelegationKey records the storage failure. A warmup failure must not
+    // prevent unrelated queue work; an actual read keeps its normal error path.
+  }
+}
 
 export function getAzureBlobUploadSigner(): AzureBlobUploadSigner {
   const account = required("AZURE_STORAGE_ACCOUNT");
@@ -167,8 +180,25 @@ async function getDelegationKey(account: string, requiredExpiry: Date) {
   ) {
     return delegationKeyCache.key;
   }
+  // A batch of uploads/previews shares one credential refresh, not one Azure
+  // request per file. Do not share a key across storage accounts.
+  if (delegationKeyRequest?.account === account) {
+    await delegationKeyRequest.promise;
+    return getDelegationKey(account, requiredExpiry);
+  }
+  const promise = refreshDelegationKey(account, requiredExpiry, refreshBufferMs);
+  const pending = { account, promise };
+  delegationKeyRequest = pending;
+  try {
+    return await promise;
+  } finally {
+    if (delegationKeyRequest === pending) delegationKeyRequest = undefined;
+  }
+}
+
+async function refreshDelegationKey(account: string, requiredExpiry: Date, refreshBufferMs: number) {
   const startsOn = new Date(Date.now() - 5 * 60 * 1000);
-  const expiresOn = new Date(Math.max(Date.now() + 2 * 60 * 60 * 1000, requiredExpiry.getTime() + refreshBufferMs));
+  const expiresOn = new Date(Math.max(Date.now() + 2 * 60 * 60 * 1000, requiredExpiry.getTime() + refreshBufferMs + 1_000));
   try {
     const key = await getBlobServiceClient(account).getUserDelegationKey(startsOn, expiresOn);
     delegationKeyCache = { account, key, expiresAtMs: expiresOn.getTime() };

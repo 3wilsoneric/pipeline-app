@@ -1,6 +1,7 @@
 import { requireInternalWorker } from "@/lib/auth/internal-worker-auth";
 import { dispatchExtractionJobs } from "@/lib/extraction/processing-worker";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { warmDocumentReadSigner } from "@/lib/extraction/azure-blob";
 
 export async function GET(request: Request) {
   return run(request);
@@ -14,7 +15,10 @@ function run(request: Request) {
   return withApiLogging(request, "/api/internal/extraction/dispatch", async () => {
     const denied = requireInternalWorker(request);
     if (denied) return denied;
-    const result = await dispatchExtractionJobs(10, "pipeline-cron-dispatch");
+    const [result] = await Promise.all([
+      dispatchExtractionJobs(10, "pipeline-cron-dispatch"),
+      warmDocumentReadSigner(),
+    ]);
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   });
 }

@@ -27,6 +27,7 @@ import {
 } from "@/lib/extraction/contracts";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { DocumentProcessingError } from "@/lib/extraction/document-processing-error";
+import { browserPreviewContentTypes } from "@/lib/extraction/document-access-policy";
 
 export { DocumentProcessingError } from "@/lib/extraction/document-processing-error";
 
@@ -289,7 +290,10 @@ async function completeDurableUploadWithMode(
       update pipeline.documents d
       set processing_status = 'uploaded',
           malware_scan_status = case when malware_scan_status = 'pending' then 'not_scanned' else malware_scan_status end,
-          preview_status = case when ${queuePreview} and d.content_type = any(${previewContentTypes}) then 'pending' else 'unavailable' end, updated_at = now(), version = version + 1
+          preview_status = case
+            when d.content_type = any(${browserPreviewContentTypes}) and d.malware_scan_status in ('pending', 'clean', 'not_scanned') then 'ready'
+            when ${queuePreview} and d.content_type = any(${previewContentTypes}) then 'pending'
+            else 'unavailable' end, updated_at = now(), version = version + 1
       from pipeline.packet_upload_files f
       where f.packet_id = ${input.packet_id}::uuid and f.document_id = d.document_id
     `;
@@ -676,5 +680,7 @@ function iso(value: Date | string) {
 }
 
 function shouldQueueDocumentPreviews(queueExtraction: boolean, intent: PacketRow["processing_intent"], supportedFileCount: number) {
-  return (queueExtraction || intent === "preview_only") && supportedFileCount > 0;
+  // Attachments use the authenticated original-file viewer. The preview worker
+  // only copies the source; it does not convert TIFF/HEIC into browser formats.
+  return queueExtraction && intent === "extract_referral" && supportedFileCount > 0;
 }

@@ -102,7 +102,9 @@ test('PostgreSQL callback preserves reviewed values and provenance; dispatch exc
     const dispatched=await worker.dispatchExtractionJobs();
     assert.equal(dispatched.dispatched,1);
     const pending=await sql`select packet_id,status from pipeline.extraction_jobs where job_type='document_preview'`;
-    assert.equal(pending.filter(j=>j.status==='queued').length,2);
+    assert.equal(pending.filter(j=>j.status==='queued').length,1);
+    assert.equal(pending.find(j=>j.packet_id===null).status,'cancelled', 'native preview uses the existing original without a provider run');
+    assert.equal(dispatched.native_previews.native_ready,1);
     assert.equal(pending.find(j=>j.packet_id===packet.packet_id).status,'running');
   } finally {
     if(sql)await sql.end({timeout:5});
