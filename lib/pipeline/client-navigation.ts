@@ -66,6 +66,25 @@ export function replacePipelineHistory(path: string) {
   notifyPipelineNavigation();
 }
 
+/** Keep return context on the current history entry (tab-scoped, survives reload and
+ * Back/Forward). Callers must never store free text, clinical content, or unscoped identity. */
+export function rememberPipelineHistoryContext(key: string, value: unknown) {
+  window.history.replaceState({ ...window.history.state, [key]: value }, "");
+}
+
+export function readPipelineHistoryContext(key: string): unknown {
+  return window.history.state?.[key];
+}
+
+/** Go back only when this entry was pushed from a matching Pipeline screen; direct links fall back. */
+export function returnToPreviousPipelineEntry(matches: (params: URLSearchParams) => boolean) {
+  const previous = window.history.state?.pipelinePrevious;
+  if (typeof previous !== "string" || !previous.startsWith("/") || previous.startsWith("//")) return false;
+  if (!matches(new URL(previous, window.location.origin).searchParams)) return false;
+  window.history.back();
+  return true;
+}
+
 export function usePipelineLocationSearch(nextSearch: string) {
   const [locationSearch, setLocationSearch] = useState(nextSearch);
 
