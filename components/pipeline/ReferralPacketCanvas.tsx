@@ -15,6 +15,7 @@ import {
   FolderOpen,
   History,
   LoaderCircle,
+  MoreHorizontal,
   Plus,
   RefreshCw,
   Trash2,
@@ -2446,22 +2447,16 @@ export default function ReferralPacketCanvas({
                 <span>Activity</span>
               </button>
               {trashControlVisible && !readingAssessment ? (
-                <button
-                  type="button"
-                  aria-label="Move workspace to trash"
-                  title="Move workspace to trash"
+                <WorkspaceMoreMenu
                   disabled={isSaving || isDeleting}
-                  onClick={() => {
+                  onMoveToTrash={() => {
                     if (dirtyKeysRef.current.size > 0) {
                       setSaveError("Wait for your changes to save before moving this workspace to trash.");
                       return;
                     }
                     setDeleteDialogOpen(true);
                   }}
-                  className="flex h-9 w-9 items-center justify-center text-[#737373] hover:bg-[#f7faf9] hover:text-[#a9473d] disabled:opacity-50"
-                >
-                  <Trash2 size={16} />
-                </button>
+                />
               ) : null}
               {readingAssessment ? <div ref={setAssessmentHeaderToolsTarget} className={workspaceFolderStyles.assessmentTools} /> : null}
             </div>
@@ -2534,7 +2529,7 @@ export default function ReferralPacketCanvas({
       {historicalReadOnly ? <p className="text-sm text-[#52655d]">Files in this imported chart can be opened and downloaded. Add new files to the current referral.</p> : null}
       {renderPacketReview()}
       <details className="mt-4 border-t border-[#dce4df] pt-3">
-        <summary className="cursor-pointer text-[13px] font-semibold text-[#52655d]">Document checklist</summary>
+        <summary className="inline-flex min-h-11 cursor-pointer items-center text-[14px] font-semibold text-[#52655d]">Document checklist</summary>
         <ul className="mt-2 grid gap-x-6 sm:grid-cols-2">
           {[...requirements, ...attachments].map((item) => {
             const filename = getRequirementReviewValue(item, documents[item.id], loadedReferral);
@@ -3003,6 +2998,34 @@ function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
   return <div data-testid="workspace-chart-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
     <div className={folderStyles.body}><div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>{children}</div></div>
   </div>;
+}
+
+/* The destructive workspace action keeps its confirmation and recovery, moved
+   one step back from the stage tabs it used to sit beside. */
+function WorkspaceMoreMenu({ disabled, onMoveToTrash }: { disabled: boolean; onMoveToTrash: () => void }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+  const close = () => {
+    if (!menu.current) return;
+    menu.current.open = false;
+    menu.current.querySelector("summary")?.focus();
+  };
+  return (
+    <details
+      ref={menu}
+      className={workspaceFolderStyles.moreMenu}
+      onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); close(); }
+      }}
+    >
+      <summary aria-label="More workspace actions" title="More workspace actions"><MoreHorizontal size={16} aria-hidden="true" /><span>More</span></summary>
+      <div role="group" aria-label="Workspace actions" className={workspaceFolderStyles.moreMenuPanel}>
+        <button type="button" aria-label="Move workspace to trash" disabled={disabled} onClick={() => { close(); onMoveToTrash(); }}>
+          <Trash2 size={16} aria-hidden="true" />Move workspace to trash
+        </button>
+      </div>
+    </details>
+  );
 }
 
 function WorkspaceStageNavigation({ steps, activePage, onOpen }: {

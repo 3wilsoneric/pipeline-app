@@ -16,7 +16,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     const header = page.getByTestId("workspace-folder-header");
     // The recommendation belongs to the deliberate review, not to every question.
     await expect(header.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
-    await expect(header.getByRole("button", { name: /Excel|recovery|Workspaces|Move workspace to trash/ })).toHaveCount(0);
+    await expect(header.getByRole("button", { name: /Excel|recovery|Workspaces|Move workspace to trash|More workspace actions/ })).toHaveCount(0);
     const recovery = footer.getByRole("button", { name: /Open Excel and recovery/ });
     await expect(recovery).toBeVisible();
     const identity = header.getByTestId("workspace-identity-title");

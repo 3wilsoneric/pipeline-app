@@ -653,9 +653,9 @@ function DirectoryNotice({ children }: { children: ReactNode }) {
 
 function DirectoryError({ message, onRetry, hasPartialResults }: { message: string; onRetry: () => void; hasPartialResults: boolean }) {
   return (
-    <div role="alert" className="flex items-start justify-between gap-4 border-b border-[#e7c8c2] py-3 text-[12px] leading-5 text-[#713e35]">
+    <div role="alert" className="flex items-start justify-between gap-4 border-b border-[#e7c8c2] py-3 text-[14px] leading-6 text-[#713e35]">
       <div><strong>{hasPartialResults ? "Some clients could not be loaded." : "The client directory could not be loaded."}</strong> {message}</div>
-      <button type="button" onClick={onRetry} className="shrink-0 font-black text-[#0c705f] hover:underline">Retry</button>
+      <button type="button" onClick={onRetry} className="pipeline-inline-action shrink-0 font-black text-[#0c705f] hover:underline">Retry</button>
     </div>
   );
 }

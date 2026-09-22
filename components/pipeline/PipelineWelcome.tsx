@@ -258,7 +258,7 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
         <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} layout="board" />
       </div>
       <div className="mt-1 flex justify-end">
-        <button type="button" aria-label="Open current work" title="Open Board full screen" onClick={onOpen} className="flex h-8 w-8 items-center justify-center text-[#176f60] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+        <button type="button" aria-label="Open current work" title="Open Board full screen" onClick={onOpen} className="flex h-11 w-11 items-center justify-center rounded text-[#176f60] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
           <Maximize2 size={17} aria-hidden="true" />
         </button>
       </div>

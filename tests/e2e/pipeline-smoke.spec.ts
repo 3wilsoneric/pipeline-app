@@ -1196,6 +1196,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Chart", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save workspace" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Move workspace to trash" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "More workspace actions" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Workspace files" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Workspace activity" })).toBeVisible();
     await expect(page.getByText("Historical face sheet.pdf", { exact: true })).toBeVisible();

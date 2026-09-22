@@ -9,6 +9,25 @@
   outline-offset: 3px;
 }
 
+/* Fields and role-based controls get the same visible focus as buttons; a
+   component that styles its own focus still wins this zero-specificity rule. */
+.pipeline-interactions :where(
+  input:focus-visible, select:focus-visible, textarea:focus-visible,
+  [role="button"]:focus-visible, [role="tab"]:focus-visible, [role="option"]:focus-visible
+) {
+  outline: 2px solid var(--pipeline-green);
+  outline-offset: 2px;
+}
+
+/* Recovery actions written into a sentence keep a full target without
+   inflating the text around them. */
+.pipeline-inline-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 6px;
+}
+
 .pipeline-interactions :where(button):is(:disabled, [aria-disabled="true"]) {
   cursor: not-allowed;
 }
@@ -67,6 +86,11 @@
   .pipeline-commands button,
   .pipeline-segmented > button {
     transition: none;
+  }
+
+  /* Loading placeholders stay legible without a repeating pulse. */
+  .pipeline-interactions :where(.animate-pulse) {
+    animation: none;
   }
 }
 
