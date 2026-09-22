@@ -5,6 +5,7 @@ import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fe
 import { acquireOutlookToken } from "@/lib/auth/outlook-client";
 import { safeOutlookWebLink, type OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import { useConfirmationDialog } from "./useConfirmationDialog";
+import OutlookConnectionNotice from "./OutlookConnectionNotice";
 import styles from "./OutlookHandoffControls.module.css";
 
 type State = { draft: OutlookDraftView | null; occupied: boolean; demo?: boolean; outlook_client_id?: string; account_email?: string };
@@ -127,9 +128,10 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     if (isDemo) return <p className={styles.hint}>Not production yet — no draft will be created and no email will be sent.</p>;
     return <>
     {renderSetupStatus()}
+    {!connected ? <OutlookConnectionNotice /> : null}
     {state.occupied ? <p role="status" className={styles.hint}>A teammate already has an Outlook draft for this workspace. Complete or remove that draft first.</p> : null}
     {draft ? <p className={styles.hint} role="status">{draft.message || "Saved in Outlook Drafts. Review and send it in Outlook, then choose Check sent status here."}</p>
-      : <p className={styles.hint}>Connect once, then save the reviewed message and all file attachments to your Drafts. Open Outlook to review and send.</p>}
+      : null}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {popupBlocked && link ? <p role="status" className={styles.hint}>Your draft is saved. Use “Reopen draft” to open Outlook.</p> : null}
 

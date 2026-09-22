@@ -7,6 +7,10 @@
 .icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border: 1px solid #bcd9cf; border-radius: 10px; color: #087d66; background: #eaf5f0; }
 .badge { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 4px 7px; border: 1px solid #cfddd6; border-radius: 5px; color: #466358; background: white; font-size: 12px; font-weight: 600; }
 .hint { margin: 12px 0; font-size: 14px; line-height: 1.55; color: #52665b; }
+.connectionNotice { margin: 16px 0; padding: 14px 16px; border: 1px solid #d3e4db; border-radius: 8px; background: #f3f8f5; font-size: 14px; line-height: 1.55; }
+.connectionNotice strong { display: block; font-size: 15px; }
+.connectionNotice p { margin: 8px 0 0; }
+.connectionNotice p:last-child { color: #52665b; font-size: 13px; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .actions button, .actions a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 15px; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; }
 .primary { background: #087d66; border: 1px solid #087d66; color: white; }
