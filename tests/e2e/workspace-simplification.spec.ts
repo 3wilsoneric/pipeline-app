@@ -115,12 +115,12 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Send email & packet" })).toHaveCount(0);
     await page.getByRole("button", { name: "Back to decision", exact: true }).click();
     await expect(decision.getByLabel("Admission date (optional)", { exact: true })).toHaveValue("2026-10-01");
-    await decision.locator("summary").filter({ hasText: /^Admission details$/ }).click();
+    await decision.locator("summary").filter({ hasText: /^Admission paperwork & EHR handoff$/ }).click();
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).toBeVisible();
     await page.reload();
     await expect(decision.getByLabel("Admission date (optional)", { exact: true })).toHaveValue("2026-10-01");
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).not.toBeVisible();
-    await decision.locator("summary").filter({ hasText: /^Admission details$/ }).click();
+    await decision.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Assessment");
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("New");

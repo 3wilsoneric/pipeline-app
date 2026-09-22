@@ -22,7 +22,7 @@ test("scheduled work opens the same interview without manual intake or stage adv
   await page.getByRole("button", { name: "Admission workflow", exact: true }).click();
   await expect(page.getByText("Clinical recommendation", { exact: true })).toBeVisible();
   await expect(page.getByText("Chart-only exception", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /^Advance to/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Change stage to/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Open assessment", exact: true }).click();
   const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
   await expect(begin).toBeVisible();

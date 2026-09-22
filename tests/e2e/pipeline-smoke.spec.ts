@@ -2466,7 +2466,7 @@ test.describe("Referral home and packet canvas", () => {
     const decisionReadback = await page.request.get(`/api/referrals/${referral.id}/decision`);
     expect(decisionReadback.ok()).toBe(true);
     expect((await decisionReadback.json()).decision).toMatchObject({ outcome: "accepted", reasonNote: "Synthetic acceptance decision for the EHR handoff journey." });
-    await workflowPanel.getByText("Admission details", { exact: true }).click();
+    await workflowPanel.getByText("Admission paperwork & EHR handoff", { exact: true }).click();
     await workflowPanel.getByLabel("Signed medication list status").selectOption("received");
     await expect(workflowPanel.getByText("Signed medication list updated", { exact: true })).toBeVisible();
 

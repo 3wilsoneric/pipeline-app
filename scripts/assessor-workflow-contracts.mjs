@@ -75,6 +75,59 @@ check("accepted signed assessments retain admission actions", workflowPanel.deri
 check("historical workspaces do not expose an active interview action", workflowPanel.deriveWorkflowPanelView({
   ...workflowPanelFixture, referral: { ...referral, workspaceStatus: "historical" },
 }).assessmentState === null);
+const decisionFixture = (context = {}, overrides = {}) => ({
+  ...workflowPanelFixture,
+  context: { assessmentId: "assessment-71", assessmentExists: true, ...context },
+  decision: null,
+  recommendation: null,
+  review: null,
+  capabilities: { can_decide: true, can_recommend: true, can_update: true },
+  ...overrides,
+});
+const doneSteps = (fixture) => workflowPanel.decisionProgressSteps(fixture).filter((step) => step.state === "done").map((step) => step.key).join(",");
+const fixtureDecision = { decisionId: "decision-panel", outcome: "accepted", decidedByName: "Synthetic Supervisor", decidedAt: "2026-09-20T17:30:00.000Z" };
+const progressStages = [
+  doneSteps(decisionFixture({ assessmentStarted: true, assessmentStatus: "draft" })),
+  doneSteps(decisionFixture({ assessmentStarted: true, assessmentScheduleStatus: "completed" })),
+  doneSteps(decisionFixture({ assessmentStarted: true, assessmentComplete: true, assessmentSigned: true })),
+  doneSteps(decisionFixture({ assessmentStarted: true, assessmentComplete: true, assessmentSigned: true }, { decision: fixtureDecision })),
+  doneSteps(decisionFixture({ assessmentStarted: true, assessmentComplete: true, assessmentSigned: true, packetSentAt: "2026-09-21T16:00:00.000Z" }, { decision: fixtureDecision })),
+];
+check("decision context distinguishes saved answers, interview complete, signed, decision recorded, and packet sent",
+  progressStages.join(" | ") === "answers | answers,interview | answers,interview,signed | answers,interview,signed,decision | answers,interview,signed,decision,packet");
+check("a complete interview is not reported as signed and a decision is not reported as a sent packet", (() => {
+  const complete = workflowPanel.decisionProgressSteps(decisionFixture({ assessmentStarted: true, assessmentScheduleStatus: "completed" }));
+  const decided = workflowPanel.decisionProgressSteps(decisionFixture({ assessmentStarted: true }, { decision: fixtureDecision }));
+  return complete.find((step) => step.key === "signed").label === "Assessment not signed"
+    && decided.find((step) => step.key === "signed").state === "open"
+    && decided.find((step) => step.key === "packet").label === "Meet the Client packet not sent"
+    && decided.find((step) => step.key === "decision").detail.startsWith("Synthetic Supervisor · ");
+})());
+check("a denied referral reports the packet as not needed rather than pending", workflowPanel.decisionProgressSteps(decisionFixture({}, { decision: { ...fixtureDecision, outcome: "declined" } }))
+  .find((step) => step.key === "packet").state === "not_needed");
+check("the recommendation beside the decision is attributed, dated, and flagged when it predates the current assessment", (() => {
+  const recommendation = { recommendationId: "rec-1", assessmentId: "assessment-71", outcome: "accept", reasonCode: "", reasonNote: "Synthetic note.", recommendedBy: "assessor-1", recommendedByName: "Synthetic Assessor", recommendedAt: "2026-09-19T15:00:00.000Z", version: 1 };
+  const current = workflowPanel.recommendationPresentation(decisionFixture({}, { recommendation }));
+  const earlier = workflowPanel.recommendationPresentation(decisionFixture({}, { recommendation: { ...recommendation, assessmentId: "assessment-70" } }));
+  return current.outcomeLabel === "Accept" && /^Synthetic Assessor · Sep \d+, 2026/.test(current.attribution) && !current.earlierAssessment
+    && earlier.earlierAssessment
+    && workflowPanel.recommendationPresentation(decisionFixture()) === null;
+})());
+check("an unavailable decision action explains itself instead of only dimming", (() => {
+  const none = workflowPanel.decisionActionState(decisionFixture(), { outcome: "" }, false);
+  const readOnly = workflowPanel.decisionActionState(decisionFixture({}, { capabilities: { can_decide: false } }), { outcome: "accept" }, false);
+  const noAssessment = workflowPanel.decisionActionState(decisionFixture({ assessmentId: null }), { outcome: "needs_more_information" }, false);
+  const accept = workflowPanel.decisionActionState(decisionFixture(), { outcome: "accept" }, false);
+  return none.disabled && /Choose Accept, Deny, or Under review/.test(none.hint)
+    && readOnly.disabled && /cannot record it/.test(readOnly.hint)
+    && noAssessment.disabled && /Open the assessment/.test(noAssessment.hint)
+    && !accept.disabled && /Nothing is signed or sent/.test(accept.hint);
+})());
+check("stage transitions are labeled as stage changes, never as a send, signature, or approval",
+  ["Packet Needed", "Packet Review", "Assessment", "Community Review"].every((target) =>
+    workflowPanel.transitionActionLabel(target).startsWith("Change stage to ")
+    && !/send|sign|approv|decision/i.test(workflowPanel.transitionActionLabel(target) + workflowPanel.transitionSuccessMessage(target)))
+  && workflowPanel.transitionActionLabel("Accepted / Admitted") === "Mark admitted");
 check("an ongoing interview stays the next action while unresolved packet evidence remains visible", (() => {
   const progress = referralProgress.getReferralProgress({ ...referral, date: "2026-09-15", packetStatus: "ready_for_review" }, {
     ...scheduledContext, assessmentStarted: true,
