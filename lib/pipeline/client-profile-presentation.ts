@@ -49,7 +49,6 @@ const profileSections: SectionDefinition[] = [
     key: "personal",
     label: "Personal details",
     fields: [
-      { label: "Resident number", sources: ["resident_number", "resident_numbers"], maxItems: 4 },
       { label: "Date of birth", sources: ["date_of_birth"], format: "date" },
       { label: "Age", sources: ["age"], format: "count" },
       { label: "Also known as", sources: ["name_variants", "platform_resident_names"], excludeSources: ["resident_name", "display_name"], format: "name", maxItems: 8 },

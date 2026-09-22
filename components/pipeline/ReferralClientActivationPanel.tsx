@@ -260,7 +260,6 @@ function IdentityFacts({ resident }: { resident: ClinicalResident }) {
       <div><dt className="font-black uppercase tracking-[0.06em] text-[#737373]">Governed name</dt><dd className="mt-0.5 font-bold text-[#202522]">{resident.display_name}</dd></div>
       <div><dt className="font-black uppercase tracking-[0.06em] text-[#737373]">Date of birth</dt><dd className="mt-0.5 font-bold text-[#202522]">{resident.date_of_birth || "Not available"}</dd></div>
       <div><dt className="font-black uppercase tracking-[0.06em] text-[#737373]">Community</dt><dd className="mt-0.5 font-bold text-[#202522]">{resident.community_name}</dd></div>
-      <div><dt className="font-black uppercase tracking-[0.06em] text-[#737373]">Resident number</dt><dd className="mt-0.5 font-bold text-[#202522]">{resident.resident_number || resident.resident_id}</dd></div>
     </dl>
   );
 }

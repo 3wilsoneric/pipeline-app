@@ -57,6 +57,10 @@ for (const key of ["source_file", "match_confidence", "extraction_date", "unable
   const field = contract.assessmentWorkbookFields.find((f) => f.key === key);
   assert.match(text("xl/worksheets/sheet13.xml"), new RegExp(`<row\\b[^>]*r="${field.row}"[^>]*hidden="1"`));
 }
+const residentNumber = contract.assessmentWorkbookFields.find((f) => f.key === "resident_number");
+assert.equal(residentNumber.editable, false, "Resident number is an internal identity, not an assessment answer");
+assert.match(text("xl/worksheets/sheet2.xml"), new RegExp(`<row\\b[^>]*r="${residentNumber.row}"[^>]*hidden="1"`));
+assert.ok(!text("xl/worksheets/sheet15.xml").includes(">Resident number<"), "Internal identity must not appear in the answer reference");
 assert.match(text("xl/worksheets/sheet13.xml"), /Before you upload/);
 assert.match(text("xl/worksheets/sheet13.xml"), /COUNTIF/);
 assert.ok(text("xl/worksheets/sheet13.xml").indexOf("<hyperlinks>") < text("xl/worksheets/sheet13.xml").indexOf("<pageMargins"), "Checklist links must precede print settings in worksheet XML");
