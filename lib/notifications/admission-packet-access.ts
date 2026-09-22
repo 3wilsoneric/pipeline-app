@@ -16,7 +16,7 @@ function codeHash(id: string, email: string, code: string) {
 }
 const sameHash = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 function available(packet: AdmissionPacket | null, now: number): packet is AdmissionPacket {
-  return Boolean(packet && !packet.revokedAt && Date.parse(packet.expiresAt) > now);
+  return Boolean(packet && packet.outlook?.deliveryMode !== "attachments" && !packet.revokedAt && Date.parse(packet.expiresAt) > now);
 }
 
 export async function requestPacketCode(id: string, inputEmail: string, now = Date.now()) {

@@ -223,6 +223,9 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(preview.getByRole("img", { name: "Alamo Health Management", exact: true })).toBeVisible();
   await expect.poll(() => preview.getByRole("img", { name: "Alamo Health Management", exact: true }).evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
   await expect(preview.locator("body")).not.toContainText("Pipeline");
+  await expect(preview.locator("body")).not.toContainText("one-time code");
+  await expect(preview.locator("body")).not.toContainText("secure packet");
+  await expect(preview.locator("body")).toContainText("Client data sheet.html");
   await expect(preview.locator("body")).toContainText("2026-10-01");
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');
   await expect(preview.locator("body")).toContainText("Received; signatures still need review.");
@@ -254,7 +257,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   expect(response.headers()["cache-control"]).toContain("no-store");
   const payload = await response.json();
   const { user } = await (await page.request.get("/api/auth/me")).json();
-  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name), undefined, { demo: payload.email.example_only, packetLinkPreview: true }));
+  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name), undefined, { demo: payload.email.example_only }));
   const dataSheet = await page.request.get(`/api/referrals/${referral.id}/admission-summary?download=chart`);
   expect(dataSheet.status()).toBe(200); expect(await dataSheet.text()).toContain("Received; signatures still need review.");
 });
@@ -386,26 +389,30 @@ for (const width of [390, 834]) test(`packet check includes every uploaded file 
   await dialog.getByRole("button", { name: "Confirm packet", exact: true }).click();
   await addRecipient(page); await confirmRecipients(page);
   const body = page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body");
-  await expect(body).toContainText("Admission packet · 4 files");
+  for (const name of ["Client data sheet.html", ...uploaded]) await expect(body).toContainText(name);
+  await expect(body).not.toContainText("one-time code");
+  await expect(body).not.toContainText("secure packet");
   await expect(body).toContainText("Not production yet — no email will be sent.");
 });
 
 for (const width of [834, 390]) test(`saved Outlook draft retains its frozen audience and recovery at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const { referral } = await referralWithAssessment(page);
+  const draft = { packet_id: randomUUID(), status: "draft", mailbox: "assessor@example.invalid", web_link: "https://outlook.office.com/mail/drafts/fixture",
+    prepared_at: "2026-09-21T00:00:00Z", assessment_version: 2, file_count: 1, to_recipients: ["reviewed@example.invalid"], cc_recipients: [] };
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
     const response = await route.fetch(); const payload = await response.json();
-    payload.email = { ...payload.email, example_only: false, can_send: true };
+    payload.email = { ...payload.email, example_only: false, can_send: true, outlook_draft: draft };
     await route.fulfill({ response, json: payload });
   });
-  await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: { occupied: false, outlook_client_id: "00000000-0000-4000-8000-000000000001", draft: {
-    packet_id: randomUUID(), status: "draft", mailbox: "assessor@example.invalid", web_link: "https://outlook.office.com/mail/drafts/fixture",
-    prepared_at: "2026-09-21T00:00:00Z", assessment_version: 2, file_count: 1, to_recipients: ["reviewed@example.invalid"], cc_recipients: [],
-  } } }));
+  await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: { occupied: false, outlook_client_id: "00000000-0000-4000-8000-000000000001", draft } }));
   let sent = 0;
   page.on("request", request => { if (request.method() === "POST" && request.url().includes("meet-client-email")) sent++; });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const composer = await openPreview(page);
+  await page.getByRole("button", { name: "Continue with Outlook draft", exact: true }).click();
+  const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
+  await expect(composer).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Confirm admit date", exact: true })).toHaveCount(0);
   const outlook = composer.getByRole("region", { name: "Outlook handoff" });
   await expect(outlook.getByRole("heading", { name: "Your Outlook draft" })).toBeVisible();
   await expect(composer.getByRole("region", { name: "Prepared handoff details" })).toContainText("reviewed@example.invalid");
@@ -418,6 +425,10 @@ for (const width of [834, 390]) test(`saved Outlook draft retains its frozen aud
   expect(Math.abs(bounds.x + bounds.width / 2 - width / 2)).toBeLessThan(3);
   await page.screenshot({ path: info.outputPath(`outlook-existing-draft-${width}.png`), animations: "disabled" });
   await confirmation.getByRole("button", { name: "Cancel", exact: true }).click(); expect(sent).toBe(0);
+  await page.reload();
+  await page.getByRole("button", { name: "Continue with Outlook draft", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Prepared handoff details" })).toContainText("reviewed@example.invalid");
+  expect(sent).toBe(0);
 });
 
 test("chart load failure leaves the finish tab and its next action reachable", async ({ page }) => {

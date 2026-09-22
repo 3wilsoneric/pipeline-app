@@ -9,7 +9,7 @@ import { emptyMeetClientMessage, meetClientBodyLimit, meetClientSubjectLimit, ty
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import styles from "./MeetClientEmailPage.module.css";
 
-export default function MeetClientMessageEditor({ summary, preview, preparedBy, attachments, draft, admissionDate, disabled, demo = false, packetLink = false }: {
+export default function MeetClientMessageEditor({ summary, preview, preparedBy, attachments, draft, admissionDate, disabled, demo = false }: {
   summary?: MeetClientSummary;
   preview: { subject: string; html: string; text?: string } | null;
   preparedBy: string;
@@ -18,11 +18,10 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
   admissionDate: string;
   disabled: boolean;
   demo?: boolean;
-  packetLink?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const content = draft?.fields.message ?? emptyMeetClientMessage();
-  const rendered = summary ? renderMeetClientEmail(summary, preparedBy, "Preview — assigned when sent", attachments, content, { demo, packetLinkPreview: packetLink, logoUrl: toPipelinePath("/brand/alamo-health-management.png") }) : preview;
+  const rendered = summary ? renderMeetClientEmail(summary, preparedBy, "Preview — assigned when sent", attachments, content, { demo, logoUrl: toPipelinePath("/brand/alamo-health-management.png") }) : preview;
   const editableText = summary ? renderMeetClientEmail(summary, preparedBy, "Preview", [], content).text : preview?.text;
   const editable = Boolean(draft?.editable) && !disabled;
   const change = (patch: Partial<MeetClientMessage>) => { draft?.changeMessage({ ...content, ...patch }); };

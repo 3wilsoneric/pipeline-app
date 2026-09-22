@@ -28,6 +28,7 @@ type ChartPayload = {
   report: AssessmentSummaryReport | null;
   email: {
     example_only: boolean;
+    outlook_draft?: OutlookDraftView | null;
     configured: boolean;
     sender: string;
     preview: { subject: string; html: string; text?: string } | null;
@@ -77,6 +78,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const recipients = emailDraft?.fields.to.map((contact) => contact.email) ?? [];
   const ccRecipients = emailDraft?.fields.cc.map((contact) => contact.email) ?? [];
   const [confirmed, setConfirmed] = useState(false);
+  const [existingDraft, setExistingDraft] = useState<OutlookDraftView | null>(null);
   const [reviewStep, setReviewStep] = useState<number | null>(null);
   const [reviewedCount, setReviewedCount] = useState(0);
   const composerOpen = reviewStep !== null;
@@ -99,6 +101,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
         { cache: "no-store" },
       );
       setPayload(next);
+      setExistingDraft(next.email.outlook_draft && !["sent", "discarded"].includes(next.email.outlook_draft.status) ? next.email.outlook_draft : null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "The assessment records could not be loaded.");
     } finally {
@@ -197,6 +200,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
           : <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral}
             confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
             onBack={() => setReviewStep(3)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
+            preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
             onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
   };
   const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
@@ -212,7 +216,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
-        composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed ? 4 : Math.min(reviewedCount, 4))}
+        existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
         onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {renderReviewDialog()}
     </section>
@@ -230,8 +234,8 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   );
 }
 
-function HandoffOverview({ payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onOpenAssessment, onOpenDecision }: {
-  payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean; reviewedCount: number;
+function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onOpenAssessment, onOpenDecision }: {
+  existingDraft: OutlookDraftView | null; payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean; reviewedCount: number;
   finishActions?: React.ReactNode;
   onPreviewEmail: () => void;
   onOpenAssessment?: () => void; onOpenDecision?: () => void;
@@ -244,7 +248,7 @@ function HandoffOverview({ payload, sent, exampleReviewed, finishActions, compos
   }, [complete, composerOpen]);
   const previewButton = <button type="button" data-guide-target={composerOpen ? undefined : ["chart-email-handoff", "packet-open-email"].join(" ")} className={styles.sendButton}
     onClick={(event) => { event.currentTarget.focus(); onPreviewEmail(); }}>
-    {handoffReviewLabel(complete, reviewedCount)}<ArrowRight size={18} aria-hidden="true" />
+    {handoffReviewLabel(complete, reviewedCount, Boolean(existingDraft))}<ArrowRight size={18} aria-hidden="true" />
   </button>;
 
   if (complete) return <section className={styles.guidedTask} aria-label="Handoff readiness">
@@ -253,6 +257,12 @@ function HandoffOverview({ payload, sent, exampleReviewed, finishActions, compos
     <p>{sent ? "The handoff is recorded as sent. Recipient delivery is not tracked." : "No email was sent."}</p>
     <footer ref={finishRef} aria-label="Handoff actions" className={styles.taskActions}>{finishActions}</footer>
     <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details>
+  </section>;
+
+  if (existingDraft) return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
+    <h3>Your Outlook draft is saved</h3>
+    <p>Continue with the message and files you already reviewed.</p>
+    <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
   </section>;
 
   if (!report?.signed || !email.eligible) return <HandoffPendingTask signed={Boolean(report?.signed)} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />;
@@ -270,7 +280,8 @@ function HandoffOverview({ payload, sent, exampleReviewed, finishActions, compos
   </section>;
 }
 
-function handoffReviewLabel(complete: boolean, reviewedCount: number) {
+function handoffReviewLabel(complete: boolean, reviewedCount: number, existingDraft: boolean) {
+  if (existingDraft) return "Continue with Outlook draft";
   if (complete) return "View email";
   if (reviewedCount === 4) return "Preview email";
   return reviewedCount ? "Continue review" : "Review handoff";
@@ -487,7 +498,7 @@ function HandoffRecipientReview({ draft, community, editable, confirmed, onConfi
 function AdmissionPacketReview({ email, referral, onOpenFiles }: { email: ChartPayload["email"]; referral: Referral; onOpenFiles?: () => void }) {
   return <section data-guide-target="packet-attachments" className={`${styles.attachments} ${styles.packetReview}`} aria-label="Referral packet attachments">
     <div className={styles.attachmentHeading}><h3>Everything in the packet</h3><span><Paperclip size={15} aria-hidden="true" />{email.admission_packet.files.length} files · {formatBytes(email.admission_packet.total_bytes)}</span></div>
-    <p>Check that the right files are included. The email shares them together through one secure link.</p>
+    <p>Check that the right files are included. These files will be attached to the email.</p>
     <ul className={styles.attachmentList}>{email.admission_packet.files.map((file) => <li key={file.document_id}>
       <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
         <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · created automatically" : file.ready ? formatBytes(file.byte_size) : "Safety review needed before live delivery"}</small></span>
@@ -497,19 +508,19 @@ function AdmissionPacketReview({ email, referral, onOpenFiles }: { email: ChartP
   </section>;
 }
 
-function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onBack, onReviewComplete, onPrepareOutlook, onOutlookSent }: {
+function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onBack, onReviewComplete, onPrepareOutlook, onOutlookSent }: {
+  preparedDraft: OutlookDraftView | null; onExistingDraft: (draft: OutlookDraftView | null) => void;
   email: ChartPayload["email"]; report: AssessmentSummaryReport | null; emailDraft?: HandoffRecipients; referral: Referral;
   confirmed: boolean; sending: boolean; sent: boolean; error: string; message: string; refresh: React.ReactNode;
   onBack: () => void; onReviewComplete: () => void;
   onPrepareOutlook: (token: string) => Promise<OutlookDraftView | undefined>; onOutlookSent: () => void;
 }) {
-  const [preparedDraft, setPreparedDraft] = useState<OutlookDraftView | null>(null);
   const composerReadOnly = [!email.can_edit_recipients, sending, sent, Boolean(preparedDraft)].some(Boolean);
   const renderMessagePreview = () => (preparedDraft ? <PreparedDraftDetails draft={preparedDraft} /> : <>
         <div className={styles.addressRow}><span>From</span><strong>Your Outlook mailbox</strong></div>
         <div className={styles.addressRow}><span>To</span><span>{emailDraft?.fields.to.map((contact) => contact.email).join("; ") || "No recipients"}</span></div>
         {emailDraft?.fields.cc.length ? <div className={styles.addressRow}><span>Cc</span><span>{emailDraft.fields.cc.map((contact) => contact.email).join("; ")}</span></div> : null}
-        <MeetClientMessageEditor demo={email.example_only} packetLink summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
+        <MeetClientMessageEditor demo={email.example_only} summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
           attachments={email.admission_packet.files.map((file) => file.name)} draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={composerReadOnly} />
         {!email.example_only ? <details className={styles.deliveryDetails}><summary>Delivery details</summary>
           {email.blockers.length ? <ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
@@ -529,7 +540,7 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
     {sent || email.example_only ? renderCompletion() : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
       {!preparedDraft ? <button type="button" className={styles.textButton} disabled={sending} onClick={onBack}>Back to recipients</button> : null}
       <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, emailDraft, confirmed, sending)} sending={sending}
-        onPrepare={onPrepareOutlook} onSent={onOutlookSent} onExistingDraft={setPreparedDraft} />
+        onPrepare={onPrepareOutlook} onSent={onOutlookSent} onExistingDraft={onExistingDraft} />
     </footer>}
   </div>;
 }

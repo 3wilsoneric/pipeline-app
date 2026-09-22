@@ -192,12 +192,12 @@ test("missing immutable id recovers the existing message by private correlation 
 });
 
 function handoffFixture() {
-  let packet, message, changed = "", finalized = 0, creations = 0, deleted = 0, failure;
+  let packet, message, changed = "", finalized = 0, creations = 0, deleted = 0, failure, attachmentFailure, uploadGate;
   const audits = [];
   const mailbox = { id: "staff", email: "staff@example.invalid", token: "synthetic-token" };
   const audit = { deliveryId: "packet", referralId: 1, assessmentId: "assessment", assessmentVersion: 2, decisionId: "decision", actorId: "staff" };
   const assessment = { version: 2, signed_at: "2026-09-21T00:00:00Z" };
-  const inventory = { files: [{ name: "Chart.html" }], revision: "revision", ready: true };
+  const inventory = { files: [{ id: "chart", name: "Chart.html" }], revision: "revision", ready: true };
   const url = "https://pipeline.invalid/admission-packets/packet";
   const graph = graphFixture(async () => { throw new Error("No network in fixture"); });
   const owner = load("lib/notifications/outlook-handoff.ts", {
@@ -207,12 +207,19 @@ function handoffFixture() {
     "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral: { version: changed === "referral" ? 2 : 1 }, decision: { decisionId: "decision", outcome: "accepted" }, work_items: [] }) },
     "@/lib/assessment/assessment-summary": { buildAssessmentSummaryReport: () => ({}) },
     "./meet-client-attachments": { getMeetClientAttachmentInventory: async () => ({ ...inventory, revision: changed === "files" ? "new" : "revision" }) },
-    "./admission-packet-files": { admissionPacketUrl: () => url, prepareAdmissionPacketLink: async (input) => {
-      packet = { ...input, createdAt: "2026-09-21T00:00:00Z", files: inventory.files, recipients: input.recipients.map(email => ({ email, sessions: [] })), events: [] }; return url;
+    "./admission-packet-files": { admissionPacketUrl: () => url, prepareAdmissionPacketRecord: async (input) => {
+      packet = { ...input, createdAt: "2026-09-21T00:00:00Z", files: inventory.files, recipients: input.recipients.map(email => ({ email, sessions: [] })), events: [] }; return packet;
     } },
     "./admission-packet-store": { PacketAccessError, findWorkspaceOutlookDraft: async () => packet,
       withAdmissionPacket: async (_id, operation) => operation(packet) },
-    "./outlook-mail": { ...graph, createOutlookMessage: async () => {
+    "./outlook-attachments": { ensureOutlookAttachments: async (_token, _id, _packet, progress) => {
+      await progress("chart", "hash"); if (uploadGate) await uploadGate; if (attachmentFailure) throw attachmentFailure;
+    }, outlookAttachmentsMatch: async () => changed !== "attachments" },
+    "./outlook-mail": { ...graph, updateOutlookMessage: async (_token, _id, _subject, _html, recipients) => {
+      message.toRecipients = recipients.map(address => ({ emailAddress: { address } })); return message;
+    }, createOutlookMessage: async (_token, input) => {
+      assert.equal(input.recipients.length, 0, "do not address an incomplete email");
+      assert.match(input.subject, /Preparing attachments/);
       assert.equal(packet.outlook.status, "preparing", "persist recovery before calling provider"); creations++;
       message = { id: "draft", isDraft: true, webLink: "https://outlook.office.com/mail/1" }; if (failure) throw failure; return message;
     }, findOutlookMessage: async () => message, deleteOutlookDraft: async () => { assert.ok(packet.revokedAt); deleted++; } },
@@ -221,7 +228,7 @@ function handoffFixture() {
   const prepare = () => owner.prepareOutlookHandoff({ mailbox, audit, referralVersion: 1, packetRevision: "revision", recipients: ["r@example.invalid"], ccRecipients: [], inventory, summary: {}, preparedBy: "Staff", message: {}, requestUrl: url });
   return { owner, prepare, mailbox, graph, audits, get packet() { return packet; }, get finalized() { return finalized; }, get creations() { return creations; }, get deleted() { return deleted; },
     check: () => owner.checkOutlookHandoff("packet", 1, mailbox, url), discard: () => owner.discardOutlookHandoff("packet", 1, mailbox, url),
-    fail: (value) => { failure = value; }, change: (value) => { changed = value; }, missing: () => { message = null; },
+    fail: (value) => { failure = value; }, failAttachment: (value) => { attachmentFailure = value; }, pauseUpload: value => { uploadGate = value; }, change: (value) => { changed = value; }, missing: () => { message = null; },
     sent: (overrides = {}) => { message = { ...message, isDraft: false, sentDateTime: "2026-09-21T01:00:00Z", body: { content: url }, toRecipients: [{ emailAddress: { address: "r@example.invalid" } }], ...overrides }; } };
 }
 
@@ -261,8 +268,8 @@ test("ambiguous creation recovers one existing draft; definite rejection release
   await assert.rejects(rejected.prepare()); assert.equal(rejected.packet.outlook.status, "discarded"); assert.ok(rejected.packet.revokedAt); assert.deepEqual(rejected.audits, ["failed"]);
 });
 
-test("sent changes require review; explicit replacement revokes files without falsely certifying the assessment", async () => {
-  for (const change of ["assessment", "referral", "files", "recipients", "link"]) {
+test("sent changes require review; explicit replacement does not falsely certify the assessment", async () => {
+  for (const change of ["assessment", "referral", "files", "recipients", "attachments"]) {
     const f = handoffFixture(); await f.prepare(); f.change(change);
     f.sent(change === "recipients" ? { toRecipients: [{ emailAddress: { address: "new@example.invalid" } }] } : change === "link" ? { body: { content: "Link removed" } } : {});
     assert.equal((await f.check()).status, "needs_review", change); assert.equal(f.finalized, 0);
@@ -313,4 +320,43 @@ test("Outlook API enforces authentication, workspace access, origin, explicit re
   assert.equal((await post({ action: "check", packet_id: "packet" })).status, 200); assert.equal(checks, 1);
   assert.equal((await post({ action: "discard", packet_id: "packet", confirmed: true })).status, 200); assert.equal(removals, 1);
 
+});
+
+
+test("attachment failures retain the same draft and reservation even after a definite provider rejection", async () => {
+  const f = handoffFixture(); f.failAttachment(new f.graph.OutlookMailError(413, true));
+  await assert.rejects(f.prepare(), { status: 413 });
+  assert.equal(f.packet.outlook.messageId, "draft"); assert.equal(f.packet.outlook.status, "unconfirmed");
+  assert.equal(f.packet.outlook.attachmentsReady, undefined); assert.equal(f.packet.revokedAt, undefined);
+  assert.equal(f.audits.length, 0); assert.equal(f.creations, 1);
+  const view = (await f.owner.workspaceOutlookState(1, "staff")).draft;
+  assert.equal(view.web_link, undefined);
+  f.failAttachment(undefined); assert.equal((await f.check()).status, "draft");
+  assert.equal(f.packet.outlook.attachmentsReady, true); assert.equal(f.creations, 1);
+  f.sent({ body: { content: "Ordinary email, no download link." } });
+  assert.equal((await f.check()).status, "sent"); assert.equal(f.finalized, 1);
+});
+
+test("concurrent checks and removal cannot interrupt attachments; a stale operation can resume", async () => {
+  const f = handoffFixture(); let release;
+  f.pauseUpload(new Promise(resolve => { release = resolve; }));
+  const preparing = f.prepare();
+  while (!f.packet?.outlook?.attachmentHashes) await new Promise(resolve => setTimeout(resolve, 0));
+  await assert.rejects(f.check(), { status: 409 }); await assert.rejects(f.discard(), { status: 409 });
+  assert.equal(f.deleted, 0); release(); await preparing;
+  assert.equal(f.packet.outlook.operation, undefined);
+  f.packet.outlook.operation = { id: "expired", expiresAt: Date.now() - 1 };
+  assert.equal((await f.check()).status, "draft"); assert.equal(f.packet.outlook.operation, undefined);
+});
+
+test("a prematurely sent partial draft is flagged without completing the assessment", async () => {
+  const f = handoffFixture(); f.failAttachment(new Error("Lost upload response"));
+  await assert.rejects(f.prepare()); f.sent();
+  assert.equal((await f.check()).status, "needs_review"); assert.equal(f.finalized, 0);
+});
+
+test("legacy linked drafts still require their original link before finalization", async () => {
+  const f = handoffFixture(); await f.prepare(); delete f.packet.outlook.deliveryMode;
+  f.sent({ body: { content: "Removed link" } });
+  assert.equal((await f.check()).status, "needs_review"); assert.equal(f.finalized, 0);
 });
