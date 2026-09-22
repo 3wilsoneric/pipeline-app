@@ -595,7 +595,7 @@ check("summary and email select the signed assessment independently of the accep
     && meetClientEmailRoute.includes("selectSignedAssessment")
     && deliveryAudit.includes("assessment_version")
     && deliveryAudit.includes("review_version"));
-check("email recipients are constrained to approved organization domains", graphMail.includes("PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS") && graphMail.includes("allowedRecipientDomains.includes(emailDomain(value))"));
+check("reviewed recipients allow any domain while validating addresses and combined limits", !graphMail.includes("PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS") && graphMail.includes("recipients.length > recipientListLimit") && graphMail.includes("!isEmail(value)") && meetClientEmailRoute.includes("confirmedRequest(body.value)"));
 check("email subject excludes the client name", meetClientTemplateSource.includes('Meet the Client | ${summary.community') && !meetClientTemplateSource.match(/subject\s*=.*summary\.name/));
 check("admission packet selection is server-owned and referral-scoped", meetClientEmailRoute.includes("getMeetClientAttachmentInventory")
   && meetClientAttachments.includes("referralId: referral.id")

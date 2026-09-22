@@ -1,23 +1,26 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Check, ExternalLink, LoaderCircle, Mail, RefreshCw } from "lucide-react";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
-import { acquireOutlookToken } from "@/lib/auth/outlook-client";
+import { acquireOutlookToken, checkWithOutlookToken } from "@/lib/auth/outlook-client";
 import { safeOutlookWebLink, type OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import { useConfirmationDialog } from "./useConfirmationDialog";
 import OutlookConnectionNotice from "./OutlookConnectionNotice";
 import styles from "./OutlookHandoffControls.module.css";
 
 type State = { draft: OutlookDraftView | null; occupied: boolean; demo?: boolean; outlook_client_id?: string; account_email?: string };
-export default function OutlookHandoffControls({ referralId, selected, demo, ready, sending, onPrepare, onSent, onExistingDraft }: {
-  referralId: number; selected: boolean; demo: boolean; ready: boolean; sending: boolean;
+export default function OutlookHandoffControls({ referralId, selected, demo, ready, readinessReasons, sending, onPrepare, onSent, onExistingDraft }: {
+  referralId: number; selected: boolean; demo: boolean; ready: boolean; readinessReasons: string[]; sending: boolean;
   onPrepare: (token: string) => Promise<OutlookDraftView | undefined>;
   onSent: () => void; onExistingDraft: (draft: OutlookDraftView | null) => void;
 }) {
+  const readinessId = useId();
   const [state, setState] = useState<State>({ draft: null, occupied: false });
   const [mailbox, setMailbox] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [checkingConnection, setCheckingConnection] = useState(false);
+  const [connectionCheckFailed, setConnectionCheckFailed] = useState(false);
   const [error, setError] = useState("");
   const [popupBlocked, setPopupBlocked] = useState(false);
   const active = useRef(false);
@@ -43,13 +46,16 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
   useEffect(() => {
     if (!selected || demo || state.demo) return;
     let cancelled = false;
+    setCheckingConnection(true);
     const reconnect = async () => {
-      const token = await acquireOutlookToken(state.outlook_client_id, false, state.account_email);
-      if (!token || cancelled) return;
-      const result = await fetchPipelineJson<{ mailbox: string }>(endpoint, { method: "POST", headers: { "x-pipeline-outlook-token": token }, body: JSON.stringify({ action: "connect" }) });
-      if (!cancelled) setMailbox(result.mailbox);
+      const result = await checkWithOutlookToken(state.outlook_client_id, state.account_email, token => fetchPipelineJson<{ mailbox: string }>(endpoint, { method: "POST", headers: { "x-pipeline-outlook-token": token }, body: JSON.stringify({ action: "connect" }) }));
+      if (!cancelled) { setMailbox(result?.mailbox ?? ""); setConnectionCheckFailed(false); }
     };
-    void reconnect().catch(() => undefined);
+    void reconnect().catch((failure) => { if (!cancelled) {
+      setConnectionCheckFailed(!(failure instanceof PipelineApiError && [403, 428].includes(failure.status)));
+      setError(failure instanceof Error ? failure.message : "Outlook connection could not be checked. Try again.");
+    } })
+      .finally(() => { if (!cancelled) setCheckingConnection(false); });
     return () => { cancelled = true; };
   }, [selected, demo, state.demo, state.outlook_client_id, state.account_email, endpoint]);
   const action = async (name: "connect" | "check" | "discard", token: string) => {
@@ -78,7 +84,11 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     if (!token) { setMailbox(""); throw new Error("Reconnect Outlook to continue. Your existing draft will be kept."); }
     return token;
   };
-  const connect = () => run(async () => { await action("connect", await requireToken(true)); });
+  const connect = (interactive = true) => run(async () => {
+    const result = await checkWithOutlookToken(state.outlook_client_id, state.account_email, token => action("connect", token), interactive);
+    setConnectionCheckFailed(false);
+    if (!result) setMailbox("");
+  });
   const check = () => run(async () => { await action("check", await requireToken()); });
   const prepare = () => {
     if (active.current || sending) return;
@@ -106,23 +116,24 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
   };
   if (!selected) return null;
   const draft = state.draft;
-  const disabled = busy || sending || loading;
+  const disabled = busy || sending || loading || checkingConnection;
   const isDemo = demo || state.demo;
   const link = safeOutlookWebLink(draft?.web_link);
   const connected = Boolean(mailbox);
   const renderHeading = () => (<div className={styles.heading}><span className={styles.icon}><Mail size={22} aria-hidden="true" /></span><div><h3>{isDemo ? "Outlook preview" : draft ? "Your Outlook draft" : "Save to Outlook Drafts"}</h3><p>{connected ? mailbox : state.account_email || "Connect your own Outlook mailbox."}</p></div><span className={styles.badge}>{isDemo ? "Not production yet" : connected ? <><Check size={13} /> Connected</> : "Not connected"}</span></div>);
   const preparationDisabled = disabled || !ready || isDemo || state.occupied;
-  const renderConnectAction = () => <button type="button" className={styles.primary} disabled={disabled || isDemo || !state.outlook_client_id || state.occupied} onClick={() => void connect()}>{busy ? <LoaderCircle size={16} className={styles.spin} /> : <Mail size={16} />}Connect Outlook</button>;
+  const renderConnectAction = () => <button type="button" className={styles.primary} disabled={disabled || isDemo || !state.outlook_client_id || state.occupied} onClick={() => void connect(!connectionCheckFailed)}>{busy || checkingConnection ? <LoaderCircle size={16} className={styles.spin} /> : <Mail size={16} />}{checkingConnection ? "Checking connection…" : connectionCheckFailed ? "Retry connection check" : "Connect Outlook"}</button>;
+  const renderDraftStatusAction = () => <button type="button" className={styles.primary} disabled={disabled || isDemo} onClick={() => void check()}><RefreshCw size={16} className={busy ? styles.spin : undefined} />{draft?.status === "preparing" || draft?.status === "unconfirmed" ? "Resume draft preparation" : "Check sent status"}</button>;
   const renderPrimaryAction = () => (isDemo ? <button type="button" className={styles.primary} disabled><ExternalLink size={16} />Save to Outlook Drafts</button> : !connected ? renderConnectAction()
-        : !draft ? <button type="button" className={styles.primary} disabled={preparationDisabled} onClick={prepare}>{busy || sending ? <LoaderCircle size={16} className={styles.spin} /> : <ExternalLink size={16} />}Save to Outlook Drafts</button>
-          : <button type="button" className={styles.primary} disabled={disabled || isDemo} onClick={() => void check()}><RefreshCw size={16} className={busy ? styles.spin : undefined} />{draft.status === "preparing" || draft.status === "unconfirmed" ? "Resume draft preparation" : "Check sent status"}</button>);
+        : !draft ? <button type="button" className={styles.primary} disabled={preparationDisabled} aria-describedby={!ready ? readinessId : undefined} onClick={prepare}>{busy || sending ? <LoaderCircle size={16} className={styles.spin} /> : <ExternalLink size={16} />}Save to Outlook Drafts</button>
+          : renderDraftStatusAction());
   const renderActions = () => (<div className={styles.actions}>
       {renderPrimaryAction()}
       {link ? <a className={styles.secondary} href={link} target="_blank" rel="noopener noreferrer">Reopen draft<ExternalLink size={14} /></a> : null}
       {draft && draft.status !== "sent" ? <button type="button" className={styles.quiet} disabled={disabled || isDemo} onClick={() => void discard()}>{draft.status === "needs_review" ? "Prepare updated handoff" : "Remove draft"}</button> : null}
-      {error && !draft ? <button type="button" className={styles.quiet} disabled={disabled} onClick={() => void run(load)}>Retry status</button> : null}
+      {error && !draft && !connectionCheckFailed ? <button type="button" className={styles.quiet} disabled={disabled} onClick={() => void run(load)}>Retry status</button> : null}
     </div>);
-  const reviewHint = !draft && connected && !ready;
+  const reviewHint = !draft && !ready;
   const renderSetupStatus = () => !loading && !state.outlook_client_id ? <p role="status" className={styles.hint}>Outlook connection setup is pending. Your handoff is saved in Pipeline.</p> : null;
   const renderMessages = () => {
     if (isDemo) return <p className={styles.hint}>Not production yet — no draft will be created and no email will be sent.</p>;
@@ -135,7 +146,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {popupBlocked && link ? <p role="status" className={styles.hint}>Your draft is saved. Use “Reopen draft” to open Outlook.</p> : null}
 
-    {reviewHint ? <p className={styles.hint}>Finish the email review and verify recipients to prepare your draft.</p> : null}</>;
+    {reviewHint ? <div id={readinessId} role="status" className={styles.hint}><strong>Before saving to Outlook Drafts:</strong><ul>{readinessReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div> : null}</>;
   };
   return <section className={styles.panel} aria-label="Outlook handoff">
     {renderHeading()}

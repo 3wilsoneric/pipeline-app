@@ -6,6 +6,9 @@ import vm from "node:vm";
 import ts from "typescript";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 const require = createRequire(import.meta.url);
+class FixtureInteractionRequiredAuthError extends Error {}
+class PipelineApiError extends Error { constructor(status, message = "Fixture API failure") { super(message); this.status = status; } }
+const outlookClientDependencies = { "@/lib/auth/authenticated-fetch": { PipelineApiError } };
 function load(file, dependencies = {}, globals = {}) {
   const output = ts.transpileModule(readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const exports = {};
@@ -65,7 +68,8 @@ test("home tenant and personal mailboxes bind to authenticated Pipeline email, n
 test("Outlook OAuth uses its own public client and callback without acquiring send permission", async () => {
   let configuration, active, popupCalls = 0, silentCalls = 0;
   const client = load("lib/auth/outlook-client.ts", {
-    "@azure/msal-browser": { BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
+    ...outlookClientDependencies,
+    "@azure/msal-browser": { InteractionRequiredAuthError: FixtureInteractionRequiredAuthError, BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
       constructor(config) { configuration = config; }
       async initialize() {}
       getActiveAccount() { return active; }
@@ -92,15 +96,16 @@ test("Outlook restores the matching mailbox across visits and retains its cache 
   const email = "assessor@example.invalid";
   let cachedAccount, silent = 0, sso = 0, popup = 0, cleared = 0, requireInteraction = false;
   const dependencies = {
-    "@azure/msal-browser": { BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
+    ...outlookClientDependencies,
+    "@azure/msal-browser": { InteractionRequiredAuthError: FixtureInteractionRequiredAuthError, BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
       constructor(config) { assert.equal(config.cache.cacheLocation, "localStorage"); }
       async initialize() {}
       getActiveAccount() { return { username: "someone-else@example.invalid" }; }
-      getAccountByUsername(username) { assert.equal(username, email); return cachedAccount; }
+      getAccount(filter) { assert.equal(filter.loginHint, email); return cachedAccount; }
       setActiveAccount(account) { cachedAccount = account; }
       async acquireTokenPopup(request) { popup++; assert.equal(request.loginHint, email); return { account: { username: email }, accessToken: "fixture-token" }; }
-      async acquireTokenSilent(request) { silent++; assert.equal(request.account.username, email); if (requireInteraction) throw new Error("interaction_required"); return { accessToken: "fixture-token" }; }
-      async ssoSilent(request) { sso++; assert.equal(request.loginHint, email); if (requireInteraction) throw new Error("interaction_required"); return { account: { username: email }, accessToken: "fixture-token" }; }
+      async acquireTokenSilent(request) { silent++; assert.equal(request.account.username, email); if (requireInteraction) throw new FixtureInteractionRequiredAuthError("interaction_required"); return { accessToken: "fixture-token" }; }
+      async ssoSilent(request) { sso++; assert.equal(request.loginHint, email); if (requireInteraction) throw new FixtureInteractionRequiredAuthError("interaction_required"); return { account: { username: email }, accessToken: "fixture-token" }; }
       async clearCache() { cleared++; cachedAccount = null; }
     } },
     "@/lib/pipeline/base-path": { toPipelinePath: path => path },
@@ -123,6 +128,48 @@ test("Outlook restores the matching mailbox across visits and retains its cache 
   requireInteraction = false;
   assert.equal(await nextVisit.acquireOutlookToken(id, false, email), "fixture-token");
   assert.equal(popup, 1); assert.equal(cleared, 0);
+});
+
+test("Outlook connection checks preserve renewal failures and refresh rejected tokens without a popup", async () => {
+  const id = "00000000-0000-4000-8000-000000000001";
+  let failure, popups = 0;
+  const renewals = [];
+  const client = load("lib/auth/outlook-client.ts", {
+    ...outlookClientDependencies,
+    "@azure/msal-browser": { InteractionRequiredAuthError: FixtureInteractionRequiredAuthError, BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
+      async initialize() {}
+      getAccount(filter) { assert.equal(filter.loginHint, "alias@example.invalid"); return { username: "primary@example.invalid" }; }
+      async acquireTokenSilent(request) { renewals.push(request.forceRefresh); if (failure) throw failure; return { accessToken: request.forceRefresh ? "renewed-token" : "cached-token" }; }
+      async acquireTokenPopup() { popups++; throw new Error("Unexpected popup"); }
+    } },
+    "@/lib/pipeline/base-path": { toPipelinePath: path => path },
+  }, { window: { location: { origin: "https://pipeline.invalid" } } });
+  for (const error of [new Error("network failure with sensitive detail"), new Error("monitor_window_timeout")]) {
+    failure = error;
+    await assert.rejects(client.acquireOutlookToken(id, false, "alias@example.invalid"), /Retry the connection check; your saved connection has been kept/);
+  }
+  failure = new FixtureInteractionRequiredAuthError("login_required");
+  assert.equal(await client.acquireOutlookToken(id, false, "alias@example.invalid"), null);
+  failure = null;
+  renewals.length = 0;
+  const tokens = [];
+  const mailbox = await client.checkWithOutlookToken(id, "alias@example.invalid", async token => {
+    tokens.push(token);
+    if (token === "cached-token") throw new PipelineApiError(428);
+    return { mailbox: "alias@example.invalid" };
+  });
+  assert.equal(mailbox.mailbox, "alias@example.invalid");
+  assert.deepEqual(tokens, ["cached-token", "renewed-token"]);
+  assert.deepEqual(renewals, [false, true]);
+  for (const status of [403, 429, 503]) {
+    let attempts = 0;
+    await assert.rejects(client.checkWithOutlookToken(id, "alias@example.invalid", async () => { attempts++; throw new PipelineApiError(status); }), { status });
+    assert.equal(attempts, 1);
+  }
+  let rejected = 0;
+  await assert.rejects(client.checkWithOutlookToken(id, "alias@example.invalid", async () => { rejected++; throw new PipelineApiError(428); }), { status: 428 });
+  assert.equal(rejected, 2);
+  assert.equal(popups, 0);
 });
 
 test("early Outlook connection is identity-bound, origin-protected and disabled during the production hold", async () => {

@@ -49,8 +49,8 @@ test("explicit activation replaces only the hold while preserving sender, domain
   assert.deepEqual(disabled.secrets, [secret]);
 });
 
-test("activation fails closed without recipient policy or with an unknown activation value", () => {
-  assert.throws(() => deploymentMailSettings([], [], "enabled"), /recipient domains/);
+test("explicit activation needs no domain allowlist and rejects unknown activation values", () => {
+  assert.deepEqual(deploymentMailSettings([], [], "enabled"), { environment: [{ name: "PIPELINE_MEET_CLIENT_LIVE_ENABLED", value: "true" }], secrets: [] });
   assert.throws(() => deploymentMailSettings([], [], "typo"), /Choose preserve/);
   assert.deepEqual(deploymentMailSettings([], [], "disabled"), { environment: [{ name: "PIPELINE_MEET_CLIENT_LIVE_ENABLED", value: "false" }], secrets: [] });
 });

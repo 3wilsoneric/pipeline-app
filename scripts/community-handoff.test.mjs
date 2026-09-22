@@ -123,11 +123,15 @@ test("data sheet contains canonical chart sections, recorded version, unsigned s
 
 const env = { NODE_ENV: "production", PIPELINE_MEET_CLIENT_LIVE_ENABLED: "true", PIPELINE_GRAPH_TENANT_ID: "synthetic-tenant", PIPELINE_GRAPH_CLIENT_ID: "synthetic-client", PIPELINE_GRAPH_CLIENT_SECRET: "synthetic-not-a-secret", PIPELINE_MEET_CLIENT_SENDER: "sender@example.test", PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS: "example.test" };
 
-test("recipient limit covers a 22-contact community, with strict domains and a combined bounded audience", () => {
+test("reviewed recipients accept any valid domain with a combined bounded audience", () => {
   const graph = loadTypeScriptModule(root, "lib/notifications/microsoft-graph-mail.ts", { process: { ...process, env } });
   const values = Array.from({ length: 22 }, (_, index) => `person${index}@example.test`);
   assert.equal(graph.validateMeetClientRecipients(values).ok, true);
-  assert.equal(graph.validateMeetClientRecipients([...values, "outside@unapproved.test"]).ok, false);
+  // Owner policy: the reviewed list controls recipients, including personal mailboxes.
+  const mixed = [...values, "person@outlook.com", "person@gmail.com", "outside@new-community.test"];
+  assert.deepEqual(Array.from(graph.validateMeetClientRecipients(mixed).recipients), mixed);
+  assert.equal(graph.validateMeetClientRecipients([]).ok, false);
+  assert.equal(graph.validateMeetClientRecipients(["missing-address"]).ok, false);
   assert.equal(graph.validateMeetClientRecipients(Array.from({ length: 101 }, (_, index) => `p${index}@example.test`)).ok, false);
   assert.equal(graph.validateMeetClientRecipients(["name\r\nBcc: x@example.test"]).ok, false);
 });

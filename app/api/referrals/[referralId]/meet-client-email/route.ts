@@ -240,15 +240,15 @@ async function prepareEmailRequest(request: Request): Promise<
   if (!validAssessmentPreview(assessmentId, assessmentVersion)) {
     return { ok: false, response: jsonError("Refresh and review the assessment summary before sending.", 409) };
   }
-  const audience = prepareHandoffAudience(body.value, readiness);
+  const audience = prepareHandoffAudience(body.value);
   return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision } : audience;
 }
 
-function prepareHandoffAudience(body: Record<string, unknown>, readiness: ReturnType<typeof getGraphMailReadiness>) {
+function prepareHandoffAudience(body: Record<string, unknown>) {
   const to = body.recipients;
   const cc = body.cc_recipients ?? [];
   if (!Array.isArray(to) || to.length === 0 || !Array.isArray(cc)) return { ok: false as const, response: jsonError("Add at least one To recipient and a valid Cc list.") };
-  const audience = validateMeetClientRecipients([...to, ...cc], readiness);
+  const audience = validateMeetClientRecipients([...to, ...cc]);
   if (!audience.ok) return { ok: false as const, response: jsonError(audience.message) };
   const recipients = [...new Set((to as string[]).map((address) => address.trim().toLowerCase()))];
   return { ok: true as const, recipients, ccRecipients: audience.recipients.filter((address) => !recipients.includes(address)) };

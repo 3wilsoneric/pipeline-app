@@ -115,7 +115,7 @@ test("changed source bytes and untrusted upload or pagination URLs cannot leak f
 test("demo hold makes no attachment requests, and assessor readiness needs no service sender or OTP setup", async () => {
   const held = fixture({ live: false }); await assert.rejects(held.ensure(), { status: 403 }); assert.equal(held.requests.length, 0);
   const mail = loadTypeScriptModule(process.cwd(), "lib/notifications/outlook-mail.ts", { process: { env: { NODE_ENV: "production", PIPELINE_MEET_CLIENT_LIVE_ENABLED: "true",
-    PIPELINE_OUTLOOK_CLIENT_ID: "00000000-0000-4000-8000-000000000001", PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS: "example.invalid" } } });
+    PIPELINE_OUTLOOK_CLIENT_ID: "00000000-0000-4000-8000-000000000001" } } });
   assert.equal(mail.getOutlookMailReadiness().configured, true);
   assert.equal(mail.getOutlookMailReadiness().sender, "");
 });

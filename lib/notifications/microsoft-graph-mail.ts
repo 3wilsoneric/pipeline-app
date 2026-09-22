@@ -20,7 +20,6 @@ export type GraphMailReadiness = {
   configured: boolean;
   missing: string[];
   sender: string;
-  allowedRecipientDomains: string[];
   largeAttachmentDeliveryConfigured: boolean;
 };
 
@@ -35,7 +34,7 @@ export function isMeetClientLive() {
 export function getGraphMailReadiness(): GraphMailReadiness {
   if (process.env.PIPELINE_PERSONA_DEMO === "true") return {
     configured: false, missing: ["Email delivery is disabled in this environment."],
-    sender: "", allowedRecipientDomains: [], largeAttachmentDeliveryConfigured: false,
+    sender: "", largeAttachmentDeliveryConfigured: false,
   };
   const values = {
     PIPELINE_GRAPH_TENANT_ID: process.env.PIPELINE_GRAPH_TENANT_ID?.trim() ?? "",
@@ -43,32 +42,23 @@ export function getGraphMailReadiness(): GraphMailReadiness {
     PIPELINE_GRAPH_CLIENT_SECRET: process.env.PIPELINE_GRAPH_CLIENT_SECRET?.trim() ?? "",
     PIPELINE_MEET_CLIENT_SENDER: process.env.PIPELINE_MEET_CLIENT_SENDER?.trim() ?? "",
   };
-  const allowedRecipientDomains = parseAllowedDomains(
-    process.env.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS,
-  );
   const missing = Object.entries(values).filter(([, value]) => !value).map(([name]) => name);
   if (!isMeetClientLive()) missing.push("PIPELINE_MEET_CLIENT_LIVE_ENABLED (owner approval required)");
-  if (allowedRecipientDomains.length === 0) missing.push("PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS");
   return {
     configured: missing.length === 0,
     missing,
     sender: values.PIPELINE_MEET_CLIENT_SENDER,
-    allowedRecipientDomains,
     largeAttachmentDeliveryConfigured: process.env.PIPELINE_GRAPH_MAIL_READ_WRITE?.trim().toLowerCase() === "true",
   };
 }
 
-export function validateMeetClientRecipients(recipients: unknown, readiness = getGraphMailReadiness()) {
+export function validateMeetClientRecipients(recipients: unknown) {
   if (!Array.isArray(recipients) || recipients.length < 1 || recipients.length > recipientListLimit) {
     return { ok: false as const, message: `Add between 1 and ${recipientListLimit} authorized recipients in To and Cc combined.` };
   }
   const normalized = [...new Set(recipients.map((value) => typeof value === "string" ? value.trim().toLowerCase() : ""))];
   if (normalized.some((value) => !isEmail(value))) {
     return { ok: false as const, message: "Every recipient must be a valid email address." };
-  }
-  const disallowed = normalized.find((value) => !readiness.allowedRecipientDomains.includes(emailDomain(value)));
-  if (disallowed) {
-    return { ok: false as const, message: `Recipients must use an approved organization domain. ${emailDomain(disallowed)} is not approved.` };
   }
   return { ok: true as const, recipients: normalized };
 }
@@ -391,16 +381,8 @@ async function graphAccessToken() {
   return payload.access_token;
 }
 
-function parseAllowedDomains(value: string | undefined) {
-  return [...new Set((value ?? "").split(",").map((domain) => domain.trim().toLowerCase()).filter((domain) => /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)))];
-}
-
 function isEmail(value: string) {
   return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function emailDomain(value: string) {
-  return value.slice(value.lastIndexOf("@") + 1).toLowerCase();
 }
 
 async function handleFailedDraft(messagePath: string, accessToken: string, sending: boolean, error: unknown): Promise<never> {

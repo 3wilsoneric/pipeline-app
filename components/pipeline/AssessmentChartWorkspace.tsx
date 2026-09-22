@@ -34,7 +34,6 @@ type ChartPayload = {
     sender: string;
     preview: { subject: string; html: string; text?: string } | null;
     prepared_by?: string;
-    allowed_recipient_domains: string[];
     eligible: boolean;
     can_send: boolean;
     can_edit_recipients: boolean;
@@ -543,10 +542,22 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
     {emailDraft && !preparedDraft ? <HandoffDraftStatus value={emailDraft} /> : null}
     {sent || email.example_only ? renderCompletion() : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
       {!preparedDraft ? <button type="button" className={styles.textButton} disabled={sending} onClick={onBack}>Back to recipients</button> : null}
-      <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, emailDraft, confirmed, sending)} sending={sending}
+      <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, emailDraft, confirmed, sending)} readinessReasons={handoffReadinessReasons(email, emailDraft, confirmed, sending)} sending={sending}
         onPrepare={onPrepareOutlook} onSent={onOutlookSent} onExistingDraft={onExistingDraft} />
     </footer>}
   </div>;
+}
+
+function handoffReadinessReasons(email: ChartPayload["email"], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean): string[] {
+  if (sending) return ["Preparing your Outlook draft. Please wait."];
+  const reasons = [...email.blockers];
+  if (!email.can_send) reasons.push("This workspace cannot prepare an Outlook draft with your current access. Ask an administrator to check your access.");
+  if (!draft || draft.loading) reasons.push("Loading the saved recipients and message. Please wait.");
+  else if (draft.error) reasons.push(draft.error);
+  else if (draft.hasPendingRecipients) reasons.push("Go back to recipients and press Enter or + to add the unfinished address.");
+  else if (!draft.fields.to.length) reasons.push("Go back to recipients and add at least one authorized recipient to the To list.");
+  else if (!confirmed) reasons.push("Go back to recipients and confirm that each person is authorized to receive this client's information.");
+  return reasons;
 }
 
 function canSendHandoff(email: ChartPayload["email"], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean) {

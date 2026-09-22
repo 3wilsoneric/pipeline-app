@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, LoaderCircle, Mail } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { acquireOutlookToken } from "@/lib/auth/outlook-client";
+import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { checkWithOutlookToken } from "@/lib/auth/outlook-client";
 import HomeDialog from "./HomeDialog";
 import OutlookConnectionNotice from "./OutlookConnectionNotice";
 import styles from "./OutlookHandoffControls.module.css";
@@ -20,9 +20,8 @@ function connectionEnabled(setup: Setup) { return !setup.demo && setup.can_conne
 async function verifyConnection(token: string) {
   return fetchPipelineJson<{ mailbox: string }>(endpoint, { method: "POST", headers: { "x-pipeline-outlook-token": token } });
 }
-async function restoreConnection(setup: Setup) {
-  const token = await acquireOutlookToken(setup.outlook_client_id, false, setup.account_email);
-  return token ? verifyConnection(token).catch(() => null) : null;
+async function restoreConnection(setup: Setup, interactive = false) {
+  return checkWithOutlookToken(setup.outlook_client_id, setup.account_email, verifyConnection, interactive);
 }
 function shouldPrompt(mode: string, setup: Setup, restored: unknown) {
   return mode === "prompt" && !restored && !deferred(setup) && !document.querySelector("dialog[open]");
@@ -35,6 +34,7 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [checkFailed, setCheckFailed] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
   const pending = useRef(false);
@@ -42,6 +42,7 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
   const load = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
     setError("");
+    setCheckFailed(false);
     try {
       const next = await fetchPipelineJson<Setup>(endpoint, { cache: "no-store", signal });
       if (signal.aborted) return;
@@ -52,7 +53,11 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
       setMailbox(restored?.mailbox ?? "");
       setPromptOpen(shouldPrompt(mode, next, restored));
     } catch (failure) {
-      if (!signal.aborted) setError(failure instanceof Error ? failure.message : "Outlook connection could not be checked.");
+      if (!signal.aborted) {
+        setPromptOpen(false);
+        setCheckFailed(!(failure instanceof PipelineApiError && [403, 428].includes(failure.status)));
+        setError(failure instanceof Error ? failure.message : "Outlook connection could not be checked.");
+      }
     } finally {
       if (!signal.aborted) setLoading(false);
     }
@@ -62,7 +67,8 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
     void load(controller.signal);
     const refresh = () => { controller.abort(); controller = new AbortController(); void load(controller.signal); };
     window.addEventListener(changedEvent, refresh);
-    return () => { controller.abort(); window.removeEventListener(changedEvent, refresh); };
+    window.addEventListener("online", refresh);
+    return () => { controller.abort(); window.removeEventListener(changedEvent, refresh); window.removeEventListener("online", refresh); };
   }, [load]);
 
   const dismiss = () => {
@@ -75,9 +81,8 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
     if (!setup || setup.demo || !setup.can_connect || pending.current) return;
     pending.current = true; setBusy(true); setError("");
     try {
-      const token = await acquireOutlookToken(setup.outlook_client_id, true, setup.account_email);
-      if (!token) throw new Error("Outlook did not complete the connection. Try again.");
-      const result = await verifyConnection(token);
+      const result = await restoreConnection(setup, true);
+      if (!result) throw new Error("Outlook did not complete the connection. Try again.");
       setMailbox(result.mailbox);
       setJustConnected(true);
       // The active prompt keeps its confirmation; other mounted connection views refresh.
@@ -87,7 +92,7 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
     } finally { pending.current = false; setBusy(false); }
   };
   if (setup && !setup.can_connect) return null;
-  const content = <OutlookConnectionCard setup={setup} mailbox={mailbox} mode={mode} busy={busy} loading={loading} error={error} justConnected={justConnected}
+  const content = <OutlookConnectionCard setup={setup} mailbox={mailbox} mode={mode} busy={busy} loading={loading} error={error} checkFailed={checkFailed} justConnected={justConnected}
     onConnect={() => void connect()} onDismiss={dismiss} />;
   if (mode === "settings") return content;
   if (!promptOpen || loading || setup?.demo || pathname.endsWith("/settings")) return null;
@@ -95,7 +100,7 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
 }
 
 type ConnectionView = {
-  setup: Setup | null; mailbox: string; mode: "prompt" | "settings"; busy: boolean; loading: boolean; error: string; justConnected: boolean;
+  setup: Setup | null; mailbox: string; mode: "prompt" | "settings"; busy: boolean; loading: boolean; error: string; checkFailed: boolean; justConnected: boolean;
   onConnect: () => void; onDismiss: () => void;
 };
 
@@ -105,17 +110,16 @@ function OutlookConnectionCard(props: ConnectionView) {
     <OutlookConnectionHeading {...props} />
     {connectionDescription(setup, mailbox)}
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-    {error && !setup ? <button type="button" className={styles.secondary} disabled={loading} onClick={() => window.dispatchEvent(new Event(changedEvent))}>Retry connection check</button> : null}
     {!loading && setup && !setup.demo && !setup.outlook_client_id ? <p role="status" className={styles.hint}>Outlook setup is pending.</p> : null}
     <OutlookConnectionActions {...props} />
     <OutlookConnectionDetails {...props} />
   </section>;
 }
 
-function OutlookConnectionHeading({ mailbox, setup }: ConnectionView) {
+function OutlookConnectionHeading({ mailbox, setup, loading, error }: ConnectionView) {
   return <div className={styles.heading}><span className={styles.icon}><Mail size={22} aria-hidden="true" /></span>
     <div><h3>{mailbox ? "Outlook is connected" : "Your Outlook email"}</h3><p>{mailbox || setup?.account_email}</p></div>
-    <span className={styles.badge}>{setup?.demo ? "Not production yet" : mailbox ? <><Check size={13} aria-hidden="true" /> Connected</> : "Not connected"}</span>
+    <span className={styles.badge}>{setup?.demo ? "Not production yet" : loading ? "Checking connection…" : error ? "Check unavailable" : mailbox ? <><Check size={13} aria-hidden="true" /> Connected</> : "Not connected"}</span>
   </div>;
 }
 
@@ -133,6 +137,7 @@ function ConnectOutlookButton({ setup, busy, loading, onConnect }: ConnectionVie
 
 function OutlookConnectionActions(props: ConnectionView) {
   const { mode, justConnected, mailbox, busy, onDismiss } = props;
+  if (props.checkFailed) return <div className={styles.actions}><button type="button" className={styles.primary} disabled={busy || props.loading} onClick={() => window.dispatchEvent(new Event(changedEvent))}>Retry connection check</button></div>;
   if (mode === "settings" && mailbox) return null;
   return <div className={styles.actions}>
     {mode === "prompt" && justConnected ? <button type="button" className={styles.primary} onClick={onDismiss}>Continue to Pipeline</button>

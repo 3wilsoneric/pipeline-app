@@ -15,7 +15,7 @@ export function getOutlookClientId() {
 }
 export function getOutlookMailReadiness() {
   const readiness = getGraphMailReadiness();
-  const missing = [!getOutlookClientId() && "PIPELINE_OUTLOOK_CLIENT_ID", !isMeetClientLive() && "Owner activation required", !readiness.allowedRecipientDomains.length && "PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS"].filter(Boolean) as string[];
+  const missing = [!getOutlookClientId() && "PIPELINE_OUTLOOK_CLIENT_ID", !isMeetClientLive() && "Owner activation required"].filter(Boolean) as string[];
   return { ...readiness, configured: missing.length === 0, missing, sender: "", largeAttachmentDeliveryConfigured: true };
 }
 export type OutlookMessage = {

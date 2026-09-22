@@ -1,6 +1,7 @@
 import { openRecipients, confirmRecipients } from "./support/handoff-review";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { mockOutlookSignInError } from "./support/outlook-auth";
 import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
@@ -199,13 +200,13 @@ test("reviewed handoffs require Outlook connection and never offer app-side send
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
     const response = await route.fetch();
     const payload = await response.json();
-    payload.email = { ...payload.email, example_only: false, configured: true, eligible: true, can_send: true, ready: true, blockers: [], allowed_recipient_domains: ["example.invalid"] };
+    payload.email = { ...payload.email, example_only: false, configured: true, eligible: true, can_send: true, ready: true, blockers: [] };
     await route.fulfill({ response, json: payload });
   });
   await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: {
     draft: null, occupied: false, demo: false, outlook_client_id: "00000000-0000-4000-8000-000000000001", account_email: "assessor@example.invalid",
   } }));
-  await page.route("https://login.microsoftonline.com/**", route => route.abort());
+  await mockOutlookSignInError(page);
   let writes = 0;
   page.on("request", request => { if (request.method() === "POST" && /\/(outlook-draft|meet-client-email)$/.test(new URL(request.url()).pathname)) writes++; });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
