@@ -49,7 +49,9 @@ export async function POST(
     const { referralId, user } = access;
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;
-    const outlook = new URL(request.url).searchParams.get("delivery") === "outlook";
+    const delivery = new URL(request.url).searchParams.get("delivery");
+    if (![null, "", "outlook"].includes(delivery)) return jsonError("Choose Save to Outlook Drafts to prepare this handoff.", 400);
+    const outlook = delivery === "outlook";
     const activeDraft = await findWorkspaceOutlookDraft(referralId);
     if (activeDraft?.outlook && !["sent", "discarded"].includes(activeDraft.outlook.status)) return jsonError("This workspace already has an Outlook draft. Reopen or remove it before preparing another handoff.", 409);
     let mailbox: Awaited<ReturnType<typeof connectedOutlookMailbox>> | undefined;

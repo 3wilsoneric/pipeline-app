@@ -22,6 +22,8 @@ param backupStorageAccountName string = storageAccountName
 param backupStorageContainer string = 'artifacts'
 param entraTenantId string
 param pipelineEntraClientId string
+@description('Separate public Outlook Drafts client; configuring it does not enable live draft creation.')
+param outlookClientId string = ''
 @description('Existing custom hostname bindings that must survive immutable runtime revisions.')
 param customDomains array = []
 param databricksHost string = ''
@@ -47,6 +49,10 @@ param alamoApiScope string = ''
 
 @description('Enable Microsoft 365 Meet the Client delivery after Graph application permissions and the Key Vault client secret are configured.')
 param enableMeetClientMail bool = false
+
+@secure()
+@description('Existing mail configuration and credential bindings, captured by deployment. Preserves the dedicated mail tenant and live-send hold across releases.')
+param preservedMail object = { environment: [], secrets: [] }
 param graphMailClientId string = ''
 param meetClientSender string = ''
 param meetClientAllowedEmailDomains string = ''
@@ -160,7 +166,7 @@ var clinicalSecrets = clinicalDataMode == 'alamo_api' ? [
   }
 ] : []
 
-var graphMailSecrets = enableMeetClientMail ? [
+var graphMailSecrets = !empty(preservedMail.secrets) ? preservedMail.secrets : enableMeetClientMail ? [
   {
     name: 'graph-mail-client-secret'
     keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-graph-mail-client-secret'
@@ -189,6 +195,7 @@ var baseEnvironment = [
   { name: 'PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE', value: 'false' }
   { name: 'PIPELINE_AUTH_MODE', value: 'entra_jwt' }
   { name: 'PIPELINE_ENTRA_TENANT_ID', value: entraTenantId }
+  { name: 'PIPELINE_OUTLOOK_CLIENT_ID', value: outlookClientId }
   { name: 'PIPELINE_ENTRA_API_AUDIENCE', value: pipelineApiAudience }
   { name: 'PIPELINE_ENTRA_API_SCOPE', value: 'access_as_user' }
   { name: 'NEXT_PUBLIC_ENTRA_TENANT_ID', value: entraTenantId }
@@ -245,7 +252,7 @@ var clinicalEnvironment = clinicalDataMode == 'alamo_api' ? [
   { name: 'PIPELINE_ALAMO_API_SCOPE', value: alamoApiScope }
 ] : []
 
-var graphMailEnvironment = enableMeetClientMail ? [
+var graphMailEnvironment = !empty(preservedMail.environment) ? preservedMail.environment : enableMeetClientMail ? [
   { name: 'PIPELINE_GRAPH_TENANT_ID', value: entraTenantId }
   { name: 'PIPELINE_GRAPH_CLIENT_ID', value: graphMailClientId }
   { name: 'PIPELINE_GRAPH_CLIENT_SECRET', secretRef: 'graph-mail-client-secret' }

@@ -84,7 +84,7 @@ export async function GET(
           preview: report ? renderMeetClientEmail(
             report.meetClient, auth.user.name, "Preview — assigned when sent",
             admissionPacket.files.map((file) => file.name),
-            undefined, { demo: exampleOnly, packetLinkPreview: admissionPacket.deliveryMode === "secure_link" },
+            undefined, { demo: exampleOnly, packetLinkPreview: true },
           ) : null,
           allowed_recipient_domains: mail.allowedRecipientDomains,
           eligible: snapshot.decision?.outcome === "accepted",

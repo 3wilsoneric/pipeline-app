@@ -5,9 +5,9 @@ import { readJsonBody } from "@/lib/extraction/contracts";
 import { packetPrivateHeaders } from "@/lib/notifications/admission-packet-files";
 import { PacketAccessError } from "@/lib/notifications/admission-packet-store";
 import { checkOutlookHandoff, discardOutlookHandoff, workspaceOutlookState } from "@/lib/notifications/outlook-handoff";
-import { connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
+import { connectedOutlookMailbox, getOutlookClientId, OutlookMailError } from "@/lib/notifications/outlook-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireReferralAccess, requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ referralId: string }> };
@@ -16,8 +16,9 @@ export async function GET(request: Request, context: Context) {
   return withApiLogging(request, "/api/referrals/[referralId]/outlook-draft", async () => {
     const access = await authorize(request, context);
     if (!access.ok) return access.response;
-    if (!isMeetClientLive()) return json({ draft: null, occupied: false, demo: true });
-    try { return json(await workspaceOutlookState(access.referralId, access.user.id)); }
+    const connection = { outlook_client_id: getOutlookClientId(), account_email: access.user.email };
+    if (!isMeetClientLive()) return json({ draft: null, occupied: false, demo: true, ...connection });
+    try { return json({ ...await workspaceOutlookState(access.referralId, access.user.delegation ? "" : access.user.id), ...connection }); }
     catch (error) { return failure(error); }
   });
 }
@@ -31,6 +32,8 @@ export async function POST(request: Request, context: Context) {
     const body = await readJsonBody(request, 2048);
     if (!body.ok) return json({ error: body.message }, body.status);
     try {
+      const mutable = await requireMutableReferralAccess(access.user, access.referralId);
+      if (!mutable.ok) return mutable.response;
       const mailbox = await connectedOutlookMailbox(request, access.user);
       return await handleAction(body.value, access.referralId, mailbox, request.url);
     } catch (error) { return failure(error); }

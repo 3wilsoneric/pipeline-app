@@ -8,6 +8,8 @@ export type OutlookDraftView = {
   assessment_version: number;
   file_count: number;
   message?: string;
+  to_recipients?: string[];
+  cc_recipients?: string[];
 };
 
 export function safeOutlookWebLink(value: unknown): string | undefined {
@@ -15,7 +17,7 @@ export function safeOutlookWebLink(value: unknown): string | undefined {
   try {
     const url = new URL(value);
     if (url.protocol !== "https:" || url.username || url.password) return undefined;
-    if (!["outlook.office.com", "outlook.office365.com"].includes(url.hostname)) return undefined;
+    if (!["outlook.office.com", "outlook.office365.com", "outlook.live.com"].includes(url.hostname)) return undefined;
     return url.toString();
   } catch { return undefined; }
 }

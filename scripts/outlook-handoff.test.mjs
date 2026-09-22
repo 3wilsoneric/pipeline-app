@@ -50,6 +50,43 @@ test("Outlook connection enforces the same account and rejects delegated session
   assert.equal(calls, 2);
 });
 
+test("home tenant and personal mailboxes bind to authenticated Pipeline email, never a chosen contact", async () => {
+  const request = new Request("https://pipeline.invalid", { headers: { "x-pipeline-outlook-token": "synthetic-token" } });
+  for (const email of ["staff@example.invalid", "synthetic-person@outlook.com"]) {
+    const graph = graphFixture(async () => Response.json({ id: "home-id", mail: email }));
+    const connected = await graph.connectedOutlookMailbox(request, { id: "guest-id", email: email.toUpperCase() });
+    assert.equal(connected.id, "guest-id"); assert.equal(connected.graphId, "home-id"); assert.equal(connected.email, email);
+    await assert.rejects(graph.connectedOutlookMailbox(request, { id: "guest-id", email: "different@example.invalid" }), { status: 403 });
+  }
+  const guest = graphFixture(async () => Response.json({ id: "guest-id", userPrincipalName: "staff_example.invalid#EXT#@tenant.onmicrosoft.com" }));
+  await assert.rejects(guest.connectedOutlookMailbox(request, { id: "guest-id", email: "staff@example.invalid" }), { status: 403 });
+});
+
+test("Outlook OAuth uses its own public client and callback without acquiring send permission", async () => {
+  let configuration, active, popupCalls = 0, silentCalls = 0;
+  const client = load("lib/auth/outlook-client.ts", {
+    "@azure/msal-browser": { BrowserCacheLocation: { SessionStorage: "sessionStorage" }, PublicClientApplication: class {
+      constructor(config) { configuration = config; }
+      async initialize() {}
+      getActiveAccount() { return active; }
+      setActiveAccount(account) { active = account; }
+      async acquireTokenPopup(request) { popupCalls++; assert.equal(request.prompt, "select_account"); assert.deepEqual(Array.from(request.scopes), ["https://graph.microsoft.com/Mail.ReadWrite", "https://graph.microsoft.com/User.Read"]); return { account: { homeAccountId: "personal" }, accessToken: "synthetic-token" }; }
+      async acquireTokenSilent(request) { silentCalls++; assert.equal(request.account, active); return { accessToken: "synthetic-token" }; }
+    } },
+    "@/lib/pipeline/base-path": { toPipelinePath: path => `/pipeline${path}` },
+  }, { window: { location: { origin: "https://pipeline.invalid" } } });
+  assert.equal(await client.acquireOutlookToken(undefined), null);
+  await assert.rejects(client.acquireOutlookToken(undefined, true), /not set up/);
+  const id = "00000000-0000-4000-8000-000000000001";
+  assert.equal(await client.acquireOutlookToken(id), null);
+  assert.equal(await client.acquireOutlookToken(id, true), "synthetic-token");
+  assert.equal(configuration.auth.authority, "https://login.microsoftonline.com/common");
+  assert.equal(configuration.auth.redirectUri, "https://pipeline.invalid/pipeline/outlook-auth.html");
+  assert.equal(configuration.cache.cacheLocation, "sessionStorage");
+  assert.equal(await client.acquireOutlookToken(id), "synthetic-token");
+  assert.equal(popupCalls, 1); assert.equal(silentCalls, 1);
+});
+
 test("draft creation uses delegated Drafts and immutable correlation, never the send endpoint", async () => {
   const requests = [];
   const graph = graphFixture(async (url, init) => { requests.push({ url, init }); return Response.json({ id: "draft", isDraft: true }); });
@@ -59,8 +96,8 @@ test("draft creation uses delegated Drafts and immutable correlation, never the 
   assert.match(requests[0].init.headers.Prefer, /ImmutableId/);
   assert.equal(JSON.parse(requests[0].init.body).singleValueExtendedProperties[0].value, "packet");
   assert.equal(requests.length, 1);
-  for (const link of ["https://outlook.office.com/mail/draft/1", "https://outlook.office365.com/mail/1"]) assert.equal(contract.safeOutlookWebLink(link), link);
-  for (const link of ["javascript:alert(1)", "https://outlook.office.com.evil.invalid", "https://staff@outlook.office.com", "http://outlook.office.com"]) assert.equal(contract.safeOutlookWebLink(link), undefined);
+  for (const link of ["https://outlook.office.com/mail/draft/1", "https://outlook.office365.com/mail/1", "https://outlook.live.com/mail/0/drafts/id/1"]) assert.equal(contract.safeOutlookWebLink(link), link);
+  for (const link of ["javascript:alert(1)", "https://outlook.office.com.evil.invalid", "https://outlook.live.com.evil.invalid", "https://staff@outlook.office.com", "http://outlook.office.com"]) assert.equal(contract.safeOutlookWebLink(link), undefined);
 });
 
 test("missing immutable id recovers the existing message by private correlation without creating another", async () => {
@@ -121,6 +158,20 @@ test("preparation and reload keep one draft; only confirmed sending finalizes th
   assert.equal((await f.check()).status, "sent"); assert.equal(f.finalized, 1); assert.equal(f.creations, 1);
 });
 
+test("draft recovery pins the exact home mailbox and preserves the reviewed To and Cc", async () => {
+  const f = handoffFixture(); f.mailbox.graphId = "home-mailbox";
+  const view = await f.prepare();
+  assert.equal(f.packet.outlook.mailboxId, "home-mailbox");
+  assert.deepEqual(Array.from(view.to_recipients), ["r@example.invalid"]);
+  assert.deepEqual(Array.from(view.cc_recipients), []);
+  await assert.rejects(f.owner.checkOutlookHandoff("packet", 1, { ...f.mailbox, graphId: "other-mailbox" }, ""), { status: 403 });
+  await assert.rejects(f.owner.discardOutlookHandoff("packet", 1, { ...f.mailbox, graphId: "other-mailbox" }, ""), { status: 403 });
+  assert.equal(f.deleted, 0); assert.equal(f.finalized, 0);
+  assert.equal((await f.check()).status, "draft");
+  const legacy = handoffFixture(); await legacy.prepare(); delete legacy.packet.outlook.mailboxId;
+  assert.equal((await legacy.check()).status, "draft");
+});
+
 test("ambiguous creation recovers one existing draft; definite rejection releases safely", async () => {
   const unknown = handoffFixture(); unknown.fail(new Error("Transport lost"));
   await assert.rejects(unknown.prepare()); assert.equal(unknown.packet.outlook.status, "unconfirmed"); assert.equal(unknown.audits.length, 0);
@@ -147,17 +198,17 @@ test("explicit removal revokes before deleting; a missing draft permits recovery
 });
 
 test("Outlook API enforces authentication, workspace access, origin, explicit removal and nonproduction hold", async () => {
-  let authenticated = false, allowed = false, live = true, connectionCalls = 0, checks = 0, removals = 0;
+  let authenticated = false, allowed = false, mutable = false, live = true, connectionCalls = 0, checks = 0, removals = 0;
   const route = load("app/api/referrals/[referralId]/outlook-draft/route.ts", {
-    "@/lib/auth/pipeline-auth": { requirePipelineUser: async () => authenticated ? { ok: true, user: { id: "staff" } } : { ok: false, response: new Response(null, { status: 401 }) } },
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: async () => authenticated ? { ok: true, user: { id: "staff", roles: [] } } : { ok: false, response: new Response(null, { status: 401 }) } },
     "@/lib/auth/request-security": load("lib/auth/request-security.ts"),
-    "@/lib/pipeline/referral-access": { requireReferralAccess: async () => allowed ? { ok: true } : { ok: false, response: new Response(null, { status: 404 }) } },
+    "@/lib/pipeline/referral-access": { requireMutableReferralAccess: async () => mutable ? { ok: true } : { ok: false, response: new Response(null, { status: 403 }) }, requireReferralAccess: async () => allowed ? { ok: true } : { ok: false, response: new Response(null, { status: 404 }) } },
     "@/lib/extraction/contracts": { readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
     "@/lib/notifications/microsoft-graph-mail": { isMeetClientLive: () => live },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _name, handler) => handler() },
     "@/lib/notifications/admission-packet-files": { packetPrivateHeaders: { "Cache-Control": "private, no-store" } },
     "@/lib/notifications/admission-packet-store": { PacketAccessError },
-    "@/lib/notifications/outlook-mail": { OutlookMailError: class extends Error {}, connectedOutlookMailbox: async () => { connectionCalls++; return { id: "staff", email: "staff@example.invalid", token: "synthetic" }; } },
+    "@/lib/notifications/outlook-mail": { OutlookMailError: class extends Error {}, getOutlookClientId: () => "configured-client", connectedOutlookMailbox: async () => { connectionCalls++; return { id: "staff", email: "staff@example.invalid", token: "synthetic" }; } },
     "@/lib/notifications/outlook-handoff": { workspaceOutlookState: async () => ({ draft: null, occupied: false }),
       checkOutlookHandoff: async () => { checks++; return { status: "draft" }; }, discardOutlookHandoff: async () => { removals++; return { status: "discarded" }; } },
   });
@@ -167,10 +218,18 @@ test("Outlook API enforces authentication, workspace access, origin, explicit re
   assert.equal((await post()).status, 401); authenticated = true; assert.equal((await post()).status, 404); allowed = true;
   assert.equal((await post(undefined, "https://other.invalid")).status, 403); assert.equal(connectionCalls, 0);
   live = false;
-  assert.equal((await route.GET(new Request(url), context)).status, 200);
+  const preview = await route.GET(new Request(url), context);
+  assert.equal(preview.status, 200);
+  assert.equal((await preview.json()).outlook_client_id, "configured-client");
   const blocked = await post(); assert.equal(blocked.status, 403); assert.match(await blocked.text(), /Not production yet/); assert.equal(connectionCalls, 0);
-  live = true; const connected = await (await post()).json(); assert.equal(connected.mailbox, "staff@example.invalid"); assert.equal(JSON.stringify(connected).includes("synthetic"), false);
+  live = true;
+  assert.equal((await (await route.GET(new Request(url), context)).json()).outlook_client_id, "configured-client");
+  assert.equal((await post()).status, 403); assert.equal(connectionCalls, 0);
+  assert.equal((await post({ action: "check", packet_id: "packet" })).status, 403); assert.equal(checks, 0);
+  assert.equal((await post({ action: "discard", packet_id: "packet", confirmed: true })).status, 403); assert.equal(removals, 0);
+  mutable = true; const connected = await (await post()).json(); assert.equal(connected.mailbox, "staff@example.invalid"); assert.equal(JSON.stringify(connected).includes("synthetic"), false);
   assert.equal((await post({ action: "discard", packet_id: "packet", confirmed: "true" })).status, 400); assert.equal(removals, 0);
   assert.equal((await post({ action: "check", packet_id: "packet" })).status, 200); assert.equal(checks, 1);
   assert.equal((await post({ action: "discard", packet_id: "packet", confirmed: true })).status, 200); assert.equal(removals, 1);
+
 });

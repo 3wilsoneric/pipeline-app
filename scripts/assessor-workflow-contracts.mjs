@@ -591,12 +591,19 @@ check("the Chart and email surfaces retain the signed record and sandboxed hando
     && graphMail.includes("const packetFiles = input.packetFiles ?? input.attachments;")
     && !assessmentChartWorkspace.includes("DecisionPanel")
     && !assessmentChartWorkspace.includes("overrideReason"));
-check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')
+const outlookDraftControls = read("components/pipeline/OutlookHandoffControls.tsx");
+check("staff reviews the exact packet and verified recipients before saving the Outlook draft", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')
   && assessmentChartWorkspace.includes("email.admission_packet.files.map")
-  && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the attached files.")
-  && assessmentChartWorkspace.includes('disabled={!canSendHandoff(email, emailDraft, confirmed, sending)}')
+  && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the packet files.")
+  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, emailDraft, confirmed, sending)}')
   && assessmentChartWorkspace.includes('return !sending && email.ready && confirmed && Boolean(draft?.fields.to.length) && handoffDraftReady(draft)')
-  && assessmentChartWorkspace.includes("Send email & packet"));
+  && outlookDraftControls.includes('const preparationDisabled = disabled || !ready || isDemo || state.occupied')
+  && outlookDraftControls.includes('disabled={preparationDisabled}')
+  && outlookDraftControls.includes("Save to Outlook Drafts"));
+check("Outlook sending and sent-status reconciliation remain separate from preparation", outlookDraftControls.includes('Check sent status')
+  && outlookDraftControls.includes('await action("check", await requireToken())')
+  && outlookDraftControls.includes('draft.status === "sent"')
+  && outlookDraftControls.includes('Pipeline does not request permission to send from your mailbox.'));
 check("the complete chart is generated only from a signed assessment", admissionSummaryRoute.includes("selectSignedAssessment") && read("lib/assessment/assessment-summary.ts").includes("return assessment?.signed_at ? assessment : null"));
 check("approved teammates can move a referral to trash", referralRoute.includes("requirePipelineUser(request)") && referralRoute.includes("requireMutableReferralAccess"));
 check("approved teammates can authorize intake without an initial packet", manualIntakeRoute.includes("requirePipelineUser(request)") && manualIntakeRoute.includes("requireMutableReferralAccess"));

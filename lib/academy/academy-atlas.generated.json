@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ee17a264cb31e463",
-  "fingerprint": "ee17a264cb31e463ce2bc5b3e9dd8d963e1750ea2cdb275f3d90c5b5706111af",
+  "generatedAt": "source-fingerprint:c7c4d47379d1d472",
+  "fingerprint": "c7c4d47379d1d472f21ae4eda7685e3df9fb37ae6a439e86ce8cea28b7413d25",
   "totals": {
-    "files": 1362,
-    "lines": 361252,
-    "coveredFiles": 1362
+    "files": 1365,
+    "lines": 361494,
+    "coveredFiles": 1365
   },
   "entries": [
     {
@@ -1436,7 +1436,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 448,
+      "lines": 450,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1462,7 +1462,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 62,
+      "lines": 65,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -2090,7 +2090,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 535,
+      "lines": 540,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2690,7 +2690,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 143,
+      "lines": 146,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5559,7 +5559,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 30,
+      "lines": 42,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8204,7 +8204,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 31,
+      "lines": 49,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -8923,7 +8923,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 149,
+      "lines": 151,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -9007,7 +9007,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 22,
+      "lines": 24,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -9019,7 +9019,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 169,
+      "lines": 177,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9031,7 +9031,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 87,
+      "lines": 103,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10950,6 +10950,18 @@
       ]
     },
     {
+      "path": "public/outlook-auth.html",
+      "subsystem": "Static runtime",
+      "kind": "repository-file",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 4,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "public/pwa/pipeline-app-icon-1024-v10.png",
       "subsystem": "Static runtime",
       "kind": "asset",
@@ -11843,7 +11855,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 674,
+      "lines": 681,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13295,7 +13307,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 304,
+      "lines": 333,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13403,7 +13415,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 177,
+      "lines": 236,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13707,6 +13719,30 @@
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/preserve-deployment-mail.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 44,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
+      "path": "scripts/preserve-deployment-mail.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 31,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
       ]
     },
     {
@@ -15216,7 +15252,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 537,
+      "lines": 534,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

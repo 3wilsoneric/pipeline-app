@@ -185,8 +185,8 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
-    "@/lib/notifications/outlook-mail": {},
-    "@/lib/notifications/outlook-handoff": {},
+    "@/lib/notifications/outlook-mail": { connectedOutlookMailbox: async () => ({ id: "synthetic-coordinator", graphId: "synthetic-home-mailbox", email: "coordinator@example.invalid", token: "synthetic-token" }) },
+    "@/lib/notifications/outlook-handoff": { prepareOutlookHandoff: async input => { messages.push(input); return { status: "draft", mailbox: input.mailbox.email }; } },
     "@/lib/notifications/admission-packet-files": { prepareAdmissionPacketLink: async (input) => { assert.equal(input.inventory.files.length, 2); return "https://pipeline.invalid/admission-packet/synthetic"; } },
     "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {}, findWorkspaceOutlookDraft: async () => null },
     "@/lib/notifications/meet-client-email-template": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-email-template.ts"),
@@ -259,7 +259,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   });
   return {
     auditStates, metrics, audits, messages, packetReports, providerCalls: () => calls, reservationCalls: () => reservations,
-    send: (referralId = "6", body = {}) => exports.POST(new Request("http://localhost/api/referrals/6/meet-client-email", {
+    send: (referralId = "6", body = {}, delivery = "") => exports.POST(new Request(`http://localhost/api/referrals/6/meet-client-email${delivery ? `?delivery=${delivery}` : ""}`, {
       method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", packet_revision: "1".repeat(64), ...body }),
     }), { params: Promise.resolve({ referralId }) }),
   };
@@ -299,5 +299,34 @@ test("unconfirmed recipients never reserve or send, including truthy non-boolean
     assert.equal((await fixture.send("6", { confirmed })).status, 400);
     assert.equal(fixture.reservationCalls(), 0);
     assert.equal(fixture.providerCalls(), 0);
+  }
+});
+
+test("the Outlook route prepares the reviewed draft without invoking automatic mail delivery", async () => {
+  const fixture = deliveryFixture();
+  const response = await fixture.send("6", { cc_recipients: ["copy@example.invalid"] }, "outlook");
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).draft.status, "draft");
+  assert.equal(fixture.providerCalls(), 0);
+  assert.equal(fixture.messages.length, 1);
+  assert.deepEqual(Array.from(fixture.messages[0].recipients), ["synthetic@example.invalid"]);
+  assert.deepEqual(Array.from(fixture.messages[0].ccRecipients), ["copy@example.invalid"]);
+  assert.equal(fixture.messages[0].audit.assessmentVersion, 7);
+  assert.equal(fixture.messages[0].audit.provider, "outlook_draft");
+  assert.equal(fixture.messages[0].inventory.files.length, 2);
+  assert.deepEqual(fixture.auditStates, []);
+  assert.equal((await fixture.send("6", {}, "outlook")).status, 409);
+  for (const options of [{ previewAssessmentVersion: 6 }, { previewVersion: 3 }]) {
+    const stale = deliveryFixture(options);
+    assert.equal((await stale.send("6", {}, "outlook")).status, 409);
+    assert.equal(stale.messages.length, 0); assert.equal(stale.reservationCalls(), 0);
+  }
+});
+
+test("unsupported draft transports cannot fall back to sending mail", async () => {
+  for (const delivery of ["email_draft", "unknown"]) {
+    const fixture = deliveryFixture();
+    assert.equal((await fixture.send("6", {}, delivery)).status, 400);
+    assert.equal(fixture.providerCalls(), 0); assert.equal(fixture.reservationCalls(), 0);
   }
 });

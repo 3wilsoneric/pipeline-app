@@ -23,9 +23,11 @@ export type AdmissionPacket = {
   files: PacketFile[]; recipients: PacketRecipient[];
   message: { subject: string; body: string };
   outlook?: {
-    ownerId: string; mailbox: string; status: OutlookDraftState; audit: DeliveryAudit;
+    ownerId: string; mailboxId?: string; mailbox: string; status: OutlookDraftState; audit: DeliveryAudit;
     referralVersion: number; packetRevision: string; messageId?: string; webLink?: string;
     note?: string;
+    toRecipients?: string[];
+    ccRecipients?: string[];
   };
   events: { action: string; at: string; recipient?: string; file?: string; actorId?: string; actorName?: string }[];
 };
