@@ -77,7 +77,7 @@ export default function ReferralFilePreviewDialog({ file, onClose }: { file: Ref
   const showPagination = Boolean(metadata && (pageIndex > 0 || metadata.next_page_after !== undefined));
   const originalUrl = originalFileUrl(file, metadata);
   return createPortal(
-    <dialog ref={dialog} onCancel={(event) => { event.preventDefault(); onClose(); }} className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 bg-transparent p-0 open:flex items-stretch justify-end backdrop:bg-black/25" aria-label={`Preview ${file.name}`}>
+    <dialog ref={dialog} onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }} onCancel={(event) => { event.preventDefault(); onClose(); }} className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 bg-transparent p-0 open:flex items-stretch justify-end backdrop:bg-black/25" aria-label={`Preview ${file.name}`}>
       <button type="button" tabIndex={-1} aria-label="Close file preview" onClick={onClose} className="absolute inset-0 cursor-default" />
       <section className="relative flex h-full w-full max-w-[920px] flex-col bg-white shadow-2xl">
         <header className="flex min-h-20 flex-wrap items-center gap-3 border-b border-[#d9d9d9] px-4 py-3 sm:px-5">

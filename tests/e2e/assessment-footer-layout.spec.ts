@@ -2,6 +2,9 @@ import { expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
 import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 
+// Chunk fault injection must reach the network instead of the offline cache.
+test.use({ serviceWorkers: "block" });
+
 for (const width of [1440, 1024, 834, 640, 390, 320]) {
   test(`assessment footer keeps navigation separate from details at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
@@ -119,7 +122,9 @@ test("loading the decision cannot move assessment navigation during a press", as
     // Interviewing never loads the decision panel; the recommendation waits for review.
     await expect(page.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
     expect(decisionChunkPending).toBe(false);
-    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review&assessmentSection=diagnosis_clinical`);
+    // Use the real exit/save path while the answer is dirty, not a forced document unload.
+    await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+    await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
     await expect.poll(() => decisionChunkPending).toBe(true);
     const backToQuestions = page.getByRole("button", { name: "Back to questions", exact: true });
     await backToQuestions.click({ trial: true });
@@ -130,8 +135,9 @@ test("loading the decision cannot move assessment navigation during a press", as
     await expect(page.getByRole("combobox", { name: "Working decision", exact: true })).toBeVisible();
     const after = (await backToQuestions.boundingBox())!;
     expect(Math.abs(before.y - after.y)).toBeLessThanOrEqual(1);
+    // Releasing the held press performs the click. A second click would target
+    // a review control that has already unmounted after successful navigation.
     await page.mouse.up();
-    await backToQuestions.click();
     await expect(page.locator("#assessment-current_symptoms")).toHaveValue("Synthetic stable navigation observation");
   } finally { release(); await page.mouse.up(); }
 });

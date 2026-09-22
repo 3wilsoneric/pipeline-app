@@ -156,7 +156,7 @@ export function activityEventProvenance(event: {
   created_at: string;
 }) {
   return [
-    { label: "Source", value: event.source === "record" ? "Derived from the saved record (no audit row)" : event.source === "audit" ? "Audit log" : "Not reported" },
+    { label: "Source", value: activitySourceLabel(event.source) },
     { label: event.source === "audit" ? "Audit event" : "Entry", value: event.event_id },
     ...(event.entity_type
       ? [{ label: "Record", value: `${entityLabels[event.entity_type] ?? humanize(event.entity_type)} ${event.entity_id ?? ""}`.trim() }]
@@ -216,4 +216,9 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function humanize(value: string) {
   return value.replace(/([a-z])([A-Z])/g, "$1 $2").replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function activitySourceLabel(source: "audit" | "record" | undefined) {
+  if (source === "record") return "Derived from the saved record (no audit row)";
+  return source === "audit" ? "Audit log" : "Not reported";
 }

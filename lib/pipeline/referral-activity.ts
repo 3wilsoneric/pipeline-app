@@ -289,14 +289,7 @@ function buildWorkflowMetadata(
     contributors: buildContributors(events),
     assessment: {
       status: latestAssessment?.status ?? (assessmentCompletedAt ? "complete" : "not_started"),
-      assessor: latestAssessment
-        ? latestAssessment.assessor_id && latestAssessment.assessor
-          ? { id: latestAssessment.assessor_id, name: latestAssessment.assessor }
-          : null
-        : null,
-      author: latestAssessment?.created_by?.name
-        ? { id: latestAssessment.created_by.id ?? null, name: latestAssessment.created_by.name }
-        : null,
+      ...assessmentAttribution(latestAssessment),
       started_at: latestAssessment?.started_at ?? referral.assessment?.startedAt ?? null,
       completed_at: assessmentCompletedAt,
       elapsed_minutes: latestAssessment?.started_at
@@ -367,4 +360,17 @@ function minutesBetween(from: string, to: string | null) {
 function toIso(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+function assessmentAttribution(latestAssessment: PipelineAssessmentRecord | null) {
+  return {
+      assessor: latestAssessment
+        ? latestAssessment.assessor_id && latestAssessment.assessor
+          ? { id: latestAssessment.assessor_id, name: latestAssessment.assessor }
+          : null
+        : null,
+      author: latestAssessment?.created_by?.name
+        ? { id: latestAssessment.created_by.id ?? null, name: latestAssessment.created_by.name }
+        : null,
+  };
 }

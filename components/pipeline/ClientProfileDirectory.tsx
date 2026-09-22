@@ -524,8 +524,8 @@ function readDirectoryReturn(): DirectoryReturn | null {
     anchor,
     admissionFilter: admissionFilter as AdmissionFilter,
     sort: sort as SortOption,
-    displayLimit: Number.isInteger(displayLimit) && displayLimit! > 0 ? displayLimit! : DISPLAY_INCREMENT,
-    scrollTop: typeof scrollTop === "number" && scrollTop > 0 ? scrollTop : 0,
+    displayLimit: positiveDisplayLimit(displayLimit),
+    scrollTop: nonnegativeScrollTop(scrollTop),
   };
 }
 
@@ -668,11 +668,7 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
   });
   const gender = resolveClientGender(client.gender);
   const community = resolveClientCommunity(client.current_community, client.community_names[0]);
-  const communityLabel = community || "—";
-  const unitLabel = client.unit || "—";
-  const admitted = client.admit_date ? formatDate(client.admit_date) : null;
-  const admissionLabel = admitted || "—";
-  const careLabel = client.care_level || "—";
+  const { communityLabel, unitLabel, admitted, admissionLabel, careLabel } = directoryCardLabels(client, community);
 
   return (
     <button
@@ -855,4 +851,21 @@ function formatDate(value: string) {
   return Number.isNaN(parsed.getTime())
     ? value
     : parsed.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function positiveDisplayLimit(value: number | undefined) {
+  return Number.isInteger(value) && value! > 0 ? value! : DISPLAY_INCREMENT;
+}
+function nonnegativeScrollTop(value: number | undefined) {
+  return typeof value === "number" && value > 0 ? value : 0;
+}
+
+function directoryCardLabels(client: DirectoryClient, community: string | null) {
+  const communityLabel = community || "—";
+  const unitLabel = client.unit || "—";
+  const admitted = client.admit_date ? formatDate(client.admit_date) : null;
+  const admissionLabel = admitted || "—";
+  const careLabel = client.care_level || "—";
+
+  return { communityLabel, unitLabel, admitted, admissionLabel, careLabel };
 }

@@ -133,7 +133,7 @@ export function CalendarHeader(props: CalendarHeaderProps) {
           <div className={calendarStyles.rangeSummary}>
             <h1 className={calendarStyles.rangeTitle}>{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
             <div className={calendarStyles.summary}>
-              <span>{props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule"}</span>
+              <span>{calendarScopeLabel(props)}</span>
               <span>{props.scheduledCount.toLocaleString()} scheduled</span>
               <abbr title="Pacific Time">PT</abbr>
             </div>
@@ -571,4 +571,8 @@ function CalendarEmptyNotice(props: CalendarViewsProps) {
   return <section aria-label="No matching appointments"><EmptyCalendar title={state.title} detail={state.detail}>
     {state.actions.map((action) => <button key={action} type="button" onClick={handlers[action]} className="min-h-11 rounded-md border border-[#bfc7c3] bg-white px-4 text-[14px] font-bold text-[#176f5e] hover:border-[#167f6b]">{emptyActionLabels[action]}</button>)}
   </EmptyCalendar></section>;
+}
+
+function calendarScopeLabel(props: Pick<CalendarHeaderProps, "scope" | "mySchedule">) {
+  return props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule";
 }

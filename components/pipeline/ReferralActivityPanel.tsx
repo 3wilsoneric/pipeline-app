@@ -137,7 +137,7 @@ function RestoreDocument({ event, referralId }: { event: ReferralActivityEvent; 
 }
 
 function ActivityRow({ event, referralId, detailed = false }: { event: ReferralActivityEvent; referralId: number; detailed?: boolean }) {
-  const statusChange = !detailed && routineActions.has(event.action) ? event.changes.find((change) => change.field === "workflowStatus" && change.values_available && !change.masked) : undefined;
+  const statusChange = routineStatusChange(event, detailed);
   const label = statusChange
     ? Object.hasOwn(workflowStatusLabels, statusChange.after) ? workflowStatusLabels[statusChange.after as keyof typeof workflowStatusLabels] : humanize(statusChange.after)
     : activityEventLabel(event);
@@ -214,4 +214,8 @@ function humanize(value: string) {
 function formatTimestamp(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function routineStatusChange(event: ReferralActivityEvent, detailed: boolean) {
+  return !detailed && routineActions.has(event.action) ? event.changes.find((change) => change.field === "workflowStatus" && change.values_available && !change.masked) : undefined;
 }

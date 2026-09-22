@@ -217,16 +217,17 @@ function CurrentGateCard({
   if (workflow.decision?.outcome === "accepted") return null;
   if (workflow.context.assessmentSigned && !workflow.decision) return null;
   if (assessmentState && !workflow.decision) return null;
-  return (
-    <WorkflowCard title="Stage and intake controls" detail={`Current stage: ${getStageLabel(currentReferral.stage)}`}>
-      {forwardTransition ? (
+  const renderTransition = () => (forwardTransition ? (
         forwardTransition.blockers.length > 0 ? (
           <div className="space-y-2">
             {forwardTransition.blockers.map((blocker) => <div key={blocker.code} className="text-[11px] leading-5 text-[#7a4c0d]">{blocker.label}</div>)}
             <div className="flex flex-wrap gap-2 pt-1"><SecondaryButton onClick={onOpenIntake}>Open intake</SecondaryButton><SecondaryButton onClick={onOpenFiles}>Open files</SecondaryButton><SecondaryButton onClick={onOpenAssessment}>Open assessment</SecondaryButton></div>
           </div>
         ) : <div className="space-y-3">{forwardTransition.alerts?.length ? <div role="status" className="bg-[#f7faf9] px-3 py-2 text-[14px] leading-6 text-[#59645e]">{forwardTransition.alerts.map((alert) => <div key={alert.code}>{alert.label}</div>)}<div className="mt-1 font-bold">You can continue with these items unanswered.</div></div> : null}<SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</SecondaryButton></div>
-      ) : <div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>}
+      ) : <div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>);
+  return (
+    <WorkflowCard title="Stage and intake controls" detail={`Current stage: ${getStageLabel(currentReferral.stage)}`}>
+      {renderTransition()}
 
       {showManualIntake ? (
         <div className="mt-4 border-t border-[#e3e6e4] pt-4">
@@ -275,14 +276,12 @@ function RecommendationOnFile({ workflow, selected, selectedNote, compact = fals
   if (!presentation) {
     return compact ? null : <p className={styles.noRecommendation}>No recommendation is on file. The assessor records one in the assessment review.</p>;
   }
-  const guidance = presentation.outcome === selected
-    ? "Pre-selected below. It becomes final only when you record the decision."
-    : selected ? "Your selection below differs from this recommendation." : "Choose the final decision below.";
+  const guidance = recommendationGuidance(presentation.outcome, selected);
   return <section className={styles.recommendation} data-compact={compact || undefined} aria-label="Recommendation on file">
     <span className={styles.recommendationLabel}>Recommendation on file</span>
     <p className={styles.recommendationOutcome}><strong>{presentation.outcomeLabel}</strong><span>{presentation.attribution}</span></p>
     {presentation.earlierAssessment ? <p className={styles.recommendationDetail}>Recorded for an earlier assessment.</p> : null}
-    {presentation.note && !compact && presentation.note !== selectedNote ? <p className={styles.recommendationNote}>{presentation.note}</p> : null}
+    {showRecommendationNote(presentation.note, compact, selectedNote) ? <p className={styles.recommendationNote}>{presentation.note}</p> : null}
     {presentation.review ? <p className={styles.recommendationDetail}>{presentation.review}</p> : null}
     {!compact && !hasLegacyDecisionSubmission(workflow) ? <p className={styles.recommendationDetail}>{guidance}</p> : null}
   </section>;
@@ -434,4 +433,14 @@ function DecisionPageHeading({ workflow }: { workflow: WorkflowResponse }) {
         {!workflow.decision ? <span className={styles.recordState}>{decisionRecordState(workflow)}</span> : null}
       </header>
   );
+}
+
+function recommendationGuidance(outcome: RecommendationDraft["outcome"], selected: RecommendationDraft["outcome"] | undefined) {
+  return outcome === selected
+    ? "Pre-selected below. It becomes final only when you record the decision."
+    : selected ? "Your selection below differs from this recommendation." : "Choose the final decision below.";
+}
+
+function showRecommendationNote(note: string | null | undefined, compact: boolean, selectedNote: string | undefined) {
+  return note && !compact && note !== selectedNote;
 }

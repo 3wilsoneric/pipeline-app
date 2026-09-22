@@ -34,7 +34,7 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   const { referral, read, home, name } = await scheduledWorkspace(page);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
   const progress = page.getByRole("region", { name: "Assessment progress", exact: true });
-  await expect(progress).toContainText("Assessment prep");
+  await expect(progress).toContainText("Prepare assessment");
   await expect(progress.getByLabel("Assessment appointment", { exact: true })).toContainText(/Scheduled.*(PDT|PST)/);
   await expect(progress.getByRole("button", { name: "Edit assessment appointment" })).toBeVisible();
   await expect(page.locator("#assessment-assessment_date")).toHaveCount(0);
@@ -47,23 +47,25 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   })).toEqual([]);
   await page.screenshot({ path: info.outputPath(`scheduled-prep-${width}.png`) });
   await progress.getByRole("button", { name: "Edit assessment appointment" }).click();
-  const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+  const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(schedule.getByLabel("Assessment date and time")).toHaveValue(isoToOperationalInput((await read()).scheduled_start_at));
-  await schedule.getByRole("button", { name: "Cancel", exact: true }).click();
+  await schedule.getByRole("button", { name: "Back to assessment", exact: true }).click();
   const entry = await home();
-  await expect(entry).toContainText("Begin assessment");
+  await expect(entry).toContainText("Prepare assessment");
   await page.screenshot({ path: info.outputPath(`upcoming-${width}.png`) });
   await entry.click();
-  const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-  await expect(begin).toBeVisible();
+  const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
+  await expect(begin).toHaveCount(0);
   expect((await read()).started_at).toBeNull();
+  await progress.getByRole("button", { name: "Begin interview", exact: true }).click();
+  await expect(begin).toBeVisible();
   await begin.getByRole("button", { name: "Keep preparing", exact: true }).click();
   await page.reload();
   await expect(progress).toBeVisible();
   await expect(begin).toHaveCount(0);
   expect((await read()).started_at).toBeNull();
-  await progress.getByRole("button", { name: "Begin assessment", exact: true }).click();
-  await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+  await progress.getByRole("button", { name: "Begin interview", exact: true }).click();
+  await begin.getByRole("button", { name: "Begin interview", exact: true }).click();
   await expect(begin).toHaveCount(0);
   const started = await read();
   expect(started.started_at).toBeTruthy();
@@ -72,27 +74,31 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   if (width < 640) {
     await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
     const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
-    await sections.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Secondary diagnosis");
-    await sections.getByRole("button", { name: /^Secondary diagnosis/ }).click();
+    await sections.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Current symptoms");
+    await sections.getByRole("button", { name: /^Current symptoms/ }).click();
   } else await picker.selectOption("diagnosis_clinical");
   await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
-  const answer = page.locator("#assessment-secondary_diagnoses");
+  const answer = page.locator("#assessment-current_symptoms");
   await answer.fill("Synthetic answer saved before closing");
   await answer.blur();
-  await expect.poll(async () => (await read()).secondary_diagnoses).toContain("Synthetic answer saved before closing");
-  await expect(page).toHaveURL(/assessmentQuestion=secondary_diagnoses/);
+  await expect.poll(async () => (await read()).current_symptoms).toContain("Synthetic answer saved before closing");
+  await expect(page).toHaveURL(/assessmentQuestion=current_symptoms/);
   if (width < 640) {
     await page.getByRole("button", { name: /^Open page menu/ }).click();
     await page.getByRole("dialog", { name: "Pipeline pages", exact: true }).getByRole("button", { name: "Open referrals", exact: true }).click();
-  } else await page.getByRole("button", { name: "Workspaces", exact: true }).click();
+  } else await page.getByRole("button", { name: "Open referrals", exact: true }).click();
   await page.locator("#workspace-directory-search").fill(name);
   await page.getByRole("button", { name: new RegExp(`Open ${name}.*referral workspace`) }).click();
-  const remainingAnswer = page.locator("#assessment-current_symptoms");
-  await expect(remainingAnswer).toBeInViewport();
+  // A deliberate return restores the saved question, even after its answer is saved.
+  await expect(answer).toBeInViewport();
+  await expect(page).toHaveURL(/assessmentQuestion=current_symptoms/);
   // Leave an earlier gap blank and move farther into the section. Resume must
   // retain this working question instead of always jumping to the first gap.
   const unfinishedAnswer = page.locator("#assessment-cognition_orientation");
-  if (width < 640) await page.getByRole("navigation", { name: "Question steps", exact: true }).getByRole("button", { name: "Next", exact: true }).click();
+  if (width < 640) {
+    const next = page.getByRole("navigation", { name: "Question steps", exact: true }).getByRole("button", { name: "Next", exact: true });
+    await next.click();
+  }
   else await unfinishedAnswer.focus();
   await expect(unfinishedAnswer).toBeInViewport();
   await expect(page).toHaveURL(/assessmentQuestion=cognition_orientation/);
@@ -103,7 +109,7 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
     return state.recentWorkspaces.find((item: { referralId: number }) => item.referralId === referral.id)?.location.assessmentQuestion;
   }).toBe("cognition_orientation");
   const resume = await home();
-  await expect(resume).toContainText("Resume assessment");
+  await expect(resume).toContainText("Continue assessment");
   await resume.click();
   await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
   if (width < 640) await expect(page.getByRole("region", { name: "Guided assessment", exact: true })).toBeVisible();
@@ -113,21 +119,21 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   // A full reload must use the saved bookmark after the answer is no longer dirty.
   await page.reload();
   await expect(unfinishedAnswer).toBeInViewport();
-  expect((await read()).secondary_diagnoses).toContain("Synthetic answer saved before closing");
+  expect((await read()).current_symptoms).toContain("Synthetic answer saved before closing");
   await expect(begin).toHaveCount(0);
   expect((await read()).started_at).toBe(started.started_at);
   expect((await read()).audit_events.filter((event: { action: string }) => event.action === "assessment_started")).toHaveLength(1);
 });
 
-test("a stale Begin card resumes an interview already started elsewhere", async ({ page }) => {
+test("a stale preparation card resumes an interview already started elsewhere", async ({ page }) => {
   const { assessment, read, home } = await scheduledWorkspace(page);
   const entry = await home();
-  await expect(entry).toContainText("Begin assessment");
+  await expect(entry).toContainText("Prepare assessment");
   await startOperationalAssessment(page.request, assessment);
   const started = await read();
   await entry.click();
   await expect(page.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
-  await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
   expect((await read()).started_at).toBe(started.started_at);
 });
 

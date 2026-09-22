@@ -447,7 +447,6 @@ export default function ReferralPacketCanvas({
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
   const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
-  const [assessmentHeaderToolsTarget, setAssessmentHeaderToolsTarget] = useState<HTMLDivElement | null>(null);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
@@ -1522,6 +1521,13 @@ export default function ReferralPacketCanvas({
     void navigatePage(1, field);
   };
 
+  const assessmentChartProps = () => ({
+    chartReview: displayedPage === 3 || routedWorkspaceLocation.assessmentMode === "review",
+    assessmentReview: displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review",
+    chartActions: !permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined,
+    onEditReferralField: !permissionReadOnly && loadedReferral ? editReferralFieldFromChart : undefined,
+  });
+
   const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
@@ -2458,7 +2464,6 @@ export default function ReferralPacketCanvas({
                   }}
                 />
               ) : null}
-              {readingAssessment ? <div ref={setAssessmentHeaderToolsTarget} className={workspaceFolderStyles.assessmentTools} /> : null}
             </div>
   );
 
@@ -2817,12 +2822,8 @@ export default function ReferralPacketCanvas({
                   assignedAssessorId={loadedReferral?.ownerId}
                   {...assessmentEntryProps()}
                   workspaceTitle={workspaceTitle}
-                  headerToolsTarget={assessmentHeaderToolsTarget}
-                  chartReview={displayedPage === 3 || routedWorkspaceLocation.assessmentMode === "review"}
+                  {...assessmentChartProps()}
                   chartDocuments={renderChartDocuments()}
-                  assessmentReview={displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review"}
-                  chartActions={!permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined}
-                  onEditReferralField={!permissionReadOnly && loadedReferral ? editReferralFieldFromChart : undefined}
                   onOpenChart={() => openPage(3)}
                   onReviewAssessment={() => openPage(2, undefined, "review")}
                   onOpenAssessment={() => openPage(2, undefined, null)}

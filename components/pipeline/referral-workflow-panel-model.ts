@@ -344,7 +344,7 @@ export type DecisionProgressStep = {
  * signature, a recorded decision, and a sent packet are never conflated.
  */
 export function decisionProgressSteps(workflow: WorkflowResponse): DecisionProgressStep[] {
-  const { context, decision } = workflow;
+  const { context } = workflow;
   // Reuse the canonical workspace projection so these milestones cannot drift
   // from the assessment's own lifecycle.
   const assessment = getWorkspaceState(workflow.referral, context).assessment;
@@ -357,17 +357,20 @@ export function decisionProgressSteps(workflow: WorkflowResponse): DecisionProgr
     started
       ? { key: "answers", label: "Answers saved", state: "done", detail: signed ? "Locked by the signature." : "Saved answers stay editable until signing." }
       : { key: "answers", label: "Answers not started", state: "open", detail: context.assessmentId ? "The assessment is prepared but has no answers yet." : "No assessment has been opened yet." },
-    interviewComplete
-      ? { key: "interview", label: "Interview complete", state: "done", detail: signed ? "Completed and signed." : answersComplete ? "Answers are complete. Not signed yet." : "The appointment is marked completed. Answers may still be open." }
-      : { key: "interview", label: "Interview not complete", state: "open", detail: "Unanswered items can stay open. They do not block the decision." },
+    interviewProgressStep(interviewComplete, signed, answersComplete),
     signed
       ? { key: "signed", label: "Assessment signed", state: "done", detail: "Signed in the assessment." }
       : { key: "signed", label: "Assessment not signed", state: "open", detail: "Signing happens in the assessment. Recording a decision does not sign it." },
-    decision
-      ? { key: "decision", label: `Decision recorded: ${decision.outcome === "accepted" ? "Accepted" : "Denied"}`, state: "done", detail: `${decision.decidedByName || "Name not recorded"} · ${formatRecordedAt(decision.decidedAt)}` }
-      : { key: "decision", label: "Decision not recorded", state: "open", detail: workflow.recommendation ? "A recommendation is on file. It is not the final decision." : "No recommendation or decision yet." },
+    recordedDecisionStep(workflow),
     packetProgressStep(workflow),
   ];
+}
+
+function recordedDecisionStep(workflow: WorkflowResponse): DecisionProgressStep {
+  const { decision } = workflow;
+  return decision
+      ? { key: "decision", label: `Decision recorded: ${decision.outcome === "accepted" ? "Accepted" : "Denied"}`, state: "done", detail: `${decision.decidedByName || "Name not recorded"} · ${formatRecordedAt(decision.decidedAt)}` }
+      : { key: "decision", label: "Decision not recorded", state: "open", detail: workflow.recommendation ? "A recommendation is on file. It is not the final decision." : "No recommendation or decision yet." };
 }
 
 function packetProgressStep(workflow: WorkflowResponse): DecisionProgressStep {
@@ -405,4 +408,10 @@ export function referralFromConflictPayload(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
   const referral = (payload as { referral?: unknown }).referral;
   return referral && typeof referral === "object" && !Array.isArray(referral) ? referral as Referral : null;
+}
+
+function interviewProgressStep(interviewComplete: boolean, signed: boolean, answersComplete: boolean): DecisionProgressStep {
+  return interviewComplete
+      ? { key: "interview", label: "Interview complete", state: "done", detail: signed ? "Completed and signed." : answersComplete ? "Answers are complete. Not signed yet." : "The appointment is marked completed. Answers may still be open." }
+      : { key: "interview", label: "Interview not complete", state: "open", detail: "Unanswered items can stay open. They do not block the decision." };
 }

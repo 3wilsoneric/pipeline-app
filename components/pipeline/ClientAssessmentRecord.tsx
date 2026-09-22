@@ -19,7 +19,7 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
     {assessmentInterviewSections.map((section) => {
       const facts = assessmentToolFieldDefinitions.filter((field) => field.section === section.key && field.key !== "resident_number").flatMap((field) => {
         const value = assessment[field.key];
-        if (value === null || value === undefined || value === "" || (Array.isArray(value) && !value.length)) return [];
+        if (isEmptyRecordedValue(value)) return [];
         const display = recordedFieldValue(field, value);
         const question = assessmentInterviewQuestions.find((item) => item.field === field.key);
         const inactive = question && !isAssessmentQuestionVisible(question, assessment);
@@ -58,4 +58,8 @@ function recordedFieldValue(field: (typeof assessmentToolFieldDefinitions)[numbe
           : field.value_type === "date" ? formatProfileDate(String(value)) ?? String(value)
           : field.value_type === "timestamp" ? readableTimestamp(String(value))
           : assessmentInterviewOptionLabel(field.key, String(value)) ?? String(value);
+}
+
+function isEmptyRecordedValue(value: unknown): value is null | undefined | "" | [] {
+  return value === null || value === undefined || value === "" || (Array.isArray(value) && !value.length);
 }

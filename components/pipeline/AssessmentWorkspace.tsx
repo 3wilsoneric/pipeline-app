@@ -7,7 +7,6 @@ import { referralDocumentAutofillEnabled } from "@/lib/extraction/contracts";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   CalendarClock,
@@ -142,7 +141,6 @@ type AssessmentWorkspaceProps = {
   beginRequested?: boolean;
   onBeginRequestHandled?: () => void;
   workspaceTitle?: string;
-  headerToolsTarget?: HTMLElement | null;
   chartReview?: boolean;
   assessmentReview?: boolean;
   chartActions?: ReactNode;
@@ -332,7 +330,6 @@ export default function AssessmentWorkspace({
   beginRequested = false,
   onBeginRequestHandled,
   workspaceTitle,
-  headerToolsTarget,
   chartReview,
   assessmentReview = false,
   chartActions,
@@ -884,6 +881,15 @@ export default function AssessmentWorkspace({
     };
   }, [dirty, packetEvidenceVersion, referralId, selected, upsertAssessment]);
 
+  const restoreSavedAssessmentPosition = useEffectEvent(() => {
+    if (selected && savedPosition?.assessmentSection) {
+      const mode = savedPosition.assessmentMode;
+      if (mode === "prepare" || mode === "interview") setNotebookPage({ assessmentId: selected.assessment_id, view: mode === "prepare" ? "prepare" : "assessment" });
+      // A removed or no-longer-applicable question falls back within the saved section.
+      setWorkingTarget(assessmentResumeTarget(selected, savedPosition.assessmentSection, savedPosition.assessmentQuestion, mode === "prepare" || (!mode && preparing)));
+    }
+  });
+
   useEffect(() => {
     const focus = resolveAssessmentAutoFocus(
       selected,
@@ -896,12 +902,7 @@ export default function AssessmentWorkspace({
     if (!focus) return;
     focusedAssessmentIdRef.current = focus.assessmentId;
     setResolvedPositionFor(focus.assessmentId);
-    if (selected && savedPosition?.assessmentSection) {
-      const mode = savedPosition.assessmentMode;
-      if (mode === "prepare" || mode === "interview") setNotebookPage({ assessmentId: selected.assessment_id, view: mode === "prepare" ? "prepare" : "assessment" });
-      // A removed or no-longer-applicable question falls back within the saved section.
-      setWorkingTarget(assessmentResumeTarget(selected, savedPosition.assessmentSection, savedPosition.assessmentQuestion, mode === "prepare" || (!mode && preparing)));
-    }
+    restoreSavedAssessmentPosition();
     applyAssessmentFocus(focus, {
       setActiveSection,
       setIsFocused,
@@ -1912,10 +1913,10 @@ export default function AssessmentWorkspace({
   </>;
   // The recommendation belongs to the deliberate review, not to every question
   // during the interview. Render exactly one instance of the existing control.
-  const recommendationNode = recommendationControl && reviewingChart ? recommendationControl(selected.assessment_id, setIsRecommendationSaving) : null;
-  const assessmentTools = recommendationNode && !assessmentReview ? <div className={workingStyles.headerTools}>
-    {recommendationNode}
-  </div> : null;
+  const renderPhoneQuestionHeading = () => phoneInterview ? <div className="sr-only"><h3>{preparing ? preparationGroup.label : sectionDefinition.label}</h3></div> : null;
+  const workingSectionLabel = () => pageSections[pageIndex]?.label ?? sectionDefinition.label;
+  const renderRecommendation = () => recommendationControl && assessmentReview ? recommendationControl(selected.assessment_id, setIsRecommendationSaving) : null;
+  const recommendationNode = renderRecommendation();
   const requestInterviewStart = () => {
     if (!canEditClinical || isBusy || isClosing) return;
     if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
@@ -2124,8 +2125,7 @@ export default function AssessmentWorkspace({
     <AssessmentFileSurface
       title={workspaceTitle}
       container={contentRef.current}
-      header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} disabled={isClosing}
-        tools={assessmentTools}
+      header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} disabled={isClosing} tools={null}
         details={assessmentDetails} detailsRef={secondaryActionsRef}
         returnLabel={!preparing && !trainingAssessmentMode && onOpenAssignedWork ? "Workspaces" : onOpenWorkspace ? "Back to referral" : "Back to workspace"}
         onClose={() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace)}
@@ -2158,7 +2158,6 @@ export default function AssessmentWorkspace({
         onBeginAssessment={() => void beginAssessment()}
       />{renderInterviewDate()}</>}
     >
-      {embeddedFolder && headerToolsTarget ? createPortal(assessmentTools, headerToolsTarget) : null}
 
       {showAddendum && canAddAddendum ? (
         <div className="shrink-0 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
@@ -2197,9 +2196,7 @@ export default function AssessmentWorkspace({
           {renderRemoteChanges()}
 
           {reviewingChart ? renderChartReview() : <div data-assessment-question-content className={!phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
-            {phoneInterview ? <div className="sr-only">
-              <h3>{preparing ? preparationGroup.label : sectionDefinition.label}</h3>
-            </div> : null}
+            {renderPhoneQuestionHeading()}
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <QuestionPage
               key={`${selected.assessment_id}-${preparing}`}
@@ -2211,7 +2208,7 @@ export default function AssessmentWorkspace({
                 else void reviewChart();
               }}
               section={visibleSectionKey}
-              sectionLabel={pageSections[pageIndex]?.label ?? sectionDefinition.label}
+              sectionLabel={workingSectionLabel()}
               assessment={selected}
               data={draft}
               pending={pendingFields}

@@ -113,9 +113,14 @@ export function ChartGrid({
   return <dl aria-label={ariaLabel} className={`grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
+function chartCellSpan(fact: ClientChartFact, multiline: boolean) {
+  if (fact.span === "wide") return "col-span-2";
+  return multiline && (fact.value.length > 160 || fact.label === "Medications on record") ? "lg:col-span-2" : "";
+}
+
 export function ChartCell({ fact, multiline = false, onEdit, editHint }: { fact: ClientChartFact; multiline?: boolean; onEdit?: () => void; editHint?: string }) {
   const missing = fact.value === "Not documented";
-  const span = fact.span === "wide" ? "col-span-2" : multiline && (fact.value.length > 160 || fact.label === "Medications on record") ? "lg:col-span-2" : "";
+  const span = chartCellSpan(fact, multiline);
   return (
     <div data-chart-field={fact.label} className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
       <dt className="text-[13px] font-semibold leading-5 text-[#59675f]"><ChartFieldLabel label={fact.label} onEdit={onEdit} editHint={editHint} /></dt>

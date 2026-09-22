@@ -327,7 +327,10 @@
   .phaseSummary { flex-basis: 100%; }
   .phaseSteps { gap: 8px; }
   .phaseSteps li { gap: 5px; font-size: 13px; }
-  .workMode[data-phase="interview"] .phaseSummary p { display: none; }
+  /* The phone section chooser already exposes All questions. Keep the interview
+     question prominent while retaining the scheduling action and start errors. */
+  .workMode[data-phase="interview"] { padding-block: 2px; }
+  .workMode[data-phase="interview"] .phaseSummary { display: none; }
   .workMode p { font-size: 13px; line-height: 1.4; }
   .beginAssessment { flex: 1; padding-inline: 10px; font-size: 14px; }
   .prepActions { width: 100%; gap: 8px; }

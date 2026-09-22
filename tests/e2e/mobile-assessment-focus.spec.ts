@@ -13,8 +13,8 @@ async function openInterview(page: Page) {
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
-  await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+  // Already started through the real API; opening the interview must not start it again.
+  await expect(page.getByRole("button", { name: "Begin interview", exact: true })).toHaveCount(0);
   await expect(page.locator("[data-phone-interview]")).toBeVisible();
   await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
   const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
