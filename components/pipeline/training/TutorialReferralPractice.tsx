@@ -18,7 +18,7 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
 import type { AssessmentRecommendation, Referral, ReferralCanvasFieldKey } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
-import { createTutorialReferral, prepareTutorialStep, tutorialBoardItem, tutorialDecision, tutorialReferralSteps, tutorialWorkflow, type TutorialReferral } from "@/lib/training/tutorial-referral";
+import { createTutorialReferral, prepareTutorialStep, tutorialBoardItem, tutorialDecision, tutorialReferralSteps, tutorialStepHelp, tutorialStepInstruction, tutorialWorkflow, type TutorialReferral } from "@/lib/training/tutorial-referral";
 import styles from "./TutorialReferralPractice.module.css";
 
 export default function TutorialReferralPractice({ initialStep, returnTo }: { initialStep: number; returnTo?: string }) {
@@ -29,8 +29,9 @@ export default function TutorialReferralPractice({ initialStep, returnTo }: { in
   const [generation, setGeneration] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sampleNotice, setSampleNotice] = useState(initialStep > 1 ? "Earlier steps are filled with sample information." : "");
+  const [sampleNotice, setSampleNotice] = useState(initialStep > 2 ? "Earlier steps use sample information." : "");
   const page = useRef<HTMLDivElement>(null);
+  const help = useRef<HTMLDetailsElement>(null);
   const shell = usePipelineShell();
   const { beforeNavigationRef } = shell;
   const instruction = tutorialReferralSteps[step];
@@ -56,10 +57,18 @@ export default function TutorialReferralPractice({ initialStep, returnTo }: { in
     setBusy(true);
     try {
       await beforeNavigationRef.current?.();
-      change((value) => prepareTutorialStep(value, next));
+      const previous = current.current;
+      const prepared = prepareTutorialStep(previous, next);
+      const supplied = [
+        [previous.assessment.scheduled_start_at, prepared.assessment.scheduled_start_at],
+        [previous.assessment.signed_at, prepared.assessment.signed_at],
+        [previous.referral.admissionDecision, prepared.referral.admissionDecision],
+        [previous.referral.plannedAdmissionDate, prepared.referral.plannedAdmissionDate],
+      ].some(([before, after]) => !before && Boolean(after));
+      change(() => prepared);
       setStep(next);
       setError("");
-      setSampleNotice(next > step ? "Any unfinished earlier steps use sample information." : "");
+      setSampleNotice(supplied ? "Skipped actions use sample information. Your edits are kept." : "");
       page.current?.scrollTo({ top: 0 });
     } catch {
       setError("The sample edit could not be kept. Try again, or restart the tutorial.");
@@ -82,13 +91,22 @@ export default function TutorialReferralPractice({ initialStep, returnTo }: { in
     } finally { setBusy(false); }
   }
 
+  function finishSigning() {
+    // The assessment calls this only after it has flushed and signed the sample.
+    setStep(5); setSampleNotice(""); setError("");
+    page.current?.scrollTo({ top: 0 });
+  }
+
   const target = () => findTutorialTarget(page.current?.parentElement, instruction.target);
   function locate() {
     const element = target();
-    if (!element) return;
-    element.scrollIntoView({ block: "center", behavior: "smooth" });
-    const control = element.matches("button,input,select,textarea") ? element : element.querySelector<HTMLElement>("button,input,select,textarea");
-    control?.focus({ preventScroll: true });
+    if (!element) { setError("The control is not visible. Check the open help for this step."); if (help.current) help.current.open = true; return; }
+    if (instruction.target === "assessment-schedule-fields" && element.matches('[data-guide-target~="assessment-schedule-open"]')) setError("Scheduling is closed. Select Schedule interview to reopen it.");
+    else if (instruction.target === "home-board-card" && element.matches('[data-guide-target="home-board-stage"]')) {
+      const stage = tutorialBoardItem(state).board.stage;
+      setError(`Choose ${stage === "decision" ? "Decision" : stage === "received" ? "Referral received" : "In progress"} in Referral stage to show the card.`);
+    } else setError("");
+    focusTutorialTarget(element);
   }
 
   useEffect(() => {
@@ -107,6 +125,7 @@ export default function TutorialReferralPractice({ initialStep, returnTo }: { in
   }, [step, generation]);
 
   const branchEnded = state.underReview || state.referral.admissionDecision?.outcome === "declined";
+  const nextStep = (branchEnded || state.sentAt) && step === 5 ? 8 : step + 1;
   const navigation = (next: number) => void moveTo(next);
   return <PipelineShellProvider value={{ ...shell, contentRef: page }}><section className={styles.session} aria-label="Fictional referral tutorial" data-testid="tutorial-referral-session">
     <header className={styles.header}>
@@ -119,50 +138,70 @@ export default function TutorialReferralPractice({ initialStep, returnTo }: { in
     <div className={styles.layout}>
       <aside className={styles.guide} aria-label="Tutorial steps" data-testid="guided-coach-panel">
         <label htmlFor="tutorial-step">Step {step + 1} of {tutorialReferralSteps.length}</label>
+        <details key={step} ref={help} className={styles.help}><summary>Stuck on this step?</summary><dl>{tutorialStepHelp(state, step).map(({ problem, action }) => <div key={problem}><dt>{problem}</dt><dd>{action}</dd></div>)}</dl></details>
         <select id="tutorial-step" value={step} disabled={busy} onChange={(event) => navigation(Number(event.target.value))}>
           {tutorialReferralSteps.map((item, index) => <option key={item.title} value={index}>{index + 1}. {item.title}</option>)}
         </select>
-        <div className={styles.instruction} aria-live="polite"><h1>{instruction.title}</h1><p>{instruction.instruction}</p></div>
+        <div className={styles.instruction} aria-live="polite" aria-atomic="true"><h1 className="sr-only">{instruction.title}</h1><p>{tutorialStepInstruction(state, step)}</p></div>
         <button type="button" onClick={locate} className={styles.locate}><LocateFixed size={16} />Show me where</button>
         {sampleNotice ? <p className={styles.notice}>{sampleNotice}</p> : null}
-        {error ? <p role="alert">{error}</p> : null}
+        {error ? <p role="alert" className={styles.error}>{error}</p> : null}
         <footer className={styles.navigation} role="navigation" aria-label="Tutorial navigation">
-          <button type="button" onClick={() => navigation(step - 1)} disabled={step === 0 || busy} aria-label="Previous tutorial step"><ArrowLeft size={18} />Back</button>
-          <button type="button" className={styles.next} onClick={() => step === 8 ? close() : navigation(branchEnded && step === 5 ? 8 : step + 1)} disabled={busy}>{step === 8 ? "Done" : "Next step"}<ArrowRight size={18} /></button>
+          <button type="button" className={styles.previous} onClick={() => navigation(step - 1)} disabled={step === 0 || busy} aria-label="Previous tutorial step" title="Previous tutorial step"><ArrowLeft size={18} /></button>
+          <button type="button" className={styles.next} onClick={() => step === 8 ? close() : navigation(nextStep)} disabled={busy}>{step === 8 ? "Return to work" : `Next: ${tutorialReferralSteps[nextStep].title}`}<ArrowRight size={18} /></button>
         </footer>
       </aside>
       <div className={styles.page} key={`page-${generation}`}><div ref={page} className={styles.preview}>
-        <TutorialStepContent step={step} generation={generation} state={state} files={files} onFiles={setFiles} onChange={change} onReferralChange={updateReferral} onAssessmentChange={onAssessmentChange} navigate={navigation} />
+        <TutorialStepContent step={step} generation={generation} state={state} files={files} onFiles={setFiles} onChange={change} onReferralChange={updateReferral} onAssessmentChange={onAssessmentChange} onSigned={finishSigning} navigate={navigation} />
       </div></div>
     </div>
   </section></PipelineShellProvider>;
 }
 
 function findTutorialTarget(root: HTMLElement | null | undefined, target: string) {
-  return root?.querySelector<HTMLElement>(`[data-guide-target~="${target}"]`)
-    ?? root?.querySelector<HTMLElement>('[data-guide-target="assessment-review"]') ?? null;
+  const visible = (selector: string) => Array.from(root?.querySelectorAll<HTMLElement>(selector) ?? []).find((element) => element.getClientRects().length > 0) ?? null;
+  return visible(`[data-guide-target~="${target}"]`)
+    ?? (target === "assessment-schedule-fields" ? visible('[data-guide-target~="assessment-schedule-open"]') : null)
+    ?? (target === "assessment-section-nav" ? visible('select[aria-label="Assessment section"]') : null)
+    ?? (target === "home-board-card" ? visible('[data-guide-target="home-board-stage"]') : null);
 }
 
-function TutorialStepContent({ step, generation, state, files, onFiles, onChange, onReferralChange, onAssessmentChange, navigate }: {
+function focusTutorialTarget(element: HTMLElement) {
+  element.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  const control = element.matches("button,input,select,textarea") ? element : element.querySelector<HTMLElement>("button,input,select,textarea");
+  if (control) { control.focus({ preventScroll: true }); return; }
+  if (!element.hasAttribute("tabindex")) {
+    element.setAttribute("tabindex", "-1");
+    element.addEventListener("blur", () => element.removeAttribute("tabindex"), { once: true });
+  }
+  element.focus({ preventScroll: true });
+}
+
+function TutorialStepContent({ step, generation, state, files, onFiles, onChange, onReferralChange, onAssessmentChange, onSigned, navigate }: {
   step: number; generation: number; state: TutorialReferral; files: LabeledReferralFile[];
   onFiles: (files: LabeledReferralFile[]) => void; onChange: (update: (value: TutorialReferral) => TutorialReferral) => void;
-  onReferralChange: (patch: Partial<Referral>) => void; onAssessmentChange: (assessment: PipelineAssessmentRecord, action?: "scheduled") => void; navigate: (step: number) => void;
+  onReferralChange: (patch: Partial<Referral>) => void; onAssessmentChange: (assessment: PipelineAssessmentRecord, action?: "scheduled") => void; onSigned: () => void; navigate: (step: number) => void;
 }) {
-  if (step === 0 || step === 8) return <section className={styles.content} data-guide-target="tutorial-board"><h2>{step === 8 ? "Your updated board" : "My referrals"}</h2><ReferralLifecycleBoard key={step} items={[tutorialBoardItem(state)]} showOwner={false} onOpenPacket={() => navigate(state.assessment.signed_at ? 5 : state.assessment.started_at ? 3 : 2)} /></section>;
+  const { beforeNavigationRef } = usePipelineShell();
+  if (step === 0 || step === 8) {
+    const item = tutorialBoardItem(state);
+    return <section className={styles.content} data-guide-target="tutorial-board"><h2>{step === 8 ? "Your updated board" : "My referrals"}</h2><ReferralLifecycleBoard key={step} items={[item]} initialStage={item.board.stage ?? "received"} showOwner={false} onOpenPacket={() => navigate(state.assessment.signed_at ? 5 : 3)} /></section>;
+  }
   if (step === 1) return <TutorialIntake referral={state.referral} files={files} onFiles={onFiles} onChange={onReferralChange} onCreate={() => navigate(2)} />;
   if ([2, 3, 4].includes(step)) return <AssessmentWorkspace key={`${generation}-${step}`}
     trainingAssessmentMode={step === 2 ? "schedule" : "interview"}
     trainingAssessmentSection="functional_adl"
     initialTrainingAssessment={state.assessment} onTrainingAssessmentChange={onAssessmentChange} readOnly={Boolean(state.sentAt)}
+    beforeWorkspaceNavigationRef={beforeNavigationRef}
     startQuestionnaire={step === 3} assessmentReview={step === 4} chartReview={step === 4}
     referral={state.referral} workspaceTitle={state.referral.name}
     onOpenWorkspace={() => navigate(1)} onReviewAssessment={() => navigate(4)}
-    onOpenAssessment={() => navigate(3)} onContinueToWorkflow={() => navigate(5)} />;
+    onOpenAssessment={() => navigate(3)} onContinueToWorkflow={onSigned} />;
   if (step === 5) return <TutorialDecision state={state} onChange={onChange} onContinue={() => navigate(6)} />;
   if (step === 6) return <TutorialPacket state={state} files={files} onSend={() => onChange((value) => {
     const sentAt = new Date().toISOString();
     return { ...value, sentAt, assessment: { ...value.assessment, meet_client_sent_at: sentAt } };
-  })} onEdit={() => navigate(3)} />;
+  })} onRecipientChange={(packetRecipient) => onChange((value) => ({ ...value, packetRecipient }))} onEdit={() => navigate(3)} />;
   return <TutorialAdmission state={state} onChange={onReferralChange} navigate={navigate} />;
 }
 
@@ -215,16 +254,15 @@ function TutorialDecision({ state, onChange, onContinue }: { state: TutorialRefe
 
 const packetViews = ["summary", "chart", "files"] as const;
 
-function TutorialPacket({ state, files, onSend, onEdit }: { state: TutorialReferral; files: LabeledReferralFile[]; onSend: () => void; onEdit: () => void }) {
+function TutorialPacket({ state, files, onSend, onEdit, onRecipientChange }: { state: TutorialReferral; files: LabeledReferralFile[]; onSend: () => void; onEdit: () => void; onRecipientChange: (value: string) => void }) {
   const [confirmed, setConfirmed] = useState(false);
-  const [to, setTo] = useState("community@example.invalid");
   const [view, setView] = useState<"summary" | "chart" | "files">("summary");
   const report = buildAssessmentSummaryReport(state.assessment, state.referral);
   const email = renderMeetClientEmail(report.meetClient, "Practice assessor", "tutorial-only", ["Sample face sheet", "Sample medication list", "Assessment chart"], undefined, { logoUrl: "/brand/alamo-health-management.png" });
-  if (state.underReview || state.referral.admissionDecision?.outcome === "declined") return <section className={styles.content}><h2>No admission packet</h2><p>This referral is {state.underReview ? "under review" : "denied"}. Return to Decision to try acceptance.</p></section>;
-  return <section className={styles.content} data-guide-target="tutorial-packet">
+  if (state.underReview || state.referral.admissionDecision?.outcome === "declined") return <section className={styles.content} data-guide-target="tutorial-packet"><h2>No admission packet</h2><p>This referral is {state.underReview ? "under review" : "denied"}. Return to Decision to try acceptance.</p></section>;
+  return <section className={styles.content}>
     <div className={styles.pageHeading}><h2>Email &amp; packet</h2><button type="button" className={styles.textButton} onClick={onEdit}>{state.sentAt ? "View assessment" : "Edit assessment"}</button></div>
-    <label className={styles.recipient}>To<input type="email" value={to} onChange={(event) => { setTo(event.target.value); setConfirmed(false); }} /></label>
+    <label className={styles.recipient}>To<input data-guide-target="tutorial-packet" type="email" value={state.packetRecipient} readOnly={Boolean(state.sentAt)} onChange={(event) => { onRecipientChange(event.target.value); setConfirmed(false); }} /></label>
     <p className={styles.subject}>Meet the Client: {state.referral.name}</p>
     <div className={styles.tabs} role="tablist" aria-label="Packet preview" onKeyDown={(event) => {
       const index = packetViews.indexOf(view);
@@ -238,8 +276,9 @@ function TutorialPacket({ state, files, onSend, onEdit }: { state: TutorialRefer
       {view === "chart" ? <CompleteAssessmentChart report={report} /> : null}
       {view === "files" ? <><SampleFiles referral={state.referral} /><ul>{files.map((item, index) => <li key={index}>{item.file.name}</li>)}</ul></> : null}
     </div>
+    <p className={styles.outlookNote}>In your workspace: save to Outlook Drafts, send from Outlook, then check sent status in Pipeline.</p>
     <footer className={styles.send}>
-      {state.sentAt ? <p role="status"><Check size={17} />Simulated send complete. No email was sent.</p> : <><label><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />Recipients checked</label><button type="button" className={styles.action} disabled={!confirmed || !to.trim()} onClick={onSend}>Simulate send<ArrowRight size={17} /></button></>}
+      {state.sentAt ? <p role="status"><Check size={17} />Simulated send complete. No email was sent.</p> : <><label><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />Recipients checked</label><button type="button" className={styles.action} disabled={!confirmed || !state.packetRecipient.trim()} onClick={onSend}>Simulate send<ArrowRight size={17} /></button></>}
     </footer>
   </section>;
 }
