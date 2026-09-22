@@ -20,6 +20,7 @@ import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import {
   calendarClientName as formatCalendarClientName,
   calendarRange,
+  calendarScopeText,
   findScheduleConflicts,
   groupEventsByDate,
   hasCalendarFilters,
@@ -50,6 +51,7 @@ import { fetchPipelineJson, PipelineApiError, usePipelineDataGeneration } from "
 import type { PipelineCalendarEvent, PipelineCalendarResponse } from "@/lib/pipeline/calendar-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import { assessmentEventNextStep, unscheduledNextStep } from "@/lib/pipeline/assessment-calendar";
 import { loadPipelineWorkspaceResumeLocation } from "@/lib/pipeline/work-continuity-client";
 
 export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void }) {
@@ -214,6 +216,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     ...calendarEvents.map((event) => ({ id: event.ownerId, name: event.owner })),
     ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner })),
   ]);
+  const ownerLabel = ownerOptions.find((option) => option.value === owner)?.label;
   const visibleEvents = calendarEvents.filter((event) => (
     (!community || event.community === community)
     && (!owner || ownerKey(event.ownerId, event.owner) === owner)
@@ -227,7 +230,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     && (scope === "personal" || !mySchedule || event.ownerId === viewer?.id)
   ));
   const eventsByDate = groupEventsByDate(appointments);
-  const hasFilters = hasCalendarFilters(community, owner, scope === "team" && mySchedule);
+  const hasFilters = hasCalendarFilters(community, owner);
   const overdue = visibleEvents.filter((event) => event.kind === "assessment" && event.status === "overdue");
   const conflicts = findScheduleConflicts(visibleEvents);
   const scheduledCount = visibleEvents.filter((event) => event.kind === "assessment").length;
@@ -238,6 +241,10 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
 
   const openAssessment = async (event: PipelineCalendarEvent) => {
     const source = `${window.location.pathname}${window.location.search}`;
+    if (assessmentEventNextStep(event).entry === "review") {
+      openWorkspace(selectionIdentity({ type: "event", event }), { view: "assessment", assessmentMode: "review" });
+      return;
+    }
     const saved = await loadPipelineWorkspaceResumeLocation(event.referralId).catch(() => undefined);
     if (source !== `${window.location.pathname}${window.location.search}`) return;
     openWorkspace(selectionIdentity({ type: "event", event }), saved?.view === "assessment" ? saved : { view: "assessment", assessmentMode: "interview" });
@@ -343,16 +350,20 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         />
         {selectedDate ? <CalendarDateDetails date={selectedDate} loading={loading || !snapshot} error={error}
           events={appointments.filter((event) => event.date === selectedDate)} scope={scope}
+          scopeText={calendarScopeText({ scope, mySchedule, owner, ownerLabel, community })}
           onOpen={(event) => setSelected({ type: "event", event })}
           onAssessment={(event) => void openAssessment(event)}
           onClose={() => setSelectedDate(null)}
         /> : null}
         <CalendarViews
           loading={loading || !navigationReady || (!snapshot && !error)}
+          failed={Boolean(error) && !snapshot}
           view={view}
           anchor={anchor}
           scope={scope}
           owner={owner}
+          ownerLabel={ownerLabel}
+          community={community}
           mySchedule={mySchedule}
           range={range}
           events={appointments}
@@ -360,10 +371,12 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           assessors={snapshot?.assessors ?? []}
           eventsByDate={eventsByDate}
           conflicts={conflicts}
-          hasFilters={hasFilters}
           onOpen={(event) => setSelected({ type: "event", event })}
           onAssessment={(event) => void openAssessment(event)}
           onFocusOwner={setOwner}
+          onViewTeam={() => { setMySchedule(false); setOwner(""); }}
+          onAllAssessors={() => setOwner("")}
+          onAllCommunities={() => setCommunity("")}
           onDate={(date) => {
             if (date < range.from || date > range.to) setAnchor(date);
             setSelectedDate(date);
@@ -387,10 +400,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           }}
           onClose={() => setQueueOpen(false)}
           onLoadMore={() => setQueueLimit((value) => Math.min(200, value + 24))}
-          onOpenWorkspace={(item) => openWorkspace(item, {
-            view: "intake",
-            intakeField: item.nextAction === "assign" ? "owner" : item.nextAction === "complete_contact" ? "phone" : "name",
-          })}
+          onOpenWorkspace={(item) => openWorkspace(item, item.nextAction === "schedule" ? { view: "intake", intakeField: "name" } : unscheduledNextStep(item.nextAction).location)}
           onSchedule={(item) => {
             setQueueOpen(false);
             beginScheduling(scheduleTargetFromUnscheduled(item));

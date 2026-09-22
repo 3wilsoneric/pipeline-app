@@ -78,7 +78,7 @@ function assessmentBoardState(referral: Referral, context: WorkflowContext, stat
   if (state.assessment === "signed") return boardCard("decision", "Under review", "Record decision", "workflow");
   if (state.assessment === "ready_to_sign") return { ...boardCard("in_progress", "Ready to sign", "Review and sign the assessment", "assessment"), location: { view: "assessment", assessmentMode: "review" } };
   if (["in_progress", "waiting_for_information"].includes(state.assessment)) return boardCard("in_progress", "Assessment underway", "Continue assessment", "assessment");
-  if (state.assessment === "scheduled") return boardCard("in_progress", "Assessment scheduled", "Prepare for assessment", "assessment");
+  if (state.assessment === "scheduled") return boardCard("in_progress", "Assessment scheduled", "Prepare assessment", "assessment");
   return hasReferralPreparation(referral, context, state)
     ? boardCard("in_progress", "Preparation", "Continue preparation", "assessment")
     : boardCard("received", "Referral received", "Add referral information", "intake");

@@ -183,16 +183,6 @@ function LifecycleCard({ item, showOwner, onOpenPacket }: {
   </button>;
 }
 
-export function WorkflowCardSkeleton() {
-  return (
-    <div aria-hidden="true" data-home-layout-placeholder className="flex min-h-16 items-center gap-3 border-b border-[#e1e7e3] px-3">
-      <div className="h-9 w-[3px] shrink-0 bg-[#cadbd2]" />
-      <div className="min-w-0 flex-1"><div className="h-3 w-2/3 max-w-40 bg-[#dce4df]" /><div className="mt-2 h-2 w-1/2 bg-[#edf0ee]" /></div>
-      <div className="h-5 w-24 shrink-0 bg-[#e9eeeb]" />
-    </div>
-  );
-}
-
 function WorkflowRibbon({ item, showOwner, onOpenPacket, current }: {
   item: ReferralWorklistItem;
   showOwner: boolean;

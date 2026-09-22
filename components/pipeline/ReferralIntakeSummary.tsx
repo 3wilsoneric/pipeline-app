@@ -9,9 +9,10 @@ import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand, ChartG
 
 // Reuse the client chart's presentation, not its resident/census data model.
 // Every value here belongs to this referral and its existing intake editor.
-export default function ReferralIntakeSummary({ referral, headerActions, onEditField }: {
+export default function ReferralIntakeSummary({ referral, headerActions, contactActions, onEditField }: {
   referral: Referral;
   headerActions?: ReactNode;
+  contactActions?: ReactNode;
   onEditField?: (field: ReferralChartEditField) => void;
 }) {
   const fact = (label: string, key: PersistedCanvasFieldKey, wide = false): ClientChartFact => {
@@ -45,6 +46,7 @@ export default function ReferralIntakeSummary({ referral, headerActions, onEditF
       <ChartGrid ariaLabel="Contact information" columns="priorities">
         {[fact("Phone", "phone"), fact("Email", "email")].map(cell)}
       </ChartGrid>
+      {contactActions}
     </ChartBand>
     <ChartBand title="Intake information">
       <ChartGrid ariaLabel="Intake information" columns="care">

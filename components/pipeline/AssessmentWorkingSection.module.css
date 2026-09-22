@@ -362,3 +362,10 @@
 .appointment button:hover { background: #eaf3ee; }
 .appointment button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
 .appointment button:disabled { opacity: .5; }
+
+/* Scheduling entry inside the chart's contact and coordination band. */
+.chartScheduling { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 18px; }
+.chartScheduling p { margin: 0; color: #4a5751; font-size: 15px; font-weight: 600; }
+.chartScheduling button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid #b6c6be; border-radius: 6px; background: #fff; color: #17614f; font-size: 15px; font-weight: 700; }
+.chartScheduling button:hover { border-color: #0f8b73; color: #0f6f5e; }
+.chartScheduling button:focus-visible { outline: 2px solid #0f8b73; outline-offset: 2px; }

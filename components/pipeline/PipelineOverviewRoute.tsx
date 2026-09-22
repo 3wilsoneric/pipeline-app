@@ -238,7 +238,8 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     if (nextScreen === "operations" && reportAccess !== true) return;
     const requestId = ++navigationRequestRef.current;
     const sourceLocation = `${window.location.pathname}${window.location.search}`;
-    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume;
+    // A requested missing field is a deliberate target; saved positions only fill in when none is named.
+    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume && !location?.intakeField;
     const savedLocation = shouldResume
       ? await loadPipelineWorkspaceResumeLocation(referral!.id).catch(() => undefined)
       : undefined;
