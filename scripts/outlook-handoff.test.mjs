@@ -147,16 +147,17 @@ test("explicit removal revokes before deleting; a missing draft permits recovery
 });
 
 test("Outlook API enforces authentication, workspace access, origin, explicit removal and nonproduction hold", async () => {
-  let authenticated = false, allowed = false, live = true, connectionCalls = 0, checks = 0, removals = 0;
+  let authenticated = false, allowed = false, live = true, connectionCalls = 0, checks = 0, removals = 0, confirmations = 0;
   const route = load("app/api/referrals/[referralId]/outlook-draft/route.ts", {
-    "@/lib/auth/pipeline-auth": { requirePipelineUser: async () => authenticated ? { ok: true, user: { id: "staff" } } : { ok: false, response: new Response(null, { status: 401 }) } },
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: async () => authenticated ? { ok: true, user: { id: "staff", roles: [] } } : { ok: false, response: new Response(null, { status: 401 }) } },
     "@/lib/auth/request-security": load("lib/auth/request-security.ts"),
-    "@/lib/pipeline/referral-access": { requireReferralAccess: async () => allowed ? { ok: true } : { ok: false, response: new Response(null, { status: 404 }) } },
+    "@/lib/pipeline/referral-access": { requireMutableReferralAccess: async () => ({ ok: true }), requireReferralAccess: async () => allowed ? { ok: true } : { ok: false, response: new Response(null, { status: 404 }) } },
     "@/lib/extraction/contracts": { readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
     "@/lib/notifications/microsoft-graph-mail": { isMeetClientLive: () => live },
     "@/lib/observability/api-logging": { withApiLogging: (_request, _name, handler) => handler() },
     "@/lib/notifications/admission-packet-files": { packetPrivateHeaders: { "Cache-Control": "private, no-store" } },
     "@/lib/notifications/admission-packet-store": { PacketAccessError },
+    "@/lib/notifications/assessor-email-draft": { confirmAssessorEmailDraft: async () => { confirmations++; return { delivery: "email", status: "sent" }; } },
     "@/lib/notifications/outlook-mail": { OutlookMailError: class extends Error {}, connectedOutlookMailbox: async () => { connectionCalls++; return { id: "staff", email: "staff@example.invalid", token: "synthetic" }; } },
     "@/lib/notifications/outlook-handoff": { workspaceOutlookState: async () => ({ draft: null, occupied: false }),
       checkOutlookHandoff: async () => { checks++; return { status: "draft" }; }, discardOutlookHandoff: async () => { removals++; return { status: "discarded" }; } },
@@ -173,4 +174,19 @@ test("Outlook API enforces authentication, workspace access, origin, explicit re
   assert.equal((await post({ action: "discard", packet_id: "packet", confirmed: "true" })).status, 400); assert.equal(removals, 0);
   assert.equal((await post({ action: "check", packet_id: "packet" })).status, 200); assert.equal(checks, 1);
   assert.equal((await post({ action: "discard", packet_id: "packet", confirmed: true })).status, 200); assert.equal(removals, 1);
+  const connectionsBeforeConfirmation = connectionCalls;
+  assert.equal((await post({ action: "confirm_forward", packet_id: "packet", confirmed: "true" })).status, 400);
+  assert.equal(confirmations, 0);
+  assert.equal((await post({ action: "confirm_forward", packet_id: "packet", confirmed: true })).status, 200);
+  assert.equal(confirmations, 1); assert.equal(connectionCalls, connectionsBeforeConfirmation, "manual completion never connects to an assessor mailbox");
+});
+
+test("an emailed draft exposes its saved onward audience across staff without granting confirmation or legacy Graph access", async () => {
+  const f = handoffFixture(); await f.prepare();
+  Object.assign(f.packet.outlook, { delivery: "email", forwardTo: ["reviewed@example.invalid"], forwardCc: ["staff@example.invalid"] });
+  const other = await f.owner.workspaceOutlookState(1, "other");
+  assert.equal(other.occupied, false); assert.equal(other.draft.can_confirm, false); assert.equal(other.draft.can_replace, false);
+  assert.deepEqual(Array.from(other.draft.forward_to), ["reviewed@example.invalid"]);
+  assert.equal((await f.owner.workspaceOutlookState(1, "admin", true)).draft.can_replace, true);
+  await assert.rejects(f.check(), { status: 404 });
 });

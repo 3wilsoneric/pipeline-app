@@ -1,29 +1,37 @@
-# Meet the Client: Outlook setup
+# Meet the Client: assessor email setup
 
-**Not production yet — no email will be sent.** The owner has placed this workflow on hold. Do not enable production use until the owner explicitly approves it. Deploying this code, adding credentials, or approving Microsoft permissions does not lift the hold.
-
-`PIPELINE_MEET_CLIENT_LIVE_ENABLED` defaults to false. Both the production environment and an explicit true value are required for email, verification codes and Outlook draft creation; demo and persona environments remain disabled. Keep the switch false during setup. The handoff screen, composer and preview label the packet as a demo.
-
-## One-time setup for the Pipeline owner
-
-1. In Microsoft Entra, open **App registrations** and find the browser application matching `NEXT_PUBLIC_ENTRA_CLIENT_ID`. Use the same tenant as `NEXT_PUBLIC_ENTRA_TENANT_ID` and the existing Pipeline SPA redirect URI.
-2. Under **API permissions → Add a permission → Microsoft Graph → Delegated permissions**, add `Mail.ReadWrite` and `User.Read`. Grant organization consent if your tenant requires it. These are permissions for the signed-in person's mailbox. No delegated `Mail.Send` permission is needed: the assessor sends in Outlook.
-3. Configure the existing server-side sender for recipient verification codes: `PIPELINE_GRAPH_TENANT_ID`, `PIPELINE_GRAPH_CLIENT_ID`, `PIPELINE_GRAPH_CLIENT_SECRET`, `PIPELINE_MEET_CLIENT_SENDER`, and approved `PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS`. The server application needs application `Mail.Send`, restricted to the approved sender mailbox. These server credentials and permissions are separate from the browser's delegated access.
-4. Confirm HTTPS `PIPELINE_CANONICAL_ORIGIN`, the session secret, blob storage and PostgreSQL migration 0042 are configured. Outlook drafts use a secure link to the complete packet; recipients verify their email with a one-time code and need no Pipeline account.
-5. Keep production disabled. Before proposing activation, verify a controlled work-account connection, draft preparation and send reconciliation with an approved synthetic recipient, including code delivery. Activating even a controlled live rehearsal requires the owner's approval of that concrete rehearsal.
-
-Microsoft setup belongs to whoever administers the organization's Microsoft 365 tenant. If that is the Pipeline owner, there is no separate “Pipeline IT” team to contact. No credentials or permissions have been granted by this change.
+**Not production yet — no email will be sent.** The owner has placed this workflow on hold. Deploying code, adding credentials, and configuring Microsoft permissions do not lift that hold. Keep `PIPELINE_MEET_CLIENT_LIVE_ENABLED=false` and demo mode enabled until the owner explicitly approves activation.
 
 ## Assessor flow after activation
 
-In **Finish & send → Preview email**, choose **My Outlook**. Connect the same Microsoft work account used to sign in to Pipeline, review the message and recipients, then choose **Open in Outlook**. Pipeline prepares one saved draft with the complete admission packet link. Outlook opens in a new tab. The assessor sends there and returns to **Check sent status** in Pipeline.
+In **Finish & send → Preview email**, review the community's To/Cc recipients, message and complete admission packet. **Email draft to assessor** emails the prepared handoff from **Alamo Admissions** to the signing assessor's confirmed work address. The community receives nothing at this step. This is a preparation email in the assessor's inbox; Pipeline does not insert a message into Outlook's Drafts folder.
 
-Preparing or opening a draft never marks the assessment sent. The saved draft can be reopened after closing the workspace. A lost response is recovered using its delivery identifier rather than creating another email. Pop-up blocking leaves a visible **Reopen draft** link; expired consent exposes **Connect Outlook** again. Acting as another assessor cannot connect or use their mailbox.
+The assessor forwards the handoff from Outlook to the listed To/Cc recipients, removes the instruction box, and retains the packet link. The assessor is included in the reviewed onward audience. Replies to the forward go to the assessor. They return to Pipeline and select **I sent the handoff**. The confirmation explicitly records their attestation; Pipeline does not read their mailbox or verify delivery. Only the actual assessor can confirm, including when another staff member prepared the email. Acting as that assessor does not grant confirmation rights.
 
-While a draft exists, Pipeline freezes its composer and prevents competing handoffs for the workspace. Remove the draft to change recipients or prepare an updated packet. Removal revokes its download link before deleting the Outlook draft. It cannot recall an email already sent. Removed or unresolved Outlook packets cannot be re-enabled using the packet renewal control.
+Preparing the email keeps the signed assessment editable. Pipeline preserves one pending handoff across refreshes and restarts. Its composer shows the saved pending handoff audience, including when another staff member prepared it; the assessor or administrator can replace it to change recipients, message or files. Replacement revokes the old link and releases only that draft's reservation. An existing inbox email cannot be recalled. A timeout retains the pending draft and instructs staff to check the inbox; no automatic resend occurs.
 
-Pipeline checks the sent message, recipient set, packet link, signed assessment version, admission decision and file inventory before completing the handoff. Changes made after preparation are shown for review. **Prepare updated handoff** explicitly acknowledges an already-sent changed email, revokes its old link, records that external send, and returns to review without certifying the changed assessment. Recipients cannot be silently expanded by editing Outlook; downloads are paused when the reviewed audience changes.
+Confirmation rechecks the signed assessment version, admission decision and file inventory. Changed drafts require an updated handoff, and their old link is revoked. Confirmation and replacement serialize on the packet record. If finalization succeeded but recording completion failed, retry repairs completion without another email or another finalization.
 
-The current boundary is deliberate: Outlook sends are reconciled when the assessor selects **Check sent status**; there is no background mailbox monitoring or read receipt. If automatic reconciliation becomes a requirement, revisit this with Microsoft Graph subscriptions and a durable reconciliation worker. Contact-list setup is separate work.
+## One-time setup for the Pipeline owner
 
-Microsoft references: [create a draft](https://learn.microsoft.com/en-us/graph/api/user-post-messages?view=graph-rest-1.0), [message fields and web link](https://learn.microsoft.com/en-us/graph/api/resources/message?view=graph-rest-1.0), [immutable message identifiers](https://learn.microsoft.com/en-us/graph/outlook-immutable-id).
+1. Configure `PIPELINE_GRAPH_TENANT_ID`, `PIPELINE_GRAPH_CLIENT_ID`, `PIPELINE_GRAPH_CLIENT_SECRET`, and `PIPELINE_MEET_CLIENT_SENDER=admissions@alamo-pipeline.com`. Store the credential as a server-side Azure secret. The mail tenant may differ from Pipeline's sign-in tenant; no assessor tenant administration or delegated Outlook connection is required.
+2. Give the dedicated mail application **Application Mail.Send**, restricted to the Admissions mailbox using Exchange Application RBAC. Do not also grant organization-wide Entra Mail.Send: those grants are additive. No Mail.ReadWrite access is needed for this flow.
+3. Configure approved recipient domains, including the signing assessor's work domain. Resolve the assessor through an active, confirmed workspace identity. Never infer a mailbox from a display name or reconstruct a guest `#EXT#` sign-in identifier.
+4. Verify HTTPS canonical origin, session secret, Blob storage, PostgreSQL migration 0042 and domain email authentication. All files use one secure packet link. Recipients verify their listed email with a one-time code; no Pipeline account is needed.
+5. Keep production disabled. Before activation, obtain owner approval for a concrete synthetic rehearsal covering preparation email delivery, forwarding, packet verification/download and manual completion. A provider acceptance response alone is not proof of inbox delivery.
+
+## Compatibility and recovery
+
+Previously created connected-Outlook drafts retain their existing reopen, status-check and removal controls. Creating new handoffs uses the emailed preparation flow. Its lifecycle reuses the existing packet `outlook` record with `delivery: "email"`; absent delivery means the earlier Graph Drafts flow. This avoids a migration and keeps one reservation owner. Introduce an explicit transport schema only if another delivery method requires a different lifecycle.
+
+Rollback must retain the assessor draft handlers while pending preparation emails exist. Keep sending disabled during recovery and preserve packet/audit records; do not delete reservations to resolve uncertainty. The local packet adapter supports one process; PostgreSQL owns production locking.
+
+Microsoft references: [application RBAC and mailbox scoping](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac), [sendMail and acceptance semantics](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0).
+
+## Mail infrastructure verified September 21, 2026
+
+The GoDaddy Microsoft 365 mailbox `admissions@alamo-pipeline.com` is provisioned with display name **Alamo Admissions**. The dedicated **Alamo Admissions Delivery** application uses the mail tenant, separately from Pipeline sign-in. Exchange reports `Application Mail.Send` in scope for **Pipeline Admissions mailbox only**; the application has no organization-wide Entra application grants. Application token issuance succeeded without a mail API request.
+
+Azure `pipeline-prod-web` stores the client credential as `pipeline-graph-mail-client-secret`. The current credential expires September 22, 2027 (UTC); rotate it before then. Sender, mail tenant/client and the seven approved domains (the six existing community domains plus `alamo-pipeline.com`) are configured. `PIPELINE_MEET_CLIENT_LIVE_ENABLED=false` and `PIPELINE_DEMO_MODE=true` remain in effect. No preparation email, community handoff or verification code was sent during setup.
+
+Both DKIM selectors resolve to Microsoft's tenant records and Exchange reports signing **Enabled / Valid**. Existing GoDaddy SPF and quarantine DMARC records remain in place. Before live use, perform the owner-approved synthetic delivery rehearsal above; DNS and token checks alone do not establish delivery.

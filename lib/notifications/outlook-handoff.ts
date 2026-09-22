@@ -15,11 +15,13 @@ type Mailbox = { token: string; id: string; email: string };
 export function outlookDraftView(packet: AdmissionPacket): OutlookDraftView {
   const draft = packet.outlook!;
   return { packet_id: packet.id, status: draft.status, mailbox: draft.mailbox, web_link: draft.webLink,
-    prepared_at: packet.createdAt, assessment_version: packet.assessmentVersion, file_count: packet.files.length, message: draft.note };
+    prepared_at: packet.createdAt, assessment_version: packet.assessmentVersion, file_count: packet.files.length, message: draft.note,
+    ...(draft.delivery ? { delivery: draft.delivery, forward_to: draft.forwardTo, forward_cc: draft.forwardCc } : {}) };
 }
-export async function workspaceOutlookState(referralId: number, ownerId: string) {
+export async function workspaceOutlookState(referralId: number, ownerId: string, administrator = false) {
   const packet = await findWorkspaceOutlookDraft(referralId);
   if (!packet?.outlook) return { draft: null, occupied: false };
+  if (packet.outlook.delivery === "email") return { draft: { ...outlookDraftView(packet), can_confirm: packet.outlook.ownerId === ownerId, can_replace: packet.outlook.ownerId === ownerId || administrator }, occupied: false };
   if (packet.outlook.ownerId !== ownerId) return { draft: null, occupied: !["sent", "discarded"].includes(packet.outlook.status) };
   return { draft: outlookDraftView(packet), occupied: false };
 }
@@ -114,7 +116,7 @@ async function reconcileSentPacket(packet: AdmissionPacket, message: OutlookMess
   }
   return finishSentPacket(packet, message);
 }
-async function currentSource(packet: AdmissionPacket) {
+export async function currentSource(packet: AdmissionPacket) {
   const [snapshot, assessment] = await Promise.all([getReferralWorkflowSnapshot(packet.referralId), getAssessment(packet.assessmentId)]);
   const draft = packet.outlook!;
   if (snapshot?.referral.version !== draft.referralVersion || snapshot.decision?.decisionId !== draft.audit.decisionId || snapshot.decision?.outcome !== "accepted") return { assessment, issue: "Admission details changed after this draft was prepared." };
@@ -138,7 +140,7 @@ async function needsReview(packet: AdmissionPacket, note: string, revoke = false
 }
 async function ownedDraft(packetId: string, referralId: number, ownerId: string) {
   return withAdmissionPacket(packetId, (packet) => {
-    if (!packet?.outlook || packet.referralId !== referralId || packet.outlook.ownerId !== ownerId) throw new PacketAccessError("Outlook draft not found.", 404);
+    if (!packet?.outlook || packet.outlook.delivery === "email" || packet.referralId !== referralId || packet.outlook.ownerId !== ownerId) throw new PacketAccessError("Outlook draft not found.", 404);
     return structuredClone(packet);
   });
 }

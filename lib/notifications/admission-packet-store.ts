@@ -26,6 +26,10 @@ export type AdmissionPacket = {
     ownerId: string; mailbox: string; status: OutlookDraftState; audit: DeliveryAudit;
     referralVersion: number; packetRevision: string; messageId?: string; webLink?: string;
     note?: string;
+    delivery?: "email";
+    forwardTo?: string[];
+    forwardCc?: string[];
+    confirmedAt?: string;
   };
   events: { action: string; at: string; recipient?: string; file?: string; actorId?: string; actorName?: string }[];
 };
@@ -55,7 +59,7 @@ export async function createAdmissionPacket(packet: AdmissionPacket) {
   await writeFile(path, JSON.stringify(packet), { flag: "wx", mode: 0o600 });
 }
 
-export async function withAdmissionPacket<T>(id: string, operation: (packet: AdmissionPacket | null) => T): Promise<T> {
+export async function withAdmissionPacket<T>(id: string, operation: (packet: AdmissionPacket | null) => T | Promise<T>): Promise<T> {
   if (!validPacketId(id)) return operation(null);
   if (getPipelineDatabaseMode() === "postgres") {
     const sql = getPipelineSql();
@@ -63,7 +67,7 @@ export async function withAdmissionPacket<T>(id: string, operation: (packet: Adm
       const [row] = await tx<{ record: AdmissionPacket }[]>`select record from pipeline.admission_packet_links where packet_id = ${id}::uuid for update`;
       const packet = row?.record ?? null;
       const previousEvents = packet?.events.length ?? 0;
-      const value = operation(packet);
+      const value = await operation(packet);
       if (packet) {
         for (const event of packet.events.slice(previousEvents)) await tx`insert into pipeline.audit_events
           (entity_type, entity_id, action, actor_id, actor_name, changed_fields, metadata)
@@ -83,7 +87,7 @@ export async function withAdmissionPacket<T>(id: string, operation: (packet: Adm
     let packet: AdmissionPacket | null = null;
     try { packet = JSON.parse(await readFile(path, "utf8")) as AdmissionPacket; }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-    const result = operation(packet);
+    const result = await operation(packet);
     if (packet) {
       const temporary = `${path}.${randomUUID()}.tmp`;
       await writeFile(temporary, JSON.stringify(packet), { mode: 0o600 });

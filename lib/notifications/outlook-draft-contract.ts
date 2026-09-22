@@ -8,6 +8,11 @@ export type OutlookDraftView = {
   assessment_version: number;
   file_count: number;
   message?: string;
+  delivery?: "email";
+  can_confirm?: boolean;
+  can_replace?: boolean;
+  forward_to?: string[];
+  forward_cc?: string[];
 };
 
 export function safeOutlookWebLink(value: unknown): string | undefined {
