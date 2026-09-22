@@ -2,7 +2,7 @@
 
 import { getPlannedAdmissionDate, plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
 import { useCallback, useEffect, useRef, useState } from "react";
-import HandoffDraftStatus from "./HandoffDraftStatus";
+import HandoffDraftStatus, { HandoffDraftError } from "./HandoffDraftStatus";
 import { ArrowRight, Check, FileText, LoaderCircle, Paperclip, RefreshCw, X } from "lucide-react";
 
 import type {
@@ -215,7 +215,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
         <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={sent ? styles.deliveryStatus : "sr-only"} data-sent={sent || undefined}>{deliveryStatus}</span>
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
-      {!composerOpen && emailDraft && (emailDraft.error || emailDraft.inputError) ? <HandoffDraftStatus value={emailDraft} /> : null}
+      {!composerOpen ? <HandoffDraftError value={emailDraft} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
         existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
@@ -465,7 +465,7 @@ function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, onBac
       {step === 1 ? <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} /> : null}
       {step === 2 ? <AdmissionPacketReview email={payload.email} referral={payload.referral} onOpenFiles={onOpenFiles} /> : null}
       {step === 3 ? <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} /> : null}
-      {step !== 3 && draft && (draft.error || draft.inputError) ? <HandoffDraftStatus value={draft} /> : null}
+      {step !== 3 ? <HandoffDraftError value={draft} /> : null}
     </div>
     <footer className={styles.toolbar}>
       <button type="button" className={styles.textButton} onClick={onBack}>Back</button>

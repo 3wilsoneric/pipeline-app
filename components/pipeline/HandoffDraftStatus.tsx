@@ -16,3 +16,7 @@ export default function HandoffDraftStatus({ value }: { value: HandoffRecipients
     <p role="status" className={styles.status}>{value.hasPendingRecipients ? "Press Enter or + to add the unfinished address before confirming recipients." : value.message}{!value.editable && !value.loading && !value.error ? ". Create the referral to edit these recipients." : ""}</p>
   </div>;
 }
+
+export function HandoffDraftError({ value }: { value?: HandoffRecipients }) {
+  return value && (value.error || value.inputError) ? <HandoffDraftStatus value={value} /> : null;
+}
