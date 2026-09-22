@@ -85,10 +85,10 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   await expect(composer).toBeVisible();
   const verification = composer.getByRole("checkbox", { name: /I verified/ });
   await expect(verification).toBeInViewport();
-  await expect(composer.getByRole("button", { name: "Send email & packet", exact: true })).toBeInViewport();
+  await expect(composer.getByRole("button", { name: "Email draft to assessor", exact: true })).toBeInViewport();
   await expect(page.getByRole("region", { name: "Client medical chart", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toHaveCount(0);
-  await expect(email.getByRole("button", { name: "Send email & packet", exact: true })).toBeDisabled();
+  await expect(email.getByRole("button", { name: "Email draft to assessor", exact: true })).toBeDisabled();
   await expect(email.locator("details").filter({ hasText: "Delivery details" })).not.toHaveAttribute("open");
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
@@ -104,7 +104,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`Finish tab preserves the 
   expect(response.headers()["cache-control"]).toContain("no-store");
   const payload = await response.json();
   const { user } = await (await page.request.get("/api/auth/me")).json();
-  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name), undefined, { demo: payload.email.example_only }));
+  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name), undefined, { demo: payload.email.example_only, packetLinkPreview: true }));
   const dataSheet = await page.request.get(`/api/referrals/${referral.id}/admission-summary?download=chart`);
   expect(dataSheet.status()).toBe(200);
   expect(await dataSheet.text()).toContain("Received; signatures still need review.");
@@ -235,7 +235,7 @@ for (const width of [1440, 390, 320]) test(`handoff points to the next unfinishe
   await expect(readiness.getByRole("button", { name: "Open decision", exact: true })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath(`next-step-email-${width}.png`), animations: "disabled" });
   await readiness.getByRole("button", { name: "Preview email", exact: true }).click();
-  await page.getByRole("button", { name: "Done reviewing", exact: true }).click();
+  await page.getByRole("button", { name: "Close email preview", exact: true }).click();
   await expect(readiness.getByRole("heading", { name: "Demo review complete", exact: true })).toBeVisible();
   await expect(readiness.getByRole("button")).toHaveCount(1);
   await expectNextActionVisible("Close workspace");
@@ -279,19 +279,20 @@ test("packet controls show attachments and retain explicit send confirmation and
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async (route) => {
     const response = await route.fetch(); const payload = await response.json();
     previewedAssessment = payload.report;
-    payload.email = { ...payload.email, example_only: false, can_send: true, configured: true, sender: "pipeline@example.invalid", eligible: true, ready: true, blockers: [], allowed_recipient_domains: ["example.invalid"],
+    payload.email = { ...payload.email, example_only: false, can_send: true, configured: true, draft_recipient: { id: "assessor", name: "Synthetic Assessor", email: "assessor@example.invalid" }, sender: "admissions@example.invalid", eligible: true, ready: true, blockers: [], allowed_recipient_domains: ["example.invalid"],
       admission_packet: { files: [{ document_id: "synthetic-packet", name: "Synthetic referral packet.pdf", category: "admission", byte_size: 2048, ready: true }], total_bytes: 2048, ready: true, delivery_mode: "direct" } };
     await route.fulfill({ response, json: payload });
   });
   // Presentation/transport fixture only. No provider delivery occurs in this browser test.
   let sends = 0; let sentBody: Record<string, unknown> = {};
-  await page.route(`**/api/referrals/${referral.id}/meet-client-email`, async (route) => {
+  await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: { draft: null, occupied: false } }));
+  await page.route(`**/api/referrals/${referral.id}/meet-client-email?delivery=email_draft`, async (route) => {
     sends += 1; sentBody = route.request().postDataJSON();
     await route.fulfill({ status: 409, json: { error: "The assessment changed. Refresh the packet before sending." } });
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   await page.getByRole("button", { name: "Preview email", exact: true }).click();
-  const send = page.getByRole("button", { name: "Send email & packet", exact: true });
+  const send = page.getByRole("button", { name: "Email draft to assessor", exact: true });
   await expect(page.getByRole("button", { name: /^(Upload files|Review packet files)$/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Open Synthetic referral packet.pdf" })).toHaveAttribute("href", "/api/files/synthetic-packet/download");
   const recipients = page.getByRole("combobox", { name: /^To/ });
@@ -301,7 +302,7 @@ test("packet controls show attachments and retain explicit send confirmation and
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Preview");
   await page.getByRole("checkbox", { name: /I verified/ }).check();
   await expect(send).toBeEnabled();
-  await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Ready to send");
+  await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Ready to email draft");
   await expect(page.getByText("Recipients verified", { exact: true })).toBeVisible();
   await recipients.fill("other@example.invalid");
   await recipients.press("Enter");
@@ -356,7 +357,7 @@ test("a recorded send remains distinct from preview after reopening", async ({ p
   await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Sent");
-  await expect(page.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Email draft to assessor", exact: true })).toHaveCount(0);
   await page.locator("summary").filter({ hasText: "Review email again" }).click();
   await page.getByRole("button", { name: "View email", exact: true }).click();
   await expect(page.getByRole("combobox", { name: /^To/ })).toBeDisabled();
@@ -469,15 +470,15 @@ for (const width of [390, 834]) test(`demo admission packet includes every uploa
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.getByText("Not production yet — no email will be sent. This admission packet is a demo.", { exact: true })).toBeVisible();
   await expect(preview.getByText("Hello team,", { exact: true })).toBeVisible();
-  await expect(composer.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
-  await expect(composer.getByRole("button", { name: "Done reviewing", exact: true })).toBeInViewport();
+  await expect(composer.getByRole("button", { name: "Email draft to assessor", exact: true })).toBeDisabled();
+  await expect(composer.getByRole("button", { name: "Close email preview", exact: true })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`demo-admission-packet-${width}.png`), animations: "disabled" });
-  await composer.getByRole("button", { name: "Done reviewing", exact: true }).click();
+  await composer.getByRole("button", { name: "Close email preview", exact: true }).click();
   expect(attempts).toBe(0);
 });
 
-for (const width of [1440, 834, 390]) test(`Outlook handoff clearly remains nonproduction at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 834, 390]) test(`Assessor draft clearly remains nonproduction at ${width}px`, async ({ page }, info) => {
   const { referral } = await referralWithAssessment(page);
   await page.setViewportSize({ width, height: 900 });
   let writes = 0;
@@ -487,11 +488,10 @@ for (const width of [1440, 834, 390]) test(`Outlook handoff clearly remains nonp
   await expect(page.getByRole("status").filter({ hasText: "Not production yet" })).toBeVisible();
   await page.getByRole("button", { name: "Preview email", exact: true }).click();
   const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
-  await composer.getByRole("button", { name: "My Outlook", exact: true }).click();
-  const outlook = composer.getByRole("region", { name: "Outlook handoff" });
+  const outlook = composer.getByRole("region", { name: "Email draft to assessor" });
   await expect(outlook.getByText("Not production yet", { exact: true })).toBeVisible();
-  await expect(outlook.getByRole("button", { name: "Open in Outlook", exact: true })).toBeDisabled();
-  await expect(outlook.getByRole("button", { name: "Open in Outlook", exact: true })).toBeInViewport();
+  await expect(outlook.getByRole("button", { name: "Email draft to assessor", exact: true })).toBeDisabled();
+  await expect(outlook.getByRole("button", { name: "Email draft to assessor", exact: true })).toBeInViewport();
   await expect(outlook).toContainText("no email will be sent");
   await expect(composer.getByRole("button", { name: "Close email preview", exact: true })).toBeInViewport();
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
@@ -521,8 +521,8 @@ for (const width of [834, 390]) test(`saved Outlook draft reopens without offeri
   const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
   const outlook = composer.getByRole("region", { name: "Outlook handoff" });
   await expect(outlook.getByRole("heading", { name: "Your Outlook draft" })).toBeVisible();
-  await expect(composer.getByRole("button", { name: "Pipeline", exact: true })).toBeDisabled();
-  await expect(composer.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
+  await expect(composer.getByRole("button", { name: "Pipeline", exact: true })).toHaveCount(0);
+  await expect(composer.getByRole("button", { name: "Email draft to assessor", exact: true })).toHaveCount(0);
   await expect(outlook.getByRole("link", { name: "Reopen draft" })).toHaveAttribute("href", "https://outlook.office.com/mail/drafts/fixture");
   await expect(outlook).toContainText("not sent");
   await outlook.getByRole("button", { name: "Remove draft", exact: true }).click();
