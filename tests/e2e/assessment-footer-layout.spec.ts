@@ -14,7 +14,8 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await expect(footer.locator('[data-guide-target="assessment-save-status"]')).toContainText("All changes saved");
     await expect(footer.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
     const header = page.getByTestId("workspace-folder-header");
-    await expect(header.getByRole("combobox", { name: "Working decision", exact: true })).toBeVisible();
+    // The recommendation belongs to the deliberate review, not to every question.
+    await expect(header.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
     await expect(header.getByRole("button", { name: /Excel|recovery|Workspaces|Move workspace to trash/ })).toHaveCount(0);
     const recovery = footer.getByRole("button", { name: /Open Excel and recovery/ });
     await expect(recovery).toBeVisible();
@@ -23,12 +24,11 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     if (width === 1440) {
       const identityBounds = (await identity.boundingBox())!;
       const stagesBounds = (await identity.locator("+ nav").boundingBox())!;
-      const decisionBounds = (await header.getByRole("combobox", { name: "Working decision" }).boundingBox())!;
       expect(stagesBounds.x).toBeLessThanOrEqual(identityBounds.x + identityBounds.width + 1);
-      expect(stagesBounds.x + stagesBounds.width).toBeLessThan(decisionBounds.x);
+      expect(stagesBounds.x + stagesBounds.width).toBeLessThanOrEqual(width);
       expect(Math.abs(identityBounds.y + identityBounds.height - stagesBounds.y - stagesBounds.height)).toBeLessThan(10);
     }
-    for (const control of [header.getByRole("combobox", { name: "Working decision" }), recovery]) {
+    for (const control of [recovery]) {
       const controlBounds = (await control.boundingBox())!;
       expect(controlBounds.height).toBeGreaterThanOrEqual(44);
       expect(controlBounds.x).toBeGreaterThanOrEqual(0);
@@ -58,7 +58,9 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
       await expect(steps.locator('[aria-label="Section 1 of 5"]')).toHaveText("1 of 5");
       await steps.getByRole("button", { name: "Next section", exact: true }).click();
       await expect(steps.locator('[aria-label="Section 2 of 5"]')).toHaveText("2 of 5");
-      await expect(page.getByRole("combobox", { name: "Assessment section", exact: true })).toBeFocused();
+      // Desktop section change lands on the new section heading so keyboard
+      // progression continues into that section's questions.
+      if (width >= 640) await expect(page.locator("[data-assessment-section-heading]")).toBeFocused();
       await steps.getByRole("button", { name: "Previous section", exact: true }).click();
       await expect(steps.locator('[aria-label="Section 1 of 5"]')).toBeVisible();
     if (width >= 640) {
@@ -114,37 +116,41 @@ test("loading the decision cannot move assessment navigation during a press", as
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=diagnosis_clinical`);
     await page.locator("#assessment-current_symptoms").fill("Synthetic stable navigation observation");
+    // Interviewing never loads the decision panel; the recommendation waits for review.
+    await expect(page.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
+    expect(decisionChunkPending).toBe(false);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review&assessmentSection=diagnosis_clinical`);
     await expect.poll(() => decisionChunkPending).toBe(true);
-    const allQuestions = page.getByRole("button", { name: "All questions", exact: true });
-    await allQuestions.click({ trial: true });
-    const before = (await allQuestions.boundingBox())!;
+    const backToQuestions = page.getByRole("button", { name: "Back to questions", exact: true });
+    await backToQuestions.click({ trial: true });
+    const before = (await backToQuestions.boundingBox())!;
     await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
     await page.mouse.down();
     release();
     await expect(page.getByRole("combobox", { name: "Working decision", exact: true })).toBeVisible();
-    const after = (await allQuestions.boundingBox())!;
+    const after = (await backToQuestions.boundingBox())!;
     expect(Math.abs(before.y - after.y)).toBeLessThanOrEqual(1);
     await page.mouse.up();
-    await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await backToQuestions.click();
     await expect(page.locator("#assessment-current_symptoms")).toHaveValue("Synthetic stable navigation observation");
   } finally { release(); await page.mouse.up(); }
 });
 
-test("recommendation remains available after starting and saves without a final decision", async ({ page }) => {
+test("recommendation remains available in review after starting and saves without a final decision", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Recommendation", owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await startOperationalAssessment(page.request, assessment);
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-  const header = page.getByTestId("workspace-folder-header");
-  const recommendation = header.getByRole("combobox", { name: "Working decision", exact: true });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
+  const review = page.getByRole("region", { name: "Placement recommendation", exact: true });
+  const recommendation = review.getByRole("combobox", { name: "Working decision", exact: true });
   await expect(recommendation).toBeEnabled();
   const route = `**/api/referrals/${referral.id}/recommendation`;
   await page.route(route, (request) => request.fulfill({ status: 503, json: { error: "Synthetic recommendation unavailable" } }));
   await recommendation.selectOption("accept");
-  await expect(header.getByRole("alert")).toContainText("Not saved. Synthetic recommendation unavailable");
+  await expect(review.getByRole("alert")).toContainText("Not saved. Synthetic recommendation unavailable");
   await page.unroute(route);
   await recommendation.selectOption("needs_more_information");
-  await expect(header.locator("[data-quick-recommendation]").getByRole("status")).toHaveText("Working decision saved");
+  await expect(review.locator("[data-quick-recommendation]").getByRole("status")).toHaveText("Working decision saved");
   await expect(recommendation).toHaveValue("needs_more_information");
   const workflow = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
   expect(workflow.recommendation.outcome).toBe("needs_more_information");

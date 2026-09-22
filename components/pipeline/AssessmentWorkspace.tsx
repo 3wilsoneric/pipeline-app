@@ -111,6 +111,7 @@ import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSch
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 import { assessmentScheduleDraft, type AssessmentScheduleDraft } from "@/lib/assessment/assessment-schedule-draft";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import { loadPipelineAssessmentResumeLocation } from "@/lib/pipeline/work-continuity-client";
 import { AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
 import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
 import AssessmentExcelBackup from "@/components/pipeline/AssessmentExcelBackup";
@@ -219,13 +220,22 @@ function resolveAssessmentAutoFocus(
   nextRequiredSection: AssessmentToolSection | undefined,
   initialSection: AssessmentToolSection | undefined,
   openSchedule: boolean,
+  savedPosition: SavedAssessmentPosition,
 ): AssessmentAutoFocusState | null {
-  if (!assessment?.assessment_id || focusedAssessmentId === assessment.assessment_id) return null;
+  // Wait for this user's saved position; a next-gap default must not replace it.
+  if (!assessment?.assessment_id || focusedAssessmentId === assessment.assessment_id || savedPosition === undefined) return null;
   return {
     assessmentId: assessment.assessment_id,
-    ...resolveAssessmentFocusState(assessment, nextRequiredSection, initialSection),
+    section: savedPosition?.assessmentSection ?? autoFocusSection(assessment, nextRequiredSection, initialSection),
     showScheduleDialog: openSchedule,
   };
+}
+
+// undefined while loading; null when there is no saved position or the entry was explicit.
+type SavedAssessmentPosition = PipelineWorkspaceLocation | null | undefined;
+
+function hasExplicitAssessmentEntry(props: Pick<AssessmentWorkspaceProps, "initialSection" | "trainingAssessmentSection" | "initialQuestion" | "initialLocation" | "trainingAssessmentMode" | "referralId">) {
+  return Boolean(props.initialSection || props.trainingAssessmentSection || props.initialQuestion || props.initialLocation?.assessmentQuestion || props.trainingAssessmentMode || !props.referralId);
 }
 
 function resolveAssessmentFocusState(
@@ -350,6 +360,11 @@ export default function AssessmentWorkspace({
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>(initialSection ?? trainingAssessmentSection ?? "identity");
+  // Entry order: explicit requested section/question, then this user's saved
+  // position for the workspace, then the existing default entry behavior.
+  const [savedPosition, setSavedPosition] = useState<SavedAssessmentPosition>(() => hasExplicitAssessmentEntry({
+    initialSection, trainingAssessmentSection, initialQuestion, initialLocation, trainingAssessmentMode, referralId,
+  }) ? null : undefined);
   const [isLoading, setIsLoading] = useState(Boolean(referralId));
   const [isBusy, setIsBusy] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -497,17 +512,30 @@ export default function AssessmentWorkspace({
     onActiveSectionChangeRef.current = onActiveSectionChange;
   }, [onActiveSectionChange]);
 
+  useEffect(() => {
+    if (savedPosition !== undefined || !referralId) return;
+    let cancelled = false;
+    void loadPipelineAssessmentResumeLocation(referralId).catch(() => undefined).then((location) => {
+      if (!cancelled) setSavedPosition(location ?? null);
+    });
+    return () => { cancelled = true; };
+  }, [referralId, savedPosition]);
+
   // Publish the committed section before a reflected route effect can restore an older choice.
   useLayoutEffect(() => {
     sectionRevisionRef.current += 1;
-    if (!selectedId) return;
+  }, [activeSection, preparing, reviewingChart, showScheduleDialog, showBeginDialog, phoneQuestion, selectedId]);
+  useLayoutEffect(() => {
+    // Do not publish the placeholder section before the entry position is resolved;
+    // it would overwrite the saved bookmark and read back as an explicit route.
+    if (!selectedId || focusedAssessmentIdRef.current !== selectedId) return;
     onActiveSectionChangeRef.current?.(activeSection, {
       view: "assessment", assessmentSection: activeSection,
       assessmentMode: reviewingChart ? "review" : preparing ? "prepare" : "interview",
       ...assessmentDialogLocation(reviewingChart, showScheduleDialog, showBeginDialog),
       ...(phoneQuestion && questionSectionRef.current === activeSection && !reviewingChart ? { assessmentQuestion: phoneQuestion } : {}),
     });
-  }, [activeSection, preparing, reviewingChart, showScheduleDialog, showBeginDialog, phoneQuestion, selectedId]);
+  }, [activeSection, preparing, reviewingChart, showScheduleDialog, showBeginDialog, phoneQuestion, selectedId, isFocused]);
 
   const upsertAssessment = useCallback((assessment: PipelineAssessmentRecord, select = false) => {
     setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
@@ -861,15 +889,22 @@ export default function AssessmentWorkspace({
       nextRequiredTarget?.section,
       initialSection ?? trainingAssessmentSection,
       trainingAssessmentMode === "schedule" || initialLocation?.assessmentDialog === "schedule",
+      savedPosition,
     );
     if (!focus) return;
     focusedAssessmentIdRef.current = focus.assessmentId;
+    if (selected && savedPosition?.assessmentSection) {
+      const mode = savedPosition.assessmentMode;
+      if (mode === "prepare" || mode === "interview") setNotebookPage({ assessmentId: selected.assessment_id, view: mode === "prepare" ? "prepare" : "assessment" });
+      // A removed or no-longer-applicable question falls back within the saved section.
+      setWorkingTarget(assessmentResumeTarget(selected, savedPosition.assessmentSection, savedPosition.assessmentQuestion, mode === "prepare" || (!mode && preparing)));
+    }
     applyAssessmentFocus(focus, {
       setActiveSection,
       setIsFocused,
       setShowScheduleDialog,
     });
-  }, [initialSection, initialLocation?.assessmentDialog, nextRequiredTarget, selected, trainingAssessmentMode, trainingAssessmentSection]);
+  }, [initialSection, initialLocation?.assessmentDialog, nextRequiredTarget, preparing, savedPosition, selected, trainingAssessmentMode, trainingAssessmentSection]);
 
   useEffect(() => {
     if (!scheduleRequested || !selected || isLoading || isBusy || (!trainingAssessmentMode && !viewer)) return;
@@ -1396,12 +1431,16 @@ export default function AssessmentWorkspace({
   };
 
   const closeAssessment = (onClosed?: () => void | Promise<void>) => saveAndCloseAssessment(onClosed).catch(() => undefined);
+  // Returning from Chart, Files or Activity reopens the question being worked, not the section top.
+  const retainWorkingQuestion = () => {
+    if (phoneQuestionRef.current && (phoneInterview || questionSectionRef.current === activeSection)) setWorkingTarget({ field: phoneQuestionRef.current });
+  };
   const saveForHeaderNavigation = useEffectEvent(async () => {
     if (!embeddedFolder) return saveAndCloseAssessment();
     try {
       if (isBusy) throw new Error("Wait for the assessment action to finish before leaving.");
       await saveBeforeExit();
-      if (phoneInterview && phoneQuestionRef.current) setWorkingTarget({ field: phoneQuestionRef.current });
+      retainWorkingQuestion();
     } catch (saveError) {
       setError(messageFor(saveError, "Your last changes could not be saved. Keep this assessment open and try again."));
       throw saveError;
@@ -1529,7 +1568,7 @@ export default function AssessmentWorkspace({
   const reviewChart = async () => {
     try {
       await saveBeforeExit();
-      if (phoneInterview && phoneQuestionRef.current) setWorkingTarget({ field: phoneQuestionRef.current });
+      retainWorkingQuestion();
       if (onReviewAssessment) onReviewAssessment();
       else if (onOpenChart) onOpenChart();
       else setNotebookView("chart");
@@ -1857,8 +1896,11 @@ export default function AssessmentWorkspace({
   const assessmentDetails = <>{renderAssessmentDetails()}
     <button type="button" onClick={() => setShowInterviewDate(true)}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
   </>;
-  const assessmentTools = recommendationControl ? <div className={workingStyles.headerTools}>
-    {recommendationControl(selected.assessment_id, setIsRecommendationSaving)}
+  // The recommendation belongs to the deliberate review, not to every question
+  // during the interview. Render exactly one instance of the existing control.
+  const recommendationNode = recommendationControl && reviewingChart ? recommendationControl(selected.assessment_id, setIsRecommendationSaving) : null;
+  const assessmentTools = recommendationNode && !assessmentReview ? <div className={workingStyles.headerTools}>
+    {recommendationNode}
   </div> : null;
   const requestInterviewStart = () => {
     if (!canEditClinical || isBusy || isClosing) return;
@@ -1980,21 +2022,45 @@ export default function AssessmentWorkspace({
               <span>{selected.signed_at && dirtySections.size === 0 ? "Assessment signed" : "Chart in progress"}</span>
             </div> : null);
 
+  const openSectionForReview = (section: AssessmentToolSection, field?: AssessmentToolFieldKey) => {
+    setActiveSection(section);
+    setWorkingTarget(field ? { field } : null);
+    setNotebookView("prepare");
+    onOpenAssessment?.();
+  };
+  const reviewEditDisabled = isBusy || isClosing || !canEditClinical || isAssessmentFinalized(selected);
+  const remainingReviewItems = reviewSections.reduce((count, section) => count + section.remaining.length, 0);
+
+  const renderReviewRecommendation = () => (recommendationNode ? <section className={workingStyles.reviewRecommendation} aria-label="Placement recommendation">
+                <h4>Placement recommendation</h4>
+                <p>Your working recommendation for this client. It guides the next steps; it does not sign the assessment or record the admission decision.</p>
+                {recommendationNode}
+              </section> : null);
+
+  const renderSigningExplanation = () => (selected.signed_at || !canEditClinical ? null : <section className={workingStyles.signingNote} aria-label="What signing does">
+                <h4>Before you sign</h4>
+                <p>Signing records your signature and the time on this assessment and marks it complete. Unanswered items stay unanswered; they never become a clinical finding and they do not prevent signing.</p>
+                <p>Signing does not record the admission decision and does not send the Meet the Client packet. You can keep correcting answers until that packet is sent, and changes after signing are logged.</p>
+              </section>);
+
   const renderReviewOverview = () => <div className={workingStyles.reviewOverview}>
               <dl className={workingStyles.reviewFacts}>
                 <div><dt>Assessor</dt><dd>{draft.assessor || selected.assessor || "Not recorded"}</dd></div>
                 <div><dt>Assessment date</dt><dd>{draft.assessment_date || "Not recorded"}</dd></div>
                 <div><dt>Recorded answers</dt><dd>{reviewSections.reduce((count, section) => count + section.questions.length - section.remaining.length, 0)} of {reviewSections.reduce((count, section) => count + section.questions.length, 0)}</dd></div>
               </dl>
-              {reviewSections.some((section) => section.remaining.length > 0) ? <details className={workingStyles.reviewChecklist}>
-                <summary>{reviewSections.reduce((count, section) => count + section.remaining.length, 0)} items still need an answer or verification<span>Review by section</span></summary>
-                <p>Unanswered items remain listed here. They do not prevent signing.</p>
-                <ul>{reviewSections.filter((section) => section.remaining.length > 0).map((section) => <li key={section.key}>
-                  <button type="button" disabled={isBusy || isClosing || !canEditClinical || isAssessmentFinalized(selected)} onClick={() => {
-                    setActiveSection(section.key); setWorkingTarget({ field: section.remaining[0].field }); setNotebookView("prepare"); onOpenAssessment?.();
-                  }}><span>{section.label}</span><span>{section.remaining.length} to review<ChevronRight size={15} aria-hidden="true" /></span></button>
+              {remainingReviewItems > 0
+                ? <p className={workingStyles.reviewRemaining}>{remainingReviewItems} item{remainingReviewItems === 1 ? "" : "s"} still need an answer or verification. They do not prevent signing.</p>
+                : <p className={workingStyles.reviewComplete}><Check size={17} aria-hidden="true" />All visible questions have recorded answers. Review for accuracy before signing.</p>}
+              <h4 className={workingStyles.reviewSectionsHeading} id="assessment-review-sections">Answers by section</h4>
+              <ul className={workingStyles.reviewChecklist} aria-labelledby="assessment-review-sections">{reviewSections.map((section) => <li key={section.key}>
+                  <button type="button" disabled={reviewEditDisabled} onClick={() => openSectionForReview(section.key, section.remaining[0]?.field)}>
+                    <span>{section.label}</span>
+                    <span>{section.questions.length - section.remaining.length} of {section.questions.length} recorded{section.remaining.length > 0 ? ` · ${section.remaining.length} to review` : ""}<ChevronRight size={15} aria-hidden="true" /></span>
+                  </button>
                 </li>)}</ul>
-              </details> : <p className={workingStyles.reviewComplete}><Check size={17} aria-hidden="true" />All visible questions have recorded answers. Review for accuracy before signing.</p>}
+              {renderReviewRecommendation()}
+              {renderSigningExplanation()}
             </div>;
 
   const renderChartReview = () => (
@@ -2106,9 +2172,9 @@ export default function AssessmentWorkspace({
           {renderRemoteChanges()}
 
           {reviewingChart ? renderChartReview() : <div data-assessment-question-content className={!phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
-            <div className="sr-only">
+            {phoneInterview ? <div className="sr-only">
               <h3>{preparing ? preparationGroup.label : sectionDefinition.label}</h3>
-            </div>
+            </div> : null}
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <QuestionPage
               key={`${selected.assessment_id}-${preparing}`}
@@ -2120,6 +2186,7 @@ export default function AssessmentWorkspace({
                 else void reviewChart();
               }}
               section={visibleSectionKey}
+              sectionLabel={pageSections[pageIndex]?.label ?? sectionDefinition.label}
               assessment={selected}
               data={draft}
               pending={pendingFields}

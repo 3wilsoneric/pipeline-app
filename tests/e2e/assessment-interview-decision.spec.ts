@@ -1,4 +1,3 @@
-import { openAssessmentChart } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
@@ -29,7 +28,10 @@ for (const width of [1440, 390]) {
     await page.goto(url);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-    const recommendation = page.getByTestId("workspace-folder-header").getByRole("combobox", { name: "Working decision" });
+    // Interviewing keeps the questions dominant; the recommendation waits in review.
+    await expect(page.getByRole("combobox", { name: "Working decision" })).toHaveCount(0);
+    await page.goto(`${url}&assessmentMode=review`);
+    const recommendation = page.getByRole("region", { name: "Placement recommendation", exact: true }).getByRole("combobox", { name: "Working decision" });
     await expect(recommendation).toBeEnabled();
     await expect(recommendation.locator("option")).toHaveText(["Choose...", "Accept", "Deny", "Under review"]);
     for (const [label, outcome] of [["Accept", "accept"], ["Under review", "needs_more_information"], ["Deny", "decline"]]) {
@@ -69,8 +71,6 @@ for (const width of [1440, 390]) {
     await page.route(`**/api/referrals/${referral.id}/recommendation`, async (route) => { await gate; await route.continue(); });
     try {
       await recommendation.selectOption("accept");
-      await openAssessmentChart(page);
-      await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
       await expect(footer.getByRole("button", { name: "Saving recommendation...", exact: true })).toBeDisabled();
     } finally { release(); }
     await expect(footer.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeEnabled();

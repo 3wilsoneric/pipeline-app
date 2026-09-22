@@ -1,7 +1,7 @@
 "use client";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { parsePipelineWorkContinuityState, type PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import { parsePipelineWorkContinuityState, pipelineAssessmentResumeLocation, type PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type {
   PipelineLastWorkspace,
   PipelineWorkContinuityPatch,
@@ -15,13 +15,23 @@ export function recordLastPipelineWorkspace(lastWorkspace: PipelineLastWorkspace
 }
 
 export async function loadPipelineWorkspaceResumeLocation(referralId: number): Promise<PipelineWorkspaceLocation | undefined> {
+  return (await loadLatestWorkspaceVisit(referralId))?.location;
+}
+
+// The signed-in user's last assessment section/question for this workspace,
+// even when a later visit went to Files, Activity or Chart.
+export async function loadPipelineAssessmentResumeLocation(referralId: number): Promise<PipelineWorkspaceLocation | undefined> {
+  return pipelineAssessmentResumeLocation(await loadLatestWorkspaceVisit(referralId));
+}
+
+async function loadLatestWorkspaceVisit(referralId: number) {
   await updateQueue.catch(() => undefined);
   const payload = await fetchPipelineJson<{ state: PipelineWorkContinuityState }>("/api/me/work-continuity", { cache: "no-store" });
   const state = parsePipelineWorkContinuityState(payload.state);
-  const recent = [state?.lastWorkspace, ...(state?.recentWorkspaces ?? [])]
+  const recent = [...(state?.recentWorkspaces ?? []), state?.lastWorkspace]
     .filter((workspace) => workspace?.referralId === referralId)
     .sort((left, right) => Date.parse(right!.visitedAt) - Date.parse(left!.visitedAt));
-  return recent[0]?.location;
+  return recent[0];
 }
 
 export function initializePipelineAssignmentTracking(timestamp: string) {
