@@ -47,6 +47,10 @@ param alamoApiScope string = ''
 
 @description('Enable Microsoft 365 Meet the Client delivery after Graph application permissions and the Key Vault client secret are configured.')
 param enableMeetClientMail bool = false
+
+@secure()
+@description('Existing mail configuration and credential bindings, captured by deployment. Preserves the dedicated mail tenant and live-send hold across releases.')
+param preservedMail object = { environment: [], secrets: [] }
 param graphMailClientId string = ''
 param meetClientSender string = ''
 param meetClientAllowedEmailDomains string = ''
@@ -160,7 +164,7 @@ var clinicalSecrets = clinicalDataMode == 'alamo_api' ? [
   }
 ] : []
 
-var graphMailSecrets = enableMeetClientMail ? [
+var graphMailSecrets = !empty(preservedMail.secrets) ? preservedMail.secrets : enableMeetClientMail ? [
   {
     name: 'graph-mail-client-secret'
     keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-graph-mail-client-secret'
@@ -245,7 +249,7 @@ var clinicalEnvironment = clinicalDataMode == 'alamo_api' ? [
   { name: 'PIPELINE_ALAMO_API_SCOPE', value: alamoApiScope }
 ] : []
 
-var graphMailEnvironment = enableMeetClientMail ? [
+var graphMailEnvironment = !empty(preservedMail.environment) ? preservedMail.environment : enableMeetClientMail ? [
   { name: 'PIPELINE_GRAPH_TENANT_ID', value: entraTenantId }
   { name: 'PIPELINE_GRAPH_CLIENT_ID', value: graphMailClientId }
   { name: 'PIPELINE_GRAPH_CLIENT_SECRET', secretRef: 'graph-mail-client-secret' }

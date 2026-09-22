@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ee17a264cb31e463",
-  "fingerprint": "ee17a264cb31e463ce2bc5b3e9dd8d963e1750ea2cdb275f3d90c5b5706111af",
+  "generatedAt": "source-fingerprint:49a9924d54c096b6",
+  "fingerprint": "49a9924d54c096b6eae060494fc8730d5b17c9616895abf4128a2ab5019b410d",
   "totals": {
-    "files": 1362,
-    "lines": 361252,
-    "coveredFiles": 1362
+    "files": 1367,
+    "lines": 361900,
+    "coveredFiles": 1367
   },
   "entries": [
     {
@@ -1244,7 +1244,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 164,
+      "lines": 167,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1436,7 +1436,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 448,
+      "lines": 481,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1462,7 +1462,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 62,
+      "lines": 77,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -2090,7 +2090,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 535,
+      "lines": 543,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2262,6 +2262,18 @@
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "components/pipeline/AssessorEmailDraftControls.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 99,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
       ]
     },
     {
@@ -5559,7 +5571,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 30,
+      "lines": 40,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8923,10 +8935,22 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 149,
+      "lines": 153,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
+      ]
+    },
+    {
+      "path": "lib/notifications/assessor-email-draft.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 175,
+      "moduleIds": [
+        "assessment-calendar-profiles-ui",
+        "frontend-resilience"
       ]
     },
     {
@@ -8995,7 +9019,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 394,
+      "lines": 414,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9007,7 +9031,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 22,
+      "lines": 27,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -9019,7 +9043,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 169,
+      "lines": 171,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -11447,7 +11471,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 268,
+      "lines": 280,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11820,6 +11844,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 65,
+      "moduleIds": [
+        "assessment-calendar-profiles-ui",
+        "frontend-resilience"
+      ]
+    },
+    {
+      "path": "scripts/assessor-email-draft.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 152,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -13295,7 +13331,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 304,
+      "lines": 323,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13403,7 +13439,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 177,
+      "lines": 193,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13707,6 +13743,30 @@
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/preserve-deployment-mail.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 44,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
+      "path": "scripts/preserve-deployment-mail.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 31,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
       ]
     },
     {

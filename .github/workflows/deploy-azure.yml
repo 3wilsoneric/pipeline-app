@@ -128,6 +128,16 @@ jobs:
           fi
           echo "json=$custom_domains" >> "$GITHUB_OUTPUT"
 
+      - name: Preserve configured mail settings and live-send hold
+        shell: bash
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          WEB_NAME: ${{ steps.foundation.outputs.name_prefix }}-${{ steps.foundation.outputs.environment }}-web
+          INITIAL_BOOTSTRAP: ${{ inputs.initial_database_bootstrap }}
+        run: |
+          set -euo pipefail
+          node scripts/preserve-deployment-mail.mjs "$RESOURCE_GROUP" "${WEB_NAME:0:32}" "$RUNNER_TEMP/pipeline-mail-parameters.json" "$INITIAL_BOOTSTRAP"
+
       - name: Sign in to Azure Container Registry
         shell: bash
         run: az acr login --name '${{ steps.foundation.outputs.registry_name }}'
@@ -171,7 +181,7 @@ jobs:
             --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
             --name "pipeline-runtime-${GITHUB_RUN_ID}" \
             --template-file infra/azure/runtime.bicep \
-            --parameters \
+            --parameters @"$RUNNER_TEMP/pipeline-mail-parameters.json" \
               namePrefix='${{ steps.foundation.outputs.name_prefix }}' \
               environment='${{ steps.foundation.outputs.environment }}' \
               location='${{ steps.foundation.outputs.location }}' \
@@ -264,7 +274,7 @@ jobs:
             --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
             --name pipeline-runtime \
             --template-file infra/azure/runtime.bicep \
-            --parameters \
+            --parameters @"$RUNNER_TEMP/pipeline-mail-parameters.json" \
               namePrefix='${{ steps.foundation.outputs.name_prefix }}' \
               environment='${{ steps.foundation.outputs.environment }}' \
               location='${{ steps.foundation.outputs.location }}' \
