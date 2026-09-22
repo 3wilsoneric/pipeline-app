@@ -142,7 +142,9 @@ test("Mine and Team scope, assessor filters and empty states explain what is sho
   await page.route("**/api/calendar/events**", async (route) => {
     if (gate) { const pending = gate; gate = null; await pending; }
     if (fail) { await route.fulfill({ status: 500, json: { error: "Calendar fixture unavailable." } }); return; }
-    await route.fulfill({ json: { events: [mine, theirs], continuing: [], unscheduled: [], unscheduledTotal: 0, unscheduledHasMore: false, assessors: [{ id: "assessor-a", name: "Alex Assessor" }, { id: "assessor-b", name: "Bailey Assessor" }], viewer: { id: "assessor-a", name: "Alex Assessor" }, scope: "team", timezone: "America/Los_Angeles" } });
+    const range = new URL(route.request().url()).searchParams;
+    const inRange = (range.get("from") ?? "") <= mine.date && mine.date <= (range.get("to") ?? "");
+    await route.fulfill({ json: { events: inRange ? [mine, theirs] : [], continuing: [], unscheduled: [], unscheduledTotal: 0, unscheduledHasMore: false, assessors: [{ id: "assessor-a", name: "Alex Assessor" }, { id: "assessor-b", name: "Bailey Assessor" }], viewer: { id: "assessor-a", name: "Alex Assessor" }, scope: "team", timezone: "America/Los_Angeles" } });
   });
   await page.goto("/?screen=calendar");
 
@@ -176,25 +178,28 @@ test("Mine and Team scope, assessor filters and empty states explain what is sho
 
   // Mine with nothing scheduled explains the scope and offers the team.
   await page.getByRole("button", { name: "Previous calendar range" }).click();
-  await expect(empty).toContainText("No appointments on your schedule for");
+  await expect(empty).toContainText("No appointments on the team schedule for");
   await expect(empty).toContainText("Showing Team: every assessor's appointments.");
   await scope.getByRole("button", { name: "Mine", exact: true }).click();
+  await expect(empty).toContainText("No appointments on your schedule for");
   await expect(empty).toContainText("Showing Mine: only appointments assigned to you.");
   await empty.getByRole("button", { name: "View team schedule", exact: true }).click();
   await expect(scope.getByRole("button", { name: "Team", exact: true })).toHaveAttribute("aria-pressed", "true");
 
-  // Loading is not an empty schedule.
+  // Loading an uncached range is not an empty schedule.
+  const calendar = page.getByRole("main", { name: "Calendar", exact: true });
   gate = new Promise<void>((resolve) => { openGate = resolve; });
-  await page.getByRole("button", { name: "Next calendar range" }).click();
-  await expect(page.getByRole("main", { name: "Calendar", exact: true })).toHaveAttribute("aria-busy", "true");
+  await page.getByRole("button", { name: "Previous calendar range" }).click();
+  await expect(calendar).toHaveAttribute("aria-busy", "true");
   await expect(empty).toHaveCount(0);
   await expect.poll(() => openGate).not.toBeNull();
   openGate!();
-  await expect(page.locator('button[title^="Mine Sample -"]').first()).toBeVisible();
+  await expect(calendar).toHaveAttribute("aria-busy", "false");
+  await expect(empty).toContainText("No appointments on");
 
   // Neither is a failed request: it says so instead of reporting an empty schedule.
   fail = true;
-  await page.getByRole("button", { name: "Next calendar range" }).click();
+  await page.getByRole("button", { name: "Previous calendar range" }).click();
   await expect(page.getByRole("alert").first()).toContainText("Calendar fixture unavailable.");
   await expect(page.getByText("Appointments could not be loaded.", { exact: true })).toBeVisible();
   await expect(empty).toHaveCount(0);
@@ -242,7 +247,10 @@ test("Chart and Assessment open the same scheduling dialog, cancel books nothing
   await page.clock.setFixedTime(new Date("2026-09-24T16:00:00Z"));
   await page.goto("/?screen=calendar");
   await page.getByRole("button", { name: "Team", exact: true }).click();
-  const open = page.getByRole("button", { name: `Prepare assessment for ${referral.name}`, exact: true });
+  await page.getByRole("button", { name: /^Show appointments for Thursday, Sep 24/ }).first().click();
+  const details = page.getByRole("region", { name: /^Appointments on / });
+  await expect(details).toContainText(referral.name!);
+  const open = details.getByRole("button", { name: new RegExp(`^Prepare assessment for ${referral.name}`) });
   await expect(open.first()).toBeVisible();
   await open.first().click();
   await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));

@@ -144,8 +144,8 @@ export function CalendarHeader(props: CalendarHeaderProps) {
           <button type="button" onClick={() => props.onAnchor(todayKey())} className={calendarStyles.today}>Today</button>
           </div>
         </div>
-        {props.scope === "team" ? <CalendarScopeSwitch mine={props.mySchedule} onChoose={chooseScope} /> : null}
         <div className={calendarStyles.headerActions}>
+          {props.scope === "team" ? <CalendarScopeSwitch className={calendarStyles.headerScope} mine={props.mySchedule} onChoose={chooseScope} /> : null}
           <CalendarViewSwitch view={props.view} onView={props.onView} />
           <button type="button" aria-label={`Scheduling queue ${props.queueCount.toLocaleString()}`} aria-haspopup="dialog" aria-expanded={props.queueOpen} onClick={props.onOpenQueue} className={calendarStyles.queueButton}>
             <ClipboardList size={15} />
@@ -174,8 +174,8 @@ function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (val
 }
 
 // Viewing Team only changes what is shown; ownership and access stay server-enforced.
-function CalendarScopeSwitch({ mine, onChoose }: { mine: boolean; onChoose: (mine: boolean) => void }) {
-  return <div role="group" aria-label="Whose schedule" className={calendarStyles.scopeSwitch}>
+function CalendarScopeSwitch({ mine, onChoose, className }: { mine: boolean; onChoose: (mine: boolean) => void; className: string }) {
+  return <div role="group" aria-label="Whose schedule" className={`${calendarStyles.scopeSwitch} ${className}`}>
     <button type="button" aria-pressed={mine} onClick={() => onChoose(true)}>Mine</button>
     <button type="button" aria-pressed={!mine} onClick={() => onChoose(false)}>Team</button>
   </div>;
@@ -184,6 +184,7 @@ function CalendarScopeSwitch({ mine, onChoose }: { mine: boolean; onChoose: (min
 function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void }) {
   return (
     <div data-guide-target="calendar-filters" data-expanded={props.showFilters} className={calendarStyles.filters}>
+      {props.scope === "team" ? <CalendarScopeSwitch className={calendarStyles.filterScope} mine={props.mySchedule} onChoose={(mine) => { props.onMySchedule(mine); props.onOwner(""); }} /> : null}
       <CalendarFilter label="community" value={props.community} onChange={props.onCommunity} options={props.communityOptions} />
       {props.scope === "team" && !props.mySchedule ? <OwnerFilter value={props.owner} onChange={props.onOwner} options={props.ownerOptions} /> : null}
       {props.hasFilters ? <button type="button" onClick={props.onClear} className="flex h-8 items-center gap-1 px-2 text-[10px] font-bold text-[#6d7470] hover:text-[#9c3d32]"><X size={12} /> Clear</button> : null}
