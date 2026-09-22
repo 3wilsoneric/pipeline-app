@@ -15,7 +15,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await expect(footer.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
     const header = page.getByTestId("workspace-folder-header");
     await expect(header.getByRole("combobox", { name: "Working decision", exact: true })).toBeVisible();
-    await expect(header.getByRole("button", { name: /Excel|recovery|Workspaces|Move workspace to trash/ })).toHaveCount(0);
+    await expect(header.getByRole("button", { name: /Excel|recovery|Workspaces|Move workspace to trash|More workspace actions/ })).toHaveCount(0);
     const recovery = footer.getByRole("button", { name: /Open Excel and recovery/ });
     await expect(recovery).toBeVisible();
     const identity = header.getByTestId("workspace-identity-title");

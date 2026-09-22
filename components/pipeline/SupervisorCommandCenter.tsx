@@ -137,9 +137,9 @@ function CommandCenterStatus({
 }) {
   if (error) {
     return (
-      <div role="alert" className="mx-1 my-3 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[11px] text-[#723d35] sm:mx-3">
+      <div role="alert" className="mx-1 my-3 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[14px] leading-6 text-[#723d35] sm:mx-3">
         <span>{error}{snapshot ? " Showing the last successful snapshot." : ""}</span>
-        <button type="button" onClick={onRefresh} className="shrink-0 font-black underline underline-offset-2">Retry</button>
+        <button type="button" onClick={onRefresh} className="pipeline-inline-action shrink-0 font-black underline underline-offset-2">Retry</button>
       </div>
     );
   }
@@ -205,8 +205,8 @@ function ExceptionRow({ item, onOpen }: { item: SupervisorExceptionItem; onOpen:
         <p className="mt-1 text-[10px] leading-4 text-[#737b77]">{item.detail}</p>
       </div>
       <dl className="grid grid-cols-2 gap-3 text-[9px] sm:block">
-        <div><dt className="font-black uppercase tracking-[0.08em] text-[#7b827e]">Owner</dt><dd className={`mt-1 font-bold ${ownerLabel(item.owner) === "Unassigned" ? "text-[#a9473d]" : "text-[#313733]"}`}>{ownerLabel(item.owner)}</dd></div>
-        <div className="sm:mt-2"><dt className="font-black uppercase tracking-[0.08em] text-[#7b827e]">Timing</dt><dd className="mt-1 font-bold text-[#535b57]">{exceptionTiming(item)}</dd></div>
+        <div><dt className="font-black uppercase tracking-[0.08em] text-[#6b736f]">Owner</dt><dd className={`mt-1 font-bold ${ownerLabel(item.owner) === "Unassigned" ? "text-[#a9473d]" : "text-[#313733]"}`}>{ownerLabel(item.owner)}</dd></div>
+        <div className="sm:mt-2"><dt className="font-black uppercase tracking-[0.08em] text-[#6b736f]">Timing</dt><dd className="mt-1 font-bold text-[#535b57]">{exceptionTiming(item)}</dd></div>
       </dl>
       <button type="button" onClick={onOpen} aria-label={`${action} for ${clientName}`} className="flex h-9 items-center justify-center gap-2 border border-[#0f8b73] px-3 text-[10px] font-black text-[#0f705f] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]">
         {action}<ArrowRight size={13} aria-hidden="true" />

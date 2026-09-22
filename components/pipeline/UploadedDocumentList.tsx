@@ -41,8 +41,8 @@ export default function UploadedDocumentList({ files, readOnly = false, updating
           <button type="button" onClick={() => setPreview(file)} title={file.name} className="block max-w-full truncate text-left text-[14px] font-bold text-[#173c2b] underline-offset-2 hover:underline">{file.name}</button>
           <span className="mt-1 block text-[13px] text-[#52655d]">{file.category}</span>
           {/^[0-9a-f-]{36}$/i.test(file.id)
-            ? <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#128049]"><CheckCircle2 size={14} aria-hidden="true" />Uploaded</span>
-            : <span className="mt-1 block text-[11px] text-[#737373]">Recorded file</span>}
+            ? <span className="mt-1 flex items-center gap-1 text-[13px] font-semibold text-[#128049]"><CheckCircle2 size={14} aria-hidden="true" />Uploaded</span>
+            : <span className="mt-1 block text-[13px] text-[#5e6763]">Recorded file</span>}
           <div className="mt-1 flex flex-wrap items-center gap-x-4 text-[13px] font-semibold text-[#0f7059]">
             {!readOnly && onUpdate ? <button type="button" aria-label={`Add updated copy of ${file.name}`} disabled={updating} onClick={() => onUpdate(file)} className="min-h-11 underline underline-offset-2 disabled:opacity-50">Add updated copy</button> : null}
             {file.downloadUrl ? <a href={file.downloadUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline underline-offset-2">Open original</a> : <span className="text-[#737373]">{file.previewStatus === "unavailable" ? "Preview unavailable" : "Preview processing"}</span>}

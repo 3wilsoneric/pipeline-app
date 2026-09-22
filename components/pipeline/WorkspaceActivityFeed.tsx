@@ -82,9 +82,9 @@ export default function WorkspaceActivityFeed({
       </div>
 
       {error ? (
-        <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[11px] text-[#723d35]">
+        <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[14px] leading-6 text-[#723d35]">
           <span>{error}</span>
-          <button type="button" onClick={() => void load()} className="font-black underline underline-offset-2">Retry</button>
+          <button type="button" onClick={() => void load()} className="pipeline-inline-action font-black underline underline-offset-2">Retry</button>
         </div>
       ) : null}
       {loading && items.length === 0 ? <ActivitySkeleton /> : null}

@@ -44,7 +44,7 @@ type HandoffActionProps = {
 const handoffContentByStatus: Record<EhrHandoffStatus, (props: HandoffActionProps) => ReactNode> = {
   failed: ({ workflow, busy, ehrIsBlocked, onUpdateHandoff }) => <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("retry")}>Retry handoff</PrimaryButton>,
   queued: ({ workflow, busy, onRecordHandoffSent, onOpenHandoffFailure }) => <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={onRecordHandoffSent}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={onOpenHandoffFailure}>Record failed</SecondaryButton></>,
-  sent: () => <div className="space-y-2"><div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div><p className="text-[10px] leading-4 text-[#68716c]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div>,
+  sent: () => <div className="space-y-2"><div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div><p className="text-[14px] leading-5 text-[#5c655f]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div>,
   ready: (props) => <QueueHandoffButton {...props} />,
   not_ready: (props) => <QueueHandoffButton {...props} />,
 };
@@ -139,7 +139,7 @@ export function ReferralWorkflowPanelPresentation({
       <details className={styles.details}>
           <summary className="cursor-pointer py-4 text-[13px] font-semibold text-[#53615a] focus-visible:outline-2">Admission details</summary>
           <label className="mb-4 flex flex-wrap items-center gap-3 text-[13px] font-medium text-[#59645e]">Workflow stage
-            <select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-10 border border-[#c9ceca] bg-white px-3 text-[#303b34]">
+            <select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-11 border border-[#c9ceca] bg-white px-3 text-[15px] text-[#303b34]">
               {referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage || (item.stage === "Declined" && workflow.decision?.outcome === "declined")).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}
             </select>
             <span>Revisit earlier work or move ahead as needed.</span>
@@ -213,11 +213,11 @@ function CurrentGateCard({
       {forwardTransition ? (
         forwardTransition.blockers.length > 0 ? (
           <div className="space-y-2">
-            {forwardTransition.blockers.map((blocker) => <div key={blocker.code} className="text-[11px] leading-5 text-[#7a4c0d]">{blocker.label}</div>)}
+            {forwardTransition.blockers.map((blocker) => <div key={blocker.code} className="text-[14px] leading-6 text-[#7a4c0d]">{blocker.label}</div>)}
             <div className="flex flex-wrap gap-2 pt-1"><SecondaryButton onClick={onOpenIntake}>Open intake</SecondaryButton><SecondaryButton onClick={onOpenFiles}>Open files</SecondaryButton><SecondaryButton onClick={onOpenAssessment}>Open assessment</SecondaryButton></div>
           </div>
-        ) : <div className="space-y-3">{forwardTransition.alerts?.length ? <div role="status" className="bg-[#f7faf9] px-3 py-2 text-[11px] leading-5 text-[#59645e]">{forwardTransition.alerts.map((alert) => <div key={alert.code}>{alert.label}</div>)}<div className="mt-1 font-bold">You can continue with these items unanswered.</div></div> : null}<PrimaryButton busy={busy === `transition:${forwardTransition.target}`} disabled={!workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</PrimaryButton></div>
-      ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>}
+        ) : <div className="space-y-3">{forwardTransition.alerts?.length ? <div role="status" className="bg-[#f7faf9] px-3 py-2 text-[14px] leading-6 text-[#59645e]">{forwardTransition.alerts.map((alert) => <div key={alert.code}>{alert.label}</div>)}<div className="mt-1 font-bold">You can continue with these items unanswered.</div></div> : null}<PrimaryButton busy={busy === `transition:${forwardTransition.target}`} disabled={!workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</PrimaryButton></div>
+      ) : <div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>}
 
       {showManualIntake ? (
         <div className="mt-4 border-t border-[#e3e6e4] pt-4">
@@ -301,7 +301,7 @@ const noticePresentation = {
 
 export function WorkflowNotice({ tone, children }: { tone: "success" | "error"; children: ReactNode }) {
   const presentation = noticePresentation[tone];
-  return <div role={presentation.role} className={`border-l-2 px-4 py-3 text-[11px] font-semibold ${presentation.className}`}>{children}</div>;
+  return <div role={presentation.role} className={`border-l-2 px-4 py-3 text-[14px] font-semibold leading-6 ${presentation.className}`}>{children}</div>;
 }
 
 function WorkflowCard({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
@@ -332,17 +332,17 @@ function RequirementGroup({ group, disabled, onChange }: { group: RequirementGro
   return (
     <section aria-label={`${group.label} requirements`}>
       <div className="mb-2 flex items-end justify-between gap-3">
-        <div><h4 className="text-[10px] font-black uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4><p className="mt-0.5 text-[9px] text-[#737c77]">{group.detail}</p></div>
-        <span className="shrink-0 text-[9px] font-black text-[#68716c]">{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
+        <div><h4 className="text-[12px] font-black uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4><p className="mt-0.5 text-[14px] leading-5 text-[#5c655f]">{group.detail}</p></div>
+        <span className="shrink-0 text-[13px] font-bold text-[#5c655f]">{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
       </div>
       <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
         {group.items.map((item) => (
           <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-black text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[9px] font-black uppercase text-[#68716c]">To complete</span> : null}</div>
-              <div className="mt-1 text-[10px] leading-4 text-[#737373]">{requirementStatusDetail(item)}</div>
+              <div className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[12px] font-black uppercase tracking-[0.06em] text-[#5c655f]">To complete</span> : null}</div>
+              <div className="mt-1 text-[14px] leading-5 text-[#5c655f]">{requirementStatusDetail(item)}</div>
             </div>
-            <select aria-label={`${item.label} status`} value={item.status} disabled={disabled} onChange={(event) => onChange(item, event.target.value as RequirementStatus)} className="h-9 w-full border border-[#c9ceca] bg-white px-2 text-[10px] font-black outline-none focus:border-[#0f8b73]">{requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}</select>
+            <select aria-label={`${item.label} status`} value={item.status} disabled={disabled} onChange={(event) => onChange(item, event.target.value as RequirementStatus)} className="h-11 w-full border border-[#c9ceca] bg-white px-2 text-[14px] font-semibold outline-none focus:border-[#0f8b73]">{requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}</select>
           </div>
         ))}
       </div>
@@ -351,11 +351,11 @@ function RequirementGroup({ group, disabled, onChange }: { group: RequirementGro
 }
 
 function PrimaryButton({ busy, disabled, onClick, children }: { busy?: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" disabled={disabled || busy} onClick={onClick} className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-[#08775e] px-4 text-[13px] font-semibold text-white hover:bg-[#065f4b] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
+  return <button type="button" disabled={disabled || busy} onClick={onClick} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md bg-[#08775e] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#065f4b] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
 }
 
 function SecondaryButton({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" disabled={disabled} onClick={onClick} className="mt-3 h-10 rounded-md border border-[#cbd5cf] bg-white px-4 text-[13px] font-semibold text-[#35473c] hover:border-[#08775e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40">{children}</button>;
+  return <button type="button" disabled={disabled} onClick={onClick} className="mt-3 min-h-11 rounded-md border border-[#cbd5cf] bg-white px-4 py-2 text-[14px] font-semibold text-[#35473c] hover:border-[#08775e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40">{children}</button>;
 }
 
 function WorkflowTextArea({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (value: string) => void }) {

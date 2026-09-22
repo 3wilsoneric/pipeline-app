@@ -152,7 +152,7 @@ export default function CurrentWorkOverlay({
           {currentBriefing ? <ReferralWorkflowTracker briefing={currentBriefing} onOpenPacket={onOpenPacket} selectedReferralId={selectedReferralId} layout="board" /> : loadError ? (
             <div role="alert" className="flex flex-wrap items-center gap-3 py-8 text-[13px] text-[#9a6115]">
               <span>{loadError}</span>
-              <button type="button" onClick={() => { setLoadError(""); setRetry((value) => value + 1); }} className="font-bold underline underline-offset-2">Retry</button>
+              <button type="button" onClick={() => { setLoadError(""); setRetry((value) => value + 1); }} className="pipeline-inline-action font-bold underline underline-offset-2">Retry</button>
             </div>
           ) : <div role="status" className="flex items-center gap-2 py-8 text-[13px] text-[#68706b]"><LoaderCircle size={16} className="animate-spin" aria-hidden="true" />Loading referrals...</div>}
         </div>
