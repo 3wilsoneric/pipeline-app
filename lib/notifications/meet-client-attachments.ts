@@ -40,6 +40,7 @@ export type MeetClientMailAttachment = {
   name: string;
   contentType: string;
   byteSize: number;
+  sourceHeaders?: Record<string, string>;
 } & ({ sourceUrl: string; contentBytes?: never } | { contentBytes: Buffer; sourceUrl?: never });
 
 export async function getMeetClientAttachmentInventory(

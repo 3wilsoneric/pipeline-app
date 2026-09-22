@@ -65,7 +65,7 @@ test("home tenant and personal mailboxes bind to authenticated Pipeline email, n
 test("Outlook OAuth uses its own public client and callback without acquiring send permission", async () => {
   let configuration, active, popupCalls = 0, silentCalls = 0;
   const client = load("lib/auth/outlook-client.ts", {
-    "@azure/msal-browser": { BrowserCacheLocation: { SessionStorage: "sessionStorage" }, PublicClientApplication: class {
+    "@azure/msal-browser": { BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
       constructor(config) { configuration = config; }
       async initialize() {}
       getActiveAccount() { return active; }
@@ -82,9 +82,90 @@ test("Outlook OAuth uses its own public client and callback without acquiring se
   assert.equal(await client.acquireOutlookToken(id, true), "synthetic-token");
   assert.equal(configuration.auth.authority, "https://login.microsoftonline.com/common");
   assert.equal(configuration.auth.redirectUri, "https://pipeline.invalid/pipeline/outlook-auth.html");
-  assert.equal(configuration.cache.cacheLocation, "sessionStorage");
+  assert.equal(configuration.cache.cacheLocation, "localStorage");
   assert.equal(await client.acquireOutlookToken(id), "synthetic-token");
   assert.equal(popupCalls, 1); assert.equal(silentCalls, 1);
+});
+
+test("Outlook restores the matching mailbox across visits and retains its cache after renewal fails", async () => {
+  const id = "00000000-0000-4000-8000-000000000001";
+  const email = "assessor@example.invalid";
+  let cachedAccount, silent = 0, sso = 0, popup = 0, cleared = 0, requireInteraction = false;
+  const dependencies = {
+    "@azure/msal-browser": { BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
+      constructor(config) { assert.equal(config.cache.cacheLocation, "localStorage"); }
+      async initialize() {}
+      getActiveAccount() { return { username: "someone-else@example.invalid" }; }
+      getAccountByUsername(username) { assert.equal(username, email); return cachedAccount; }
+      setActiveAccount(account) { cachedAccount = account; }
+      async acquireTokenPopup(request) { popup++; assert.equal(request.loginHint, email); return { account: { username: email }, accessToken: "fixture-token" }; }
+      async acquireTokenSilent(request) { silent++; assert.equal(request.account.username, email); if (requireInteraction) throw new Error("interaction_required"); return { accessToken: "fixture-token" }; }
+      async ssoSilent(request) { sso++; assert.equal(request.loginHint, email); if (requireInteraction) throw new Error("interaction_required"); return { account: { username: email }, accessToken: "fixture-token" }; }
+      async clearCache() { cleared++; cachedAccount = null; }
+    } },
+    "@/lib/pipeline/base-path": { toPipelinePath: path => path },
+  };
+  const globals = { window: { location: { origin: "https://pipeline.invalid" } } };
+  const client = load("lib/auth/outlook-client.ts", dependencies, globals);
+  assert.equal(await client.acquireOutlookToken(id, true, email), "fixture-token");
+  const reopened = load("lib/auth/outlook-client.ts", dependencies, globals);
+  assert.equal(await reopened.acquireOutlookToken(id, false, email), "fixture-token");
+  assert.equal(popup, 1); assert.equal(silent, 1);
+  cachedAccount = null;
+  assert.equal(await reopened.acquireOutlookToken(id, false, email), "fixture-token");
+  assert.equal(sso, 1); assert.equal(popup, 1);
+  requireInteraction = true;
+  assert.equal(await reopened.acquireOutlookToken(id, false, email), null);
+  assert.equal(cachedAccount.username, email);
+  const nextVisit = load("lib/auth/outlook-client.ts", dependencies, globals);
+  assert.equal(await nextVisit.acquireOutlookToken(id, false, email), null);
+  assert.equal(sso, 1); assert.equal(cleared, 0);
+  requireInteraction = false;
+  assert.equal(await nextVisit.acquireOutlookToken(id, false, email), "fixture-token");
+  assert.equal(popup, 1); assert.equal(cleared, 0);
+});
+
+test("early Outlook connection is identity-bound, origin-protected and disabled during the production hold", async () => {
+  let user = null, live = false, calls = 0, mailboxEmail = "staff@example.invalid";
+  const graph = graphFixture(async () => { calls++; return Response.json({ id: "home-mailbox-id", mail: mailboxEmail }); });
+  const route = load("app/api/me/outlook/route.ts", {
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => !user ? { ok: false, response: new Response(null, { status: 401 }) }
+      : roles && !roles.some(role => user.roles.includes(role)) ? { ok: false, response: new Response(null, { status: 403 }) } : { ok: true, user } },
+    "@/lib/auth/request-security": load("lib/auth/request-security.ts"),
+    "@/lib/notifications/microsoft-graph-mail": { isMeetClientLive: () => live },
+    "@/lib/notifications/admission-packet-store": { PacketAccessError },
+    "@/lib/notifications/outlook-mail": { ...graph, getOutlookClientId: () => "fixture-client" },
+    "@/lib/observability/api-logging": { withApiLogging: (_request, _path, run) => run() },
+  });
+  const url = "https://pipeline.invalid/api/me/outlook";
+  const get = () => route.GET(new Request(url));
+  const post = (origin = "https://pipeline.invalid") => route.POST(new Request(url, { method: "POST", headers: { Origin: origin, "x-pipeline-outlook-token": "fixture-token" } }));
+  assert.equal((await get()).status, 401); assert.equal((await post()).status, 401);
+  user = { id: "pipeline-id", email: "staff@example.invalid", roles: ["reviewer"] };
+  const setup = await get(); assert.match(setup.headers.get("cache-control"), /no-store/);
+  assert.equal((await setup.json()).demo, true);
+  assert.equal((await post()).status, 403); assert.equal(calls, 0);
+  live = true;
+  assert.equal((await post("https://other.invalid")).status, 403); assert.equal(calls, 0);
+  user.roles = ["viewer"];
+  assert.equal((await (await get()).json()).can_connect, false);
+  assert.equal((await post()).status, 403); assert.equal(calls, 0);
+  user.roles = ["reviewer"]; user.delegation = {};
+  assert.equal((await (await get()).json()).can_connect, false);
+  assert.equal((await post()).status, 403); assert.equal(calls, 0);
+  delete user.delegation;
+  mailboxEmail = "someone-else@example.invalid";
+  assert.equal((await post()).status, 403);
+  mailboxEmail = user.email;
+  const connected = await post(); assert.equal(connected.status, 200);
+  assert.deepEqual(JSON.parse(await connected.text()), { mailbox: user.email });
+  assert.equal(calls, 2);
+  // Retained Outlook credentials never replace current Pipeline authorization.
+  user.roles = ["viewer"];
+  assert.equal((await post()).status, 403);
+  user = null;
+  assert.equal((await get()).status, 401); assert.equal((await post()).status, 401);
+  assert.equal(calls, 2);
 });
 
 test("draft creation uses delegated Drafts and immutable correlation, never the send endpoint", async () => {
@@ -111,12 +192,12 @@ test("missing immutable id recovers the existing message by private correlation 
 });
 
 function handoffFixture() {
-  let packet, message, changed = "", finalized = 0, creations = 0, deleted = 0, failure;
+  let packet, message, changed = "", finalized = 0, creations = 0, deleted = 0, failure, attachmentFailure, uploadGate;
   const audits = [];
   const mailbox = { id: "staff", email: "staff@example.invalid", token: "synthetic-token" };
   const audit = { deliveryId: "packet", referralId: 1, assessmentId: "assessment", assessmentVersion: 2, decisionId: "decision", actorId: "staff" };
   const assessment = { version: 2, signed_at: "2026-09-21T00:00:00Z" };
-  const inventory = { files: [{ name: "Chart.html" }], revision: "revision", ready: true };
+  const inventory = { files: [{ id: "chart", name: "Chart.html" }], revision: "revision", ready: true };
   const url = "https://pipeline.invalid/admission-packets/packet";
   const graph = graphFixture(async () => { throw new Error("No network in fixture"); });
   const owner = load("lib/notifications/outlook-handoff.ts", {
@@ -126,12 +207,19 @@ function handoffFixture() {
     "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral: { version: changed === "referral" ? 2 : 1 }, decision: { decisionId: "decision", outcome: "accepted" }, work_items: [] }) },
     "@/lib/assessment/assessment-summary": { buildAssessmentSummaryReport: () => ({}) },
     "./meet-client-attachments": { getMeetClientAttachmentInventory: async () => ({ ...inventory, revision: changed === "files" ? "new" : "revision" }) },
-    "./admission-packet-files": { admissionPacketUrl: () => url, prepareAdmissionPacketLink: async (input) => {
-      packet = { ...input, createdAt: "2026-09-21T00:00:00Z", files: inventory.files, recipients: input.recipients.map(email => ({ email, sessions: [] })), events: [] }; return url;
+    "./admission-packet-files": { admissionPacketUrl: () => url, prepareAdmissionPacketRecord: async (input) => {
+      packet = { ...input, createdAt: "2026-09-21T00:00:00Z", files: inventory.files, recipients: input.recipients.map(email => ({ email, sessions: [] })), events: [] }; return packet;
     } },
     "./admission-packet-store": { PacketAccessError, findWorkspaceOutlookDraft: async () => packet,
       withAdmissionPacket: async (_id, operation) => operation(packet) },
-    "./outlook-mail": { ...graph, createOutlookMessage: async () => {
+    "./outlook-attachments": { ensureOutlookAttachments: async (_token, _id, _packet, progress) => {
+      await progress("chart", "hash"); if (uploadGate) await uploadGate; if (attachmentFailure) throw attachmentFailure;
+    }, outlookAttachmentsMatch: async () => changed !== "attachments" },
+    "./outlook-mail": { ...graph, updateOutlookMessage: async (_token, _id, _subject, _html, recipients) => {
+      message.toRecipients = recipients.map(address => ({ emailAddress: { address } })); return message;
+    }, createOutlookMessage: async (_token, input) => {
+      assert.equal(input.recipients.length, 0, "do not address an incomplete email");
+      assert.match(input.subject, /Preparing attachments/);
       assert.equal(packet.outlook.status, "preparing", "persist recovery before calling provider"); creations++;
       message = { id: "draft", isDraft: true, webLink: "https://outlook.office.com/mail/1" }; if (failure) throw failure; return message;
     }, findOutlookMessage: async () => message, deleteOutlookDraft: async () => { assert.ok(packet.revokedAt); deleted++; } },
@@ -140,7 +228,7 @@ function handoffFixture() {
   const prepare = () => owner.prepareOutlookHandoff({ mailbox, audit, referralVersion: 1, packetRevision: "revision", recipients: ["r@example.invalid"], ccRecipients: [], inventory, summary: {}, preparedBy: "Staff", message: {}, requestUrl: url });
   return { owner, prepare, mailbox, graph, audits, get packet() { return packet; }, get finalized() { return finalized; }, get creations() { return creations; }, get deleted() { return deleted; },
     check: () => owner.checkOutlookHandoff("packet", 1, mailbox, url), discard: () => owner.discardOutlookHandoff("packet", 1, mailbox, url),
-    fail: (value) => { failure = value; }, change: (value) => { changed = value; }, missing: () => { message = null; },
+    fail: (value) => { failure = value; }, failAttachment: (value) => { attachmentFailure = value; }, pauseUpload: value => { uploadGate = value; }, change: (value) => { changed = value; }, missing: () => { message = null; },
     sent: (overrides = {}) => { message = { ...message, isDraft: false, sentDateTime: "2026-09-21T01:00:00Z", body: { content: url }, toRecipients: [{ emailAddress: { address: "r@example.invalid" } }], ...overrides }; } };
 }
 
@@ -180,8 +268,8 @@ test("ambiguous creation recovers one existing draft; definite rejection release
   await assert.rejects(rejected.prepare()); assert.equal(rejected.packet.outlook.status, "discarded"); assert.ok(rejected.packet.revokedAt); assert.deepEqual(rejected.audits, ["failed"]);
 });
 
-test("sent changes require review; explicit replacement revokes files without falsely certifying the assessment", async () => {
-  for (const change of ["assessment", "referral", "files", "recipients", "link"]) {
+test("sent changes require review; explicit replacement does not falsely certify the assessment", async () => {
+  for (const change of ["assessment", "referral", "files", "recipients", "attachments"]) {
     const f = handoffFixture(); await f.prepare(); f.change(change);
     f.sent(change === "recipients" ? { toRecipients: [{ emailAddress: { address: "new@example.invalid" } }] } : change === "link" ? { body: { content: "Link removed" } } : {});
     assert.equal((await f.check()).status, "needs_review", change); assert.equal(f.finalized, 0);
@@ -232,4 +320,43 @@ test("Outlook API enforces authentication, workspace access, origin, explicit re
   assert.equal((await post({ action: "check", packet_id: "packet" })).status, 200); assert.equal(checks, 1);
   assert.equal((await post({ action: "discard", packet_id: "packet", confirmed: true })).status, 200); assert.equal(removals, 1);
 
+});
+
+
+test("attachment failures retain the same draft and reservation even after a definite provider rejection", async () => {
+  const f = handoffFixture(); f.failAttachment(new f.graph.OutlookMailError(413, true));
+  await assert.rejects(f.prepare(), { status: 413 });
+  assert.equal(f.packet.outlook.messageId, "draft"); assert.equal(f.packet.outlook.status, "unconfirmed");
+  assert.equal(f.packet.outlook.attachmentsReady, undefined); assert.equal(f.packet.revokedAt, undefined);
+  assert.equal(f.audits.length, 0); assert.equal(f.creations, 1);
+  const view = (await f.owner.workspaceOutlookState(1, "staff")).draft;
+  assert.equal(view.web_link, undefined);
+  f.failAttachment(undefined); assert.equal((await f.check()).status, "draft");
+  assert.equal(f.packet.outlook.attachmentsReady, true); assert.equal(f.creations, 1);
+  f.sent({ body: { content: "Ordinary email, no download link." } });
+  assert.equal((await f.check()).status, "sent"); assert.equal(f.finalized, 1);
+});
+
+test("concurrent checks and removal cannot interrupt attachments; a stale operation can resume", async () => {
+  const f = handoffFixture(); let release;
+  f.pauseUpload(new Promise(resolve => { release = resolve; }));
+  const preparing = f.prepare();
+  while (!f.packet?.outlook?.attachmentHashes) await new Promise(resolve => setTimeout(resolve, 0));
+  await assert.rejects(f.check(), { status: 409 }); await assert.rejects(f.discard(), { status: 409 });
+  assert.equal(f.deleted, 0); release(); await preparing;
+  assert.equal(f.packet.outlook.operation, undefined);
+  f.packet.outlook.operation = { id: "expired", expiresAt: Date.now() - 1 };
+  assert.equal((await f.check()).status, "draft"); assert.equal(f.packet.outlook.operation, undefined);
+});
+
+test("a prematurely sent partial draft is flagged without completing the assessment", async () => {
+  const f = handoffFixture(); f.failAttachment(new Error("Lost upload response"));
+  await assert.rejects(f.prepare()); f.sent();
+  assert.equal((await f.check()).status, "needs_review"); assert.equal(f.finalized, 0);
+});
+
+test("legacy linked drafts still require their original link before finalization", async () => {
+  const f = handoffFixture(); await f.prepare(); delete f.packet.outlook.deliveryMode;
+  f.sent({ body: { content: "Removed link" } });
+  assert.equal((await f.check()).status, "needs_review"); assert.equal(f.finalized, 0);
 });

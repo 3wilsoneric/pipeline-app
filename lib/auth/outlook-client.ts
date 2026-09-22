@@ -12,32 +12,39 @@ function clientFor(clientId: string) {
     const client = new PublicClientApplication({
       auth: { clientId, authority: "https://login.microsoftonline.com/common",
         redirectUri: `${window.location.origin}${toPipelinePath("/outlook-auth.html")}` },
-      cache: { cacheLocation: BrowserCacheLocation.SessionStorage },
+      cache: { cacheLocation: BrowserCacheLocation.LocalStorage },
     });
     outlookClient = { id: clientId, ready: client.initialize().then(() => client) };
   }
   return outlookClient.ready;
 }
 
-export async function acquireOutlookToken(clientId: string | undefined, interactive = false): Promise<string | null> {
+export async function acquireOutlookToken(clientId: string | undefined, interactive = false, accountEmail?: string): Promise<string | null> {
   if (!clientId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId)) {
     if (interactive) throw new Error("Outlook connection is not set up yet. Your handoff is saved in Pipeline.");
     return null;
   }
   const client = await clientFor(clientId);
-  const account = client.getActiveAccount();
   try {
     if (interactive) {
-      const result = await client.acquireTokenPopup({ scopes, prompt: "select_account" });
+      const result = await client.acquireTokenPopup({ scopes, prompt: "select_account", loginHint: accountEmail });
       client.setActiveAccount(result.account);
       return result.accessToken;
     }
-    if (!account) return null;
-    return (await client.acquireTokenSilent({ scopes, account })).accessToken;
+    return await restoreOutlookToken(client, accountEmail);
   } catch (error) {
     if (!interactive) return null;
     throw outlookConnectionError(error);
   }
+}
+
+async function restoreOutlookToken(client: PublicClientApplication, accountEmail?: string) {
+  const account = accountEmail ? client.getAccountByUsername(accountEmail) : client.getActiveAccount();
+  if (account) return (await client.acquireTokenSilent({ scopes, account })).accessToken;
+  if (!accountEmail) return null;
+  const result = await client.ssoSilent({ scopes, loginHint: accountEmail });
+  client.setActiveAccount(result.account);
+  return result.accessToken;
 }
 
 function outlookConnectionError(error: unknown) {

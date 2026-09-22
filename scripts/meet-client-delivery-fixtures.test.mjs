@@ -119,7 +119,7 @@ test("missing or invalid planned dates cannot reserve a delivery or contact the 
     const fixture = deliveryFixture({ admissionDate });
     const response = await fixture.send();
     assert.equal(response.status, 422);
-    assert.match((await response.json()).error, /planned admission date/);
+    assert.match((await response.json()).error, /planned admit date/);
     assert.equal(fixture.providerCalls(), 0);
     assert.equal(fixture.reservationCalls(), 0);
   }
@@ -185,7 +185,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
-    "@/lib/notifications/outlook-mail": { connectedOutlookMailbox: async () => ({ id: "synthetic-coordinator", graphId: "synthetic-home-mailbox", email: "coordinator@example.invalid", token: "synthetic-token" }) },
+    "@/lib/notifications/outlook-mail": { getOutlookMailReadiness: () => ({ configured: true, largeAttachmentDeliveryConfigured: true }), connectedOutlookMailbox: async () => ({ id: "synthetic-coordinator", graphId: "synthetic-home-mailbox", email: "coordinator@example.invalid", token: "synthetic-token" }) },
     "@/lib/notifications/outlook-handoff": { prepareOutlookHandoff: async input => { messages.push(input); return { status: "draft", mailbox: input.mailbox.email }; } },
     "@/lib/notifications/admission-packet-files": { prepareAdmissionPacketLink: async (input) => { assert.equal(input.inventory.files.length, 2); return "https://pipeline.invalid/admission-packet/synthetic"; } },
     "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {}, findWorkspaceOutlookDraft: async () => null },

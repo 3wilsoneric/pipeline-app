@@ -1467,12 +1467,12 @@ export default function ReferralPacketCanvas({
     setSavedAt("Unsaved changes");
   };
 
-  const locationForPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review"): PipelineWorkspaceLocation => (page === 1 && loadedReferralRef.current
+  const locationForPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null): PipelineWorkspaceLocation => (page === 1 && loadedReferralRef.current
       ? { view: "intake", intakeField: editField && editField !== "conserved" ? editField : "name" }
-      : page === 2 ? { ...lastAssessmentLocationRef.current, view: "assessment", assessmentSection: lastAssessmentSectionRef.current, ...(assessmentMode ? { assessmentMode, assessmentDialog: undefined } : {}) }
+      : page === 2 ? { ...lastAssessmentLocationRef.current, view: "assessment", assessmentSection: lastAssessmentSectionRef.current, ...(assessmentMode !== undefined ? { assessmentMode: assessmentMode ?? undefined, assessmentDialog: undefined } : {}) }
       : workspaceLocationForPage(page));
 
-  const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review") => {
+  const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
     if (emailSendingRef.current) return;
     if (page !== 2) setPreparingReferralId(null);
@@ -2751,6 +2751,7 @@ export default function ReferralPacketCanvas({
             <PacketPage id="packet-email" title="Finish & send" flush>
               <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
+                onReferralChange={applyConfirmedWorkflowReferral}
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={handoff}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2, undefined, "review")}
@@ -2785,7 +2786,7 @@ export default function ReferralPacketCanvas({
                   onEditReferralField={!permissionReadOnly && loadedReferral ? (field) => void navigatePage(1, field) : undefined}
                   onOpenChart={() => openPage(3)}
                   onReviewAssessment={() => openPage(2, undefined, "review")}
-                  onOpenAssessment={() => openPage(2)}
+                  onOpenAssessment={() => openPage(2, undefined, null)}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}

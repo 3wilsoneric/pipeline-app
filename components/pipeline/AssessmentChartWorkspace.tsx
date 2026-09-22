@@ -1,8 +1,8 @@
 "use client";
 
-import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
+import { getPlannedAdmissionDate, plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, FileText, LoaderCircle, Mail, Paperclip, RefreshCw, X } from "lucide-react";
+import { ArrowRight, Check, FileText, LoaderCircle, Paperclip, RefreshCw, X } from "lucide-react";
 
 import type {
   AssessmentSummaryItem,
@@ -14,6 +14,7 @@ import ReadableChartText from "@/components/pipeline/ReadableChartText";
 import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import MeetClientMessageEditor from "./MeetClientMessageEditor";
+import MeetClientAdmissionReview from "./MeetClientAdmissionReview";
 import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
 import OutlookHandoffControls from "./OutlookHandoffControls";
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
@@ -27,6 +28,7 @@ type ChartPayload = {
   report: AssessmentSummaryReport | null;
   email: {
     example_only: boolean;
+    outlook_draft?: OutlookDraftView | null;
     configured: boolean;
     sender: string;
     preview: { subject: string; html: string; text?: string } | null;
@@ -55,13 +57,14 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
   emailDraft?: HandoffRecipients;
   finishActions?: React.ReactNode;
   onSendingChange?: (sending: boolean) => void;
+  onReferralChange?: (referral: Referral) => void;
   onOpenFiles?: () => void;
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
@@ -69,12 +72,16 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const [payload, setPayload] = useState<ChartPayload | null>(null);
   const [loading, setLoading] = useState(Boolean(referralId));
   const [sending, setSending] = useState(false);
+  const [savingDate, setSavingDate] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const recipients = emailDraft?.fields.to.map((contact) => contact.email) ?? [];
   const ccRecipients = emailDraft?.fields.cc.map((contact) => contact.email) ?? [];
   const [confirmed, setConfirmed] = useState(false);
-  const [composerOpen, setComposerOpen] = useState(false);
+  const [existingDraft, setExistingDraft] = useState<OutlookDraftView | null>(null);
+  const [reviewStep, setReviewStep] = useState<number | null>(null);
+  const [reviewedCount, setReviewedCount] = useState(0);
+  const composerOpen = reviewStep !== null;
   const [exampleReviewed, setExampleReviewed] = useState(false);
   const [acceptedReferralId, setAcceptedReferralId] = useState<number | null>(null);
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
@@ -85,12 +92,16 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     setLoading(true);
     setError("");
     setConfirmed(false);
+    setReviewedCount(0);
+    setExampleReviewed(false);
+    setReviewStep(null);
     try {
       const next = await fetchPipelineJson<ChartPayload>(
         `/api/referrals/${referralId}/admission-summary`,
         { cache: "no-store" },
       );
       setPayload(next);
+      setExistingDraft(next.email.outlook_draft && !["sent", "discarded"].includes(next.email.outlook_draft.status) ? next.email.outlook_draft : null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "The assessment records could not be loaded.");
     } finally {
@@ -101,7 +112,21 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   useEffect(() => {
     void load();
   }, [load]);
-  useEffect(() => { setConfirmed(false); }, [emailDraft?.fields, referralId]);
+  const recipientKey = JSON.stringify([referralId, recipients, ccRecipients]);
+  useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 3)); }, [recipientKey]);
+
+  const confirmAdmissionDate = async (saved: Referral) => {
+    onReferralChange?.(saved);
+    const next = await fetchPipelineJson<ChartPayload>(`/api/referrals/${saved.id}/admission-summary`, { cache: "no-store" });
+    if (getPlannedAdmissionDate(next.referral) !== getPlannedAdmissionDate(saved) || !next.report?.signed || !next.email.eligible) {
+      throw new PipelineApiError("The handoff changed. Reload and check the saved admit date before continuing.", 409);
+    }
+    setPayload(next);
+    setConfirmed(false);
+    setExampleReviewed(false);
+    setReviewedCount(1);
+    setReviewStep(1);
+  };
 
   const emailMeetClient = async (outlookToken: string) => {
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
@@ -166,6 +191,22 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
   </button>;
 
+  const renderReviewBody = (step: number) => {
+    if (step === 0) return <MeetClientAdmissionReview referral={readyPayload.referral} editable={readyPayload.email.can_edit_recipients} demo={readyPayload.email.example_only}
+      onConfirm={confirmAdmissionDate} onSavingChange={(saving) => { setSavingDate(saving); onSendingChange?.(saving); }} onReload={() => void load()} />;
+    return step < 4 ? <HandoffReviewStep step={step} payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
+          onBack={() => setReviewStep(step - 1)} onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment}
+          onContinue={() => { setReviewedCount((count) => Math.max(count, step + 1)); setReviewStep(step + 1); }} />
+          : <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral}
+            confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
+            onBack={() => setReviewStep(3)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
+            preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
+            onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
+  };
+  const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
+    {renderReviewBody(reviewStep)}
+  </MeetClientComposeDialog> : null);
+
   const renderEmailPage = () => (
     <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
@@ -174,16 +215,10 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
-      <p className={styles.packetDescription}>The admission packet includes your message and every file uploaded to this workspace.</p>
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
-        composerOpen={composerOpen} onPreviewEmail={() => { setConfirmed(false); setComposerOpen(true); }}
+        existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
         onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
-      {composerOpen ? <MeetClientComposeDialog sending={sending} onClose={() => { setComposerOpen(false); setConfirmed(false); }}>
-      <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral} confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
-        onOpenFiles={onOpenFiles} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setComposerOpen(false); setConfirmed(false); }}
-        onConfirmed={setConfirmed}
-        onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />
-      </MeetClientComposeDialog> : null}
+      {renderReviewDialog()}
     </section>
   );
   if (emailPage) return renderEmailPage();
@@ -199,8 +234,8 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   );
 }
 
-function HandoffOverview({ payload, sent, exampleReviewed, finishActions, composerOpen, onPreviewEmail, onOpenAssessment, onOpenDecision }: {
-  payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean;
+function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onOpenAssessment, onOpenDecision }: {
+  existingDraft: OutlookDraftView | null; payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean; reviewedCount: number;
   finishActions?: React.ReactNode;
   onPreviewEmail: () => void;
   onOpenAssessment?: () => void; onOpenDecision?: () => void;
@@ -213,7 +248,7 @@ function HandoffOverview({ payload, sent, exampleReviewed, finishActions, compos
   }, [complete, composerOpen]);
   const previewButton = <button type="button" data-guide-target={composerOpen ? undefined : ["chart-email-handoff", "packet-open-email"].join(" ")} className={styles.sendButton}
     onClick={(event) => { event.currentTarget.focus(); onPreviewEmail(); }}>
-    {complete ? "View email" : "Preview email"}<ArrowRight size={18} aria-hidden="true" />
+    {handoffReviewLabel(complete, reviewedCount, Boolean(existingDraft))}<ArrowRight size={18} aria-hidden="true" />
   </button>;
 
   if (complete) return <section className={styles.guidedTask} aria-label="Handoff readiness">
@@ -224,13 +259,32 @@ function HandoffOverview({ payload, sent, exampleReviewed, finishActions, compos
     <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details>
   </section>;
 
+  if (existingDraft) return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
+    <h3>Your Outlook draft is saved</h3>
+    <p>Continue with the message and files you already reviewed.</p>
+    <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
+  </section>;
+
   if (!report?.signed || !email.eligible) return <HandoffPendingTask signed={Boolean(report?.signed)} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />;
 
-  return <section aria-label="Handoff readiness" className={styles.handoffOverview}>
-    <h3 className={styles.reviewHeading}>Review the client summary</h3>
-    <HandoffClinicalSummary report={report} />
-    <footer aria-label="Handoff actions" className={styles.reviewActions}><span>Next: recipients & attachments</span>{previewButton}</footer>
+  return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
+    <h3>Ready to prepare the handoff</h3>
+    <p>Confirm the admit date, check the handoff, then preview the email.</p>
+    <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
+    <ol className={styles.reviewChecklist} aria-label="Handoff review progress">
+      {["Admit date", "Client summary", "Admission packet", "Recipients"].map((label, index) => <li key={label} data-complete={reviewedCount > index || undefined}>
+        <span aria-hidden="true">{reviewedCount > index ? <Check size={18} /> : index + 1}</span>
+        <strong>{label}</strong><small>{reviewedCount > index ? "Checked" : index === reviewedCount ? "Up next" : "To check"}</small>
+      </li>)}
+    </ol>
   </section>;
+}
+
+function handoffReviewLabel(complete: boolean, reviewedCount: number, existingDraft: boolean) {
+  if (existingDraft) return "Continue with Outlook draft";
+  if (complete) return "View email";
+  if (reviewedCount === 4) return "Preview email";
+  return reviewedCount ? "Continue review" : "Review handoff";
 }
 
 function HandoffPendingTask({ signed, onOpenAssessment, onOpenDecision }: { signed: boolean; onOpenAssessment?: () => void; onOpenDecision?: () => void }) {
@@ -265,17 +319,21 @@ function HandoffSection({ title, items, children }: { title: string; items: Asse
   return <section className={styles.handoffSection} aria-label={title}><h3>{title}</h3>{children}<dl>{items.map((item, index) => <div key={`${item.label}-${index}`} data-handoff-field={item.label}><dt>{item.label}</dt><dd><ReadableChartText value={item.value} /></dd></div>)}</dl></section>;
 }
 
-function MeetClientComposeDialog({ sending, onClose, children }: { sending: boolean; onClose: () => void; children: React.ReactNode }) {
+const handoffStepTitles = ["Confirm admit date", "Check client summary", "Check admission packet", "Check recipients", "Preview email"];
+
+function MeetClientComposeDialog({ step, sending, onClose, children }: { step: number; sending: boolean; onClose: () => void; children: React.ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     const previousFocus = document.activeElement;
     const dialog = dialogRef.current;
     dialog?.showModal();
+    titleRef.current?.focus();
     return () => { dialog?.close(); if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus(); };
   }, []);
-  return <dialog ref={dialogRef} className={styles.composeDialog} aria-label="Meet the Client email" aria-busy={sending}
+  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${step === 0 ? styles.admissionDateDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
     onCancel={(event) => { event.preventDefault(); if (!sending) onClose(); }}>
-    <header className={styles.dialogHeader}><div><Mail size={20} aria-hidden="true" /><h2>Meet the Client email</h2></div><button type="button" aria-label="Close email preview" onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
+    <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step + 1} / {handoffStepTitles.length}</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 4 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
     {children}
   </dialog>;
 }
@@ -295,7 +353,7 @@ function handoffDraftReady(draft?: HandoffRecipients): draft is HandoffRecipient
 }
 
 function canStartMeetClientSend(payload: ChartPayload | null, alreadyAccepted: boolean, confirmed: boolean, inFlight: boolean): payload is ChartPayload {
-  return Boolean(payload?.email.ready && !payload.email.example_only && !payload.email.sent_at && !alreadyAccepted && confirmed && !inFlight);
+  return Boolean(payload?.email.ready && !plannedAdmissionDateError(getPlannedAdmissionDate(payload.referral)) && !payload.email.example_only && !payload.email.sent_at && !alreadyAccepted && confirmed && !inFlight);
 }
 
 function meetClientDeliveryStatus(email: ChartPayload["email"], sent: boolean, sending: boolean, confirmed: boolean, recipients: string[]) {
@@ -393,109 +451,104 @@ function ChartSourceFooter({ report }: { report: AssessmentSummaryReport }) {
   );
 }
 
-function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onConfirmed, onOpenFiles, onReviewComplete, onPrepareOutlook, onOutlookSent }: {
-  email: ChartPayload["email"];
-  report: AssessmentSummaryReport | null;
-  emailDraft?: HandoffRecipients;
-  referral: Referral;
-  confirmed: boolean;
-  sending: boolean;
-  sent: boolean;
-  error: string;
-  message: string;
-  refresh: React.ReactNode;
-  onConfirmed: (value: boolean) => void;
-  onOpenFiles?: () => void;
-  onReviewComplete: () => void;
-  onPrepareOutlook?: (token: string) => Promise<OutlookDraftView | undefined>;
-  onOutlookSent?: () => void;
+function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, onBack, onContinue, onOpenFiles, onOpenAssessment }: {
+  step: number; payload: ChartPayload; draft?: HandoffRecipients; confirmed: boolean;
+  onConfirmed: (value: boolean) => void; onBack: () => void; onContinue: () => void;
+  onOpenFiles?: () => void; onOpenAssessment?: () => void;
 }) {
-  const [preparedDraft, setPreparedDraft] = useState<OutlookDraftView | null>(null);
-  const outlookPrepared = Boolean(preparedDraft);
-  const status = meetClientPreviewStatus(email, sent, sending);
-  const showOutlookControls = !!onPrepareOutlook && !!onOutlookSent;
-  const composerReadOnly = [!email.can_edit_recipients, sending, sent, outlookPrepared].some(Boolean);
-  const renderRecipientConfirmation = () => email.can_send && !outlookPrepared ? <label className={styles.confirmation}>
-    <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={sending} aria-label="I verified that each recipient is authorized to receive this summary and the packet files." />
-    <span><strong>{confirmed ? "Recipients verified" : "Verify recipients"}</strong><span>I verified that each recipient is authorized to receive this summary and the packet files.</span></span>
-  </label> : null;
-  const renderSendToolbar = () => (
-    sent ? <footer className={styles.toolbar}><span>Handoff complete</span><button type="button" className={styles.sendButton} onClick={onReviewComplete}>Done<Check size={18} aria-hidden="true" /></button></footer> : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
-        {renderRecipientConfirmation()}
-        {showOutlookControls ? <OutlookHandoffControls selected referralId={referral.id} demo={email.example_only}
-          ready={canSendHandoff(email, emailDraft, confirmed, sending)} sending={sending} onPrepare={onPrepareOutlook} onSent={onOutlookSent}
-          onExistingDraft={setPreparedDraft} /> : null}
-      </footer>
-  );
-
-  const renderSender = () => (
-    <div className={styles.addressRow}><span>From</span><div>
-        <strong>Your Outlook mailbox</strong>
-        <span className={styles.senderCaption}>You review and send the saved draft. Replies come back to you.</span>
-      </div></div>
-  );
-  const renderPacketAttachments = () => (
-    <section data-guide-target="packet-attachments" className={styles.attachments} aria-label="Referral packet attachments">
-        <div className={styles.attachmentHeading}>
-          <h3>Admission packet</h3>
-          <span><Paperclip size={15} aria-hidden="true" />{email.admission_packet.files.length} file{email.admission_packet.files.length === 1 ? "" : "s"} · {formatBytes(email.admission_packet.total_bytes)}</span>
-        </div>
-        <p>All files travel with the draft in one secure link. Recipients verify their email with a code; no account needed. Access lasts 30 days and can be renewed.</p>
-        {!email.admission_packet.ready && !sent && onOpenFiles ? <button type="button" className={styles.textButton} disabled={sending} onClick={onOpenFiles}>{email.admission_packet.files.every((file) => file.generated) ? "Upload files" : "Review packet files"}<ArrowRight size={16} aria-hidden="true" /></button> : null}
-        {email.admission_packet.files.length ? <ul className={styles.attachmentList}>
-          {email.admission_packet.files.map((file) => <li key={file.document_id}>
-            <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
-              <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Full chart · printable data sheet" : file.ready ? formatBytes(file.byte_size) : "Safety review needed"}</small></span>
-            </a>
-          </li>)}
-        </ul> : <p className={styles.emptyAttachments}>No uploaded files yet. Upload files to this workspace to include them in the admission packet.</p>}
-      </section>
-  );
-  const renderDeliveryDetails = () => (
-    <details className={styles.deliveryDetails}>
-          <summary>Delivery details</summary>
-          {email.blockers.length ? <ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
-          <p>Approved recipient domains: {email.allowed_recipient_domains.join(", ") || "Not connected yet"}.</p>
-        </details>
-  );
-
-  return (
-    <div className={styles.composer} data-guide-target="chart-email-handoff">
-      <div className={styles.composeScroll}>
-      {preparedDraft ? <PreparedDraftDetails draft={preparedDraft} /> : <>
-      <div className={`${styles.nextStep} ${email.example_only ? styles.demoNotice : ""}`}><p role="status">{status}</p>{!email.example_only ? refresh : null}</div>
-      {renderSender()}
-      {emailDraft ? <div data-guide-target="packet-recipients" className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} composer value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={composerReadOnly} /></div> : null}
-      <MeetClientMessageEditor demo={email.example_only} packetLink summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""} attachments={email.admission_packet.files.map((file) => file.name)}
-        draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={composerReadOnly} onEdited={() => onConfirmed(false)}>
-        {renderPacketAttachments()}
-      </MeetClientMessageEditor>
-      {renderPacketAccess(email, sent, referral.id)}
-      <footer className={styles.footer}>
-        {renderDeliveryDetails()}
-      </footer>
-      </>}
-      </div>
-      <ChartStatusMessage error={error} message={message} />
-      {renderSendToolbar()}
+  const recipientCheckReady = confirmed && handoffDraftReady(draft) && Boolean(draft.fields.to.length);
+  return <div className={styles.composer}>
+    <div className={styles.composeScroll}>
+      {payload.email.example_only ? <p role="status" className={styles.demoNotice}>Demo only — no email will be sent.</p> : null}
+      {step === 1 ? <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} /> : null}
+      {step === 2 ? <AdmissionPacketReview email={payload.email} referral={payload.referral} onOpenFiles={onOpenFiles} /> : null}
+      {step === 3 ? <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} /> : null}
     </div>
-  );
+    <footer className={styles.toolbar}>
+      <button type="button" className={styles.textButton} onClick={onBack}>Back</button>
+      <button type="button" className={styles.sendButton} disabled={step === 3 && !recipientCheckReady} onClick={onContinue}>
+        {["Confirm summary", "Confirm packet", "Preview email"][step - 1]}<ArrowRight size={18} aria-hidden="true" />
+      </button>
+    </footer>
+  </div>;
+}
+
+function HandoffSummaryReview({ report, onOpenAssessment }: { report: AssessmentSummaryReport | null; onOpenAssessment?: () => void }) {
+  return <div className={styles.reviewContent}>
+        <p className={styles.reviewInstruction}>Check the details the receiving team will need.</p>
+        {report ? <HandoffClinicalSummary report={report} /> : null}
+        {onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Correct the assessment</button> : null}
+      </div>;
+}
+
+function HandoffRecipientReview({ draft, community, editable, confirmed, onConfirmed }: {
+  draft?: HandoffRecipients; community: string; editable: boolean; confirmed: boolean; onConfirmed: (value: boolean) => void;
+}) {
+  return <div className={styles.reviewContent}>
+        <p className={styles.reviewInstruction}>Who should receive this client’s information?</p>
+        {draft ? <div data-guide-target="packet-recipients"><ReferralHandoffContacts key={community} composer value={draft} community={community} disabled={!editable} /></div> : <p role="status">Recipient settings are not available yet.</p>}
+        <label className={styles.confirmation}>
+          <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={!draft?.fields.to.length}
+            aria-label="I verified that each recipient is authorized to receive this summary and the packet files." />
+          <span><strong>These recipients are authorized</strong><span>I checked every address. Each person may receive this client’s summary and files.</span></span>
+        </label>
+      </div>;
+}
+
+function AdmissionPacketReview({ email, referral, onOpenFiles }: { email: ChartPayload["email"]; referral: Referral; onOpenFiles?: () => void }) {
+  return <section data-guide-target="packet-attachments" className={`${styles.attachments} ${styles.packetReview}`} aria-label="Referral packet attachments">
+    <div className={styles.attachmentHeading}><h3>Everything in the packet</h3><span><Paperclip size={15} aria-hidden="true" />{email.admission_packet.files.length} files · {formatBytes(email.admission_packet.total_bytes)}</span></div>
+    <p>Check that the right files are included. These files will be attached to the email.</p>
+    <ul className={styles.attachmentList}>{email.admission_packet.files.map((file) => <li key={file.document_id}>
+      <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
+        <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · created automatically" : file.ready ? formatBytes(file.byte_size) : "Safety review needed before live delivery"}</small></span>
+      </a>
+    </li>)}</ul>
+    {onOpenFiles ? <button type="button" className={styles.textButton} onClick={onOpenFiles}>Change packet files</button> : null}
+  </section>;
+}
+
+function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onBack, onReviewComplete, onPrepareOutlook, onOutlookSent }: {
+  preparedDraft: OutlookDraftView | null; onExistingDraft: (draft: OutlookDraftView | null) => void;
+  email: ChartPayload["email"]; report: AssessmentSummaryReport | null; emailDraft?: HandoffRecipients; referral: Referral;
+  confirmed: boolean; sending: boolean; sent: boolean; error: string; message: string; refresh: React.ReactNode;
+  onBack: () => void; onReviewComplete: () => void;
+  onPrepareOutlook: (token: string) => Promise<OutlookDraftView | undefined>; onOutlookSent: () => void;
+}) {
+  const composerReadOnly = [!email.can_edit_recipients, sending, sent, Boolean(preparedDraft)].some(Boolean);
+  const renderMessagePreview = () => (preparedDraft ? <PreparedDraftDetails draft={preparedDraft} /> : <>
+        <div className={styles.addressRow}><span>From</span><strong>Your Outlook mailbox</strong></div>
+        <div className={styles.addressRow}><span>To</span><span>{emailDraft?.fields.to.map((contact) => contact.email).join("; ") || "No recipients"}</span></div>
+        {emailDraft?.fields.cc.length ? <div className={styles.addressRow}><span>Cc</span><span>{emailDraft.fields.cc.map((contact) => contact.email).join("; ")}</span></div> : null}
+        <MeetClientMessageEditor demo={email.example_only} summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
+          attachments={email.admission_packet.files.map((file) => file.name)} draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={composerReadOnly} />
+        {!email.example_only ? <details className={styles.deliveryDetails}><summary>Delivery details</summary>
+          {email.blockers.length ? <ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
+          {refresh}{renderPacketAccess(email, sent, referral.id)}
+        </details> : null}
+      </>);
+  const renderCompletion = () => <footer className={styles.toolbar}>
+    <button type="button" className={styles.textButton} onClick={onBack}>Back</button>
+    <button type="button" className={styles.sendButton} onClick={onReviewComplete}>{email.example_only ? "Finish demo review" : "Done"}<Check size={18} aria-hidden="true" /></button>
+  </footer>;
+  return <div className={styles.composer} data-guide-target="chart-email-handoff">
+    <div className={styles.composeScroll}>
+      {email.example_only ? <p role="status" className={styles.demoNotice}>Not production yet — no draft will be created and no email will be sent.</p> : null}
+      {renderMessagePreview()}
+    </div>
+    <ChartStatusMessage error={error} message={message} />
+    {sent || email.example_only ? renderCompletion() : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
+      {!preparedDraft ? <button type="button" className={styles.textButton} disabled={sending} onClick={onBack}>Back to recipients</button> : null}
+      <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, emailDraft, confirmed, sending)} sending={sending}
+        onPrepare={onPrepareOutlook} onSent={onOutlookSent} onExistingDraft={onExistingDraft} />
+    </footer>}
+  </div>;
 }
 
 function canSendHandoff(email: ChartPayload["email"], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean) {
   return !sending && email.ready && confirmed && Boolean(draft?.fields.to.length) && handoffDraftReady(draft);
 }
 
-function meetClientPreviewStatus(email: ChartPayload["email"], sent: boolean, sending: boolean) {
-  if (email.example_only) return "Not production yet — no email will be sent.";
-  return sent ? "The handoff is recorded as sent. Delivery and read receipts are not tracked."
-    : sending ? "Saving your Outlook draft. Keep this workspace open until the result appears."
-    : !email.configured ? "Preview only · email delivery is not connected."
-    : !email.preview ? "Assessment not signed yet. Review and sign it to prepare the summary."
-    : !email.eligible ? "Assessment signed · record acceptance in Decision before sending."
-    : !email.ready ? "Preview ready · review the items below before sending."
-    : "Review the recipients and packet, then save to Outlook Drafts.";
-}
 
 function EmptyState({ text, onRetry }: { text: string; onRetry?: () => void }) {
   return <div className="flex min-h-52 flex-col items-center justify-center border border-dashed border-[#cfd7d2] bg-[#fafcfb] px-6 text-center text-[12px] text-[#66706b]"><p>{text}</p>{onRetry ? <button type="button" onClick={onRetry} className="mt-3 flex items-center gap-2 font-black text-[#0f8b73]"><RefreshCw size={13} /> Retry</button> : null}</div>;

@@ -8,6 +8,7 @@ import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmen
 import PipelineGuidedCoach from "@/components/pipeline/training/PipelineGuidedCoach";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
 import PipelinePerformanceObserver from "@/components/pipeline/PipelinePerformanceObserver";
+import OutlookConnectionSetup from "@/components/pipeline/OutlookConnectionSetup";
 import { useMobileViewport } from "@/components/pipeline/use-mobile-viewport";
 import mobileStyles from "@/components/pipeline/PipelineMobileShell.module.css";
 import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
@@ -39,6 +40,7 @@ export default function PipelineAppShell({
           <PipelineGuidedCoach />
         </div>
         <PipelinePerformanceObserver />
+        <OutlookConnectionSetup mode="prompt" />
       </div>
     </PipelineShellProvider>
   );

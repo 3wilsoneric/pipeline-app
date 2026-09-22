@@ -91,6 +91,22 @@ async function exerciseAccess(f) {
   const expiredId = await f.create();
   const expired = await f.access.requestPacketCode(expiredId, challenge.email, now);
   await assert.rejects(f.access.verifyPacketCode(expiredId, expired.email, expired.code, now + 600_001), { status: 401 });
+  const attachmentId = await f.create();
+  const oldChallenge = await f.access.requestPacketCode(attachmentId, challenge.email, now);
+  const oldSession = await f.access.verifyPacketCode(attachmentId, challenge.email, oldChallenge.code, now);
+  await f.store.withAdmissionPacket(attachmentId, packet => { packet.outlook = { ownerId: "staff", mailbox: "staff@example.invalid", status: "draft", deliveryMode: "attachments",
+    attachmentHashes: { "file-1": "pinned-hash" }, attachmentsReady: true, operation: { id: "operation", expiresAt: now + 300_000 } }; });
+  assert.equal(await f.access.requestPacketCode(attachmentId, challenge.email, now + 61_000), null);
+  await assert.rejects(f.access.readVerifiedPacket(attachmentId, oldSession.token, "file-1", now), { status: 410 });
+  await assert.rejects(f.store.manageAdmissionPacketLink(attachmentId, 1, "renew", { id: "staff", name: "Fixture" }), { status: 409 });
+  const persistedDraft = await f.store.withAdmissionPacket(attachmentId, packet => structuredClone(packet.outlook));
+  assert.equal(persistedDraft.attachmentHashes["file-1"], "pinned-hash"); assert.equal(persistedDraft.operation.id, "operation");
+  // Attachment-only history must not crowd older, still manageable links out
+  // of the 50-link listing in either storage adapter.
+  for (let index = 0; index < 50; index++) {
+    const draftId = await f.create();
+    await f.store.withAdmissionPacket(draftId, packet => { packet.outlook = { ...persistedDraft }; });
+  }
   f.withdraw();
   assert.equal(await f.access.requestPacketCode(id, challenge.email, now + 3_600_001), null);
   const records = await f.store.listAdmissionPacketLinks(1);
