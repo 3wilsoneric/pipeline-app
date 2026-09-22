@@ -221,7 +221,7 @@ test("rapid section choices retain the latest destination", async ({ page }) => 
     await chooseSection(page, "diagnosis_clinical");
     await expect(section).toHaveValue("diagnosis_clinical");
     await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
-    await expect(page.locator("[data-assessment-question-editor]")).toContainText("Secondary diagnosis");
+    await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toContainText("Current symptoms");
   }
 });
 

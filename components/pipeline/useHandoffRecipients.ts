@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
-import type { CommunityRecipientList, RecipientFields } from "@/lib/pipeline/community-recipient-lists";
+import { addListRecipients, parseRecipientText, type CommunityRecipientList, type RecipientFields } from "@/lib/pipeline/community-recipient-lists";
 import { emptyMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
 
 type DraftFields = RecipientFields & { message: MeetClientMessage };
 const empty = (): DraftFields => ({ to: [], cc: [], message: emptyMeetClientMessage() });
-type Session = { key: string; version: number; fields: DraftFields; saved: string; queued: string; queue: Promise<void>; error: string };
+const emptyInput = () => ({ to: "", cc: "" });
+type Session = { key: string; version: number; fields: DraftFields; input: ReturnType<typeof emptyInput>; saved: string; queued: string; queue: Promise<void>; error: string };
 
 export function useHandoffRecipients(referralId: number | undefined, community: string) {
   const [fields, setFields] = useState<DraftFields>(empty);
+  const [recipientInput, setRecipientInput] = useState(emptyInput);
+  const [inputError, setInputError] = useState("");
   const [lists, setLists] = useState<CommunityRecipientList[]>([]);
   const [loadedKey, setLoadedKey] = useState("");
   const [message, setMessage] = useState("");
@@ -24,7 +27,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
   const endpoint = referralId ? `/api/referrals/${referralId}/handoff-recipients` : "";
   useEffect(() => {
     const controller = new AbortController();
-    const current: Session = { key: `${referralId}:${community}`, version: 0, fields: empty(), saved: "", queued: "", queue: Promise.resolve(), error: "" };
+    const current: Session = { key: `${referralId}:${community}`, version: 0, fields: empty(), input: emptyInput(), saved: "", queued: "", queue: Promise.resolve(), error: "" };
     session.current = current;
     const load = async () => {
       let templates: CommunityRecipientList[] = [];
@@ -39,7 +42,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
       current.fields = { to: values.to, cc: values.cc, message: stored.draft?.message ?? emptyMeetClientMessage() };
       current.saved = JSON.stringify(current.fields);
       current.queued = current.saved;
-      setFields(current.fields); setLists(templates); setError("");
+      setFields(current.fields); setRecipientInput(current.input); setInputError(""); setLists(templates); setError("");
       setMessage(recipientLoadMessage(stored.draft?.community === community, note, Boolean(template), community));
     };
     void load().catch(() => { if (!controller.signal.aborted) setError("Recipient drafts could not be loaded. Retry before editing."); })
@@ -79,15 +82,39 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
     messageSaveTimer.current = setTimeout(() => { messageSaveTimer.current = null; save(); }, 400);
   };
+  const changeRecipientInput = (lane: keyof RecipientFields, input: string) => {
+    const current = session.current;
+    if (!current || loading || current.error) return;
+    current.input = { ...current.input, [lane]: input };
+    setRecipientInput(current.input); setInputError("");
+  };
   const flush = useCallback(async () => {
     if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
     messageSaveTimer.current = null;
+    const current = session.current;
+    if (current && !current.error && Object.values(current.input).some(value => value.trim())) {
+      try {
+        let recipients: RecipientFields = current.fields;
+        for (const lane of ["to", "cc"] as const) {
+          const parsed = parseRecipientText(current.input[lane]);
+          if (parsed.error) throw new Error(parsed.error);
+          recipients = addListRecipients(recipients, lane, parsed.recipients!).fields;
+        }
+        current.fields = { ...current.fields, ...recipients };
+        current.input = emptyInput();
+        setFields(current.fields); setRecipientInput(current.input); setInputError("");
+      } catch (failure) {
+        setInputError(failure instanceof Error ? failure.message : "Check the unfinished recipient address.");
+        throw failure;
+      }
+    }
     save();
-    await session.current?.queue;
+    await current?.queue;
   }, [save]);
   const retry = async () => {
     const current = session.current;
     if (!current) return;
+    if (!current.saved) { setReloadKey(value => value + 1); return; }
     current.queue = current.queue.catch(() => undefined); current.error = ""; current.queued = ""; setError("");
     save();
   };
@@ -107,12 +134,12 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
   useEffect(() => {
     const leave = (event: BeforeUnloadEvent) => {
       const current = session.current;
-      if (current && current.saved !== JSON.stringify(current.fields)) event.preventDefault();
+      if (current && (current.saved !== JSON.stringify(current.fields) || Object.values(current.input).some(value => value.trim()))) event.preventDefault();
     };
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
   }, []);
-  return { fields: loading ? empty() : fields, lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
+  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;

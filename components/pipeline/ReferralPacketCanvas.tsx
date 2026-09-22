@@ -1487,19 +1487,21 @@ export default function ReferralPacketCanvas({
     });
   };
 
-  const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField) => {
+  const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
+    try { await handoff.flush(); }
+    catch { return; } // The handoff owns its save error and retry controls.
     try {
       await assessmentNavigationRef.current?.();
       if (activePage === 1 && loadedReferralRef.current) {
         await preservePendingIntake();
         await intakeSaveQueueRef.current;
       }
-      if ((activePage === 1 || activePage === 3) && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
+      if (assessmentMode === undefined && (activePage === 1 || activePage === 3) && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
         await openQuestionnaireFromIntake();
       } else {
-        openPage(page, editField);
+        openPage(page, editField, assessmentMode);
       }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Your last changes could not be saved. Try again before leaving this page.");
@@ -2760,8 +2762,8 @@ export default function ReferralPacketCanvas({
                 onReferralChange={applyConfirmedWorkflowReferral}
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={handoff}
-                onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2, undefined, "review")}
-                onOpenDecision={() => openPage("workflow")}
+                onOpenFiles={() => void navigatePage("files")} onOpenAssessment={() => void navigatePage(2, undefined, "review")}
+                onOpenDecision={() => void navigatePage("workflow")}
                 finishActions={onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
                   setEmailFinishing(true);
                   void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));

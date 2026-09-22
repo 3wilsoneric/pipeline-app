@@ -27,9 +27,10 @@ test("the first editable assessment frame retains immediate input", async ({ pag
     });
     observer.observe(document, { childList: true, subtree: true, attributes: true });
   });
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=diagnosis_clinical`);
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Synthetic immediate answer"]);
-  await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic immediate answer");
+  await page.getByRole("button", { name: /^Recorded answers:/ }).click();
+  await expect(page.getByRole("region", { name: "Recorded answers", exact: true })).toContainText("Synthetic immediate answer");
 });
 
 test("partial dropped batch retries without duplicating committed files and retains same-name revisions", async ({ page }, info) => {
@@ -89,7 +90,7 @@ test("a lost assessment save reply retries the same mutation without losing the 
   const assessment = await startOperationalAssessment(page.request, await createOperationalAssessment(page.request, referral.id));
   const endpoint = `/api/assessments/${assessment.assessment_id}`;
   const read = async () => (await (await page.request.get(endpoint)).json()).assessment;
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=diagnosis_clinical`);
   const mutations: string[] = [];
   await page.route(`**${endpoint}`, async (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
@@ -107,13 +108,14 @@ test("a lost assessment save reply retries the same mutation without losing the 
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).toContainText("Offline changes synced");
   expect((await read()).audit_events.filter((event: { action: string }) => event.action === "assessment_updated")).toHaveLength(1);
   await page.locator("#assessment-current_symptoms").fill("Synthetic next answer after interrupted saving.");
-  await page.getByLabel("Assessment section", { exact: true }).selectOption("physical_health");
+  await page.getByLabel("Assessment section", { exact: true }).selectOption({ label: "Medication & health" });
   await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic next answer after interrupted saving.");
   await page.reload();
-  await page.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
-  const reference = page.getByRole("complementary", { name: "Current information" });
+  await page.getByLabel("Assessment section", { exact: true }).selectOption({ label: "Clinical history & presentation" });
+  await page.getByRole("button", { name: /^Recorded answers:/ }).click();
+  const reference = page.getByRole("region", { name: "Recorded answers", exact: true });
   await expect(reference).toContainText("Synthetic first answer");
   await expect(reference).toContainText("Synthetic next answer after interrupted saving.");
-  await expect(diagnosis).toHaveCount(0);
+  await expect(diagnosis).toHaveValue("Synthetic first answer");
   expect((await read()).signed_at).toBeNull();
 });
