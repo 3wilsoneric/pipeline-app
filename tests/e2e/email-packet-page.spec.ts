@@ -325,9 +325,8 @@ for (const width of [1440, 390]) test(`review shows the record and opens an unre
   await expect(review.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
   await expect(review).toContainText("Recorded answers");
   await expect(page.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeInViewport();
-  const gaps = review.locator("details");
-  await gaps.locator("summary").click();
-  await expect(gaps).toContainText("They do not prevent signing");
+  await expect(review).toContainText("They do not prevent signing");
+  const gaps = review.getByRole("list", { name: "Answers by section", exact: true });
   await page.screenshot({ path: info.outputPath(`review-gaps-${width}.png`), animations: "disabled" });
   await gaps.getByRole("button").first().click();
   await expect(page).not.toHaveURL(/assessmentMode=review/);

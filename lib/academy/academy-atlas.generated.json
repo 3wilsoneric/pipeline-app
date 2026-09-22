@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:bdc3f3434eae6281",
-  "fingerprint": "bdc3f3434eae6281e252a160b824e03098c5be86edaab13e4bed93c52beb1f3f",
+  "generatedAt": "source-fingerprint:f2193fabd0879f88",
+  "fingerprint": "f2193fabd0879f888b98e7ae25bc3b09f87c32725fdfd0bc354aef6ecfb0f2bc",
   "totals": {
     "files": 1390,
     "lines": 366463,
@@ -2747,7 +2747,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 158,
+      "lines": 159,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -15490,7 +15490,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 451,
+      "lines": 450,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
