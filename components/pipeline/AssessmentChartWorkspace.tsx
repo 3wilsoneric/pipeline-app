@@ -15,7 +15,7 @@ import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import MeetClientMessageEditor from "./MeetClientMessageEditor";
 import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
-import AssessorEmailDraftControls from "./AssessorEmailDraftControls";
+import OutlookHandoffControls from "./OutlookHandoffControls";
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
 
@@ -31,7 +31,6 @@ type ChartPayload = {
     sender: string;
     preview: { subject: string; html: string; text?: string } | null;
     prepared_by?: string;
-    draft_recipient?: { id: string; name: string; email: string } | null;
     allowed_recipient_domains: string[];
     eligible: boolean;
     can_send: boolean;
@@ -104,7 +103,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   }, [load]);
   useEffect(() => { setConfirmed(false); }, [emailDraft?.fields, referralId]);
 
-  const emailMeetClient = async (outlookToken?: string) => {
+  const emailMeetClient = async (outlookToken: string) => {
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
     if (!handoffDraftReady(emailDraft)) return;
     const recipientList = recipients;
@@ -119,14 +118,13 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     const deliver = async () => {
       await emailDraft.flush();
       const result = await fetchPipelineJson<{ recipient_count: number; attachment_count: number; delivery_id: string; audit_pending?: boolean; draft?: OutlookDraftView }>(
-        `/api/referrals/${payload.referral.id}/meet-client-email?delivery=${outlookToken ? "outlook" : "email_draft"}`,
+        `/api/referrals/${payload.referral.id}/meet-client-email?delivery=outlook`,
         {
           method: "POST",
-          ...(outlookToken ? { headers: { "x-pipeline-outlook-token": outlookToken } } : {}),
+          headers: { "x-pipeline-outlook-token": outlookToken },
           body: JSON.stringify({
             recipients: recipientList,
             cc_recipients: ccRecipients,
-            assessor_email: payload.email.draft_recipient?.email,
             confirmed: true,
             if_match: payload.referral.version,
             assessment_id: payload.report?.assessmentId,
@@ -288,7 +286,7 @@ function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRec
       [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
       [...ccRecipients].sort(),
       payload.email.admission_packet.files.map((file) => file.document_id).sort(),
-      payload.email.draft_recipient?.email, message,
+      message,
     ]);
 }
 
@@ -303,7 +301,7 @@ function canStartMeetClientSend(payload: ChartPayload | null, alreadyAccepted: b
 function meetClientDeliveryStatus(email: ChartPayload["email"], sent: boolean, sending: boolean, confirmed: boolean, recipients: string[]) {
   if (sent) return "Sent";
   if (sending) return "Sending";
-  return !email.example_only && email.ready && confirmed && recipients.length ? "Ready to email draft" : "Preview";
+  return !email.example_only && email.ready && confirmed && recipients.length ? "Ready to save draft" : "Preview";
 }
 
 function chartUnavailableState(
@@ -409,7 +407,7 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
   onConfirmed: (value: boolean) => void;
   onOpenFiles?: () => void;
   onReviewComplete: () => void;
-  onPrepareOutlook?: (token?: string) => Promise<OutlookDraftView | undefined>;
+  onPrepareOutlook?: (token: string) => Promise<OutlookDraftView | undefined>;
   onOutlookSent?: () => void;
 }) {
   const [preparedDraft, setPreparedDraft] = useState<OutlookDraftView | null>(null);
@@ -424,16 +422,16 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
   const renderSendToolbar = () => (
     sent ? <footer className={styles.toolbar}><span>Handoff complete</span><button type="button" className={styles.sendButton} onClick={onReviewComplete}>Done<Check size={18} aria-hidden="true" /></button></footer> : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
         {renderRecipientConfirmation()}
-        {showOutlookControls ? <AssessorEmailDraftControls referralId={referral.id} demo={email.example_only}
-          recipient={email.draft_recipient ?? null} ready={canSendHandoff(email, emailDraft, confirmed, sending)} sending={sending} onPrepare={onPrepareOutlook} onSent={onOutlookSent}
+        {showOutlookControls ? <OutlookHandoffControls selected referralId={referral.id} demo={email.example_only}
+          ready={canSendHandoff(email, emailDraft, confirmed, sending)} sending={sending} onPrepare={onPrepareOutlook} onSent={onOutlookSent}
           onExistingDraft={setPreparedDraft} /> : null}
       </footer>
   );
 
   const renderSender = () => (
-    <div className={styles.addressRow}><span>Draft for</span><div>
-        <strong>{email.draft_recipient?.name || "Signing assessor"}</strong>
-        <span className={styles.senderCaption}>{email.draft_recipient?.email || "Work email available after the assessor is confirmed"}</span>
+    <div className={styles.addressRow}><span>From</span><div>
+        <strong>Your Outlook mailbox</strong>
+        <span className={styles.senderCaption}>You review and send the saved draft. Replies come back to you.</span>
       </div></div>
   );
   const renderPacketAttachments = () => (
@@ -468,7 +466,6 @@ function MeetClientEmailPreview({ email, report, emailDraft, referral, confirmed
       <div className={`${styles.nextStep} ${email.example_only ? styles.demoNotice : ""}`}><p role="status">{status}</p>{!email.example_only ? refresh : null}</div>
       {renderSender()}
       {emailDraft ? <div data-guide-target="packet-recipients" className={styles.recipientSection}><ReferralHandoffContacts key={referral.community} composer value={{ ...emailDraft, change: (value) => { emailDraft.change(value); onConfirmed(false); } }} community={referral.community} disabled={composerReadOnly} /></div> : null}
-      {email.draft_recipient ? <div className={styles.addressRow}><span>Included</span><div><span className={styles.senderCaption}>{email.draft_recipient.email} · included in the reviewed handoff recipients</span></div></div> : null}
       <MeetClientMessageEditor demo={email.example_only} packetLink summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""} attachments={email.admission_packet.files.map((file) => file.name)}
         draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={composerReadOnly} onEdited={() => onConfirmed(false)}>
         {renderPacketAttachments()}
@@ -492,12 +489,12 @@ function canSendHandoff(email: ChartPayload["email"], draft: HandoffRecipients |
 function meetClientPreviewStatus(email: ChartPayload["email"], sent: boolean, sending: boolean) {
   if (email.example_only) return "Not production yet — no email will be sent.";
   return sent ? "The handoff is recorded as sent. Delivery and read receipts are not tracked."
-    : sending ? "Emailing the draft to the assessor. Keep this workspace open until the result appears."
+    : sending ? "Saving your Outlook draft. Keep this workspace open until the result appears."
     : !email.configured ? "Preview only · email delivery is not connected."
     : !email.preview ? "Assessment not signed yet. Review and sign it to prepare the summary."
     : !email.eligible ? "Assessment signed · record acceptance in Decision before sending."
     : !email.ready ? "Preview ready · review the items below before sending."
-    : "Review the recipients and packet, then email the draft to the assessor.";
+    : "Review the recipients and packet, then save to Outlook Drafts.";
 }
 
 function EmptyState({ text, onRetry }: { text: string; onRetry?: () => void }) {
@@ -533,9 +530,9 @@ function PreparedDraftDetails({ draft }: { draft: OutlookDraftView }) {
   return <section className={styles.recipientSection} style={{ overflowWrap: "anywhere" }} aria-label="Prepared handoff details">
     <h3>Prepared handoff</h3>
     <p>Use the prepared message in {draft.mailbox}. To change the message, recipients or files, prepare a replacement below.</p>
-    {draft.delivery === "email" ? <>
-      <div className={styles.addressRow}><span>To</span><div>{draft.forward_to?.join("; ")}</div></div>
-      <div className={styles.addressRow}><span>Cc</span><div>{draft.forward_cc?.join("; ") || "None"}</div></div>
+    {draft.to_recipients ? <>
+      <div className={styles.addressRow}><span>To</span><div>{draft.to_recipients?.join("; ")}</div></div>
+      <div className={styles.addressRow}><span>Cc</span><div>{draft.cc_recipients?.join("; ") || "None"}</div></div>
     </> : null}
     <p>Assessment version {draft.assessment_version} · {draft.file_count} files in the prepared packet.</p>
   </section>;

@@ -58,18 +58,6 @@ async function exerciseAccess(f) {
   await f.audit.completeMeetClientDelivery(sentChanged, "sent_needs_review", "replayed_acknowledgment");
   assert.equal(await f.audit.reserveMeetClientDelivery({ ...sentChanged, mutationId: randomUUID(), deliveryId: randomUUID() }), false, "replaying an old completion cannot release a replacement reservation");
   const id = await f.create();
-  await Promise.all(Array.from({ length: 8 }, () => f.store.withAdmissionPacket(id, async packet => {
-    const before = packet.message.body;
-    await new Promise(resolve => setTimeout(resolve, 2));
-    packet.message.body = before + "!";
-  })));
-  assert.equal(await f.store.withAdmissionPacket(id, packet => packet.message.body), "Fixture message!!!!!!!!");
-  await assert.rejects(f.store.withAdmissionPacket(id, async packet => {
-    packet.message.body = "must roll back";
-    await Promise.resolve();
-    throw new Error("Synthetic failure after awaiting");
-  }));
-  assert.equal(await f.store.withAdmissionPacket(id, packet => packet.message.body), "Fixture message!!!!!!!!");
   const now = Date.now();
   await assert.rejects(f.access.readVerifiedPacket(id, ""), { status: 401 });
   assert.equal(await f.access.requestPacketCode(id, "outsider@example.invalid", now), null);

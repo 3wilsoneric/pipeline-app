@@ -14,7 +14,6 @@ import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-tem
 import { findWorkspaceOutlookDraft, PacketAccessError } from "@/lib/notifications/admission-packet-store";
 import { connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
 import { prepareOutlookHandoff } from "@/lib/notifications/outlook-handoff";
-import { assessorDraftRecipient, prepareAssessorEmailDraft } from "@/lib/notifications/assessor-email-draft";
 import {
   getMeetClientAttachmentInventory,
   prepareMeetClientMailAttachments,
@@ -50,10 +49,11 @@ export async function POST(
     const { referralId, user } = access;
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;
-    const outlook = new URL(request.url).searchParams.get("delivery") === "outlook";
-    const emailDraft = new URL(request.url).searchParams.get("delivery") === "email_draft";
-    const pendingIssue = await pendingHandoffIssue(referralId);
-    if (pendingIssue) return pendingIssue;
+    const delivery = new URL(request.url).searchParams.get("delivery");
+    if (delivery && delivery !== "outlook") return jsonError("Choose Save to Outlook Drafts to prepare this handoff.", 400);
+    const outlook = delivery === "outlook";
+    const activeDraft = await findWorkspaceOutlookDraft(referralId);
+    if (activeDraft?.outlook && !["sent", "discarded"].includes(activeDraft.outlook.status)) return jsonError("This workspace already has an Outlook draft. Reopen or remove it before preparing another handoff.", 409);
     let mailbox: Awaited<ReturnType<typeof connectedOutlookMailbox>> | undefined;
     if (outlook) {
       try { mailbox = await connectedOutlookMailbox(request, user); }
@@ -63,10 +63,7 @@ export async function POST(
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
-    const recipientResult = await prepareAssessorRecipient(assessment, prepared, emailDraft);
-    if (!recipientResult.ok) return recipientResult.response;
-    const { assessor } = recipientResult;
-    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook || emailDraft);
+    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook);
     if (!attachmentContext.ok) return attachmentContext.response;
 
     const reserveAndDeliver = async () => {
@@ -86,18 +83,8 @@ export async function POST(
         attachmentBytes: attachmentContext.inventory.totalBytes,
       });
       if (outlook) audit.provider = "outlook_draft";
-      if (emailDraft) audit.provider = "assessor_draft_email";
       const reserved = await reserveMeetClientDelivery(audit);
       if (!reserved) return jsonError("This assessment already has a send in progress or awaiting confirmation. Check the workspace activity and the sending mailbox before retrying; refreshing will not send a duplicate.", 409);
-
-      if (assessor) {
-        try {
-          const draft = await prepareAssessorEmailDraft({ assessor, audit, referralVersion: prepared.referralVersion, packetRevision: prepared.packetRevision,
-            recipients: prepared.recipients, ccRecipients: prepared.ccRecipients, summary: buildMeetClientSummary(assessment, handoffReferral),
-            preparedBy: accountableActor.name, message: prepared.message, inventory: attachmentContext.inventory, requestUrl: request.url });
-          return Response.json({ draft: { ...draft, can_replace: !user.delegation && (draft.can_confirm || user.roles.includes("admin")) } }, { headers: privateHeaders() });
-        } catch (error) { return outlookFailure(error); }
-      }
 
       if (mailbox) {
         try {
@@ -129,24 +116,6 @@ export async function POST(
     };
     return reserveAndDeliver();
   });
-}
-
-async function pendingHandoffIssue(referralId: number) {
-  const activeDraft = await findWorkspaceOutlookDraft(referralId);
-  if (activeDraft?.outlook && !["sent", "discarded"].includes(activeDraft.outlook.status)) return jsonError("This workspace already has a handoff draft. Reopen or replace it before preparing another handoff.", 409);
-  return null;
-}
-
-async function prepareAssessorRecipient(assessment: PipelineAssessmentRecord, prepared: Extract<Awaited<ReturnType<typeof prepareEmailRequest>>, { ok: true }>, emailDraft: boolean) {
-  const assessor = emailDraft ? await assessorDraftRecipient(assessment) : null;
-  if (emailDraft && !assessor) return { ok: false as const, response: jsonError("The signing assessor needs a confirmed work email in Pipeline before the draft can be emailed.", 422) };
-  if (emailDraft && assessor?.email !== prepared.assessorEmail) return { ok: false as const, response: jsonError("The assessor's email changed. Refresh and review the draft recipient before emailing.", 409) };
-  if (assessor) {
-    const audience = validateMeetClientRecipients([...new Set([...prepared.recipients, ...prepared.ccRecipients, assessor.email])]);
-    if (!audience.ok) return { ok: false as const, response: jsonError(audience.message) };
-    prepared.ccRecipients = audience.recipients.filter((address) => !prepared.recipients.includes(address));
-  }
-  return { ok: true as const, assessor };
 }
 
 async function deliverMeetClientEmail(input: {
@@ -244,7 +213,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string; assessorEmail: unknown }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 256_000);
@@ -272,7 +241,7 @@ async function prepareEmailRequest(request: Request): Promise<
     return { ok: false, response: jsonError("Refresh and review the assessment summary before sending.", 409) };
   }
   const audience = prepareHandoffAudience(body.value, readiness);
-  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision, assessorEmail: body.value.assessor_email } : audience;
+  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision } : audience;
 }
 
 function prepareHandoffAudience(body: Record<string, unknown>, readiness: ReturnType<typeof getGraphMailReadiness>) {

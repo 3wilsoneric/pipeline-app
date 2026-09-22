@@ -139,33 +139,6 @@ async function sendDirectMessage(
     contentType: attachment.contentType,
     contentBytes: (await readSourceBytes(attachment)).toString("base64"),
   }))).catch((error) => { if (error instanceof GraphMailDeliveryError) throw error; throw new GraphMailDeliveryError("attachment_source_unavailable", "An admission packet file could not be loaded. No email was sent."); });
-  await postDirectMessage(readiness, accessToken, {
-    subject: content.subject,
-    body: { contentType: "HTML", content: content.html },
-    toRecipients: input.recipients.map((address) => ({ emailAddress: { address } })),
-    ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
-    internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
-    attachments,
-  });
-}
-
-// This sends only the preparation email. It never finalizes an assessment or
-// sends to the community addresses printed inside the prepared handoff.
-export async function sendAssessorDraftMail(input: { email: string; subject: string; html: string; deliveryId: string }) {
-  const readiness = getGraphMailReadiness();
-  if (!readiness.configured) throw new GraphMailDeliveryError("mail_preparation_failed", "Email is not enabled. No draft was emailed.");
-  const validated = validateMeetClientRecipients([input.email], readiness);
-  if (!validated.ok) throw new GraphMailDeliveryError("mail_preparation_failed", validated.message);
-  const token = await graphAccessToken().catch(() => { throw new GraphMailDeliveryError("mail_preparation_failed", "Microsoft 365 could not connect. No draft was emailed."); });
-  await postDirectMessage(readiness, token, {
-    subject: input.subject,
-    body: { contentType: "HTML", content: input.html },
-    toRecipients: [{ emailAddress: { address: validated.recipients[0] } }],
-    internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
-  });
-}
-
-async function postDirectMessage(readiness: GraphMailReadiness, accessToken: string, message: Record<string, unknown>) {
   const response = await fetch(
     `${graphBaseUrl}/users/${encodeURIComponent(readiness.sender)}/sendMail`,
     {
@@ -175,7 +148,14 @@ async function postDirectMessage(readiness: GraphMailReadiness, accessToken: str
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message,
+        message: {
+          subject: content.subject,
+          body: { contentType: "HTML", content: content.html },
+          toRecipients: input.recipients.map((address) => ({ emailAddress: { address } })),
+          ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
+          internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
+          attachments,
+        },
         saveToSentItems: true,
       }),
       signal: AbortSignal.timeout(15_000),

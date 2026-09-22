@@ -7,21 +7,20 @@ import { getMeetClientAttachmentInventory, type MeetClientAttachmentInventory } 
 import type { MeetClientMessage } from "./meet-client-message";
 import { admissionPacketUrl, prepareAdmissionPacketLink } from "./admission-packet-files";
 import { findWorkspaceOutlookDraft, withAdmissionPacket, PacketAccessError, type AdmissionPacket } from "./admission-packet-store";
-import { createOutlookMessage, deleteOutlookDraft, findOutlookMessage, outlookAudience, outlookMessageLink, OutlookMailError, type OutlookMessage } from "./outlook-mail";
+import { createOutlookMessage, deleteOutlookDraft, findOutlookMessage, outlookAudience, outlookMessageLink, OutlookMailError, type OutlookMessage, type OutlookMailbox } from "./outlook-mail";
 import { renderMeetClientEmail } from "./meet-client-email-template";
 import type { OutlookDraftView } from "./outlook-draft-contract";
 
-type Mailbox = { token: string; id: string; email: string };
+type Mailbox = OutlookMailbox;
 export function outlookDraftView(packet: AdmissionPacket): OutlookDraftView {
   const draft = packet.outlook!;
   return { packet_id: packet.id, status: draft.status, mailbox: draft.mailbox, web_link: draft.webLink,
     prepared_at: packet.createdAt, assessment_version: packet.assessmentVersion, file_count: packet.files.length, message: draft.note,
-    ...(draft.delivery ? { delivery: draft.delivery, forward_to: draft.forwardTo, forward_cc: draft.forwardCc } : {}) };
+    to_recipients: draft.toRecipients, cc_recipients: draft.ccRecipients };
 }
-export async function workspaceOutlookState(referralId: number, ownerId: string, administrator = false) {
+export async function workspaceOutlookState(referralId: number, ownerId: string) {
   const packet = await findWorkspaceOutlookDraft(referralId);
   if (!packet?.outlook) return { draft: null, occupied: false };
-  if (packet.outlook.delivery === "email") return { draft: { ...outlookDraftView(packet), can_confirm: packet.outlook.ownerId === ownerId, can_replace: packet.outlook.ownerId === ownerId || administrator }, occupied: false };
   if (packet.outlook.ownerId !== ownerId) return { draft: null, occupied: !["sent", "discarded"].includes(packet.outlook.status) };
   return { draft: outlookDraftView(packet), occupied: false };
 }
@@ -38,9 +37,11 @@ export async function prepareOutlookHandoff(input: {
       assessmentId: audit.assessmentId, assessmentVersion: audit.assessmentVersion,
       recipients: [...input.recipients, ...input.ccRecipients], inventory: input.inventory,
       message: { subject: content.subject, body: content.text }, requestUrl: input.requestUrl,
-      outlook: { ownerId: mailbox.id, mailbox: mailbox.email, status: "preparing", audit, referralVersion: input.referralVersion, packetRevision: input.packetRevision } });
+      outlook: { ownerId: mailbox.id, mailboxId: mailbox.graphId ?? mailbox.id, mailbox: mailbox.email,
+        toRecipients: input.recipients, ccRecipients: input.ccRecipients,
+        status: "preparing", audit, referralVersion: input.referralVersion, packetRevision: input.packetRevision } });
     const linked = renderMeetClientEmail(input.summary, input.preparedBy, audit.deliveryId, input.inventory.files.map((file) => file.name), input.message, { packetUrl });
-    const packet = await ownedDraft(audit.deliveryId, audit.referralId, mailbox.id);
+    const packet = await ownedDraft(audit.deliveryId, audit.referralId, mailbox);
     const { issue } = await currentSource(packet);
     if (issue) throw new PacketAccessError(issue, 409);
     creating = true;
@@ -64,7 +65,7 @@ export async function prepareOutlookHandoff(input: {
   }
 }
 export async function checkOutlookHandoff(packetId: string, referralId: number, mailbox: Mailbox, requestUrl: string) {
-  const packet = await ownedDraft(packetId, referralId, mailbox.id);
+  const packet = await ownedDraft(packetId, referralId, mailbox);
   if (["sent", "discarded"].includes(packet.outlook!.status)) return outlookDraftView(packet);
   const message = await findOutlookMessage(mailbox.token, packet.id, packet.outlook!.messageId);
   if (!message) return updateDraft(packet.id, (value) => {
@@ -78,7 +79,7 @@ export async function checkOutlookHandoff(packetId: string, referralId: number, 
   return reconcileSentPacket(packet, message, requestUrl);
 }
 export async function discardOutlookHandoff(packetId: string, referralId: number, mailbox: Mailbox, requestUrl: string) {
-  const packet = await ownedDraft(packetId, referralId, mailbox.id);
+  const packet = await ownedDraft(packetId, referralId, mailbox);
   if (packet.outlook!.status === "sent") throw new PacketAccessError("This handoff was already sent. Use packet access controls to revoke downloads.", 409);
   const message = await findOutlookMessage(mailbox.token, packet.id, packet.outlook!.messageId);
   if (message && !message.isDraft) {
@@ -138,9 +139,10 @@ async function needsReview(packet: AdmissionPacket, note: string, revoke = false
     if (revoke) { value.revokedAt = new Date().toISOString(); value.recipients.forEach((recipient) => { recipient.sessions = []; delete recipient.challenge; }); }
   });
 }
-async function ownedDraft(packetId: string, referralId: number, ownerId: string) {
+async function ownedDraft(packetId: string, referralId: number, mailbox: Mailbox) {
   return withAdmissionPacket(packetId, (packet) => {
-    if (!packet?.outlook || packet.outlook.delivery === "email" || packet.referralId !== referralId || packet.outlook.ownerId !== ownerId) throw new PacketAccessError("Outlook draft not found.", 404);
+    if (!packet?.outlook || packet.referralId !== referralId || packet.outlook.ownerId !== mailbox.id) throw new PacketAccessError("Outlook draft not found.", 404);
+    if ((packet.outlook.mailboxId ?? packet.outlook.ownerId).toLowerCase() !== (mailbox.graphId ?? mailbox.id).toLowerCase()) throw new PacketAccessError("Reconnect the Outlook mailbox used to prepare this draft.", 403);
     return structuredClone(packet);
   });
 }

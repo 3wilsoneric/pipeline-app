@@ -171,7 +171,7 @@ test("edited message reaches the provider unchanged, and malformed edits never r
   }
 });
 
-function deliveryFixture({ deliveryMode = "", assessorEmail = "assessor@example.invalid", secureLink = false, rejectedSize = false, exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, previewAssessmentVersion = 7, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
+function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, previewAssessmentVersion = 7, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
   let calls = 0;
   let reservations = 0;
   const mutationIds = new Set();
@@ -185,12 +185,8 @@ function deliveryFixture({ deliveryMode = "", assessorEmail = "assessor@example.
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
-    "@/lib/notifications/outlook-mail": {},
-    "@/lib/notifications/outlook-handoff": {},
-    "@/lib/notifications/assessor-email-draft": {
-      assessorDraftRecipient: async () => assessorEmail ? { id: "assessor", name: "Assessor", email: assessorEmail } : null,
-      prepareAssessorEmailDraft: async input => { messages.push(input); return { status: "draft", delivery: "email", mailbox: input.assessor.email }; },
-    },
+    "@/lib/notifications/outlook-mail": { connectedOutlookMailbox: async () => ({ id: "synthetic-coordinator", graphId: "synthetic-home-mailbox", email: "coordinator@example.invalid", token: "synthetic-token" }) },
+    "@/lib/notifications/outlook-handoff": { prepareOutlookHandoff: async input => { messages.push(input); return { status: "draft", mailbox: input.mailbox.email }; } },
     "@/lib/notifications/admission-packet-files": { prepareAdmissionPacketLink: async (input) => { assert.equal(input.inventory.files.length, 2); return "https://pipeline.invalid/admission-packet/synthetic"; } },
     "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {}, findWorkspaceOutlookDraft: async () => null },
     "@/lib/notifications/meet-client-email-template": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-email-template.ts"),
@@ -199,7 +195,7 @@ function deliveryFixture({ deliveryMode = "", assessorEmail = "assessor@example.
     "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ enabled: exampleOnly, writable: exampleOnly }) },
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
       assert.equal(roles, undefined);
-      return denied ? { ok: false, response: jsonError("Forbidden", 403) } : { ok: true, user: { id: "synthetic-coordinator", roles: ["assessment_coordinator"] } };
+      return denied ? { ok: false, response: jsonError("Forbidden", 403) } : { ok: true, user: { id: "synthetic-coordinator" } };
     } },
     "@/lib/auth/assessor-session-policy": { pipelineAccountableActor: () => ({ id: "synthetic-coordinator", name: "Synthetic Coordinator" }) },
     "@/lib/auth/request-security": { requireSameOriginMutation: () => null },
@@ -263,7 +259,7 @@ function deliveryFixture({ deliveryMode = "", assessorEmail = "assessor@example.
   });
   return {
     auditStates, metrics, audits, messages, packetReports, providerCalls: () => calls, reservationCalls: () => reservations,
-    send: (referralId = "6", body = {}) => exports.POST(new Request(`http://localhost/api/referrals/6/meet-client-email?delivery=${deliveryMode}`, {
+    send: (referralId = "6", body = {}, delivery = "") => exports.POST(new Request(`http://localhost/api/referrals/6/meet-client-email${delivery ? `?delivery=${delivery}` : ""}`, {
       method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", packet_revision: "1".repeat(64), ...body }),
     }), { params: Promise.resolve({ referralId }) }),
   };
@@ -306,17 +302,31 @@ test("unconfirmed recipients never reserve or send, including truthy non-boolean
   }
 });
 
+test("the Outlook route prepares the reviewed draft without invoking automatic mail delivery", async () => {
+  const fixture = deliveryFixture();
+  const response = await fixture.send("6", { cc_recipients: ["copy@example.invalid"] }, "outlook");
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).draft.status, "draft");
+  assert.equal(fixture.providerCalls(), 0);
+  assert.equal(fixture.messages.length, 1);
+  assert.deepEqual(Array.from(fixture.messages[0].recipients), ["synthetic@example.invalid"]);
+  assert.deepEqual(Array.from(fixture.messages[0].ccRecipients), ["copy@example.invalid"]);
+  assert.equal(fixture.messages[0].audit.assessmentVersion, 7);
+  assert.equal(fixture.messages[0].audit.provider, "outlook_draft");
+  assert.equal(fixture.messages[0].inventory.files.length, 2);
+  assert.deepEqual(fixture.auditStates, []);
+  assert.equal((await fixture.send("6", {}, "outlook")).status, 409);
+  for (const options of [{ previewAssessmentVersion: 6 }, { previewVersion: 3 }]) {
+    const stale = deliveryFixture(options);
+    assert.equal((await stale.send("6", {}, "outlook")).status, 409);
+    assert.equal(stale.messages.length, 0); assert.equal(stale.reservationCalls(), 0);
+  }
+});
 
-test("emailed draft endpoint binds the reviewed assessor email and reserves preparation without direct sending", async () => {
-  const fixture = deliveryFixture({ deliveryMode: "email_draft" });
-  const response = await fixture.send("6", { assessor_email: "assessor@example.invalid" });
-  assert.equal(response.status, 200); assert.equal((await response.json()).draft.delivery, "email");
-  assert.equal(fixture.providerCalls(), 0); assert.equal(fixture.reservationCalls(), 1); assert.deepEqual(fixture.auditStates, []);
-  assert.equal(fixture.messages[0].assessor.email, "assessor@example.invalid");
-  assert.ok(fixture.messages[0].ccRecipients.includes("assessor@example.invalid"));
-  for (const [assessorEmail, reviewed, status] of [["", "", 422], ["new@example.invalid", "old@example.invalid", 409]]) {
-    const rejected = deliveryFixture({ deliveryMode: "email_draft", assessorEmail });
-    assert.equal((await rejected.send("6", { assessor_email: reviewed })).status, status);
-    assert.equal(rejected.reservationCalls(), 0); assert.equal(rejected.providerCalls(), 0);
+test("unsupported draft transports cannot fall back to sending mail", async () => {
+  for (const delivery of ["email_draft", "unknown"]) {
+    const fixture = deliveryFixture();
+    assert.equal((await fixture.send("6", {}, delivery)).status, 400);
+    assert.equal(fixture.providerCalls(), 0); assert.equal(fixture.reservationCalls(), 0);
   }
 });
