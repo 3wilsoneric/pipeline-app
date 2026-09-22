@@ -32,6 +32,7 @@ import { assessmentToolSections, type AssessmentToolSection } from "@/lib/assess
 import {
   pushPipelineHistory,
   replacePipelineHistory,
+  returnToPreviousPipelineEntry,
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
 import { loadPipelineWorkspaceResumeLocation, recordLastPipelineWorkspace } from "@/lib/pipeline/work-continuity-client";
@@ -377,7 +378,10 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   } else if (screen === "profile" && selectedClientId) {
     const profileProps: ComponentProps<DeferredWorkSurfaces["ClientProfileView"]> = {
       residentKey: selectedClientId,
-      onBack: () => navigate("profiles"),
+      // Return to the originating directory entry (cabinet, filters, row); direct links land on all cabinets.
+      onBack: () => {
+        if (!returnToPreviousPipelineEntry((params) => getScreenFromParams(params) === "profiles")) void navigate("profiles");
+      },
       onOpenWorkspace: (referral) => navigate("packet", referral),
     };
     page = deferredWorkSurfaces ? <deferredWorkSurfaces.ClientProfileView {...profileProps} /> : <DeferredScreenLoading />;
