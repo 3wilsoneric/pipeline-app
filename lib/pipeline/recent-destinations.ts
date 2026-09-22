@@ -97,6 +97,7 @@ function cleanRecentDestination(destination: PipelineRecentDestination): Pipelin
     title: formatClientIdentityTitle({
       name: destination.title,
       community: destination.kind === "referral" ? destination.community : undefined,
+      referralId: destination.kind === "referral" ? destination.referralId : undefined,
     }),
   };
 }

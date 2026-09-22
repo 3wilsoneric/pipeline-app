@@ -10,7 +10,7 @@ import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-recor
 // facts retain their own workflow instead of becoming generic chart edits.
 export const referralChartEditFields = {
   Name: "name", Client: "name", Gender: "gender", "Date of birth": "dob", SSN: "ssn",
-  Assessor: "owner", "Referral received": "referralReceived", Community: "community",
+  Assessor: "owner", "Assigned assessor": "owner", "Referral received": "referralReceived", Community: "community",
   County: "county", "Referral source": "referent", "Responsible person": "responsiblePerson",
   Phone: "phone", Email: "email", "Medications on record": "currentMedications",
   Conserved: "conserved", "Conserved status": "conserved",

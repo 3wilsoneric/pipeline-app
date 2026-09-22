@@ -44,7 +44,7 @@ export default function ImportedWorkspaceProfile({ referral }: { referral: Refer
 const prominentFactKeys = new Set(["name", "gender", "county", "dob"]);
 
 function HistoricalProfileHeader({ referral, county, dob, gender }: { referral: Referral; county: string; dob: string; gender: string }) {
-  const identityTitle = formatClientIdentityTitle({ name: referral.name, gender, community: referral.community });
+  const identityTitle = formatClientIdentityTitle({ name: referral.name, gender, community: referral.community, referralId: referral.id });
   const facts = [
     { label: "Community", value: resolveClientCommunity(referral.community) ?? "" },
     { label: "Owner", value: normalizeOwnerName(referral.owner) },

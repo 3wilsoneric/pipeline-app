@@ -2233,6 +2233,7 @@ export default function ReferralPacketCanvas({
       || "New referral",
     gender: loadedReferral?.gender || fields.gender.value,
     community: loadedReferral?.community || referral?.community || fields.community.value,
+    referralId: loadedReferral?.id ?? referral?.id,
   });
   const workspacePresentation = getWorkspacePresentation(
     loadedReferral,

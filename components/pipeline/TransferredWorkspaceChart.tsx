@@ -37,7 +37,7 @@ function WorkspaceClientChartLoader({ referral, headerActions, assessment, onEdi
   const profilePath = referral?.clientId ? `/api/profiles/${encodeURIComponent(`pipeline:${referral.clientId}`)}` : "";
   const intakeReferral = referral && !isClientChartWorkspace(referral) ? referral : undefined;
   // Keep the intake summary mounted while supporting records load or refresh.
-  const intakeChart = intakeReferral ? <div className={folderStyles.chartSummary}><ReferralIntakeSummary referral={intakeReferral} headerActions={headerActions} onEditField={onEditReferralField} /></div> : null;
+  const intakeChart = intakeReferral ? <div className={folderStyles.chartSummary}><ReferralIntakeSummary referral={intakeReferral} assessment={assessment} headerActions={headerActions} onEditField={onEditReferralField} /></div> : null;
   const [profile, setProfile] = useState<UnifiedClientProfileResponse | null>(() => readPipelineJsonCache<UnifiedClientProfileResponse>(profilePath) ?? null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);

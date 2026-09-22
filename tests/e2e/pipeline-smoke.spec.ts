@@ -1947,8 +1947,8 @@ test.describe("Referral home and packet canvas", () => {
     await fullHistory.locator("summary").filter({ hasText: "Detailed history" }).click();
     const workspaceOwners = fullHistory.getByRole("group", { name: "Workspace owners" });
     await expect(workspaceOwners).toContainText("Playwright QA");
-    await expect(workspaceOwners).toContainText("Creator");
-    await expect(workspaceOwners).toContainText("Assignee");
+    await expect(workspaceOwners).toContainText("Created workspace");
+    await expect(workspaceOwners).toContainText("Assigned assessor");
     const countyChange = fullHistory.getByText("County:", { exact: true }).locator("..");
     await expect(countyChange).toContainText("Contra Costa County");
     await expect(countyChange).toContainText("Alameda County");
