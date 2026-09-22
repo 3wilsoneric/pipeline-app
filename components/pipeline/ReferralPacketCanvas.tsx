@@ -2748,6 +2748,7 @@ export default function ReferralPacketCanvas({
             <PacketPage id="packet-email" title="Finish & send" flush>
               <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
+                onReferralChange={applyConfirmedWorkflowReferral}
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={handoff}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2, undefined, "review")}

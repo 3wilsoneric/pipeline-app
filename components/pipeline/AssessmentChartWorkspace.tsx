@@ -1,6 +1,6 @@
 "use client";
 
-import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
+import { getPlannedAdmissionDate, plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, FileText, LoaderCircle, Paperclip, RefreshCw, X } from "lucide-react";
 
@@ -14,6 +14,7 @@ import ReadableChartText from "@/components/pipeline/ReadableChartText";
 import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import MeetClientMessageEditor from "./MeetClientMessageEditor";
+import MeetClientAdmissionReview from "./MeetClientAdmissionReview";
 import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
 import OutlookHandoffControls from "./OutlookHandoffControls";
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
@@ -55,13 +56,14 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
   emailDraft?: HandoffRecipients;
   finishActions?: React.ReactNode;
   onSendingChange?: (sending: boolean) => void;
+  onReferralChange?: (referral: Referral) => void;
   onOpenFiles?: () => void;
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
@@ -69,6 +71,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const [payload, setPayload] = useState<ChartPayload | null>(null);
   const [loading, setLoading] = useState(Boolean(referralId));
   const [sending, setSending] = useState(false);
+  const [savingDate, setSavingDate] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const recipients = emailDraft?.fields.to.map((contact) => contact.email) ?? [];
@@ -107,7 +110,20 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     void load();
   }, [load]);
   const recipientKey = JSON.stringify([referralId, recipients, ccRecipients]);
-  useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 2)); }, [recipientKey]);
+  useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 3)); }, [recipientKey]);
+
+  const confirmAdmissionDate = async (saved: Referral) => {
+    onReferralChange?.(saved);
+    const next = await fetchPipelineJson<ChartPayload>(`/api/referrals/${saved.id}/admission-summary`, { cache: "no-store" });
+    if (getPlannedAdmissionDate(next.referral) !== getPlannedAdmissionDate(saved) || !next.report?.signed || !next.email.eligible) {
+      throw new PipelineApiError("The handoff changed. Reload and check the saved admit date before continuing.", 409);
+    }
+    setPayload(next);
+    setConfirmed(false);
+    setExampleReviewed(false);
+    setReviewedCount(1);
+    setReviewStep(1);
+  };
 
   const emailMeetClient = async (outlookToken: string) => {
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
@@ -172,15 +188,20 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
   </button>;
 
-  const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} sending={sending} onClose={() => setReviewStep(null)}>
-        {reviewStep < 3 ? <HandoffReviewStep step={reviewStep} payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
-          onBack={() => setReviewStep(reviewStep - 1)} onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment}
-          onContinue={() => { setReviewedCount((count) => Math.max(count, reviewStep + 1)); setReviewStep(reviewStep + 1); }} />
+  const renderReviewBody = (step: number) => {
+    if (step === 0) return <MeetClientAdmissionReview referral={readyPayload.referral} editable={readyPayload.email.can_edit_recipients} demo={readyPayload.email.example_only}
+      onConfirm={confirmAdmissionDate} onSavingChange={(saving) => { setSavingDate(saving); onSendingChange?.(saving); }} onReload={() => void load()} />;
+    return step < 4 ? <HandoffReviewStep step={step} payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
+          onBack={() => setReviewStep(step - 1)} onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment}
+          onContinue={() => { setReviewedCount((count) => Math.max(count, step + 1)); setReviewStep(step + 1); }} />
           : <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral}
             confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
-            onBack={() => setReviewStep(2)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
-            onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />}
-      </MeetClientComposeDialog> : null);
+            onBack={() => setReviewStep(3)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
+            onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
+  };
+  const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
+    {renderReviewBody(reviewStep)}
+  </MeetClientComposeDialog> : null);
 
   const renderEmailPage = () => (
     <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
@@ -191,7 +212,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
-        composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed ? 3 : Math.min(reviewedCount, 3))}
+        composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed ? 4 : Math.min(reviewedCount, 4))}
         onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {renderReviewDialog()}
     </section>
@@ -238,10 +259,10 @@ function HandoffOverview({ payload, sent, exampleReviewed, finishActions, compos
 
   return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
     <h3>Ready to prepare the handoff</h3>
-    <p>Check three things, then preview the email.</p>
+    <p>Confirm the admit date, check the handoff, then preview the email.</p>
     <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
     <ol className={styles.reviewChecklist} aria-label="Handoff review progress">
-      {["Client summary", "Admission packet", "Recipients"].map((label, index) => <li key={label} data-complete={reviewedCount > index || undefined}>
+      {["Admit date", "Client summary", "Admission packet", "Recipients"].map((label, index) => <li key={label} data-complete={reviewedCount > index || undefined}>
         <span aria-hidden="true">{reviewedCount > index ? <Check size={18} /> : index + 1}</span>
         <strong>{label}</strong><small>{reviewedCount > index ? "Checked" : index === reviewedCount ? "Up next" : "To check"}</small>
       </li>)}
@@ -251,7 +272,7 @@ function HandoffOverview({ payload, sent, exampleReviewed, finishActions, compos
 
 function handoffReviewLabel(complete: boolean, reviewedCount: number) {
   if (complete) return "View email";
-  if (reviewedCount === 3) return "Preview email";
+  if (reviewedCount === 4) return "Preview email";
   return reviewedCount ? "Continue review" : "Review handoff";
 }
 
@@ -287,7 +308,7 @@ function HandoffSection({ title, items, children }: { title: string; items: Asse
   return <section className={styles.handoffSection} aria-label={title}><h3>{title}</h3>{children}<dl>{items.map((item, index) => <div key={`${item.label}-${index}`} data-handoff-field={item.label}><dt>{item.label}</dt><dd><ReadableChartText value={item.value} /></dd></div>)}</dl></section>;
 }
 
-const handoffStepTitles = ["Check client summary", "Check admission packet", "Check recipients", "Preview email"];
+const handoffStepTitles = ["Confirm admit date", "Check client summary", "Check admission packet", "Check recipients", "Preview email"];
 
 function MeetClientComposeDialog({ step, sending, onClose, children }: { step: number; sending: boolean; onClose: () => void; children: React.ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -299,9 +320,9 @@ function MeetClientComposeDialog({ step, sending, onClose, children }: { step: n
     titleRef.current?.focus();
     return () => { dialog?.close(); if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus(); };
   }, []);
-  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 3 ? styles.reviewDialog : ""}`} aria-label={step === 3 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
+  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${step === 0 ? styles.admissionDateDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
     onCancel={(event) => { event.preventDefault(); if (!sending) onClose(); }}>
-    <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step + 1} / 4</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 3 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
+    <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step + 1} / {handoffStepTitles.length}</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 4 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
     {children}
   </dialog>;
 }
@@ -321,7 +342,7 @@ function handoffDraftReady(draft?: HandoffRecipients): draft is HandoffRecipient
 }
 
 function canStartMeetClientSend(payload: ChartPayload | null, alreadyAccepted: boolean, confirmed: boolean, inFlight: boolean): payload is ChartPayload {
-  return Boolean(payload?.email.ready && !payload.email.example_only && !payload.email.sent_at && !alreadyAccepted && confirmed && !inFlight);
+  return Boolean(payload?.email.ready && !plannedAdmissionDateError(getPlannedAdmissionDate(payload.referral)) && !payload.email.example_only && !payload.email.sent_at && !alreadyAccepted && confirmed && !inFlight);
 }
 
 function meetClientDeliveryStatus(email: ChartPayload["email"], sent: boolean, sending: boolean, confirmed: boolean, recipients: string[]) {
@@ -428,14 +449,14 @@ function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, onBac
   return <div className={styles.composer}>
     <div className={styles.composeScroll}>
       {payload.email.example_only ? <p role="status" className={styles.demoNotice}>Demo only — no email will be sent.</p> : null}
-      {step === 0 ? <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} /> : null}
-      {step === 1 ? <AdmissionPacketReview email={payload.email} referral={payload.referral} onOpenFiles={onOpenFiles} /> : null}
-      {step === 2 ? <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} /> : null}
+      {step === 1 ? <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} /> : null}
+      {step === 2 ? <AdmissionPacketReview email={payload.email} referral={payload.referral} onOpenFiles={onOpenFiles} /> : null}
+      {step === 3 ? <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} /> : null}
     </div>
     <footer className={styles.toolbar}>
-      {step > 0 ? <button type="button" className={styles.textButton} onClick={onBack}>Back</button> : <span>Check 1 of 3</span>}
-      <button type="button" className={styles.sendButton} disabled={step === 2 && !recipientCheckReady} onClick={onContinue}>
-        {["Confirm summary", "Confirm packet", "Preview email"][step]}<ArrowRight size={18} aria-hidden="true" />
+      <button type="button" className={styles.textButton} onClick={onBack}>Back</button>
+      <button type="button" className={styles.sendButton} disabled={step === 3 && !recipientCheckReady} onClick={onContinue}>
+        {["Confirm summary", "Confirm packet", "Preview email"][step - 1]}<ArrowRight size={18} aria-hidden="true" />
       </button>
     </footer>
   </div>;

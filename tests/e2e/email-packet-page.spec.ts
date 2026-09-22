@@ -48,8 +48,18 @@ async function referralWithAssessment(page: Page, signed = true) {
   return { referral, assessment };
 }
 
-async function openSummary(page: Page) {
+async function openAdmitDate(page: Page) {
   await page.getByRole("button", { name: "Review handoff", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Confirm admit date", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Confirm admit date", exact: true })).toBeFocused();
+  return dialog;
+}
+async function openSummary(page: Page) {
+  const date = await openAdmitDate(page);
+  const field = date.getByLabel("Planned admit date", { exact: true });
+  if (!await field.inputValue()) await field.fill("2026-10-01");
+  await date.getByRole("button", { name: "Confirm admit date", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Check client summary", exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "Check client summary", exact: true })).toBeFocused();
@@ -84,12 +94,87 @@ async function openPreview(page: Page) {
   await openRecipients(page); await addRecipient(page); return confirmRecipients(page);
 }
 async function checkA11y(page: Page, selector: string) {
+  await page.locator(selector).evaluate(async element => {
+    for (const animation of element.getAnimations({ subtree: true })) {
+      if (animation.effect?.getComputedTiming().iterations !== Infinity) await animation.finished;
+    }
+  });
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   return page.evaluate(async scope => {
     const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
     return (await axe.run(scope, { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }));
   }, selector);
 }
+
+test("admit date retries a lost save response without duplicating the change", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page);
+  const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
+  const mutationIds: string[] = [];
+  let savedVersion = 0;
+  await page.route(`**/api/referrals/${referral.id}`, async route => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    mutationIds.push(route.request().postDataJSON().client_mutation_id);
+    if (mutationIds.length > 1) return route.continue();
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    savedVersion = (await response.json()).referral.version;
+    await route.abort("failed");
+  });
+  await page.goto(url);
+  const dialog = await openAdmitDate(page);
+  await expect(dialog.getByRole("button", { name: "Confirm admit date", exact: true })).toBeDisabled();
+  await dialog.getByLabel("Planned admit date", { exact: true }).fill("2026-10-02");
+  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Check client summary", exact: true })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Check client summary", exact: true })).toBeVisible();
+  expect(mutationIds).toHaveLength(2); expect(mutationIds[1]).toBe(mutationIds[0]);
+  const saved = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+  expect(saved.version).toBe(savedVersion); expect(saved.plannedAdmissionDate).toBe("2026-10-02");
+  await page.reload();
+  await openAdmitDate(page);
+  await expect(page.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-02");
+});
+
+test("a changed admit date must be reloaded and the confirmed date populates the email", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  const dialog = await openAdmitDate(page);
+  await dialog.getByLabel("Planned admit date", { exact: true }).fill("2026-10-03");
+  const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+  const externalSave = await page.request.patch(`/api/referrals/${referral.id}`, { data: {
+    if_match: current.version, if_match_sections: { intake: current.sectionVersions.intake }, client_mutation_id: randomUUID(), patch: { plannedAdmissionDate: "2026-10-04" },
+  } });
+  expect(externalSave.status()).toBe(200);
+  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Confirm admit date", exact: true })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Reload saved date", exact: true }).click();
+  const date = await openAdmitDate(page);
+  await expect(date.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-04");
+  await date.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+  const summary = page.getByRole("dialog", { name: "Check client summary", exact: true });
+  await summary.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByLabel("Planned admit date", { exact: true }).fill("2026-10-05");
+  await page.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm summary", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
+  await addRecipient(page); await confirmRecipients(page);
+  const email = page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body");
+  await expect(email).toContainText("2026-10-05"); await expect(email).not.toContainText("2026-10-04");
+});
+
+test("Decision requires an admit date and carries it into the first handoff check", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
+  const button = page.getByRole("button", { name: "Review email & packet", exact: true });
+  await expect(button).toBeDisabled();
+  await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-06");
+  await button.click();
+  await openAdmitDate(page);
+  await expect(page.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-06");
+});
 
 for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the branded email at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
@@ -104,14 +189,21 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(page.locator("iframe")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Preview email", exact: true })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath(`guided-start-${width}.png`), animations: "disabled" });
+  const date = await openAdmitDate(page);
+  await expect(date.getByRole("button", { name: "Confirm admit date", exact: true })).toBeDisabled();
+  expect(await checkA11y(page, 'dialog[aria-label="Confirm admit date"]')).toEqual([]);
+  expect(await date.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`guided-date-${width}.png`), animations: "disabled" });
+  await page.keyboard.press("Escape");
+  await expect(overview).not.toContainText("Checked");
   const summary = await openSummary(page);
   await expect(summary.getByRole("region", { name: "Medications & injections" })).toContainText("Synthetic recorded medication");
   await expect(summary.getByRole("region", { name: "Behavior & safety" })).toContainText("Historical incident");
   await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeInViewport();
   await page.keyboard.press("Escape");
   await expect(summary).toHaveCount(0);
-  await expect(overview.getByRole("button", { name: "Review handoff", exact: true })).toBeFocused();
-  await expect(overview).not.toContainText("Checked");
+  await expect(overview.getByRole("button", { name: "Continue review", exact: true })).toBeFocused();
+  await page.reload(); await settleHandoff(page);
   const files = await openFiles(page);
   await expect(files.getByRole("link", { name: "Open Client data sheet.html", exact: true })).toHaveAttribute("href", `/api/referrals/${referral.id}/admission-summary?download=chart`);
   await expect(page.locator("iframe")).toHaveCount(0);
@@ -131,6 +223,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(preview.getByRole("img", { name: "Alamo Health Management", exact: true })).toBeVisible();
   await expect.poll(() => preview.getByRole("img", { name: "Alamo Health Management", exact: true }).evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
   await expect(preview.locator("body")).not.toContainText("Pipeline");
+  await expect(preview.locator("body")).toContainText("2026-10-01");
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');
   await expect(preview.locator("body")).toContainText("Received; signatures still need review.");
   await expect(preview.locator("img")).toHaveCount(1);

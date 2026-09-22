@@ -1,6 +1,6 @@
 "use client";
 
-import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
+import { getPlannedAdmissionDate, plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
 import { useConfirmationDialog } from "./useConfirmationDialog";
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
@@ -273,8 +273,11 @@ export default function ReferralWorkflowPanel({
       setError("Record an accepted decision before preparing Meet the Client.");
       return false;
     }
+    if (openPreview && !workflow.context.packetSentAt && plannedAdmissionDateError(admissionDateDraft)) {
+      setError("Add the planned admit date before reviewing the email and packet.");
+      return false;
+    }
     if (admissionDateDraft === getPlannedAdmissionDate(currentReferral)) {
-      if (!admissionDateDraft) setMessage("Admission date is not provided. You can still preview Meet the Client.");
       if (openPreview) onOpenEmail();
       return true;
     }

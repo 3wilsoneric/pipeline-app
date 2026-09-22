@@ -163,6 +163,8 @@
 .reviewChecklist [data-complete] > span { border-color: #b6d6c6; background: #eaf5ef; color: #087d66; }
 .reviewLanding .taskActions { justify-content: flex-end; }
 .reviewDialog { width: min(880px, calc(100vw - 48px)); height: min(850px, calc(100dvh - 48px)); }
+.admissionDateField { display: grid; gap: 10px; color: #243b32; font-size: 17px; font-weight: 650; }
+.admissionDateField input { width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; border: 1px solid #b3c8bd; border-radius: 6px; background: #fff; color: #243b32; font: inherit; }
 .stepNumber { color: #526c5f; font-size: 13px; font-weight: 650; white-space: nowrap; }
 .dialogHeader h2:focus { outline: none; }
 .reviewContent { padding: 24px 32px; }
@@ -191,3 +193,6 @@
   .reviewDialog .toolbar > span { font-size: 13px; color: #59665f; }
 }
 .reviewLanding .taskActions { justify-content: flex-start; margin: 0 0 28px; }
+.admissionDateDialog { width: min(600px, calc(100vw - 24px)); height: min(500px, calc(100dvh - 24px)); border: 1px solid #afc2b9; border-radius: 12px; }
+.admissionDateDialog .toolbar { flex-wrap: wrap; }
+.admissionDateDialog .toolbar > span { font-size: 14px; color: #59665f; }
