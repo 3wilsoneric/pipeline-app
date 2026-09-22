@@ -65,7 +65,7 @@ test("home tenant and personal mailboxes bind to authenticated Pipeline email, n
 test("Outlook OAuth uses its own public client and callback without acquiring send permission", async () => {
   let configuration, active, popupCalls = 0, silentCalls = 0;
   const client = load("lib/auth/outlook-client.ts", {
-    "@azure/msal-browser": { BrowserCacheLocation: { SessionStorage: "sessionStorage" }, PublicClientApplication: class {
+    "@azure/msal-browser": { BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
       constructor(config) { configuration = config; }
       async initialize() {}
       getActiveAccount() { return active; }
@@ -82,9 +82,88 @@ test("Outlook OAuth uses its own public client and callback without acquiring se
   assert.equal(await client.acquireOutlookToken(id, true), "synthetic-token");
   assert.equal(configuration.auth.authority, "https://login.microsoftonline.com/common");
   assert.equal(configuration.auth.redirectUri, "https://pipeline.invalid/pipeline/outlook-auth.html");
-  assert.equal(configuration.cache.cacheLocation, "sessionStorage");
+  assert.equal(configuration.cache.cacheLocation, "localStorage");
   assert.equal(await client.acquireOutlookToken(id), "synthetic-token");
   assert.equal(popupCalls, 1); assert.equal(silentCalls, 1);
+});
+
+test("Outlook restores the matching mailbox across tabs, renews silently, and respects disconnect", async () => {
+  const id = "00000000-0000-4000-8000-000000000001";
+  const email = "assessor@example.invalid";
+  const storage = new Map();
+  let cachedAccount, silent = 0, sso = 0, popup = 0, cleared = 0, requireInteraction = false;
+  const dependencies = {
+    "@azure/msal-browser": { BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
+      constructor(config) { assert.equal(config.cache.cacheLocation, "localStorage"); }
+      async initialize() {}
+      getActiveAccount() { return { username: "someone-else@example.invalid" }; }
+      getAccountByUsername(username) { assert.equal(username, email); return cachedAccount; }
+      setActiveAccount(account) { cachedAccount = account; }
+      async acquireTokenPopup(request) { popup++; assert.equal(request.loginHint, email); return { account: { username: email }, accessToken: "fixture-token" }; }
+      async acquireTokenSilent(request) { silent++; assert.equal(request.account.username, email); if (requireInteraction) throw new Error("interaction_required"); return { accessToken: "fixture-token" }; }
+      async ssoSilent(request) { sso++; assert.equal(request.loginHint, email); if (requireInteraction) throw new Error("interaction_required"); return { account: { username: email }, accessToken: "fixture-token" }; }
+      async clearCache() { cleared++; cachedAccount = null; }
+    } },
+    "@/lib/pipeline/base-path": { toPipelinePath: path => path },
+  };
+  const globals = { window: { location: { origin: "https://pipeline.invalid" }, localStorage: {
+    getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key),
+  } } };
+  const client = load("lib/auth/outlook-client.ts", dependencies, globals);
+  assert.equal(await client.acquireOutlookToken(id, true, email), "fixture-token");
+  const reopened = load("lib/auth/outlook-client.ts", dependencies, globals);
+  assert.equal(await reopened.acquireOutlookToken(id, false, email), "fixture-token");
+  assert.equal(popup, 1); assert.equal(silent, 1);
+  cachedAccount = null;
+  assert.equal(await reopened.acquireOutlookToken(id, false, email), "fixture-token");
+  assert.equal(sso, 1); assert.equal(popup, 1);
+  requireInteraction = true;
+  assert.equal(await reopened.acquireOutlookToken(id, false, email), null);
+  await reopened.clearOutlookConnection(id, email);
+  const afterDisconnect = load("lib/auth/outlook-client.ts", dependencies, globals);
+  assert.equal(await afterDisconnect.acquireOutlookToken(id, false, email), null);
+  assert.equal(sso, 1); assert.equal(cleared, 1);
+  requireInteraction = false;
+  assert.equal(await afterDisconnect.acquireOutlookToken(id, true, email), "fixture-token");
+  assert.equal(await afterDisconnect.acquireOutlookToken(id, false, email), "fixture-token");
+  assert.equal(popup, 2);
+});
+
+test("early Outlook connection is identity-bound, origin-protected and disabled during the production hold", async () => {
+  let user = null, live = false, calls = 0, mailboxEmail = "staff@example.invalid";
+  const graph = graphFixture(async () => { calls++; return Response.json({ id: "home-mailbox-id", mail: mailboxEmail }); });
+  const route = load("app/api/me/outlook/route.ts", {
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => !user ? { ok: false, response: new Response(null, { status: 401 }) }
+      : roles && !roles.some(role => user.roles.includes(role)) ? { ok: false, response: new Response(null, { status: 403 }) } : { ok: true, user } },
+    "@/lib/auth/request-security": load("lib/auth/request-security.ts"),
+    "@/lib/notifications/microsoft-graph-mail": { isMeetClientLive: () => live },
+    "@/lib/notifications/admission-packet-store": { PacketAccessError },
+    "@/lib/notifications/outlook-mail": { ...graph, getOutlookClientId: () => "fixture-client" },
+    "@/lib/observability/api-logging": { withApiLogging: (_request, _path, run) => run() },
+  });
+  const url = "https://pipeline.invalid/api/me/outlook";
+  const get = () => route.GET(new Request(url));
+  const post = (origin = "https://pipeline.invalid") => route.POST(new Request(url, { method: "POST", headers: { Origin: origin, "x-pipeline-outlook-token": "fixture-token" } }));
+  assert.equal((await get()).status, 401); assert.equal((await post()).status, 401);
+  user = { id: "pipeline-id", email: "staff@example.invalid", roles: ["reviewer"] };
+  const setup = await get(); assert.match(setup.headers.get("cache-control"), /no-store/);
+  assert.equal((await setup.json()).demo, true);
+  assert.equal((await post()).status, 403); assert.equal(calls, 0);
+  live = true;
+  assert.equal((await post("https://other.invalid")).status, 403); assert.equal(calls, 0);
+  user.roles = ["viewer"];
+  assert.equal((await (await get()).json()).can_connect, false);
+  assert.equal((await post()).status, 403); assert.equal(calls, 0);
+  user.roles = ["reviewer"]; user.delegation = {};
+  assert.equal((await (await get()).json()).can_connect, false);
+  assert.equal((await post()).status, 403); assert.equal(calls, 0);
+  delete user.delegation;
+  mailboxEmail = "someone-else@example.invalid";
+  assert.equal((await post()).status, 403);
+  mailboxEmail = user.email;
+  const connected = await post(); assert.equal(connected.status, 200);
+  assert.deepEqual(JSON.parse(await connected.text()), { mailbox: user.email });
+  assert.equal(calls, 2);
 });
 
 test("draft creation uses delegated Drafts and immutable correlation, never the send endpoint", async () => {

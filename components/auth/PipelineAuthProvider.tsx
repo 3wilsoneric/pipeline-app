@@ -26,6 +26,7 @@ import {
 } from "@/lib/auth/post-login-path";
 import {
   clearPipelineClientSessionCache,
+  fetchPipelineJson,
   REAUTHENTICATION_KEY,
 } from "@/lib/auth/authenticated-fetch";
 import {
@@ -295,6 +296,8 @@ function PipelineAuthBootstrap({ children, initialUser }: { children: React.Reac
       }
     },
     signOut: async () => {
+      const connection = await fetchPipelineJson<{ outlook_client_id: string; account_email: string }>("/api/me/outlook", { cache: "no-store" }).catch(() => null);
+      await import("@/lib/auth/outlook-client").then(({ clearOutlookConnection }) => clearOutlookConnection(connection?.outlook_client_id, connection?.account_email)).catch(() => undefined);
       clearPostLoginPath();
       clearPipelineClientSessionCache();
       await clearPipelineOfflineData().catch(() => undefined);

@@ -11,6 +11,7 @@ import type { StaffProfilePreferences } from "@/lib/pipeline/staff-profile";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
 import { canAccessOperationsReports, canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import ContactDirectoryImport from "@/components/pipeline/ContactDirectoryImport";
+import OutlookConnectionSetup from "./OutlookConnectionSetup";
 import { usePipelineShell } from "./pipeline-shell-context";
 import { useConfirmationDialog } from "./useConfirmationDialog";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
@@ -188,6 +189,7 @@ export default function StaffProfileSettings() {
           <button className={styles.secondary} onClick={() => { setLoading(true); setMessage(null); setLoadAttempt((value) => value + 1); }}>Try again</button>
         </div> : <>
           <ContactSettings member={member} />
+          <OutlookConnectionSetup mode="settings" />
           {renderProfileForm(member)}
           <section className={styles.card} aria-label="Workspace settings">
             <Link href="/?editHome=1" aria-label="Edit Home" className={styles.settingRow}>

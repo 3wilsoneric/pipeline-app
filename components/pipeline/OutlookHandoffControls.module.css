@@ -1,4 +1,6 @@
 .panel { width: 100%; min-width: 0; color: #253e34; }
+.connectionPrompt { padding: 0 24px 24px; }
+.connectionSettings { padding: 24px; margin-bottom: 24px; border: 1px solid #d3ded8; border-radius: 12px; background: #fff; }
 .heading { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .heading h3 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.35; }
 .heading p { margin: 3px 0 0; color: #5c6d65; font-size: 14px; overflow-wrap: anywhere; }

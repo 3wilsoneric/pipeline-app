@@ -43,14 +43,14 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     if (!selected || demo || state.demo) return;
     let cancelled = false;
     const reconnect = async () => {
-      const token = await acquireOutlookToken(state.outlook_client_id);
+      const token = await acquireOutlookToken(state.outlook_client_id, false, state.account_email);
       if (!token || cancelled) return;
       const result = await fetchPipelineJson<{ mailbox: string }>(endpoint, { method: "POST", headers: { "x-pipeline-outlook-token": token }, body: JSON.stringify({ action: "connect" }) });
       if (!cancelled) setMailbox(result.mailbox);
     };
     void reconnect().catch(() => undefined);
     return () => { cancelled = true; };
-  }, [selected, demo, state.demo, state.outlook_client_id, endpoint]);
+  }, [selected, demo, state.demo, state.outlook_client_id, state.account_email, endpoint]);
   const action = async (name: "connect" | "check" | "discard", token: string) => {
     const result = await fetchPipelineJson<{ mailbox?: string; draft?: OutlookDraftView }>(endpoint, {
       method: "POST", headers: { "x-pipeline-outlook-token": token },
@@ -73,7 +73,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     finally { active.current = false; setBusy(false); }
   };
   const requireToken = async (interactive = false) => {
-    const token = await acquireOutlookToken(state.outlook_client_id, interactive);
+    const token = await acquireOutlookToken(state.outlook_client_id, interactive, state.account_email);
     if (!token) { setMailbox(""); throw new Error("Reconnect Outlook to continue. Your existing draft will be kept."); }
     return token;
   };
