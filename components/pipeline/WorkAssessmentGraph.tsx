@@ -168,9 +168,9 @@ function GraphStatus({
 }) {
   if (error) {
     return (
-      <div role="alert" className="flex items-center justify-between gap-4 bg-[#fff6f4] px-4 py-3 text-[11px] text-[#723d35]">
+      <div role="alert" className="flex items-center justify-between gap-4 bg-[#fff6f4] px-4 py-3 text-[14px] leading-6 text-[#723d35]">
         <span>{error}{snapshot ? " Showing the last successful map." : ""}</span>
-        <button type="button" onClick={onRetry} className="shrink-0 font-black underline underline-offset-2">Retry</button>
+        <button type="button" onClick={onRetry} className="pipeline-inline-action shrink-0 font-black underline underline-offset-2">Retry</button>
       </div>
     );
   }

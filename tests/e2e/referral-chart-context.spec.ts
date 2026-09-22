@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
-const residentFields = ["Resident number", "Unit", "Admission date", "Length of stay", "Care level"];
+// The internal resident number stays out of the chart; see chart-field-editing.
+const residentFields = ["Unit", "Admission date", "Length of stay", "Care level"];
 
 test("intake uses its own referral data, while the same connected Client chart keeps resident fields", async ({ page }) => {
   const created = await createOperationalReferral(page.request, "assessmentCoordinator", {
@@ -18,7 +19,7 @@ test("intake uses its own referral data, while the same connected Client chart k
   await page.goto(`/?view=referrals&screen=packet&referralId=${created.id}&workspaceStage=chart`);
   const intake = page.getByRole("article", { name: "Referral chart", exact: true });
   await expect(intake).toBeVisible();
-  for (const [label, value] of Object.entries({ Client: "Avery Intake", Assessor: "Annette Everhart", County: "Alameda County", "Referral source": "Synthetic referral source", Phone: "555-0101", Email: "intake@example.invalid", "Responsible person": "Case Manager", "Medications on record": "Intake medication notes", "Conserved status": "No" })) {
+  for (const [label, value] of Object.entries({ Client: "Avery Intake", "Assigned assessor": "Annette Everhart", County: "Alameda County", "Referral source": "Synthetic referral source", Phone: "555-0101", Email: "intake@example.invalid", "Responsible person": "Case Manager", "Medications on record": "Intake medication notes", "Conserved status": "No" })) {
     await expect(intake.locator(`[data-chart-field="${label}"] dd`)).toContainText(value);
   }
   for (const label of residentFields) await expect(intake.locator(`[data-chart-field="${label}"]`)).toHaveCount(0);

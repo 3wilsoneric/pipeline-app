@@ -25,6 +25,11 @@ export type ReferralActivityActor = {
 
 export type ReferralActivityEvent = {
   event_id: string;
+  // Where the row came from: an audit_events row (entity_type/entity_id are its
+  // own columns) or a record-derived entry shown when no audit row exists.
+  source: "audit" | "record";
+  entity_type: string;
+  entity_id: string;
   action: string;
   actor_id: string | null;
   actor_name: string;
@@ -50,6 +55,7 @@ export type ReferralWorkflowMetadata = {
   assessment: {
     status: PipelineAssessmentRecord["status"] | "not_started";
     assessor: ReferralActivityActor | null;
+    author: ReferralActivityActor | null;
     started_at: string | null;
     completed_at: string | null;
     elapsed_minutes: number | null;
@@ -71,6 +77,8 @@ export type ReferralActivitySnapshot = {
 
 type ActivityRow = {
   audit_event_id: string;
+  entity_type: string;
+  entity_id: string;
   action: string;
   actor_id: string | null;
   actor_name: string;
@@ -107,7 +115,7 @@ async function loadActivityEvents(
   if (getReferralStoreReadiness().mode === "postgres") {
     const sql = getPipelineSql();
     const rows = await sql<ActivityRow[]>`
-      select audit_event_id, action, actor_id, actor_name, changed_fields,
+      select audit_event_id, entity_type, entity_id, action, actor_id, actor_name, changed_fields,
              before_values, after_values, metadata, from_version, to_version, created_at
       from pipeline.audit_events
       where (entity_type = 'referral' and entity_id = ${String(referral.id)})
@@ -132,9 +140,13 @@ async function loadActivityEvents(
     return rows.map(mapActivityRow);
   }
 
-  const referralEvents = (await listLocalReferralAuditEvents(referral.id)).map(mapActivityRow);
+  const referralEvents = (await listLocalReferralAuditEvents(referral.id)).map((event) =>
+    mapActivityRow({ ...event, entity_type: "referral", entity_id: String(event.referral_id) }));
   const contactEvents = (await listLocalContactAuditEvents(referral.id)).map((event) => ({
     event_id: event.eventId,
+    source: "audit" as const,
+    entity_type: event.entityType ?? "referral",
+    entity_id: event.entityId ?? String(referral.id),
     action: event.action,
     actor_id: event.actor.id,
     actor_name: event.actor.name,
@@ -148,6 +160,9 @@ async function loadActivityEvents(
   const events: ReferralActivityEvent[] = assessments.flatMap((assessment) =>
     assessment.audit_events.map((event) => ({
       event_id: event.event_id,
+      source: "audit" as const,
+      entity_type: "assessment",
+      entity_id: event.assessment_id,
       action: event.action,
       actor_id: event.actor_id,
       actor_name: event.actor_name,
@@ -164,6 +179,9 @@ async function loadActivityEvents(
   } else {
     events.push({
       event_id: `referral-${referral.id}-created`,
+      source: "record",
+      entity_type: "referral",
+      entity_id: String(referral.id),
       action: "referral_created",
       actor_id: null,
       actor_name: "Pipeline user",
@@ -179,6 +197,9 @@ async function loadActivityEvents(
   if (referral.admissionDecision) {
     events.push({
       event_id: `decision-${referral.admissionDecision.decisionId}-${referral.admissionDecision.version}`,
+      source: "record",
+      entity_type: "admission_decision",
+      entity_id: String(referral.admissionDecision.decisionId),
       action: "admission_decision_recorded",
       actor_id: referral.admissionDecision.decidedBy,
       actor_name: referral.admissionDecision.decidedByName,
@@ -201,6 +222,9 @@ function mapActivityRow(row: ActivityRow): ReferralActivityEvent {
   const metadata = row.metadata as { document_id?: string; deletion_id?: string; undo_until?: string } | null;
   return {
     event_id: row.audit_event_id,
+    source: "audit",
+    entity_type: row.entity_type,
+    entity_id: row.entity_id,
     action: row.action,
     actor_id: row.actor_id,
     actor_name: row.actor_name,
@@ -265,11 +289,7 @@ function buildWorkflowMetadata(
     contributors: buildContributors(events),
     assessment: {
       status: latestAssessment?.status ?? (assessmentCompletedAt ? "complete" : "not_started"),
-      assessor: latestAssessment
-        ? latestAssessment.assessor_id && latestAssessment.assessor
-          ? { id: latestAssessment.assessor_id, name: latestAssessment.assessor }
-          : null
-        : null,
+      ...assessmentAttribution(latestAssessment),
       started_at: latestAssessment?.started_at ?? referral.assessment?.startedAt ?? null,
       completed_at: assessmentCompletedAt,
       elapsed_minutes: latestAssessment?.started_at
@@ -340,4 +360,17 @@ function minutesBetween(from: string, to: string | null) {
 function toIso(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+function assessmentAttribution(latestAssessment: PipelineAssessmentRecord | null) {
+  return {
+      assessor: latestAssessment
+        ? latestAssessment.assessor_id && latestAssessment.assessor
+          ? { id: latestAssessment.assessor_id, name: latestAssessment.assessor }
+          : null
+        : null,
+      author: latestAssessment?.created_by?.name
+        ? { id: latestAssessment.created_by.id ?? null, name: latestAssessment.created_by.name }
+        : null,
+  };
 }

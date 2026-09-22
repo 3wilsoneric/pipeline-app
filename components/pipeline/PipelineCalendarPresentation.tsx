@@ -19,7 +19,6 @@ import {
   FolderOpen,
   RefreshCw,
   Search,
-  UserRoundCheck,
   Video,
   X,
 } from "lucide-react";
@@ -27,6 +26,7 @@ import {
 import type { AssessmentScheduleMethod } from "@/lib/assessment/assessment-records";
 import type { PipelineCalendarEvent, PipelineCalendarEventKind, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
+import { assessmentEventNextStep, unscheduledNextStep } from "@/lib/pipeline/assessment-calendar";
 import {
   ageLabel,
   appointmentLocationLabel,
@@ -34,6 +34,7 @@ import {
   calendarClientName,
   calendarDays,
   calendarDrawerModel,
+  calendarEmptyState,
   calendarStatusText,
   dateKeys,
   eventTime,
@@ -120,10 +121,9 @@ export function CalendarHeader(props: CalendarHeaderProps) {
   const clearFilters = () => {
     props.onCommunity("");
     props.onOwner("");
-    props.onMySchedule(false);
   };
-  const toggleMine = () => {
-    props.onMySchedule(!props.mySchedule);
+  const chooseScope = (mine: boolean) => {
+    props.onMySchedule(mine);
     props.onOwner("");
   };
   return (
@@ -133,7 +133,7 @@ export function CalendarHeader(props: CalendarHeaderProps) {
           <div className={calendarStyles.rangeSummary}>
             <h1 className={calendarStyles.rangeTitle}>{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
             <div className={calendarStyles.summary}>
-              <span>{props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule"}</span>
+              <span>{calendarScopeLabel(props)}</span>
               <span>{props.scheduledCount.toLocaleString()} scheduled</span>
               <abbr title="Pacific Time">PT</abbr>
             </div>
@@ -145,6 +145,7 @@ export function CalendarHeader(props: CalendarHeaderProps) {
           </div>
         </div>
         <div className={calendarStyles.headerActions}>
+          {props.scope === "team" ? <CalendarScopeSwitch className={calendarStyles.headerScope} mine={props.mySchedule} onChoose={chooseScope} /> : null}
           <CalendarViewSwitch view={props.view} onView={props.onView} />
           <button type="button" aria-label={`Scheduling queue ${props.queueCount.toLocaleString()}`} aria-haspopup="dialog" aria-expanded={props.queueOpen} onClick={props.onOpenQueue} className={calendarStyles.queueButton}>
             <ClipboardList size={15} />
@@ -154,7 +155,7 @@ export function CalendarHeader(props: CalendarHeaderProps) {
           <button type="button" aria-label="Show calendar filters" aria-expanded={props.showFilters} onClick={() => props.onShowFilters(!props.showFilters)} className={`${calendarStyles.filterToggle} ${props.hasFilters ? "text-[#116b5a]" : "text-[#626a66]"}`}><Filter size={16} /></button>
         </div>
       </div>
-      <CalendarFilters {...props} onClear={clearFilters} onToggleMine={toggleMine} />
+      <CalendarFilters {...props} onClear={clearFilters} />
       <div className={calendarStyles.statusStrip} data-visible={Boolean(status) || props.overdueCount > 0}>
         {props.overdueCount > 0 ? <span className="text-[#9c3d32]"><strong>{props.overdueCount.toLocaleString()}</strong> need{props.overdueCount === 1 ? "s" : ""} completion</span> : null}
         <span role="status" aria-live="polite" className="relative ml-auto min-w-0 text-right font-normal">{status}<FeedbackCue value={props.message} enabled={Boolean(props.message) && !props.busy && !props.loading && !props.refreshing} /></span>
@@ -172,12 +173,20 @@ function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (val
   </div>;
 }
 
-function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onToggleMine: () => void }) {
+// Viewing Team only changes what is shown; ownership and access stay server-enforced.
+function CalendarScopeSwitch({ mine, onChoose, className }: { mine: boolean; onChoose: (mine: boolean) => void; className: string }) {
+  return <div role="group" aria-label="Whose schedule" className={`${calendarStyles.scopeSwitch} ${className}`}>
+    <button type="button" aria-pressed={mine} onClick={() => onChoose(true)}>Mine</button>
+    <button type="button" aria-pressed={!mine} onClick={() => onChoose(false)}>Team</button>
+  </div>;
+}
+
+function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void }) {
   return (
     <div data-guide-target="calendar-filters" data-expanded={props.showFilters} className={calendarStyles.filters}>
+      {props.scope === "team" ? <CalendarScopeSwitch className={calendarStyles.filterScope} mine={props.mySchedule} onChoose={(mine) => { props.onMySchedule(mine); props.onOwner(""); }} /> : null}
       <CalendarFilter label="community" value={props.community} onChange={props.onCommunity} options={props.communityOptions} />
-      {props.scope === "team" ? <OwnerFilter value={props.owner} onChange={(owner) => { props.onOwner(owner); props.onMySchedule(false); }} options={props.ownerOptions} /> : null}
-      {props.scope === "team" ? <label className="flex h-9 shrink-0 cursor-pointer items-center gap-2 px-2 text-[12px] font-bold text-[#525a56]"><input type="checkbox" checked={props.mySchedule} onChange={props.onToggleMine} className="h-4 w-4 accent-[#167f6b]" /><UserRoundCheck size={14} /> My appointments</label> : null}
+      {props.scope === "team" && !props.mySchedule ? <OwnerFilter value={props.owner} onChange={props.onOwner} options={props.ownerOptions} /> : null}
       {props.hasFilters ? <button type="button" onClick={props.onClear} className="flex h-8 items-center gap-1 px-2 text-[10px] font-bold text-[#6d7470] hover:text-[#9c3d32]"><X size={12} /> Clear</button> : null}
       <IconButton label="Refresh calendar" onClick={props.onRefresh}><RefreshCw size={14} className={props.refreshing ? "animate-spin" : ""} /></IconButton>
     </div>
@@ -211,15 +220,15 @@ export function SchedulingQueue({ items, total, hasMore, search, loading, onSear
           <Search size={16} className="shrink-0 text-[#167f6b]" />
           <span className="sr-only">Search scheduling queue</span>
           <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search client, community, or assessor" className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-[#252a27] outline-none placeholder:text-[#959b98]" />
-          {loading ? <RefreshCw size={13} className="animate-spin text-[#7b827e]" /> : null}
+          {loading ? <RefreshCw size={13} className="animate-spin text-[#6b736f]" /> : null}
         </label>
         <div className="flex-1 overflow-y-auto px-5 py-3 sm:px-6">
           {items.length === 0 ? <div className="py-16 text-center"><CalendarClock size={21} className="mx-auto text-[#89918d]" /><div className="mt-3 text-[14px] font-extrabold text-[#343a36]">{loading ? "Loading referrals..." : search ? "No referrals match that search." : "No referrals are waiting to be scheduled."}</div></div> : (
             <ol>{items.map((item) => <li key={item.referralId} className="border-b border-[#e1e5e3] py-5 last:border-b-0">
-              <div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left"><span className="block break-words text-[17px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span><span className="mt-1 block text-[13px] text-[#69706c]">{[item.community, item.owner].filter(Boolean).join(" · ")}</span></button><span className="shrink-0 text-[11px] font-bold text-[#7b827e]">{ageLabel(item.receivedDate)}</span></div>
+              <div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left"><span className="block break-words text-[17px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span><span className="mt-1 block text-[13px] text-[#69706c]">{[item.community, item.owner].filter(Boolean).join(" · ")}</span></button><span className="shrink-0 text-[11px] font-bold text-[#6b736f]">{ageLabel(item.receivedDate)}</span></div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><span className="text-[12px] font-bold text-[#176f5e]">{preparationLabel(item)}</span><div className="flex flex-wrap gap-2">
-                {item.nextAction !== "schedule" ? <button type="button" onClick={() => onOpenWorkspace(item)} className="min-h-11 px-3 text-[12px] font-bold text-[#176f5e]">{preparationActionLabel(item)}</button> : null}
-                <button type="button" onClick={() => onSchedule(item)} className="min-h-11 rounded-md bg-[#167f6b] px-3 text-[12px] font-extrabold text-white hover:bg-[#116b5a]">Schedule</button>
+                {item.nextAction !== "schedule" ? <button type="button" onClick={() => onOpenWorkspace(item)} className="min-h-11 px-3 text-[12px] font-bold text-[#176f5e]">{unscheduledNextStep(item.nextAction).label}</button> : null}
+                <button type="button" onClick={() => onSchedule(item)} className="min-h-11 rounded-md bg-[#167f6b] px-3 text-[12px] font-extrabold text-white hover:bg-[#116b5a]">{unscheduledNextStep("schedule").label}</button>
               </div></div>
             </li>)}</ol>
           )}
@@ -235,23 +244,19 @@ function preparationLabel(item: PipelineUnscheduledAssessment) {
   return workflowLabels[item.workflowStatus];
 }
 
-function preparationActionLabel(item: PipelineUnscheduledAssessment) {
-  if (item.nextAction === "assign") return "Assign assessor";
-  if (item.nextAction === "complete_contact") return "Complete contact";
-  if (item.nextAction === "complete_intake") return "Complete intake";
-  return "Schedule";
-}
-
 export function CalendarPortal({ children }: { children: ReactNode }) {
   return typeof document === "undefined" ? null : createPortal(children, document.body);
 }
 
 type CalendarViewsProps = {
   loading: boolean;
+  failed: boolean;
   view: CalendarView;
   anchor: string;
   scope: "personal" | "team";
   owner: string;
+  ownerLabel?: string;
+  community: string;
   mySchedule: boolean;
   range: { from: string; to: string };
   events: PipelineCalendarEvent[];
@@ -259,21 +264,27 @@ type CalendarViewsProps = {
   assessors: Array<{ id?: string; name: string }>;
   eventsByDate: Map<string, PipelineCalendarEvent[]>;
   conflicts: Set<string>;
-  hasFilters: boolean;
   onOpen: (event: PipelineCalendarEvent) => void;
   onAssessment: (event: PipelineCalendarEvent) => void;
   onFocusOwner: (owner: string) => void;
+  onViewTeam: () => void;
+  onAllAssessors: () => void;
+  onAllCommunities: () => void;
   onDate: (date: string) => void;
 };
 
 export function CalendarViews(props: CalendarViewsProps) {
   const phone = usePhoneLayout();
   if (props.loading) return <CalendarSkeleton />;
-  if (props.view === "month") return <MonthView month={props.anchor.slice(0, 7)} eventsByDate={props.eventsByDate} onOpen={props.onOpen} onDate={props.onDate} phone={phone} />;
-  if (phone) return <WeekList events={props.events} hasFilters={props.hasFilters} scope={props.scope} onOpen={props.onOpen} onAssessment={props.onAssessment} onDate={props.onDate} />;
-  if (showTeamWeek(props.scope, props.owner, props.mySchedule)) return <TeamWeekView range={props.range} events={props.events} unscheduled={props.unscheduled} assessors={props.assessors} conflicts={props.conflicts} onOpen={props.onOpen} onFocusOwner={props.onFocusOwner} onDate={props.onDate} />;
+  // A failed first load is not an empty schedule; the alert above offers Try again.
+  if (props.failed) return <EmptyCalendar title="Appointments could not be loaded." detail="Nothing is shown until the calendar loads. Use Try again above." />;
+  const empty = props.events.length === 0 ? <CalendarEmptyNotice {...props} /> : null;
+  if (props.view === "month") return <>{empty}<MonthView month={props.anchor.slice(0, 7)} eventsByDate={props.eventsByDate} onOpen={props.onOpen} onDate={props.onDate} phone={phone} /></>;
+  if (phone) return empty ?? <WeekList events={props.events} scope={props.scope} onOpen={props.onOpen} onAssessment={props.onAssessment} onDate={props.onDate} />;
+  if (showTeamWeek(props.scope, props.owner, props.mySchedule)) return <>{empty}<TeamWeekView range={props.range} events={props.events} unscheduled={props.unscheduled} assessors={props.assessors} conflicts={props.conflicts} onOpen={props.onOpen} onFocusOwner={props.onFocusOwner} onDate={props.onDate} /></>;
   const outsideGrid = props.events.filter((event) => !timedEventPosition(event, [event]));
   return <>
+    {empty}
     {outsideGrid.length ? <section aria-label="Other appointment times" className={calendarStyles.dateDetails}><h2>Other appointment times</h2><ol className="divide-y divide-[#e5e8e6]">{outsideGrid.map((event) => <li key={event.id}><span className="text-[12px] text-[#626b65]">{longDate(event.date)}</span><ol><AppointmentRow event={event} scope={props.scope} onOpen={props.onOpen} onAssessment={props.onAssessment} /></ol></li>)}</ol></section> : null}
     <TimedWeekView range={props.range} eventsByDate={props.eventsByDate} onOpen={props.onOpen} onDate={props.onDate} />
   </>;
@@ -304,7 +315,7 @@ function TimedWeekView({ range, eventsByDate, onOpen, onDate }: { range: { from:
   return (
     <section aria-label="Timed assessment week" className={calendarStyles.weekGrid}><div className="min-w-[980px]">
       <div data-calendar-week-heading className={`grid grid-cols-[62px_repeat(7,minmax(125px,1fr))] ${calendarStyles.weekHeading}`}><div className={calendarStyles.timeCorner}>PT</div>{dates.map((date) => <CalendarDateHeading key={date} date={date} onDate={onDate} />)}</div>
-      <div className="grid grid-cols-[62px_repeat(7,minmax(125px,1fr))]"><div className="relative" style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <span key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] font-semibold text-[#7b827e]" style={{ top: index * hourHeight }}>{formatHour(hour)}</span>)}</div>{dates.map((date) => { const timed = (eventsByDate.get(date) ?? []).filter((event) => event.kind === "assessment" && event.startsAt); return <div key={date} className={`relative border-l border-[#d8dedb] ${date === todayKey() ? "bg-[#fbfefd]" : "bg-white"}`} style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <div key={hour} className="absolute inset-x-0 border-t border-[#edf0ee]" style={{ top: index * hourHeight }} />)}{timed.map((event) => { const position = timedEventPosition(event, timed); if (!position) return null; return <button key={event.id} type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title}`} className={`absolute z-10 overflow-hidden border-l-[3px] px-2 py-1.5 text-left shadow-sm hover:z-20 hover:ring-1 hover:ring-[#4b68ad] ${event.status === "overdue" ? "border-l-[#a9473d] bg-[#fff3f1] text-[#7c3229]" : eventColors.assessment}`} style={position}><span className="block truncate text-[10px] font-extrabold">{eventTime(event.startsAt)}</span><span className="mt-0.5 block truncate text-[11px] font-extrabold">{calendarClientName(event.clientName, event.community)}</span><span className="mt-0.5 block truncate text-[9px] opacity-75">{methodLabel(event.method)} - {event.durationMinutes ?? 60} min</span></button>; })}</div>; })}</div>
+      <div className="grid grid-cols-[62px_repeat(7,minmax(125px,1fr))]"><div className="relative" style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <span key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] font-semibold text-[#6b736f]" style={{ top: index * hourHeight }}>{formatHour(hour)}</span>)}</div>{dates.map((date) => { const timed = (eventsByDate.get(date) ?? []).filter((event) => event.kind === "assessment" && event.startsAt); return <div key={date} className={`relative border-l border-[#d8dedb] ${date === todayKey() ? "bg-[#fbfefd]" : "bg-white"}`} style={{ height: hours.length * hourHeight }}>{hours.map((hour, index) => <div key={hour} className="absolute inset-x-0 border-t border-[#edf0ee]" style={{ top: index * hourHeight }} />)}{timed.map((event) => { const position = timedEventPosition(event, timed); if (!position) return null; return <button key={event.id} type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} - ${event.title}`} className={`absolute z-10 overflow-hidden border-l-[3px] px-2 py-1.5 text-left shadow-sm hover:z-20 hover:ring-1 hover:ring-[#4b68ad] ${event.status === "overdue" ? "border-l-[#a9473d] bg-[#fff3f1] text-[#7c3229]" : eventColors.assessment}`} style={position}><span className="block truncate text-[10px] font-extrabold">{eventTime(event.startsAt)}</span><span className="mt-0.5 block truncate text-[11px] font-extrabold">{calendarClientName(event.clientName, event.community)}</span><span className="mt-0.5 block truncate text-[9px] opacity-75">{methodLabel(event.method)} - {event.durationMinutes ?? 60} min</span></button>; })}</div>; })}</div>
     </div></section>
   );
 }
@@ -312,7 +323,7 @@ function TimedWeekView({ range, eventsByDate, onOpen, onDate }: { range: { from:
 function TeamWeekView({ range, events, unscheduled, assessors, conflicts, onOpen, onFocusOwner, onDate }: { range: { from: string; to: string }; events: PipelineCalendarEvent[]; unscheduled: PipelineUnscheduledAssessment[]; assessors: Array<{ id?: string; name: string }>; conflicts: Set<string>; onOpen: (event: PipelineCalendarEvent) => void; onFocusOwner: (owner: string) => void; onDate: (date: string) => void }) {
   const dates = dateKeys(range.from, range.to);
   const owners = uniqueOwnerOptions([...assessors, ...events.map((event) => ({ id: event.ownerId, name: event.owner })), ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner }))]).filter((item) => item.label !== "Unassigned");
-  if (owners.length === 0) return <EmptyCalendar title="No team assessments scheduled this week." />;
+  if (owners.length === 0) return null;
   return (
     <section aria-label="Supervisor team week" className={calendarStyles.teamGrid}><div className="min-w-[1080px]">
       <div data-calendar-week-heading className={`grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] ${calendarStyles.weekHeading}`}><div className="sticky left-0 z-20 bg-[#f7f9f8] px-3 py-3 text-[11px] font-bold text-[#69706c]">Assessor</div>{dates.map((date) => <CalendarDateHeading key={date} date={date} onDate={onDate} />)}</div>
@@ -344,13 +355,12 @@ function CalendarDateHeading({ date, onDate }: { date: string; onDate: (date: st
   </button>;
 }
 
-function WeekList({ events, hasFilters, scope, onOpen, onAssessment, onDate }: { events: PipelineCalendarEvent[]; hasFilters: boolean; scope: "personal" | "team"; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void; onDate: (date: string) => void }) {
+function WeekList({ events, scope, onOpen, onAssessment, onDate }: { events: PipelineCalendarEvent[]; scope: "personal" | "team"; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void; onDate: (date: string) => void }) {
   const groups = groupEventsByDate(events);
-  if (events.length === 0) return <EmptyCalendar title={hasFilters ? "No assessments match these filters." : "No assessments scheduled in this range."} />;
   return <section aria-label="Week appointments">{[...groups.entries()].map(([date, dayEvents]) => <section key={date} aria-label={longDate(date)} className="py-3"><h2 className="text-[15px] font-extrabold text-[#343c37]"><button type="button" className={calendarStyles.listDate} aria-label={`Show appointments for ${longDate(date)}`} onClick={() => onDate(date)}>{longDate(date)}</button></h2><ol className="divide-y divide-[#e5e8e6]">{dayEvents.map((event) => <AppointmentRow key={event.id} event={event} scope={scope} onOpen={onOpen} onAssessment={onAssessment} />)}</ol></section>)}</section>;
 }
 
-export function CalendarDateDetails({ date, events, scope, loading, error, onOpen, onAssessment, onClose }: { date: string; events: PipelineCalendarEvent[]; scope: "personal" | "team"; loading: boolean; error: string; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void; onClose: () => void }) {
+export function CalendarDateDetails({ date, events, scope, scopeText, loading, error, onOpen, onAssessment, onClose }: { date: string; events: PipelineCalendarEvent[]; scope: "personal" | "team"; scopeText: string; loading: boolean; error: string; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void; onClose: () => void }) {
   const panel = useRef<HTMLElement>(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -360,7 +370,7 @@ export function CalendarDateDetails({ date, events, scope, loading, error, onOpe
   }, [date]);
   return <section ref={panel} tabIndex={-1} aria-label={`Appointments on ${longDate(date)}`} className={calendarStyles.dateDetails} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
     <header><h2>{longDate(date)}</h2><button type="button" aria-label="Close day details" onClick={onClose}><X size={18} /></button></header>
-    {loading ? <p role="status">Loading appointments…</p> : error && !events.length ? <p>Appointments could not be loaded. Use Try again above.</p> : events.length ? <ol className="divide-y divide-[#e5e8e6]">{events.map((event) => <AppointmentRow key={event.id} event={event} scope={scope} onOpen={onOpen} onAssessment={onAssessment} />)}</ol> : <p>No appointments on this date with the current filters.</p>}
+    {loading ? <p role="status">Loading appointments…</p> : error && !events.length ? <p>Appointments could not be loaded. Use Try again above.</p> : events.length ? <ol className="divide-y divide-[#e5e8e6]">{events.map((event) => <AppointmentRow key={event.id} event={event} scope={scope} onOpen={onOpen} onAssessment={onAssessment} />)}</ol> : <p>No appointments on {scopeText} for this date.</p>}
   </section>;
 }
 
@@ -370,13 +380,14 @@ export function CalendarContinuing({ events, onOpen, onContinue }: { events: Pip
     <summary><FilePenLine size={17} />Continue working <span>{events.length}</span><ChevronRight size={16} className={calendarStyles.disclosureIcon} /></summary>
     <div className={calendarStyles.cards}>{events.map((event) => <article className={calendarStyles.work} key={event.id}>
       <button type="button" className={calendarStyles.identity} onClick={() => onOpen(event)}><strong>{calendarClientName(event.clientName, event.community)}</strong><span>{appointmentStatusLabel(event)}</span><span>{event.owner}</span></button>
-      <button type="button" className={calendarStyles.action} onClick={() => onContinue(event)} aria-label={`Continue assessment for ${event.clientName}`}>Continue</button>
+      <button type="button" className={calendarStyles.action} onClick={() => onContinue(event)} aria-label={`${assessmentEventNextStep(event).label} for ${event.clientName}`}>{assessmentEventNextStep(event).label}</button>
     </article>)}</div>
   </details></section>;
 }
 
 function AppointmentRow({ event, scope, onOpen, onAssessment }: { event: PipelineCalendarEvent; scope: "personal" | "team"; onOpen: (event: PipelineCalendarEvent) => void; onAssessment: (event: PipelineCalendarEvent) => void }) {
   const model = calendarDrawerModel({ type: "event", event }, scope);
+  const next = assessmentEventNextStep(event);
   return (
     <li className="grid gap-3 py-5 sm:grid-cols-[90px_minmax(0,1fr)] xl:grid-cols-[90px_minmax(0,1fr)_auto]">
       <div className="flex items-baseline gap-3 sm:block"><div className="text-[16px] font-extrabold tabular-nums text-[#252a27]">{event.startsAt ? eventTime(event.startsAt) : "Unscheduled"}</div><div className="mt-1 text-[12px] font-semibold text-[#626b65]">{event.durationMinutes ?? 60} min</div></div>
@@ -387,7 +398,7 @@ function AppointmentRow({ event, scope, onOpen, onAssessment }: { event: Pipelin
         <div className={`mt-2 text-[12px] font-bold ${event.status === "overdue" ? "text-[#9c3d32]" : "text-[#69706c]"}`}>{appointmentStatusLabel(event)}</div>
       </div>
       <div className="flex flex-wrap items-start gap-2 sm:col-start-2 xl:col-start-auto">
-        {event.assessmentId ? <button type="button" aria-label={`Open assessment for ${model.clientName}`} onClick={() => onAssessment(event)} className="flex min-h-10 items-center gap-2 bg-[#167f6b] px-3 text-[12px] font-extrabold text-white hover:bg-[#116b5a]"><ClipboardList size={15} />{model.showStatusActions ? "Open assessment" : "View assessment"}</button> : null}
+        {event.assessmentId ? <button type="button" aria-label={`${next.label} for ${model.clientName}`} onClick={() => onAssessment(event)} className="flex min-h-10 items-center gap-2 bg-[#167f6b] px-3 text-[12px] font-extrabold text-white hover:bg-[#116b5a]"><ClipboardList size={15} />{next.label}</button> : null}
         {model.zoomUrl ? <a href={model.zoomUrl} target="_blank" rel="noreferrer" aria-label={`Join Zoom for ${model.clientName}`} className="flex min-h-10 items-center gap-2 px-3 text-[12px] font-bold text-[#354b85] hover:bg-[#eef1ff]"><Video size={15} />Join Zoom<ExternalLink size={12} /></a> : null}
         <button type="button" aria-label={`Appointment details for ${model.clientName}`} onClick={() => onOpen(event)} className="min-h-10 px-2 text-[12px] font-bold text-[#626b65] hover:text-[#116b5a]">Details</button>
       </div>
@@ -489,7 +500,7 @@ function CalendarDrawerActions({ model, busy, onOpenWorkspace, onOpenChart, onSc
     <div className="pipeline-commands grid shrink-0 grid-cols-2 gap-2 border-t border-[#d8dedb] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&_button]:rounded-md">
       {model.zoomUrl ? <a href={model.zoomUrl} target="_blank" rel="noreferrer" className="flex h-10 w-full items-center justify-center gap-2 bg-[#4b68ad] text-[12px] font-extrabold text-white hover:bg-[#3d578f]"><Video size={15} /> Join Zoom <ExternalLink size={13} /></a> : null}
       {model.canSchedule ? <button type="button" disabled={busy} onClick={onSchedule} className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#167f6b] text-[12px] font-extrabold text-white hover:bg-[#116b5a] disabled:opacity-50"><CalendarClock size={15} /> {model.hasScheduledTime ? "Reschedule" : "Schedule interview"}</button> : null}
-      <button type="button" onClick={onOpenWorkspace} className="flex h-11 w-full items-center justify-center gap-2 border border-[#cfd5d2] text-[13px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]"><FolderOpen size={15} /> {model.isAppointment ? "Open assessment" : "Open workspace"}</button>
+      <button type="button" onClick={onOpenWorkspace} className="flex h-11 w-full items-center justify-center gap-2 border border-[#cfd5d2] text-[13px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]"><FolderOpen size={15} /> {model.nextStepLabel ?? "Open workspace"}</button>
       <button type="button" onClick={onOpenChart} className="min-h-11 border border-[#cfd5d2] px-3 text-[13px] font-bold text-[#326550]">Open chart</button>
       {model.showStatusActions && model.dateLabel ? <button type="button" disabled={busy} onClick={() => onStatus("completed")} className="min-h-11 bg-[#eef6f2] px-3 text-[13px] font-bold text-[#126b54] disabled:opacity-50">Interview completed</button> : null}
       {model.showStatusActions ? <div className="col-span-2 grid grid-cols-2 gap-2 pt-2"><button type="button" disabled={busy} onClick={() => onStatus("no_show")} className="min-h-11 border border-[#d8dedb] text-[12px] font-bold text-[#8a5c14] hover:bg-[#fff8ed] disabled:opacity-50">Mark no-show</button><button type="button" disabled={busy} onClick={() => onStatus("cancelled")} className="min-h-11 border border-[#d8dedb] text-[12px] font-bold text-[#9c3d32] hover:bg-[#fff3f1] disabled:opacity-50">Cancel appointment</button></div> : null}
@@ -548,6 +559,20 @@ function CalendarSkeleton() {
   return <div className="mt-3 animate-pulse border border-[#d8dedb] p-4"><div className="h-10 bg-[#eef1ef]" /><div className="mt-3 grid grid-cols-3 gap-3"><div className="h-52 bg-[#f4f6f5]" /><div className="h-52 bg-[#f4f6f5]" /><div className="h-52 bg-[#f4f6f5]" /></div></div>;
 }
 
-function EmptyCalendar({ title }: { title: string }) {
-  return <div className="mt-3 border border-[#d8dedb] px-4 py-16 text-center"><CalendarClock size={22} className="mx-auto text-[#8a918d]" /><div className="mt-3 text-[13px] font-extrabold text-[#343a36]">{title}</div></div>;
+function EmptyCalendar({ title, detail, children }: { title: string; detail?: string; children?: ReactNode }) {
+  return <div className="mt-3 border border-[#d8dedb] px-4 py-10 text-center"><CalendarClock size={22} className="mx-auto text-[#8a918d]" /><div className="mt-3 text-[14px] font-extrabold text-[#343a36]">{title}</div>{detail ? <p className="mt-1 text-[14px] text-[#5d6661]">{detail}</p> : null}{children ? <div className="mt-4 flex flex-wrap justify-center gap-2">{children}</div> : null}</div>;
+}
+
+const emptyActionLabels = { view_team: "View team schedule", all_assessors: "Show all assessors", all_communities: "Show all communities" } as const;
+
+function CalendarEmptyNotice(props: CalendarViewsProps) {
+  const state = calendarEmptyState(props, rangeLabel(props.view, props.range));
+  const handlers = { view_team: props.onViewTeam, all_assessors: props.onAllAssessors, all_communities: props.onAllCommunities };
+  return <section aria-label="No matching appointments"><EmptyCalendar title={state.title} detail={state.detail}>
+    {state.actions.map((action) => <button key={action} type="button" onClick={handlers[action]} className="min-h-11 rounded-md border border-[#bfc7c3] bg-white px-4 text-[14px] font-bold text-[#176f5e] hover:border-[#167f6b]">{emptyActionLabels[action]}</button>)}
+  </EmptyCalendar></section>;
+}
+
+function calendarScopeLabel(props: Pick<CalendarHeaderProps, "scope" | "mySchedule">) {
+  return props.scope === "personal" || props.mySchedule ? "My schedule" : "Team schedule";
 }

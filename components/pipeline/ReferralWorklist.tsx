@@ -7,10 +7,12 @@ import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import {
   formatClientIdentityTitle,
+  formatReferralIdentityContext,
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { prefetchPipelineWorkspace } from "@/lib/pipeline/client-navigation";
 import { getWorkspaceCounty, isClientChartWorkspace, isEarlierWorkspaceMonth, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
 import { workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
@@ -222,6 +224,7 @@ function workspaceIdentityDetail(referral: Referral, county = "") {
     resolveClientGender(referral.gender),
     isRecordedWorkspaceCommunity(referral.community) ? resolveClientCommunity(referral.community) : null,
     county || null,
+    formatReferralIdentityContext({ name: referral.name, referralId: referral.id, received: formatProfileDate(referral.date), source: referral.source }) || null,
   ].filter(Boolean).join(" · ");
 }
 

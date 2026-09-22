@@ -42,7 +42,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await next.click();
     await expect(section).toHaveValue("diagnosis_clinical");
     await expect(progress).toHaveText("Complete");
-    if (width < 760) await reference.getByRole("button", { name: "Current information", exact: true }).click();
+    if (width < 960) await reference.getByRole("button", { name: "Current information", exact: true }).click();
     const recorded = reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true });
     await expect(recorded).toContainText("Synthetic documented answer");
     await recorded.click();

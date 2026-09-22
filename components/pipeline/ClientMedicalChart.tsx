@@ -4,10 +4,15 @@ import { Pencil } from "lucide-react";
 
 export type ChartEditActions = Partial<Record<string, () => void>>;
 
-function ChartFieldLabel({ label, onEdit }: { label: string; onEdit?: () => void }) {
-  return onEdit ? <button type="button" aria-label={`Edit ${label}`} onClick={onEdit}
-    className="-my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
-    <span>{label}</span><Pencil size={14} aria-hidden="true" className="shrink-0 text-[#08735e]" />
+// The edit control stays visible (not hover-revealed) and names where it goes,
+// because every chart edit opens a canonical editor rather than editing inline.
+function ChartFieldLabel({ label, onEdit, editHint = "Edit" }: { label: string; onEdit?: () => void; editHint?: string }) {
+  return onEdit ? <button type="button" aria-label={`Edit ${label}`} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
+    className="group -my-3 inline-flex min-h-11 max-w-full flex-wrap items-center gap-x-2.5 gap-y-1 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
+    <span>{label}</span>
+    <span aria-hidden="true" className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold leading-4 text-[#0a6a58] underline-offset-2 group-hover:underline">
+      <Pencil size={12} className="shrink-0" />{editHint}
+    </span>
   </button> : label;
 }
 
@@ -30,18 +35,18 @@ export default function ClientMedicalChart({
       </ClientChartHeader>
 
       <ChartGrid ariaLabel="Client identity" columns="identity">
-        {chart.identity.map((fact) => <ChartCell key={fact.label} fact={fact} onEdit={editActions?.[fact.label]} />)}
+        {chart.identity.map((fact) => <ChartCell key={fact.label} fact={fact} onEdit={editActions?.[fact.label]} editHint="Edit in intake" />)}
       </ChartGrid>
 
       <ChartBand title="Clinical priorities">
         <ChartGrid ariaLabel="Clinical priorities" columns="priorities">
-          {chart.priorities.map((fact) => <ChartCell key={fact.label} fact={fact} multiline onEdit={editActions?.[fact.label]} />)}
+          {chart.priorities.map((fact) => <ChartCell key={fact.label} fact={fact} multiline onEdit={editActions?.[fact.label]} editHint="Edit in intake" />)}
         </ChartGrid>
       </ChartBand>
 
       <ChartBand title="Care and support">
         <ChartGrid ariaLabel="Care and support" columns="care">
-          {chart.care.map((fact) => <ChartCell key={fact.label} fact={fact} onEdit={editActions?.[fact.label]} />)}
+          {chart.care.map((fact) => <ChartCell key={fact.label} fact={fact} onEdit={editActions?.[fact.label]} editHint="Edit in intake" />)}
         </ChartGrid>
       </ChartBand>
 
@@ -108,27 +113,32 @@ export function ChartGrid({
   return <dl aria-label={ariaLabel} className={`grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
-export function ChartCell({ fact, multiline = false, onEdit }: { fact: ClientChartFact; multiline?: boolean; onEdit?: () => void }) {
+function chartCellSpan(fact: ClientChartFact, multiline: boolean) {
+  if (fact.span === "wide") return "col-span-2";
+  return multiline && (fact.value.length > 160 || fact.label === "Medications on record") ? "lg:col-span-2" : "";
+}
+
+export function ChartCell({ fact, multiline = false, onEdit, editHint }: { fact: ClientChartFact; multiline?: boolean; onEdit?: () => void; editHint?: string }) {
   const missing = fact.value === "Not documented";
-  const span = fact.span === "wide" ? "col-span-2" : multiline && (fact.value.length > 160 || fact.label === "Medications on record") ? "lg:col-span-2" : "";
+  const span = chartCellSpan(fact, multiline);
   return (
     <div data-chart-field={fact.label} className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
-      <dt className="text-[13px] font-semibold leading-5 text-[#59675f]"><ChartFieldLabel label={fact.label} onEdit={onEdit} /></dt>
-      <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? "text-[#865e20]" : "text-[#18211d]"}`}>
+      <dt className="text-[13px] font-semibold leading-5 text-[#59675f]"><ChartFieldLabel label={fact.label} onEdit={onEdit} editHint={editHint} /></dt>
+      <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? fact.required ? "text-[#865e20]" : "text-[#68716d]" : "text-[#18211d]"}`}>
         {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}
       </dd>
     </div>
   );
 }
 
-export function ChartFacts({ facts, className = "", editActions }: { facts: { label: string; value: string | number | null; onEdit?: () => void }[]; className?: string; editActions?: ChartEditActions }) {
+export function ChartFacts({ facts, className = "", editActions, editHint }: { facts: { label: string; value: string | number | null; onEdit?: () => void }[]; className?: string; editActions?: ChartEditActions; editHint?: string }) {
   return <dl className={`grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 ${className}`}>
     {facts.map((fact, index) => {
       const value = String(fact.value ?? "").trim();
       const narrative = value.length > 160 || value.includes("\n");
       return <div key={`${index}:${fact.label}`} data-chart-fact={fact.label} className={`min-w-0 ${narrative ? "sm:col-span-2" : ""}`}>
-        <dt className="text-[13px] font-semibold leading-5 text-[#59675f]"><ChartFieldLabel label={fact.label} onEdit={fact.onEdit ?? editActions?.[fact.label]} /></dt>
-        <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? "text-[#18211d]" : "text-[#865e20]"}`}><ReadableChartText value={value || "Not reported"} /></dd>
+        <dt className="text-[13px] font-semibold leading-5 text-[#59675f]"><ChartFieldLabel label={fact.label} onEdit={fact.onEdit ?? editActions?.[fact.label]} editHint={editHint} /></dt>
+        <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? "text-[#18211d]" : "text-[#68716d]"}`}><ReadableChartText value={value || "Not reported"} /></dd>
       </div>;
     })}
   </dl>;

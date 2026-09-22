@@ -32,6 +32,7 @@ import { assessmentToolSections, type AssessmentToolSection } from "@/lib/assess
 import {
   pushPipelineHistory,
   replacePipelineHistory,
+  returnToPreviousPipelineEntry,
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
 import { loadPipelineWorkspaceResumeLocation, recordLastPipelineWorkspace } from "@/lib/pipeline/work-continuity-client";
@@ -238,14 +239,13 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     if (nextScreen === "operations" && reportAccess !== true) return;
     const requestId = ++navigationRequestRef.current;
     const sourceLocation = `${window.location.pathname}${window.location.search}`;
-    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume;
+    // A requested missing field is a deliberate target; saved positions only fill in when none is named.
+    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume && !location?.intakeField;
     const savedLocation = shouldResume
       ? await loadPipelineWorkspaceResumeLocation(referral!.id).catch(() => undefined)
       : undefined;
     if (requestId !== navigationRequestRef.current || sourceLocation !== `${window.location.pathname}${window.location.search}`) return;
-    const workspaceLocation = assessmentAction
-      ? { ...(savedLocation?.view === "assessment" ? savedLocation : {}), view: "assessment" as const, assessmentMode: undefined, ...(assessmentAction === "review" ? { assessmentMode: "review" as const } : {}) }
-      : defaultWorkspaceLocation(savedLocation ?? location);
+    const workspaceLocation = navigationAssessmentLocation(savedLocation, location, assessmentAction);
     setEntryBriefing(null);
     setSearchOpen(false);
     const params = workspaceDestinationParams(activeSearchParams.toString(), nextScreen, referral, clientId, workspaceLocation);
@@ -377,7 +377,10 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   } else if (screen === "profile" && selectedClientId) {
     const profileProps: ComponentProps<DeferredWorkSurfaces["ClientProfileView"]> = {
       residentKey: selectedClientId,
-      onBack: () => navigate("profiles"),
+      // Return to the originating directory entry (cabinet, filters, row); direct links land on all cabinets.
+      onBack: () => {
+        if (!returnToPreviousPipelineEntry((params) => getScreenFromParams(params) === "profiles")) void navigate("profiles");
+      },
       onOpenWorkspace: (referral) => navigate("packet", referral),
     };
     page = deferredWorkSurfaces ? <deferredWorkSurfaces.ClientProfileView {...profileProps} /> : <DeferredScreenLoading />;
@@ -583,4 +586,10 @@ function selectedRouteDetails(screen: PipelineScreen, activeSearchParams: URLSea
     ? getNewReferralDraftKey(activeSearchParams)
     : undefined;
   return { selectedClientId, routeReferral, newReferralDraftKey };
+}
+
+function navigationAssessmentLocation(savedLocation: PipelineWorkspaceLocation | undefined, location: PipelineWorkspaceLocation | undefined, assessmentAction: AssessmentEntryAction | undefined): PipelineWorkspaceLocation {
+  return assessmentAction
+      ? { ...(savedLocation?.view === "assessment" ? savedLocation : {}), view: "assessment" as const, assessmentMode: undefined, ...(assessmentAction === "review" ? { assessmentMode: "review" as const } : {}) }
+      : defaultWorkspaceLocation(savedLocation ?? location);
 }

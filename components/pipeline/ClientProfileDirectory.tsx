@@ -29,7 +29,7 @@ import { fetchCurrentPipelineUser, fetchPipelineJson, readPipelineJsonCache, get
 import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
-import { cancelPipelineWarmup, prefetchPipelineProfile } from "@/lib/pipeline/client-navigation";
+import { cancelPipelineWarmup, prefetchPipelineProfile, readPipelineHistoryContext, rememberPipelineHistoryContext } from "@/lib/pipeline/client-navigation";
 import { openClientChart } from "./client-chart-transition";
 import styles from "./ClientFolder.module.css";
 
@@ -43,11 +43,28 @@ type ClientDirectoryPayload = {
   freshness: ClinicalFreshness;
 };
 
-type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
-type SortOption = "name" | "recent_admission" | "pipeline_activity";
+const admissionFilters = ["any", "last_30_days", "last_3_months", "last_6_months", "last_12_months", "older_than_12_months", "missing"] as const;
+const sortOptions = ["name", "recent_admission", "pipeline_activity"] as const;
+type AdmissionFilter = typeof admissionFilters[number];
+type SortOption = typeof sortOptions[number];
 type DirectoryLayout = "cards" | "list";
+// Where a chart was opened from, kept on that directory history entry: tab-scoped,
+// viewer-scoped, and holding no clinical content. The anchor is the same profile key
+// the chart URL already carries. The name search is free text and stays out of it, so
+// after a reload the cabinet, filters and row return but the search box starts empty;
+// revisit only with a protected per-user store for it, never a URL or plain storage.
+type DirectoryReturn = {
+  viewer: string;
+  community: string;
+  admissionFilter: AdmissionFilter;
+  sort: SortOption;
+  displayLimit: number;
+  scrollTop: number;
+  anchor: string;
+};
 
 const directoryLayoutStorageKey = "pipeline:client-directory-layout";
+const directoryReturnHistoryKey = "pipelineClientDirectory";
 const PAGE_SIZE = 200;
 const DISPLAY_INCREMENT = 100;
 const MAX_DIRECTORY_PAGES = 50;
@@ -93,6 +110,32 @@ export default function ClientProfileDirectory({
   const directorySearchRef = useRef<HTMLInputElement>(null);
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
+  const viewer = useRef<string | undefined>(undefined);
+  const cabinetContentsRef = useRef<HTMLDivElement>(null);
+  const pendingReturn = useRef<DirectoryReturn | null>(null);
+  const [returnAnchor, setReturnAnchor] = useState(0);
+  const returnChecked = useRef(false);
+
+  // Activity re-runs this on every reveal, so returning by chart Back, browser
+  // Back/Forward, or a reload all re-anchor the originating row. Only a fresh
+  // mount rebuilds the cabinet and filters from history; the retained instance
+  // already holds them. Another viewer's saved context is never applied.
+  useEffect(() => {
+    const restoresList = !returnChecked.current;
+    returnChecked.current = true;
+    const saved = readDirectoryReturn();
+    if (!saved) return;
+    void fetchCurrentPipelineUser().then(({ user }) => {
+      if (directoryViewer(user) !== saved.viewer) return;
+      pendingReturn.current = saved;
+      setReturnAnchor((current) => current + 1);
+      if (!restoresList) return;
+      setAdmissionFilter(saved.admissionFilter);
+      setSort(saved.sort);
+      setDisplayLimit(saved.displayLimit);
+      setOpenCabinet({ community: saved.community });
+    }).catch(() => undefined);
+  }, []);
 
   useLayoutEffect(() => {
     if (profileOpener.current) {
@@ -153,6 +196,7 @@ export default function ClientProfileDirectory({
         try {
           const identity = await fetchCurrentPipelineUser();
           assertDirectoryContext(controller.signal, generation);
+          viewer.current = directoryViewer(identity.user);
           const cacheKey = directoryCacheKey(identity.user?.id ?? identity.user?.email, normalizedQuery);
           const bypassCache = forceReload.current || dataChanged;
           forceReload.current = false;
@@ -240,6 +284,25 @@ export default function ClientProfileDirectory({
     .filter((client) => admissionFilter === "any" || matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf))
     .sort((left, right) => compareDirectoryClients(left, right, sort));
   const visibleClients = cabinetClients.slice(0, displayLimit);
+
+  // Restored return: once the originating row renders, put it back where it was.
+  // A removed or now-filtered client leaves the cabinet itself focused.
+  useLayoutEffect(() => {
+    const saved = pendingReturn.current;
+    const contents = cabinetContentsRef.current;
+    if (!saved || !openCabinet || !contents) return;
+    const row = contents.querySelector<HTMLElement>(`[data-client-key="${CSS.escape(saved.anchor)}"] button`);
+    if (!row) {
+      if (!isLoading && !isCompletingRoster) pendingReturn.current = null;
+      return;
+    }
+    pendingReturn.current = null;
+    contents.scrollTop = saved.scrollTop;
+    row.focus({ preventScroll: true });
+    const bounds = row.getBoundingClientRect();
+    const visible = contents.getBoundingClientRect();
+    if (bounds.top < visible.top || bounds.bottom > visible.bottom) row.scrollIntoView({ block: "nearest" });
+  }, [openCabinet, visibleClients, isLoading, isCompletingRoster, returnAnchor]);
   const hasCabinetFilters = admissionFilter !== "any" || sort !== "name";
   const clientCountLabel = () => {
     return isLoading && clients.length === 0
@@ -257,6 +320,27 @@ export default function ClientProfileDirectory({
       ? "Live census information is temporarily unavailable. Referral records remain available."
       : "";
 
+  const openProfile = (client: DirectoryClient, opener: HTMLButtonElement) => {
+    const key = client.profile_key ?? client.canonical_client_id;
+    profileOpener.current = opener;
+    const currentViewer = viewer.current ?? directoryViewer(readCachedPipelineSessionUser());
+    rememberPipelineHistoryContext(directoryReturnHistoryKey, openCabinet && currentViewer ? {
+      viewer: currentViewer,
+      community: openCabinet.community,
+      admissionFilter,
+      sort,
+      displayLimit,
+      scrollTop: cabinetContentsRef.current?.scrollTop ?? 0,
+      anchor: key,
+    } satisfies DirectoryReturn : undefined);
+    onOpenProfile(key);
+  };
+
+  const closeCabinet = () => {
+    rememberPipelineHistoryContext(directoryReturnHistoryKey, undefined);
+    setOpenCabinet(null);
+  };
+
   const clearFilters = () => {
     setAdmissionFilter("any");
     setSort("name");
@@ -270,10 +354,7 @@ export default function ClientProfileDirectory({
             <div role="list" aria-label="Matching client files" className="grid gap-6 lg:grid-cols-2">
               {matchingClients.slice(0, displayLimit).map((client) => (
                 <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                  <ClientDirectoryCard client={client} layout="cards" onOpen={(opener) => {
-                    profileOpener.current = opener;
-                    onOpenProfile(client.profile_key ?? client.canonical_client_id);
-                  }} />
+                  <ClientDirectoryCard client={client} layout="cards" onOpen={(opener) => openProfile(client, opener)} />
                 </div>
               ))}
             </div>
@@ -366,11 +447,11 @@ export default function ClientProfileDirectory({
       {openCabinet ? <section ref={cabinetRef} tabIndex={-1} aria-label={`${openCabinet.community} file cabinet`} className={styles.cabinetDrawer} onKeyDown={(event) => {
         // Native pickers own Escape, including the event that dismisses their menu.
         if (event.target instanceof Element && event.target.closest("select")) return;
-        if (event.key === "Escape") { event.stopPropagation(); setOpenCabinet(null); }
+        if (event.key === "Escape") { event.stopPropagation(); closeCabinet(); }
       }}>
         <div className={styles.cabinetToolbar}>
           <div className={styles.cabinetHeading}>
-            <button type="button" aria-label="Back to cabinets" onClick={() => setOpenCabinet(null)} className={styles.cabinetBack}><ArrowLeft size={18} aria-hidden="true" /><span>Cabinets</span></button>
+            <button type="button" aria-label="Back to cabinets" onClick={closeCabinet} className={styles.cabinetBack}><ArrowLeft size={18} aria-hidden="true" /><span>Cabinets</span></button>
             <div className={styles.cabinetTitle}><h2>{openCabinet.community}</h2><span aria-live="polite" className="relative">{isLoading ? "Loading clients…" : countNoun(cabinetClients.length, "client")}<FeedbackCue value={`${admissionFilter}:${sort}:${displayLimit}`} /></span></div>
           </div>
           <DirectoryLayoutToggle layout={layout} onChange={selectLayout} />
@@ -403,7 +484,7 @@ export default function ClientProfileDirectory({
           </section>
           </div>
         </div>
-        <div className={styles.cabinetContents}>
+        <div ref={cabinetContentsRef} className={styles.cabinetContents}>
           {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
           {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
@@ -411,11 +492,8 @@ export default function ClientProfileDirectory({
           {layout === "list" ? <div aria-hidden="true" className={styles.listHeading}><span>Client</span><span>Community</span><span>Unit</span><span>Admitted</span><span>Care level</span><span /></div> : null}
           <div role="list" aria-label={`${openCabinet.community} clients`} className={layout === "cards" ? styles.directoryStack : "divide-y divide-[#dde3de] border-b border-[#dde3de]"}>
             {visibleClients.map((client) => (
-              <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
-                <ClientDirectoryCard client={client} layout={layout} onOpen={(opener) => {
-                  profileOpener.current = opener;
-                  onOpenProfile(client.profile_key ?? client.canonical_client_id);
-                }} />
+              <div role="listitem" key={client.profile_key ?? client.canonical_client_id} data-client-key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
+                <ClientDirectoryCard client={client} layout={layout} onOpen={(opener) => openProfile(client, opener)} />
               </div>
             ))}
           </div>
@@ -428,6 +506,27 @@ export default function ClientProfileDirectory({
       </section> : null}
     </main>
   );
+}
+
+function directoryViewer(user: { id?: string; email?: string } | null | undefined) {
+  return user?.id ?? user?.email;
+}
+
+function readDirectoryReturn(): DirectoryReturn | null {
+  const value = readPipelineHistoryContext(directoryReturnHistoryKey) as Partial<DirectoryReturn> | undefined;
+  if (!value || typeof value !== "object") return null;
+  const { viewer, community, anchor, admissionFilter, sort, displayLimit, scrollTop } = value;
+  if (typeof viewer !== "string" || typeof community !== "string" || typeof anchor !== "string") return null;
+  if (!admissionFilters.includes(admissionFilter as AdmissionFilter) || !sortOptions.includes(sort as SortOption)) return null;
+  return {
+    viewer,
+    community,
+    anchor,
+    admissionFilter: admissionFilter as AdmissionFilter,
+    sort: sort as SortOption,
+    displayLimit: positiveDisplayLimit(displayLimit),
+    scrollTop: nonnegativeScrollTop(scrollTop),
+  };
 }
 
 function directoryCacheKey(userId: string | undefined, query: string) {
@@ -554,9 +653,9 @@ function DirectoryNotice({ children }: { children: ReactNode }) {
 
 function DirectoryError({ message, onRetry, hasPartialResults }: { message: string; onRetry: () => void; hasPartialResults: boolean }) {
   return (
-    <div role="alert" className="flex items-start justify-between gap-4 border-b border-[#e7c8c2] py-3 text-[12px] leading-5 text-[#713e35]">
+    <div role="alert" className="flex items-start justify-between gap-4 border-b border-[#e7c8c2] py-3 text-[14px] leading-6 text-[#713e35]">
       <div><strong>{hasPartialResults ? "Some clients could not be loaded." : "The client directory could not be loaded."}</strong> {message}</div>
-      <button type="button" onClick={onRetry} className="shrink-0 font-black text-[#0c705f] hover:underline">Retry</button>
+      <button type="button" onClick={onRetry} className="pipeline-inline-action shrink-0 font-black text-[#0c705f] hover:underline">Retry</button>
     </div>
   );
 }
@@ -569,11 +668,7 @@ function ClientDirectoryCard({ client, layout, onOpen }: { client: DirectoryClie
   });
   const gender = resolveClientGender(client.gender);
   const community = resolveClientCommunity(client.current_community, client.community_names[0]);
-  const communityLabel = community || "—";
-  const unitLabel = client.unit || "—";
-  const admitted = client.admit_date ? formatDate(client.admit_date) : null;
-  const admissionLabel = admitted || "—";
-  const careLabel = client.care_level || "—";
+  const { communityLabel, unitLabel, admitted, admissionLabel, careLabel } = directoryCardLabels(client, community);
 
   return (
     <button
@@ -756,4 +851,21 @@ function formatDate(value: string) {
   return Number.isNaN(parsed.getTime())
     ? value
     : parsed.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function positiveDisplayLimit(value: number | undefined) {
+  return Number.isInteger(value) && value! > 0 ? value! : DISPLAY_INCREMENT;
+}
+function nonnegativeScrollTop(value: number | undefined) {
+  return typeof value === "number" && value > 0 ? value : 0;
+}
+
+function directoryCardLabels(client: DirectoryClient, community: string | null) {
+  const communityLabel = community || "—";
+  const unitLabel = client.unit || "—";
+  const admitted = client.admit_date ? formatDate(client.admit_date) : null;
+  const admissionLabel = admitted || "—";
+  const careLabel = client.care_level || "—";
+
+  return { communityLabel, unitLabel, admitted, admissionLabel, careLabel };
 }

@@ -154,3 +154,190 @@ test.describe("recorded motion preview", () => {
     await expect(page.getByTestId("client-profile-folder")).toBeVisible();
   });
 });
+
+test.describe("return to the originating client list", () => {
+  const cabinet = "A & A Health Services San Pablo";
+  const roster = Array.from({ length: 40 }, (_, index) => ({
+    ...clientDirectoryFixture.clients[0],
+    canonical_client_id: `client-roster-${index}`,
+    profile_key: `roster-${index}`,
+    display_name: `Morgan ${["Ash", "Bell", "Cald", "Dun", "Ever", "Fen", "Gale", "Hart", "Irv", "Jun"][index % 10]}${["by", "ton", "wood", "mont"][Math.floor(index / 10)]}`,
+    // Even rows were admitted within three months of the 2026-08-07 census.
+    admit_date: new Date(Date.UTC(index % 2 ? 2025 : 2026, 5, 1 + index)).toISOString().slice(0, 10),
+  }));
+  const otherCabinet = [{ ...clientDirectoryFixture.clients[0], canonical_client_id: "client-bayview", profile_key: "bayview", display_name: "Jordan Pike", current_community: "Bayview Terrace", community_names: ["Bayview Terrace"] }];
+
+  async function rosterFixtures(page: Page) {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.route("**/api/profiles/**", (route) => route.fulfill({ json: unifiedProfileFixture }));
+    await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: {
+      ...clientDirectoryFixture, clients: [...roster, ...otherCabinet], total: roster.length + otherCabinet.length, next_cursor: null,
+    } }));
+  }
+
+  const listScrollTop = (page: Page) => page.getByRole("list", { name: `${cabinet} clients` }).evaluate((list) => {
+    let node: HTMLElement | null = list.parentElement;
+    while (node && getComputedStyle(node).overflowY !== "auto") node = node.parentElement;
+    return node?.scrollTop ?? -1;
+  });
+
+  /** Filtered, sorted, searched, scrolled List; opens the 15th row and returns its name and scroll offset. */
+  async function openChartFromFilteredList(page: Page, query?: string) {
+    await page.goto("/?screen=profiles");
+    await page.getByRole("button", { name: `Open ${cabinet} file cabinet`, exact: true }).click();
+    await page.getByRole("button", { name: "Show clients as a list", exact: true }).click();
+    await page.getByLabel("Filter profiles by admission date").selectOption("last_3_months");
+    await page.getByLabel("Sort clients", { exact: true }).selectOption("recent_admission");
+    if (query) {
+      const searched = page.waitForResponse((response) => new URL(response.url()).searchParams.get("q") === query);
+      await page.getByRole("textbox", { name: "Search this cabinet", exact: true }).fill(query);
+      await searched;
+    }
+    const rows = page.getByRole("list", { name: `${cabinet} clients` }).getByRole("button", { name: /^Open profile for / });
+    await expect(rows).toHaveCount(20);
+    const row = rows.nth(14);
+    await row.scrollIntoViewIfNeeded();
+    const scrollTop = await listScrollTop(page);
+    expect(scrollTop).toBeGreaterThan(200);
+    const name = (await row.getAttribute("aria-label"))!;
+    await row.click();
+    await expect(page).toHaveURL(/screen=profile&clientId=roster-/);
+    await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+    return { name, scrollTop };
+  }
+
+  async function expectOriginatingList(page: Page, origin: { name: string; scrollTop: number }, query = "") {
+    await expect(page).toHaveURL(/screen=profiles/);
+    await expect(page.getByRole("region", { name: `${cabinet} file cabinet`, exact: true })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Search this cabinet", exact: true })).toHaveValue(query);
+    await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue("last_3_months");
+    await expect(page.getByLabel("Sort clients", { exact: true })).toHaveValue("recent_admission");
+    await expect(page.getByRole("button", { name: "Show clients as a list", exact: true })).toHaveAttribute("aria-pressed", "true");
+    const row = page.getByRole("button", { name: origin.name, exact: true });
+    await expect(row).toBeFocused();
+    await expect(row).toBeInViewport({ ratio: 1 });
+    expect(Math.abs(await listScrollTop(page) - origin.scrollTop)).toBeLessThanOrEqual(2);
+  }
+
+  test("a filtered, scrolled List → chart → Back returns to the same cabinet, query, mode and row", async ({ page }) => {
+    await rosterFixtures(page);
+    const origin = await openChartFromFilteredList(page, "morgan");
+    await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+    await expectOriginatingList(page, origin, "morgan");
+
+    // Contextual Back is browser Back: Forward reopens the chart, Back returns to the same row.
+    await page.goForward();
+    await expect(page).toHaveURL(/screen=profile&clientId=roster-/);
+    await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+    await page.goBack();
+    await expectOriginatingList(page, origin, "morgan");
+    // Free-text searches never enter the URL or history state.
+    expect(page.url()).not.toContain("morgan");
+    expect(JSON.stringify(await page.evaluate(() => window.history.state))).not.toContain("morgan");
+
+    // All cabinets stays a separate explicit action, and it also gives up the saved return.
+    await page.getByRole("button", { name: "Back to cabinets", exact: true }).click();
+    await expect(page.getByRole("region", { name: `${cabinet} file cabinet`, exact: true })).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Search clients", exact: true })).toBeFocused();
+    await page.reload();
+    await expect(page.getByRole("button", { name: `Open ${cabinet} file cabinet`, exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: `${cabinet} file cabinet`, exact: true })).toHaveCount(0);
+  });
+
+  test("stacked Folders keep their positions and return focus to the opened folder", async ({ page }) => {
+    await rosterFixtures(page);
+    await page.goto("/?screen=profiles");
+    await page.getByRole("button", { name: `Open ${cabinet} file cabinet`, exact: true }).click();
+    const folders = page.getByRole("list", { name: `${cabinet} clients` }).getByRole("button", { name: /^Open profile for / });
+    await expect(folders).toHaveCount(40);
+    const folder = folders.nth(9);
+    await folder.scrollIntoViewIfNeeded();
+    const scrollTop = await listScrollTop(page);
+    const name = (await folder.getAttribute("aria-label"))!;
+    // Stacked folders overlap by design: the visible name tab is what a person clicks.
+    await folder.locator(":scope > strong").click();
+    await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+    await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+    const opened = page.getByRole("button", { name, exact: true });
+    await expect(opened).toBeFocused();
+    await expect(opened.locator(":scope > strong")).toBeInViewport({ ratio: 1 });
+    expect(Math.abs(await listScrollTop(page) - scrollTop)).toBeLessThanOrEqual(2);
+  });
+
+  test("reloading the chart still returns to the originating cabinet, filters, mode and row", async ({ page }) => {
+    await rosterFixtures(page);
+    const origin = await openChartFromFilteredList(page, "morgan");
+    await page.reload();
+    await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+    await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+    // The search text was memory-only; everything else came from this tab's history entry.
+    await expectOriginatingList(page, origin);
+  });
+
+  test("a direct chart link falls back to all cabinets", async ({ page }) => {
+    await rosterFixtures(page);
+    await page.goto("/?screen=profile&clientId=roster-4");
+    await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+    await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+    await expect(page).toHaveURL(/screen=profiles/);
+    await expect(page.getByRole("button", { name: `Open ${cabinet} file cabinet`, exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: `${cabinet} file cabinet`, exact: true })).toHaveCount(0);
+  });
+
+  test("another signed-in identity never restores the previous viewer's list", async ({ page }) => {
+    await rosterFixtures(page);
+    await openChartFromFilteredList(page);
+    await page.route("**/api/auth/me", (route) => route.fulfill({ json: {
+      user: { id: "synthetic-second-viewer", name: "Second viewer", email: "second@example.invalid", roles: ["viewer"] },
+    } }));
+    await page.reload();
+    await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+    await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
+    await expect(page).toHaveURL(/screen=profiles/);
+    await expect(page.getByRole("button", { name: `Open ${cabinet} file cabinet`, exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: `${cabinet} file cabinet`, exact: true })).toHaveCount(0);
+  });
+});
+
+test.describe("stay history counts", () => {
+  type ProfileFixture = typeof unifiedProfileFixture & {
+    client: { resident_episode_history: { discharge_date: string | null }[] };
+    history: Record<string, unknown>;
+  };
+  const chartFixture = () => structuredClone(unifiedProfileFixture) as ProfileFixture;
+  const openChart = async (page: Page, profile: unknown) => {
+    await page.route("**/api/profiles/**", (route) => route.fulfill({ json: profile }));
+    await page.goto("/?screen=profile&clientId=transition-client");
+    await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+  };
+
+  test("reports two governed stays with the current one named", async ({ page }) => {
+    await openChart(page, unifiedProfileFixture);
+    await expect(page.getByTestId("client-stay-count")).toHaveText("2 recorded stays · 1 current");
+  });
+
+  test("says one current stay with no previous stays instead of a bare count", async ({ page }) => {
+    const fixture = chartFixture();
+    fixture.client.resident_episode_history = fixture.client.resident_episode_history.filter((episode) => !episode.discharge_date);
+    await openChart(page, fixture);
+    await expect(page.getByTestId("client-stay-count")).toHaveText("1 current stay · no previous stays recorded");
+  });
+
+  test("an unreadable placement history is unknown, never zero stays", async ({ page }) => {
+    const fixture = chartFixture();
+    fixture.client.resident_episode_history = [];
+    fixture.history = { ...fixture.history, status: "unavailable", warning: "Placement history is temporarily unavailable." };
+    await openChart(page, fixture);
+    await expect(page.getByTestId("client-stay-count")).toHaveText("Stay history unavailable");
+    await expect(page.getByText("Placement history is temporarily unavailable.")).toBeVisible();
+    await expect(page.getByText(/recorded stay/)).toHaveCount(0);
+  });
+
+  test("a disagreeing placement history source is explained, not merged", async ({ page }) => {
+    const fixture = chartFixture();
+    fixture.history = { ...fixture.history, status: "available", episode_count: 5, current_episode_count: 1, warning: "Imported placement history." };
+    await openChart(page, fixture);
+    await expect(page.getByTestId("client-stay-count")).toHaveText("2 recorded stays · 1 current");
+    await expect(page.getByText("Placement history lists 5 stays; the stays below come from the governed client record.")).toBeVisible();
+  });
+});

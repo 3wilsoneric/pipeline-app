@@ -16,7 +16,10 @@ type Props = {
 export default function ReferralAdmissionPanel({ referral, packetSentAt, admissionDate, disabled, onAdmissionDateChange, onSaveAdmissionDate }: Props) {
   const admitted = referral.stage === "Accepted / Admitted";
   const inputClass = "mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]";
-  const buttonClass = "min-h-10 border border-[#0f8b73] px-3 py-2 text-[12px] font-semibold text-[#0f6f5e] disabled:opacity-50 focus-visible:outline-[#0f8b73]";
+  // After acceptance the packet review is this page's one main action until it has been sent.
+  const buttonClass = packetSentAt
+    ? "min-h-10 border border-[#0f8b73] px-3 py-2 text-[12px] font-semibold text-[#0f6f5e] disabled:opacity-50 focus-visible:outline-[#0f8b73]"
+    : "min-h-10 rounded-md bg-[#08775e] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#065f4b] disabled:cursor-not-allowed disabled:bg-[#e8ecea] disabled:text-[#5b6660] focus-visible:outline-2 focus-visible:outline-offset-2";
   return <section aria-label="Admission follow-through" className="mb-4 space-y-4 border-b border-[#e3e6e4] pb-4">
     <div className="flex flex-wrap items-end gap-3">
       <label className="block min-w-[180px] flex-1 text-[11px] font-bold text-[#303b34]" htmlFor="workflow-admit-date">

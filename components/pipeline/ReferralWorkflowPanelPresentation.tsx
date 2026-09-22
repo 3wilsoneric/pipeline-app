@@ -6,9 +6,14 @@ import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import ReferralClientActivationPanel from "@/components/pipeline/ReferralClientActivationPanel";
 import {
   admissionRequirementSummary,
+  decisionActionState,
+  decisionProgressSteps,
   deriveWorkflowPanelView,
+  formatRecordedAt,
   formatRequirementStatus,
   handoffDescription,
+  hasLegacyDecisionSubmission,
+  recommendationPresentation,
   requirementDetailPresentation,
   requirementGroups,
   requirementStatuses,
@@ -16,11 +21,12 @@ import {
   resolvedRequirementCount,
   terminalStageMessage,
   transitionActionLabel,
+  type DecisionProgressStep,
   type PendingWorkflowDetail,
   type RequirementGroupPresentation,
   type WorkflowResponse,
 } from "@/components/pipeline/referral-workflow-panel-model";
-import { referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
+import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { AdmissionRequirement, AssessmentRecommendation, EhrHandoffStatus, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import styles from "./ReferralDecision.module.css";
@@ -44,7 +50,7 @@ type HandoffActionProps = {
 const handoffContentByStatus: Record<EhrHandoffStatus, (props: HandoffActionProps) => ReactNode> = {
   failed: ({ workflow, busy, ehrIsBlocked, onUpdateHandoff }) => <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("retry")}>Retry handoff</PrimaryButton>,
   queued: ({ workflow, busy, onRecordHandoffSent, onOpenHandoffFailure }) => <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={onRecordHandoffSent}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={onOpenHandoffFailure}>Record failed</SecondaryButton></>,
-  sent: () => <div className="space-y-2"><div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div><p className="text-[10px] leading-4 text-[#68716c]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div>,
+  sent: () => <div className="space-y-2"><div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div><p className="text-[10px] leading-4 text-[#68716c]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div>,
   ready: (props) => <QueueHandoffButton {...props} />,
   not_ready: (props) => <QueueHandoffButton {...props} />,
 };
@@ -134,17 +140,10 @@ export function ReferralWorkflowPanelPresentation({
             </div>
           ) : null}
         </div>
-        <DecisionContext workflow={workflow} view={view} busy={busy} recommendation={recommendation} onOpenAssessment={onOpenAssessment} />
+        <DecisionContext workflow={workflow} busy={busy} recommendation={recommendation} onOpenAssessment={onOpenAssessment} />
       </div>
       <details className={styles.details}>
-          <summary className="cursor-pointer py-4 text-[13px] font-semibold text-[#53615a] focus-visible:outline-2">Admission details</summary>
-          <label className="mb-4 flex flex-wrap items-center gap-3 text-[13px] font-medium text-[#59645e]">Workflow stage
-            <select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-10 border border-[#c9ceca] bg-white px-3 text-[#303b34]">
-              {referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage || (item.stage === "Declined" && workflow.decision?.outcome === "declined")).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}
-            </select>
-            <span>Revisit earlier work or move ahead as needed.</span>
-          </label>
-          <CurrentGateCard workflow={workflow} view={view} busy={busy} manualIntakeReason={manualIntakeReason} onManualIntakeReasonChange={onManualIntakeReasonChange} onSubmitTransition={onSubmitTransition} onAuthorizeManualIntake={onAuthorizeManualIntake} onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenFiles={onOpenFiles} />
+          <summary>Admission paperwork &amp; EHR handoff</summary>
           <WorkflowSecondaryColumn
             workflow={workflow}
             view={view}
@@ -156,6 +155,17 @@ export function ReferralWorkflowPanelPresentation({
             onOpenProfile={onOpenProfile}
           />
       </details>
+      <details className={styles.details} data-admin-controls>
+          <summary>Administrative controls</summary>
+          <p className={styles.adminNote}>For authorized staff. These change the referral&apos;s stage or grant a manual intake exception. They do not record the decision, sign the assessment, or send anything.</p>
+          <label className="mb-4 flex flex-wrap items-center gap-3 text-[14px] font-medium text-[#59645e]">Referral stage
+            <select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-11 border border-[#c9ceca] bg-white px-3 text-[#303b34]">
+              {referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage || (item.stage === "Declined" && workflow.decision?.outcome === "declined")).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}
+            </select>
+            <span>Changing the stage only moves the referral; nothing else is recorded.</span>
+          </label>
+          <CurrentGateCard workflow={workflow} view={view} busy={busy} manualIntakeReason={manualIntakeReason} onManualIntakeReasonChange={onManualIntakeReasonChange} onSubmitTransition={onSubmitTransition} onAuthorizeManualIntake={onAuthorizeManualIntake} onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenFiles={onOpenFiles} />
+      </details>
 
       {pendingDetail ? <WorkflowDetailDialog pending={pendingDetail} onConfirm={onConfirmDetail} onClose={onCloseDetail} /> : null}
     </section>
@@ -164,15 +174,14 @@ export function ReferralWorkflowPanelPresentation({
 
 type WorkflowView = ReturnType<typeof deriveWorkflowPanelView>;
 
-function DecisionContext({ workflow, view, busy, recommendation, onOpenAssessment }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onOpenAssessment"> & { view: WorkflowView }) {
+function DecisionContext({ workflow, busy, recommendation, onOpenAssessment }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onOpenAssessment">) {
   const outcome = workflow.decision?.outcome ?? recommendation.outcome;
-  const assessmentState = decisionAssessmentState(view, workflow);
   const next = decisionNextStep(outcome);
   return <aside className={styles.context} aria-label="Decision context">
     <div className={styles.client}><span>Client</span><h4>{workflow.referral.name || "Name not provided"}</h4><p>{workflow.referral.community || "Community not selected"}</p></div>
     <div className={styles.assessmentState}>
-      <span>Assessment</span><strong>{workflow.context.assessmentSigned ? <><CheckCircle2 size={18} aria-hidden="true" /> Signed</> : assessmentState}</strong>
-      {!workflow.context.assessmentSigned ? <p>Recording a decision does not sign the assessment.</p> : null}
+      <span id="decision-progress-heading">Where this referral stands</span>
+      <ol className={styles.progress} aria-labelledby="decision-progress-heading">{decisionProgressSteps(workflow).map((step) => <ProgressStep key={step.key} step={step} />)}</ol>
       <button type="button" disabled={Boolean(busy)} onClick={onOpenAssessment}>{decisionAssessmentAction(workflow)}<ArrowRight size={16} aria-hidden="true" /></button>
     </div>
     <div className={styles.consequence}><h4>{workflow.decision?.outcome === "declined" ? "Referral closed" : "What happens next"}</h4><p>{workflow.decision?.outcome === "declined" ? "The decision is in the activity history. No client handoff is needed." : next}</p></div>
@@ -208,16 +217,17 @@ function CurrentGateCard({
   if (workflow.decision?.outcome === "accepted") return null;
   if (workflow.context.assessmentSigned && !workflow.decision) return null;
   if (assessmentState && !workflow.decision) return null;
-  return (
-    <WorkflowCard title="Stage controls" detail={currentReferral.stage}>
-      {forwardTransition ? (
+  const renderTransition = () => (forwardTransition ? (
         forwardTransition.blockers.length > 0 ? (
           <div className="space-y-2">
             {forwardTransition.blockers.map((blocker) => <div key={blocker.code} className="text-[11px] leading-5 text-[#7a4c0d]">{blocker.label}</div>)}
             <div className="flex flex-wrap gap-2 pt-1"><SecondaryButton onClick={onOpenIntake}>Open intake</SecondaryButton><SecondaryButton onClick={onOpenFiles}>Open files</SecondaryButton><SecondaryButton onClick={onOpenAssessment}>Open assessment</SecondaryButton></div>
           </div>
-        ) : <div className="space-y-3">{forwardTransition.alerts?.length ? <div role="status" className="bg-[#f7faf9] px-3 py-2 text-[11px] leading-5 text-[#59645e]">{forwardTransition.alerts.map((alert) => <div key={alert.code}>{alert.label}</div>)}<div className="mt-1 font-bold">You can continue with these items unanswered.</div></div> : null}<PrimaryButton busy={busy === `transition:${forwardTransition.target}`} disabled={!workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</PrimaryButton></div>
-      ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>}
+        ) : <div className="space-y-3">{forwardTransition.alerts?.length ? <div role="status" className="bg-[#f7faf9] px-3 py-2 text-[14px] leading-6 text-[#59645e]">{forwardTransition.alerts.map((alert) => <div key={alert.code}>{alert.label}</div>)}<div className="mt-1 font-bold">You can continue with these items unanswered.</div></div> : null}<SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update} onClick={() => onSubmitTransition(forwardTransition.target)}>{transitionActionLabel(forwardTransition.target)}</SecondaryButton></div>
+      ) : <div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>);
+  return (
+    <WorkflowCard title="Stage and intake controls" detail={`Current stage: ${getStageLabel(currentReferral.stage)}`}>
+      {renderTransition()}
 
       {showManualIntake ? (
         <div className="mt-4 border-t border-[#e3e6e4] pt-4">
@@ -233,15 +243,16 @@ function CurrentGateCard({
 export function DecisionCard({ workflow, busy, recommendation, onRecommendationChange, onSubmitDecision }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onRecommendationChange" | "onSubmitDecision">) {
   if (workflow.decision) return <section className={styles.savedDecision} data-outcome={workflow.decision.outcome}>
     <RecordSummary title={workflow.decision.outcome === "accepted" ? "Accepted" : "Denied"} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} />
+    <RecommendationOnFile workflow={workflow} compact />
   </section>;
   const underReview = recommendation.outcome === "needs_more_information";
-  const legacySubmission = hasLegacyDecisionSubmission(workflow);
   const savedUnderReview = isSavedUnderReview(workflow, recommendation);
-  const decisionUnavailable = () => !workflow.capabilities.can_decide || !recommendation.outcome || (underReview && (!workflow.capabilities.can_recommend || !workflow.context.assessmentId || legacySubmission));
+  const action = decisionActionState(workflow, recommendation, Boolean(busy));
   return (
     <section className={styles.decisionCard}>
+      <RecommendationOnFile workflow={workflow} selected={recommendation.outcome} selectedNote={recommendation.reasonNote} />
       <fieldset disabled={!workflow.capabilities.can_decide || Boolean(busy)}>
-        <legend className="sr-only">Placement decision</legend>
+        <legend className={styles.legend}>Final decision</legend>
         <div className={styles.options}>
           {([{ value: "accept", label: "Accept", detail: "Proceed with placement", Icon: Check }, { value: "decline", label: "Deny", detail: "Close this referral", Icon: Minus }, { value: "needs_more_information", label: "Under review", detail: "Keep open for follow-up", Icon: Clock3 }] as const).map(({ Icon, ...option }) => (
             <label key={option.value} className={styles.option} data-outcome={option.value} data-selected={recommendation.outcome === option.value}>
@@ -252,15 +263,33 @@ export function DecisionCard({ workflow, busy, recommendation, onRecommendationC
         </div>
       </fieldset>
       <WorkflowTextArea label={underReview ? "What needs review?" : "Reason (optional)"} value={recommendation.reasonNote} disabled={!workflow.capabilities.can_decide || Boolean(busy)} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
-      {underReview && legacySubmission ? <p className={styles.help}>This earlier submission is preserved. Choose Accept or Deny when ready.</p> : null}
-      {underReview && !workflow.context.assessmentId ? <p className={styles.help}>Open the assessment before saving Under review.</p> : null}
-      {!workflow.capabilities.can_decide ? <p className={styles.help}>You can view this decision, but your account cannot record it.</p> : null}
       <div className={styles.decisionActions}>
-        <p>{savedUnderReview ? "Under review saved." : recommendation.outcome ? "Saved only when you record it. No email will be sent." : "Select an outcome to continue."}</p>
-        {!savedUnderReview ? <PrimaryButton busy={Boolean(busy)} disabled={decisionUnavailable()} onClick={onSubmitDecision}>{underReview ? "Save under review" : "Record decision"}<ArrowRight size={18} aria-hidden="true" /></PrimaryButton> : null}
+        <p id="decision-action-hint" data-blocked={!savedUnderReview && action.disabled && !busy ? "true" : undefined}>{savedUnderReview ? "Under review saved. Edit the note to save an update." : action.hint}</p>
+        {!savedUnderReview ? <PrimaryButton busy={Boolean(busy)} disabled={action.disabled} describedBy="decision-action-hint" onClick={onSubmitDecision}>{underReview ? "Save under review" : "Record decision"}<ArrowRight size={18} aria-hidden="true" /></PrimaryButton> : null}
       </div>
     </section>
   );
+}
+
+function RecommendationOnFile({ workflow, selected, selectedNote, compact = false }: { workflow: WorkflowResponse; selected?: RecommendationDraft["outcome"]; selectedNote?: string; compact?: boolean }) {
+  const presentation = recommendationPresentation(workflow);
+  if (!presentation) {
+    return compact ? null : <p className={styles.noRecommendation}>No recommendation is on file. The assessor records one in the assessment review.</p>;
+  }
+  const guidance = recommendationGuidance(presentation.outcome, selected);
+  return <section className={styles.recommendation} data-compact={compact || undefined} aria-label="Recommendation on file">
+    <span className={styles.recommendationLabel}>Recommendation on file</span>
+    <p className={styles.recommendationOutcome}><strong>{presentation.outcomeLabel}</strong><span>{presentation.attribution}</span></p>
+    {presentation.earlierAssessment ? <p className={styles.recommendationDetail}>Recorded for an earlier assessment.</p> : null}
+    {showRecommendationNote(presentation.note, compact, selectedNote) ? <p className={styles.recommendationNote}>{presentation.note}</p> : null}
+    {presentation.review ? <p className={styles.recommendationDetail}>{presentation.review}</p> : null}
+    {!compact && !hasLegacyDecisionSubmission(workflow) ? <p className={styles.recommendationDetail}>{guidance}</p> : null}
+  </section>;
+}
+
+function ProgressStep({ step }: { step: DecisionProgressStep }) {
+  const Icon = step.state === "done" ? CheckCircle2 : step.state === "not_needed" ? Minus : Circle;
+  return <li data-state={step.state}><Icon size={17} aria-hidden="true" /><span><strong>{step.label}</strong><span>{step.detail}</span></span></li>;
 }
 
 function WorkflowSecondaryColumn({ workflow, view, busy, onUpdateRequirement, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure, onOpenProfile }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "onUpdateRequirement" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure" | "onOpenProfile"> & { view: WorkflowView }) {
@@ -350,8 +379,8 @@ function RequirementGroup({ group, disabled, onChange }: { group: RequirementGro
   );
 }
 
-function PrimaryButton({ busy, disabled, onClick, children }: { busy?: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" disabled={disabled || busy} onClick={onClick} className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-[#08775e] px-4 text-[13px] font-semibold text-white hover:bg-[#065f4b] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
+function PrimaryButton({ busy, disabled, describedBy, onClick, children }: { busy?: boolean; disabled?: boolean; describedBy?: string; onClick: () => void; children: ReactNode }) {
+  return <button type="button" disabled={disabled || busy} aria-describedby={describedBy} onClick={onClick} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md bg-[#08775e] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#065f4b] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
 }
 
 function SecondaryButton({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: ReactNode }) {
@@ -363,7 +392,7 @@ function WorkflowTextArea({ label, value, disabled, onChange }: { label: string;
 }
 
 function RecordSummary({ title, actor, date, note }: { title: string; actor: string; date: string; note: string }) {
-  return <div><span className={styles.savedLabel}><CheckCircle2 size={18} aria-hidden="true" /> Decision recorded</span><h4>{title}</h4><p className={styles.recordedBy}>{actor} · {new Date(date).toLocaleString()}</p>{note ? <p className={styles.recordedNote}>{note}</p> : null}</div>;
+  return <div><span className={styles.savedLabel}><CheckCircle2 size={18} aria-hidden="true" /> Decision recorded</span><h4>{title}</h4><p className={styles.recordedBy}>{actor || "Name not recorded"} · {formatRecordedAt(date)}</p>{note ? <p className={styles.recordedNote}>{note}</p> : null}</div>;
 }
 
 function decisionNextStep(outcome: string) {
@@ -377,8 +406,7 @@ function decisionNextStep(outcome: string) {
 }
 
 function decisionRecordState(workflow: WorkflowResponse) {
-  if (workflow.recommendation?.outcome === "needs_more_information") return "Under review";
-  return workflow.recommendation ? "Recommendation only" : "Not recorded";
+  return workflow.recommendation?.outcome === "needs_more_information" ? "Under review" : "Decision not recorded";
 }
 
 function showDecisionDone(workflow: WorkflowResponse) {
@@ -387,10 +415,6 @@ function showDecisionDone(workflow: WorkflowResponse) {
 
 function isSavedUnderReview(workflow: WorkflowResponse, recommendation: RecommendationDraft) {
   return recommendation.outcome === "needs_more_information" && workflow.recommendation?.outcome === recommendation.outcome && workflow.recommendation.reasonNote === recommendation.reasonNote && workflow.recommendation.reasonCode === recommendation.reasonCode;
-}
-
-function decisionAssessmentState(view: WorkflowView, workflow: WorkflowResponse) {
-  return view.assessmentState || (workflow.context.assessmentStarted ? "In progress" : workflow.context.assessmentId ? "In preparation" : "Not started");
 }
 
 function decisionAssessmentAction(workflow: WorkflowResponse) {
@@ -402,15 +426,21 @@ function recordedDecisionAttributes(workflow: WorkflowResponse) {
   return workflow.decision ? { tabIndex: -1, role: "group", "aria-label": "Recorded decision" } : {};
 }
 
-function hasLegacyDecisionSubmission(workflow: WorkflowResponse) {
-  return Boolean(workflow.review && workflow.review.assessmentId === workflow.context.assessmentId);
-}
-
 function DecisionPageHeading({ workflow }: { workflow: WorkflowResponse }) {
   return (
       <header className={styles.pageHeading}>
-        <div><h3>Placement decision</h3><p>{workflow.decision ? "Saved in the referral's activity history." : "Record the outcome for this referral."}</p></div>
+        <div><h3>Placement decision</h3><p>{workflow.decision ? "Saved in the referral's activity history." : "Review the recommendation and context, then record the final outcome."}</p></div>
         {!workflow.decision ? <span className={styles.recordState}>{decisionRecordState(workflow)}</span> : null}
       </header>
   );
+}
+
+function recommendationGuidance(outcome: RecommendationDraft["outcome"], selected: RecommendationDraft["outcome"] | undefined) {
+  return outcome === selected
+    ? "Pre-selected below. It becomes final only when you record the decision."
+    : selected ? "Your selection below differs from this recommendation." : "Choose the final decision below.";
+}
+
+function showRecommendationNote(note: string | null | undefined, compact: boolean, selectedNote: string | undefined) {
+  return note && !compact && note !== selectedNote;
 }

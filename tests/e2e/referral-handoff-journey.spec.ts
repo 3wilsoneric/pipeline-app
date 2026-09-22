@@ -49,11 +49,11 @@ for (const width of [1440, 834, 390]) {
     await expectStage("Chart");
     await intake.locator('[data-workspace-field="email"] input').fill("updated@example.invalid");
     await page.getByRole("button", { name: "Done", exact: true }).click();
-    await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("updated@example.invalid");
     await page.reload();
-    await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("updated@example.invalid");
     await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}`);
-    await expect(page.getByTestId("profile-workspace")).toContainText("updated@example.invalid");
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("updated@example.invalid");
     await expectStage("Chart");
     await page.screenshot({ path: info.outputPath(`living-chart-${width}.png`) });
 
@@ -64,9 +64,32 @@ for (const width of [1440, 834, 390]) {
     const assessment = list.assessments[0];
     expect(assessment.resident_name).toBe(referral.name);
     expect(assessment.community).toBe("San Pablo");
+    // One integrated journey covers scheduling, partial preparation and a side trip
+    // before the existing review/sign/decision/handoff steps below.
+    await openStage("Chart");
+    const contact = page.getByRole("region", { name: "Contact information", exact: true });
+    await contact.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+    await schedule.getByLabel("Assessment date and time").fill("2026-10-01T10:00");
+    await schedule.getByLabel("Assessment method").selectOption("phone");
+    await schedule.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await expect(schedule).toHaveCount(0);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=diagnosis_clinical`);
+    const partial = page.locator("#assessment-secondary_diagnoses");
+    await partial.fill("Synthetic preparation retained during the complete journey");
+    await partial.blur();
+    if (width < 640) await stagePicker.selectOption("files");
+    else await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    await openStage("Assessment");
+    await expect(partial).toHaveValue("Synthetic preparation retained during the complete journey");
+    const prepared = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+    expect(prepared.secondary_diagnoses).toContain("Synthetic preparation retained during the complete journey");
+    expect(prepared.schedule_status).toBe("scheduled");
+    expect(prepared.started_at).toBeNull();
+    expect(prepared.signed_at).toBeNull();
     // Populate the lengthy synthetic questionnaire through its real save API;
     // creation, chart review, signature, decision and finishing use the UI.
-    const completed = await completeOperationalAssessment(page.request, assessment);
+    const completed = await completeOperationalAssessment(page.request, prepared);
     const restoredIdentity = await page.request.patch(`/api/assessments/${assessment.assessment_id}`, { data: {
       if_match: completed.version, client_mutation_id: randomUUID(),
       patch: { data: { resident_name: referral.name, community: referral.community, current_symptoms: "Synthetic conversation completed; no real client data." } },

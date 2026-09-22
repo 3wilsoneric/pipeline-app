@@ -20,6 +20,8 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         for (const field of ["Client", "Date of birth", "Gender", "Community", "Medications on record", "Conserved status"]) {
           const edit = chart.getByRole("button", { name: `Edit ${field}`, exact: true });
           await expect(edit.locator("svg")).toBeVisible();
+          // The affordance is visible without hover and names the editor it opens.
+          await expect(edit).toContainText("Edit in intake");
           expect((await edit.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         }
         for (const field of ["Resident number", "Unit", "Admission date", "Length of stay", "Allergies"]) {
@@ -41,6 +43,9 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         await dobInput.fill("1981-07-09");
         await page.getByRole("button", { name: "Done", exact: true }).click();
         await expect(chart.locator('[data-chart-field="Date of birth"]')).toContainText("Jul 9, 1981");
+        // Done returns to the chart position the edit started from.
+        await expect(chart.getByRole("button", { name: "Edit Date of birth", exact: true })).toBeFocused();
+        await expect(chart.getByRole("button", { name: "Edit Date of birth", exact: true })).toBeInViewport();
 
         await chart.getByRole("button", { name: "Edit Conserved status", exact: true }).click();
         await expect(page.locator("#packet-conserved")).toBeFocused();
@@ -109,7 +114,9 @@ test("referral chart edits its own intake while the standalone client chart stay
   await expect(chart).toBeVisible();
   await expect(chart.getByRole("button", { name: "Edit Client", exact: true })).toBeVisible();
   await expect(chart.locator('[data-chart-field="Resident number"]')).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Edit Name", exact: true })).toBeVisible();
+  // The same canonical intake values are shown once, by the chart above.
+  await expect(page.getByRole("button", { name: "Edit Name", exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-chart-fact="Date of birth"]')).toHaveCount(0);
   await page.goto(`/?screen=profile&clientId=pipeline:${referral.clientId}`);
   await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).toBeVisible();
   await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).not.toContainText("Resident number");
@@ -138,4 +145,34 @@ test("an account without workspace edit permission has no field edit affordances
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
   await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
+});
+
+test("a chart visit that changes nothing writes nothing, and signing stays in assessment review", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Example Untouched ${randomUUID()}`, phone: "555-0101", owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, assessment);
+  const before = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+  const chart = page.getByRole("article", { name: "Referral chart", exact: true });
+  await expect(chart).toBeVisible();
+
+  // Unanswered items read as a neutral way in, not as a warning on the chart.
+  const unanswered = page.getByRole("button", { name: "Review unanswered assessment items", exact: true });
+  await expect(unanswered).toBeVisible();
+  await expect(page.getByText(/^Assessment answers: \d+ of \d+ recorded\./)).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Sign/ })).toHaveCount(0);
+
+  // Opening the intake editor and leaving without a change stores nothing.
+  await chart.getByRole("button", { name: "Edit Phone", exact: true }).click();
+  await expect(page.locator('[data-workspace-field="phone"] input')).toBeFocused();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(chart.getByRole("button", { name: "Edit Phone", exact: true })).toBeFocused();
+
+  await unanswered.click();
+  await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Sign/ })).toBeVisible();
+  const after = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+  expect(after).toEqual(before);
 });

@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ReferralActivityEvent, ReferralWorkflowMetadata } from "@/lib/pipeline/referral-activity";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
+import { activityEventLabel, activityEventProvenance } from "@/lib/pipeline/referral-activity-presentation";
+import { referralOwnerResponsibilityLabels, referralRoleFacts } from "@/lib/pipeline/referral-owner-identity";
 
 type ReferralActivityPanelProps = { referralId?: number; version?: number };
 
@@ -13,30 +15,6 @@ type ReferralActivityPanelProps = { referralId?: number; version?: number };
 const routineActions = new Set(["referral_updated", "assessment_updated", "work_item_updated", "extraction_confirmed"]);
 const importantFields = new Set(["owner", "ownerId", "owners", "stage", "workflowStatus", "admissionDate", "admissionDecision", "priority", "assessmentRecommendation", "ehrHandoff", "workspaceStatus", "documentName", "outcome"]);
 const summaryFields = new Set(["owner", "stage", "workflowStatus", "admissionDate", "outcome", "priority"]);
-const actionLabels: Record<string, string> = {
-  referral_created: "Referral created",
-  referral_assigned: "Assignee added",
-  referral_reassigned: "Assignee changed",
-  referral_unassigned: "Assignee removed",
-  referral_stage_changed: "Stage changed",
-  assessment_created: "Assessment created",
-  assessment_imported: "Assessment imported",
-  assessment_assigned: "Assessor changed",
-  assessment_scheduled: "Assessment scheduled",
-  assessment_rescheduled: "Assessment rescheduled",
-  assessment_cancelled: "Assessment cancelled",
-  assessment_no_show: "Assessment missed",
-  assessment_interview_completed: "Interview completed; documentation remains editable",
-  assessment_started: "Assessment started",
-  assessment_completed: "Assessment completed",
-  assessment_signed: "Assessment signed",
-  assessment_addendum_added: "Assessment addendum added",
-  assessment_recommendation_submitted: "Recommendation submitted",
-  admission_decision_recorded: "Admission decision recorded",
-  admission_decision_overridden: "Admission decision changed",
-  admission_declined: "Admission denied",
-  ehr_handoff_updated: "EHR handoff updated",
-};
 
 export default function ReferralActivityPanel({ referralId, version }: ReferralActivityPanelProps) {
   const [retry, setRetry] = useState(0);
@@ -83,6 +61,7 @@ function ActivityTimeline({ events, metadata, referralId }: { events: ReferralAc
   const important = events.filter((event) => !routineActions.has(event.action) || event.changed_fields.some((field) => importantFields.has(field)));
   return (
     <section data-guide-target="workspace-history" aria-label="Referral ownership and activity" className="mx-auto max-w-4xl py-3 sm:px-3">
+      {metadata ? <ReferralPeople metadata={metadata} /> : null}
       {important.length ? groupActivityByDay(important).map((group) => (
         <section key={group.date} aria-label={group.label} className="mb-5">
           <h3 className="border-b border-[#dce4df] px-3 py-2 text-[13px] font-semibold text-[#52625a]">{group.label}</h3>
@@ -96,11 +75,6 @@ function ActivityTimeline({ events, metadata, referralId }: { events: ReferralAc
         <details className="border-t border-[#dce4df]">
           <summary className="cursor-pointer px-3 py-4 text-[13px] font-semibold text-[#52625a] focus-visible:outline-2 focus-visible:outline-offset-2">Detailed history</summary>
           <div className="px-3 pb-3">
-            {metadata?.owners.length ? (
-              <div role="group" aria-label="Workspace owners" className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-[#53615a]">
-                {metadata.owners.map((owner) => <p key={owner.id}><span className="font-semibold text-[#25372d]">{owner.name}</span> · {owner.responsibilities.map(humanize).join(", ")}</p>)}
-              </div>
-            ) : null}
             {events.length === 100 ? <p className="mb-3 text-[13px] text-[#53615a]">Latest 100 recorded events.</p> : null}
             <ol aria-label="Detailed activity history" className="divide-y divide-[#e8edea] border-t border-[#dce4df]">
               {events.map((event) => <ActivityRow key={event.event_id} referralId={referralId} event={event} detailed />)}
@@ -109,6 +83,33 @@ function ActivityTimeline({ events, metadata, referralId }: { events: ReferralAc
         </details>
       ) : null}
     </section>
+  );
+}
+
+// Assignment, the assessment's assessor, and its author are separate recorded
+// roles. Show each from its own source; never substitute the current viewer.
+function ReferralPeople({ metadata }: { metadata: ReferralWorkflowMetadata }) {
+  const roles = referralRoleFacts({
+    owner: metadata.owner?.name,
+    ownerId: metadata.owner?.id,
+    assessment: metadata.assessment.status === "not_started" ? null : metadata.assessment,
+  });
+  return (
+    <div className="mb-4 border-b border-[#dce4df] px-3 pb-4 pt-2 text-[14px] leading-5 text-[#35473c]">
+      <dl aria-label="Referral roles" className="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
+        {roles.map((role) => (
+          <div key={role.role} data-referral-role={role.role} className="contents">
+            <dt className="font-medium text-[#52625a]">{role.label}</dt>
+            <dd className="min-w-0 break-words font-semibold text-[#25372d]">{role.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {metadata.owners.length ? (
+        <div role="group" aria-label="Workspace owners" className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-[#53615a]">
+          {metadata.owners.map((owner) => <p key={owner.id}><span className="font-semibold text-[#25372d]">{owner.name}</span> · {owner.responsibilities.map((responsibility) => referralOwnerResponsibilityLabels[responsibility] ?? humanize(responsibility)).join(", ")}</p>)}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -136,10 +137,10 @@ function RestoreDocument({ event, referralId }: { event: ReferralActivityEvent; 
 }
 
 function ActivityRow({ event, referralId, detailed = false }: { event: ReferralActivityEvent; referralId: number; detailed?: boolean }) {
-  const statusChange = !detailed && routineActions.has(event.action) ? event.changes.find((change) => change.field === "workflowStatus" && change.values_available && !change.masked) : undefined;
+  const statusChange = routineStatusChange(event, detailed);
   const label = statusChange
     ? Object.hasOwn(workflowStatusLabels, statusChange.after) ? workflowStatusLabels[statusChange.after as keyof typeof workflowStatusLabels] : humanize(statusChange.after)
-    : actionLabels[event.action] ?? humanize(event.action);
+    : activityEventLabel(event);
   const changes = detailed ? event.changes : event.changes.filter((change) => summaryFields.has(change.field) && change.values_available && !change.masked && change !== statusChange);
   return (
     <li data-activity-event={event.action} className="px-3 py-3.5">
@@ -148,6 +149,16 @@ function ActivityRow({ event, referralId, detailed = false }: { event: ReferralA
         <time className="text-[13px] tabular-nums text-[#59665f]" dateTime={event.created_at}>{formatTimestamp(event.created_at)}</time>
       </div>
       <p className="mt-0.5 text-[13px] leading-5 text-[#59665f]">{event.actor_name}</p>
+      {detailed ? (
+        <details className="mt-1 text-[13px] text-[#59665f]">
+          <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">Record details</summary>
+          <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5">
+            {activityEventProvenance(event).map((item) => (
+              <div key={item.label} className="contents"><dt>{item.label}</dt><dd className="min-w-0 break-all font-mono text-[12px]">{item.value}</dd></div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
       {detailed && event.reason ? <p className="mt-2 break-words text-[14px] leading-6 text-[#35473c]">{event.reason}</p> : null}
       {!detailed && event.undo ? <RestoreDocument event={event} referralId={referralId} /> : null}
       {changes.length ? (
@@ -203,4 +214,8 @@ function humanize(value: string) {
 function formatTimestamp(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function routineStatusChange(event: ReferralActivityEvent, detailed: boolean) {
+  return !detailed && routineActions.has(event.action) ? event.changes.find((change) => change.field === "workflowStatus" && change.values_available && !change.masked) : undefined;
 }

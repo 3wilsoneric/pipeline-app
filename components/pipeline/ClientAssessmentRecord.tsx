@@ -19,7 +19,7 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
     {assessmentInterviewSections.map((section) => {
       const facts = assessmentToolFieldDefinitions.filter((field) => field.section === section.key && field.key !== "resident_number").flatMap((field) => {
         const value = assessment[field.key];
-        if (value === null || value === undefined || value === "" || (Array.isArray(value) && !value.length)) return [];
+        if (isEmptyRecordedValue(value)) return [];
         const display = recordedFieldValue(field, value);
         const question = assessmentInterviewQuestions.find((item) => item.field === field.key);
         const inactive = question && !isAssessmentQuestionVisible(question, assessment);
@@ -28,11 +28,18 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
       if (!facts.length) return null;
       return <section key={section.key} aria-label={section.label} className="border-b border-[#e0e5e2] px-5 py-5 sm:px-7 sm:py-6">
         <h3 className="mb-5 text-[17px] font-bold text-[#29483d]">{section.label}</h3>
-        <ChartFacts facts={facts} />
+        <ChartFacts facts={facts} editHint="Edit answer" />
       </section>;
     })}
     <footer className="flex flex-wrap justify-between gap-2 px-5 py-4 text-[12px] leading-5 text-[#59675f] sm:px-7">
-      <span className="break-all">Assessment {assessment.assessment_id} · Version {assessment.version}</span>
+      <details className="min-w-0">
+        <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">Record details</summary>
+        <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-3">
+          <dt>Assessment ID</dt><dd className="break-all font-mono">{assessment.assessment_id}</dd>
+          <dt>Version</dt><dd>{assessment.version}</dd>
+          <dt>Created</dt><dd>{readableTimestamp(assessment.created_at)}{assessment.created_by?.name ? ` by ${assessment.created_by.name}` : ""}</dd>
+        </dl>
+      </details>
       <span>{signed ? `Signed ${readableTimestamp(assessment.signed_at!)}${assessment.signed_by?.name ? ` by ${assessment.signed_by.name}` : ""}` : "Working answers. Not a signed clinical record."}</span>
     </footer>
   </article>;
@@ -51,4 +58,8 @@ function recordedFieldValue(field: (typeof assessmentToolFieldDefinitions)[numbe
           : field.value_type === "date" ? formatProfileDate(String(value)) ?? String(value)
           : field.value_type === "timestamp" ? readableTimestamp(String(value))
           : assessmentInterviewOptionLabel(field.key, String(value)) ?? String(value);
+}
+
+function isEmptyRecordedValue(value: unknown): value is null | undefined | "" | [] {
+  return value === null || value === undefined || value === "" || (Array.isArray(value) && !value.length);
 }

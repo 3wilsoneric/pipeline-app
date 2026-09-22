@@ -1,5 +1,6 @@
 import type { ClinicalClientRecord } from "@/lib/clinical/clinical-contracts";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
+import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-contracts";
 
 export type ClientProfileFact = {
   label: string;
@@ -16,6 +17,8 @@ export type ClientEpisodeSummary = {
   key: string;
   period: string;
   community: string;
+  /** Admitted with no recorded discharge. Unknown dates are never current. */
+  current: boolean;
   facts: ClientProfileFact[];
 };
 
@@ -275,9 +278,42 @@ export function buildClientEpisodeSummaries(episodes: ClinicalClientRecord[]): C
         ? `${formatProfileDate(admitted)} to ${discharged ? formatProfileDate(discharged) : "Current"}`
         : discharged ? `Through ${formatProfileDate(discharged)}` : "",
       community,
+      current: Boolean(admitted) && !discharged,
       facts,
     };
   });
+}
+
+/**
+ * One label for the stay-history heading. A failed or conflicting history
+ * read is unknown, never "0 stays"; one current stay with nothing earlier is
+ * said plainly; disagreeing sources are reported instead of reconciled.
+ */
+function clientStayCountLabel(total: number, current: number, previous: number) {
+  return total === 0 ? "No recorded stays"
+    : current === 1 && previous === 0 ? "1 current stay · no previous stays recorded"
+      : `${total.toLocaleString()} recorded ${total === 1 ? "stay" : "stays"}${current > 0 ? ` · ${current.toLocaleString()} current` : ""}`;
+}
+
+export function describeClientStayCount(
+  episodes: Pick<ClientEpisodeSummary, "current">[],
+  history: Pick<ClientHistoryProjection, "status" | "episode_count" | "current_episode_count">,
+): { label: string; note: string | null } {
+  if (episodes.length === 0 && history.status !== "available") {
+    return {
+      label: unavailableStayHistoryLabel(history.status),
+      note: null,
+    };
+  }
+  const projected = episodes.length === 0;
+  const total = projected ? history.episode_count : episodes.length;
+  const current = projected ? history.current_episode_count : episodes.filter((episode) => episode.current).length;
+  const previous = total - current;
+  const label = clientStayCountLabel(total, current, previous);
+  const note = !projected && history.status === "available" && history.episode_count !== episodes.length
+    ? `Placement history lists ${history.episode_count.toLocaleString()} ${history.episode_count === 1 ? "stay" : "stays"}; the stays below come from the governed client record.`
+    : null;
+  return { label, note };
 }
 
 export function hasReadableProfileValue(value: unknown) {
@@ -290,4 +326,9 @@ export function formatProfileDate(value: string | null | undefined) {
   return Number.isNaN(parsed.getTime())
     ? value
     : parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function unavailableStayHistoryLabel(status: ClientHistoryProjection["status"]) {
+  if (status === "not_found") return "No stays found in placement history";
+  return status === "identity_conflict" ? "Stay history needs identity review" : "Stay history unavailable";
 }

@@ -79,6 +79,7 @@ export type WorkingSectionProps = WorkingData & {
   preparing?: boolean;
   referenceQuestions?: readonly AssessmentInterviewQuestion[];
   section: AssessmentToolSection;
+  sectionLabel?: string;
   assessment: PipelineAssessmentRecord;
   questions: readonly AssessmentInterviewQuestion[];
   required: ReadonlySet<AssessmentToolFieldKey>;
@@ -104,6 +105,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   const [editing, setEditing] = useState<{ field: AssessmentToolFieldKey; value: AssessmentToolData[AssessmentToolFieldKey]; reason: string } | null>(null);
   const [recorded, setRecorded] = useState<{ field: AssessmentToolFieldKey; revision: number } | null>(null);
   const editor = useRef<HTMLDivElement>(null);
+  const sectionHeading = useRef<HTMLHeadingElement>(null);
   const previousSection = useRef(props.section);
 
   if (props.section !== receivedSection || target !== receivedTarget) {
@@ -137,8 +139,11 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
     if (editor.current) editor.current.scrollTop = 0;
     if (props.preparing) editor.current?.closest("main")?.scrollTo({ top: 0, behavior: "instant" });
     editor.current?.closest('[data-guide-target="packet-workspace"]')?.scrollTo({ top: 0, behavior: "instant" });
-    if (previousSection.current !== props.section) {
-      editor.current?.closest('[data-assessment-working-section]')?.querySelector<HTMLSelectElement>('[aria-label="Assessment section"]')?.focus({ preventScroll: true });
+    // Move focus to the new section heading so keyboard progression continues
+    // into that section's questions. Keep focus in the section picker while it
+    // is being used, so choosing with the keyboard is not interrupted.
+    if (previousSection.current !== props.section && !document.activeElement?.matches('[aria-label="Assessment section"]')) {
+      sectionHeading.current?.focus({ preventScroll: true });
     }
     previousSection.current = props.section;
   }, [props.section, props.preparing]);
@@ -160,6 +165,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
     {renderReference()}
     <div data-guide-target="assessment-fields" data-assessment-question-editor className={styles.editor}>
       <div ref={editor} className={styles.questionPage} data-assessment-question-page>
+      {props.sectionLabel ? <h3 ref={sectionHeading} tabIndex={-1} data-assessment-section-heading className={styles.sectionHeading}>{props.sectionLabel}</h3> : null}
       {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Review this section in Current information." : "This section is complete. Review the reference, or continue to the next section."}</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.questionGroup}>
         <div className={styles.fields}>
@@ -187,6 +193,7 @@ export function WorkingAssessmentField({ question, data, assessment, required, p
 
 function CapturedAssessmentAnswers({ section, preparing, data, pending, questions, onEdit, assessment, recorded }: WorkingSectionProps & { recorded: { field: AssessmentToolFieldKey; revision: number } | null; onEdit: (field: AssessmentToolFieldKey) => void }) {
   const [expanded, setExpanded] = useState(false);
+  const [wide, setWide] = useState(false);
   const readingPage = useRef<HTMLDivElement>(null);
   const preparedAnswers = useRef<HTMLDivElement>(null);
   const preparedAnswersId = useId();
@@ -204,11 +211,16 @@ function CapturedAssessmentAnswers({ section, preparing, data, pending, question
       {captured.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} assessment={assessment} signed={isAssessmentFinalized(assessment)} onEdit={(field) => { preparedAnswers.current?.hidePopover(); onEdit(field); }} />)}
     </div>
   </div>;
-  return <aside data-guide-target="assessment-recorded" aria-label="Current information" className={styles.reference}>
-    <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)} className={styles.referenceToggle}><span>Current information</span><ChevronDown size={16} aria-hidden="true" /></button>
+  return <aside data-guide-target="assessment-recorded" aria-label="Current information" data-wide={wide} className={styles.reference}>
+    <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)} className={styles.referenceToggle}>
+      <span>Current information</span>
+      <span aria-hidden="true" className={styles.referenceSummary}>{counts.captured} of {questions.length} recorded</span>
+      <ChevronDown size={16} aria-hidden="true" />
+    </button>
     <div id={id} data-expanded={expanded} className={styles.referenceContent}>
       <header className={styles.referenceHeader}>
       <h4>Current information</h4>
+      <button type="button" className={styles.referenceWidth} aria-pressed={wide} onClick={() => setWide(!wide)}>{wide ? "Narrow" : "Expand"}</button>
       </header>
       <div key={section} ref={readingPage} className={styles.readingPage} data-assessment-reference-page>
       {!groups.length ? <p className={styles.empty}>No information recorded for this section yet.</p> : null}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentProps, type Rea
 import { ArrowRight, CalendarClock, CalendarPlus, Maximize2 } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
-import ReferralWorkflowTracker, { WorkflowCardSkeleton } from "@/components/pipeline/ReferralWorkflowTracker";
+import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
 import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import HomeDialog from "@/components/pipeline/HomeDialog";
@@ -13,6 +13,7 @@ import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivi
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
+import { assessmentEventNextStep, unscheduledNextStep } from "@/lib/pipeline/assessment-calendar";
 import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import { acknowledgePipelineAssignments, initializePipelineAssignmentTracking } from "@/lib/pipeline/work-continuity-client";
@@ -257,7 +258,7 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
         <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} layout="board" />
       </div>
       <div className="mt-1 flex justify-end">
-        <button type="button" aria-label="Open current work" title="Open Board full screen" onClick={onOpen} className="flex h-8 w-8 items-center justify-center text-[#176f60] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+        <button type="button" aria-label="Open current work" title="Open Board full screen" onClick={onOpen} className="flex h-11 w-11 items-center justify-center rounded text-[#176f60] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
           <Maximize2 size={17} aria-hidden="true" />
         </button>
       </div>
@@ -294,7 +295,7 @@ function SchedulingQueuePanel({ briefing, onOpenPacket }: BriefingPanelProps) {
       {unavailable ? (
         <UnavailableLine />
       ) : briefing.unscheduled.length === 0 ? (
-        <div className="space-y-3"><p className="sr-only">No referrals are waiting to be scheduled.</p><WorkflowCardSkeleton /><WorkflowCardSkeleton /></div>
+        <div className={deckStyles.empty}><CalendarPlus aria-hidden="true" /><h3>Nothing waiting to schedule.</h3><p>No referrals are waiting for an assessment time.</p></div>
       ) : (
         <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
           {briefing.unscheduled.slice(0, 6).map((item) => (
@@ -307,13 +308,14 @@ function SchedulingQueuePanel({ briefing, onOpenPacket }: BriefingPanelProps) {
 }
 
 function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnscheduledAssessment } & Pick<BriefingPanelProps, "onOpenPacket">) {
+  const next = unscheduledNextStep(item.nextAction);
   return (
     <button
       type="button"
       onClick={() => onOpenPacket(
         { id: item.referralId, name: clientDisplayName(item.clientName, item.community), community: item.community as Referral["community"] },
-        item.nextAction === "complete_intake" ? { view: "intake" } : item.nextAction === "assign" ? { view: "workflow" } : { view: "assessment" },
-        item.nextAction === "schedule" ? "schedule" : undefined,
+        next.location,
+        next.entry,
       )}
       className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
     >
@@ -322,7 +324,7 @@ function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnsche
         <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.community} · {item.owner || "Unassigned"}</span>
       </span>
       <span className="flex shrink-0 items-center gap-2 text-[10px] font-bold text-[#176f60]">
-        {unscheduledActionLabel(item.nextAction)}
+        {next.label}
         <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
       </span>
     </button>
@@ -330,14 +332,14 @@ function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnsche
 }
 
 function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } & Pick<BriefingPanelProps, "onOpenPacket">) {
-  const action = event.status === "complete" ? "review" : event.startedAt ? "resume" : "begin";
+  const next = assessmentEventNextStep(event);
   return (
     <button
       type="button"
       onClick={() => onOpenPacket(
         { id: event.referralId, name: clientDisplayName(event.clientName, event.community), community: event.community as Referral["community"] },
         { view: "assessment" },
-        action,
+        next.entry,
       )}
       className={deckStyles.scheduleRow}
     >
@@ -346,7 +348,7 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
         <strong>{clientDisplayName(event.clientName, event.community)}</strong>
         <span>{event.community} · {methodLabel(event.method)}</span>
       </span>
-      <span className={deckStyles.scheduleAction}>{action === "review" ? "Review assessment" : action === "resume" ? "Resume assessment" : "Begin assessment"}<ArrowRight size={16} aria-hidden="true" /></span>
+      <span className={deckStyles.scheduleAction}>{next.label}<ArrowRight size={16} aria-hidden="true" /></span>
     </button>
   );
 }
@@ -428,12 +430,6 @@ function formatScheduleDate(event: PipelineCalendarEvent) {
 function methodLabel(value?: string) {
   const labels: Record<string, string> = { in_person: "In person", phone: "Phone", zoom: "Zoom", video: "Zoom", record_review: "Record review" };
   return labels[value ?? ""] ?? "";
-}
-
-function unscheduledActionLabel(action: PipelineUnscheduledAssessment["nextAction"]) {
-  if (action === "assign") return "Assign owner";
-  if (action === "complete_intake") return "Complete intake";
-  return "Schedule";
 }
 
 function clientDisplayName(name: string, community?: string) {

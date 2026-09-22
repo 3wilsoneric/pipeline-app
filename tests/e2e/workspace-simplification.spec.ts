@@ -115,12 +115,12 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Send email & packet" })).toHaveCount(0);
     await page.getByRole("button", { name: "Back to decision", exact: true }).click();
     await expect(decision.getByLabel("Admission date (optional)", { exact: true })).toHaveValue("2026-10-01");
-    await decision.locator("summary").filter({ hasText: /^Admission details$/ }).click();
+    await decision.locator("summary").filter({ hasText: /^Admission paperwork & EHR handoff$/ }).click();
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).toBeVisible();
     await page.reload();
     await expect(decision.getByLabel("Admission date (optional)", { exact: true })).toHaveValue("2026-10-01");
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).not.toBeVisible();
-    await decision.locator("summary").filter({ hasText: /^Admission details$/ }).click();
+    await decision.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Assessment");
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("New");
@@ -139,6 +139,42 @@ test("unsigned Workflow links keep the decision and questionnaire reachable", as
   await page.getByRole("button", { name: "Assessment prep", exact: true }).click();
   await expect(page.locator("[data-assessment-view]")).toBeVisible();
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toHaveCount(0);
+});
+
+test("the two assessment-creation rows stay distinct and roles stay separate", async ({ page }) => {
+  const referral = await createReferral(page);
+  // One save writes two audit rows: the assessment record and the referral
+  // whose workflow status it synchronized.
+  const onAssessment = { ...event("assessment_created"), entity_type: "assessment", entity_id: "asm_synthetic", source: "audit" };
+  const onReferral = { ...event("assessment_created", ["workflowStatus"]), entity_type: "referral", entity_id: String(referral.id), source: "audit" };
+  await page.route(`**/api/referrals/${referral.id}/activity`, (route) => route.fulfill({ json: {
+    events: [onAssessment, onReferral],
+    metadata: {
+      owner: null,
+      owners: [{ id: "synthetic-user", name: "Example Assessor", responsibilities: ["creator"] }],
+      created_by: null, last_changed_by: null, last_changed_at: null, contributors: [],
+      assessment: { status: "draft", assessor: { id: "synthetic-user", name: "Example Assessor" }, author: { id: "synthetic-user", name: "Example Assessor" },
+        started_at: null, completed_at: null, elapsed_minutes: null, completed_count: 0, average_completed_minutes: null },
+      timing: { referral_to_assessment_minutes: null, assessment_to_decision_minutes: null, total_minutes: 0, decision_recorded: false },
+    },
+  } }));
+  await page.goto(workspaceUrl(referral.id, "activity"));
+  const activity = page.getByRole("region", { name: "Referral ownership and activity" });
+  await expect(activity.locator('[data-activity-event="assessment_created"]:visible')).toHaveCount(2);
+  await expect(activity.getByText("Assessment created", { exact: true }).locator("visible=true")).toHaveCount(1);
+  await expect(activity.getByText("Referral status updated (assessment created)", { exact: true }).locator("visible=true")).toHaveCount(1);
+
+  // The assignment is unrecorded; the assessment's own assessor is not it.
+  await expect(activity.locator('[data-referral-role="assigned_assessor"]')).toContainText("Unassigned");
+  await expect(activity.locator('[data-referral-role="assessment_assessor"]')).toContainText("Example Assessor");
+  await expect(activity.getByRole("group", { name: "Workspace owners" })).toContainText("Created workspace");
+
+  // Every row stays traceable to its own audit record.
+  await activity.locator("summary").filter({ hasText: "Detailed history" }).click();
+  const history = activity.getByRole("list", { name: "Detailed activity history" });
+  await history.locator("summary").filter({ hasText: "Record details" }).first().click();
+  await expect(history).toContainText(onAssessment.event_id);
+  await expect(history).toContainText("Assessment asm_synthetic");
 });
 
 test("activity error has a working retry and an honest empty state", async ({ page }) => {

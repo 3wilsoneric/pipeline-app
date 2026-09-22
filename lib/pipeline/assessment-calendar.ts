@@ -4,6 +4,7 @@ import type {
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
 import type { Referral, ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
+import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { WorkflowContext } from "@/lib/pipeline/workflow-records";
 import { getWorkspaceState } from "@/lib/pipeline/workspace-state";
 
@@ -221,6 +222,38 @@ function preparationNextAction(workflowStatus: ReferralWorkflowStatus): Pipeline
   if (workflowStatus === "intake_unassigned") return "assign";
   if (workflowStatus === "ready_to_schedule") return "schedule";
   return "complete_intake";
+}
+
+/**
+ * One next-step vocabulary for Home, Calendar and the scheduling queue.
+ * A missing-item step lands on its intake field; scheduling opens the existing
+ * assessment scheduling dialog and books nothing until it is saved.
+ */
+export function unscheduledNextStep(nextAction: PipelineUnscheduledAssessment["nextAction"]): {
+  label: string;
+  location: PipelineWorkspaceLocation;
+  entry?: "schedule";
+} {
+  if (nextAction === "assign") return { label: "Assign assessor", location: { view: "intake", intakeField: "owner" } };
+  if (nextAction === "complete_contact") return { label: "Complete contact", location: { view: "intake", intakeField: "phone" } };
+  if (nextAction === "complete_intake") return { label: "Complete intake", location: { view: "intake", intakeField: "name" } };
+  return { label: "Schedule interview", location: { view: "assessment" }, entry: "schedule" };
+}
+
+/**
+ * The assessment's lifecycle step, labelled as the work-list board labels it.
+ * Surfaces whose control does something else, such as Home's Begin confirmation,
+ * keep the step but say what their own control does.
+ */
+export function assessmentEventNextStep(event: Pick<PipelineCalendarEvent, "status" | "startedAt" | "scheduleStatus">): {
+  step: "prepare" | "continue" | "sign" | "review";
+  label: string;
+  entry: "review" | "resume";
+} {
+  if (event.status === "complete") return { step: "review", label: "Review assessment", entry: "review" };
+  if (event.status === "needs_review") return { step: "sign", label: "Review and sign the assessment", entry: "review" };
+  if (event.startedAt || event.scheduleStatus === "completed") return { step: "continue", label: "Continue assessment", entry: "resume" };
+  return { step: "prepare", label: "Prepare assessment", entry: "resume" };
 }
 
 export function consolidateCalendarFollowUps(events: PipelineCalendarEvent[]) {

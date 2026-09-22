@@ -29,7 +29,7 @@ async function editDiagnosis(page: Page, width: number) {
     await page.getByRole("button", { name: "Client info", exact: true }).click();
     await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
   } else {
-    if (width < 760) await page.getByRole("button", { name: /^Current information/ }).click();
+    if (width < 960) await page.getByRole("button", { name: /^Current information/ }).click();
     await page.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
   }
   return page.locator("#assessment-secondary_diagnoses");
@@ -115,7 +115,7 @@ for (const width of [1440, 1024, 768, 640]) {
     const footer = folder.locator('footer[aria-label="Assessment actions"]');
     const questionPage = folder.locator("[data-assessment-question-page]");
     const reference = folder.getByRole("complementary", { name: "Current information" });
-    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
+    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     const recorded = reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true });
     await expect(recorded).toContainText(longNote);
     expect(await recorded.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
@@ -127,7 +127,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await page.mouse.move(left.x + left.width / 2, left.y + 90);
     await page.mouse.wheel(0, 200);
     await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(100);
-    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
+    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     const afterLeft = await canvas.evaluate((el) => el.scrollTop);
     const right = (await questionPage.boundingBox())!;
     await page.mouse.move(right.x + right.width / 2, Math.max(220, right.y + 40));

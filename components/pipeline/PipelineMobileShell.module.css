@@ -62,6 +62,10 @@
 .profileMenu, .utilities > div > [role="alert"] { position: fixed; z-index: 110; top: auto; right: auto; bottom: 12px; left: calc(var(--sidebar-width) + 8px); width: min(320px, calc(100vw - var(--sidebar-width) - 20px)); max-height: calc(100dvh - 24px); }
 .backdrop { display: none; }
 
+/* Keyboard focus clears the sticky folder header and assessment action
+   footer instead of landing underneath them. */
+.shell [data-guide-target="packet-workspace"] { scroll-padding-block: 84px 72px; }
+
 .body:has([data-phone-header]) { flex-direction: column; }
 .phoneHeader { flex-shrink: 0; background: #fff; color: #24352e; border-bottom: 1px solid #e2e6e3; z-index: 40; }
 .phoneBar { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 52px; padding: 4px 12px; }
@@ -133,5 +137,5 @@
   .navigation[data-sidebar-expanded="true"] .navigationPanel { position: absolute; inset-block: 0; left: 0; box-shadow: 8px 0 24px #1f372625; }
   .navigation[data-sidebar-expanded="true"] .backdrop { display: block; position: absolute; inset: 0; z-index: 20; background: #17362925; }
   .profileMenu, .utilities > div > [role="alert"] { left: calc(var(--sidebar-rail-width) + 8px); width: min(320px, calc(100vw - var(--sidebar-rail-width) - 20px)); }
-  .shell [data-guide-target="packet-workspace"] { scroll-padding-block: 104px 20px; }
+  .shell [data-guide-target="packet-workspace"] { scroll-padding-block: 128px 76px; }
 }

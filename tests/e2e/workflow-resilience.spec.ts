@@ -57,7 +57,7 @@ test("partial dropped batch retries without duplicating committed files and reta
   await expect(retry).toBeVisible();
   const notice = page.getByTestId("workspace-save-status").getByRole("alert");
   await expect(notice).toHaveCSS("font-size", "14px");
-  await expect(notice).toHaveCSS("color", "rgb(89, 100, 94)");
+  await expect(notice).toHaveCSS("color", "rgb(147, 56, 45)");
   expect(bodies[1]).toEqual(bodies[0]);
   expect((await inventory()).map((file) => file.name)).toEqual([first.name]);
   await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText(second.name);

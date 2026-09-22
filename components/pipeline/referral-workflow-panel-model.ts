@@ -1,4 +1,4 @@
-import { referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
+import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type {
   AdmissionDecision,
   AdmissionRequirement,
@@ -202,8 +202,13 @@ function requirementNextAction(requirements: AdmissionRequirement[], suffix: str
   return `${next.label} can be completed ${suffix}.`;
 }
 
+// A forward transition only changes the referral's stage; the label must not imply a decision, signature, or send.
 export function transitionActionLabel(target: ReferralStage) {
-  return target === "Accepted / Admitted" ? "Mark admitted" : `Advance to ${target}`;
+  return target === "Accepted / Admitted" ? "Mark admitted" : `Change stage to ${getStageLabel(target)}`;
+}
+
+export function transitionSuccessMessage(target: ReferralStage) {
+  return target === "Accepted / Admitted" ? "Admission recorded" : `Stage changed to ${getStageLabel(target)}`;
 }
 
 export function terminalStageMessage(referral: Referral) {
@@ -258,11 +263,127 @@ export function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"
   return `${action} the ${outcome} admission decision? ${effect}`;
 }
 
-export function decisionSubmissionIsBlocked(
+export type DecisionActionState = {
+  disabled: boolean;
+  hint: string;
+};
+
+/**
+ * Explains the one decision action next to the button, so an unavailable action
+ * never appears as an unexplained dim control. It mirrors the existing
+ * permission and selection rules rather than adding new gates.
+ */
+export function decisionActionState(
   workflow: WorkflowResponse,
-  outcome: DecisionOutcomeDraft,
-) {
-  return !outcome || !workflow.capabilities.can_decide || Boolean(workflow.decision);
+  draft: { outcome: DecisionOutcomeDraft | AssessmentRecommendation["outcome"] },
+  busy: boolean,
+): DecisionActionState {
+  const underReview = draft.outcome === "needs_more_information";
+  if (!workflow.capabilities.can_decide) return { disabled: true, hint: "You can view this decision, but your account cannot record it." };
+  if (!draft.outcome) return { disabled: true, hint: "Choose Accept, Deny, or Under review to continue." };
+  if (underReview && hasLegacyDecisionSubmission(workflow)) return { disabled: true, hint: "This earlier submission is preserved. Choose Accept or Deny when ready." };
+  if (underReview && !workflow.context.assessmentId) return { disabled: true, hint: "Open the assessment before saving Under review." };
+  if (underReview && !workflow.capabilities.can_recommend) return { disabled: true, hint: "Your account cannot save Under review. Choose Accept or Deny." };
+  if (busy) return { disabled: true, hint: "Saving..." };
+  if (underReview) return { disabled: false, hint: "Saves Under review. The referral stays open and nothing is sent." };
+  if (draft.outcome === "decline") return { disabled: false, hint: "You will confirm before the denial is recorded. It closes the referral; nothing is sent." };
+  return { disabled: false, hint: "You will confirm before acceptance is recorded. Nothing is signed or sent." };
+}
+
+export function hasLegacyDecisionSubmission(workflow: WorkflowResponse) {
+  return Boolean(workflow.review && workflow.review.assessmentId === workflow.context.assessmentId);
+}
+
+const recommendationOutcomeLabels: Record<AssessmentRecommendation["outcome"], string> = {
+  accept: "Accept",
+  decline: "Deny",
+  needs_more_information: "Under review",
+};
+
+export function formatRecordedAt(value: string | null | undefined) {
+  if (!value) return "date not recorded";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+export type RecommendationPresentation = {
+  outcome: AssessmentRecommendation["outcome"];
+  outcomeLabel: string;
+  attribution: string;
+  note: string;
+  earlierAssessment: boolean;
+  review: string | null;
+};
+
+/** The recommendation on file, attributed and dated, for display beside the final decision. */
+export function recommendationPresentation(workflow: WorkflowResponse): RecommendationPresentation | null {
+  const recommendation = workflow.recommendation;
+  if (!recommendation) return null;
+  const review = workflow.review;
+  return {
+    outcome: recommendation.outcome,
+    outcomeLabel: recommendationOutcomeLabels[recommendation.outcome],
+    attribution: `${recommendation.recommendedByName || "Name not recorded"} · ${formatRecordedAt(recommendation.recommendedAt)}`,
+    note: recommendation.reasonNote,
+    earlierAssessment: Boolean(workflow.context.assessmentId && recommendation.assessmentId && recommendation.assessmentId !== workflow.context.assessmentId),
+    review: review ? `${reviewStatusLabel(review)} · submitted by ${review.submittedByName || "name not recorded"} · ${formatRecordedAt(review.submittedAt)}` : null,
+  };
+}
+
+export type DecisionProgressStep = {
+  key: "answers" | "interview" | "signed" | "decision" | "packet";
+  label: string;
+  state: "done" | "open" | "not_needed";
+  detail: string;
+};
+
+/**
+ * Separate, factual milestones so saved answers, a complete interview, a
+ * signature, a recorded decision, and a sent packet are never conflated.
+ */
+export function decisionProgressSteps(workflow: WorkflowResponse): DecisionProgressStep[] {
+  const { context } = workflow;
+  // Reuse the canonical workspace projection so these milestones cannot drift
+  // from the assessment's own lifecycle.
+  const assessment = getWorkspaceState(workflow.referral, context).assessment;
+  const signed = assessment === "signed";
+  const answersComplete = signed || assessment === "ready_to_sign" || Boolean(context.assessmentComplete);
+  const appointmentHeld = context.assessmentScheduleStatus === "completed";
+  const interviewComplete = answersComplete || appointmentHeld;
+  const started = answersComplete || ["in_progress", "waiting_for_information"].includes(assessment) || Boolean(context.assessmentStarted);
+  return [
+    started
+      ? { key: "answers", label: "Answers saved", state: "done", detail: signed ? "Locked by the signature." : "Saved answers stay editable until signing." }
+      : { key: "answers", label: "Answers not started", state: "open", detail: context.assessmentId ? "The assessment is prepared but has no answers yet." : "No assessment has been opened yet." },
+    interviewProgressStep(interviewComplete, signed, answersComplete),
+    signed
+      ? { key: "signed", label: "Assessment signed", state: "done", detail: "Signed in the assessment." }
+      : { key: "signed", label: "Assessment not signed", state: "open", detail: "Signing happens in the assessment. Recording a decision does not sign it." },
+    recordedDecisionStep(workflow),
+    packetProgressStep(workflow),
+  ];
+}
+
+function recordedDecisionStep(workflow: WorkflowResponse): DecisionProgressStep {
+  const { decision } = workflow;
+  return decision
+      ? { key: "decision", label: `Decision recorded: ${decision.outcome === "accepted" ? "Accepted" : "Denied"}`, state: "done", detail: `${decision.decidedByName || "Name not recorded"} · ${formatRecordedAt(decision.decidedAt)}` }
+      : { key: "decision", label: "Decision not recorded", state: "open", detail: workflow.recommendation ? "A recommendation is on file. It is not the final decision." : "No recommendation or decision yet." };
+}
+
+function packetProgressStep(workflow: WorkflowResponse): DecisionProgressStep {
+  const { context, decision } = workflow;
+  if (context.packetSentAt) return { key: "packet", label: "Meet the Client packet sent", state: "done", detail: `Sent ${formatRecordedAt(context.packetSentAt)}` };
+  if (decision?.outcome === "declined") return { key: "packet", label: "Meet the Client packet not needed", state: "not_needed", detail: "The referral was denied." };
+  if (decision?.outcome !== "accepted") return { key: "packet", label: "Meet the Client packet not sent", state: "open", detail: "Available after acceptance." };
+  return {
+    key: "packet",
+    label: "Meet the Client packet not sent",
+    state: "open",
+    detail: context.assessmentSigned ? "Review the email and packet below, then send the draft from Outlook." : "You can preview it now. Sign the assessment before sending.",
+  };
 }
 
 export function reviewStatusLabel(review: AssessmentReview | null) {
@@ -287,4 +408,10 @@ export function referralFromConflictPayload(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
   const referral = (payload as { referral?: unknown }).referral;
   return referral && typeof referral === "object" && !Array.isArray(referral) ? referral as Referral : null;
+}
+
+function interviewProgressStep(interviewComplete: boolean, signed: boolean, answersComplete: boolean): DecisionProgressStep {
+  return interviewComplete
+      ? { key: "interview", label: "Interview complete", state: "done", detail: signed ? "Completed and signed." : answersComplete ? "Answers are complete. Not signed yet." : "The appointment is marked completed. Answers may still be open." }
+      : { key: "interview", label: "Interview not complete", state: "open", detail: "Unanswered items can stay open. They do not block the decision." };
 }

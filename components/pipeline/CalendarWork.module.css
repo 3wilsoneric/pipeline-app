@@ -133,3 +133,14 @@
   .rangeTitle { font-size: 16px; }
   .summary > span:nth-child(2) { display: none; }
 }
+
+/* Mine/Team schedule scope: an explicit choice, not a hidden filter. Like the
+   week/month control, the wide header and the narrow filter row each show one. */
+.scopeSwitch { display: flex; gap: 1px; padding: 1px; border: 1px solid #bac8b8; border-radius: 6px; background: #e2e9df; box-shadow: inset 0 1px 2px #29423010; }
+.scopeSwitch button { min-height: 44px; padding: 0 16px; border: 1px solid transparent; border-radius: 4px; color: #4a5f4e; font-size: 14px; font-weight: 650; }
+.scopeSwitch button[aria-pressed="true"] { border-color: #b3c3ae; background: #fffef9; color: #12543d; box-shadow: 0 1px 2px #233d321a; }
+.filterScope { display: none; }
+@media (max-width: 620px) {
+  .header .headerScope { display: none; }
+  .filters .filterScope { display: flex; }
+}

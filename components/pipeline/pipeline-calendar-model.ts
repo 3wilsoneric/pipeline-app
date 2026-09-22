@@ -1,5 +1,5 @@
 import type { AssessmentScheduleMethod } from "@/lib/assessment/assessment-records";
-import { addCalendarDays, calendarToday } from "@/lib/pipeline/assessment-calendar";
+import { addCalendarDays, assessmentEventNextStep, calendarToday } from "@/lib/pipeline/assessment-calendar";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type {
   PipelineCalendarEvent,
@@ -43,6 +43,7 @@ export type CalendarDrawerModel = {
   showStatusActions: boolean;
   workLabel?: string;
   workspaceOwner?: string;
+  nextStepLabel?: string;
 };
 
 export const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -137,8 +138,40 @@ export function resolveCalendarState(snapshot: CalendarSnapshot | undefined, req
   };
 }
 
-export function hasCalendarFilters(community: string, owner: string, mySchedule: boolean) {
-  return Boolean(community || owner || mySchedule);
+// Mine/Team is the schedule scope, not a filter; clearing filters keeps it.
+export function hasCalendarFilters(community: string, owner: string) {
+  return Boolean(community || owner);
+}
+
+export type CalendarEmptyAction = "view_team" | "all_assessors" | "all_communities";
+export type CalendarScopeFilters = {
+  scope: "personal" | "team";
+  mySchedule: boolean;
+  owner: string;
+  ownerLabel?: string;
+  community: string;
+};
+
+/** Names whose appointments are shown, e.g. "your schedule in San Pablo". */
+export function calendarScopeText({ scope, mySchedule, owner, ownerLabel, community }: CalendarScopeFilters) {
+  const who = scope === "personal" || mySchedule ? "your schedule" : owner ? `${ownerLabel || "the selected assessor"}'s schedule` : "the team schedule";
+  return community ? `${who} in ${community}` : who;
+}
+
+/** Explains an empty, successfully loaded range and offers the matching way out. */
+export function calendarEmptyState(filters: CalendarScopeFilters, rangeText: string): { title: string; detail: string; actions: CalendarEmptyAction[] } {
+  const mine = filters.scope === "personal" || filters.mySchedule;
+  const actions: CalendarEmptyAction[] = [];
+  if (mine && filters.scope === "team") actions.push("view_team");
+  if (!mine && filters.owner) actions.push("all_assessors");
+  if (filters.community) actions.push("all_communities");
+  return {
+    title: `No appointments on ${calendarScopeText(filters)} for ${rangeText}.`,
+    detail: mine
+      ? filters.scope === "team" ? "Showing Mine: only appointments assigned to you." : "Showing appointments assigned to you."
+      : filters.owner ? "Showing Team, filtered to one assessor." : "Showing Team: every assessor's appointments.",
+    actions,
+  };
 }
 
 export function calendarStatusText(loading: boolean, refreshing: boolean, message: string) {
@@ -200,6 +233,7 @@ function calendarEventDrawerModel(event: PipelineCalendarEvent): CalendarDrawerM
     hasScheduledTime,
     showStatusActions: hasScheduledTime && canSchedule,
     workLabel: event.kind === "assessment" ? appointmentStatusLabel(event) : undefined,
+    nextStepLabel: isAppointment ? assessmentEventNextStep(event).label : undefined,
     workspaceOwner: distinctWorkspaceOwner(event),
   };
 }

@@ -74,7 +74,12 @@
 .reference { position: relative; display: flex; min-width: 0; min-height: 0; border: 1px solid #cbd3cf; border-radius: 3px 7px 7px 3px; background: linear-gradient(90deg, #edf1ee 0 8px, #dce3de 8px 9px, #fff 9px, #fff calc(100% - 6px), #f4f6f4); box-shadow: 0 3px 0 -1px #fafbf9, 0 3px 0 #d4dbd6, 0 6px 0 -1px #f7f9f6, 0 6px 0 #dce2dd, 0 8px 18px -10px #253e3a26; }
 .reference::after { content: ""; position: absolute; top: 17px; left: -1px; width: 4px; height: 28px; border-radius: 0 2px 2px 0; background: #35785e; pointer-events: none; }
 .referenceContent { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
-.referenceHeader { display: flex; align-items: center; flex-shrink: 0; min-height: 52px; margin-inline: 30px 24px; padding-block: 12px 10px; border-bottom: 3px double #d2dad4; }
+.referenceHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; min-height: 52px; margin-inline: 30px 24px; padding-block: 12px 10px; border-bottom: 3px double #d2dad4; }
+.referenceWidth { flex-shrink: 0; min-height: 44px; padding-inline: 8px; border-radius: 5px; color: #0c6a53; font-size: 13px; font-weight: 600; }
+.referenceWidth:hover { background: #edf4ef; }
+.referenceWidth:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
+@media (max-width: 959px) { .referenceWidth { display: none; } }
+.referenceSummary { margin-left: auto; padding-inline: 12px; color: #5c6d64; font-size: 14px; font-weight: 500; white-space: nowrap; }
 .referenceHeader h4 { margin: 0; color: #354e41; font-size: 16px; font-weight: 650; letter-spacing: 0; line-height: 1.4; }
 .referenceToggle { display: none; }
 .readingPage { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding: 0 24px 22px 30px; scroll-padding-block: 20px; }
@@ -106,6 +111,8 @@
 .editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #fff; }
 .questionPage { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding: 24px 32px 32px; scroll-padding-block: 24px; }
 .questionPage > * { max-width: 780px; margin-inline: auto; }
+.sectionHeading { margin: 0 0 16px; color: #22362e; font-size: 20px; font-weight: 650; letter-spacing: -.01em; line-height: 1.35; }
+.sectionHeading:focus-visible { outline: 2px solid #087e64; outline-offset: 4px; border-radius: 3px; }
 .sectionSteps { display: flex; flex: 0 0 auto; align-items: center; gap: 16px; margin-left: auto; }
 .stepPosition { min-width: 48px; color: #6a766f; font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
 .stepPosition strong { color: #30483b; font-weight: 650; }
@@ -189,16 +196,21 @@
 .reviewFacts { display: flex; flex-wrap: wrap; gap: 16px 48px; margin: 0; }
 .reviewFacts dt { font-size: 13px; font-weight: 600; color: #5e6d65; }
 .reviewFacts dd { margin: 5px 0 0; font-size: 17px; font-weight: 600; color: #243b32; }
-.reviewChecklist { margin-top: 22px; border: 1px solid #dfd6bf; border-radius: 6px; background: #fcfaf5; color: #65552d; }
-.reviewChecklist summary { padding: 14px 16px; min-height: 48px; cursor: pointer; font-size: 15px; font-weight: 600; }
-.reviewChecklist summary span { display: inline-block; margin-left: 12px; font-weight: 400; }
-.reviewChecklist p { margin: 0; padding: 0 16px 12px; font-size: 14px; line-height: 1.5; }
-.reviewChecklist ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; padding: 0 16px 12px; margin: 0; list-style: none; }
-.reviewChecklist li { min-width: 0; border-top: 1px solid #e5ddcc; }
+.reviewRemaining { margin: 18px 0 0; font-size: 15px; line-height: 1.5; color: #65552d; }
+.reviewSectionsHeading { margin: 20px 0 6px; font-size: 15px; font-weight: 650; color: #243b32; }
+.reviewChecklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; padding: 0; margin: 0; list-style: none; }
+.reviewChecklist li { min-width: 0; border-top: 1px solid #e0e6e2; }
 .reviewChecklist button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 9px 0; font-size: 15px; text-align: left; color: #355c4e; }
-.reviewChecklist button > span:last-child { display: flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 13px; }
+.reviewChecklist button > span:last-child { display: flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 13px; color: #5e6d65; }
 .reviewChecklist button:disabled { color: #72766e; cursor: default; }
+.reviewChecklist button:disabled > span:last-child { color: #72766e; }
 .reviewChecklist button:hover:enabled { text-decoration: underline; }
+.reviewChecklist button:focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
+.reviewRecommendation, .signingNote { margin-top: 22px; padding: 16px 18px; border: 1px solid #d9e2dc; border-radius: 6px; background: #f8fbf9; }
+.reviewRecommendation h4, .signingNote h4 { margin: 0 0 6px; font-size: 16px; font-weight: 650; color: #243b32; }
+.reviewRecommendation p, .signingNote p { max-width: 78ch; margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: #52675d; }
+.signingNote p:last-child { margin-bottom: 0; }
+.reviewRecommendation [data-quick-recommendation] { min-height: 44px; }
 .reviewComplete { display: flex; align-items: center; gap: 9px; margin: 20px 0 0; font-size: 15px; color: #286350; }
 .reviewError { flex-basis: 100%; max-height: 22dvh; overflow-y: auto; margin: 0; padding: 10px 12px; border-left: 3px solid #9aa7a0; background: #f7faf9; font-size: 15px; line-height: 1.5; color: #59645e; }
 .reviewDocument { max-width: 1280px; margin: 24px auto 0; padding: 0 clamp(16px, 3vw, 48px); }
@@ -211,12 +223,17 @@
   .reviewHeading h3 { font-size: 24px; }
   .reviewHeading p { font-size: 15px; }
   .reviewFacts { gap: 16px 24px; }
-  .reviewChecklist ul { grid-template-columns: 1fr; }
-  .reviewChecklist summary span { display: block; margin: 4px 0 0 18px; }
+  .reviewChecklist { grid-template-columns: 1fr; }
+  .reviewChecklist button { align-items: flex-start; flex-direction: column; gap: 2px; padding-block: 10px; }
   .reviewDocument { padding: 0 10px; margin-top: 16px; }
   .reviewDocument [data-chart-fact] dd { font-size: 17px; }
 }
-.chartReviewNotice { padding: 12px 20px; color: #59665f; font-size: 14px; }
+.chartReviewNotice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 8px 20px; color: #59665f; font-size: 14px; }
+.chartReviewNotice > button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; border-radius: 4px; color: #08735e; font-weight: 600; text-underline-offset: 4px; }
+.chartReviewNotice > button:not(:disabled):hover { text-decoration: underline; }
+.chartReviewNotice > button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
+.chartReviewNotice > button:disabled { opacity: .5; cursor: not-allowed; }
+.chartReviewNotice > p { flex: 1 1 240px; min-width: 0; margin: 0; }
 .chartReview [data-assessment-record] > header { padding-block: 10px; }
 .chartReview [data-assessment-record] > section { padding-block: 16px; }
 .chartReview [data-assessment-record] > section > h3 { margin-bottom: 12px; }
@@ -255,18 +272,27 @@
   .navigation { padding-inline: 0; }
 }
 
+/* Desktop: the reference column stays compact and expands on request, so the
+   interview answers keep the main working area. */
+@media (min-width: 960px) {
+  .book:not(.preparing) { grid-template-columns: minmax(232px, .3fr) minmax(0, .7fr); }
+  .book:not(.preparing):has(.reference[data-wide="true"]) { grid-template-columns: minmax(0, .46fr) minmax(0, .54fr); }
+}
+
 @media (min-width: 640px) and (max-width: 959px) {
   .footerUtilities { gap: 6px; }
   .sectionSteps { gap: 8px; }
-  .book { gap: 12px; padding: 12px; grid-template-columns: minmax(0, .44fr) minmax(0, .56fr); }
+  .book { gap: 12px; padding: 12px; }
   .questionPage { padding-inline: 18px; }
   .navigation { gap: 12px; }
   .navigation .sectionPicker select { font-size: 23px; }
   .sectionProgress { min-width: 112px; }
 }
 
-@media (max-width: 759px) {
-  .book { display: flex; flex-direction: column; gap: 1px; }
+/* Tablet and narrower: a compact reference summary instead of a column that
+   would take the question area. */
+@media (max-width: 959px) {
+  .book { display: flex; flex-direction: column; align-items: stretch; gap: 1px; }
   .reference { flex-direction: column; flex-shrink: 0; max-height: 55%; }
   .referenceToggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding-inline: 26px 20px; flex-shrink: 0; color: #29463e; font-size: 16px; font-weight: 600; text-align: left; }
   .reference::after { top: 14px; height: 20px; }
@@ -282,6 +308,9 @@
 @media (min-width: 640px) and (max-width: 759px) {
   .sectionSteps .previousSection { min-width: 44px; }
   .previousSection > span { display: none; }
+}
+
+@media (min-width: 640px) and (max-width: 959px) {
   .book { gap: 12px; }
   .reference, .reference:has(.referenceContent[data-expanded="true"]) { flex-basis: auto; max-height: none; }
   .referenceToggle { min-height: 48px; }
@@ -298,7 +327,10 @@
   .phaseSummary { flex-basis: 100%; }
   .phaseSteps { gap: 8px; }
   .phaseSteps li { gap: 5px; font-size: 13px; }
-  .workMode[data-phase="interview"] .phaseSummary p { display: none; }
+  /* The phone section chooser already exposes All questions. Keep the interview
+     question prominent while retaining the scheduling action and start errors. */
+  .workMode[data-phase="interview"] { padding-block: 2px; }
+  .workMode[data-phase="interview"] .phaseSummary { display: none; }
   .workMode p { font-size: 13px; line-height: 1.4; }
   .beginAssessment { flex: 1; padding-inline: 10px; font-size: 14px; }
   .prepActions { width: 100%; gap: 8px; }
@@ -320,7 +352,7 @@
   .preparing .sectionProgress small { display: inline; margin-left: 8px; }
   .chartReviewToolbar:has(.reviewHeading) { gap: 4px; padding: 8px 16px; }
   .reviewHeading h3 { font-size: 18px; }
-  .chartReviewNotice { padding: 8px 16px; font-size: 13px; }
+  .chartReviewNotice { padding: 4px 16px 8px; font-size: 13px; }
   .chartReview [data-assessment-record] > :is(header, section, footer) { padding-inline: 16px; }
   .footerUtilities { flex-basis: 100%; justify-content: space-between; gap: 8px; }
   .sectionSteps { width: 100%; justify-content: space-between; gap: 8px; }
@@ -362,3 +394,10 @@
 .appointment button:hover { background: #eaf3ee; }
 .appointment button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
 .appointment button:disabled { opacity: .5; }
+
+/* Scheduling entry inside the chart's contact and coordination band. */
+.chartScheduling { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 18px; }
+.chartScheduling p { margin: 0; color: #4a5751; font-size: 15px; font-weight: 600; }
+.chartScheduling button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid #b6c6be; border-radius: 6px; background: #fff; color: #17614f; font-size: 15px; font-weight: 700; }
+.chartScheduling button:hover { border-color: #0f8b73; color: #0f6f5e; }
+.chartScheduling button:focus-visible { outline: 2px solid #0f8b73; outline-offset: 2px; }
