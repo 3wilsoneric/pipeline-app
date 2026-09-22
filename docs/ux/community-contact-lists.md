@@ -104,7 +104,8 @@ The local lock/file adapter is not used as multi-instance production storage.
   while drafts exist. App rollback can leave the additive migration in place;
   never delete records merely to permit a database rollback.
 - Email To and Cc remain separate, deduplicated, with a combined 100-address
-  ceiling and the existing approved-domain checks. Community membership does
+  ceiling and email address validation. Per the owner’s September 22 policy, the
+  reviewed To/Cc list controls recipients; no domain allowlist applies. Community membership does
   not bypass recipient authorization, signing, acceptance, attachment scanning,
   explicit confirmation, or duplicate-delivery protection. The demo cannot send.
 - Copy follows the supplied admission email structure: admission coordination,
@@ -134,7 +135,7 @@ The local lock/file adapter is not used as multi-instance production storage.
   Graph upload-session packets retain the existing configuration checks.
 
 Production activation requires the reviewed private template source, migrations 0040/0041,
-approved recipient domains, existing Graph delivery configuration, and release
+the Outlook client configuration and release
 approval. No production settings or real messages were changed by this feature.
 
 ## Evidence

@@ -92,7 +92,6 @@ export async function GET(
             admissionPacket.files.map((file) => file.name),
             undefined, { demo: exampleOnly },
           ) : null,
-          allowed_recipient_domains: mail.allowedRecipientDomains,
           eligible: snapshot.decision?.outcome === "accepted",
           can_send: canSend,
           can_edit_recipients: canSendAdmissionSummary(auth.user, access.referral),
@@ -153,7 +152,7 @@ function meetClientEmailBlockers(
   if (!report) blockers.push("Complete an assessment before preparing the summary.");
   else if (!report.signed) blockers.push("Sign the assessment before preparing the summary.");
   if (outcome !== "accepted") blockers.push("Record an accepted admission decision before emailing the summary.");
-  if (!configured) blockers.push("Configure the Outlook connection and approved recipient domains.");
+  if (!configured) blockers.push("Configure the Outlook connection.");
   blockers.push(...attachmentBlockers);
   return blockers;
 }

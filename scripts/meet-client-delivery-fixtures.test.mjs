@@ -9,6 +9,7 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const summaryOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-summary.ts");
 const schemaOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-tool-schema.ts");
+const recipientOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/notifications/microsoft-graph-mail.ts");
 
 const require = createRequire(import.meta.url);
 const source = ts.transpileModule(readFileSync("app/api/referrals/[referralId]/meet-client-email/route.ts", "utf8"), {
@@ -220,7 +221,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
       GraphMailDeliveryError,
       isMeetClientLive: () => !exampleOnly,
       getGraphMailReadiness: () => ({ configured: true }),
-      validateMeetClientRecipients: (recipients) => ({ ok: true, recipients }),
+      validateMeetClientRecipients: recipientOwner.validateMeetClientRecipients,
       sendMeetClientMail: async (message) => {
         calls += 1;
         messages.push(message);
@@ -304,13 +305,13 @@ test("unconfirmed recipients never reserve or send, including truthy non-boolean
 
 test("the Outlook route prepares the reviewed draft without invoking automatic mail delivery", async () => {
   const fixture = deliveryFixture();
-  const response = await fixture.send("6", { cc_recipients: ["copy@example.invalid"] }, "outlook");
+  const response = await fixture.send("6", { recipients: ["synthetic@outlook.com"], cc_recipients: ["copy@gmail.com", "community@new-domain.invalid"] }, "outlook");
   assert.equal(response.status, 200);
   assert.equal((await response.json()).draft.status, "draft");
   assert.equal(fixture.providerCalls(), 0);
   assert.equal(fixture.messages.length, 1);
-  assert.deepEqual(Array.from(fixture.messages[0].recipients), ["synthetic@example.invalid"]);
-  assert.deepEqual(Array.from(fixture.messages[0].ccRecipients), ["copy@example.invalid"]);
+  assert.deepEqual(Array.from(fixture.messages[0].recipients), ["synthetic@outlook.com"]);
+  assert.deepEqual(Array.from(fixture.messages[0].ccRecipients), ["copy@gmail.com", "community@new-domain.invalid"]);
   assert.equal(fixture.messages[0].audit.assessmentVersion, 7);
   assert.equal(fixture.messages[0].audit.provider, "outlook_draft");
   assert.equal(fixture.messages[0].inventory.files.length, 2);

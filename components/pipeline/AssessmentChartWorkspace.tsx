@@ -34,7 +34,6 @@ type ChartPayload = {
     sender: string;
     preview: { subject: string; html: string; text?: string } | null;
     prepared_by?: string;
-    allowed_recipient_domains: string[];
     eligible: boolean;
     can_send: boolean;
     can_edit_recipients: boolean;

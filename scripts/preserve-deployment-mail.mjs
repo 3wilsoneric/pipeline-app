@@ -19,9 +19,6 @@ export function deploymentMailSettings(environment, secrets, activation = "prese
 
 function activateMeetClient(mail, activation) {
   if (activation === "preserve") return mail;
-  if (activation === "enabled" && !mail.some(item => item.name === "PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS" && item.value?.trim())) {
-    throw new Error("Configure approved recipient domains before activating Meet the Client.");
-  }
   return [...mail.filter(item => item.name !== "PIPELINE_MEET_CLIENT_LIVE_ENABLED"),
     { name: "PIPELINE_MEET_CLIENT_LIVE_ENABLED", value: activation === "enabled" ? "true" : "false" }];
 }
