@@ -150,3 +150,44 @@
 .senderCaption { display: block; margin-top: 5px; color: #58695f; font-size: 14px; }
 .outlookToolbar { flex-direction: column; align-items: stretch; gap: 14px; max-height: 48dvh; overflow-y: auto; overscroll-behavior: contain; }
 @media (max-width: 560px) { .deliveryChoice button { min-height: 44px; padding-inline: 12px; } .outlookToolbar { max-height: 44dvh; } }
+
+/* One check at a time, followed by the email itself. */
+.reviewLanding { max-width: 620px; margin: 40px auto 64px; padding: 24px; }
+.reviewLanding > h3 { margin: 0; color: #234d40; font-size: 28px; font-weight: 650; letter-spacing: -.025em; line-height: 1.25; }
+.reviewLanding > p { margin: 12px 0 28px; color: #59665f; font-size: 17px; line-height: 1.5; }
+.reviewChecklist { padding: 0; margin: 0; list-style: none; border-top: 1px solid #dce4df; }
+.reviewChecklist li { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 14px; padding: 21px 0; border-bottom: 1px solid #dce4df; }
+.reviewChecklist li > span { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #c4d4cb; border-radius: 50%; color: #587064; font-size: 15px; }
+.reviewChecklist strong { font-size: 18px; font-weight: 600; }
+.reviewChecklist small { color: #66786e; font-size: 14px; }
+.reviewChecklist [data-complete] > span { border-color: #b6d6c6; background: #eaf5ef; color: #087d66; }
+.reviewLanding .taskActions { justify-content: flex-end; }
+.reviewDialog { width: min(880px, calc(100vw - 48px)); height: min(850px, calc(100dvh - 48px)); }
+.stepNumber { color: #526c5f; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.dialogHeader h2:focus { outline: none; }
+.reviewContent { padding: 24px 32px; }
+.reviewInstruction { margin: 0 0 20px; color: #53675c; font-size: 17px; line-height: 1.6; }
+.reviewContent .confirmation { margin: 28px 0 12px; padding-top: 24px; border-top: 1px solid #dce4df; }
+.packetReview { padding: 24px 32px; border: 0; }
+.packetReview > p { margin: 12px 0 24px; color: #53675c; font-size: 16px; line-height: 1.6; }
+.packetReview .attachmentList { display: grid; gap: 12px; }
+.packetReview .attachment { width: 100%; max-width: none; min-height: 76px; }
+.packetReview .attachment strong { white-space: normal; overflow-wrap: anywhere; }
+.packetReview > .textButton { margin-top: 16px; }
+.composer > .toolbar > .textButton { flex-shrink: 0; }
+.composeScroll > .deliveryDetails { margin: 20px 28px; color: #59665f; font-size: 14px; }
+@media (max-width: 640px) {
+  .reviewLanding { margin: 8px auto 24px; padding: 20px 14px; }
+  .reviewLanding > h3 { font-size: 25px; }
+  .reviewLanding > p { font-size: 16px; }
+  .reviewChecklist li { gap: 10px; padding: 19px 0; }
+  .reviewChecklist strong { font-size: 16px; }
+  .reviewChecklist small { font-size: 12px; }
+  .reviewLanding .sendButton { width: 100%; }
+  .reviewDialog { width: 100vw; height: 100dvh; }
+  .reviewContent, .packetReview { padding: 20px 16px; }
+  .reviewDialog .toolbar { flex-wrap: nowrap; gap: 12px; }
+  .reviewDialog .toolbar .sendButton { width: auto; flex: 1; font-size: 15px; padding-inline: 12px; }
+  .reviewDialog .toolbar > span { font-size: 13px; color: #59665f; }
+}
+.reviewLanding .taskActions { justify-content: flex-start; margin: 0 0 28px; }

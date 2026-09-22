@@ -28,7 +28,10 @@ test("editable handoff text keeps linked admission details, source provenance, a
   assert.equal(email.subject, message.subject);
   assert.equal(email.text, message.body);
   for (const value of ["2026-10-01", "Admission packet.pdf", "Client data sheet.html", "Sender-edited handoff", "&lt;img"]) assert.ok(email.html.includes(value), value);
-  assert.doesNotMatch(email.html, /<img|<script/);
+  const images = email.html.match(/<img\b[^>]*>/g) ?? [];
+  assert.equal(images.length, 1);
+  assert.match(images[0], /alt="Alamo Health Management"/);
+  assert.doesNotMatch(email.html, /<script|<img[^>]*\bonerror\s*=/);
   const changed = emailOwner.renderMeetClientEmail({ ...summary, admissionDate: "2026-10-02" }, "Synthetic sender", "preview", [], message);
   assert.ok(changed.html.includes("2026-10-02"));
   assert.ok(!changed.html.includes("2026-10-01"));
@@ -198,4 +201,16 @@ test("packet inventory keeps every page, waits for unsafe files, then uses a sec
   assert.equal(ready.ready, true);
   assert.equal(ready.deliveryMode, "secure_link");
   assert.equal(ready.blockers.length, 0);
+});
+
+test("outgoing handoffs use Alamo branding with a reachable logo and no Pipeline copy", () => {
+  const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
+  for (const options of [{}, { demo: true }, { packetUrl: "https://alamo-pipeline.com/admission-packets/fixture" }]) {
+    const email = emailOwner.renderMeetClientEmail(summary, "Assessor", "delivery", ["Client data sheet.html"], undefined, options);
+    assert.match(email.html, /<img[^>]+alt="Alamo Health Management"/);
+    assert.match(email.html, /src="https:\/\/alamo-pipeline\.com\/brand\/alamo-health-management\.png"/);
+    const visibleCopy = email.html.replace(/<[^>]+>/g, "");
+    assert.doesNotMatch(visibleCopy, /Pipeline/);
+    assert.doesNotMatch(email.text, /Pipeline/);
+  }
 });

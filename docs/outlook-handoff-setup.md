@@ -4,7 +4,9 @@
 
 ## Assessor flow after activation
 
-In **Finish & send → Preview email**, review the community's To/Cc recipients, message and complete admission packet. Connect the Outlook mailbox matching your authenticated Pipeline email, then choose **Save to Outlook Drafts**. Pipeline saves the prepared message and secure packet link directly in that mailbox's Drafts folder and opens it in Outlook. The assessor reviews and presses Send in Outlook; replies go to that assessor.
+In **Finish & send → Review handoff**, confirm the client summary, check the complete admission packet, and verify the To/Cc recipients in three separate dialogs. Each dialog has one primary next action. The email preview opens only after those checks; recipient edits clear the authorization check. The preview uses the Alamo Health Management logo and contains no Pipeline branding. Message editing is available from the preview. Connect the Outlook mailbox matching your authenticated Pipeline email, then choose **Save to Outlook Drafts**. Pipeline saves the prepared message and secure packet link directly in that mailbox's Drafts folder and opens it in Outlook. The assessor reviews and presses Send in Outlook; replies go to that assessor.
+
+Review confirmations are local to the current visit and reset after reopening or refreshing; recipients and message edits remain saved. Persisting confirmations would require version-bound review records if resuming completed checks across sessions becomes a requirement. Closing a modal does not confirm it or complete the demo.
 
 Each assessor connects their own mailbox. Eric's Outlook.com account can be used for his own synthetic rehearsal; it cannot place drafts into other assessors' mailboxes. Work, home-tenant guest and personal Microsoft accounts are supported. Pipeline's sign-in tenant and access policy remain unchanged. Microsoft may require the assessor's organization to approve the connection.
 
