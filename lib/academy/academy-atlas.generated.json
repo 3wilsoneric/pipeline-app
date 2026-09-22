@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:5ca7a465a5979559",
-  "fingerprint": "5ca7a465a5979559ad6adf28b62890641e50cdebaa0ff35eb345939f0c503053",
+  "generatedAt": "source-fingerprint:b3b776a0f5836318",
+  "fingerprint": "b3b776a0f5836318cbb10aa00aaa7285c6038b4cb54e26b7cc90a54c963a7d66",
   "totals": {
-    "files": 1376,
-    "lines": 363095,
-    "coveredFiles": 1376
+    "files": 1377,
+    "lines": 363112,
+    "coveredFiles": 1377
   },
   "entries": [
     {
@@ -2694,12 +2694,24 @@
       ]
     },
     {
+      "path": "components/pipeline/OutlookConnectionNotice.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 10,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
+      ]
+    },
+    {
       "path": "components/pipeline/OutlookConnectionSetup.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 149,
+      "lines": 150,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2711,7 +2723,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 27,
+      "lines": 31,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2723,7 +2735,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 146,
+      "lines": 148,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
