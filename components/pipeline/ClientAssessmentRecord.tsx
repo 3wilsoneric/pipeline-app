@@ -32,7 +32,14 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
       </section>;
     })}
     <footer className="flex flex-wrap justify-between gap-2 px-5 py-4 text-[12px] leading-5 text-[#59675f] sm:px-7">
-      <span className="break-all">Assessment {assessment.assessment_id} · Version {assessment.version}</span>
+      <details className="min-w-0">
+        <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">Record details</summary>
+        <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-3">
+          <dt>Assessment ID</dt><dd className="break-all font-mono">{assessment.assessment_id}</dd>
+          <dt>Version</dt><dd>{assessment.version}</dd>
+          <dt>Created</dt><dd>{readableTimestamp(assessment.created_at)}{assessment.created_by?.name ? ` by ${assessment.created_by.name}` : ""}</dd>
+        </dl>
+      </details>
       <span>{signed ? `Signed ${readableTimestamp(assessment.signed_at!)}${assessment.signed_by?.name ? ` by ${assessment.signed_by.name}` : ""}` : "Working answers. Not a signed clinical record."}</span>
     </footer>
   </article>;
