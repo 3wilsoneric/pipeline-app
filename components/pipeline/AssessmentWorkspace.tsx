@@ -365,6 +365,8 @@ export default function AssessmentWorkspace({
   const [savedPosition, setSavedPosition] = useState<SavedAssessmentPosition>(() => hasExplicitAssessmentEntry({
     initialSection, trainingAssessmentSection, initialQuestion, initialLocation, trainingAssessmentMode, referralId,
   }) ? null : undefined);
+  // The assessment whose entry position has been resolved and may be published.
+  const [resolvedPositionFor, setResolvedPositionFor] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(referralId));
   const [isBusy, setIsBusy] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -528,14 +530,14 @@ export default function AssessmentWorkspace({
   useLayoutEffect(() => {
     // Do not publish the placeholder section before the entry position is resolved;
     // it would overwrite the saved bookmark and read back as an explicit route.
-    if (!selectedId || focusedAssessmentIdRef.current !== selectedId) return;
+    if (!selectedId || resolvedPositionFor !== selectedId) return;
     onActiveSectionChangeRef.current?.(activeSection, {
       view: "assessment", assessmentSection: activeSection,
       assessmentMode: reviewingChart ? "review" : preparing ? "prepare" : "interview",
       ...assessmentDialogLocation(reviewingChart, showScheduleDialog, showBeginDialog),
       ...(phoneQuestion && questionSectionRef.current === activeSection && !reviewingChart ? { assessmentQuestion: phoneQuestion } : {}),
     });
-  }, [activeSection, preparing, reviewingChart, showScheduleDialog, showBeginDialog, phoneQuestion, selectedId, isFocused]);
+  }, [activeSection, preparing, reviewingChart, showScheduleDialog, showBeginDialog, phoneQuestion, selectedId, resolvedPositionFor]);
 
   const upsertAssessment = useCallback((assessment: PipelineAssessmentRecord, select = false) => {
     setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
@@ -893,6 +895,7 @@ export default function AssessmentWorkspace({
     );
     if (!focus) return;
     focusedAssessmentIdRef.current = focus.assessmentId;
+    setResolvedPositionFor(focus.assessmentId);
     if (selected && savedPosition?.assessmentSection) {
       const mode = savedPosition.assessmentMode;
       if (mode === "prepare" || mode === "interview") setNotebookPage({ assessmentId: selected.assessment_id, view: mode === "prepare" ? "prepare" : "assessment" });

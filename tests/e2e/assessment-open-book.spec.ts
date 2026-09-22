@@ -69,7 +69,7 @@ for (const width of [1440, 1024, 768, 640]) {
     const reference = page.getByRole("complementary", { name: "Current information" });
     const editor = page.locator("[data-assessment-question-editor]");
     const secondary = editor.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
-    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
+    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await expect(reference.getByRole("combobox")).toHaveCount(0);
     await expect(reference).not.toContainText("Taylor Rivera");
     await expect(reference).toContainText("During the practice interview");
@@ -84,7 +84,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await chooseSection(page, "diagnosis_clinical");
     await expect(secondary).toHaveCount(0);
     await expect(editor).toContainText("This section is complete");
-    if (width >= 760) {
+    if (width >= 960) {
       const nav = (await page.getByRole("navigation", { name: "Assessment sections", exact: true }).boundingBox())!;
       expect((await editor.boundingBox())!.y - (nav.y + nav.height)).toBeLessThan(24);
     }
@@ -96,7 +96,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await chooseSection(page, "diagnosis_clinical");
     await expect(secondary).toBeVisible();
     await chooseSection(page, "functional_adl");
-    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
+    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await reference.getByRole("button", { name: "Edit Ambulatory", exact: true }).click();
     await editor.getByRole("group", { name: "Ambulatory", exact: true }).getByRole("button", { name: "No", exact: true }).click();
     const mobility = editor.locator("#assessment-mobility");
@@ -109,11 +109,13 @@ for (const width of [1440, 1024, 768, 640]) {
     await chooseSection(page, "functional_adl");
     await expect(mobility).toHaveCount(0);
     await expect(reference).toContainText("Uses a walker; needs help on stairs.");
-    if (width >= 760) {
+    if (width >= 960) {
       const left = (await reference.boundingBox())!;
       const right = (await editor.boundingBox())!;
       expect(left.x + left.width).toBeLessThan(right.x);
-      expect(left.width).toBeGreaterThan(width * 0.3);
+      // The reference stays readable but compact; the questions keep the main area.
+      expect(left.width).toBeGreaterThanOrEqual(232);
+      expect(left.width).toBeLessThan(right.width);
       // The shared page owns scrolling; the reading pane must not clip its last answer.
       const lastAnswer = reference.getByRole("button").last();
       await lastAnswer.scrollIntoViewIfNeeded();
@@ -125,7 +127,7 @@ for (const width of [1440, 1024, 768, 640]) {
     }
     expect(await book.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await chooseSection(page, "prior_history");
-    if (width < 760) await reference.getByRole("button", { name: /^Current information/ }).click();
+    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await expect(reference.getByRole("button", { name: "Edit Prior placements", exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`open-book-${width}.png`), animations: "disabled" });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });

@@ -109,3 +109,36 @@ test("current information follows only the active section and keeps unverified s
   await expect(reference).toContainText("Synthetic medication");
   await page.screenshot({ path: info.outputPath("conversation-context.png") });
 });
+
+// Batch 2, item 5: a concise review before signing, with links back to editable
+// sections and plain language about what signing does and does not finalize.
+test("review summary links back to editable sections and explains signing", async ({ page }, info) => {
+  const { referral, assessment, url } = await createInterview(page);
+  await startOperationalAssessment(page.request, assessment);
+  const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  await page.goto(url);
+  // Interviewing keeps section progress dominant and the recommendation out of the way.
+  const steps = page.getByRole("navigation", { name: "Assessment section steps", exact: true });
+  await expect(steps.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
+  await expect(steps.getByRole("button", { name: "Previous section", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Placement recommendation", exact: true })).toHaveCount(0);
+
+  await page.goto(`${url}&assessmentMode=review`);
+  const sections = page.getByRole("list", { name: "Answers by section" });
+  await expect(sections.getByRole("button")).toHaveCount(12);
+  await expect(sections.getByRole("button").first()).toContainText("recorded");
+  const signing = page.getByRole("region", { name: "What signing does", exact: true });
+  await expect(signing).toContainText("does not record the admission decision");
+  await expect(signing).toContainText("does not send the Meet the Client packet");
+  await expect(signing).toContainText("Unanswered items stay unanswered");
+  await expect(page.getByRole("region", { name: "Placement recommendation", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("assessment-review-summary.png"), fullPage: true, animations: "disabled" });
+
+  // A section link returns to that editable section; reviewing never signs.
+  await sections.getByRole("button").nth(1).click();
+  await expect(page).toHaveURL(/workspaceStage=assessment/);
+  await expect(page.locator("[data-assessment-section-heading]")).toBeVisible();
+  await expect(page.locator("[data-assessment-question-editor]")).toBeVisible();
+  expect((await read()).signed_at).toBeNull();
+  expect((await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json()).decision).toBeNull();
+});

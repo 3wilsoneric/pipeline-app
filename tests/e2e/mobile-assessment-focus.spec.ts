@@ -170,3 +170,42 @@ test("iPhone WebKit supports portrait, landscape and iPad without replacing answ
     expect(violations).toEqual([]);
   } finally { await browser.close(); }
 });
+
+// Batch 4, item 10: the phone keeps its one-question flow and the working
+// question through Current info, Files and scheduling.
+test("phone keeps the same question and focus through Current info, Files and scheduling", async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { referral } = await openInterview(page);
+  const pocket = page.locator("[data-phone-interview]");
+  const answer = pocket.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true });
+  await answer.fill("Synthetic answer kept through side trips.");
+  await answer.blur();
+  const position = async () => pocket.getByText(/^Question \d+ of \d+$/).textContent();
+  const before = await position();
+
+  // Current info returns focus to its opener and leaves the question in place.
+  await pocket.getByRole("button", { name: "Client info", exact: true }).click();
+  await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Close information panel", exact: true }).click();
+  await expect(pocket.getByRole("button", { name: "Client info", exact: true })).toBeFocused();
+  expect(await position()).toBe(before);
+  await expect(answer).toHaveValue("Synthetic answer kept through side trips.");
+
+  // Files and back keeps the question, and lands on the question heading rather
+  // than opening the software keyboard.
+  const view = page.getByRole("combobox", { name: "Workspace view", exact: true });
+  await view.selectOption("files");
+  await expect(pocket).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption("2");
+  await expect(answer).toHaveValue("Synthetic answer kept through side trips.");
+  expect(await position()).toBe(before);
+  await expect(page.locator('[data-phone-question-scroll] [tabindex="-1"]')).toBeFocused();
+  await expect(page).toHaveURL(/assessmentQuestion=prior_awol_failed_placements/);
+
+  // The input stays visible above the sticky footer.
+  const field = (await answer.boundingBox())!;
+  const steps = (await pocket.getByRole("navigation", { name: "Question steps", exact: true }).boundingBox())!;
+  expect(field.y + field.height).toBeLessThanOrEqual(steps.y + 1);
+  await page.screenshot({ path: info.outputPath("phone-question-continuity.png"), animations: "disabled" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(referral.id).toBeGreaterThan(0);
+});

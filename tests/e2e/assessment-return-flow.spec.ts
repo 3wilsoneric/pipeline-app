@@ -130,3 +130,62 @@ test("a stale Begin card resumes an interview already started elsewhere", async 
   await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
   expect((await read()).started_at).toBe(started.started_at);
 });
+
+// Batch 1, item 1: the working position survives Chart, Files, Activity and a
+// cold return, and the resolution order stays explicit target → saved position
+// for this user and workspace → existing default entry.
+for (const width of [1440, 834]) test(`assessment keeps its section and question through Files, Activity and a cold return at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: width === 834 ? 1112 : 900 });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Continuity", owner: "", tags: [] });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, assessment);
+  const workspace = `/?view=referrals&screen=packet&referralId=${referral.id}`;
+  const savedPosition = async () => {
+    const { state } = await (await page.request.get("/api/me/work-continuity")).json();
+    const visit = state.recentWorkspaces?.find((item: { referralId: number }) => item.referralId === referral.id);
+    return visit?.location.view === "assessment" && visit.location.assessmentSection ? visit.location : visit?.assessmentLocation;
+  };
+  const answer = page.locator("#assessment-family_involvement");
+
+  await page.goto(`${workspace}&workspaceStage=assessment&assessmentSection=social_support`);
+  await answer.focus();
+  await expect(page).toHaveURL(/assessmentQuestion=family_involvement/);
+  await expect.poll(async () => (await savedPosition())?.assessmentQuestion).toBe("family_involvement");
+
+  // The sticky header and footer must never cover the question being answered.
+  const field = (await answer.boundingBox())!;
+  const header = (await page.getByTestId("workspace-folder-header").boundingBox())!;
+  const footer = (await page.locator('footer[aria-label="Assessment actions"]').boundingBox())!;
+  expect(field.y).toBeGreaterThanOrEqual(header.y + header.height);
+  expect(field.y + field.height).toBeLessThanOrEqual(footer.y);
+  await page.screenshot({ path: info.outputPath(`continuity-working-${width}.png`), animations: "disabled" });
+
+  for (const away of ["Workspace files", "Workspace activity"]) {
+    await page.getByRole("button", { name: away, exact: true }).click();
+    await expect(page.getByLabel("Assessment section", { exact: true })).toHaveCount(0);
+    // Visiting another page must not discard the assessment position.
+    await expect.poll(async () => (await savedPosition())?.assessmentSection).toBe("social_support");
+  }
+  await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: /Assessment$/ }).click();
+  await expect(page).toHaveURL(/assessmentSection=social_support/);
+  await expect(page).toHaveURL(/assessmentQuestion=family_involvement/);
+  await expect(answer).toBeFocused();
+
+  // A cold entry with no requested section resumes the saved position instead of
+  // the first section or the next unanswered item.
+  await page.goto(`${workspace}&workspaceView=activity`);
+  await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: /Assessment$/ }).click();
+  await expect(page).toHaveURL(/assessmentSection=social_support/);
+  await expect(answer).toBeFocused();
+
+  // An explicit request still wins over the saved position.
+  await page.goto(`${workspace}&workspaceStage=assessment&assessmentSection=medication`);
+  await expect(page.getByLabel("Assessment section", { exact: true })).toHaveValue("medication");
+
+  // Another workspace never inherits this one's position.
+  const other = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Continuity Two", owner: "", tags: [] });
+  await startOperationalAssessment(page.request, await createOperationalAssessment(page.request, other.id));
+  await page.goto(`/?view=referrals&screen=packet&referralId=${other.id}&workspaceStage=assessment`);
+  await expect(page.getByLabel("Assessment section", { exact: true })).toBeVisible();
+  await expect(page).not.toHaveURL(/social_support/);
+});

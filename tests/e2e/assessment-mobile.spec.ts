@@ -44,7 +44,7 @@ test.describe("mobile assessment", () => {
     await expect(assessment).toBeVisible();
     for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
-      const phone = size.width < 640 || size.height < 500 && size.width < 960;
+      const phone = size.width < 640 || size.height < 500 && size.width < 760;
       const back = page.getByRole("button", { name: phone ? "Back to previous page" : "Pipeline home", exact: true });
       await expect(back).toBeInViewport();
       if (phone) {
@@ -54,7 +54,7 @@ test.describe("mobile assessment", () => {
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const controls = [page.getByRole("button", { name: phone ? /^Open page menu/ : "Expand navigation" }), back, ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true })])];
-      if (!phone && size.width < 760) controls.push(assessment.getByRole("button", { name: /^Current information/ }));
+      if (!phone && size.width < 960) controls.push(assessment.getByRole("button", { name: /^Current information/ }));
       for (const control of controls) {
         const box = (await control.boundingBox())!;
         expect(box.height).toBeGreaterThanOrEqual(44);
@@ -62,7 +62,7 @@ test.describe("mobile assessment", () => {
       }
       const field = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
       await expect(field).toHaveCSS("font-size", phone ? "16px" : "17px");
-      if (size.width >= 760 && !phone) {
+      if (size.width >= 960 && !phone) {
         const reference = assessment.getByRole("complementary", { name: "Current information" });
         await expect(reference).toBeVisible();
         expect((await reference.boundingBox())!.x).toBeLessThan((await field.boundingBox())!.x);

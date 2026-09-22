@@ -20,7 +20,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     const reference = phone ? page.getByRole("dialog", { name: "Client information", exact: true }) : page.getByRole("complementary", { name: "Current information", exact: true });
     const openReference = async () => {
       if (phone) await page.getByRole("button", { name: "Client info", exact: true }).click();
-      else if (width < 760) await reference.getByRole("button", { name: "Current information", exact: true }).click();
+      else if (width < 960) await reference.getByRole("button", { name: "Current information", exact: true }).click();
     };
     await openReference();
     const recorded = reference.getByRole("button", { name: `${phone ? "Review" : "Edit"} Prior placements`, exact: true });
@@ -60,6 +60,8 @@ test("iPad reading page supports touch editing and leaves section navigation int
     const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
     await page.goto("/?view=referrals&screen=packet&trainingAssessment=prepare&demo=1&workspaceStage=assessment&assessmentSection=prior_history");
     const reference = page.getByRole("complementary", { name: "Current information", exact: true });
+    // The tablet shows a compact reference summary; open it before reading answers.
+    await reference.getByRole("button", { name: /^Current information/ }).tap();
     const recorded = reference.getByRole("button", { name: "Edit Prior placements", exact: true });
     await expect(recorded).toBeVisible();
     await page.screenshot({ path: info.outputPath("reading-page-ipad.png"), animations: "disabled" });

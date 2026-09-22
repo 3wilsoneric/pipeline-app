@@ -289,13 +289,13 @@ function parseLastWorkspace(value: unknown): PipelineLastWorkspace | null {
   if (!Number.isSafeInteger(candidate.referralId) || Number(candidate.referralId) < 1 || !location || !isTimestamp(candidate.visitedAt)) {
     return null;
   }
-  const assessmentLocation = candidate.assessmentLocation === undefined ? undefined : parsePipelineWorkspaceLocation(candidate.assessmentLocation);
-  if (assessmentLocation === null || (assessmentLocation && !assessmentLocation.assessmentSection)) return null;
+  // An unusable remembered position is dropped, never a reason to discard the visit.
+  const assessmentLocation = parsePipelineWorkspaceLocation(candidate.assessmentLocation);
   return {
     referralId: Number(candidate.referralId),
     location,
     visitedAt: candidate.visitedAt as string,
-    ...(assessmentLocation ? { assessmentLocation } : {}),
+    ...(assessmentLocation?.assessmentSection ? { assessmentLocation } : {}),
   };
 }
 
