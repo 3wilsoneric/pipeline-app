@@ -28,6 +28,11 @@ export type AdmissionPacket = {
     note?: string;
     toRecipients?: string[];
     ccRecipients?: string[];
+    deliveryMode?: "attachments";
+    html?: string;
+    attachmentHashes?: Record<string, string>;
+    attachmentsReady?: boolean;
+    operation?: { id: string; expiresAt: number };
   };
   events: { action: string; at: string; recipient?: string; file?: string; actorId?: string; actorName?: string }[];
 };
@@ -101,7 +106,7 @@ export async function listAdmissionPacketLinks(referralId: number) {
   let records: AdmissionPacket[];
   if (getPipelineDatabaseMode() === "postgres") {
     const sql = getPipelineSql();
-    const rows = await sql<{ record: AdmissionPacket }[]>`select record from pipeline.admission_packet_links where referral_id = ${referralId} order by created_at desc limit 50`;
+    const rows = await sql<{ record: AdmissionPacket }[]>`select record from pipeline.admission_packet_links where referral_id = ${referralId} and coalesce(record->'outlook'->>'deliveryMode', '') <> 'attachments' order by created_at desc limit 50`;
     records = rows.map((row) => row.record);
   } else {
     const directory = dirname(localPath("00000000-0000-4000-8000-000000000000"));
@@ -111,6 +116,7 @@ export async function listAdmissionPacketLinks(referralId: number) {
       const record = JSON.parse(await readFile(join(directory, name), "utf8")) as AdmissionPacket;
       if (record.referralId === referralId) records.push(record);
     }
+    records = records.filter((packet) => packet.outlook?.deliveryMode !== "attachments");
     records.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     records = records.slice(0, 50);
   }
@@ -121,6 +127,7 @@ export async function listAdmissionPacketLinks(referralId: number) {
 export async function manageAdmissionPacketLink(id: string, referralId: number, action: "renew" | "revoke", actor: { id: string; name: string }) {
   return withAdmissionPacket(id, (packet) => {
     if (!packet || packet.referralId !== referralId) throw new PacketAccessError("Packet not found.", 404);
+    if (packet.outlook?.deliveryMode === "attachments") throw new PacketAccessError("This handoff uses email attachments, not a download link.", 409);
     if (action === "renew" && packet.outlook && packet.outlook.status !== "sent") throw new PacketAccessError("Prepare a new handoff to share this packet again.", 409);
     const now = new Date();
     if (action === "revoke") packet.revokedAt = now.toISOString();

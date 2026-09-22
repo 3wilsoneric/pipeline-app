@@ -181,3 +181,8 @@
   .folderHeader .filePages button { padding-inline: 12px; font-size: 13px; }
   .returnButton { max-width: 130px; }
 }
+.headerTools { flex-shrink: 0; margin: 0 10px 4px; }
+@media (max-width: 900px) {
+  .folderHeader:has(.headerTools) { flex-wrap: wrap; }
+  .folderHeader .headerTools { order: 3; flex-basis: 100%; margin: 4px 10px; }
+}

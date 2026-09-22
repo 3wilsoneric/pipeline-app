@@ -220,7 +220,7 @@ function TutorialPacket({ state, files, onSend, onEdit }: { state: TutorialRefer
   const [to, setTo] = useState("community@example.invalid");
   const [view, setView] = useState<"summary" | "chart" | "files">("summary");
   const report = buildAssessmentSummaryReport(state.assessment, state.referral);
-  const email = renderMeetClientEmail(report.meetClient, "Practice assessor", "tutorial-only", ["Sample face sheet", "Sample medication list", "Assessment chart"]);
+  const email = renderMeetClientEmail(report.meetClient, "Practice assessor", "tutorial-only", ["Sample face sheet", "Sample medication list", "Assessment chart"], undefined, { logoUrl: "/brand/alamo-health-management.png" });
   if (state.underReview || state.referral.admissionDecision?.outcome === "declined") return <section className={styles.content}><h2>No admission packet</h2><p>This referral is {state.underReview ? "under review" : "denied"}. Return to Decision to try acceptance.</p></section>;
   return <section className={styles.content} data-guide-target="tutorial-packet">
     <div className={styles.pageHeading}><h2>Email &amp; packet</h2><button type="button" className={styles.textButton} onClick={onEdit}>{state.sentAt ? "View assessment" : "Edit assessment"}</button></div>

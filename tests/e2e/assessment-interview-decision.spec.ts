@@ -29,11 +29,9 @@ for (const width of [1440, 390]) {
     await page.goto(url);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-    const more = page.locator('summary[aria-label="Assessment details"]');
-    await more.click();
-    const recommendation = page.getByRole("combobox", { name: "Placement recommendation" });
+    const recommendation = page.getByTestId("workspace-folder-header").getByRole("combobox", { name: "Working decision" });
     await expect(recommendation).toBeEnabled();
-    await expect(recommendation.locator("option")).toHaveText(["Select recommendation", "Accept", "Deny", "Under review"]);
+    await expect(recommendation.locator("option")).toHaveText(["Choose...", "Accept", "Deny", "Under review"]);
     for (const [label, outcome] of [["Accept", "accept"], ["Under review", "needs_more_information"], ["Deny", "decline"]]) {
       await recommendation.selectOption({ label });
       await expect.poll(async () => (await read()).recommendation?.outcome).toBe(outcome);
@@ -65,14 +63,12 @@ for (const width of [1440, 390]) {
     expect(saved.meet_client_sent_at).toBeFalsy();
     await page.reload();
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-    await more.click();
     await expect(recommendation).toHaveValue("needs_more_information");
     let release = () => {};
     const gate = new Promise<void>((resolve) => { release = resolve; });
     await page.route(`**/api/referrals/${referral.id}/recommendation`, async (route) => { await gate; await route.continue(); });
     try {
       await recommendation.selectOption("accept");
-      await more.click();
       await openAssessmentChart(page);
       await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
       await expect(footer.getByRole("button", { name: "Saving recommendation...", exact: true })).toBeDisabled();

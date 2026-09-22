@@ -43,19 +43,19 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     if (!selected || demo || state.demo) return;
     let cancelled = false;
     const reconnect = async () => {
-      const token = await acquireOutlookToken(state.outlook_client_id);
+      const token = await acquireOutlookToken(state.outlook_client_id, false, state.account_email);
       if (!token || cancelled) return;
       const result = await fetchPipelineJson<{ mailbox: string }>(endpoint, { method: "POST", headers: { "x-pipeline-outlook-token": token }, body: JSON.stringify({ action: "connect" }) });
       if (!cancelled) setMailbox(result.mailbox);
     };
     void reconnect().catch(() => undefined);
     return () => { cancelled = true; };
-  }, [selected, demo, state.demo, state.outlook_client_id, endpoint]);
+  }, [selected, demo, state.demo, state.outlook_client_id, state.account_email, endpoint]);
   const action = async (name: "connect" | "check" | "discard", token: string) => {
     const result = await fetchPipelineJson<{ mailbox?: string; draft?: OutlookDraftView }>(endpoint, {
       method: "POST", headers: { "x-pipeline-outlook-token": token },
       body: JSON.stringify({ action: name, packet_id: state.draft?.packet_id, confirmed: name === "discard" }),
-    }, { timeoutMs: 90_000 });
+    }, { timeoutMs: 300_000 });
     if (result.mailbox) setMailbox(result.mailbox);
     if (result.draft) acceptDraft(result.draft);
     return result;
@@ -73,7 +73,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     finally { active.current = false; setBusy(false); }
   };
   const requireToken = async (interactive = false) => {
-    const token = await acquireOutlookToken(state.outlook_client_id, interactive);
+    const token = await acquireOutlookToken(state.outlook_client_id, interactive, state.account_email);
     if (!token) { setMailbox(""); throw new Error("Reconnect Outlook to continue. Your existing draft will be kept."); }
     return token;
   };
@@ -99,8 +99,8 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
   const discard = async () => {
     const changed = state.draft?.status === "needs_review";
     if (!await confirm({ title: changed ? "Prepare an updated handoff?" : "Remove this Outlook draft?", message: changed
-      ? "Outlook already sent this email. Its packet link will stop working and the original send will stay in the activity record. Review the latest assessment, recipients and files before creating another handoff."
-      : "Its packet link will stop working. Pipeline will remove the draft from Outlook, then you can prepare a replacement. An email already sent cannot be recalled.", confirmLabel: changed ? "Review updated handoff" : "Remove draft", destructive: true })) return;
+      ? "Outlook already sent this email. Its attachments cannot be recalled. The original send will stay in the activity record. Review the latest assessment, recipients and files before creating another handoff."
+      : "The unsent draft will be removed from Outlook, then you can prepare a replacement. An email already sent cannot be recalled.", confirmLabel: changed ? "Review updated handoff" : "Remove draft", destructive: true })) return;
     await run(async () => { await action("discard", await requireToken()); });
   };
   if (!selected) return null;
@@ -114,7 +114,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
   const renderConnectAction = () => <button type="button" className={styles.primary} disabled={disabled || isDemo || !state.outlook_client_id || state.occupied} onClick={() => void connect()}>{busy ? <LoaderCircle size={16} className={styles.spin} /> : <Mail size={16} />}Connect Outlook</button>;
   const renderPrimaryAction = () => (isDemo ? <button type="button" className={styles.primary} disabled><ExternalLink size={16} />Save to Outlook Drafts</button> : !connected ? renderConnectAction()
         : !draft ? <button type="button" className={styles.primary} disabled={preparationDisabled} onClick={prepare}>{busy || sending ? <LoaderCircle size={16} className={styles.spin} /> : <ExternalLink size={16} />}Save to Outlook Drafts</button>
-          : <button type="button" className={styles.primary} disabled={disabled || isDemo} onClick={() => void check()}><RefreshCw size={16} className={busy ? styles.spin : undefined} />Check sent status</button>);
+          : <button type="button" className={styles.primary} disabled={disabled || isDemo} onClick={() => void check()}><RefreshCw size={16} className={busy ? styles.spin : undefined} />{draft.status === "preparing" || draft.status === "unconfirmed" ? "Resume draft preparation" : "Check sent status"}</button>);
   const renderActions = () => (<div className={styles.actions}>
       {renderPrimaryAction()}
       {link ? <a className={styles.secondary} href={link} target="_blank" rel="noopener noreferrer">Reopen draft<ExternalLink size={14} /></a> : null}
@@ -129,7 +129,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     {renderSetupStatus()}
     {state.occupied ? <p role="status" className={styles.hint}>A teammate already has an Outlook draft for this workspace. Complete or remove that draft first.</p> : null}
     {draft ? <p className={styles.hint} role="status">{draft.message || "Saved in Outlook Drafts. Review and send it in Outlook, then choose Check sent status here."}</p>
-      : <p className={styles.hint}>Connect once, then save the reviewed message and complete packet link to your Drafts. Open Outlook to review and send.</p>}
+      : <p className={styles.hint}>Connect once, then save the reviewed message and all file attachments to your Drafts. Open Outlook to review and send.</p>}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {popupBlocked && link ? <p role="status" className={styles.hint}>Your draft is saved. Use “Reopen draft” to open Outlook.</p> : null}
 

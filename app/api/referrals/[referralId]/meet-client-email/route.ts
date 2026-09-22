@@ -12,7 +12,7 @@ import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notificati
 import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet-files";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { findWorkspaceOutlookDraft, PacketAccessError } from "@/lib/notifications/admission-packet-store";
-import { connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
+import { getOutlookMailReadiness, connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
 import { prepareOutlookHandoff } from "@/lib/notifications/outlook-handoff";
 import {
   getMeetClientAttachmentInventory,
@@ -231,7 +231,7 @@ async function prepareEmailRequest(request: Request): Promise<
   if (!isReferralVersion(referralVersion)) {
     return { ok: false, response: jsonError("Refresh the summary before sending.", 409) };
   }
-  const readiness = getGraphMailReadiness();
+  const readiness = handoffMailReadiness(new URL(request.url).searchParams.get("delivery") === "outlook");
   if (!readiness.configured) {
     return { ok: false, response: jsonError("Microsoft 365 email is not configured for Pipeline.", 503) };
   }
@@ -290,7 +290,7 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
 
 async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord, packetRevision: string, outlook = false) {
   try {
-    const readiness = getGraphMailReadiness();
+    const readiness = handoffMailReadiness(outlook);
     const inventory = await getMeetClientAttachmentInventory(referral, {
       largeAttachmentDeliveryConfigured: readiness.largeAttachmentDeliveryConfigured,
       report: buildAssessmentSummaryReport(assessment, referral),
@@ -446,4 +446,8 @@ async function authorize(request: Request, context: { params: Promise<{ referral
       return { ok: false as const, response: jsonError("Not production yet — no email will be sent. This admission packet is a demo.", 403) };
     }
     return { ok: true as const, referralId, user: auth.user };
+}
+
+function handoffMailReadiness(outlook: boolean) {
+  return outlook ? getOutlookMailReadiness() : getGraphMailReadiness();
 }

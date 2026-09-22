@@ -45,7 +45,11 @@ export default function AssessmentExcelBackup({ assessment, data, readOnly, onAp
   const selected = changes.filter((change) => approved[changeKey(change)] ?? (!change.conflict && !change.clearing));
   const patch = Object.fromEntries(selected.map((change) => [change.field, change.value])) as Partial<AssessmentToolData>;
 
-  useEffect(() => { void loadTemplate().then((bytes) => { template.current = bytes; }).catch(() => undefined); }, []);
+  useEffect(() => {
+    // Load the fallback with the assessment, before connectivity can disappear.
+    void import("@/lib/assessment/assessment-excel-backup").then(setWorkbook).catch(() => undefined);
+    void loadTemplate().then((bytes) => { template.current = bytes; }).catch(() => undefined);
+  }, []);
   useEffect(() => { if (open) dialog.current?.showModal(); }, [open]);
   useEffect(() => {
     if (!open && !busy && returnFocus.current) {

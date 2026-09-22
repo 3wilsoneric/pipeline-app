@@ -1,6 +1,29 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
+import { createOperationalReferral } from "./support/operational-api";
+
+test("workspace sync badge appears for a merged remote edit without displacing actions", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic sync status", owner: "", tags: [] });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
+  await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
+  const header = page.getByTestId("workspace-folder-header");
+  const status = header.getByTestId("workspace-sync-status");
+  await expect(status).toHaveCount(0);
+  const before = (await header.boundingBox())!;
+  const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+  const updated = await page.request.patch(`/api/referrals/${referral.id}`, { data: {
+    if_match: current.version, if_match_sections: current.sectionVersions, patch: { phone: "(415) 555-0199" },
+  } });
+  expect(updated.ok()).toBe(true);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.locator('[data-workspace-field="phone"] input')).toHaveValue("(415) 555-0199");
+  await expect(status).toBeVisible();
+  await expect(status).toContainText("were merged into your open draft.");
+  await expect(page.getByRole("region", { name: "Remote changes", exact: true })).toHaveCount(0);
+  expect((await header.boundingBox())!.height).toBe(before.height);
+  await expect(header.getByRole("button", { name: "Workspace files", exact: true })).toBeEnabled();
+});
 
 for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
   test(`folder tabs connect directly to intake and retain the create flow at ${width}px`, async ({ page }, testInfo) => {

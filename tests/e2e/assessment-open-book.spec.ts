@@ -1,5 +1,5 @@
 import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
 
@@ -16,6 +16,49 @@ async function chooseSection(page: Page, key: string) {
   // Wait for the selected page to commit before issuing a second native-select change.
   await expect(page).toHaveURL(new RegExp("assessmentSection=" + key));
   await expect(page.locator("[data-assessment-working-section]")).toHaveAttribute("data-assessment-section", key);
+}
+
+for (const width of [1440, 834, 390]) {
+  test(`chart reference separates facts and complete medication entries at ${width}px`, async ({ page, baseURL }, info) => {
+    const tablet = width === 834 ? await webkit.launch() : null;
+    const preview = tablet ? await tablet.newPage({ baseURL, viewport: { width, height: 950 }, hasTouch: true, isMobile: true }) : page;
+    try {
+      await preview.setViewportSize({ width, height: 950 });
+      await preview.goto(practiceUrl.replace("diagnosis_clinical", "medication"));
+      if (width < 640) await preview.getByRole("button", { name: "Client info", exact: true }).click();
+      const reference = width < 640
+        ? preview.getByRole("dialog", { name: "Client information", exact: true })
+        : preview.getByRole("complementary", { name: "Current information", exact: true });
+      const action = width < 640 ? "Review" : "Edit";
+      const medications = reference.getByRole("button", { name: `${action} Medications at intake`, exact: true });
+      const entries = ["Synthetic medication A, dose pending verification", "Synthetic medication B, dose pending verification"];
+      for (const entry of entries) {
+        await expect(medications.getByText(entry, { exact: true })).toBeVisible();
+        await expect(medications.getByText(entry, { exact: true })).toHaveCSS("display", "block");
+        await expect(medications.getByText(entry, { exact: true })).toHaveCSS("font-size", "19px");
+      }
+      await expect(reference.getByRole("button", { name: `${action} Medication compliant`, exact: true })).toHaveCSS("display", "grid");
+      expect(await reference.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await preview.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+      const violations = await preview.evaluate(async (selector) => {
+        const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+        return (await axe.run(selector, { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
+      }, width < 640 ? 'dialog[aria-label="Client information"]' : 'aside[aria-label="Current information"]');
+      expect(violations).toEqual([]);
+      await preview.screenshot({ path: info.outputPath(`chart-reference-${width}.png`), animations: "disabled" });
+      await medications.click();
+      const editor = preview.locator("#assessment-medications_at_intake");
+      if (width < 640) {
+        // Phone navigation focuses the question position, without opening the keyboard.
+        await expect(reference).not.toBeVisible();
+        await expect(preview.locator('[data-phone-interview] p[tabindex="-1"]')).toBeFocused();
+        await expect(editor).toBeInViewport();
+        await editor.click();
+      }
+      await expect(editor).toBeFocused();
+      await expect(editor).toHaveValue(entries.join("\n"));
+    } finally { await tablet?.close(); }
+  });
 }
 
 // Phones have a separate focused interview suite; the narrow open book remains on tablets.

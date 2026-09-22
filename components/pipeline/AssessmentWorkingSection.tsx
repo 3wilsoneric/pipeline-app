@@ -4,6 +4,7 @@ import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
 import {
   assessmentInterviewFieldLabel,
+  assessmentInterviewOptionLabel,
   getAssessmentUnableReason,
   hasAssessmentInterviewValue,
   type AssessmentInterviewQuestion,
@@ -222,14 +223,21 @@ function CapturedAssessmentAnswers({ section, preparing, data, pending, question
 function CapturedAnswer({ question, data, pending, onEdit, signed, assessment, recorded }: WorkingData & { question: AssessmentInterviewQuestion; assessment: PipelineAssessmentRecord; recorded?: number; signed: boolean; onEdit: (field: AssessmentToolFieldKey) => void }) {
   const status = assessmentQuestionStatus(question, data, pending);
   const reason = getAssessmentUnableReason(data, question.field);
-  return <button type="button" aria-label={(signed ? "Review " : "Edit ") + assessmentInterviewFieldLabel(question.field)} onClick={() => onEdit(question.field)} className={styles.answer}>
+  return <button type="button" data-answer-control={question.control} aria-label={(signed ? "Review " : "Edit ") + assessmentInterviewFieldLabel(question.field)} onClick={() => onEdit(question.field)} className={styles.answer}>
     {recorded ? <span key={recorded} aria-hidden="true" className={styles.answerUpdate} /> : null}
     <span className={styles.answerLabel}>{assessmentInterviewFieldLabel(question.field)}{!signed ? <Pencil size={15} aria-hidden="true" /> : null}</span>
-    <span className={styles.answerValue}>{capturedAssessmentAnswer(question, data)}</span>
+    <AssessmentReferenceValue question={question} data={data} />
     {reason ? <span className={styles.answerReason}>{reason}</span> : null}
     <AssessmentAnswerSource assessment={assessment} data={data} field={question.field} />
     {status === "verify" ? <span className={styles.attention}>Needs verification</span> : status === "reason" ? <span className={styles.attention}>Reason missing</span> : null}
   </button>;
+}
+
+export function AssessmentReferenceValue({ question, data }: { question: AssessmentInterviewQuestion; data: AssessmentToolData }) {
+  const value = data[question.field];
+  return <span className={styles.answerValue}>{Array.isArray(value)
+    ? value.map((item, index) => <span key={index} className={styles.answerEntry}>{assessmentInterviewOptionLabel(question.field, item) ?? item}</span>)
+    : capturedAssessmentAnswer(question, data)}</span>;
 }
 
 export function AssessmentAnswerSource({ assessment, data, field }: { assessment: PipelineAssessmentRecord; data: AssessmentToolData; field: AssessmentToolFieldKey }) {

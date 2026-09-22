@@ -443,6 +443,7 @@ export default function ReferralPacketCanvas({
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
   const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
+  const [assessmentHeaderToolsTarget, setAssessmentHeaderToolsTarget] = useState<HTMLDivElement | null>(null);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
@@ -1466,12 +1467,12 @@ export default function ReferralPacketCanvas({
     setSavedAt("Unsaved changes");
   };
 
-  const locationForPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review"): PipelineWorkspaceLocation => (page === 1 && loadedReferralRef.current
+  const locationForPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null): PipelineWorkspaceLocation => (page === 1 && loadedReferralRef.current
       ? { view: "intake", intakeField: editField && editField !== "conserved" ? editField : "name" }
-      : page === 2 ? { ...lastAssessmentLocationRef.current, view: "assessment", assessmentSection: lastAssessmentSectionRef.current, ...(assessmentMode ? { assessmentMode, assessmentDialog: undefined } : {}) }
+      : page === 2 ? { ...lastAssessmentLocationRef.current, view: "assessment", assessmentSection: lastAssessmentSectionRef.current, ...(assessmentMode !== undefined ? { assessmentMode: assessmentMode ?? undefined, assessmentDialog: undefined } : {}) }
       : workspaceLocationForPage(page));
 
-  const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review") => {
+  const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
     if (emailSendingRef.current) return;
     if (page !== 2) setPreparingReferralId(null);
@@ -2357,20 +2358,22 @@ export default function ReferralPacketCanvas({
         ) : null
   );
 
+  const renderWorkspaceSyncStatus = () => remoteChange && remoteChange.conflicts.length === 0 ? (
+    <span role="status" data-testid="workspace-sync-status" className={workspaceFolderStyles.syncStatus} title={`Changes from ${remoteChange.updatedBy} were merged into your open draft.`}>
+      <CheckCircle2 size={16} aria-hidden="true" />
+      <span className="sr-only">Changes from {remoteChange.updatedBy} were merged into your open draft.</span>
+    </span>
+  ) : null;
+
   const renderWorkspaceActions = () => (
             <div className={workspaceFolderStyles.actions}>
-              {remoteChange && remoteChange.conflicts.length === 0 ? (
-                <span role="status" data-testid="workspace-sync-status" className={workspaceFolderStyles.syncStatus} title={`Changes from ${remoteChange.updatedBy} were merged into your open draft.`}>
-                  <CheckCircle2 size={16} aria-hidden="true" />
-                  <span className="sr-only">Changes from {remoteChange.updatedBy} were merged into your open draft.</span>
-                </span>
-              ) : null}
-              <WorkspaceAssignedWorkControl
+              {renderWorkspaceSyncStatus()}
+              {!readingAssessment ? <WorkspaceAssignedWorkControl
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
                 onOpen={openAssignedWork}
                 disabled={draftRecoveryLoading || emailSending}
-              />
+              /> : null}
               {editingControlsVisible ? (
                 <WorkspaceSaveControl
                   saving={isSaving}
@@ -2403,7 +2406,7 @@ export default function ReferralPacketCanvas({
                 <History size={15} aria-hidden="true" />
                 <span>Activity</span>
               </button>
-              {trashControlVisible ? (
+              {trashControlVisible && !readingAssessment ? (
                 <button
                   type="button"
                   aria-label="Move workspace to trash"
@@ -2421,6 +2424,7 @@ export default function ReferralPacketCanvas({
                   <Trash2 size={16} />
                 </button>
               ) : null}
+              {readingAssessment ? <div ref={setAssessmentHeaderToolsTarget} className={workspaceFolderStyles.assessmentTools} /> : null}
             </div>
   );
 
@@ -2749,6 +2753,7 @@ export default function ReferralPacketCanvas({
             <PacketPage id="packet-email" title="Finish & send" flush>
               <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
+                onReferralChange={applyConfirmedWorkflowReferral}
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={handoff}
                 onOpenFiles={() => openPage("files")} onOpenAssessment={() => openPage(2, undefined, "review")}
@@ -2776,13 +2781,14 @@ export default function ReferralPacketCanvas({
                   assignedAssessorId={loadedReferral?.ownerId}
                   {...assessmentEntryProps()}
                   workspaceTitle={workspaceTitle}
+                  headerToolsTarget={assessmentHeaderToolsTarget}
                   chartReview={displayedPage === 3 || routedWorkspaceLocation.assessmentMode === "review"}
                   assessmentReview={displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review"}
                   chartActions={!permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined}
                   onEditReferralField={!permissionReadOnly && loadedReferral ? (field) => void navigatePage(1, field) : undefined}
                   onOpenChart={() => openPage(3)}
                   onReviewAssessment={() => openPage(2, undefined, "review")}
-                  onOpenAssessment={() => openPage(2)}
+                  onOpenAssessment={() => openPage(2, undefined, null)}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}

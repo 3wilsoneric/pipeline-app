@@ -50,6 +50,7 @@ const moduleRules = [
   { patterns: [/auth\//, /^proxy\.ts$/, /^app\/sign-in\//, /^components\/auth\//], modules: ["entra-session", "authorization-phi"] },
   { patterns: [/^app\/api\/clinical\//, /^app\/api\/profiles\//, /^lib\/clinical\//, /unified-profile/, /clinical-reconciliation/], modules: ["clinical-adapter-profiles", "identity-matching-reconciliation"] },
   { patterns: [/resident-link/, /master-record-matching/, /client-history/, /canonical_client/, /master-dataset-merge/, /allo-import-identity/], modules: ["identity-matching-reconciliation", "clinical-adapter-profiles"] },
+  { patterns: [/outlook-/, /Outlook/, /meet-client/, /MeetClient/, /admission-packet/, /AssessmentChartWorkspace/], modules: ["assessment-decision-handoff", "authorization-phi"] },
   { patterns: [/^app\/api\/assessments\//, /^app\/api\/me\/assessment-drafts\//, /^lib\/assessment\//, /AssessmentWorkspace/, /ClientAssessmentSummary/, /assessment-/], modules: ["assessment-schema-ownership", "assessment-lifecycle"] },
   { patterns: [/ehr-handoff/, /recommendation\/route/, /decision\/route/, /^lib\/integration\//, /clinical-value-presentation/], modules: ["medication-decision-ehr", "assessment-decision-handoff"] },
   { patterns: [/^app\/api\/(?:uploads|packets|files)\//, /^app\/api\/internal\/extraction\//, /^lib\/extraction\//, /^databricks\//], modules: ["upload-storage", "extraction-worker", "provenance-review"] },

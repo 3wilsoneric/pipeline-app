@@ -69,6 +69,8 @@
 }
 .phoneStagePicker { display: none; }
 .actions { margin-left: auto; flex-shrink: 0; }
+.assessmentTools { flex-shrink: 0; margin: 0 0 4px 12px; }
+.assessmentTools:empty { display: none; }
 .actions > button { min-height: 44px; }
 
 .syncStatus { display: inline-flex; align-items: center; align-self: center; flex-shrink: 0; padding-inline: 4px; color: #176c51; }
@@ -238,6 +240,9 @@
   .stageTab { flex: 1 0 auto; }
 }
 
+.tabRow:has(.assessmentTools) .utilityTab { width: 44px; padding-inline: 0; }
+.tabRow:has(.assessmentTools) .utilityTab span { display: none; }
+
 @media (max-width: 1250px) {
   /* Keep creation attached to the folder edge, with utilities beside the name. */
   .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) 96px 44px 44px; gap: 0 3px; }
@@ -313,6 +318,8 @@
 .phoneWorkspace .stageTab { display: none; }
 .phoneWorkspace .phoneStagePicker { display: inline-flex; width: 100%; min-height: 44px; padding: 8px; border: 1px solid #dce6e0; border-radius: 7px; background: #f5f8f6; color: #1f664d; font-size: 16px; font-weight: 600; }
 .phoneWorkspace .actions { grid-column: 3; grid-row: 1; gap: 0; }
+.phoneWorkspace .assessmentTools { margin: 0; }
+.phoneWorkspace .actions:has(.assessmentTools:not(:empty)) { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
 .phoneWorkspace .actions .utilityTab, .phoneWorkspace .actions [aria-label="Workspaces"], .phoneWorkspace .readingWorkspace .actions [aria-label="Move workspace to trash"] { display: none; }
 .phoneWorkspace .readingWorkspace { height: 100%; min-height: 0; padding-bottom: 0; }
 .phoneWorkspace :is(.readingPages, .readingPages > section, .readingPages > section > div) { flex: 1; min-height: 0; overflow: hidden; }
@@ -321,6 +328,10 @@
 .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; max-width: none; padding: 0; }
 .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2; grid-row: 2; min-height: 44px; border-radius: 7px; }
 .phoneWorkspace :is(.phoneStagePicker, .actions button):focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
+
+@media (min-width: 640px) {
+  .phoneWorkspace .actions:has(.assessmentTools:not(:empty)) { grid-column: 3; grid-row: 1; margin-left: 8px; }
+}
 
 @media (forced-colors: active) {
   .header, .connectedFolder.connectedFolder { --folder-fill: Canvas; --folder-edge: ButtonText; }

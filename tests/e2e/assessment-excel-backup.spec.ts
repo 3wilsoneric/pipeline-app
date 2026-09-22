@@ -287,7 +287,7 @@ test("invalid or different-client workbooks cannot be committed, and Escape canc
   }
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Backup & recovery", exact: true })).toHaveCount(0);
-  await expect(page.locator('summary[aria-label="Assessment details"]')).toBeFocused();
+  await expect(page.getByRole("button", { name: /Open Excel and recovery/ })).toBeFocused();
 });
 
 test.describe("compact touch assessment", () => {
@@ -301,6 +301,7 @@ test("backup tools stay off the phone questionnaire and return to the same quest
     await page.setViewportSize(size);
     const pocket = page.locator("[data-phone-interview]");
     await expect(pocket).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Working decision", exact: true })).toBeVisible();
     await expect(page.locator("[data-excel-strip]")).toHaveCount(0);
     await expect(pocket.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
     await expect(pocket.getByRole("textbox").first()).toBeInViewport();
@@ -315,7 +316,7 @@ test("backup tools stay off the phone questionnaire and return to the same quest
     await page.screenshot({ path: info.outputPath(`backup-tools-${size.width}x${size.height}.png`) });
     await closeRecoveryTools(page);
     await expect(pocket.locator("textarea, input").first()).toHaveAttribute("id", question!);
-    await expect(page.locator('summary[aria-label="Assessment details"]')).toBeFocused();
+    await expect(page.getByRole("button", { name: /Open Excel and recovery/ })).toBeFocused();
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await openRecoveryTools(page);

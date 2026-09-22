@@ -39,6 +39,15 @@ on:
         required: true
         default: true
         type: boolean
+      meet_client_activation:
+        description: Meet the Client production activation (assessors send from Outlook)
+        required: true
+        default: preserve
+        type: choice
+        options:
+          - preserve
+          - enabled
+          - disabled
       enable_meet_client_mail:
         description: Enable Microsoft 365 Meet the Client summary and packet delivery
         required: true
@@ -128,15 +137,22 @@ jobs:
           fi
           echo "json=$custom_domains" >> "$GITHUB_OUTPUT"
 
-      - name: Preserve configured mail settings and live-send hold
+      - name: Preserve mail credentials and apply requested Meet the Client activation
         shell: bash
         env:
           RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           WEB_NAME: ${{ steps.foundation.outputs.name_prefix }}-${{ steps.foundation.outputs.environment }}-web
           INITIAL_BOOTSTRAP: ${{ inputs.initial_database_bootstrap }}
+          MEET_CLIENT_ACTIVATION: ${{ inputs.meet_client_activation }}
+          DEMO_CENTER_ENABLED: ${{ inputs.enable_demo_center }}
+          OUTLOOK_CLIENT_ID: ${{ vars.PIPELINE_OUTLOOK_CLIENT_ID }}
         run: |
           set -euo pipefail
-          node scripts/preserve-deployment-mail.mjs "$RESOURCE_GROUP" "${WEB_NAME:0:32}" "$RUNNER_TEMP/pipeline-mail-parameters.json" "$INITIAL_BOOTSTRAP"
+          if [[ "$MEET_CLIENT_ACTIVATION" == "enabled" ]]; then
+            test "$DEMO_CENTER_ENABLED" == "false" || { echo "Disable the Demo Center for production Meet the Client activation."; exit 1; }
+            test -n "$OUTLOOK_CLIENT_ID" || { echo "Configure the public Outlook Drafts client before activation."; exit 1; }
+          fi
+          node scripts/preserve-deployment-mail.mjs "$RESOURCE_GROUP" "${WEB_NAME:0:32}" "$RUNNER_TEMP/pipeline-mail-parameters.json" "$INITIAL_BOOTSTRAP" "$MEET_CLIENT_ACTIVATION"
 
       - name: Sign in to Azure Container Registry
         shell: bash

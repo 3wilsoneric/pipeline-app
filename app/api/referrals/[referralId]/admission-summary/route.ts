@@ -6,13 +6,17 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
-import { getGraphMailReadiness, isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
+import { isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
+
+import { getOutlookMailReadiness } from "@/lib/notifications/outlook-mail";
+import { workspaceOutlookState } from "@/lib/notifications/outlook-handoff";
+import { meetClientAttachmentDeliveryMode } from "@/lib/notifications/meet-client-attachment-policy";
 
 export const runtime = "nodejs";
 
@@ -57,7 +61,7 @@ export async function GET(
           "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
         } });
       }
-      const mail = getGraphMailReadiness();
+      const mail = getOutlookMailReadiness();
       const admissionPacket = await loadAdmissionPacketInventory(
         handoffReferral,
         mail.largeAttachmentDeliveryConfigured,
@@ -73,18 +77,20 @@ export async function GET(
       const exampleOnly = !isMeetClientLive();
       const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
 
+      const outlook = await summaryOutlookState(referralId, auth.user, exampleOnly);
       return Response.json({
         referral: snapshot.referral,
         report,
         email: {
           example_only: exampleOnly,
+          outlook_draft: outlook.draft,
           configured: mail.configured,
           sender: mail.sender,
           prepared_by: auth.user.name,
           preview: report ? renderMeetClientEmail(
             report.meetClient, auth.user.name, "Preview — assigned when sent",
             admissionPacket.files.map((file) => file.name),
-            undefined, { demo: exampleOnly, packetLinkPreview: true },
+            undefined, { demo: exampleOnly },
           ) : null,
           allowed_recipient_domains: mail.allowedRecipientDomains,
           eligible: snapshot.decision?.outcome === "accepted",
@@ -105,7 +111,7 @@ export async function GET(
             })),
             total_bytes: admissionPacket.totalBytes,
             ready: admissionPacket.ready,
-            delivery_mode: admissionPacket.deliveryMode,
+            delivery_mode: meetClientAttachmentDeliveryMode(admissionPacket.files),
           },
         },
       }, { headers: privateHeaders() });
@@ -147,7 +153,7 @@ function meetClientEmailBlockers(
   if (!report) blockers.push("Complete an assessment before preparing the summary.");
   else if (!report.signed) blockers.push("Sign the assessment before preparing the summary.");
   if (outcome !== "accepted") blockers.push("Record an accepted admission decision before emailing the summary.");
-  if (!configured) blockers.push("Configure the approved Microsoft 365 sender and recipient domains.");
+  if (!configured) blockers.push("Configure the Outlook connection and approved recipient domains.");
   blockers.push(...attachmentBlockers);
   return blockers;
 }
@@ -160,4 +166,8 @@ async function parseReferralId(context: { params: Promise<{ referralId: string }
 
 function privateHeaders() {
   return { "Cache-Control": "private, no-store, max-age=0", Vary: "Authorization" };
+}
+
+async function summaryOutlookState(referralId: number, user: PipelineUser, exampleOnly: boolean) {
+  return exampleOnly ? { draft: null } : workspaceOutlookState(referralId, user.delegation ? "" : user.id);
 }

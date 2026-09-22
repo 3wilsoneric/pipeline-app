@@ -1,7 +1,7 @@
 import "server-only";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { PacketAccessError } from "./admission-packet-store";
-import { isMeetClientLive } from "./microsoft-graph-mail";
+import { getGraphMailReadiness, isMeetClientLive } from "./microsoft-graph-mail";
 import { safeOutlookWebLink } from "./outlook-draft-contract";
 
 const graph = "https://graph.microsoft.com/v1.0";
@@ -12,6 +12,11 @@ export type OutlookMailbox = { token: string; id: string; email: string; graphId
 export function getOutlookClientId() {
   const id = process.env.PIPELINE_OUTLOOK_CLIENT_ID?.trim() ?? "";
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : "";
+}
+export function getOutlookMailReadiness() {
+  const readiness = getGraphMailReadiness();
+  const missing = [!getOutlookClientId() && "PIPELINE_OUTLOOK_CLIENT_ID", !isMeetClientLive() && "Owner activation required", !readiness.allowedRecipientDomains.length && "PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS"].filter(Boolean) as string[];
+  return { ...readiness, configured: missing.length === 0, missing, sender: "", largeAttachmentDeliveryConfigured: true };
 }
 export type OutlookMessage = {
   id: string; isDraft: boolean; webLink?: string; sentDateTime?: string; subject?: string;
@@ -69,6 +74,10 @@ export async function findOutlookMessage(token: string, packetId: string, messag
 export async function deleteOutlookDraft(token: string, messageId: string) {
   await outlookRequest(token, `/me/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" });
 }
+export async function updateOutlookMessage(token: string, messageId: string, subject: string, html: string, recipients: string[], ccRecipients: string[]) {
+  if (!isMeetClientLive()) throw new PacketAccessError("Not production yet — no Outlook draft will be changed.", 403);
+  return outlookRequest<OutlookMessage>(token, `/me/messages/${encodeURIComponent(messageId)}`, { method: "PATCH", body: JSON.stringify({ subject, body: { contentType: "HTML", content: html }, toRecipients: recipients.map(address), ccRecipients: ccRecipients.map(address) }) });
+}
 export function outlookAudience(message: OutlookMessage) {
   return [...new Set([...(message.toRecipients ?? []), ...(message.ccRecipients ?? []), ...(message.bccRecipients ?? [])]
     .map((value) => value.emailAddress?.address?.trim().toLowerCase() ?? ""))].sort();
@@ -76,7 +85,7 @@ export function outlookAudience(message: OutlookMessage) {
 export function outlookMessageLink(message: OutlookMessage) { return safeOutlookWebLink(message.webLink); }
 const address = (value: string) => ({ emailAddress: { address: value } });
 
-async function outlookRequest<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
+export async function outlookRequest<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${graph}${path}`, { ...init, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(30_000),

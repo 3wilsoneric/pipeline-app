@@ -5,6 +5,7 @@ import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { isValidHttpByteRange } from "@/lib/extraction/http-byte-range";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { MeetClientAttachmentInventory } from "./meet-client-attachments";
+import type { MeetClientMailAttachment } from "./meet-client-attachments";
 import { createAdmissionPacket, PacketAccessError, type AdmissionPacket, type PacketFile } from "./admission-packet-store";
 
 export const packetPrivateHeaders = {
@@ -19,14 +20,19 @@ export function admissionPacketUrl(id: string, requestUrl: string) {
   return new URL(toPipelinePath(`/admission-packet/${id}`), origin.origin).toString();
 }
 
-export async function prepareAdmissionPacketLink(input: {
+type PacketInput = {
   id: string; referralId: number; assessmentId: string; assessmentVersion: number;
   recipients: string[]; inventory: MeetClientAttachmentInventory; message: AdmissionPacket["message"];
-  requestUrl: string;
   outlook?: AdmissionPacket["outlook"];
-}) {
+};
+export async function prepareAdmissionPacketLink(input: PacketInput & { requestUrl: string }) {
   const url = admissionPacketUrl(input.id, input.requestUrl);
   if ((process.env.PIPELINE_ENTRA_SESSION_SECRET?.length ?? 0) < 32) throw new PacketAccessError("Email verification is not configured. Configure the packet verification secret before sending.", 503);
+  await prepareAdmissionPacketRecord(input);
+  return url;
+}
+
+export async function prepareAdmissionPacketRecord(input: PacketInput) {
   const files: PacketFile[] = [];
   // Keep large manifests within the send deadline without flooding storage.
   for (let offset = 0; offset < input.inventory.files.length; offset += 8) {
@@ -48,7 +54,16 @@ export async function prepareAdmissionPacketLink(input: {
     assessmentVersion: input.assessmentVersion, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(),
     files, message: input.message, ...(input.outlook ? { outlook: input.outlook } : {}), recipients: [...new Set(input.recipients.map((email) => email.trim().toLowerCase()))].map((email) => ({ email, sessions: [], requestedAt: [] })), events: [] };
   await createAdmissionPacket(packet);
-  return url;
+  return packet;
+}
+
+export async function packetMailAttachment(file: PacketFile, referralId: number): Promise<MeetClientMailAttachment> {
+  const common = { documentId: file.id, name: file.name, contentType: file.contentType, byteSize: file.byteSize };
+  if (file.source.kind === "generated") return { ...common, contentBytes: Buffer.from(file.source.content, "utf8") };
+  if (await getDocumentReferralId(file.id) !== referralId) throw new PacketAccessError("A file was withdrawn. Review the attachments before preparing this draft.", 409);
+  const asset = await getDocumentOriginalAsset(file.id);
+  if (!asset || asset.container !== file.source.container || asset.blobKey !== file.source.key) throw new PacketAccessError("A file changed. Review the attachments before preparing this draft.", 409);
+  return { ...common, sourceUrl: await getAzureBlobUploadSigner().createReadUrl(file.source.container, file.source.key, 900), sourceHeaders: { "If-Match": file.source.etag } };
 }
 
 export async function packetFileResponse(file: PacketFile, referralId: number, request: Request) {

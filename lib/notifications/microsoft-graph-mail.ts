@@ -204,6 +204,12 @@ async function sendDraftWithAttachments(
   }
 }
 
+export async function addGraphMailAttachment(messagePath: string, accessToken: string, attachment: MeetClientMailAttachment, progress: () => Promise<void> = async () => {}) {
+  await progress();
+  if (attachment.byteSize <= graphInlineAttachmentLimitBytes) await addSmallAttachment(messagePath, accessToken, attachment);
+  else await addLargeAttachment(messagePath, accessToken, attachment, progress);
+}
+
 async function addSmallAttachment(
   messagePath: string,
   accessToken: string,
@@ -225,6 +231,7 @@ async function addLargeAttachment(
   messagePath: string,
   accessToken: string,
   attachment: MeetClientMailAttachment,
+  progress: () => Promise<void> = async () => {},
 ) {
   const sessionResponse = await graphRequest(`${messagePath}/attachments/createUploadSession`, accessToken, {
     method: "POST",
@@ -238,26 +245,35 @@ async function addLargeAttachment(
     }),
   }, 201, "create_attachment_session");
   const session = await sessionResponse.json() as { uploadUrl?: unknown };
-  if (typeof session.uploadUrl !== "string" || !session.uploadUrl.startsWith("https://")) {
+  if (!safeAttachmentUploadUrl(session.uploadUrl)) {
     throw new GraphMailDeliveryError("attachment_session_invalid", "Microsoft Graph returned an invalid attachment session.");
   }
   const ranges = graphUploadRanges(attachment.byteSize);
   for (const [index, range] of ranges.entries()) {
+    await progress();
     const bytes = await readSourceRange(attachment, range.start, range.end);
     const response = await fetch(session.uploadUrl, {
       method: "PUT",
       headers: {
+        "Content-Type": "application/octet-stream",
         "Content-Length": String(bytes.byteLength),
         "Content-Range": `bytes ${range.start}-${range.end}/${attachment.byteSize}`,
       },
       body: bytes,
+      redirect: "error",
       signal: AbortSignal.timeout(30_000),
     });
     const finalChunk = index === ranges.length - 1;
-    if ((!finalChunk && response.status !== 202) || (finalChunk && ![200, 201].includes(response.status))) {
+    if ((!finalChunk && ![200, 202].includes(response.status)) || (finalChunk && response.status !== 201)) {
       throw await graphRejection(response, "upload_attachment_chunk");
     }
   }
+}
+
+function safeAttachmentUploadUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try { const url = new URL(value); return url.protocol === "https:" && !url.username && !url.password && ["outlook.office.com", "outlook.office365.com", "outlook.live.com"].includes(url.hostname); }
+  catch { return false; }
 }
 
 async function readSourceBytes(attachment: MeetClientMailAttachment) {
@@ -266,6 +282,8 @@ async function readSourceBytes(attachment: MeetClientMailAttachment) {
     return attachment.contentBytes;
   }
   const response = await fetch(attachment.sourceUrl, {
+    headers: attachment.sourceHeaders,
+    redirect: "error",
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
   });
@@ -277,10 +295,11 @@ async function readSourceBytes(attachment: MeetClientMailAttachment) {
   return bytes;
 }
 
-async function readSourceRange(attachment: MeetClientMailAttachment, start: number, end: number) {
+export async function readSourceRange(attachment: MeetClientMailAttachment, start: number, end: number) {
   if (attachment.contentBytes) return Uint8Array.from((await readSourceBytes(attachment)).subarray(start, end + 1));
   const response = await fetch(attachment.sourceUrl, {
-    headers: { Range: `bytes=${start}-${end}` },
+    headers: { ...attachment.sourceHeaders, Range: `bytes=${start}-${end}` },
+    redirect: "error",
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
   });

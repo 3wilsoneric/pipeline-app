@@ -10,6 +10,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess, requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 type Context = { params: Promise<{ referralId: string }> };
 const json = (body: object, status = 200) => Response.json(body, { status, headers: packetPrivateHeaders });
 export async function GET(request: Request, context: Context) {
