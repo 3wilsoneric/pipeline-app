@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c7c4d47379d1d472",
-  "fingerprint": "c7c4d47379d1d472f21ae4eda7685e3df9fb37ae6a439e86ce8cea28b7413d25",
+  "generatedAt": "source-fingerprint:6d4bf800c02893f2",
+  "fingerprint": "6d4bf800c02893f22eaf16705f3cfc1a0a14018f2a83b14568e517b050ac20bc",
   "totals": {
-    "files": 1365,
-    "lines": 361494,
-    "coveredFiles": 1365
+    "files": 1369,
+    "lines": 361836,
+    "coveredFiles": 1369
   },
   "entries": [
     {
@@ -801,7 +801,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 21,
+      "lines": 25,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -3170,7 +3170,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4115,
+      "lines": 4116,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -5548,6 +5548,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 225,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/operations/traffic-repair-20260922.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 28,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8444,7 +8456,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 218,
+      "lines": 248,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -8509,7 +8521,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 14,
+      "lines": 16,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -8548,7 +8560,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 681,
+      "lines": 687,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -8660,6 +8672,19 @@
       ]
     },
     {
+      "path": "lib/extraction/native-document-previews.ts",
+      "subsystem": "Document extraction",
+      "kind": "typescript-module",
+      "runtime": "next-server",
+      "risk": "critical",
+      "lines": 42,
+      "moduleIds": [
+        "extraction-worker",
+        "provenance-review",
+        "upload-storage"
+      ]
+    },
+    {
       "path": "lib/extraction/packet-referral.ts",
       "subsystem": "Document extraction",
       "kind": "typescript-module",
@@ -8678,7 +8703,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 603,
+      "lines": 605,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -9391,7 +9416,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 471,
+      "lines": 476,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -10039,7 +10064,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 259,
+      "lines": 262,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -11874,6 +11899,18 @@
       ]
     },
     {
+      "path": "scripts/azure-blob-signing.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 67,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/azure-operational-alert-audit.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -12156,6 +12193,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 104,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/client-workspace-summary.postgres.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 81,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12755,7 +12804,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 156,
+      "lines": 197,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12779,7 +12828,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 113,
+      "lines": 115,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14052,7 +14101,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 239,
+      "lines": 250,
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
@@ -16357,7 +16406,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 154,
+      "lines": 171,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
