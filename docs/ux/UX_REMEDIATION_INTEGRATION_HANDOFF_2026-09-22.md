@@ -4,8 +4,32 @@ Prepared 2026-09-22 for the Codex deploy session. Read with
 `docs/ux/WORKFLOW_UX_REMEDIATION_PLAN_2026-09-18.md`; its non-negotiable preservation rules govern
 everything below.
 
-**This branch is not a deploy candidate yet.** Four regressions and two open product questions are
-listed below. Nothing here has been pushed.
+**This branch is not a deploy candidate yet.** Nothing here has been pushed.
+
+## Update after the first handoff (read this first)
+
+The sessions kept committing after this brief was first written. Current state:
+
+- **Merged, `5ca55ea`:** two further Calendar and Home commits. `4008fae` settles the "Prepare" vs
+  "Begin" question: Home keeps **"Begin assessment"** for an appointment that has not started (the
+  card opens the Begin confirmation) and shares the board's wording for in-progress, ready-to-sign
+  and completed steps. `191ea4a` removes the `.next-item9-e2e` tsconfig scaffolding. Both items
+  below that mention these are now resolved.
+- **Not merged:** `claude/lucid-elgamal-134a7f` gained commit `d510182`, a rewritten
+  "WIP: assessment workspace UX remediation (plan items 1, 5, 7, 10)". It conflicts with this
+  branch in `AssessmentWorkspace.tsx` and `AssessmentWorkingSection.module.css`, and its own message
+  says it is not integration-ready. The merge was aborted rather than resolved by guesswork.
+  **This branch therefore carries the Assessment session's earlier commits (`238acdf`, `bd9d88f`),
+  not its latest work.** Decide whether `d510182` supersedes them before resolving the regressions
+  below — several of them are in its territory.
+- **Re-run of the affected specs after `5ca55ea`:** 12 passed, 6 failed.
+  `assessment-return-flow.spec.ts:122` now passes (it was the label disagreement). Remaining
+  regressions: **three** — `assessment-footer-layout.spec.ts:100` and
+  `assessment-return-flow.spec.ts:137` at 1440px and 834px. The other failures are unchanged:
+  `assessment-return-flow.spec.ts:32` (×2) fails on its own branch, and `calendar-workflow` fails on
+  production.
+
+The sections below are the original brief; where they conflict with this update, this update wins.
 
 ## What this is
 
