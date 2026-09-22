@@ -19,7 +19,7 @@ test("interview completion preserves answers, editability, original appointment 
   assessment = (await booked.json()).assessment;
   await page.goto("/?screen=calendar");
   await page.getByRole("button", { name: "Show calendar filters" }).click();
-  await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
+  await page.getByRole("button", { name: "Team", exact: true }).click();
   const continuing = page.getByRole("region", { name: "Continue working", exact: true });
   await continuing.locator("summary").click();
   await continuing.getByRole("button", { name: new RegExp(referral.name) }).first().click();
@@ -47,7 +47,7 @@ test("interview completion preserves answers, editability, original appointment 
   expect((await read()).current_symptoms).toBe("Synthetic documentation finished tomorrow");
   await page.reload();
   await page.getByRole("button", { name: "Show calendar filters" }).click();
-  await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
+  await page.getByRole("button", { name: "Team", exact: true }).click();
   await continuing.locator("summary").click();
   await expect(continuing).toContainText(referral.name);
   await expect(continuing).toContainText("Interview completed · documentation unfinished");
@@ -79,7 +79,7 @@ test("weekly calendar, contacts, previews, follow-up saves and layouts work on d
   await page.locator("summary").filter({ hasText: "Dated follow-ups" }).click();
   await page.getByRole("button", { name: "week", exact: true }).click();
   await page.getByRole("button", { name: "Scheduling queue 1", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Scheduling queue", exact: true }).getByRole("button", { name: "Schedule", exact: true })).toBeEnabled();
+  await expect(page.getByRole("dialog", { name: "Scheduling queue", exact: true }).getByRole("button", { name: "Schedule interview", exact: true })).toBeEnabled();
   await page.keyboard.press("Escape");
   await page.locator('button[title^="Morgan Sample -"]').click();
   const drawer = page.getByRole("dialog", { name: "Calendar item", exact: true });
@@ -129,4 +129,130 @@ test("weekly calendar, contacts, previews, follow-up saves and layouts work on d
     await page.keyboard.press("Escape");
     await expect(drawer).toHaveCount(0);
   }
+});
+
+// Item 9: Mine/Team scope, assessor filtering, and empty states that name the active scope.
+test("Mine and Team scope, assessor filters and empty states explain what is shown", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-18T18:00:00Z"));
+  const mine = { id: "assessment:mine", assessmentId: "mine", referralId: 901, clientName: "Mine Sample", community: "San Pablo", ownerId: "assessor-a", owner: "Alex Assessor", date: "2026-09-18", startsAt: "2026-09-18T18:00:00Z", durationMinutes: 60, method: "phone", scheduleStatus: "scheduled", kind: "assessment", status: "draft", title: "Assessment scheduled", detail: "Scheduled assessment" };
+  const theirs = { ...mine, id: "assessment:theirs", assessmentId: "theirs", referralId: 902, clientName: "Their Sample", community: "Turlock", ownerId: "assessor-b", owner: "Bailey Assessor" };
+  let gate: Promise<void> | null = null;
+  let openGate: (() => void) | null = null;
+  let fail = false;
+  await page.route("**/api/calendar/events**", async (route) => {
+    if (gate) { const pending = gate; gate = null; await pending; }
+    if (fail) { await route.fulfill({ status: 500, json: { error: "Calendar fixture unavailable." } }); return; }
+    const range = new URL(route.request().url()).searchParams;
+    const inRange = (range.get("from") ?? "") <= mine.date && mine.date <= (range.get("to") ?? "");
+    await route.fulfill({ json: { events: inRange ? [mine, theirs] : [], continuing: [], unscheduled: [], unscheduledTotal: 0, unscheduledHasMore: false, assessors: [{ id: "assessor-a", name: "Alex Assessor" }, { id: "assessor-b", name: "Bailey Assessor" }], viewer: { id: "assessor-a", name: "Alex Assessor" }, scope: "team", timezone: "America/Los_Angeles" } });
+  });
+  await page.goto("/?screen=calendar");
+
+  // Mine is the default scope and the assessor filter belongs to Team only.
+  const scope = page.getByRole("group", { name: "Whose schedule", exact: true });
+  await expect(scope.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('button[title^="Mine Sample -"]').first()).toBeVisible();
+  await expect(page.getByText("Their Sample", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show calendar filters" }).click();
+  await expect(page.getByRole("combobox", { name: "Filter calendar by assessor" })).toHaveCount(0);
+
+  await scope.getByRole("button", { name: "Team", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Filter calendar by assessor" }).selectOption("id:assessor-b");
+  await expect(page.locator('button[title^="Their Sample -"]').first()).toBeVisible();
+  await expect(page.getByText("Mine Sample", { exact: true })).toHaveCount(0);
+
+  // An empty filtered result names the scope and offers the matching way out.
+  await page.getByRole("combobox", { name: "Filter calendar by community" }).selectOption("San Pablo");
+  const empty = page.getByRole("region", { name: "No matching appointments", exact: true });
+  await expect(empty).toContainText("No appointments on Bailey Assessor's schedule in San Pablo");
+  await expect(empty).toContainText("Showing Team, filtered to one assessor.");
+  await empty.getByRole("button", { name: "Show all assessors", exact: true }).click();
+  await expect(page.locator('button[title^="Mine Sample -"]').first()).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Filter calendar by assessor" })).toHaveValue("");
+
+  // Clearing filters keeps the chosen scope; it is not itself a filter.
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(scope.getByRole("button", { name: "Team", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("combobox", { name: "Filter calendar by community" })).toHaveValue("");
+
+  // Mine with nothing scheduled explains the scope and offers the team.
+  await page.getByRole("button", { name: "Previous calendar range" }).click();
+  await expect(empty).toContainText("No appointments on the team schedule for");
+  await expect(empty).toContainText("Showing Team: every assessor's appointments.");
+  await scope.getByRole("button", { name: "Mine", exact: true }).click();
+  await expect(empty).toContainText("No appointments on your schedule for");
+  await expect(empty).toContainText("Showing Mine: only appointments assigned to you.");
+  await empty.getByRole("button", { name: "View team schedule", exact: true }).click();
+  await expect(scope.getByRole("button", { name: "Team", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  // Loading an uncached range is not an empty schedule.
+  const calendar = page.getByRole("main", { name: "Calendar", exact: true });
+  gate = new Promise<void>((resolve) => { openGate = resolve; });
+  await page.getByRole("button", { name: "Previous calendar range" }).click();
+  await expect(calendar).toHaveAttribute("aria-busy", "true");
+  await expect(empty).toHaveCount(0);
+  await expect.poll(() => openGate).not.toBeNull();
+  openGate!();
+  await expect(calendar).toHaveAttribute("aria-busy", "false");
+  await expect(empty).toContainText("No appointments on");
+
+  // Neither is a failed request: it says so instead of reporting an empty schedule.
+  fail = true;
+  await page.getByRole("button", { name: "Previous calendar range" }).click();
+  await expect(page.getByRole("alert").first()).toContainText("Calendar fixture unavailable.");
+  await expect(page.getByText("Appointments could not be loaded.", { exact: true })).toBeVisible();
+  await expect(empty).toHaveCount(0);
+});
+
+// Item 9: one scheduling dialog reached from Chart and Assessment; cancelling books nothing.
+test("Chart and Assessment open the same scheduling dialog, cancel books nothing, and a saved time opens the right workspace", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Schedule ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "Annette Everhart", documentName: "", documentStatus: "Missing", tags: [],
+  }, { assigneeId: "provisional:allo:annette" });
+  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
+  expect(created.status()).toBe(201);
+  const assessmentId = (await created.json()).assessment.assessment_id;
+  const assessmentUrl = `/api/assessments/${assessmentId}`;
+  let scheduleWrites = 0;
+  await page.route(`**${assessmentUrl}/schedule`, async (route) => { scheduleWrites += 1; await route.continue(); });
+
+  // Chart surfaces scheduling beside the referral's contact and coordination details.
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=chart`);
+  const contact = page.getByRole("region", { name: "Contact information", exact: true });
+  await expect(contact).toContainText("No assessment appointment booked yet.");
+  await contact.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+  await expect(dialog).toBeVisible();
+
+  // Cancelling makes no booking.
+  await dialog.getByLabel("Assessment date and time").fill("2026-09-24T10:00");
+  await dialog.getByRole("button", { name: "Back to assessment", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(scheduleWrites).toBe(0);
+  expect((await (await page.request.get(assessmentUrl)).json()).assessment.scheduled_start_at).toBeFalsy();
+
+  // Assessment opens the same dialog and saves the appointment.
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Assessment date and time").fill("2026-09-24T10:00");
+  await dialog.getByLabel("Assessment method").selectOption("phone");
+  await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(async () => (await (await page.request.get(assessmentUrl)).json()).assessment.schedule_status).toBe("scheduled");
+  expect(scheduleWrites).toBe(1);
+
+  // The saved appointment appears on the calendar and opens the assessment workspace.
+  await page.clock.setFixedTime(new Date("2026-09-24T16:00:00Z"));
+  await page.goto("/?screen=calendar");
+  await page.getByRole("button", { name: "Team", exact: true }).click();
+  await page.getByRole("button", { name: /^Show appointments for Thursday, Sep 24/ }).first().click();
+  const details = page.getByRole("region", { name: /^Appointments on / });
+  await expect(details).toContainText(referral.name!);
+  const open = details.getByRole("button", { name: new RegExp(`^Prepare assessment for ${referral.name}`) });
+  await expect(open.first()).toBeVisible();
+  await open.first().click();
+  await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));
+  await expect(page).toHaveURL(/workspaceStage=assessment/);
 });

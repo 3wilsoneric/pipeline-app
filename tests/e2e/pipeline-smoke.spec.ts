@@ -764,7 +764,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.goto("/?screen=calendar");
     await expect(page.getByText("My schedule", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Show calendar filters", exact: true }).click();
-    await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
+    await page.getByRole("button", { name: "Team", exact: true }).click();
     await expect(page.getByText("Team schedule", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
@@ -782,7 +782,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: /Scheduling queue\s+1/ }).click();
     const queueDialog = page.getByRole("dialog", { name: "Scheduling queue" });
     await expect(queueDialog).toContainText("Ready Client");
-    await queueDialog.getByRole("button", { name: "Schedule", exact: true }).click();
+    await queueDialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
     const scheduleDialog = page.getByRole("dialog").filter({ hasText: "Ready Client" });
     await expect(scheduleDialog).toBeVisible();
     await scheduleDialog.getByLabel("Method").selectOption("zoom");

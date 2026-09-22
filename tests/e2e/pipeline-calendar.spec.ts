@@ -39,7 +39,7 @@ test.describe("Pipeline calendar characterization", () => {
     await page.goto("/?screen=calendar");
     await expect(page.getByText("My schedule", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Show calendar filters" }).click();
-    await expect(page.getByRole("checkbox", { name: "My appointments", exact: true })).toBeChecked();
+    await expect(page.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("region", { name: "Continue working", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "week", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("group", { name: "Calendar view", exact: true }).getByRole("button")).toHaveCount(2);
@@ -49,14 +49,17 @@ test.describe("Pipeline calendar characterization", () => {
     await expect(page.getByRole("button", { name: /Scheduling queue\s+15/ })).toBeVisible();
     await expect(page.getByText("Bailey Client", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("calendar-default-mine.png") });
+    await expect(page.getByRole("combobox", { name: "Filter calendar by assessor" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Team", exact: true }).click();
     await page.getByRole("combobox", { name: "Filter calendar by assessor" }).selectOption("id:assessor-b");
-    await expect(page.getByRole("checkbox", { name: "My appointments", exact: true })).not.toBeChecked();
+    await expect(page.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "false");
     await expect(page.getByText("Bailey Client", { exact: true })).toBeVisible();
     await expect(page.getByText("Scheduled Client", { exact: true })).toHaveCount(0);
     await expect.poll(() => requests.at(-1)?.queueMine).toBe(false);
-    await page.getByRole("checkbox", { name: "My appointments", exact: true }).check();
+    await page.getByRole("button", { name: "Mine", exact: true }).click();
     await expect(page.getByText("Bailey Client", { exact: true })).toHaveCount(0);
-    await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
+    await expect(page.getByRole("combobox", { name: "Filter calendar by assessor" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Team", exact: true }).click();
     await expect(page.getByText("Team schedule", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
     await expect(page.getByText("2 overlapping appointments", { exact: true })).toBeVisible();
@@ -79,7 +82,7 @@ test.describe("Pipeline calendar characterization", () => {
     await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
     await page.getByRole("button", { name: /^Show appointments for / }).first().click();
     await expect(page.getByRole("region", { name: /^Appointments on / })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open assessment for Scheduled Client", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Prepare assessment for Scheduled Client", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "month", exact: true }).click();
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]').first()).toBeVisible();
 
@@ -189,7 +192,7 @@ test.describe("Pipeline calendar characterization", () => {
     await page.goto("/?screen=calendar");
     await expect(page.getByRole("main", { name: "Calendar", exact: true })).toHaveAttribute("aria-busy", "false");
     await page.getByRole("button", { name: "Show calendar filters" }).click();
-    await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
+    await page.getByRole("button", { name: "Team", exact: true }).click();
     await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();
     const queue = page.getByRole("dialog", { name: "Scheduling queue" });
     await expect(queue.getByRole("button", { name: /Ready Xu/ })).toBeVisible();
@@ -201,7 +204,7 @@ test.describe("Pipeline calendar characterization", () => {
     await expect.poll(() => calendarRequests.at(-1)?.queueSearch).toBe("Ready Adams");
     await expect(queue.getByRole("button", { name: /Ready Adams/ })).toBeVisible();
     await expect(queue.getByRole("button", { name: /Ready Baker/ })).toHaveCount(0);
-    await queue.locator("li").filter({ hasText: "Ready Adams" }).getByRole("button", { name: "Schedule", exact: true }).click();
+    await queue.locator("li").filter({ hasText: "Ready Adams" }).getByRole("button", { name: "Schedule interview", exact: true }).click();
 
     const scheduleDialog = page.getByRole("dialog").filter({ hasText: "Ready Adams" });
     await expect(scheduleDialog).toHaveAttribute("data-assessment-scheduling", "modal");
@@ -298,7 +301,7 @@ test.describe("Pipeline calendar characterization", () => {
     await page.getByRole("button", { name: /^Show appointments for / }).first().click();
     await expect(page.getByText("My schedule", { exact: true })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Filter calendar by assessor" })).toHaveCount(0);
-    await expect(page.getByRole("checkbox", { name: "My appointments", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Whose schedule", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
     await page.getByText("Dated follow-ups", { exact: false }).click();
     await expect(page.getByRole("button", { name: /Records follow-up/ })).toBeVisible();
@@ -309,7 +312,7 @@ test.describe("Pipeline calendar characterization", () => {
     await expect(schedule.getByText("Interview room", { exact: false })).toBeVisible();
     for (const viewport of [{ width: 1440, height: 900 }, { width: 834, height: 932 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
       await page.setViewportSize(viewport);
-      const action = schedule.getByRole("button", { name: "Open assessment for Scheduled Client", exact: true });
+      const action = schedule.getByRole("button", { name: "Prepare assessment for Scheduled Client", exact: true });
       const box = await action.boundingBox();
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
@@ -331,7 +334,7 @@ test.describe("Pipeline calendar characterization", () => {
     await expect(page.getByRole("button", { name: "month", exact: true })).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "week", exact: true }).click();
     await page.getByRole("button", { name: /^Show appointments for / }).first().click();
-    await schedule.getByRole("button", { name: "Open assessment for Scheduled Client", exact: true }).click();
+    await schedule.getByRole("button", { name: "Prepare assessment for Scheduled Client", exact: true }).click();
     await expect(page).toHaveURL(/referralId=500/);
     await expect(page).toHaveURL(/workspaceStage=assessment/);
     await expect(page).toHaveURL(/assessmentSection=functional_adl/);
@@ -352,7 +355,7 @@ test.describe("Pipeline calendar characterization", () => {
     await page.goto("/?screen=calendar");
     await expect(page.locator('button[title^="Busy Evans -"]')).toBeVisible();
     await page.getByRole("button", { name: "Show calendar filters" }).click();
-    await page.getByRole("checkbox", { name: "My appointments", exact: true }).uncheck();
+    await page.getByRole("button", { name: "Team", exact: true }).click();
     const week = page.getByRole("region", { name: "Supervisor team week" });
     await page.getByRole("button", { name: "week", exact: true }).click();
     await week.locator("summary").filter({ hasText: "4 more" }).click();
@@ -365,7 +368,7 @@ test.describe("Pipeline calendar characterization", () => {
     await expect(page.locator('button[title^="Busy Evans -"]')).toBeVisible();
     await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();
     const item = page.getByRole("dialog", { name: "Scheduling queue" }).locator("li").filter({ hasText: "Ready Adams" });
-    await expect(item.getByRole("button", { name: "Schedule", exact: true })).toBeEnabled();
+    await expect(item.getByRole("button", { name: "Schedule interview", exact: true })).toBeEnabled();
     await item.getByRole("button", { name: "Complete contact", exact: true }).click();
     await expect(page).toHaveURL(/referralId=501/);
     await expect(page).toHaveURL(/workspaceField=phone/);
@@ -389,7 +392,7 @@ test.describe("Pipeline calendar characterization", () => {
     await expect(page.locator('button[title^="Taylor Rivera -"]')).toBeVisible();
     await page.getByRole("button", { name: /Show appointments for Monday, Sep 14/ }).click();
     await expect(page.getByRole("region", { name: /^Appointments on / })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open assessment for Taylor Rivera" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Prepare assessment for Taylor Rivera" })).toBeVisible();
     if (process.env.PIPELINE_MOCK_USER_ROLES === "reviewer,viewer") await expect(page.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: testInfo.outputPath("assessor-calendar.png"), animations: "disabled" });

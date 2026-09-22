@@ -111,7 +111,7 @@ test("date details preserve Week and Month, keyboard return, and appointments ou
   await expect(friday).toBeFocused();
   await expect(page.getByRole("button", { name: "week", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Show appointments for Thursday, Sep 17", exact: true }).click();
-  await expect(details).toContainText("No appointments on this date with the current filters.");
+  await expect(details).toContainText("No appointments on your schedule for this date.");
   await page.getByRole("button", { name: "month", exact: true }).click();
   await expect(details).toHaveCount(0);
   const nextMonth = page.waitForRequest((request) => request.url().includes("/api/calendar/events?") && new URL(request.url()).searchParams.get("from") === "2026-10-01");

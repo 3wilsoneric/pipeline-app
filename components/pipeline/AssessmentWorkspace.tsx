@@ -1891,7 +1891,18 @@ export default function AssessmentWorkspace({
     );
   }
 
-  const renderScheduleDetail = () => (!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Change appointment" : "Schedule interview"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Change appointment" : "Schedule interview"}</button> : null);
+  const openScheduleDialog = () => { setError(""); setShowBeginDialog(false); setShowScheduleDialog(true); };
+  const scheduleLabel = () => hasActiveAssessmentSchedule(selected) ? "Change appointment" : "Schedule interview";
+  const renderScheduleDetail = () => (canScheduleUnstartedAssessment(selected, canEditClinical) ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={openScheduleDialog} aria-label={scheduleLabel()}><CalendarClock size={15} />{scheduleLabel()}</button> : null);
+  // Scheduling belongs beside the referral's contact and coordination details, not only in a menu.
+  const renderChartScheduling = () => (reviewingChart && !assessmentReview ? <div className={workingStyles.chartScheduling}>
+    <p>{hasActiveAssessmentSchedule(selected)
+      ? `Assessment appointment: ${new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}`
+      : "No assessment appointment booked yet."}</p>
+    {canScheduleUnstartedAssessment(selected, canEditClinical)
+      ? <button type="button" onClick={openScheduleDialog} disabled={isBusy || isClosing}><CalendarClock size={16} aria-hidden="true" />{scheduleLabel()}</button>
+      : null}
+  </div> : null);
   const renderAssessmentDetails = () => <>
     {reviewingChart ? renderScheduleDetail() : null}
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
@@ -1966,7 +1977,7 @@ export default function AssessmentWorkspace({
   const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={async (event) => { event.currentTarget.focus({ preventScroll: true }); if (await confirm({ title: "Sign this assessment?", message: "You can still edit it until Meet the Client is sent. Changes are logged.", confirmLabel: "Sign assessment" })) void signAssessment(selected.assessment_id); }} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
 
   const renderScheduleAction = () => (
-    <button type="button" aria-label={hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : undefined} data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); setError(""); setShowBeginDialog(false); setShowScheduleDialog(true); }} disabled={isBusy || isClosing}>{hasActiveAssessmentSchedule(selected) ? "Edit" : <><CalendarClock size={15} aria-hidden="true" />Schedule interview</>}</button>
+    <button type="button" aria-label={hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : undefined} data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); openScheduleDialog(); }} disabled={isBusy || isClosing}>{hasActiveAssessmentSchedule(selected) ? "Edit" : <><CalendarClock size={15} aria-hidden="true" />Schedule interview</>}</button>
   );
 
   const renderPrimaryAssessmentActions = () => (
@@ -2083,7 +2094,7 @@ export default function AssessmentWorkspace({
             {renderChartReviewToolbar()}
             {assessmentReview ? renderReviewOverview() : renderUnansweredEntry()}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>
-            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
+            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} contactActions={renderChartScheduling()} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
               onEditAssessmentField={!isBusy && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }
                 setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
