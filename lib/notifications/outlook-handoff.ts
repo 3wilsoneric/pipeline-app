@@ -52,7 +52,7 @@ export async function prepareOutlookHandoff(input: {
       packet.events.push({ action: "meet_client_outlook_draft_prepared", at: new Date().toISOString(), actorId: audit.actorId, actorName: audit.actorName });
     });
   } catch (error) {
-    const rejected = !creating || (error instanceof OutlookMailError && error.definitive);
+    const rejected = outlookCreationRejected(creating, error);
     await updateDraft(audit.deliveryId, (packet) => {
       packet.outlook!.status = rejected ? "discarded" : "unconfirmed";
       if (rejected) packet.revokedAt = new Date().toISOString();
@@ -64,6 +64,10 @@ export async function prepareOutlookHandoff(input: {
     throw new PacketAccessError("The Outlook draft could not be confirmed. Check draft status before trying again.", 503);
   }
 }
+function outlookCreationRejected(creating: boolean, error: unknown) {
+  return !creating || (error instanceof OutlookMailError && error.definitive);
+}
+
 export async function checkOutlookHandoff(packetId: string, referralId: number, mailbox: Mailbox, requestUrl: string) {
   const packet = await ownedDraft(packetId, referralId, mailbox);
   if (["sent", "discarded"].includes(packet.outlook!.status)) return outlookDraftView(packet);

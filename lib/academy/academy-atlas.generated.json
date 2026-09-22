@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:04e6901884253594",
-  "fingerprint": "04e69018842535945636b100e9def43aedd14cac75cc279491ea5937da469acc",
+  "generatedAt": "source-fingerprint:c7c4d47379d1d472",
+  "fingerprint": "c7c4d47379d1d472f21ae4eda7685e3df9fb37ae6a439e86ce8cea28b7413d25",
   "totals": {
     "files": 1365,
-    "lines": 361483,
+    "lines": 361494,
     "coveredFiles": 1365
   },
   "entries": [
@@ -2690,7 +2690,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 144,
+      "lines": 146,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -9019,7 +9019,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 173,
+      "lines": 177,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9031,7 +9031,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 98,
+      "lines": 103,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"

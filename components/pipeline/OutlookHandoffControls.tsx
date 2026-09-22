@@ -111,7 +111,8 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
   const connected = Boolean(mailbox);
   const renderHeading = () => (<div className={styles.heading}><span className={styles.icon}><Mail size={22} aria-hidden="true" /></span><div><h3>{isDemo ? "Outlook preview" : draft ? "Your Outlook draft" : "Save to Outlook Drafts"}</h3><p>{connected ? mailbox : state.account_email || "Connect your own Outlook mailbox."}</p></div><span className={styles.badge}>{isDemo ? "Not production yet" : connected ? <><Check size={13} /> Connected</> : "Not connected"}</span></div>);
   const preparationDisabled = disabled || !ready || isDemo || state.occupied;
-  const renderPrimaryAction = () => (isDemo ? <button type="button" className={styles.primary} disabled><ExternalLink size={16} />Save to Outlook Drafts</button> : !connected ? <button type="button" className={styles.primary} disabled={disabled || isDemo || !state.outlook_client_id || state.occupied} onClick={() => void connect()}>{busy ? <LoaderCircle size={16} className={styles.spin} /> : <Mail size={16} />}Connect Outlook</button>
+  const renderConnectAction = () => <button type="button" className={styles.primary} disabled={disabled || isDemo || !state.outlook_client_id || state.occupied} onClick={() => void connect()}>{busy ? <LoaderCircle size={16} className={styles.spin} /> : <Mail size={16} />}Connect Outlook</button>;
+  const renderPrimaryAction = () => (isDemo ? <button type="button" className={styles.primary} disabled><ExternalLink size={16} />Save to Outlook Drafts</button> : !connected ? renderConnectAction()
         : !draft ? <button type="button" className={styles.primary} disabled={preparationDisabled} onClick={prepare}>{busy || sending ? <LoaderCircle size={16} className={styles.spin} /> : <ExternalLink size={16} />}Save to Outlook Drafts</button>
           : <button type="button" className={styles.primary} disabled={disabled || isDemo} onClick={() => void check()}><RefreshCw size={16} className={busy ? styles.spin : undefined} />Check sent status</button>);
   const renderActions = () => (<div className={styles.actions}>
@@ -121,10 +122,11 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
       {error && !draft ? <button type="button" className={styles.quiet} disabled={disabled} onClick={() => void run(load)}>Retry status</button> : null}
     </div>);
   const reviewHint = !draft && connected && !ready;
+  const renderSetupStatus = () => !loading && !state.outlook_client_id ? <p role="status" className={styles.hint}>Outlook connection setup is pending. Your handoff is saved in Pipeline.</p> : null;
   const renderMessages = () => {
     if (isDemo) return <p className={styles.hint}>Not production yet — no draft will be created and no email will be sent.</p>;
     return <>
-    {!loading && !state.outlook_client_id ? <p role="status" className={styles.hint}>Outlook connection setup is pending. Your handoff is saved in Pipeline.</p> : null}
+    {renderSetupStatus()}
     {state.occupied ? <p role="status" className={styles.hint}>A teammate already has an Outlook draft for this workspace. Complete or remove that draft first.</p> : null}
     {draft ? <p className={styles.hint} role="status">{draft.message || "Saved in Outlook Drafts. Review and send it in Outlook, then choose Check sent status here."}</p>
       : <p className={styles.hint}>Connect once, then save the reviewed message and complete packet link to your Drafts. Open Outlook to review and send.</p>}

@@ -29,9 +29,8 @@ export async function connectedOutlookMailbox(request: Request, user: PipelineUs
   if (user.delegation) throw new PacketAccessError("Leave the assessor session and connect Outlook as yourself.", 403);
   const token = request.headers.get("x-pipeline-outlook-token") ?? "";
   if (!token || token.length > 16384 || /[\r\n]/.test(token)) throw new PacketAccessError("Connect your Outlook account first.", 428);
-  const profile = await outlookRequest<{ id?: string; mail?: string; userPrincipalName?: string }>(token, "/me?$select=id,mail,userPrincipalName");
-  const email = (profile.mail || profile.userPrincipalName || "").trim().toLowerCase();
-  if (!profile.id || email.includes("#ext#") || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PacketAccessError("This Microsoft account does not have an Outlook mailbox address.", 403);
+  const profile = outlookMailboxProfile(await outlookRequest<{ id?: string; mail?: string; userPrincipalName?: string }>(token, "/me?$select=id,mail,userPrincipalName"));
+  const { email } = profile;
   const accountEmail = user.email?.trim().toLowerCase();
   // Guest identities have a different object ID in Pipeline's tenant than in
   // their home mailbox. Use the authenticated identity's email, never a profile
@@ -41,6 +40,12 @@ export async function connectedOutlookMailbox(request: Request, user: PipelineUs
   }
   return { token, id: user.id, graphId: profile.id, email };
 }
+function outlookMailboxProfile(profile: { id?: string; mail?: string; userPrincipalName?: string }) {
+  const email = (profile.mail || profile.userPrincipalName || "").trim().toLowerCase();
+  if (!profile.id || email.includes("#ext#") || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PacketAccessError("This Microsoft account does not have an Outlook mailbox address.", 403);
+  return { id: profile.id, email };
+}
+
 export async function createOutlookMessage(token: string, input: { deliveryId: string; subject: string; html: string; recipients: string[]; ccRecipients: string[] }) {
   if (!isMeetClientLive()) throw new PacketAccessError("Not production yet — no Outlook draft will be created.", 403);
   return outlookRequest<OutlookMessage>(token, "/me/messages", { method: "POST", body: JSON.stringify({
