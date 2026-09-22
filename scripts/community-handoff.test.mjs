@@ -11,6 +11,24 @@ const emailOwner = loadTypeScriptModule(root, "lib/notifications/meet-client-ema
 const referral = { id: 7, version: 3, name: "Synthetic <script>alert(1)</script>", dob: "1980-01-01", community: "San Pablo", source: "Synthetic referrer", county: "Synthetic county", payer: "Recorded coverage", phone: "", email: "", admissionDate: "2026-09-30" };
 const assessment = { ...schema.createEmptyAssessmentToolData(), assessment_id: "synthetic-chart", version: 4, status: "complete", updated_by: { name: "Synthetic Assessor" }, signed_by: { name: "Synthetic Assessor" }, signed_at: "2026-09-19T12:00:00Z", prior_placements: "Synthetic placement note", medications_at_intake: ["Recorded medication"], conservatorship_type: "no", special_diet_details: "Recorded diet" };
 
+test("a changed placement and planned admit date reach the email and generated sheet without rewriting the assessment", () => {
+  const signed = { ...assessment, community: "San Pablo" };
+  const current = { ...referral, community: "Turlock", plannedAdmissionDate: "2026-10-12" };
+  const report = summaryOwner.buildAssessmentSummaryReport(signed, current);
+  assert.equal(report.meetClient.community, "Turlock");
+  assert.equal(report.meetClient.admissionDate, "2026-10-12");
+  assert.equal(report.identity.find(({ label }) => label === "Community").value, "San Pablo");
+  const email = emailOwner.renderMeetClientEmail(report.meetClient, "Synthetic sender", "preview");
+  assert.equal(email.subject, "Meet the Client | Turlock");
+  assert.match(email.html, /Turlock/);
+  const sheet = sheetOwner.renderClientDataSheet(report, current);
+  assert.match(sheet, /<dt>Community<\/dt><dd>Turlock<\/dd>/);
+  assert.match(sheet, /<dt>Admission date<\/dt><dd>2026-10-12<\/dd>/);
+  assert.doesNotMatch(sheet, /2026-09-30/);
+  assert.equal(signed.community, "San Pablo");
+  assert.equal(summaryOwner.buildMeetClientSummary(signed, { ...current, community: "" }).community, "San Pablo");
+});
+
 test("email copy follows admission handoff sections without inventing example-client facts", () => {
   const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
   const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "synthetic-delivery", ["Client data sheet.html"]);

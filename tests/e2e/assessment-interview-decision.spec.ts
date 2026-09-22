@@ -1,7 +1,7 @@
 import { openAssessmentChart } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { createOperationalReferral } from "./support/operational-api";
+import { createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 
 async function createInterview(page: Page) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
@@ -80,7 +80,8 @@ for (const width of [1440, 390]) {
 }
 
 test("current information follows only the active section and keeps unverified sources marked", async ({ page }, info) => {
-  const { referral, url } = await createInterview(page);
+  const { referral, assessment, url } = await createInterview(page);
+  await startOperationalAssessment(page.request, assessment);
   await page.route(`**/api/referrals/${referral.id}/assessments`, async (route) => {
     const response = await route.fetch();
     const payload = await response.json();

@@ -420,7 +420,9 @@ export default function ReferralPacketCanvas({
   const routedWorkspaceLocation = initialWorkspaceLocationOrStage(initialWorkspaceLocation, initialWorkspaceStage);
   const lastAssessmentSectionRef = useRef(routedWorkspaceLocation.assessmentSection);
   const lastAssessmentQuestionRef = useRef(routedWorkspaceLocation.assessmentQuestion);
-  const lastAssessmentLocationRef = useRef<PipelineWorkspaceLocation>(routedWorkspaceLocation.view === "assessment" ? routedWorkspaceLocation : { view: "assessment" });
+  const lastAssessmentLocationRef = useRef<PipelineWorkspaceLocation>(routedWorkspaceLocation.view === "assessment"
+    ? { ...routedWorkspaceLocation, assessmentMode: routedWorkspaceLocation.assessmentMode === "review" ? undefined : routedWorkspaceLocation.assessmentMode }
+    : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;

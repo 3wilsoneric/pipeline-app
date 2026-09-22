@@ -1,3 +1,4 @@
+import { openRecipients } from "./support/handoff-review";
 import { expect, test, webkit } from "@playwright/test";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -113,7 +114,7 @@ test("managed defaults reach new handoffs; saved audiences change only after exp
   await page.getByRole("button", { name: "Save list", exact: true }).click();
   await expect(page.getByText("Contact list saved.", { exact: true }).first()).toBeVisible();
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  await openRecipients(page);
   const to = page.getByRole("list", { name: "To recipients", exact: true });
   await expect(to).toContainText("First addition");
   await page.getByRole("button", { name: "Remove Alex Taylor from To", exact: true }).click();
@@ -123,7 +124,7 @@ test("managed defaults reach new handoffs; saved audiences change only after exp
   await page.getByRole("button", { name: "Save list", exact: true }).click();
   await expect(page.getByText("Contact list saved.", { exact: true }).first()).toBeVisible();
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  await openRecipients(page);
   await expect(to).toContainText("First addition");
   await expect(to).not.toContainText("Later addition");
   await expect(to).not.toContainText("Alex Taylor");
@@ -139,7 +140,7 @@ test("managed defaults reach new handoffs; saved audiences change only after exp
   const saved = (await (await page.request.get(endpoint)).json()).draft;
   expect(saved.to.map((item: { email: string }) => item.email)).toEqual(["alex@example.test", "first@example.test", "later@example.test"]);
   await page.reload();
-  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  await openRecipients(page);
   await expect(to).toContainText("Later addition");
   expect(sends).toBe(0);
 });
@@ -221,7 +222,7 @@ test("a fresh preview opens contact settings and saves its first recipient list"
   const input = page.getByRole("combobox", { name: /^To/ });
   await input.fill("First Contact <first@example.test>");
   await page.getByRole("button", { name: "Save list", exact: true }).click();
-  await expect(page.getByText("List saved locally.", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Contact list saved.", { exact: true }).first()).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Remove First Contact from To" })).toBeVisible();
 });

@@ -1,11 +1,13 @@
 import { buildAdmissionAgreementSummary, type AssessmentSummaryReport, type AssessmentSummaryItem } from "@/lib/assessment/assessment-summary";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { escapeHtml } from "./meet-client-email-template";
+import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 
 export const clientDataSheetName = "Client data sheet.html";
 
 export function renderClientDataSheet(report: AssessmentSummaryReport | null, referral: Referral) {
-  const identity = report?.identity ?? [
+  const identity = report?.identity.map((item) => item.label === "Community" && referral.community
+    ? { ...item, value: referral.community } : item) ?? [
     { label: "Name", value: referral.name }, { label: "Date of birth", value: referral.dob },
     { label: "Community", value: referral.community }, { label: "Referrer", value: referral.source },
   ];
@@ -21,7 +23,7 @@ export function renderClientDataSheet(report: AssessmentSummaryReport | null, re
 function admissionItems(referral: Referral): AssessmentSummaryItem[] {
   return [
     buildAdmissionAgreementSummary(referral.requirements),
-    { label: "Admission date", value: referral.admissionDate || "Not recorded" },
+    { label: "Admission date", value: getPlannedAdmissionDate(referral) || "Not recorded" },
     { label: "County", value: referral.county || "Not recorded" },
     { label: "Contact", value: [referral.phone, referral.email].filter(Boolean).join(" / ") || "Not recorded" },
     { label: "Coverage / payer", value: referral.payer || "Not recorded" },

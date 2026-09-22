@@ -1,3 +1,4 @@
+import { openRecipients } from "./support/handoff-review";
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
@@ -16,7 +17,7 @@ async function openHandoff(page: Page, referralId: number) {
   await recordOperationalAcceptance(page.request, await readOperationalReferral(page.request, referralId));
   await page.route("**/api/community-recipient-lists", (route) => route.fulfill({ json: { lists } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceView=email`);
-  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  await openRecipients(page);
   await expect(page.getByRole("combobox", { name: /^To/ })).toBeEnabled();
 }
 
@@ -40,14 +41,16 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   expect(saved.draft.to.map((item: { email: string }) => item.email)).toEqual(["care@example.invalid"]);
   expect(saved.draft.cc.map((item: { email: string }) => item.email)).toEqual(["admissions@example.invalid", "transport@example.invalid"]);
   await page.reload();
-  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  await openRecipients(page);
   await expect(to).not.toContainText("Medication team");
   await expect(cc).toContainText("Transport");
+  await page.getByRole("dialog", { name: "Check recipients", exact: true }).getByRole("button", { name: "Back", exact: true }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Open Client data sheet.html", exact: true }).click();
   const sheet = await download;
   expect(sheet.suggestedFilename()).toBe("Client data sheet.html");
   expect(await readFile((await sheet.path())!, "utf8")).toContain("Synthetic Handoff");
+  await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
   for (const width of [1440, 834, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(to).toBeVisible();
@@ -59,8 +62,9 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   const changed = await page.request.patch(`/api/referrals/${referral.id}`, { data: { if_match: current.version, patch: { community: "Turlock" } } });
   expect(changed.status(), await changed.text()).toBe(200);
   await page.reload();
-  await page.getByRole("button", { name: "Preview email", exact: true }).click();
+  await openRecipients(page);
   await expect(to).toContainText("Turlock team");
+  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toContainText("Synthetic Handoff · Turlock");
   await expect(to).not.toContainText("Care team");
   await expect(cc).not.toContainText("Transport");
   await input.fill("New member <new@example.invalid>");

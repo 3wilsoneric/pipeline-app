@@ -58,7 +58,7 @@ export function makeRoutes(store, { user, logs = [] } = {}) {
     "@/lib/pipeline/contact-store": store,
     "@/lib/observability/api-logging": logging,
     "@/lib/auth/pipeline-auth": {
-      requirePipelineUser: (_request, roles) => !user
+      requirePipelineUser: (_request, roles = ["admin", "assessment_coordinator", "reviewer", "viewer"]) => !user
         ? { ok: false, response: Response.json({ error: "Unauthorized" }, { status: 401 }) }
         : !roles.some((role) => user.roles.includes(role)) || user.accessScope !== "pipeline"
           ? { ok: false, response: Response.json({ error: "Insufficient role" }, { status: 403 }) }

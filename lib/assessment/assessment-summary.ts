@@ -149,7 +149,7 @@ export function buildMeetClientSummary(
   return {
     name: assessmentClientName(assessment, referral),
     dateOfBirth: assessment.date_of_birth || referral.dob,
-    community: assessment.community || referral.community,
+    community: referral.community || assessment.community,
     assessmentDate: assessment.assessment_date || "",
     admissionDate: getPlannedAdmissionDate(referral),
     admissionNotes: compactItems([
