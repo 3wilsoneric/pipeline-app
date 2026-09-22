@@ -1,4 +1,5 @@
 import { documentCategories, type DocumentCategory, maxUploadFileBytes } from "@/lib/extraction/contracts";
+import type { ReferralFile } from "./referral-types";
 
 export type LabeledReferralFile = { file: File; category: DocumentCategory };
 
@@ -31,6 +32,26 @@ export function suggestReferralDocumentLabel(name: string): DocumentCategory | "
   if (/\b(assessment|psych|clinical)\b/.test(words)) return "assessment";
   // A filename cannot establish that an admission agreement has been signed.
   return "";
+}
+
+const updatedDocumentCategories: Record<ReferralFile["category"], DocumentCategory | ""> = {
+  "Referral packet": "referral_packet",
+  "Face sheet": "face_sheet",
+  Assessment: "assessment",
+  "Medication list": "medication_list",
+  "TB test": "tb_test",
+  "Admission agreement": "",
+  Conservatorship: "conservatorship_document",
+  "LIC 602": "lic_602",
+  "LIC 601/603": "lic_601_603",
+  "Provider form": "provider_form",
+  "Payer verification": "payer_verification",
+  "Responsible party": "responsible_party",
+  Other: "other",
+};
+
+export function suggestUpdatedReferralDocumentLabel(category: ReferralFile["category"]): DocumentCategory | "" {
+  return updatedDocumentCategories[category];
 }
 
 export function validateReferralDocumentFiles(files: readonly File[]) {

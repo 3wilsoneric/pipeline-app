@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, FileText, UploadCloud, X } from "lucide-react";
 import { documentCategories, type DocumentCategory } from "@/lib/extraction/contracts";
-import { referralDocumentLabels, suggestReferralDocumentLabel, validateReferralDocumentFiles, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
+import { referralDocumentLabels, suggestReferralDocumentLabel, suggestUpdatedReferralDocumentLabel, validateReferralDocumentFiles, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import UploadedDocumentList from "./UploadedDocumentList";
 import styles from "./ReferralDocumentUpload.module.css";
@@ -44,7 +44,7 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
     if (invalid) return;
     setSelection((current) => [...current, ...chosen.map((file): Selection => ({
       file,
-      category: previous ? suggestReferralDocumentLabel(previous.category) : /\.xlsx$/i.test(file.name) && /assessment|pipeline/i.test(file.name) ? "workbook" : suggestReferralDocumentLabel(file.name),
+      category: previous ? suggestUpdatedReferralDocumentLabel(previous.category) : /\.xlsx$/i.test(file.name) && /assessment|pipeline/i.test(file.name) ? "workbook" : suggestReferralDocumentLabel(file.name),
       previousName: previous?.name,
     }))]);
   };

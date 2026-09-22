@@ -11,6 +11,8 @@
 .content { padding: 0 16px 12px; border-top: 1px solid #e7ece9; }
 .explanation { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: #617169; }
 .status { margin: 10px 0 0; color: #396e5b; font-size: 12px; }
+.draftStatus { flex-shrink: 0; max-height: 25dvh; overflow: auto; padding: 8px 24px; }
+.content > .draftStatus { padding-inline: 0; }
 .error { font-size: 14px; line-height: 1.6; color: #9b342f; }
 .error button { display: inline-flex; gap: 5px; align-items: center; min-height: 44px; text-decoration: underline; }
 .section :is(button,input,summary):focus-visible { outline: 2px solid #087d66; outline-offset: 3px; }
@@ -20,7 +22,7 @@
 .composer [id$="-hint"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .composer .status { margin-top: 4px; }
 .composer label > span, .composer input::placeholder { color: #596e62; }
-@media(max-width:640px) { .summaryNote { display: none; } .section summary { padding: 12px; } .content { padding: 0 12px 12px; } }
+@media(max-width:640px) { .summaryNote { display: none; } .section summary { padding: 12px; } .content { padding: 0 12px 12px; } .draftStatus { padding-inline: 12px; } }
 .refreshList { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: #08765f; font-size: 13px; font-weight: 600; }
 .refreshList:hover { text-decoration: underline; }
 .refreshList:focus-visible { outline: 2px solid #08765f; outline-offset: 3px; }

@@ -90,6 +90,7 @@ test("current information follows only the active section and keeps unverified s
   });
   await page.goto(url);
   await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
+  await page.getByRole("button", { name: "Interview", exact: true }).click();
   const reference = page.getByRole("complementary", { name: "Current information" });
   await expect(reference.getByRole("combobox")).toHaveCount(0);
   await expect(reference).not.toContainText("Synthetic interpreter arranged");

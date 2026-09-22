@@ -2,6 +2,7 @@
 
 import { getPlannedAdmissionDate, plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
 import { useCallback, useEffect, useRef, useState } from "react";
+import HandoffDraftStatus, { HandoffDraftError } from "./HandoffDraftStatus";
 import { ArrowRight, Check, FileText, LoaderCircle, Paperclip, RefreshCw, X } from "lucide-react";
 
 import type {
@@ -112,7 +113,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   useEffect(() => {
     void load();
   }, [load]);
-  const recipientKey = JSON.stringify([referralId, recipients, ccRecipients]);
+  const recipientKey = JSON.stringify([referralId, recipients, ccRecipients, emailDraft?.recipientInput]);
   useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 3)); }, [recipientKey]);
 
   const confirmAdmissionDate = async (saved: Referral) => {
@@ -214,6 +215,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
         <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={sent ? styles.deliveryStatus : "sr-only"} data-sent={sent || undefined}>{deliveryStatus}</span>
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
+      {!composerOpen ? <HandoffDraftError value={emailDraft} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
         existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
@@ -349,7 +351,7 @@ function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRec
 }
 
 function handoffDraftReady(draft?: HandoffRecipients): draft is HandoffRecipients {
-  return Boolean(draft && !draft.error && !draft.loading);
+  return Boolean(draft && !draft.error && !draft.loading && !draft.hasPendingRecipients);
 }
 
 function canStartMeetClientSend(payload: ChartPayload | null, alreadyAccepted: boolean, confirmed: boolean, inFlight: boolean): payload is ChartPayload {
@@ -463,6 +465,7 @@ function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, onBac
       {step === 1 ? <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} /> : null}
       {step === 2 ? <AdmissionPacketReview email={payload.email} referral={payload.referral} onOpenFiles={onOpenFiles} /> : null}
       {step === 3 ? <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} /> : null}
+      {step !== 3 ? <HandoffDraftError value={draft} /> : null}
     </div>
     <footer className={styles.toolbar}>
       <button type="button" className={styles.textButton} onClick={onBack}>Back</button>
@@ -488,7 +491,7 @@ function HandoffRecipientReview({ draft, community, editable, confirmed, onConfi
         <p className={styles.reviewInstruction}>Who should receive this client’s information?</p>
         {draft ? <div data-guide-target="packet-recipients"><ReferralHandoffContacts key={community} composer value={draft} community={community} disabled={!editable} /></div> : <p role="status">Recipient settings are not available yet.</p>}
         <label className={styles.confirmation}>
-          <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={!draft?.fields.to.length}
+          <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={!draft?.fields.to.length || !handoffDraftReady(draft)}
             aria-label="I verified that each recipient is authorized to receive this summary and the packet files." />
           <span><strong>These recipients are authorized</strong><span>I checked every address. Each person may receive this client’s summary and files.</span></span>
         </label>
@@ -529,7 +532,7 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
       </>);
   const renderCompletion = () => <footer className={styles.toolbar}>
     <button type="button" className={styles.textButton} onClick={onBack}>Back</button>
-    <button type="button" className={styles.sendButton} onClick={onReviewComplete}>{email.example_only ? "Finish demo review" : "Done"}<Check size={18} aria-hidden="true" /></button>
+    <button type="button" className={styles.sendButton} disabled={!sent && !handoffDraftReady(emailDraft)} onClick={onReviewComplete}>{email.example_only ? "Finish demo review" : "Done"}<Check size={18} aria-hidden="true" /></button>
   </footer>;
   return <div className={styles.composer} data-guide-target="chart-email-handoff">
     <div className={styles.composeScroll}>
@@ -537,6 +540,7 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
       {renderMessagePreview()}
     </div>
     <ChartStatusMessage error={error} message={message} />
+    {emailDraft && !preparedDraft ? <HandoffDraftStatus value={emailDraft} /> : null}
     {sent || email.example_only ? renderCompletion() : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
       {!preparedDraft ? <button type="button" className={styles.textButton} disabled={sending} onClick={onBack}>Back to recipients</button> : null}
       <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, emailDraft, confirmed, sending)} sending={sending}

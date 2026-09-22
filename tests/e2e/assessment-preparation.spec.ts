@@ -15,6 +15,7 @@ test("source preparation retains canonical questions and conditional fields", ()
   for (const section of assessmentInterviewSections) expect(preparationGroupForSection(section.key).sections).toContain(section.key);
   expect([...fields].sort()).toEqual(assessmentInterviewQuestions.map((question) => question.field).sort());
   const data = createEmptyAssessmentToolData();
+  expect(preparationQuestions(preparationGroupForSection("identity"), data).some((question) => question.field === "assessment_date")).toBe(false);
   const daily = preparationGroupForSection("functional_adl");
   expect(preparationQuestions(daily, data).some((question) => question.field === "mobility")).toBe(false);
   data.ambulatory = "no";

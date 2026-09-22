@@ -1,8 +1,8 @@
 import { assessmentInterviewQuestions, isAssessmentQuestionVisible } from "@/lib/assessment/assessment-interview-schema";
 import { assessmentToolFieldDefinitions, type AssessmentToolData, type AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 
-// Preparation contains the entire canonical questionnaire, not a second answer
-// store or a separate field allowlist that can drift when questions are added.
+// Preparation uses the canonical questionnaire rather than a second answer
+// store. The interview date is lifecycle-owned and edited through Details.
 const groups: readonly { key: AssessmentToolSection; label: string; sections: readonly AssessmentToolSection[] }[] = [
   { key: "identity", label: "Referral & placement", sections: ["identity", "prior_placement"] },
   { key: "prior_history", label: "Clinical history & presentation", sections: ["prior_history", "diagnosis_clinical", "substance_use", "behavioral_risk"] },
@@ -21,5 +21,7 @@ export function preparationGroupForSection(section: AssessmentToolSection) {
 }
 
 export function preparationQuestions(group: typeof assessmentPreparationGroups[number], data: AssessmentToolData) {
-  return assessmentInterviewQuestions.filter((question) => group.fields.includes(question.field) && isAssessmentQuestionVisible(question, data));
+  return assessmentInterviewQuestions.filter((question) => question.field !== "assessment_date"
+    && group.fields.includes(question.field)
+    && isAssessmentQuestionVisible(question, data));
 }

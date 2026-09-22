@@ -154,8 +154,9 @@ export default function ReferralWorkflowPanel({
   ) => {
     if (mutationInFlight.current) return null;
     mutationInFlight.current = true;
-    const clientMutationId = mutationIds.current.get(key) ?? createMutationId();
-    mutationIds.current.set(key, clientMutationId);
+    const mutationKey = JSON.stringify([key, url, method, body]);
+    const clientMutationId = mutationIds.current.get(mutationKey) ?? createMutationId();
+    mutationIds.current.set(mutationKey, clientMutationId);
     setBusy(key);
     onSavingChange?.(true);
     setError("");
@@ -165,7 +166,7 @@ export default function ReferralWorkflowPanel({
         method,
         body: JSON.stringify({ ...body, client_mutation_id: clientMutationId }),
       });
-      mutationIds.current.delete(key);
+      mutationIds.current.delete(mutationKey);
       if (payload.referral) onReferralChange(payload.referral);
       clearSavedDraftState(key);
       setMessage(successMessage);

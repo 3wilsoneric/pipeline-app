@@ -12,6 +12,7 @@ import OutlookConnectionSetup from "@/components/pipeline/OutlookConnectionSetup
 import { useMobileViewport } from "@/components/pipeline/use-mobile-viewport";
 import mobileStyles from "@/components/pipeline/PipelineMobileShell.module.css";
 import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
+import { usePipelineHistoryGuard } from "@/lib/pipeline/client-navigation";
 
 export default function PipelineAppShell({
   children,
@@ -23,6 +24,7 @@ export default function PipelineAppShell({
   const [homeMode, setHomeMode] = useState<"welcome" | "workspace">("welcome");
   const contentRef = useRef<HTMLElement>(null);
   const beforeNavigationRef = useRef<(() => Promise<void>) | null>(null);
+  usePipelineHistoryGuard(beforeNavigationRef);
   const [assessmentFocused, setAssessmentFocused] = useState(false);
   const mobileViewportRef = useMobileViewport();
 
