@@ -307,7 +307,8 @@ test("backup tools stay off the phone questionnaire and return to the same quest
     await page.setViewportSize(size);
     const pocket = page.locator("[data-phone-interview]");
     await expect(pocket).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Working decision", exact: true })).toBeVisible();
+    // The phone questionnaire stays on the question; the recommendation waits in review.
+    await expect(page.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
     await expect(page.locator("[data-excel-strip]")).toHaveCount(0);
     await expect(pocket.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
     await expect(pocket.getByRole("textbox").first()).toBeInViewport();

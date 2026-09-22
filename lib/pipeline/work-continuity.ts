@@ -23,6 +23,9 @@ export type PipelineLastWorkspace = {
   referralId: number;
   location: PipelineWorkspaceLocation;
   visitedAt: string;
+  // The last assessment section/question survives visits to Files, Activity
+  // or Chart so a later return to Assessment resumes that working position.
+  assessmentLocation?: PipelineWorkspaceLocation;
 };
 
 export type PipelineWorkContinuityState = {
@@ -286,7 +289,38 @@ function parseLastWorkspace(value: unknown): PipelineLastWorkspace | null {
   if (!Number.isSafeInteger(candidate.referralId) || Number(candidate.referralId) < 1 || !location || !isTimestamp(candidate.visitedAt)) {
     return null;
   }
-  return { referralId: Number(candidate.referralId), location, visitedAt: candidate.visitedAt as string };
+  // An unusable remembered position is dropped, never a reason to discard the visit.
+  const assessmentLocation = parsePipelineWorkspaceLocation(candidate.assessmentLocation);
+  return {
+    referralId: Number(candidate.referralId),
+    location,
+    visitedAt: candidate.visitedAt as string,
+    ...(assessmentLocation?.assessmentSection ? { assessmentLocation } : {}),
+  };
+}
+
+export function pipelineAssessmentResumeLocation(workspace: PipelineLastWorkspace | undefined) {
+  const location = workspace?.location.view === "assessment" && workspace.location.assessmentSection
+    ? workspace.location
+    : workspace?.assessmentLocation;
+  return location ? rememberedAssessmentPosition(location) : undefined;
+}
+
+function withRememberedAssessmentLocation(previous: PipelineLastWorkspace | undefined, incoming: PipelineLastWorkspace): PipelineLastWorkspace {
+  const visit: PipelineLastWorkspace = { referralId: incoming.referralId, location: incoming.location, visitedAt: incoming.visitedAt };
+  if (incoming.location.view === "assessment" && incoming.location.assessmentSection) return visit;
+  const remembered = pipelineAssessmentResumeLocation(previous) ?? pipelineAssessmentResumeLocation(incoming);
+  // Review mode and dialogs are entry actions, not a working position to reopen.
+  return remembered ? { ...visit, assessmentLocation: rememberedAssessmentPosition(remembered) } : visit;
+}
+
+function rememberedAssessmentPosition(location: PipelineWorkspaceLocation): PipelineWorkspaceLocation {
+  return {
+    view: "assessment",
+    assessmentSection: location.assessmentSection,
+    ...(location.assessmentMode && location.assessmentMode !== "review" ? { assessmentMode: location.assessmentMode } : {}),
+    ...(location.assessmentQuestion ? { assessmentQuestion: location.assessmentQuestion } : {}),
+  };
 }
 
 function newerLastWorkspace(
@@ -304,7 +338,10 @@ function mergeRecentWorkspaces(
 ) {
   const unique = new Map<number, PipelineLastWorkspace>();
   for (const item of current ?? []) unique.set(item.referralId, item);
-  if (incoming) unique.set(incoming.referralId, newerLastWorkspace(unique.get(incoming.referralId), incoming) as PipelineLastWorkspace);
+  if (incoming) {
+    const previous = unique.get(incoming.referralId);
+    unique.set(incoming.referralId, newerLastWorkspace(previous, withRememberedAssessmentLocation(previous, incoming)) as PipelineLastWorkspace);
+  }
   return [...unique.values()].sort(newestWorkspaceFirst).slice(0, 50);
 }
 
