@@ -2066,11 +2066,22 @@ export default function AssessmentWorkspace({
               {renderSigningExplanation()}
             </div>;
 
+  // Chart shows unanswered items as a neutral way into the review, not a warning.
+  const renderUnansweredEntry = () => {
+    const questions = reviewSections.reduce((count, section) => count + section.questions.length, 0);
+    const remaining = reviewSections.reduce((count, section) => count + section.remaining.length, 0);
+    if (!remaining) return null;
+    return <div className={workingStyles.chartReviewNotice} data-chart-unanswered>
+      {onReviewAssessment ? <button type="button" onClick={() => void reviewChart()} disabled={isBusy || isClosing}>Review unanswered assessment items<ChevronRight size={15} aria-hidden="true" /></button> : null}
+      <p>Assessment answers: {questions - remaining} of {questions} recorded. The rest are unanswered or unverified and do not prevent continuing.</p>
+    </div>;
+  };
+
   const renderChartReview = () => (
     <section data-guide-target="assessment-review" aria-label="Assessment chart review" className={workingStyles.chartReview}>
             {chartDocuments}
             {renderChartReviewToolbar()}
-            {assessmentReview ? renderReviewOverview() : reviewSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>Assessment has {reviewSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items. These stay visible and do not prevent continuing.</p> : null}
+            {assessmentReview ? renderReviewOverview() : renderUnansweredEntry()}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>
             <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
               onEditAssessmentField={!isBusy && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {

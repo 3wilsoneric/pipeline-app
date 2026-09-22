@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
-const residentFields = ["Resident number", "Unit", "Admission date", "Length of stay", "Care level"];
+// The internal resident number stays out of the chart; see chart-field-editing.
+const residentFields = ["Unit", "Admission date", "Length of stay", "Care level"];
 
 test("intake uses its own referral data, while the same connected Client chart keeps resident fields", async ({ page }) => {
   const created = await createOperationalReferral(page.request, "assessmentCoordinator", {

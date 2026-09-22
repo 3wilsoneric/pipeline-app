@@ -28,7 +28,7 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
       if (!facts.length) return null;
       return <section key={section.key} aria-label={section.label} className="border-b border-[#e0e5e2] px-5 py-5 sm:px-7 sm:py-6">
         <h3 className="mb-5 text-[17px] font-bold text-[#29483d]">{section.label}</h3>
-        <ChartFacts facts={facts} />
+        <ChartFacts facts={facts} editHint="Edit answer" />
       </section>;
     })}
     <footer className="flex flex-wrap justify-between gap-2 px-5 py-4 text-[12px] leading-5 text-[#59675f] sm:px-7">

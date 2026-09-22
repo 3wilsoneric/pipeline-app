@@ -298,3 +298,46 @@ test.describe("return to the originating client list", () => {
     await expect(page.getByRole("region", { name: `${cabinet} file cabinet`, exact: true })).toHaveCount(0);
   });
 });
+
+test.describe("stay history counts", () => {
+  type ProfileFixture = typeof unifiedProfileFixture & {
+    client: { resident_episode_history: { discharge_date: string | null }[] };
+    history: Record<string, unknown>;
+  };
+  const chartFixture = () => structuredClone(unifiedProfileFixture) as ProfileFixture;
+  const openChart = async (page: Page, profile: unknown) => {
+    await page.route("**/api/profiles/**", (route) => route.fulfill({ json: profile }));
+    await page.goto("/?screen=profile&clientId=transition-client");
+    await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+  };
+
+  test("reports two governed stays with the current one named", async ({ page }) => {
+    await openChart(page, unifiedProfileFixture);
+    await expect(page.getByTestId("client-stay-count")).toHaveText("2 recorded stays · 1 current");
+  });
+
+  test("says one current stay with no previous stays instead of a bare count", async ({ page }) => {
+    const fixture = chartFixture();
+    fixture.client.resident_episode_history = fixture.client.resident_episode_history.filter((episode) => !episode.discharge_date);
+    await openChart(page, fixture);
+    await expect(page.getByTestId("client-stay-count")).toHaveText("1 current stay · no previous stays recorded");
+  });
+
+  test("an unreadable placement history is unknown, never zero stays", async ({ page }) => {
+    const fixture = chartFixture();
+    fixture.client.resident_episode_history = [];
+    fixture.history = { ...fixture.history, status: "unavailable", warning: "Placement history is temporarily unavailable." };
+    await openChart(page, fixture);
+    await expect(page.getByTestId("client-stay-count")).toHaveText("Stay history unavailable");
+    await expect(page.getByText("Placement history is temporarily unavailable.")).toBeVisible();
+    await expect(page.getByText(/recorded stay/)).toHaveCount(0);
+  });
+
+  test("a disagreeing placement history source is explained, not merged", async ({ page }) => {
+    const fixture = chartFixture();
+    fixture.history = { ...fixture.history, status: "available", episode_count: 5, current_episode_count: 1, warning: "Imported placement history." };
+    await openChart(page, fixture);
+    await expect(page.getByTestId("client-stay-count")).toHaveText("2 recorded stays · 1 current");
+    await expect(page.getByText("Placement history lists 5 stays; the stays below come from the governed client record.")).toBeVisible();
+  });
+});

@@ -11,6 +11,7 @@ import {
   ArrowRight,
   CalendarClock,
   CheckCircle2,
+  CircleAlert,
   FolderOpen,
   History,
   LoaderCircle,
@@ -526,6 +527,9 @@ export default function ReferralPacketCanvas({
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
   const lastFocusRef = useRef<FieldKey | undefined>(initialIntakeFocus(routedWorkspaceLocation));
   const chartEditTargetRef = useRef<ReferralChartEditField | null>(null);
+  // The chart edit control that opened intake, so Done returns to it.
+  const chartReturnRef = useRef<{ label: string; index: number } | null>(null);
+  const lastChartEditControlRef = useRef<HTMLElement | null>(null);
   const locallyFocusedFieldRef = useRef<FieldKey | undefined>(undefined);
   useWorkspaceLocationRouting(referral?.id, newDraftKey, routedWorkspaceLocation, setActivePage);
   const defaultOwnerRef = useRef<{ principalId: string; displayName: string } | null>(null);
@@ -1139,6 +1143,24 @@ export default function ReferralPacketCanvas({
     return () => window.cancelAnimationFrame(frame);
   }, [activePage, draftRecoveryLoading, newDraftKey, referral?.id, routedWorkspaceLocation.intakeField, routedWorkspaceLocation.view]);
 
+  useEffect(() => {
+    const target = chartReturnRef.current;
+    if (activePage !== 3 || !target) return;
+    // The chart and its supporting records render asynchronously. Wait briefly
+    // for the same control, then return to it; otherwise stay at the chart top.
+    let frame = 0;
+    let attempts = 0;
+    const restore = () => {
+      const control = canvasRef.current?.querySelectorAll<HTMLElement>(`[data-chart-edit="${CSS.escape(target.label)}"]`)[Math.max(target.index, 0)];
+      if (!control && attempts++ < 120) { frame = window.requestAnimationFrame(restore); return; }
+      chartReturnRef.current = null;
+      control?.scrollIntoView({ block: "center" });
+      control?.focus({ preventScroll: true });
+    };
+    frame = window.requestAnimationFrame(restore);
+    return () => window.cancelAnimationFrame(frame);
+  }, [activePage]);
+
   const receiveRemoteReferral = (latest: Referral, updatedBy?: string, force = false) => {
     const base = loadedReferralRef.current;
     if (!base || (latest.version ?? 1) <= (base.version ?? 1) || (isSavingRef.current && !force)) return;
@@ -1480,11 +1502,23 @@ export default function ReferralPacketCanvas({
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
     chartEditTargetRef.current = editField ?? null;
+    if (page !== 1 && page !== 3) chartReturnRef.current = null;
+    const returningToChart = page === 3 && chartReturnRef.current !== null;
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(locationForPage(page, editField, assessmentMode));
     requestAnimationFrame(() => {
-      if (!editField) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      if (!editField && !returningToChart) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
+  };
+
+  const editReferralFieldFromChart = (field: ReferralChartEditField) => {
+    const control = lastChartEditControlRef.current;
+    lastChartEditControlRef.current = null;
+    const label = control?.dataset.chartEdit;
+    chartReturnRef.current = label && canvasRef.current?.contains(control)
+      ? { label, index: [...canvasRef.current.querySelectorAll(`[data-chart-edit="${CSS.escape(label)}"]`)].indexOf(control!) }
+      : null;
+    void navigatePage(1, field);
   };
 
   const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
@@ -2540,7 +2574,7 @@ export default function ReferralPacketCanvas({
             {renderDocumentUpload(true)}
             <ClientChartFrame label="Referral intake chart">
               <ClientChartHeader title={loadedReferral ? "Referral details" : "Referral intake"}>
-                <ChartHeaderCell label="Details captured" value={`${fieldCount} / ${visibleChartFieldKeys.length}`} />
+                <ChartHeaderCell label="Intake details" value={`${fieldCount} of ${visibleChartFieldKeys.length} recorded`} />
               </ClientChartHeader>
               <div className="min-w-0" onFocusCapture={focusIntakeCell} onBlur={blurIntakeCell}>
                 <ChartSection title="Identity" complete={countCompleteFields(fields, ["name", "dob", "gender", "ssn"])} total={4}>
@@ -2692,7 +2726,7 @@ export default function ReferralPacketCanvas({
   );
 
   return (
-    <div ref={canvasRef} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className={`relative h-full overflow-y-auto pipeline-page-surface text-[#111111] ${phone ? workspaceFolderStyles.phoneWorkspace : ""}`}>
+    <div ref={canvasRef} onClickCapture={(event) => { lastChartEditControlRef.current = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-chart-edit]") : null; }} data-guide-target="packet-workspace" data-performance-ready={workspacePerformanceReady(draftRecoveryLoading, referral?.id, loadedReferral)} className={`relative h-full overflow-y-auto pipeline-page-surface text-[#111111] ${phone ? workspaceFolderStyles.phoneWorkspace : ""}`}>
       {draftRecoveryLoading ? (
         <div className="absolute inset-0 z-50 flex items-start justify-center bg-white/85 pt-24" role="status" aria-live="polite">
           <div className="border-l-2 border-[#0f8b73] bg-white px-4 py-3 text-[12px] font-black text-[#174f43] shadow-sm">
@@ -2793,7 +2827,7 @@ export default function ReferralPacketCanvas({
                   chartDocuments={renderChartDocuments()}
                   assessmentReview={displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review"}
                   chartActions={!permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined}
-                  onEditReferralField={!permissionReadOnly && loadedReferral ? (field) => void navigatePage(1, field) : undefined}
+                  onEditReferralField={!permissionReadOnly && loadedReferral ? editReferralFieldFromChart : undefined}
                   onOpenChart={() => openPage(3)}
                   onReviewAssessment={() => openPage(2, undefined, "review")}
                   onOpenAssessment={() => openPage(2, undefined, null)}
@@ -3008,7 +3042,9 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
   const presentation = workspaceSavePresentation(status, error, hasReferral, saving, dirtyCount, queuedFileCount);
   const { Icon } = presentation;
-  const quiet = !error && !saving && (presentation.confirmed || /^Draft(?: saved.*)?$/.test(status));
+  // A saved, pending, device-only or failed state stays visible; an untouched
+  // draft has nothing to report yet.
+  const quiet = !error && !saving && /^Draft(?: saved.*)?$/.test(status);
   return <div data-testid="workspace-save-status" className={quiet ? "sr-only" : workspaceFolderStyles.saveNotice} aria-live="polite" title={error || status}>
     <FeedbackCue value={status} enabled={presentation.confirmed} />
     <Icon size={13} aria-hidden="true" className={`mt-0.5 shrink-0 ${presentation.iconClassName}`} />
@@ -3021,11 +3057,16 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   </div>;
 }
 
+// The one status that means the edit exists only in this browser's recovery copy.
+const deviceOnlySaveStatus = "Saved on this device; not synced";
+
 function workspaceSavePresentation(status: string, error: string, hasReferral: boolean, saving: boolean, dirtyCount: number, queuedFileCount: number) {
+  const deviceOnly = status === deviceOnlySaveStatus;
   const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0
-    && status !== "Saved on this device; not synced" && /^(Saved |All changes saved|Packet uploaded|Updated by )/.test(status);
-  if (error) return { label: "Pending", Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
-  if (saving) return { label: status, Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
+    && !deviceOnly && /^(Saved |All changes saved|Packet uploaded|Updated by )/.test(status);
+  if (error) return { label: "Not saved to Pipeline", Icon: CircleAlert, iconClassName: "text-[#a4473c]", textClassName: "text-[#93382d]", confirmed: false };
+  if (saving) return { label: "Saving...", Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
+  if (deviceOnly) return { label: "Saved on this device · waiting to sync", Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (confirmed) return { label: "Saved to Pipeline", Icon: CheckCircle2, iconClassName: "text-[#0c705f]", textClassName: "text-[#0c705f]", confirmed: true };
   return { label: status, Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
 }
@@ -3161,19 +3202,14 @@ function ChartCompletionRail({
   return (
     <section aria-label="Intake completion" className="grid items-center gap-x-8 gap-y-2 px-5 py-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex items-center justify-between gap-4 md:col-start-1">
-        <h2 className="text-[14px] font-bold text-[#111111]">Intake</h2>
-        <span className="text-[13px] font-bold tabular-nums text-[#5c6660]">{percent}%</span>
+        <h2 className="text-[14px] font-bold text-[#111111]">Intake details</h2>
+        <span className="text-[13px] font-bold tabular-nums text-[#5c6660]">{fieldCount.toLocaleString()} of {fieldTotal.toLocaleString()} recorded</span>
       </div>
-      <div role="progressbar" aria-label="Intake details captured" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="h-1.5 overflow-hidden bg-[#e5e9e6] md:col-start-1">
+      <div role="progressbar" aria-label="Intake details recorded" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-valuetext={`${fieldCount} of ${fieldTotal} intake details recorded`} className="h-1.5 overflow-hidden bg-[#e5e9e6] md:col-start-1">
         <div className="h-full origin-left bg-[#0f8b73] transition-transform duration-150 motion-reduce:transition-none" style={{ transform: `scaleX(${percent / 100})` }} />
       </div>
       <dl className="flex flex-wrap gap-x-8 md:col-start-1">
-        <ChartStatusRow label="Details captured" value={`${fieldCount.toLocaleString()} / ${fieldTotal.toLocaleString()}`} />
-        <ChartStatusRow
-          label="Assessment"
-          value={status}
-          attention={!assessmentSummary.signedAt}
-        />
+        <ChartStatusRow label="Assessment" value={status} />
       </dl>
       {hasReferral ? <button
         type="button"
@@ -3204,11 +3240,11 @@ function assessmentRailStatus(summary: { signedAt?: string | null; startedAt?: s
   return hasActiveAssessmentSchedule({ scheduled_start_at: summary.scheduledStartAt, schedule_status: summary.scheduleStatus }) ? "Scheduled" : "Not scheduled";
 }
 
-function ChartStatusRow({ label, value, attention = false }: { label: string; value: string; attention?: boolean }) {
+function ChartStatusRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
-      <dt className="text-[11px] text-[#595959]">{label}</dt>
-      <dd className={`text-[11px] font-bold ${attention ? "text-[#9a6411]" : "text-[#0f8b73]"}`}>{value}</dd>
+      <dt className="text-[13px] text-[#595959]">{label}</dt>
+      <dd className="text-[13px] font-bold text-[#2f4a41]">{value}</dd>
     </div>
   );
 }

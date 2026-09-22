@@ -228,7 +228,12 @@
   .reviewDocument { padding: 0 10px; margin-top: 16px; }
   .reviewDocument [data-chart-fact] dd { font-size: 17px; }
 }
-.chartReviewNotice { padding: 12px 20px; color: #59665f; font-size: 14px; }
+.chartReviewNotice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 8px 20px; color: #59665f; font-size: 14px; }
+.chartReviewNotice > button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; border-radius: 4px; color: #08735e; font-weight: 600; text-underline-offset: 4px; }
+.chartReviewNotice > button:not(:disabled):hover { text-decoration: underline; }
+.chartReviewNotice > button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
+.chartReviewNotice > button:disabled { opacity: .5; cursor: not-allowed; }
+.chartReviewNotice > p { flex: 1 1 240px; min-width: 0; margin: 0; }
 .chartReview [data-assessment-record] > header { padding-block: 10px; }
 .chartReview [data-assessment-record] > section { padding-block: 16px; }
 .chartReview [data-assessment-record] > section > h3 { margin-bottom: 12px; }
@@ -344,7 +349,7 @@
   .preparing .sectionProgress small { display: inline; margin-left: 8px; }
   .chartReviewToolbar:has(.reviewHeading) { gap: 4px; padding: 8px 16px; }
   .reviewHeading h3 { font-size: 18px; }
-  .chartReviewNotice { padding: 8px 16px; font-size: 13px; }
+  .chartReviewNotice { padding: 4px 16px 8px; font-size: 13px; }
   .chartReview [data-assessment-record] > :is(header, section, footer) { padding-inline: 16px; }
   .footerUtilities { flex-basis: 100%; justify-content: space-between; gap: 8px; }
   .sectionSteps { width: 100%; justify-content: space-between; gap: 8px; }
