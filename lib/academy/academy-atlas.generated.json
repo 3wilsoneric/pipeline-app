@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c7c4d47379d1d472",
-  "fingerprint": "c7c4d47379d1d472f21ae4eda7685e3df9fb37ae6a439e86ce8cea28b7413d25",
+  "generatedAt": "source-fingerprint:9ce761672b0e0775",
+  "fingerprint": "9ce761672b0e07754b31313957e0331d57e845cdcab1cc8b7074e71b402e1a69",
   "totals": {
-    "files": 1365,
-    "lines": 361494,
-    "coveredFiles": 1365
+    "files": 1371,
+    "lines": 362493,
+    "coveredFiles": 1371
   },
   "entries": [
     {
@@ -340,8 +340,8 @@
       "risk": "standard",
       "lines": 14,
       "moduleIds": [
-        "developer-toolchain",
-        "system-map"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -364,8 +364,8 @@
       "risk": "high",
       "lines": 25,
       "moduleIds": [
-        "route-handler-contract",
-        "validation-authorization"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -376,8 +376,8 @@
       "risk": "high",
       "lines": 70,
       "moduleIds": [
-        "route-handler-contract",
-        "validation-authorization"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -884,6 +884,18 @@
       ]
     },
     {
+      "path": "app/api/me/outlook/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 37,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
       "path": "app/api/me/performance/route.ts",
       "subsystem": "API routes",
       "kind": "route-handler",
@@ -1233,9 +1245,8 @@
       "risk": "high",
       "lines": 62,
       "moduleIds": [
-        "create-referral",
-        "route-handler-contract",
-        "validation-authorization"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -1244,7 +1255,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 164,
+      "lines": 174,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1436,11 +1447,10 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 450,
+      "lines": 454,
       "moduleIds": [
-        "create-referral",
-        "route-handler-contract",
-        "validation-authorization"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -1462,11 +1472,10 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 65,
+      "lines": 66,
       "moduleIds": [
-        "create-referral",
-        "route-handler-contract",
-        "validation-authorization"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -2090,10 +2099,10 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 540,
+      "lines": 593,
       "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -2625,15 +2634,27 @@
       ]
     },
     {
+      "path": "components/pipeline/MeetClientAdmissionReview.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 80,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
+      ]
+    },
+    {
       "path": "components/pipeline/MeetClientEmailPage.module.css",
       "subsystem": "Pipeline UI",
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 153,
+      "lines": 199,
       "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -2642,10 +2663,10 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 54,
+      "lines": 52,
       "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -2673,15 +2694,27 @@
       ]
     },
     {
+      "path": "components/pipeline/OutlookConnectionSetup.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 149,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
+      ]
+    },
+    {
       "path": "components/pipeline/OutlookHandoffControls.module.css",
       "subsystem": "Pipeline UI",
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 25,
+      "lines": 27,
       "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -2692,8 +2725,8 @@
       "risk": "standard",
       "lines": 146,
       "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -2750,7 +2783,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 104,
+      "lines": 106,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -3014,7 +3047,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 32,
+      "lines": 33,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3170,7 +3203,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4115,
+      "lines": 4116,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3194,7 +3227,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 389,
+      "lines": 392,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3278,7 +3311,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 295,
+      "lines": 297,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -4863,7 +4896,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 74,
+      "lines": 76,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -4887,10 +4920,10 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 32,
+      "lines": 35,
       "moduleIds": [
-        "developer-toolchain",
-        "vertical-change-capstone"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -5559,10 +5592,10 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 42,
+      "lines": 58,
       "moduleIds": [
-        "developer-toolchain",
-        "vertical-change-capstone"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -7784,7 +7817,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 1448,
+      "lines": 1451,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -7796,7 +7829,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 150,
+      "lines": 152,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -8204,7 +8237,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 49,
+      "lines": 56,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -8901,8 +8934,8 @@
       "risk": "standard",
       "lines": 91,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -8911,10 +8944,10 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 77,
+      "lines": 92,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -8923,10 +8956,10 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 151,
+      "lines": 158,
       "moduleIds": [
-        "database-foundations",
-        "stores-transactions"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -8949,8 +8982,8 @@
       "risk": "standard",
       "lines": 42,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -8959,10 +8992,10 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 156,
+      "lines": 157,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -8971,10 +9004,10 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 89,
+      "lines": 94,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -8985,8 +9018,8 @@
       "risk": "standard",
       "lines": 24,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -8995,10 +9028,22 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 394,
+      "lines": 413,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/outlook-attachments.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 116,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -9009,8 +9054,8 @@
       "risk": "standard",
       "lines": 24,
       "moduleIds": [
-        "assessment-calendar-profiles-ui",
-        "frontend-resilience"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -9019,10 +9064,10 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 177,
+      "lines": 248,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -9031,10 +9076,10 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 103,
+      "lines": 112,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -9789,8 +9834,8 @@
       "risk": "standard",
       "lines": 174,
       "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -10763,7 +10808,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 81,
+      "lines": 91,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -10957,8 +11002,8 @@
       "risk": "standard",
       "lines": 4,
       "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -11365,8 +11410,8 @@
       "risk": "standard",
       "lines": 0,
       "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -11411,7 +11456,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 240,
+      "lines": 241,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -11459,10 +11504,10 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 268,
+      "lines": 284,
       "moduleIds": [
-        "operations-recovery-release",
-        "test-assurance"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -11473,8 +11518,8 @@
       "risk": "standard",
       "lines": 61,
       "moduleIds": [
-        "operations-recovery-release",
-        "test-assurance"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -12263,7 +12308,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 202,
+      "lines": 216,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13309,8 +13354,8 @@
       "risk": "standard",
       "lines": 333,
       "moduleIds": [
-        "operations-recovery-release",
-        "test-assurance"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -13410,15 +13455,27 @@
       ]
     },
     {
+      "path": "scripts/outlook-attachments.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 122,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
+      ]
+    },
+    {
       "path": "scripts/outlook-handoff.test.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 236,
+      "lines": 363,
       "moduleIds": [
-        "operations-recovery-release",
-        "test-assurance"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -13727,7 +13784,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 44,
+      "lines": 54,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -13739,7 +13796,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 31,
+      "lines": 57,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -15252,7 +15309,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 534,
+      "lines": 465,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15458,8 +15515,8 @@
       "risk": "standard",
       "lines": 102,
       "moduleIds": [
-        "operations-recovery-release",
-        "test-assurance"
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -15821,6 +15878,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/outlook-connection.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 77,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {

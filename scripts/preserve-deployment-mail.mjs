@@ -3,7 +3,8 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export function deploymentMailSettings(environment, secrets) {
+export function deploymentMailSettings(environment, secrets, activation = "preserve") {
+  if (!["preserve", "enabled", "disabled"].includes(activation)) throw new Error("Choose preserve, enabled or disabled for Meet the Client activation.");
   const mail = environment.filter(({ name }) => /^PIPELINE_(GRAPH_|MEET_CLIENT_)/u.test(name));
   const references = new Set(mail.map(({ secretRef }) => secretRef).filter(Boolean));
   const preservedSecrets = [...references].map((name) => {
@@ -13,7 +14,16 @@ export function deploymentMailSettings(environment, secrets) {
       ? { name, keyVaultUrl: secret.keyVaultUrl, identity: secret.identity }
       : { name, value: secret.value };
   });
-  return { environment: mail, secrets: preservedSecrets };
+  return { environment: activateMeetClient(mail, activation), secrets: preservedSecrets };
+}
+
+function activateMeetClient(mail, activation) {
+  if (activation === "preserve") return mail;
+  if (activation === "enabled" && !mail.some(item => item.name === "PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS" && item.value?.trim())) {
+    throw new Error("Configure approved recipient domains before activating Meet the Client.");
+  }
+  return [...mail.filter(item => item.name !== "PIPELINE_MEET_CLIENT_LIVE_ENABLED"),
+    { name: "PIPELINE_MEET_CLIENT_LIVE_ENABLED", value: activation === "enabled" ? "true" : "false" }];
 }
 
 function readAzure(args) {
@@ -25,12 +35,12 @@ function readAzure(args) {
 }
 
 function main() {
-  const [resourceGroup, appName, outputPath, bootstrap] = process.argv.slice(2);
+  const [resourceGroup, appName, outputPath, bootstrap, activation = "preserve"] = process.argv.slice(2);
   if (!resourceGroup || !appName || !outputPath) throw new Error("Resource group, application name and output path are required.");
   const scope = ["--resource-group", resourceGroup, "--name", appName];
   const environment = bootstrap === "true" ? [] : readAzure(["containerapp", "show", ...scope, "--query", "properties.template.containers[0].env"]);
   const needsSecrets = environment.some(({ name, secretRef }) => /^PIPELINE_(GRAPH_|MEET_CLIENT_)/u.test(name) && secretRef);
-  const settings = deploymentMailSettings(environment, needsSecrets ? readAzure(["containerapp", "secret", "list", ...scope, "--show-values"]) : []);
+  const settings = deploymentMailSettings(environment, needsSecrets ? readAzure(["containerapp", "secret", "list", ...scope, "--show-values"]) : [], activation);
   for (const secret of settings.secrets) {
     if (secret.value && process.env.GITHUB_ACTIONS === "true") process.stdout.write(`::add-mask::${secret.value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}\n`);
   }

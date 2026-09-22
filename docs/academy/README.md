@@ -57,6 +57,8 @@ npm run academy:certify
 
 Do not refresh fingerprints merely to make a failing check green. First review changed source anchors, learning ownership, journey invariants, exercises, and checkpoints.
 
+The September 22 Meet the Client review covered the shell's early Outlook prompt, referral navigation out of assessment review, the narrowly framed Outlook callback in `next.config.ts`, and the attachment checks added to the package gate. Module 9 and the decision-handoff journey now trace the planned admit date, attachment draft recovery and verified sent status separately from EHR export. The lab includes interrupted uploads and missing sent attachments; the existing assessment-start checkpoint remains valid. Outlook and packet sources have explicit learning ownership in the atlas. Production activation and rollback are documented in [Outlook Drafts setup](../outlook-handoff-setup.md).
+
 ## Learning documents
 
 - [Curriculum](CURRICULUM.md)

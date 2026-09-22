@@ -31,7 +31,7 @@ test("editable handoff text keeps linked admission details, source provenance, a
   const images = email.html.match(/<img\b[^>]*>/g) ?? [];
   assert.equal(images.length, 1);
   assert.match(images[0], /alt="Alamo Health Management"/);
-  assert.doesNotMatch(email.html, /<script|<img[^>]*\bonerror\s*=/);
+  assert.doesNotMatch(email.html, /<script|<img[^>]*\bonerror\s*=/i);
   const changed = emailOwner.renderMeetClientEmail({ ...summary, admissionDate: "2026-10-02" }, "Synthetic sender", "preview", [], message);
   assert.ok(changed.html.includes("2026-10-02"));
   assert.ok(!changed.html.includes("2026-10-01"));
@@ -209,8 +209,7 @@ test("outgoing handoffs use Alamo branding with a reachable logo and no Pipeline
     const email = emailOwner.renderMeetClientEmail(summary, "Assessor", "delivery", ["Client data sheet.html"], undefined, options);
     assert.match(email.html, /<img[^>]+alt="Alamo Health Management"/);
     assert.match(email.html, /src="https:\/\/alamo-pipeline\.com\/brand\/alamo-health-management\.png"/);
-    const visibleCopy = email.html.replace(/<[^>]+>/g, "");
-    assert.doesNotMatch(visibleCopy, /Pipeline/);
+    assert.doesNotMatch(email.html, /Pipeline/);
     assert.doesNotMatch(email.text, /Pipeline/);
   }
 });
