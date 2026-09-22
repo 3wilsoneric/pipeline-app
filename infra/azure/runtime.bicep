@@ -22,6 +22,8 @@ param backupStorageAccountName string = storageAccountName
 param backupStorageContainer string = 'artifacts'
 param entraTenantId string
 param pipelineEntraClientId string
+@description('Separate public Outlook Drafts client; configuring it does not enable live draft creation.')
+param outlookClientId string = ''
 @description('Existing custom hostname bindings that must survive immutable runtime revisions.')
 param customDomains array = []
 param databricksHost string = ''
@@ -193,6 +195,7 @@ var baseEnvironment = [
   { name: 'PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE', value: 'false' }
   { name: 'PIPELINE_AUTH_MODE', value: 'entra_jwt' }
   { name: 'PIPELINE_ENTRA_TENANT_ID', value: entraTenantId }
+  { name: 'PIPELINE_OUTLOOK_CLIENT_ID', value: outlookClientId }
   { name: 'PIPELINE_ENTRA_API_AUDIENCE', value: pipelineApiAudience }
   { name: 'PIPELINE_ENTRA_API_SCOPE', value: 'access_as_user' }
   { name: 'NEXT_PUBLIC_ENTRA_TENANT_ID', value: entraTenantId }

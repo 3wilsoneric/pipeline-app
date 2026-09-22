@@ -7,7 +7,6 @@ import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-clien
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
 import { getGraphMailReadiness, isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
-import { assessorDraftRecipient } from "@/lib/notifications/assessor-email-draft";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
@@ -73,7 +72,6 @@ export async function GET(
       );
       const exampleOnly = !isMeetClientLive();
       const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
-      const draftRecipient = await assessorDraftRecipient(assessment);
 
       return Response.json({
         referral: snapshot.referral,
@@ -83,7 +81,6 @@ export async function GET(
           configured: mail.configured,
           sender: mail.sender,
           prepared_by: auth.user.name,
-          draft_recipient: draftRecipient,
           preview: report ? renderMeetClientEmail(
             report.meetClient, auth.user.name, "Preview — assigned when sent",
             admissionPacket.files.map((file) => file.name),

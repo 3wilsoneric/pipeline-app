@@ -196,6 +196,7 @@ jobs:
               alertActionGroupResourceIds='${{ steps.foundation.outputs.alert_action_group_ids }}' \
               entraTenantId='${{ vars.PIPELINE_ENTRA_TENANT_ID }}' \
               pipelineEntraClientId='${{ vars.PIPELINE_ENTRA_CLIENT_ID }}' \
+              outlookClientId='${{ vars.PIPELINE_OUTLOOK_CLIENT_ID }}' \
               customDomains='${{ steps.custom-domains.outputs.json }}' \
               extractionBackend='${{ inputs.extraction_backend }}' \
               databricksHost='${{ vars.PIPELINE_DATABRICKS_HOST }}' \
@@ -289,6 +290,7 @@ jobs:
               alertActionGroupResourceIds='${{ steps.foundation.outputs.alert_action_group_ids }}' \
               entraTenantId='${{ vars.PIPELINE_ENTRA_TENANT_ID }}' \
               pipelineEntraClientId='${{ vars.PIPELINE_ENTRA_CLIENT_ID }}' \
+              outlookClientId='${{ vars.PIPELINE_OUTLOOK_CLIENT_ID }}' \
               customDomains='${{ steps.custom-domains.outputs.json }}' \
               extractionBackend='${{ inputs.extraction_backend }}' \
               databricksHost='${{ vars.PIPELINE_DATABRICKS_HOST }}' \
