@@ -2358,14 +2358,16 @@ export default function ReferralPacketCanvas({
         ) : null
   );
 
+  const renderWorkspaceSyncStatus = () => remoteChange && remoteChange.conflicts.length === 0 ? (
+    <span role="status" data-testid="workspace-sync-status" className={workspaceFolderStyles.syncStatus} title={`Changes from ${remoteChange.updatedBy} were merged into your open draft.`}>
+      <CheckCircle2 size={16} aria-hidden="true" />
+      <span className="sr-only">Changes from {remoteChange.updatedBy} were merged into your open draft.</span>
+    </span>
+  ) : null;
+
   const renderWorkspaceActions = () => (
             <div className={workspaceFolderStyles.actions}>
-              {remoteChange && remoteChange.conflicts.length === 0 ? (
-                <span role="status" data-testid="workspace-sync-status" className={workspaceFolderStyles.syncStatus} title={`Changes from ${remoteChange.updatedBy} were merged into your open draft.`}>
-                  <CheckCircle2 size={16} aria-hidden="true" />
-                  <span className="sr-only">Changes from {remoteChange.updatedBy} were merged into your open draft.</span>
-                </span>
-              ) : null}
+              {renderWorkspaceSyncStatus()}
               {!readingAssessment ? <WorkspaceAssignedWorkControl
                 referral={loadedReferral}
                 available={onOpenAssignedWork}

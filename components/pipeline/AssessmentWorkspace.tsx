@@ -451,10 +451,6 @@ export default function AssessmentWorkspace({
   const pageIndex = preparing ? preparationIndex : activeSectionIndex;
   const nextSection = pageSections[pageIndex + 1];
   const previousSection = pageSections[pageIndex - 1];
-  const showSecondaryActions = Boolean(
-    selected && !selected.signed_at && !selected.started_at && canEditClinical
-    || selected?.signed_at && canAddAddendum
-  );
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
   const practiceReview = useMemo(
     () => trainingAssessmentMode && !initialTrainingAssessment ? getAssessmentPracticeReview(draft) : null,
@@ -1852,10 +1848,10 @@ export default function AssessmentWorkspace({
   }
 
   const renderScheduleDetail = () => (!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Change appointment" : "Schedule interview"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Change appointment" : "Schedule interview"}</button> : null);
-  const renderAssessmentDetails = () => showSecondaryActions ? <>
+  const renderAssessmentDetails = () => <>
     {reviewingChart ? renderScheduleDetail() : null}
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
-  </> : null;
+  </>;
   const assessmentDetails = <>{renderAssessmentDetails()}
     <button type="button" onClick={() => setShowInterviewDate(true)}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
   </>;
