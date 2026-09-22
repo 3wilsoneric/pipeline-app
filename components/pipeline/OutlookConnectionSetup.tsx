@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, LoaderCircle, Mail } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { acquireOutlookToken, clearOutlookConnection } from "@/lib/auth/outlook-client";
+import { acquireOutlookToken } from "@/lib/auth/outlook-client";
 import HomeDialog from "./HomeDialog";
 import styles from "./OutlookHandoffControls.module.css";
 
@@ -85,21 +85,9 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
       setError(failure instanceof Error ? failure.message : "Outlook could not connect. Try again.");
     } finally { pending.current = false; setBusy(false); }
   };
-  const disconnect = async () => {
-    if (!setup || pending.current) return;
-    pending.current = true; setBusy(true); setError("");
-    try {
-      await clearOutlookConnection(setup.outlook_client_id, setup.account_email);
-      setMailbox(""); setJustConnected(false);
-      try { window.sessionStorage.setItem(dismissalKey(setup), "later"); } catch { /* The current view remains disconnected. */ }
-      window.dispatchEvent(new Event(changedEvent));
-    } catch { setError("Outlook could not disconnect. Try again."); }
-    finally { pending.current = false; setBusy(false); }
-  };
-
   if (setup && !setup.can_connect) return null;
   const content = <OutlookConnectionCard setup={setup} mailbox={mailbox} mode={mode} busy={busy} loading={loading} error={error} justConnected={justConnected}
-    onConnect={() => void connect()} onDisconnect={() => void disconnect()} onDismiss={dismiss} />;
+    onConnect={() => void connect()} onDismiss={dismiss} />;
   if (mode === "settings") return content;
   if (!promptOpen || loading || setup?.demo || pathname.endsWith("/settings")) return null;
   return <HomeDialog label="Connect your Outlook" title={justConnected ? "Ready for your first handoff" : "Connect your Outlook"} size="confirmation" onClose={dismiss}>{content}</HomeDialog>;
@@ -107,7 +95,7 @@ export default function OutlookConnectionSetup({ mode }: { mode: "prompt" | "set
 
 type ConnectionView = {
   setup: Setup | null; mailbox: string; mode: "prompt" | "settings"; busy: boolean; loading: boolean; error: string; justConnected: boolean;
-  onConnect: () => void; onDisconnect: () => void; onDismiss: () => void;
+  onConnect: () => void; onDismiss: () => void;
 };
 
 function OutlookConnectionCard(props: ConnectionView) {
@@ -143,18 +131,18 @@ function ConnectOutlookButton({ setup, busy, loading, onConnect }: ConnectionVie
 }
 
 function OutlookConnectionActions(props: ConnectionView) {
-  const { mode, justConnected, mailbox, busy, loading, onDisconnect, onDismiss } = props;
+  const { mode, justConnected, mailbox, busy, onDismiss } = props;
+  if (mode === "settings" && mailbox) return null;
   return <div className={styles.actions}>
     {mode === "prompt" && justConnected ? <button type="button" className={styles.primary} onClick={onDismiss}>Continue to Pipeline</button>
-      : mailbox ? <button type="button" className={styles.secondary} disabled={busy || loading} onClick={onDisconnect}>Disconnect this browser</button>
-        : <ConnectOutlookButton {...props} />}
-    {mode === "prompt" && !justConnected ? <button type="button" className={styles.quiet} disabled={busy} onClick={onDismiss}>Not now</button> : null}
+      : <ConnectOutlookButton {...props} />}
+    {mode === "prompt" && !justConnected ? <button type="button" className={styles.quiet} disabled={busy} onClick={onDismiss}>Connect later</button> : null}
   </div>;
 }
 
 function OutlookConnectionDetails({ setup, mode, justConnected }: ConnectionView) {
   return <>
-    {!setup?.demo ? <details className={styles.setup}><summary>Staying connected</summary><p>Use the Microsoft mailbox matching your Pipeline email. Your connection is remembered in this browser. On your own device, choose “Stay signed in” if Microsoft offers it. Microsoft may occasionally require you to reconnect.</p></details> : null}
-    {mode === "prompt" && !justConnected ? <p className={styles.hint}>You can also connect later in Settings or when preparing an email.</p> : null}
+    {!setup?.demo ? <details className={styles.setup}><summary>Staying connected</summary><p>Your connection is remembered when you leave and return in this browser. Use the mailbox matching your Pipeline email and choose “Stay signed in” if Microsoft offers it. Signing out, clearing browser data or Microsoft security requirements may require you to reconnect.</p></details> : null}
+    {mode === "prompt" && !justConnected ? <p className={styles.hint}>Connect later lets you keep working. Connect in Settings or before saving your first Outlook draft.</p> : null}
   </>;
 }

@@ -67,6 +67,16 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy }],
       },
       {
+        // MSAL silently restores Outlook through this static, script-free
+        // callback in a same-origin iframe. Application pages remain unframeable.
+        source: "/outlook-auth.html",
+        headers: [
+          { key: "Content-Security-Policy", value: "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self';" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+      {
         source: "/api/referrals/:referralId/packet",
         headers: [
           { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'self';" },

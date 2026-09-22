@@ -87,10 +87,9 @@ test("Outlook OAuth uses its own public client and callback without acquiring se
   assert.equal(popupCalls, 1); assert.equal(silentCalls, 1);
 });
 
-test("Outlook restores the matching mailbox across tabs, renews silently, and respects disconnect", async () => {
+test("Outlook restores the matching mailbox across visits and retains its cache after renewal fails", async () => {
   const id = "00000000-0000-4000-8000-000000000001";
   const email = "assessor@example.invalid";
-  const storage = new Map();
   let cachedAccount, silent = 0, sso = 0, popup = 0, cleared = 0, requireInteraction = false;
   const dependencies = {
     "@azure/msal-browser": { BrowserCacheLocation: { LocalStorage: "localStorage" }, PublicClientApplication: class {
@@ -106,9 +105,7 @@ test("Outlook restores the matching mailbox across tabs, renews silently, and re
     } },
     "@/lib/pipeline/base-path": { toPipelinePath: path => path },
   };
-  const globals = { window: { location: { origin: "https://pipeline.invalid" }, localStorage: {
-    getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key),
-  } } };
+  const globals = { window: { location: { origin: "https://pipeline.invalid" } } };
   const client = load("lib/auth/outlook-client.ts", dependencies, globals);
   assert.equal(await client.acquireOutlookToken(id, true, email), "fixture-token");
   const reopened = load("lib/auth/outlook-client.ts", dependencies, globals);
@@ -119,14 +116,13 @@ test("Outlook restores the matching mailbox across tabs, renews silently, and re
   assert.equal(sso, 1); assert.equal(popup, 1);
   requireInteraction = true;
   assert.equal(await reopened.acquireOutlookToken(id, false, email), null);
-  await reopened.clearOutlookConnection(id, email);
-  const afterDisconnect = load("lib/auth/outlook-client.ts", dependencies, globals);
-  assert.equal(await afterDisconnect.acquireOutlookToken(id, false, email), null);
-  assert.equal(sso, 1); assert.equal(cleared, 1);
+  assert.equal(cachedAccount.username, email);
+  const nextVisit = load("lib/auth/outlook-client.ts", dependencies, globals);
+  assert.equal(await nextVisit.acquireOutlookToken(id, false, email), null);
+  assert.equal(sso, 1); assert.equal(cleared, 0);
   requireInteraction = false;
-  assert.equal(await afterDisconnect.acquireOutlookToken(id, true, email), "fixture-token");
-  assert.equal(await afterDisconnect.acquireOutlookToken(id, false, email), "fixture-token");
-  assert.equal(popup, 2);
+  assert.equal(await nextVisit.acquireOutlookToken(id, false, email), "fixture-token");
+  assert.equal(popup, 1); assert.equal(cleared, 0);
 });
 
 test("early Outlook connection is identity-bound, origin-protected and disabled during the production hold", async () => {
@@ -163,6 +159,12 @@ test("early Outlook connection is identity-bound, origin-protected and disabled 
   mailboxEmail = user.email;
   const connected = await post(); assert.equal(connected.status, 200);
   assert.deepEqual(JSON.parse(await connected.text()), { mailbox: user.email });
+  assert.equal(calls, 2);
+  // Retained Outlook credentials never replace current Pipeline authorization.
+  user.roles = ["viewer"];
+  assert.equal((await post()).status, 403);
+  user = null;
+  assert.equal((await get()).status, 401); assert.equal((await post()).status, 401);
   assert.equal(calls, 2);
 });
 
