@@ -426,3 +426,25 @@ test("workspace recovery blocks entry and refreshing requires checks without los
   await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
   await expect(page.getByRole("checkbox", { name: /I verified/ })).not.toBeChecked();
 });
+
+for (const width of [1440, 390]) test(`Outlook readiness explains a missing upload beside the action at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 900 });
+  const { referral } = await referralWithAssessment(page);
+  // Exercise real attachment readiness, with only the demo presentation flag overridden.
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
+    const response = await route.fetch(); const payload = await response.json();
+    payload.email = { ...payload.email, example_only: false, can_send: true };
+    await route.fulfill({ response, json: payload });
+  });
+  await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: { occupied: false, draft: null } }));
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  const composer = await openPreview(page);
+  const outlook = composer.getByRole("region", { name: "Outlook handoff" });
+  await expect(outlook.getByText("Upload at least one file to this workspace before sending the admission packet.", { exact: true })).toBeVisible();
+  await expect(outlook).not.toContainText("Finish the email review and verify recipients");
+  await expect(outlook).not.toContainText("Go back to recipients");
+  expect(await outlook.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  expect(await checkA11y(page, 'section[aria-label="Outlook handoff"]')).toEqual([]);
+  await outlook.getByText("Upload at least one file to this workspace before sending the admission packet.", { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath(`outlook-readiness-${width}.png`), animations: "disabled" });
+});
