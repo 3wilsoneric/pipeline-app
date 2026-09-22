@@ -54,13 +54,14 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
   );
 }
 
-export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onOpenPacket }: {
+export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onOpenPacket, initialStage = "received" }: {
   items: ReferralWorklistItem[];
   allItems?: ReferralWorklistItem[];
   showOwner: boolean;
+  initialStage?: ReferralBoardStage;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
-  const [mobileStage, setMobileStage] = useState<ReferralBoardStage>("received");
+  const [mobileStage, setMobileStage] = useState<ReferralBoardStage>(initialStage);
   const [expanded, setExpanded] = useState<{ stage: ReferralBoardStage; origin: HomeDialogOrigin } | null>(null);
   const active = items.filter((item) => item.board.stage !== null);
   const allActive = allItems.filter((item) => item.board.stage !== null);
@@ -82,7 +83,7 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
     <>
       <label className="relative mb-4 block lg:hidden">
         <span className="sr-only">Referral stage</span>
-        <select value={mobileStage} onChange={(event) => setMobileStage(event.target.value as ReferralBoardStage)} className="h-11 w-full appearance-none border border-[#c7d1cb] bg-white px-3 pr-10 text-[13px] font-bold text-[#202320] focus-visible:outline-[#0f8b73]">
+        <select data-guide-target="home-board-stage" value={mobileStage} onChange={(event) => setMobileStage(event.target.value as ReferralBoardStage)} className="h-11 w-full appearance-none border border-[#c7d1cb] bg-white px-3 pr-10 text-[13px] font-bold text-[#202320] focus-visible:outline-[#0f8b73]">
           {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label} ({active.filter((item) => item.board.stage === stage.key).length})</option>)}
         </select>
         <ChevronDown size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#176f60]" aria-hidden="true" />

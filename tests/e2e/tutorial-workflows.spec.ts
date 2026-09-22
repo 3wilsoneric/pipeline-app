@@ -48,9 +48,11 @@ for (const width of [1440, 390]) {
     await expect(page).toHaveURL(/\/tutorials\/referral\?/);
     await expect(page.getByTestId("tutorial-referral-session")).toBeVisible();
     await expect(page.locator('[data-guide-target="home-board-card"]')).toHaveCount(1);
-    await expect(page.locator('[data-guide-target="home-board-card"]')).toContainText("Schedule the assessment");
+    await expect(page.locator('[data-guide-target="home-board-card"]')).toContainText("Continue preparation");
     expect(new URL(page.url()).searchParams.has("referralId")).toBe(false);
     await page.screenshot({ path: info.outputPath("board.png") });
+    await page.locator('[data-guide-target="home-board-card"]').click();
+    await expect(page.locator("#tutorial-step")).toHaveValue("3");
   });
 }
 
@@ -68,6 +70,7 @@ for (const width of [1440, 1024, 390]) {
       expect(guideBox.x + guideBox.width).toBeLessThanOrEqual(width + 1);
       expect(guideBox.y + guideBox.height).toBeLessThanOrEqual(901);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      if (index === 0 || index === 8) await expect(page.locator('[data-guide-target="home-board-card"]')).toBeVisible();
       if (index === 2) {
         const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         await expect(dialog).toBeVisible();
@@ -133,7 +136,7 @@ test("sign, accept, preview and simulate send stay local without confirming admi
   const writes = observeLiveWrites(page);
   await page.goto("/tutorials/referral?task=review-chart");
   await page.locator('[data-guide-target="assessment-sign"]').click();
-  const signature = page.getByRole("dialog", { name: "Sign assessment", exact: true });
+  const signature = page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true });
   await signature.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("5");
   await page.getByRole("radio", { name: "Accept", exact: true }).check();
@@ -150,7 +153,7 @@ test("sign, accept, preview and simulate send stay local without confirming admi
   await expect(page.getByLabel("Actual admission date", { exact: true })).toHaveCount(0);
   await chooseStep(page, 8);
   await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Decision folder", exact: true }).getByRole("button", { name: "Open Taylor Rivera", exact: true })).toContainText("Awaiting admission");
+  await expect(page.getByRole("dialog", { name: "Decision folder", exact: true }).getByRole("button", { name: "Open Taylor Rivera", exact: true })).toContainText("Awaiting admit");
   await page.screenshot({ path: info.outputPath("finished.png") });
   expect(writes).toEqual([]);
 });
@@ -160,7 +163,8 @@ for (const outcome of ["Deny", "Under review"]) test(outcome + " does not fabric
   await page.goto("/tutorials/referral?task=record-decision");
   await page.getByRole("radio", { name: outcome, exact: true }).check();
   await page.getByRole("button", { name: outcome === "Deny" ? "Record decision" : "Save under review", exact: true }).click();
-  await page.getByRole("navigation", { name: "Tutorial navigation" }).getByRole("button", { name: "Next step", exact: true }).click();
+  await expect(page.getByTestId("guided-coach-panel")).toContainText(outcome === "Deny" ? "Denied. No admission packet is needed." : "Saved under review.");
+  await page.getByRole("navigation", { name: "Tutorial navigation" }).getByRole("button", { name: "Next: Back on the board", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("8");
   await chooseStep(page, 7);
   await expect(page.getByText("No admission is needed for this outcome.")).toBeVisible();
@@ -188,6 +192,55 @@ test("Show me where focuses the field without changing it", async ({ page }) => 
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toBeFocused();
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Taylor Rivera");
   expect(writes).toEqual([]);
+});
+
+test("sticking-point help answers the actual blocker at each referral step", async ({ page }) => {
+  const writes = observeLiveWrites(page);
+  await page.goto("/tutorials/referral");
+  const problems = [
+    "Can't find the card?", "No documents to upload?", "Schedule interview won't continue?",
+    "Already answered something?", "Need to change an answer?", "Where is the admission date?",
+    "Simulate send is disabled?", "Why isn't this client admitted?", "Which folder has the sample?",
+  ];
+  for (let step = 0; step < problems.length; step++) {
+    await chooseStep(page, step);
+    const help = page.getByRole("complementary", { name: "Tutorial steps" }).locator("details");
+    await help.getByText("Stuck on this step?", { exact: true }).click();
+    await expect(help).toContainText(problems[step]);
+    await expect(help.locator("dd")).toHaveCount(2);
+  }
+  expect(writes).toEqual([]);
+});
+
+test("Show me where finds the assessment section instead of an unrelated review", async ({ page }) => {
+  await page.goto("/tutorials/referral?task=complete-assessment");
+  await page.getByRole("button", { name: "Show me where", exact: true }).click();
+  await expect(page.getByLabel("Assessment section", { exact: true })).toBeFocused();
+});
+
+test("packet locator reaches the recipient and locked decisions show relevant help", async ({ page }) => {
+  await page.goto("/tutorials/referral?task=prepare-packet");
+  await page.getByRole("button", { name: "Show me where", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "To", exact: true })).toBeFocused();
+  await page.getByRole("checkbox", { name: "Recipients checked" }).check();
+  await page.getByRole("button", { name: "Simulate send", exact: true }).click();
+  await chooseStep(page, 5);
+  const help = page.getByTestId("guided-coach-panel").locator("details");
+  await help.getByText("Stuck on this step?", { exact: true }).click();
+  await expect(help).toContainText("Why can't I change the decision?");
+  await expect(help).not.toContainText("Use Change sample decision");
+});
+
+test("hidden phone board card points to its stage selector", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/tutorials/referral");
+  await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("received");
+  await page.getByRole("button", { name: "Show me where", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toBeFocused();
+  await expect(page.getByTestId("guided-coach-panel").getByRole("alert")).toContainText("Choose In progress in Referral stage");
+  await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("in_progress");
+  await page.getByRole("button", { name: "Show me where", exact: true }).click();
+  await expect(page.locator('[data-guide-target="home-board-card"]')).toBeFocused();
 });
 
 test("scheduling keeps tutorial controls keyboard-accessible", async ({ page }) => {
@@ -239,6 +292,57 @@ test("packet tabs support keyboard navigation", async ({ page }) => {
   await page.keyboard.press("End");
   await expect(page.getByRole("tab", { name: "Files", exact: true })).toBeFocused();
   await checkAccess(page, '[data-testid="tutorial-referral-session"]');
+});
+
+test("packet recipient survives navigation and resets with the sample", async ({ page }) => {
+  const writes = observeLiveWrites(page);
+  await page.goto("/tutorials/referral?task=prepare-packet");
+  await page.getByLabel("To", { exact: true }).fill("practice@example.invalid");
+  await page.getByRole("checkbox", { name: "Recipients checked" }).check();
+  await chooseStep(page, 5);
+  await chooseStep(page, 6);
+  await expect(page.getByLabel("To", { exact: true })).toHaveValue("practice@example.invalid");
+  await expect(page.getByRole("checkbox", { name: "Recipients checked" })).not.toBeChecked();
+  await page.getByRole("checkbox", { name: "Recipients checked" }).check();
+  await page.getByRole("button", { name: "Simulate send", exact: true }).click();
+  await expect(page.getByTestId("guided-coach-panel")).toContainText("Simulated send complete.");
+  await expect(page.getByLabel("To", { exact: true })).not.toBeEditable();
+  await page.getByRole("button", { name: "Next: Client handoff", exact: true }).click();
+  await expect(page.getByTestId("guided-coach-panel")).toContainText("still awaiting admission");
+  await page.getByRole("button", { name: "Restart tutorial", exact: true }).click();
+  await chooseStep(page, 6);
+  await expect(page.getByLabel("To", { exact: true })).toHaveValue("community@example.invalid");
+  expect(writes).toEqual([]);
+});
+
+test("mobile guide distinguishes tutorial navigation and explains skipped actions", async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/tutorials/referral?task=start-assessment");
+  await page.getByRole("button", { name: "Next: Assessment", exact: true }).click();
+  const guide = page.getByTestId("guided-coach-panel");
+  await expect(guide).toContainText("Skipped actions use sample information. Your edits are kept.");
+  await expect(guide.getByRole("heading", { name: "Assessment", exact: true })).toHaveClass("sr-only");
+  const next = guide.getByRole("button", { name: "Next: Review & sign", exact: true });
+  await expect(next).toBeInViewport({ ratio: 1 });
+  await checkAccess(page, '[aria-label="Tutorial steps"]');
+  await page.screenshot({ path: info.outputPath("mobile-guide.png") });
+  await next.click();
+  await expect(page.locator("#tutorial-step")).toHaveValue("4");
+  await expect(guide).not.toContainText("Skipped actions use sample information.");
+});
+
+test("short phone scheduling leaves usable space for the appointment fields", async ({ page }, info) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/tutorials/referral?task=start-assessment");
+  const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+  expect(await dialog.locator("fieldset").evaluate((fields) => fields.parentElement!.clientHeight)).toBeGreaterThanOrEqual(100);
+  await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-02T10:00");
+  await dialog.getByLabel("Assessment method", { exact: true }).selectOption("phone");
+  await dialog.getByLabel("Phone number to call", { exact: true }).fill("5550100200");
+  await expect(page.getByRole("button", { name: "Next: Assessment", exact: true })).toBeInViewport({ ratio: 1 });
+  await page.screenshot({ path: info.outputPath("short-phone.png") });
+  await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await expect(page.locator("#tutorial-step")).toHaveValue("3");
 });
 
 test("reports guide remains read-only with two navigation buttons", async ({ page }) => {

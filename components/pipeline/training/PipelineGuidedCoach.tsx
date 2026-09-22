@@ -405,7 +405,7 @@ function GuideLibrary({ tutorials, navigationError, onStart, onClose }: { tutori
     </header>
     <div className={styles.libraryBody}>
       {navigationError ? <p role="alert" className={styles.error}>{navigationError}</p> : null}
-      {tutorials.some((item) => item.id === "assessor-shift") ? <button type="button" className={styles.boardHelp} onClick={() => onStart("assessor-shift")}><LayoutDashboard size={20} /><span>Walk through a referral<small>Fictional client, from Home to admission</small></span><ArrowRight size={17} /></button> : null}
+      {tutorials.some((item) => item.id === "assessor-shift") ? <button type="button" className={styles.boardHelp} onClick={() => onStart("assessor-shift")}><LayoutDashboard size={20} /><span>Walk through a referral<small>Sample client, from Home to the packet</small></span><ArrowRight size={17} /></button> : null}
       <p className={styles.menuPrompt}>Or jump to a task</p>
       <div className={styles.topics} aria-label="Tutorial topics">
       {tasks.filter(([id]) => tutorials.some((item) => item.id === id)).map(([id, label]) => <button type="button" className={styles.tutorialItem} key={id} onClick={() => onStart(id)}>{label}<ChevronRight size={16} aria-hidden="true" /></button>)}
@@ -509,8 +509,8 @@ function UnavailableGuideAction({ step, routeMatches, onOpenRoute }: { step: Ope
 }
 
 const guideRecoveryMessages = [
-  { targets: ["my-queue", "home-board-card"], message: "No card for this client? Check the other Board stages; on a phone, use Referral stage. Workspaces can find older referrals. If the referral still is not visible, ask your supervisor to check its owner; help cannot change access." },
-  { targets: ["workspace-search", "workspace-results"], message: "Clear the community and owner filters and search with part of the client's name. Check identity before opening a result. A referral assigned to another assessor may be outside your access." },
+  { targets: ["my-queue", "home-board-card"], message: "Check the other Board stages; on a phone, use Referral stage. Clear the assessor filter to see other assignments. Older referrals are in Workspaces." },
+  { targets: ["workspace-search", "workspace-results"], message: "Clear the community and owner filters and search with part of the client's name. Check the client's details before opening a result." },
   { targets: ["intake-identity"], message: "Use the face sheet to confirm identity. Enter date of birth once; age calculates from it. Check the source documents and correct these fields when needed." },
   { targets: ["intake-routing"], message: "Choose the assessor who should receive this referral and confirm the community and referral contact. These are intake details, not an admission date." },
   { targets: ["intake-medications"], message: "Enter what is available in the referral summary and medication fields. Additional documents and corrections stay in the same workspace later." },

@@ -47,12 +47,46 @@ test("restart produces independent original data", () => {
   first.assessment.additional_information = "Changed";
   first.referral.name = "Changed";
   first.sentAt = new Date().toISOString();
+  first.packetRecipient = "changed@example.invalid";
   const reset = sample.createTutorialReferral();
   assert.equal(reset.referral.name, "Taylor Rivera");
   assert.notEqual(reset.assessment.additional_information, "Changed");
   assert.equal(reset.referral.admissionDecision, undefined);
   assert.equal(reset.referral.actualAdmissionDate, undefined);
   assert.equal(reset.sentAt, null);
+  assert.equal(reset.packetRecipient, "community@example.invalid");
+});
+
+test("instructions describe the recorded outcome, not a fictional completion", () => {
+  const state = sample.createTutorialReferral();
+  assert.match(sample.tutorialStepInstruction(state, 7), /has not been sent/);
+  state.referral.admissionDecision = sample.tutorialDecision(state, "accepted");
+  assert.match(sample.tutorialStepInstruction(state, 5), /Enter the planned admission date/);
+  state.sentAt = new Date().toISOString();
+  assert.match(sample.tutorialStepInstruction(state, 6), /Simulated send complete/);
+  assert.match(sample.tutorialStepInstruction(state, 7), /awaiting admission/);
+  assert.match(sample.tutorialStepInstruction(state, 8), /does not mark someone admitted/);
+  state.sentAt = null;
+  state.referral.admissionDecision = sample.tutorialDecision(state, "declined");
+  assert.match(sample.tutorialStepInstruction(state, 5), /Denied/);
+  assert.match(sample.tutorialStepInstruction(state, 8), /denied sample/);
+  state.referral.admissionDecision = undefined;
+  state.underReview = true;
+  assert.match(sample.tutorialStepInstruction(state, 5), /Saved under review/);
+  assert.match(sample.tutorialStepInstruction(state, 8), /remains under review/);
+});
+
+test("sticking-point help follows the decision and packet state", () => {
+  const state = sample.createTutorialReferral();
+  assert.match(sample.tutorialStepHelp(state, 5)[0].action, /Record decision/);
+  state.underReview = true;
+  assert.match(sample.tutorialStepHelp(state, 6)[0].action, /no admission packet/);
+  state.underReview = false;
+  state.referral.admissionDecision = sample.tutorialDecision(state, "accepted");
+  state.sentAt = new Date().toISOString();
+  assert.match(sample.tutorialStepHelp(state, 5)[0].action, /locked/);
+  assert.doesNotMatch(sample.tutorialStepHelp(state, 5)[0].action, /Change sample decision/);
+  assert.match(sample.tutorialStepHelp(state, 6)[0].action, /simulated send/);
 });
 
 test("instructions are short and steps have distinct names", () => {
