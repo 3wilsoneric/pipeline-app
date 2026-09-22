@@ -43,10 +43,7 @@ test("client file counts preserve identities, deduplication and access in Postgr
       { person: people[0], canonical: "a", ref: refs[0], identity: "unmatched" },
       { person: people[2], canonical: null, ref: refs[2] }, // Unconfirmed person link.
     ];
-    for (const [index, document] of documents.entries()) {
-      await sql`insert into pipeline.documents(person_id, canonical_client_id, referral_id, category, file_name, content_type, byte_size, sha256, blob_container, blob_key, processing_status, uploaded_by, identity_status, deleted_at)
-        values (${document.person}, ${document.canonical}, ${document.ref}, 'other', 'synthetic.pdf', 'application/pdf', 1, ${String(index).repeat(64)}, 'fixture', ${`synthetic/${index}`}, 'uploaded', 'fixture', ${document.identity ?? "linked"}, ${document.deleted ? new Date() : null})`;
-    }
+    await seedSummaryDocuments(sql, documents);
     await sql.begin("read only", async (tx) => {
       const owner = loadEntry("lib/pipeline/client-workspace-store.ts", {
         "@/lib/database/pipeline-database": { getPipelineSql: () => tx },
@@ -74,3 +71,10 @@ test("client file counts preserve identities, deduplication and access in Postgr
     rmSync(directory, { recursive: true, force: true }); // Only this fixture's new directory.
   }
 });
+
+async function seedSummaryDocuments(sql, documents) {
+  for (const [index, document] of documents.entries()) {
+    await sql`insert into pipeline.documents(person_id, canonical_client_id, referral_id, category, file_name, content_type, byte_size, sha256, blob_container, blob_key, processing_status, uploaded_by, identity_status, deleted_at)
+      values (${document.person}, ${document.canonical}, ${document.ref}, 'other', 'synthetic.pdf', 'application/pdf', 1, ${String(index).repeat(64)}, 'fixture', ${`synthetic/${index}`}, 'uploaded', 'fixture', ${document.identity ?? "linked"}, ${document.deleted ? new Date() : null})`;
+  }
+}
