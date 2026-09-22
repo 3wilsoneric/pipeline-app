@@ -169,7 +169,7 @@ function IdentityEvidenceComparison({
       ? "Date of birth conflict"
       : "Date of birth matches";
   const matchMethod = link.match_method === "resident_number_exact"
-    ? "Resident number"
+    ? "Matching source record"
     : link.match_method === "imported" ? "Suggested match" : "Manual review";
 
   return (
@@ -177,7 +177,7 @@ function IdentityEvidenceComparison({
       <p className="text-[11px] text-[#4f5c57]">Compare the referral with the governed resident record. The server checks the same evidence again when you confirm.</p>
       <div className="mt-3 grid gap-px bg-[#d9d9d9] sm:grid-cols-2">
         <IdentityEvidenceRecord label="Referral record" name={referral.name} dateOfBirth={referral.dob} community={referral.community} identifier={`Workspace #${referral.id}`} formatDate={formatDate} />
-        <IdentityEvidenceRecord label="Governed resident record" name={resident?.display_name ?? residentDisplayName} dateOfBirth={resident?.date_of_birth ?? null} community={resident?.community_name ?? "Not reported"} identifier={resident?.resident_number ?? resident?.resident_id ?? "Not reported"} formatDate={formatDate} />
+        <IdentityEvidenceRecord label="Governed resident record" name={resident?.display_name ?? residentDisplayName} dateOfBirth={resident?.date_of_birth ?? null} community={resident?.community_name ?? "Not reported"} identifier={null} formatDate={formatDate} />
       </div>
       <div className={`mt-2 text-[10px] font-black ${dobStatus.includes("conflict") ? "text-[#a63d2f]" : "text-[#386353]"}`} role="status">
         {dobStatus} · {matchMethod}{link.match_confidence === null ? "" : ` · ${Math.round(link.match_confidence * 100)}% confidence`}
@@ -199,7 +199,7 @@ function IdentityEvidenceRecord({
   name: string;
   dateOfBirth: string | null;
   community: string;
-  identifier: string;
+  identifier: string | null;
   formatDate: (value: string | null) => string;
 }) {
   return (
@@ -210,8 +210,8 @@ function IdentityEvidenceRecord({
       <dd className="font-bold text-[#202522]">{formatDate(dateOfBirth)}</dd>
       <dt className="mt-2 text-[#737373]">Community</dt>
       <dd className="font-bold text-[#202522]">{community}</dd>
-      <dt className="mt-2 text-[#737373]">Identifier</dt>
-      <dd className="font-bold text-[#202522]">{identifier}</dd>
+      {identifier ? <><dt className="mt-2 text-[#737373]">Identifier</dt>
+      <dd className="font-bold text-[#202522]">{identifier}</dd></> : null}
     </dl>
   );
 }

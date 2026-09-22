@@ -120,6 +120,9 @@ test("contact import component: no-prop auth, accessible upload/preview/errors/t
     assert.equal(await page.getByRole("button", { name: "Import 0 new entries" }).isDisabled(), true);
     await page.goto(`${url}/?role=reviewer`);
     await page.waitForFunction(() => !document.body.textContent.includes("Loading directory..."));
+    assert.equal(await page.getByRole("button", { name: "CSV template" }).count(), 1);
+    await page.goto(`${url}/?role=unassigned`);
+    await page.waitForFunction(() => !document.body.textContent.includes("Loading directory..."));
     assert.equal(await page.getByRole("button", { name: "CSV template" }).count(), 0);
     assert.deepEqual(browserErrors, []);
     t.diagnostic(`Verified desktop/mobile screenshots: ${outputs}`);

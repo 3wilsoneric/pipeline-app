@@ -57,7 +57,6 @@ export function buildClientMedicalChart(
     identity: [
       chartFact("Client", identity.name, { span: "wide", required: true }),
       chartFact("Date of birth", formatChartDate(resident?.date_of_birth ?? chartValue("Date of birth")), { required: true }),
-      chartFact("Resident number", resident?.resident_number ?? chartValue("Resident number")),
       chartFact("Gender", identity.gender ?? chartValue("Gender")),
       chartFact("Community", identity.community, { span: "wide", required: true }),
       chartFact("Unit", resident?.unit),

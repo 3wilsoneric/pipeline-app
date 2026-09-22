@@ -69,6 +69,7 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
         const payload = await (await page.request.get(`/api/files?referral_id=${referralId}`)).json();
         return payload.files.map((file: { name: string }) => file.name).sort();
       }).toEqual(["dropped-care-note.pdf", "dropped-face-sheet.pdf", "dropped-later-note.pdf"]);
+      await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created" }).click();
       await page.reload();
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       await expect(panel).not.toHaveAttribute("open");
@@ -97,9 +98,10 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       const toggle = page.getByTestId("document-checklist-toggle");
       const panel = page.getByTestId("document-checklist-panel");
       await dragFiles(toggle, ["empty.txt"]);
-      await expect(panel.getByRole("alert")).toContainText("choose a nonempty file");
-      await expect(panel.getByRole("alert")).toHaveCSS("color", "rgb(89, 100, 94)");
-      await expect(panel.getByRole("alert")).toHaveCSS("background-color", "rgb(247, 250, 249)");
+      const documents = page.getByRole("region", { name: "Document checklist", exact: true });
+      await expect(documents.getByRole("alert")).toContainText("choose a nonempty file");
+      await expect(documents.getByRole("alert")).toHaveCSS("color", "rgb(89, 100, 94)");
+      await expect(documents.getByRole("alert")).toHaveCSS("background-color", "rgb(247, 250, 249)");
       await expect(page.getByRole("dialog", { name: "Label your files" })).toHaveCount(0);
       const mutations: string[] = [];
       page.on("request", (request) => { if (request.method() === "POST" && /uploads/.test(request.url())) mutations.push(request.url()); });

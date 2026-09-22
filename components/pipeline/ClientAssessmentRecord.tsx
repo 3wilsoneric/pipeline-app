@@ -17,7 +17,7 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
       <span className={`text-[13px] font-semibold ${signed ? "text-[#12765f]" : "text-[#865e20]"}`}>{signed ? "Signed" : "In progress, not signed"}</span>
     </header>
     {assessmentInterviewSections.map((section) => {
-      const facts = assessmentToolFieldDefinitions.filter((field) => field.section === section.key).flatMap((field) => {
+      const facts = assessmentToolFieldDefinitions.filter((field) => field.section === section.key && field.key !== "resident_number").flatMap((field) => {
         const value = assessment[field.key];
         if (value === null || value === undefined || value === "" || (Array.isArray(value) && !value.length)) return [];
         const display = recordedFieldValue(field, value);

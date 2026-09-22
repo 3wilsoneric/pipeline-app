@@ -9,7 +9,7 @@ import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import UploadedDocumentList from "./UploadedDocumentList";
 import styles from "./ReferralDocumentUpload.module.css";
 
-type Selection = { file: File; category: DocumentCategory | "" | "workbook" };
+type Selection = { file: File; category: DocumentCategory | "" | "workbook"; previousName?: string };
 
 export default function ReferralDocumentUpload({ readOnly = false, collapsible = false, queued, files, filesLoading, filesError, onRetryFiles, onAdd, onRemove, uploading, onWorkbook, children }: {
   readOnly?: boolean;
@@ -30,17 +30,23 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
   const [dragging, setDragging] = useState(false);
   const depth = useRef(0);
   const input = useRef<HTMLInputElement>(null);
+  const updateInput = useRef<HTMLInputElement>(null);
+  const updateTarget = useRef<ReferralFile | null>(null);
   const panel = useRef<HTMLDetailsElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const open = selection.length > 0;
 
-  const choose = (chosen: File[]) => {
+  const choose = (chosen: File[], previous?: ReferralFile | null) => {
     if (readOnly || !chosen.length) return;
     if (panel.current) panel.current.open = true;
     const invalid = validateReferralDocumentFiles(chosen);
     setError(invalid);
     if (invalid) return;
-    setSelection((current) => [...current, ...chosen.map((file): Selection => ({ file, category: /\.xlsx$/i.test(file.name) && /assessment|pipeline/i.test(file.name) ? "workbook" : suggestReferralDocumentLabel(file.name) }))]);
+    setSelection((current) => [...current, ...chosen.map((file): Selection => ({
+      file,
+      category: previous ? suggestReferralDocumentLabel(previous.category) : /\.xlsx$/i.test(file.name) && /assessment|pipeline/i.test(file.name) ? "workbook" : suggestReferralDocumentLabel(file.name),
+      previousName: previous?.name,
+    }))]);
   };
   const canAdd = documentSelectionReady(selection, readOnly, Boolean(onWorkbook));
   const commit = () => {
@@ -57,29 +63,32 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
       <p>{filesError}{files.length ? " The list below may be out of date." : ""}</p>
       <button type="button" onClick={onRetryFiles} disabled={filesLoading} className="mt-2 min-h-11 rounded border border-[#adbbb3] bg-white px-4 font-semibold text-[#08735e] disabled:opacity-60">Retry file list</button>
     </div> : null}
-    {!filesLoading && !filesError && !files.length && !queued.length ? <p className="my-4 text-sm text-[#52655d]">No files added yet.</p> : null}
+    {!collapsible && !filesLoading && !filesError && !files.length && !queued.length ? <p className="my-4 text-sm text-[#52655d]">No files added yet.</p> : null}
   </>;
-  const content = <>
+  const uploadControl = <>
     {!readOnly ? <>
       <button ref={trigger} type="button" data-guide-target="initial-packet-upload" className={styles.dropzone} onClick={() => input.current?.click()}>
         <span className={styles.uploadIcon}><UploadCloud size={24} aria-hidden="true" /></span>
-        <span><strong>{dragging ? "Release to label your files" : "Drop files or choose files"}</strong><span>Choose a document type for each file, then add them together.</span></span>
+        <span><strong>{dragging ? "Release to label your files" : "Drop files or choose files"}</strong><span>Label before adding. Up to 100 MB per file.</span></span>
         <span className={styles.browse}>Choose files</span>
       </button>
       <input ref={input} type="file" multiple data-testid="referral-documents-input" aria-label="Choose referral documents" className="sr-only" tabIndex={-1} disabled={readOnly} onChange={(event) => { choose(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
-      <p className={styles.hint}>Up to 100 MB per file. A combined packet can stay in one file.</p>
+      <input ref={updateInput} type="file" aria-label="Choose updated document" className="sr-only" tabIndex={-1} disabled={readOnly || uploading} onChange={(event) => { choose(Array.from(event.target.files ?? []), updateTarget.current); updateTarget.current = null; event.target.value = ""; }} />
     </> : null}
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     <QueuedDocuments files={queued} onRemove={onRemove} disabled={readOnly || uploading} />
     {renderFileStatus()}
-    <UploadedDocumentList files={files} readOnly={readOnly} />
+  </>;
+  const content = <>
+    <UploadedDocumentList files={files} readOnly={readOnly} updating={uploading} onUpdate={(file) => { updateTarget.current = file; updateInput.current?.click(); }} />
     {children}
   </>;
-  return <section data-guide-target="workspace-files-upload" aria-label="Document checklist" className={styles.surface} data-file-drag-active={dragging || undefined}
+  return <section data-guide-target="workspace-files-upload" aria-label="Document checklist" className={`${styles.surface} ${collapsible ? styles.compact : ""}`} data-file-drag-active={dragging || undefined}
     onDragEnter={(event) => { if (readOnly || !event.dataTransfer.types.includes("Files")) return; event.preventDefault(); depth.current++; setDragging(true); if (panel.current) panel.current.open = true; }}
     onDragOver={(event) => { if (!event.dataTransfer.types.includes("Files")) return; event.preventDefault(); event.dataTransfer.dropEffect = readOnly ? "none" : "copy"; }}
     onDragLeave={(event) => { if (!event.dataTransfer.types.includes("Files")) return; depth.current = Math.max(0, depth.current - 1); if (!depth.current) setDragging(false); }}
     onDrop={(event) => { if (!event.dataTransfer.types.includes("Files") && !event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); depth.current = 0; setDragging(false); choose(Array.from(event.dataTransfer.files)); }}>
+    {uploadControl}
     {collapsible ? <details ref={panel} data-testid="document-checklist-panel" className={styles.panel}>
       <summary data-testid="document-checklist-toggle"><strong>Documents</strong><span>{documentCountLabel(dragging, queued.length, files.length)}<ChevronDown size={18} aria-hidden="true" /></span></summary>
       <div className={styles.contents}>{content}</div>
@@ -111,9 +120,9 @@ function FileLabelDialog({ selection, setSelection, onClose, onCommit, readOnly,
   return createPortal(<dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} aria-describedby={descriptionId} onCancel={() => onClose()}>
       <header><div><h2 id={titleId}>Label your files</h2><p id={descriptionId}>Check each document type. Nothing is uploaded until you add it.</p></div><button type="button" aria-label="Cancel file upload" onClick={() => onClose()}><X size={21} /></button></header>
       <div className={styles.rows}>
-        {selection.map(({ file, category }, index) => <div key={index} className={styles.row}>
+        {selection.map(({ file, category, previousName }, index) => <div key={index} className={styles.row}>
           <FileText className={styles.fileIcon} size={22} aria-hidden="true" />
-          <div className={styles.filename}><strong>{file.name}</strong><small>{formatSize(file.size)}</small></div>
+          <div className={styles.filename}><strong>{file.name}</strong><small>{formatSize(file.size)}</small>{previousName ? <small>Updated copy of {previousName}. The original stays in Files. Existing checklist links and chart answers are unchanged.</small> : null}</div>
           <label><span>Document type</span><select autoFocus={index === 0} aria-label={`Document type for ${file.name}`} value={category} onChange={(event) => setSelection((current) => current.map((item, i) => i === index ? { ...item, category: event.target.value as Selection["category"] } : item))}>
             <option value="">Choose a type</option>
             {documentCategories.map((value) => <option key={value} value={value}>{referralDocumentLabels[value]}</option>)}

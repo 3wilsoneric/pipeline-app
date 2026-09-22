@@ -93,11 +93,16 @@ test("every canonical field round-trips exactly, including long answers and expl
     const archive = w.openAssessmentWorkbook(exported.bytes);
     const xml = new DOMParser().parseFromString(new TextDecoder().decode(archive[`xl/worksheets/sheet${sheetIndex}.xml`]), "application/xml");
     const reasonRow = Array.from(xml.getElementsByTagNameNS("*", "row")).find((row) => row.getAttribute("r") === String(reasonField.row));
-    return { mismatches, count: w.assessmentToolFieldDefinitions.length, importMs, changes: w.assessmentWorkbookChanges(second, data), reasonHeight: Number(reasonRow?.getAttribute("ht")), bytes: Array.from(exported.bytes) };
+    const identityXml = new DOMParser().parseFromString(new TextDecoder().decode(archive["xl/worksheets/sheet2.xml"]), "application/xml");
+    const internalField = w.assessmentWorkbookFields.find((field) => field.key === "resident_number")!;
+    const internalRow = Array.from(identityXml.getElementsByTagNameNS("*", "row")).find((row) => row.getAttribute("r") === String(internalField.row));
+    return { mismatches, count: w.assessmentToolFieldDefinitions.length, importMs, changes: w.assessmentWorkbookChanges(second, data), internalHidden: internalRow?.getAttribute("hidden"), internalEditable: internalField.editable, reasonHeight: Number(reasonRow?.getAttribute("ht")), bytes: Array.from(exported.bytes) };
   }, bytes);
   expect(result.mismatches).toEqual([]); expect(result.changes).toEqual([]); expect(result.count).toBeGreaterThan(159);
   expect(result.importMs).toBeLessThan(2000);
   expect(result.reasonHeight).toBeGreaterThan(150);
+  expect(result.internalHidden).toBe("1");
+  expect(result.internalEditable).toBe(false);
   await info.attach("local-import-timing", { body: `${result.importMs.toFixed(1)} ms for all fields, including long notes/lists`, contentType: "text/plain" });
   await fs.writeFile(info.outputPath("synthetic-long-roundtrip.xlsx"), Buffer.from(result.bytes));
 });
@@ -114,6 +119,7 @@ test("workbook parsing refuses wrong identity, changed mapping, formulas, old sc
     changeWorkbook(new Uint8Array(exported), [{ sheet: 14, cell: "B2", value: "old-schema" }]),
     changeWorkbook(new Uint8Array(exported), [{ sheet: 2, cell: "A6", value: "wrong_field" }]),
     changeWorkbook(new Uint8Array(exported), [{ sheet: 2, cell: "C6", value: "2", formula: true }]),
+    changeWorkbook(new Uint8Array(exported), [{ sheet: 2, cell: "C15", value: "Changed internal identity" }]),
     zipSync({ ...unzipSync(new Uint8Array(exported)), "xl/vbaProject.bin": strToU8("rejected") }),
     zipSync({ "oversized.xml": new Uint8Array(25 * 1024 * 1024) }),
   ];

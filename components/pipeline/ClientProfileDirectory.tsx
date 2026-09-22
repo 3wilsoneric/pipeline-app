@@ -641,7 +641,6 @@ function ClientCardSummary({ client, community, admitted }: { client: DirectoryC
       <ChartPreviewCell label="Care level" value={client.care_level} />
       <ChartPreviewCell label="Date of birth" value={client.date_of_birth ? formatDate(client.date_of_birth) : null} />
       <ChartPreviewCell label="Age" value={client.age == null ? null : String(client.age)} />
-      <ChartPreviewCell label="Resident number" value={client.resident_numbers.join(", ")} />
       <ChartPreviewCell label="Payor" value={client.payor ?? null} />
       <ChartPreviewCell label="Primary diagnosis" value={client.primary_diagnosis ?? null} />
       <ChartPreviewCell label="Physician" value={client.physician ?? null} />

@@ -10,6 +10,16 @@ const load = (file) => loadTypeScriptModule(root, file);
 const { buildChartIntake } = load("lib/pipeline/chart-intake.ts");
 const context = load("lib/pipeline/client-chart-context.ts");
 const fixture = JSON.parse(readFileSync("scripts/fixtures/alamo-pipeline-clinical.sanitized.json", "utf8"));
+const presentation = load("lib/pipeline/client-profile-presentation.ts");
+const medicalChart = load("lib/pipeline/client-medical-chart.ts");
+const internalIdentity = { resident_number: "SYN-INTERNAL-71", resident_numbers: ["SYN-INTERNAL-71"], date_of_birth: "1984-06-12" };
+const displayedSections = presentation.buildClientProfileSections(internalIdentity);
+assert(!JSON.stringify(displayedSections).includes("SYN-INTERNAL-71"));
+assert(displayedSections.flatMap((section) => section.facts).some((fact) => fact.label === "Date of birth"));
+const displayedChart = medicalChart.buildClientMedicalChart({ name: "Synthetic Person", gender: null, community: "San Pablo" }, internalIdentity, displayedSections, []);
+assert(!JSON.stringify(displayedChart).includes("Resident number"));
+assert(!JSON.stringify(displayedChart).includes("SYN-INTERNAL-71"));
+assert.equal(internalIdentity.resident_number, "SYN-INTERNAL-71", "presentation must preserve internal identity data");
 const source = {
   id: 71, clientId: "known-person", name: "Source Person", stage: "Accepted / Admitted", community: "San Pablo",
   date: "2025-01-01", createdAt: "2025-01-01T00:00:00Z", dob: "1980-01-01", gender: "Female", phone: "555-0101",

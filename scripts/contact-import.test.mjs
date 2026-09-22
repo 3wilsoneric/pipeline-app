@@ -177,10 +177,17 @@ test("failed load releases the queue and does not overwrite the unreadable store
 
 test("import API enforces authentication/roles/same-origin before effects, requires commit ID, returns per-row errors", async (t) => {
   const { store } = await localFixture(t);
-  for (const user of [undefined, userWith(["reviewer"]), userWith(["viewer"]), { ...userWith(["admin"]), accessScope: "note_lab" }]) {
+  for (const user of [undefined, userWith([]), { ...userWith(["admin"]), accessScope: "note_lab" }]) {
     const { importer } = makeRoutes(store, { user });
     assert.equal((await importer.POST(csvRequest("organization\nFacility", "commit", "id"))).status, user ? 403 : 401);
     assert.equal((await importer.GET(new Request("http://localhost/api/contacts/import"))).status, user ? 403 : 401);
+  }
+  // Approved shared-workspace access includes every Pipeline role; shared
+  // community recipient lists have their own stricter management policy.
+  for (const role of ["admin", "assessment_coordinator", "reviewer", "viewer"]) {
+    const { importer } = makeRoutes(store, { user: userWith([role]) });
+    assert.equal((await importer.POST(csvRequest("organization\nFacility"))).status, 200);
+    assert.equal((await importer.GET(new Request("http://localhost/api/contacts/import"))).status, 200);
   }
   const { importer } = makeRoutes(store, { user: userWith(["assessment_coordinator"]) });
   for (const headers of [{ Origin: "https://evil.test" }, { "sec-fetch-site": "cross-site" }, { Origin: "", Referer: "https://evil.test/file" }]) {
@@ -223,9 +230,9 @@ test("API preview is side-effect free, commit/retry response is stable and logs 
   assert.equal(logs.some((line) => line.includes("private-notes-fixture")), false);
 });
 
-test("unsaved GET is supervisor/admin-only; assessor GET/individual POST remain referral-scoped", async (t) => {
+test("approved users can search shared contacts; explicit referral searches and individual writes still check access", async (t) => {
   const { store } = await localFixture(t);
-  for (const role of ["admin", "assessment_coordinator"]) {
+  for (const role of ["admin", "assessment_coordinator", "reviewer", "viewer"]) {
     const { directory } = makeRoutes(store, { user: userWith([role]) });
     assert.equal((await directory.GET(new Request("http://localhost/api/contacts?q=Clinic&limit=50"))).status, 200);
     assert.equal((await directory.GET(new Request("http://localhost/api/contacts?referral_id="))).status, 400);
@@ -234,7 +241,7 @@ test("unsaved GET is supervisor/admin-only; assessor GET/individual POST remain 
     assert.equal((await directory.GET(new Request("http://localhost/api/contacts?limit=51"))).status, 400);
   }
   const { directory } = makeRoutes(store, { user: userWith(["reviewer"]) });
-  assert.equal((await directory.GET(new Request("http://localhost/api/contacts"))).status, 403);
+  assert.equal((await directory.GET(new Request("http://localhost/api/contacts"))).status, 200);
   assert.equal((await directory.GET(new Request("http://localhost/api/contacts?referral_id=99"))).status, 404);
   assert.equal((await directory.GET(new Request("http://localhost/api/contacts?referral_id=42"))).status, 200);
   const post = (referral_id) => directory.POST(new Request("http://localhost/api/contacts", { method: "POST", headers: { "Content-Type": "application/json", Origin: "http://localhost" }, body: JSON.stringify({ referral_id, contact: { organization: "Individual Facility" }, client_mutation_id: "individual" }) }));

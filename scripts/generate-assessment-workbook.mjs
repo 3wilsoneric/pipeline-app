@@ -184,7 +184,7 @@ for (const [i, section] of layout.entries()) {
   source = source.replace(/<col\b([^>]*?)\/>/g, (whole, attrs) => /\bmin="1"/.test(attrs) ? `<col${attrs.replace(/\s+hidden="[^"]*"/, "")} hidden="1"/>` : whole);
   for (const field of section.fields) for (let c = 1; c < field.chunks; c++) source = source.replace(new RegExp(`<row r="${field.row + c}"([^>]*)>`), `<row r="${field.row + c}"$1 hidden="1">`);
   for (const field of section.fields) {
-    if (["source_file", "match_confidence", "extraction_date", "unable_to_assess_reasons"].includes(field.key)) source = source.replace(new RegExp(`<row r="${field.row}"([^>]*)>`), `<row r="${field.row}"$1 hidden="1">`);
+    if (["resident_number", "source_file", "match_confidence", "extraction_date", "unable_to_assess_reasons"].includes(field.key)) source = source.replace(new RegExp(`<row r="${field.row}"([^>]*)>`), `<row r="${field.row}"$1 hidden="1">`);
     const guidance = fieldGuidance.get(field.key);
     if (!guidance) continue;
     const label = `<r><rPr><b/><sz val="12"/><color rgb="FF233B32"/></rPr><t>${escapeXml(field.label)}</t></r>`;

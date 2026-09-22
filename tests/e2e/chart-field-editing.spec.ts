@@ -74,7 +74,7 @@ test("an assessment chart pencil resumes its exact answer and saves it back to t
   // The retired numeric field shares a label with the current question. It
   // must not receive a pencil that opens that different question.
   const legacy = await page.request.patch(`/api/assessments/${assessment.assessment_id}`, { data: {
-    if_match: started.version, client_mutation_id: randomUUID(), patch: { data: { longest_sobriety_months: 12, substance_abuse_history: "yes" } },
+    if_match: started.version, client_mutation_id: randomUUID(), patch: { data: { longest_sobriety_months: 12, substance_abuse_history: "yes", resident_number: "SYN-INTERNAL-71" } },
   } });
   expect(legacy.status(), await legacy.text()).toBe(200);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
@@ -82,6 +82,8 @@ test("an assessment chart pencil resumes its exact answer and saves it back to t
   await answer.fill("Synthetic prior placement");
   await openAssessmentChart(page);
   const record = page.getByRole("article", { name: "Assessment record", exact: true });
+  await expect(record).not.toContainText("Resident number");
+  await expect(record).not.toContainText("SYN-INTERNAL-71");
   await expect(record.locator('[data-chart-fact="Longest sobriety in the last five years"]')).toContainText("12");
   await expect(record.getByRole("button", { name: "Edit Longest sobriety in the last five years", exact: true })).toHaveCount(0);
   const edit = record.getByRole("button", { name: "Edit Prior placements", exact: true });
@@ -93,12 +95,14 @@ test("an assessment chart pencil resumes its exact answer and saves it back to t
   await expect(record).toContainText("Synthetic corrected placement");
   await page.reload();
   await expect(record).toContainText("Synthetic corrected placement");
+  const saved = await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json();
+  expect(saved.assessment.resident_number).toBe("SYN-INTERNAL-71");
 });
 
 test("referral chart edits its own intake while the standalone client chart stays read-only", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
   const fixture = structuredClone(unifiedProfileFixture);
-  const profile = { ...fixture, pipeline: { ...fixture.pipeline, referrals: [(await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral] } };
+  const profile = { ...fixture, resident: { ...(fixture.resident as Record<string, unknown>), resident_number: "SYN-INTERNAL-72" }, pipeline: { ...fixture.pipeline, referrals: [(await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral] } };
   await page.route("**/api/profiles/**", (route) => route.fulfill({ json: profile }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
   const chart = page.getByRole("article", { name: "Referral chart", exact: true });
@@ -108,7 +112,22 @@ test("referral chart edits its own intake while the standalone client chart stay
   await expect(page.getByRole("button", { name: "Edit Name", exact: true })).toBeVisible();
   await page.goto(`/?screen=profile&clientId=pipeline:${referral.clientId}`);
   await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).not.toContainText("Resident number");
+  await expect(page.getByRole("article", { name: "Client medical chart", exact: true })).not.toContainText("SYN-INTERNAL-72");
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
+});
+
+test("practice chart omits the internal resident number at phone and desktop widths", async ({ page }, info) => {
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/?view=referrals&screen=packet&trainingAssessment=prepare&demo=1&workspaceStage=chart");
+    const record = page.getByRole("article", { name: "Assessment record", exact: true });
+    await expect(record).toBeVisible();
+    await expect(record).not.toContainText("Resident number");
+    await expect(record).not.toContainText("TRAINING-001");
+    await expect(record).toContainText("Resident name");
+    await page.screenshot({ path: info.outputPath(`practice-chart-${width}.png`) });
+  }
 });
 
 test("an account without workspace edit permission has no field edit affordances", async ({ page }) => {

@@ -47,7 +47,7 @@ test("signed answers remain editable and saved; Add note appears only after the 
   });
   await page.goto(url);
   await expect(surface.getByRole("button", { name: "Edit Current symptoms", exact: true })).toHaveCount(0);
-  await expect(surface.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).not.toBeEditable();
+  await expect(surface.getByRole("textbox", { name: "Current symptoms", exact: true })).not.toBeEditable();
   await surface.locator('summary[aria-label="Assessment details"]').click();
   await surface.getByRole("button", { name: "Add note", exact: true }).click();
   await expect(surface.getByRole("textbox", { name: "Note", exact: true })).toBeEditable();
