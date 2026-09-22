@@ -16,6 +16,7 @@ import {
   deriveWorkflowPanelView,
   referralFromConflictPayload,
   requirementNeedsDetail,
+  transitionSuccessMessage,
   type PendingWorkflowDetail,
   type WorkflowResponse,
 } from "@/components/pipeline/referral-workflow-panel-model";
@@ -264,7 +265,7 @@ export default function ReferralWorkflowPanel({
       `/api/referrals/${currentReferral.id}/transition`,
       "POST",
       { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: target, ...(actualAdmissionDate ? { actual_admission_date: actualAdmissionDate } : {}) },
-      target === "Accepted / Admitted" ? "Admission recorded" : `Moved to ${target}`,
+      transitionSuccessMessage(target),
     );
   };
 

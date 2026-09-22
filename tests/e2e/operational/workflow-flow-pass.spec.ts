@@ -117,7 +117,7 @@ test.describe("uninterrupted workflow", () => {
       await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
       await expect(page.getByRole("button", { name: "Edit referral details", exact: true })).toBeEnabled();
       await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
-      await page.getByText("Admission details", { exact: true }).click();
+      await page.getByText("Administrative controls", { exact: true }).click();
       const stages = page.getByRole("combobox", { name: "Workflow stage", exact: true });
       await stages.selectOption("Assessment");
       await expect.poll(async () => (await (await api.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Assessment");
