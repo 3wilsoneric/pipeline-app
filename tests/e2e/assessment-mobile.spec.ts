@@ -17,7 +17,7 @@ test.describe("mobile assessment", () => {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });
       await header.getByRole("button", { name: /^Open page menu/ }).tap();
-      for (const [name, label] of [["Open referrals", "Workspaces"], ["Open calendar", "Calendar"], ["Open client profiles", "Clients"], ["Open reports", "Reports"], ["Create new referral", "New"]]) {
+      for (const [name, label] of [["Open referrals", "Workspaces"], ["Open calendar", "Calendar"], ["Open client profiles", "Clients"], ["Open reports", "Reports"], ["Create new referral", "New Intake"]]) {
         await expect(menu.getByRole("button", { name, exact: true }).getByText(label, { exact: true })).toBeVisible();
       }
       for (const control of await header.locator('[data-testid="primary-navigation"] button').all()) {

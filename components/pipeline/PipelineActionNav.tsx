@@ -138,7 +138,7 @@ export default function PipelineActionNav({
         data-guide-target="primary-new-referral"
         aria-current={active === "packet" ? "page" : undefined}
         data-active={active === "packet" ? "true" : undefined}
-        title="New referral"
+        title="New Intake"
         onClick={() => {
           recordRecentDestination({
             id: "page:new-packet",
@@ -156,7 +156,7 @@ export default function PipelineActionNav({
         }`}
       >
         <Plus size={21} className="shrink-0" />
-        <span className="hidden max-sm:inline">New</span>
+        <span className="hidden max-sm:inline">New Intake</span>
       </button>
     </div>
   );
