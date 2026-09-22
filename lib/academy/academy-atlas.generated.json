@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:3afe0268d372b65f",
-  "fingerprint": "3afe0268d372b65f36942a76dcc6b57ea7752a1f1187297257eb306dfa78596d",
+  "generatedAt": "source-fingerprint:3c1da5b6d7511807",
+  "fingerprint": "3c1da5b6d7511807e2b99882ad1144c97ec679ffb43103a0cdd1df2eb78f5886",
   "totals": {
-    "files": 1381,
-    "lines": 363379,
-    "coveredFiles": 1381
+    "files": 1383,
+    "lines": 363773,
+    "coveredFiles": 1383
   },
   "entries": [
     {
@@ -2099,7 +2099,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 593,
+      "lines": 597,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2562,6 +2562,18 @@
       ]
     },
     {
+      "path": "components/pipeline/HandoffDraftStatus.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 23,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/HistoricalReferralProfile.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2795,7 +2807,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 106,
+      "lines": 108,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -3155,7 +3167,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 28,
+      "lines": 30,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3167,7 +3179,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 60,
+      "lines": 55,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3215,7 +3227,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4127,
+      "lines": 4129,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3239,7 +3251,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 392,
+      "lines": 393,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3683,7 +3695,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 126,
+      "lines": 153,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -8081,7 +8093,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 26,
+      "lines": 28,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -9473,7 +9485,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 92,
+      "lines": 168,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -10085,7 +10097,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 44,
+      "lines": 65,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -14902,7 +14914,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 111,
+      "lines": 112,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -14986,7 +14998,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 227,
+      "lines": 228,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15202,7 +15214,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 113,
+      "lines": 136,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15482,6 +15494,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/handoff-exit-recovery.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 212,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
       ]
     },
     {
@@ -16511,7 +16535,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 120,
+      "lines": 122,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
