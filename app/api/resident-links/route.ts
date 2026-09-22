@@ -134,7 +134,7 @@ export async function POST(request: Request) {
 function governedIdentityConflictResponse(conflict: GovernedIdentityConflict) {
   const messages: Record<GovernedIdentityConflict, string> = {
     community_conflict: "The selected resident belongs to a different governed community.",
-    resident_number_conflict: "The resident number does not match the governed Alamo resident.",
+    resident_number_conflict: "The selected client record does not match the governed Alamo record.",
     date_of_birth_conflict: "The referral date of birth conflicts with the governed Alamo resident.",
   };
   const code = conflict === "date_of_birth_conflict"

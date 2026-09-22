@@ -563,7 +563,7 @@ async function loadReferralSuggestions(
       : nameDobMatch!.method;
     const reasons = [
       residentNumberMatch
-        ? "Reviewed resident number matches exactly"
+        ? "Reviewed source identifier matches exactly"
         : nameDobMatch!.method === "exact_name_dob"
           ? "Name and date of birth match exactly"
           : "Name is compatible and date of birth matches exactly",

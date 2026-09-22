@@ -149,7 +149,7 @@ async function revalidateIdentityConfirmation(
 function governedIdentityConflictResponse(conflict: GovernedIdentityConflict) {
   const messages: Record<GovernedIdentityConflict, string> = {
     community_conflict: "The governed resident now belongs to a different community.",
-    resident_number_conflict: "The resident number now conflicts with the governed Alamo resident.",
+    resident_number_conflict: "The selected client record now conflicts with the governed Alamo record.",
     date_of_birth_conflict: "The referral date of birth conflicts with the governed Alamo resident.",
   };
   const code = conflict === "date_of_birth_conflict"

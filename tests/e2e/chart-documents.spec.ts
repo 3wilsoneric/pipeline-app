@@ -97,6 +97,29 @@ test("chart drop, updated copy, cancel and reopen preserve files and existing ev
   await page.screenshot({ path: info.outputPath("chart-updated-documents.png"), animations: "disabled" });
 });
 
+test("updated copy keeps uncommon document types without assuming a new signature", async ({ page }) => {
+  const { id } = await createFromIntake(page);
+  const originalFiles = [
+    { name: "payer-original.txt", category: "payer_verification" },
+    { name: "responsible-original.txt", category: "responsible_party" },
+    { name: "agreement-original.txt", category: "signed_admission_agreement" },
+  ];
+  await page.getByTestId("referral-documents-input").setInputFiles(originalFiles.map(({ name }) => ({ name, mimeType: "text/plain", buffer: Buffer.from(`Synthetic ${name}`) })));
+  await confirmReferralFileLabels(page, Object.fromEntries(originalFiles.map(({ name, category }) => [name, category])));
+  await expect.poll(async () => (await (await page.request.get(`/api/files?referral_id=${id}`)).json()).files.length).toBe(originalFiles.length);
+  await page.reload();
+  await page.getByTestId("document-checklist-toggle").click();
+  for (const { name, category } of originalFiles) {
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: `Add updated copy of ${name}`, exact: true }).click();
+    await (await chooser).setFiles({ name: "updated.txt", mimeType: "text/plain", buffer: Buffer.from("Synthetic updated copy") });
+    const dialog = page.getByRole("dialog", { name: "Label your files", exact: true });
+    await expect(dialog.getByRole("combobox")).toHaveValue(category === "signed_admission_agreement" ? "" : category);
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  }
+  expect((await (await page.request.get(`/api/files?referral_id=${id}`)).json()).files).toHaveLength(originalFiles.length);
+});
+
 test("documents remain at the top when an assessment exists, without entering the interview", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Files ${randomUUID()}`, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
   await createOperationalAssessment(page.request, referral.id);
