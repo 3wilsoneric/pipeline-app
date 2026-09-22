@@ -332,7 +332,9 @@ function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnsche
 }
 
 function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } & Pick<BriefingPanelProps, "onOpenPacket">) {
-  const next = assessmentEventNextStep(event);
+  const step = assessmentEventNextStep(event);
+  // This card opens the Begin confirmation, so it says so; other steps share the board's wording.
+  const next = step.step === "prepare" ? { label: "Begin assessment", entry: "begin" as const } : step;
   return (
     <button
       type="button"
