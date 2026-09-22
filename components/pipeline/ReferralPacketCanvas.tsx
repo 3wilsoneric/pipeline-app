@@ -2525,6 +2525,8 @@ export default function ReferralPacketCanvas({
         </div>
       </HomeDialog> : null);
 
+  const renderChartDocuments = () => loadedReferral && displayedPage === 3 ? renderDocumentUpload(true) : undefined;
+
   const renderIntakePage = () => (
     <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
             <IntakeEditScope readOnly={permissionReadOnly || draftRecoveryLoading}>
@@ -2785,6 +2787,7 @@ export default function ReferralPacketCanvas({
                   workspaceTitle={workspaceTitle}
                   headerToolsTarget={assessmentHeaderToolsTarget}
                   chartReview={displayedPage === 3 || routedWorkspaceLocation.assessmentMode === "review"}
+                  chartDocuments={renderChartDocuments()}
                   assessmentReview={displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review"}
                   chartActions={!permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined}
                   onEditReferralField={!permissionReadOnly && loadedReferral ? (field) => void navigatePage(1, field) : undefined}

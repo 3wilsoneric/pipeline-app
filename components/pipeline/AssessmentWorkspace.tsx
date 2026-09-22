@@ -145,6 +145,7 @@ type AssessmentWorkspaceProps = {
   chartReview?: boolean;
   assessmentReview?: boolean;
   chartActions?: ReactNode;
+  chartDocuments?: ReactNode;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onOpenChart?: () => void;
   onReviewAssessment?: () => void;
@@ -325,6 +326,7 @@ export default function AssessmentWorkspace({
   chartReview,
   assessmentReview = false,
   chartActions,
+  chartDocuments,
   onEditReferralField,
   onOpenChart,
   onReviewAssessment,
@@ -1817,7 +1819,7 @@ export default function AssessmentWorkspace({
 
   if (!selected) {
     if (reviewingChart) return <AssessmentFileSurface title={workspaceTitle} container={contentRef.current} header={null} dialogs={null}>
-      <div className="min-h-0 flex-1 overflow-y-auto"><WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview} /></div>
+      <div className="min-h-0 flex-1 overflow-y-auto">{chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview} /></div>
     </AssessmentFileSurface>;
     return (
       <AssessmentEmpty
@@ -1997,6 +1999,7 @@ export default function AssessmentWorkspace({
 
   const renderChartReview = () => (
     <section data-guide-target="assessment-review" aria-label="Assessment chart review" className={workingStyles.chartReview}>
+            {chartDocuments}
             {renderChartReviewToolbar()}
             {assessmentReview ? renderReviewOverview() : reviewSections.some((section) => section.remaining.length > 0) ? <p className={workingStyles.chartReviewNotice}>Assessment has {reviewSections.reduce((count, section) => count + section.remaining.length, 0)} unanswered or unverified items. These stay visible and do not prevent continuing.</p> : null}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>

@@ -7,7 +7,7 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import ReferralFilePreviewDialog from "./ReferralFilePreviewDialog";
 
-export default function UploadedDocumentList({ files, readOnly = false }: { files: ReferralFile[]; readOnly?: boolean }) {
+export default function UploadedDocumentList({ files, readOnly = false, updating = false, onUpdate }: { files: ReferralFile[]; readOnly?: boolean; updating?: boolean; onUpdate?: (file: ReferralFile) => void }) {
   const [preview, setPreview] = useState<ReferralFile | null>(null);
   const [deleting, setDeleting] = useState<ReferralFile | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,7 +32,6 @@ export default function UploadedDocumentList({ files, readOnly = false }: { file
   };
   if (!files.length && !deleting) return null;
   return <section aria-label="Uploaded documents" className="my-4">
-    <h3 className="mb-2 text-[11px] font-black uppercase tracking-wide text-[#0f8b73]">Uploaded files</h3>
     <ul className="grid gap-2 sm:grid-cols-2">
       {files.map((file) => <li key={file.id} className="flex items-center gap-3 rounded border border-[#cddfd6] bg-white p-3 shadow-sm">
         <button type="button" aria-label={`Preview ${file.name}`} onClick={() => setPreview(file)} className="relative flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded border border-[#dbe5df] bg-[#f6faf8] text-[#0f8b73] focus-visible:outline-2">
@@ -45,7 +44,7 @@ export default function UploadedDocumentList({ files, readOnly = false }: { file
             ? <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#128049]"><CheckCircle2 size={14} aria-hidden="true" />Uploaded</span>
             : <span className="mt-1 block text-[11px] text-[#737373]">Recorded file</span>}
           <div className="mt-1 flex flex-wrap items-center gap-x-4 text-[13px] font-semibold text-[#0f7059]">
-            <button type="button" onClick={() => setPreview(file)} className="min-h-11 underline underline-offset-2">Preview</button>
+            {!readOnly && onUpdate ? <button type="button" aria-label={`Add updated copy of ${file.name}`} disabled={updating} onClick={() => onUpdate(file)} className="min-h-11 underline underline-offset-2 disabled:opacity-50">Add updated copy</button> : null}
             {file.downloadUrl ? <a href={file.downloadUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline underline-offset-2">Open original</a> : <span className="text-[#737373]">{file.previewStatus === "unavailable" ? "Preview unavailable" : "Preview processing"}</span>}
           </div>
         </div>
