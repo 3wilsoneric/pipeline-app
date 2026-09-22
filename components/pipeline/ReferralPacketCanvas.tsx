@@ -443,6 +443,7 @@ export default function ReferralPacketCanvas({
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
   const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
+  const [assessmentHeaderToolsTarget, setAssessmentHeaderToolsTarget] = useState<HTMLDivElement | null>(null);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
@@ -2365,12 +2366,12 @@ export default function ReferralPacketCanvas({
                   <span className="sr-only">Changes from {remoteChange.updatedBy} were merged into your open draft.</span>
                 </span>
               ) : null}
-              <WorkspaceAssignedWorkControl
+              {!readingAssessment ? <WorkspaceAssignedWorkControl
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
                 onOpen={openAssignedWork}
                 disabled={draftRecoveryLoading || emailSending}
-              />
+              /> : null}
               {editingControlsVisible ? (
                 <WorkspaceSaveControl
                   saving={isSaving}
@@ -2403,7 +2404,7 @@ export default function ReferralPacketCanvas({
                 <History size={15} aria-hidden="true" />
                 <span>Activity</span>
               </button>
-              {trashControlVisible ? (
+              {trashControlVisible && !readingAssessment ? (
                 <button
                   type="button"
                   aria-label="Move workspace to trash"
@@ -2421,6 +2422,7 @@ export default function ReferralPacketCanvas({
                   <Trash2 size={16} />
                 </button>
               ) : null}
+              {readingAssessment ? <div ref={setAssessmentHeaderToolsTarget} className={workspaceFolderStyles.assessmentTools} /> : null}
             </div>
   );
 
@@ -2776,6 +2778,7 @@ export default function ReferralPacketCanvas({
                   assignedAssessorId={loadedReferral?.ownerId}
                   {...assessmentEntryProps()}
                   workspaceTitle={workspaceTitle}
+                  headerToolsTarget={assessmentHeaderToolsTarget}
                   chartReview={displayedPage === 3 || routedWorkspaceLocation.assessmentMode === "review"}
                   assessmentReview={displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review"}
                   chartActions={!permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined}

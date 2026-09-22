@@ -99,7 +99,7 @@ test("secondary actions close on Escape and outside press without exiting the as
     await more.press("Enter");
     await expect(menu).toBeVisible();
     await page.keyboard.press("Tab");
-    await expect(menu.getByRole("button", { name: "Backup & recovery", exact: true })).toBeFocused();
+    await expect(menu.getByRole("button", { name: /^Interview date/ })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await expect(surface).toBeVisible();
@@ -107,7 +107,7 @@ test("secondary actions close on Escape and outside press without exiting the as
     await more.tap();
     await surface.getByRole("textbox", { name: "Crisis / ER utilization", exact: true }).tap();
     await expect(menu).toBeHidden();
-    const appointmentButton = page.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Schedule interview", exact: true });
+    const appointmentButton = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Schedule interview", exact: true });
     await appointmentButton.tap();
     const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByRole("button", { name: "Close schedule", exact: true }).tap();

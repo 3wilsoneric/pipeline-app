@@ -5,8 +5,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { expect, type Page } from "@playwright/test";
 
 export async function openRecoveryTools(page: Page) {
-  await page.locator('summary[aria-label="Assessment details"]').click();
-  await page.getByRole("button", { name: "Backup & recovery", exact: true }).click();
+  await page.getByRole("button", { name: /Open Excel and recovery/ }).click();
   await expect(page.getByRole("dialog", { name: "Backup & recovery", exact: true })).toBeVisible();
 }
 

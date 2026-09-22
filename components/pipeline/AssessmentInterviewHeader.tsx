@@ -30,12 +30,13 @@ export function AssessmentFileDetails({ label, children, detailsRef, className =
   </details>;
 }
 
-export default function AssessmentInterviewHeader({ name, community, disabled, returnLabel, pages, details, detailsRef, onClose }: {
+export default function AssessmentInterviewHeader({ name, community, disabled, returnLabel, pages, tools, details, detailsRef, onClose }: {
   name: string | null;
   community: string | null;
   disabled: boolean;
   returnLabel: string;
   pages: React.ReactNode;
+  tools: ReactNode;
   details: ReactNode;
   detailsRef: RefObject<HTMLDetailsElement | null>;
   onClose: () => void;
@@ -47,6 +48,7 @@ export default function AssessmentInterviewHeader({ name, community, disabled, r
         <span className={folderStyles.nameLabel}>{title}</span>
       </h2>}
       {pages}
+      {tools ? <div className={styles.headerTools}>{tools}</div> : null}
       <button type="button" data-assessment-return onClick={onClose} disabled={disabled} aria-label={returnLabel} className={styles.returnButton}>
         <ArrowLeft size={17} aria-hidden="true" /><span className={styles.returnText}>{returnLabel}</span><span className={styles.returnCompact} aria-hidden="true">{returnLabel === "Back to referral" ? "Referral" : "Workspaces"}</span>
       </button>

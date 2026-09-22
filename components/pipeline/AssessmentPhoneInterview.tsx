@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue } from "@/lib/assessment/assessment-interview-schema";
 import { assessmentToolFieldDefinitions, type AssessmentToolFieldKey, type AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
-import { AssessmentAnswerSource, WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
+import { AssessmentAnswerSource, AssessmentReferenceValue, WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
 import { assessmentQuestionStatus, assessmentWorkingSections, capturedAssessmentAnswer, assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
 import styles from "./AssessmentPhoneInterview.module.css";
 import readingStyles from "./AssessmentWorkingSection.module.css";
@@ -115,11 +115,11 @@ export default function AssessmentPhoneInterview(props: Props) {
   const renderReferenceChoices = () => (
 <> <label className={styles.sheetScope}>Reference information<select aria-label="Reference information" value={referenceScope} onChange={(event) => setReferenceScope(event.target.value)}><option value="section">This section</option><option value="all">All sections</option></select></label>
           <input type="search" aria-label="Find recorded information" placeholder="Find a detail or answer…" value={search} onChange={(event) => setSearch(event.target.value)} className={styles.sheetSearch} />
-          {!shownReference.length ? <p>{search.trim() ? "No matching information. Try another search or choose All sections." : referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} className={readingStyles.answer} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
+          {!shownReference.length ? <p>{search.trim() ? "No matching information. Try another search or choose All sections." : referenceScope === "all" ? "No information recorded yet." : "No information recorded for this section yet."}</p> : shownReference.map((item) => <button type="button" key={item.field} data-answer-control={item.control} className={readingStyles.answer} aria-label={`Review ${assessmentInterviewFieldLabel(item.field)}`} onClick={() => {
             const destination = assessmentToolFieldDefinitions.find((field) => field.key === item.field);
             if (destination) chooseSection(destination.section, item.field);
           }}>
-            <strong className={readingStyles.answerLabel}>{assessmentInterviewFieldLabel(item.field)}{!props.disabled ? <Pencil size={15} aria-hidden="true" /> : null}</strong><span className={readingStyles.answerValue}>{capturedAssessmentAnswer(item, data)}</span><AssessmentAnswerSource assessment={props.assessment} data={data} field={item.field} />{getAssessmentUnableReason(data, item.field) ? <span className={readingStyles.answerReason}>{getAssessmentUnableReason(data, item.field)}</span> : null}{pending.includes(item.field) ? <small className={readingStyles.attention}>Needs verification</small> : null}
+            <strong className={readingStyles.answerLabel}>{assessmentInterviewFieldLabel(item.field)}{!props.disabled ? <Pencil size={15} aria-hidden="true" /> : null}</strong><AssessmentReferenceValue question={item} data={data} /><AssessmentAnswerSource assessment={props.assessment} data={data} field={item.field} />{getAssessmentUnableReason(data, item.field) ? <span className={readingStyles.answerReason}>{getAssessmentUnableReason(data, item.field)}</span> : null}{pending.includes(item.field) ? <small className={readingStyles.attention}>Needs verification</small> : null}
           </button>)}
         </>
   );

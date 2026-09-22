@@ -186,8 +186,8 @@ export default function ReferralWorkflowPanel({
     }
   };
 
-  if (loading && !workflow) return compactRecommendation ? <span className={assessmentStyles.recommendationStatus}>Loading recommendation...</span> : <ReferralWorkflowPanelLoading />;
-  if (!workflow) return compactRecommendation ? <button type="button" onClick={() => void loadWorkflow().catch(() => setError("Recommendation unavailable. Try again."))}>Retry recommendation</button> : <WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>;
+  if (loading && !workflow) return compactRecommendation ? <span className={assessmentStyles.recoveryButton}>Loading decision...</span> : <ReferralWorkflowPanelLoading />;
+  if (!workflow) return compactRecommendation ? <button type="button" className={assessmentStyles.recoveryButton} onClick={() => void loadWorkflow().catch(() => setError("Decision unavailable. Try again."))}>Retry decision</button> : <WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>;
 
   const { currentReferral } = deriveWorkflowPanelView(workflow);
   const sections = normalizeReferralSectionVersions(currentReferral.sectionVersions);
@@ -327,20 +327,20 @@ export default function ReferralWorkflowPanel({
     updateHandoff("mark_sent");
   };
 
-  if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return <span className={assessmentStyles.recommendationStatus}>Open the current assessment to recommend placement.</span>;
-  if (compactRecommendation) return <div data-quick-recommendation className={assessmentStyles.quickRecommendation}>
-    <label><span>Placement recommendation</span><select aria-label="Placement recommendation" value={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
+  if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return null;
+  if (compactRecommendation) return <div data-quick-recommendation data-outcome={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>
+    <label><span>{workflow.decision ? "Recorded decision" : "Working decision"}</span><select aria-label={workflow.decision ? "Recorded decision" : "Working decision"} title={workflow.decision || workflow.context.assessmentSigned ? "Review this choice in Decision." : "Guides the next steps. Does not sign, send, or record final admission."} value={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
       const next = { ...recommendationDraft, outcome: event.target.value as AssessmentRecommendation["outcome"] };
       recommendationDirty.current = true;
       setRecommendationDraft(next);
       saveRecommendation(next);
     }}>
-      <option value="" disabled>Select recommendation</option>
+      <option value="" disabled>Choose...</option>
       <option value="accept">Accept</option>
       <option value="decline">Deny</option>
       <option value="needs_more_information">Under review</option>
     </select></label>
-    {error ? <span role="alert">{error}</span> : <span className={assessmentStyles.recommendationStatus} role="status">{busy ? "Saving..." : workflow.decision ? "Decision recorded" : message ? "Recommendation saved" : "Not a final admission decision"}</span>}
+    {error ? <span role="alert">Not saved. {error}</span> : <span className="sr-only" role="status">{busy ? "Saving working decision..." : workflow.decision ? "Decision recorded" : message ? "Working decision saved" : "Not a final admission decision"}</span>}
   </div>;
 
   return (

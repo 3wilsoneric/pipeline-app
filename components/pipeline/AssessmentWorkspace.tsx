@@ -7,16 +7,17 @@ import { referralDocumentAutofillEnabled } from "@/lib/extraction/contracts";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   CalendarClock,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
   Plus,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 
 import {
@@ -140,6 +141,7 @@ type AssessmentWorkspaceProps = {
   beginRequested?: boolean;
   onBeginRequestHandled?: () => void;
   workspaceTitle?: string;
+  headerToolsTarget?: HTMLElement | null;
   chartReview?: boolean;
   assessmentReview?: boolean;
   chartActions?: ReactNode;
@@ -319,6 +321,7 @@ export default function AssessmentWorkspace({
   beginRequested = false,
   onBeginRequestHandled,
   workspaceTitle,
+  headerToolsTarget,
   chartReview,
   assessmentReview = false,
   chartActions,
@@ -449,7 +452,7 @@ export default function AssessmentWorkspace({
   const nextSection = pageSections[pageIndex + 1];
   const previousSection = pageSections[pageIndex - 1];
   const showSecondaryActions = Boolean(
-    recommendationControl && !preparing && !selected?.signed_at
+    selected && !selected.signed_at && !selected.started_at && canEditClinical
     || selected?.signed_at && canAddAddendum
   );
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
@@ -1850,14 +1853,15 @@ export default function AssessmentWorkspace({
 
   const renderScheduleDetail = () => (!selected.signed_at && !selected.started_at && canEditClinical ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Change appointment" : "Schedule interview"}><CalendarClock size={15} />{selected.scheduled_start_at ? "Change appointment" : "Schedule interview"}</button> : null);
   const renderAssessmentDetails = () => showSecondaryActions ? <>
-    {!preparing && !selected.signed_at ? recommendationControl?.(selected.assessment_id, setIsRecommendationSaving) : null}
     {reviewingChart ? renderScheduleDetail() : null}
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
   </> : null;
   const assessmentDetails = <>{renderAssessmentDetails()}
     <button type="button" onClick={() => setShowInterviewDate(true)}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
-    <button type="button" onClick={() => setRecoveryToolsAssessment(selected.assessment_id)}><ShieldCheck size={15} aria-hidden="true" />Backup & recovery</button>
   </>;
+  const assessmentTools = recommendationControl ? <div className={workingStyles.headerTools}>
+    {recommendationControl(selected.assessment_id, setIsRecommendationSaving)}
+  </div> : null;
   const requestInterviewStart = () => {
     if (!canEditClinical || isBusy || isClosing) return;
     if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
@@ -1902,10 +1906,14 @@ export default function AssessmentWorkspace({
     : null;
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
+          <button type="button" className={workingStyles.saveRecovery} title="Excel workbook, backup & recovery" aria-haspopup="dialog" onClick={() => setRecoveryToolsAssessment(selected.assessment_id)}>
           <span data-guide-target="assessment-save-status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
             {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
             <span>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
           </span>
+          <ChevronDown size={13} aria-hidden="true" />
+          <span className="sr-only">Open Excel and recovery</span>
+          </button>
           {renderReturnToInterview()}
           {embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
         </div>
@@ -2017,7 +2025,7 @@ export default function AssessmentWorkspace({
       </HomeDialog> : null);
 
   const sectionSteps = <nav aria-label="Assessment section steps" className={`${workingStyles.sectionSteps} ${phoneLayout ? workingStyles.phonePreparationSteps : ""}`}>
-    <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isBusy || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" />Previous</button>
+    <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isBusy || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
     <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
     <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
   </nav>;
@@ -2027,6 +2035,7 @@ export default function AssessmentWorkspace({
       title={workspaceTitle}
       container={contentRef.current}
       header={<AssessmentInterviewHeader name={draft.resident_name} community={draft.community} disabled={isClosing}
+        tools={assessmentTools}
         details={assessmentDetails} detailsRef={secondaryActionsRef}
         returnLabel={!preparing && !trainingAssessmentMode && onOpenAssignedWork ? "Workspaces" : onOpenWorkspace ? "Back to referral" : "Back to workspace"}
         onClose={() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace)}
@@ -2059,6 +2068,7 @@ export default function AssessmentWorkspace({
         onBeginAssessment={() => void beginAssessment()}
       />{renderInterviewDate()}</>}
     >
+      {embeddedFolder && headerToolsTarget ? createPortal(assessmentTools, headerToolsTarget) : null}
 
       {showAddendum && canAddAddendum ? (
         <div className="shrink-0 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
