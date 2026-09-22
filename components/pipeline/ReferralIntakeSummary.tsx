@@ -20,7 +20,7 @@ export default function ReferralIntakeSummary({ referral, headerActions, onEditF
   };
   const cell = (value: ClientChartFact) => {
     const field = referralChartEditFields[value.label as keyof typeof referralChartEditFields];
-    return <ChartCell key={value.label} fact={value} onEdit={onEditField && field ? () => onEditField(field) : undefined} multiline />;
+    return <ChartCell key={value.label} fact={value} onEdit={onEditField && field ? () => onEditField(field) : undefined} editHint="Edit in intake" multiline />;
   };
 
   return <ClientChartFrame label="Referral chart">

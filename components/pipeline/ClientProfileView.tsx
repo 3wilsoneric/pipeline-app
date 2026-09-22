@@ -21,6 +21,7 @@ import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-cont
 import {
   buildClientEpisodeSummaries,
   buildClientProfileSections,
+  describeClientStayCount,
   type ClientEpisodeSummary,
   type ClientProfileFact,
   type ClientProfileSection,
@@ -322,7 +323,7 @@ function ResidentProfile({
             sourceDocuments={client.source_documents}
             referralDocuments={profile.pipeline.documents}
           />
-          <ClientRecordedInformation profile={profile} sourceReferralId={sourceReferralId} editActions={referralEditActions} />
+          <ClientRecordedInformation profile={profile} sourceReferralId={sourceReferralId} editActions={referralEditActions} intakeReferral={intakeReferral} />
 
           {!intakeReferral && !pipelineOnly && client.canonical_client_id ? (
             <ProfileSection title="Record quality" detail={`${completeness.complete} of ${completeness.total} tracked fields`}>
@@ -335,11 +336,12 @@ function ResidentProfile({
   );
 }
 
-function ClientRecordedInformation({ profile, sourceReferralId, editActions }: { profile: UnifiedClientProfileResponse; sourceReferralId?: number; editActions?: ChartEditActions }) {
+function ClientRecordedInformation({ profile, sourceReferralId, editActions, intakeReferral }: { profile: UnifiedClientProfileResponse; sourceReferralId?: number; editActions?: ChartEditActions; intakeReferral?: Referral }) {
   const client = profile.client;
+  const referralSections = clientReferralSections(profile, intakeReferral);
   return <>
-    {profile.pipeline.referrals.length > 0 ? <ProfileSection title="Referral information">
-      <CuratedClientRecord sections={clientReferralSections(profile)} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} />
+    {referralSections.length > 0 ? <ProfileSection title="Referral information" detail={intakeReferral ? "Other recorded referral details" : undefined}>
+      <CuratedClientRecord sections={referralSections} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} />
     </ProfileSection> : null}
     <ClientSourceNotes sections={clientSourceSections(profile)} />
     {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
@@ -446,7 +448,7 @@ function CuratedClientRecord({ sections, editActions, editableSectionKey }: { se
           <h3 className="bg-[#f5f7f6] px-4 py-3 text-[16px] font-bold text-[#244b41] lg:px-5">
             {section.label}
           </h3>
-          <ChartFacts facts={section.facts} className="px-4 py-4 lg:px-6" editActions={!editableSectionKey || section.key === editableSectionKey ? editActions : undefined} />
+          <ChartFacts facts={section.facts} className="px-4 py-4 lg:px-6" editActions={!editableSectionKey || section.key === editableSectionKey ? editActions : undefined} editHint="Edit in intake" />
         </section>
       ))}
     </div>
@@ -460,8 +462,10 @@ function ClientStayHistory({
   episodes: ClientEpisodeSummary[];
   history: UnifiedClientProfileResponse["history"];
 }) {
-  const useProjectedHistory = episodes.length === 0 && history.status === "available";
-  const count = useProjectedHistory ? history.episode_count : episodes.length;
+  // Without governed stays, the history projection explains itself, including
+  // an unavailable or conflicting read, rather than an empty-looking list.
+  const useProjectedHistory = episodes.length === 0;
+  const stays = describeClientStayCount(episodes, history);
 
   return (
     <section aria-labelledby="client-stay-history" className="mt-6 border-t-2 border-[#b8c4be] pt-4">
@@ -469,8 +473,9 @@ function ClientStayHistory({
         <h3 id="client-stay-history" className="text-[13px] font-black tracking-[-0.01em] text-[#17231e]">
           Stay history
         </h3>
-        <span className="text-[10px] font-bold text-[#69726e]">{formatCount(count, "recorded stay")}</span>
+        <span data-testid="client-stay-count" className="text-[12px] font-bold text-[#59645e]">{stays.label}</span>
       </div>
+      {stays.note ? <p className="mt-2 text-[12px] leading-5 text-[#59645e]">{stays.note}</p> : null}
       <div className="mt-3">
         {useProjectedHistory
           ? <ClientHistorySummary history={history} />

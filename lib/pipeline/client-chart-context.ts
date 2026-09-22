@@ -3,7 +3,8 @@ import { hasReadableClinicalValue } from "@/lib/clinical/clinical-value-presenta
 import type { UnifiedClientProfileResponse } from "./unified-profile-contracts";
 import { formatProfileDate, type ClientProfileSection } from "./client-profile-presentation";
 import type { HistoricalProfileResponse, HistoricalProfileSource } from "./historical-profile-contracts";
-import { persistedCanvasFieldKeys, referralCanvasValue } from "./referral-canvas-persistence";
+import { persistedCanvasFieldKeys, referralCanvasValue, type PersistedCanvasFieldKey } from "./referral-canvas-persistence";
+import type { Referral } from "./referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 
 // Only fields with an existing intake editor. Admission and signed clinical
@@ -67,7 +68,21 @@ const fieldLabels: Record<string, string> = {
   phone: "Phone", email: "Email", summary: "Referral summary", currentMedications: "Medications on record",
 };
 
-export function clientReferralSections(profile: UnifiedClientProfileResponse): ClientProfileSection[] {
+// Fields the Referral chart summary already shows for its own referral.
+const referralSummaryFieldKeys = new Set<string>([
+  "name", "dob", "gender", "ssn", "owner", "referralReceived", "community", "county",
+  "referent", "responsiblePerson", "phone", "email", "currentMedications",
+]);
+
+/**
+ * `summarized` is the referral already shown in the Referral chart. Its facts
+ * are omitted below only when the stored canonical value is identical; a
+ * differing (for example older) value stays visible with its workspace label.
+ */
+export function clientReferralSections(profile: UnifiedClientProfileResponse, summarized?: Referral): ClientProfileSection[] {
+  const repeatsSummary = (referral: Referral, key: string, value: string) => summarized?.id === referral.id && (key === "conserved"
+    ? (summarized.conserved ?? "") === (referral.conserved ?? "")
+    : referralSummaryFieldKeys.has(key) && referralCanvasValue(summarized, key as PersistedCanvasFieldKey) === value);
   return profile.pipeline.referrals.map((referral) => ({
     key: `referral:${referral.id}`,
     label: `Workspace #${referral.id} · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
@@ -81,15 +96,16 @@ export function clientReferralSections(profile: UnifiedClientProfileResponse): C
         { label: "Placement recommendation", value: referral.assessmentRecommendation.outcome === "accept" ? "Accept" : referral.assessmentRecommendation.outcome === "decline" ? "Deny" : "Under review" },
         { label: "Recommendation reason", value: referral.assessmentRecommendation.reasonNote },
       ] : []),
-      ...persistedCanvasFieldKeys.map((key) => ({ label: fieldLabels[key], value: referralCanvasValue(referral, key) })),
-      { label: "Conserved", value: referral.conserved === "yes" ? "Yes" : referral.conserved === "no" ? "No" : "" },
+      ...persistedCanvasFieldKeys.filter((key) => !repeatsSummary(referral, key, referralCanvasValue(referral, key)))
+        .map((key) => ({ label: fieldLabels[key], value: referralCanvasValue(referral, key) })),
+      ...(repeatsSummary(referral, "conserved", "") ? [] : [{ label: "Conserved", value: referral.conserved === "yes" ? "Yes" : referral.conserved === "no" ? "No" : "" }]),
       { label: "Payor", value: referral.payer },
       { label: "Original interview notes", value: referral.interview ?? "" },
       ...(referral.packetFields ?? []).map((field) => ({
         label: `${field.field_key} (${field.review_status})`, value: field.final_value ?? field.proposed_value ?? "",
       })),
     ].filter((fact) => typeof fact.value === "string" && fact.value.trim()),
-  }));
+  })).filter((section) => section.facts.length > 0 || section.key !== `referral:${summarized?.id}`);
 }
 
 function sourceDescription(source: HistoricalProfileSource) {
