@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { acquireOutlookToken } from "@/lib/auth/outlook-client";
 import HomeDialog from "./HomeDialog";
+import OutlookConnectionNotice from "./OutlookConnectionNotice";
 import styles from "./OutlookHandoffControls.module.css";
 
 type Setup = { outlook_client_id: string; account_id: string; account_email: string; demo: boolean; can_connect: boolean };
@@ -102,7 +103,7 @@ function OutlookConnectionCard(props: ConnectionView) {
   const { setup, mailbox, busy, loading, error } = props;
   return <section className={`${styles.panel} ${props.mode === "settings" ? styles.connectionSettings : styles.connectionPrompt}`} aria-label="Outlook connection" aria-busy={busy || loading}>
     <OutlookConnectionHeading {...props} />
-    <p className={styles.hint}>{connectionDescription(setup, mailbox)}</p>
+    {connectionDescription(setup, mailbox)}
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     {error && !setup ? <button type="button" className={styles.secondary} disabled={loading} onClick={() => window.dispatchEvent(new Event(changedEvent))}>Retry connection check</button> : null}
     {!loading && setup && !setup.demo && !setup.outlook_client_id ? <p role="status" className={styles.hint}>Outlook setup is pending.</p> : null}
@@ -119,9 +120,9 @@ function OutlookConnectionHeading({ mailbox, setup }: ConnectionView) {
 }
 
 function connectionDescription(setup: Setup | null, mailbox: string) {
-  if (setup?.demo) return "Demo only — Outlook connection is not enabled. No draft will be created and no email will be sent.";
-  if (mailbox) return "Your handoffs will open in your Outlook Drafts. You review and send them.";
-  return "Save your reviewed handoffs in Outlook Drafts. You send them from your own email.";
+  if (setup?.demo) return <p className={styles.hint}>Demo only — Outlook connection is not enabled. No draft will be created and no email will be sent.</p>;
+  if (mailbox) return <p className={styles.hint}>Your handoffs will open in your Outlook Drafts. You review and send them.</p>;
+  return <OutlookConnectionNotice />;
 }
 
 function ConnectOutlookButton({ setup, busy, loading, onConnect }: ConnectionView) {
