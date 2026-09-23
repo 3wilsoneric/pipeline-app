@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a21ee2ddee81caf5",
-  "fingerprint": "a21ee2ddee81caf5d0c71d8cf4c067e06a7c8a623a70ddf92cd82a1101108da8",
+  "generatedAt": "source-fingerprint:814b25003b848f7d",
+  "fingerprint": "814b25003b848f7dc9201b50ec22226a43b90077af173f7cc9404447175d7039",
   "totals": {
-    "files": 1399,
-    "lines": 368053,
-    "coveredFiles": 1399
+    "files": 1401,
+    "lines": 368278,
+    "coveredFiles": 1401
   },
   "entries": [
     {
@@ -74,7 +74,7 @@
       "kind": "repository-file",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 280,
+      "lines": 356,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -5797,7 +5797,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 39,
+      "lines": 65,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -13106,6 +13106,30 @@
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
+      ]
+    },
+    {
+      "path": "scripts/fast-deploy-eligibility.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 62,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/fast-deploy-eligibility.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 61,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
