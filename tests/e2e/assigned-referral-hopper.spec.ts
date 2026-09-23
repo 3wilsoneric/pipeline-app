@@ -103,8 +103,8 @@ test("assessment can return to Intake, add documents and resume the same saved i
   const intake = page.getByTestId("intake-client-folder");
   await expect(intake).toBeVisible();
   const phoneSaved = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}`) && response.request().method() === "PATCH" && response.ok());
-  await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("555-0199");
-  await page.getByRole("textbox", { name: "Client phone:", exact: true }).blur();
+  await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).fill("555-0199");
+  await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).blur();
   await phoneSaved;
   await page.getByRole("button", { name: "Workspace files", exact: true }).click();
   await page.getByLabel("Choose referral documents").setInputFiles({
@@ -207,7 +207,7 @@ for (const failure of [false, true]) {
       await route.continue();
     });
     try {
-      await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("555-0199");
+      await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).fill("555-0199");
       await open.click();
       await expect.poll(() => saving).toBe(true);
       await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
@@ -215,9 +215,9 @@ for (const failure of [false, true]) {
         const saved = (await (await page.request.get(`/api/referrals/${first.id}`)).json()).referral;
         expect(saved.phone).toBe(first.phone);
         await page.goto(`/?screen=packet&referralId=${first.id}&workspaceStage=intake&workspaceField=name`);
-        await expect(page.getByRole("textbox", { name: "Client phone:", exact: true })).toHaveValue("555-0199");
+        await expect(page.getByRole("textbox", { name: "Referrer phone:", exact: true })).toHaveValue("555-0199");
         await page.unroute(`**/api/referrals/${first.id}`);
-        const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
+        const phone = page.getByRole("textbox", { name: "Referrer phone:", exact: true });
         await phone.fill("555-0110");
         await phone.blur();
         await expect.poll(async () => (await (await page.request.get(`/api/referrals/${first.id}`)).json()).referral.phone).toBe("555-0110");
@@ -225,7 +225,7 @@ for (const failure of [false, true]) {
         release();
         await expect.poll(async () => (await (await page.request.get(`/api/referrals/${first.id}`)).json()).referral.phone).toBe("555-0199");
         await page.goto(`/?screen=packet&referralId=${first.id}&workspaceStage=intake&workspaceField=name`);
-        await expect(page.getByRole("textbox", { name: "Client phone:", exact: true })).toHaveValue("555-0199");
+        await expect(page.getByRole("textbox", { name: "Referrer phone:", exact: true })).toHaveValue("555-0199");
       }
     } finally { release(); }
   });
@@ -250,7 +250,7 @@ test("a save in another tab refreshes the hopper and supersedes an older pending
   await expect(page.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toBeVisible();
   const editor = await context.newPage();
   await editor.goto(`/?screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=name`);
-  await expect(editor.getByRole("textbox", { name: "Client phone:", exact: true })).toBeVisible();
+  await expect(editor.getByRole("textbox", { name: "Referrer phone:", exact: true })).toBeVisible();
   await page.unroute("**/api/operations/home");
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -268,14 +268,14 @@ test("a save in another tab refreshes the hopper and supersedes an older pending
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect.poll(() => reads).toBe(1);
     const saved = editor.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}`) && response.request().method() === "PATCH" && response.ok());
-    await editor.getByRole("textbox", { name: "Client phone:", exact: true }).fill("555-0188");
-    await editor.getByRole("textbox", { name: "Client phone:", exact: true }).blur();
+    await editor.getByRole("textbox", { name: "Referrer phone:", exact: true }).fill("555-0188");
+    await editor.getByRole("textbox", { name: "Referrer phone:", exact: true }).blur();
     await saved;
     await expect(page.getByRole("button", { name: "Open Updated Client", exact: true })).toBeVisible();
     release();
     await expect(page.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true }).locator("[data-board-card]")).toHaveCount(7);
-    await expect(editor.getByRole("textbox", { name: "Client phone:", exact: true })).toHaveValue("555-0188");
+    await expect(editor.getByRole("textbox", { name: "Referrer phone:", exact: true })).toHaveValue("555-0188");
   } finally { release(); await editor.close(); }
 });
 
@@ -350,7 +350,7 @@ for (const preset of [false, true]) {
     const editor = await context.newPage();
     try {
       await editor.goto(`/?screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=name`);
-      const phone = editor.getByRole("textbox", { name: "Client phone:", exact: true });
+      const phone = editor.getByRole("textbox", { name: "Referrer phone:", exact: true });
       await expect(phone).toBeVisible();
       changed = true;
       const saved = editor.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}`) && response.request().method() === "PATCH" && response.ok());

@@ -26,7 +26,7 @@ test.describe("independent assessor workflow steps", () => {
       await stages.getByRole("button", { name: "Chart", exact: true }).click();
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toBeEditable();
-      await expect(page.getByRole("textbox", { name: "Client phone:", exact: true })).toBeEditable();
+      await expect(page.getByRole("textbox", { name: "Referrer phone:", exact: true })).toBeEditable();
     } finally { await context.close(); }
   });
 

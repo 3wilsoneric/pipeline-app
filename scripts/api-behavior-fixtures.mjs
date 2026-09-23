@@ -838,6 +838,7 @@ const results = [
       currentMedications: "value-currentMedications",
       phone: "value-phone",
       email: "value-email",
+      referrerName: "value-referrerName",
     };
     for (const [key, value] of Object.entries(expected)) {
       assert(patch[key] === value, `Canvas field mapping did not persist ${key}`);
@@ -858,6 +859,9 @@ const results = [
     Object.assign(fields.currentMedications, { value: " Olanzapine 10 mg\nMetformin 500 mg " });
     Object.assign(fields.dob, { value: "1982-05-14" });
     Object.assign(fields.age, { value: "44" });
+    Object.assign(fields.phone, { value: "555-0100" });
+    Object.assign(fields.email, { value: "referrer@example.test" });
+    Object.assign(fields.referrerName, { value: " Referrer coordinator " });
     const created = referralCanvasPersistence.buildReferralCanvasCreateInput({
       fields,
       conserved: "yes",
@@ -873,6 +877,10 @@ const results = [
     assert(created.note === "Summary", "Create should persist the summary");
     assert(created.currentMedications === "Olanzapine 10 mg\nMetformin 500 mg", "Create should persist pre-assessment medications");
     assert(created.reportedAge === "44", "Create should persist reported age separately from DOB");
+    assert(created.phone === "555-0100" && created.email === "referrer@example.test", "Create should preserve existing contact values as referrer details");
+    assert(created.referrerName === "Referrer coordinator", "Create should persist the new referrer name");
+    assert(referralValidation.validateReferralCreateInput({ ...validReferral(), referrerName: created.referrerName }).ok, "Create should accept the referrer name");
+    assert(referralValidation.validateReferralPatch({ referrerName: "Referrer coordinator" }).ok, "Edits should accept the referrer name");
     assert(created.documentHash === "abc123", "Create should preserve packet identity");
     assert(created.conserved === "yes", "Create should persist conservatorship selection");
   }),
@@ -2053,6 +2061,12 @@ function workspaceStateValidationResults() {
       const parsed = workspaceStateTypes.parsePipelineReferralDraft(validDraft);
       assert(parsed?.fields.summary.value === "Synthetic recovery note", "Expected a valid recovery draft");
       assert(parsed?.fields.community.value === "San Pablo" && parsed?.fields.county.value === "", "Legacy drafts should migrate the old community slot without inventing a county");
+      assert(parsed?.fields.referrerName.value === "", "Saved drafts from before the referrer name field must remain recoverable");
+      const withReferrerName = workspaceStateTypes.parsePipelineReferralDraft({
+        ...validDraft,
+        fields: { ...validDraft.fields, referrerName: { value: "Referrer coordinator" } },
+      });
+      assert(withReferrerName?.fields.referrerName.value === "Referrer coordinator", "Referrer name must survive draft recovery");
       const legacyFields = Object.fromEntries(Object.entries(validDraft.fields).filter(([key]) => key !== "phone" && key !== "email"));
       const legacyParsed = workspaceStateTypes.parsePipelineReferralDraft({ ...validDraft, fields: legacyFields });
       assert(legacyParsed?.fields.phone.value === "" && legacyParsed?.fields.email.value === "", "Saved drafts from before contact fields must remain recoverable");
@@ -2164,6 +2178,7 @@ function emptyCanvasFields() {
     "currentMedications",
     "phone",
     "email",
+    "referrerName",
   ].map((key) => [key, { label: key, value: "" }]));
 }
 

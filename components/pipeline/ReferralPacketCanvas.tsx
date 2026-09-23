@@ -311,8 +311,9 @@ export const initialFields: Record<FieldKey, PacketField> = {
     value: "",
     placeholder: "",
   },
-  phone: { label: "Client phone:", value: "", placeholder: "Phone number" },
-  email: { label: "Client email:", value: "", placeholder: "Email address" },
+  phone: { label: "Referrer phone:", value: "", placeholder: "Phone number" },
+  email: { label: "Referrer email:", value: "", placeholder: "Email address" },
+  referrerName: { label: "Referrer name:", value: "", placeholder: "Name" },
   summary: {
     label: "Summary",
     value: "",
@@ -336,6 +337,7 @@ const visibleChartFieldKeys: readonly FieldKey[] = [
   "county",
   "referent",
   "responsiblePerson",
+  "referrerName",
   "phone",
   "email",
   "currentMedications",
@@ -2674,9 +2676,9 @@ export default function ReferralPacketCanvas({
                   </div>
                 </ChartSection>
 
-                <ChartSection title="Contact and coordination" complete={countCompleteFields(fields, ["phone", "email"])} total={2}>
-                  <div className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2">
-                    {(["phone", "email"] as FieldKey[]).map((key) => (
+                <ChartSection title="Contact and coordination" complete={countCompleteFields(fields, ["referrerName", "phone", "email"])} total={3}>
+                  <div className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2 lg:grid-cols-3">
+                    {(["referrerName", "phone", "email"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
                         fieldKey={key}
@@ -2690,8 +2692,8 @@ export default function ReferralPacketCanvas({
                   </div>
                   <div className="border-t border-[#bfcac5] px-5 py-4 sm:px-6"><ReferralContactsCard
                     referralId={editableReferralId ?? undefined}
-                    clientPhone={fields.phone.value}
-                    clientEmail={fields.email.value}
+                    referrerPhone={fields.phone.value}
+                    referrerEmail={fields.email.value}
                   /></div>
                 </ChartSection>
 

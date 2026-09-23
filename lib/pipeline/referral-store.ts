@@ -2859,6 +2859,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "fieldSources",
     "phone",
     "email",
+    "referrerName",
     "payer",
     "packetId",
     "packetStatus",
@@ -3029,6 +3030,7 @@ function normalizeReferral(input: Referral): Referral {
     interview: input.interview ?? "",
     conserved: input.conserved ?? "",
     fieldSources: input.fieldSources ?? {},
+    referrerName: input.referrerName ?? "",
     requirements: input.requirements ?? [],
   } satisfies Referral;
   return {

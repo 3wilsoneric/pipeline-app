@@ -40,8 +40,8 @@ test.describe("referral intake usability", () => {
       await source.press("Enter");
       await source.blur();
       await expect(source).toHaveValue(organization);
-      await expect(page.getByLabel("Client phone:", { exact: true })).toHaveValue("");
-      await expect(page.getByLabel("Client email:", { exact: true })).toHaveValue("");
+      await expect(page.getByLabel("Referrer phone:", { exact: true })).toHaveValue("");
+      await expect(page.getByLabel("Referrer email:", { exact: true })).toHaveValue("");
       await expect.poll(async () => {
         const current = await (await api.get(`/api/referrals/${referral.id}`)).json();
         return { dob: current.referral.dob, source: current.referral.source, conserved: current.referral.conserved };
@@ -111,7 +111,7 @@ test.describe("referral intake usability", () => {
       await source.fill(organization.slice(0, -2));
       await page.getByRole("option", { name: new RegExp(organization) }).click();
       await expect(source).toHaveValue(organization);
-      await expect(page.getByLabel("Client phone:", { exact: true })).toHaveValue("");
+      await expect(page.getByLabel("Referrer phone:", { exact: true })).toHaveValue("");
       expect((await assessor.get("/api/contacts?q=Directory")).status()).toBe(200);
       expect((await assessor.post("/api/contacts/import?mode=preview", { headers: { "Content-Type": "text/csv" }, data: csv })).status()).toBe(200);
       expect((await outsider.get("/api/contacts?q=Directory")).status()).toBe(403);

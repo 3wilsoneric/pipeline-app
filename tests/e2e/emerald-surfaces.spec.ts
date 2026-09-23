@@ -328,7 +328,7 @@ for (const width of [1440, 390]) {
     await page.getByTestId("document-checklist-toggle").click();
     await expect(page.getByTestId("document-checklist-panel")).toHaveAttribute("open", "");
     await page.getByTestId("document-checklist-toggle").click();
-    const email = folder.getByRole("textbox", { name: "Client email:", exact: true });
+    const email = folder.getByRole("textbox", { name: "Referrer email:", exact: true });
     await email.fill("chart-file@example.invalid");
     await email.press("Tab");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.email).toBe("chart-file@example.invalid");

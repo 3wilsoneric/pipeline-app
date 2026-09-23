@@ -66,7 +66,7 @@ export type ReferralContactPatch = Partial<Pick<ReferralContactRecord,
 
 export type ContactSchedulingReadiness = {
   ready: boolean;
-  hasReachableClient: boolean;
+  hasReachableReferrer: boolean;
   hasPrimarySchedulingContact: boolean;
   blockers: string[];
 };
