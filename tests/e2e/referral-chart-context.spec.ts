@@ -1,10 +1,34 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { createOperationalReferral } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
 // The internal resident number stays out of the chart; see chart-field-editing.
 const residentFields = ["Unit", "Admission date", "Length of stay", "Care level"];
+
+test("intake referrer details appear on the chart and seed the assessment", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  const created = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Referrer Handoff ${randomUUID()}`,
+    source: "County services",
+    owner: "Annette Everhart",
+    referrerName: "County coordinator",
+    phone: "555-0101",
+    email: "coordinator@example.org",
+  }, { assigneeId: "provisional:allo:annette" });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${created.id}&workspaceStage=chart`);
+  const header = page.getByTestId("workspace-folder-header");
+  await expect(header.getByRole("button", { name: "Move workspace to trash" })).toBeVisible();
+  expect((await header.boundingBox())!.height).toBeLessThanOrEqual(100);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const chart = page.getByRole("article", { name: "Referral chart", exact: true });
+  await expect(chart.locator('[data-chart-field="Referrer name"]')).toContainText("County coordinator");
+  const assessment = await createOperationalAssessment(page.request, created.id);
+  const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect(saved.referrer_name).toBe("County coordinator");
+  expect(saved.referrer_contact).toBe("555-0101 · coordinator@example.org");
+  expect(saved.referring_facility).toBe("County services");
+});
 
 test("intake uses its own referral data, while the same connected Client chart keeps resident fields", async ({ page }) => {
   const created = await createOperationalReferral(page.request, "assessmentCoordinator", {

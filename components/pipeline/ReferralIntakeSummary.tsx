@@ -53,7 +53,7 @@ export default function ReferralIntakeSummary({ referral, assessment, headerActi
     </ChartBand>
     <ChartBand title="Contact information">
       <ChartGrid ariaLabel="Contact information" columns="priorities">
-        {[fact("Phone", "phone"), fact("Email", "email")].map(cell)}
+        {[fact("Referrer name", "referrerName"), fact("Phone", "phone"), fact("Email", "email")].map(cell)}
       </ChartGrid>
       {contactActions}
     </ChartBand>

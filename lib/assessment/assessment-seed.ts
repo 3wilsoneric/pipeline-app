@@ -10,6 +10,7 @@ import {
 } from "./assessment-tool-schema";
 import type { AssessmentCreateInput } from "./assessment-records";
 import type { Referral } from "../pipeline/referral-types";
+import { referralReferrerContact, referralReferrerName, referralSourceName } from "../pipeline/referrer-context";
 
 type AssessmentSeed = Pick<
   AssessmentCreateInput,
@@ -18,16 +19,23 @@ type AssessmentSeed = Pick<
 
 const canonicalReferralFields: ReadonlyArray<{
   target: AssessmentToolFieldKey;
-  source: string;
+  source: string | ((referral: Referral) => string);
   value: (referral: Referral, assessorName: string) => string | string[] | null;
-  canvasSource?: keyof NonNullable<Referral["fieldSources"]>;
+  canvasSource?: keyof NonNullable<Referral["fieldSources"]> | ((referral: Referral) => keyof NonNullable<Referral["fieldSources"]>);
 }> = [
   { target: "resident_name", source: "referral.name", value: (referral) => referral.name.trim() || null, canvasSource: "name" },
   { target: "date_of_birth", source: "referral.dob", value: (referral) => isoDateOrNull(referral.dob), canvasSource: "dob" },
   { target: "community", source: "referral.community", value: (referral) => referral.community || null, canvasSource: "community" },
   { target: "assessor", source: "assignment.assessor", value: (_referral, assessor) => assessor || null },
   { target: "referral_received_date", source: "referral.received_date", value: (referral) => isoDateOrNull(referral.date), canvasSource: "referralReceived" },
-  { target: "referrer_name", source: "referral.source", value: (referral) => meaningfulSource(referral.source), canvasSource: "referent" },
+  {
+    target: "referrer_name",
+    source: (referral) => referral.referrerName?.trim() ? "referral.referrer_name" : "referral.source",
+    value: referralReferrerName,
+    canvasSource: (referral) => referral.referrerName?.trim() ? "referrerName" : "referent",
+  },
+  { target: "referrer_contact", source: "referral.contact", value: referralReferrerContact },
+  { target: "referring_facility", source: "referral.source", value: referralSourceName, canvasSource: "referent" },
   { target: "county", source: "referral.county", value: (referral) => referral.county?.trim() || null, canvasSource: "county" },
   { target: "medications_at_intake", source: "referral.current_medications", value: (referral) => medicationList(referral.currentMedications), canvasSource: "currentMedications" },
 ];
@@ -55,9 +63,9 @@ export function buildAssessmentSeedFromReferral(
     if (!value) continue;
     (data as Record<AssessmentToolFieldKey, unknown>)[definition.target] = value;
     appendProvenance(provenance, definition.target, {
-      source_field_key: definition.source,
+      source_field_key: typeof definition.source === "function" ? definition.source(referral) : definition.source,
       source_file: definition.canvasSource
-        ? referral.fieldSources?.[definition.canvasSource] ?? null
+        ? referral.fieldSources?.[typeof definition.canvasSource === "function" ? definition.canvasSource(referral) : definition.canvasSource] ?? null
         : null,
       confidence: 1,
       review_status: "accepted",
@@ -72,13 +80,6 @@ export function buildAssessmentSeedFromReferral(
     unmapped_fields: mapped.unmapped_fields,
     status: hasPendingEvidence(provenance) ? "needs_review" : "draft",
   };
-}
-
-function meaningfulSource(value: string) {
-  const source = value.trim();
-  return !source || /^(referral packet|face sheet upload|unknown)$/i.test(source)
-    ? null
-    : source;
 }
 
 function isoDateOrNull(value: string) {
