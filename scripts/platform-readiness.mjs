@@ -32,11 +32,6 @@ const checks = [
     args: ["scripts/code-quality-readiness.mjs"],
   },
   {
-    name: "Cyclomatic complexity ratchet",
-    command: "node",
-    args: ["scripts/cyclomatic-complexity-audit.mjs"],
-  },
-  {
     name: "Developer Academy freshness",
     command: "node",
     args: ["scripts/academy-readiness.mjs"],

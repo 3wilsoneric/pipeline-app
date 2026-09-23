@@ -3030,7 +3030,6 @@ function normalizeReferral(input: Referral): Referral {
     interview: input.interview ?? "",
     conserved: input.conserved ?? "",
     fieldSources: input.fieldSources ?? {},
-    referrerName: input.referrerName ?? "",
     requirements: input.requirements ?? [],
   } satisfies Referral;
   return {
@@ -3039,8 +3038,8 @@ function normalizeReferral(input: Referral): Referral {
   };
 }
 
-function normalizeReferralContactFields(input: Referral): Pick<Referral, "phone" | "email" | "payer"> {
-  return { phone: input.phone ?? "", email: input.email ?? "", payer: input.payer ?? "" };
+function normalizeReferralContactFields(input: Referral): Pick<Referral, "phone" | "email" | "referrerName" | "payer"> {
+  return { phone: input.phone ?? "", email: input.email ?? "", referrerName: input.referrerName ?? "", payer: input.payer ?? "" };
 }
 
 function hasAssignedOwner(value: Pick<Referral, "owner" | "ownerId">) {
