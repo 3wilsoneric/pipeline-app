@@ -8,10 +8,11 @@ import {
   type AssessmentToolFieldKey,
 } from "./assessment-tool-schema";
 import type { AdmissionRequirement, Referral } from "@/lib/pipeline/referral-types";
+import { referralReferrerContact, referralReferrerName } from "@/lib/pipeline/referrer-context";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate" | "plannedAdmissionDate">
-  & Partial<Pick<Referral, "county" | "conserved" | "payer" | "responsiblePerson" | "requirements">>;
+  & Partial<Pick<Referral, "county" | "conserved" | "payer" | "responsiblePerson" | "requirements" | "referrerName" | "phone" | "email">>;
 
 export type AssessmentSummaryItem = {
   label: string;
@@ -159,7 +160,7 @@ export function buildMeetClientSummary(
       item("Conserved status", assessment.conservatorship_type || referral.conserved, "conservatorship_type"),
       item("Legal / signing details", assessment.conservatorship_status),
       item("Conservator", assessment.conservator_name),
-      item("Referrer contact", assessment.referrer_contact),
+      item("Referrer contact", firstValue(assessment.referrer_contact, referralReferrerContact(referral))),
     ]),
     billingNotes: [
       { label: "Coverage / payer", value: referral.payer?.trim() || "Not recorded" },
@@ -260,8 +261,8 @@ function buildIdentity(assessment: PipelineAssessmentRecord, referral: Assessmen
     item("Current location", assessment.current_location),
     item("Time at current location", assessment.time_at_current_location),
     item("Date referral received", assessment.referral_received_date),
-    item("Referrer", firstValue(assessment.referrer_name, referral.source)),
-    item("Referrer contact", assessment.referrer_contact),
+    item("Referrer", firstValue(assessment.referrer_name, referralReferrerName(referral))),
+    item("Referrer contact", firstValue(assessment.referrer_contact, referralReferrerContact(referral))),
     item("Assessment date", assessment.assessment_date),
     item("Assessor", assessment.assessor),
   ]);

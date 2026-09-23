@@ -77,6 +77,7 @@ export async function POST(
       assessor: seed.data.assessor,
       referral_received_date: seed.data.referral_received_date,
       referrer_name: seed.data.referrer_name,
+      referrer_contact: seed.data.referrer_contact,
       county: seed.data.county,
     });
 

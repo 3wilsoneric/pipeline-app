@@ -419,6 +419,20 @@ const seededAssessment = assessmentSeed.buildAssessmentSeedFromReferral({
 check("paused document autofill leaves clinical answers for the assessor", seededAssessment.data.mobility === null && seededAssessment.status === "draft");
 check("opening a draft does not invent an assessment encounter date", seededAssessment.data.assessment_date === null && !seededAssessment.field_provenance.assessment_date);
 check("referral context remains authoritative during assessment seeding", seededAssessment.data.community === "San Pablo" && seededAssessment.data.county === "Contra Costa County");
+const referredBy = assessmentSeed.buildAssessmentSeedFromReferral({
+  ...referral,
+  referrerName: " County coordinator ",
+  phone: " 555-0100 ",
+  email: " coordinator@example.org ",
+}, "Assigned Assessor");
+check("intake referrer name and contact carry into later assessment questions",
+  referredBy.data.referrer_name === "County coordinator"
+  && referredBy.data.referrer_contact === "555-0100 · coordinator@example.org"
+  && referredBy.data.referring_facility === "County referral"
+  && referredBy.field_provenance.referrer_name?.at(-1)?.source_field_key === "referral.referrer_name");
+check("older intake sources still seed the referrer question when no person is named",
+  seededAssessment.data.referrer_name === "County referral"
+  && seededAssessment.field_provenance.referrer_name?.at(-1)?.source_field_key === "referral.source");
 check("pre-assessment medications seed the assessment medication profile", seededAssessment.data.medications_at_intake.join("|") === "Olanzapine 10 mg|Metformin 500 mg");
 check("paused autofill does not attach unused packet evidence to answers", !seededAssessment.field_provenance.mobility);
 check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));
@@ -472,6 +486,15 @@ const signedAssessmentReport = assessmentSummary.buildAssessmentSummaryReport({
   family_involvement: "Sister participates in care planning.",
 }, { ...referral, admissionDate: "2026-10-12" });
 check("Meet the Client uses the saved referral admission date", signedAssessmentReport.meetClient.admissionDate === "2026-10-12");
+const referrerReport = assessmentSummary.buildAssessmentSummaryReport({
+  ...assessment,
+  referrer_name: null,
+  referrer_contact: null,
+}, { ...referral, referrerName: "County coordinator", phone: "555-0100", email: "coordinator@example.org" });
+check("unanswered assessment reports and handoff retain saved intake referrer details",
+  referrerReport.identity.some((item) => item.label === "Referrer" && item.value === "County coordinator")
+  && referrerReport.identity.some((item) => item.label === "Referrer contact" && item.value === "555-0100 · coordinator@example.org")
+  && referrerReport.meetClient.admissionNotes?.some((item) => item.label === "Referrer contact" && item.value === "555-0100 · coordinator@example.org"));
 check("assessment report carries its exact signed source version", signedAssessmentReport.signed && signedAssessmentReport.assessmentId === "assessment-summary-fixture" && signedAssessmentReport.assessmentVersion === 7);
 check("the chart includes secondary answers without relabeling the existing primary diagnosis",
   signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Primary diagnosis" && item.value === "Recorded primary condition"))

@@ -87,30 +87,18 @@ test("disabled create action does not get hover or press animation", async ({ pa
   await expect(page).toHaveURL(/referralId=\d+/);
 });
 
-test("workspace actions menu keeps the destructive action reachable behind its confirmation", async ({ page }) => {
+test("workspace header keeps trash visible while confirmation guards deletion", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Menu Workspace", owner: "", tags: [] });
   let deletions = 0;
   page.on("request", (request) => { if (request.method() === "DELETE" && request.url().includes(`/api/referrals/${referral.id}`)) deletions += 1; });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
   const header = page.getByTestId("workspace-folder-header");
   await expect(header).toBeVisible();
-  // The destructive action no longer sits beside the stage tabs.
-  await expect(header.getByRole("button", { name: "Move workspace to trash" })).toHaveCount(0);
-  const menu = header.locator('summary[aria-label="More workspace actions"]');
-  await expect(menu).toBeVisible();
-  const trigger = (await menu.boundingBox())!;
-  expect(trigger.height).toBeGreaterThanOrEqual(44);
-  expect(trigger.width).toBeGreaterThanOrEqual(44);
-  await menu.focus();
-  await page.keyboard.press("Enter");
-  const trash = page.getByRole("button", { name: "Move workspace to trash", exact: true });
+  const trash = header.getByRole("button", { name: "Move workspace to trash", exact: true });
   await expect(trash).toBeVisible();
   expect((await trash.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await page.keyboard.press("Escape");
-  await expect(trash).toBeHidden();
-  await expect(menu).toBeFocused();
-  await menu.click();
-  await trash.click();
+  await trash.focus();
+  await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Move workspace to trash?", exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("restored from Trash for 30 days");
@@ -134,7 +122,6 @@ test("a failed save does not block moving a workspace to trash", async ({ page }
   await expect(status).toContainText("Not saved to Pipeline");
   const box = await status.boundingBox();
   expect(box?.height).toBeLessThan(40);
-  await page.locator('summary[aria-label="More workspace actions"]').click();
   await page.getByRole("button", { name: "Move workspace to trash", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Move workspace to trash?", exact: true });
   await expect(dialog).toContainText("Changes not saved to Pipeline will be discarded");

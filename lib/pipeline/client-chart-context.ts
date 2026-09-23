@@ -13,7 +13,7 @@ export const referralChartEditFields = {
   Name: "name", Client: "name", Gender: "gender", "Date of birth": "dob", SSN: "ssn",
   Assessor: "owner", "Assigned assessor": "owner", "Referral received": "referralReceived", Community: "community",
   County: "county", "Referral source": "referent", "Responsible person": "responsiblePerson",
-  Phone: "phone", Email: "email", "Medications on record": "currentMedications",
+  "Referrer name": "referrerName", Phone: "phone", Email: "email", "Medications on record": "currentMedications",
   Conserved: "conserved", "Conserved status": "conserved",
 } as const;
 export type ReferralChartEditField = (typeof referralChartEditFields)[keyof typeof referralChartEditFields];
@@ -65,13 +65,13 @@ const fieldLabels: Record<string, string> = {
   name: "Name", gender: "Gender", age: "Recorded age", dob: "Date of birth", ssn: "SSN",
   owner: "Assessor", referralReceived: "Referral received", admissionDate: "Admission date",
   community: "Community", county: "County", referent: "Referral source", responsiblePerson: "Responsible person",
-  phone: "Phone", email: "Email", summary: "Referral summary", currentMedications: "Medications on record",
+  phone: "Phone", email: "Email", referrerName: "Referrer name", summary: "Referral summary", currentMedications: "Medications on record",
 };
 
 // Fields the Referral chart summary already shows for its own referral.
 const referralSummaryFieldKeys = new Set<string>([
   "name", "dob", "gender", "ssn", "owner", "referralReceived", "community", "county",
-  "referent", "responsiblePerson", "phone", "email", "currentMedications",
+  "referent", "responsiblePerson", "phone", "email", "referrerName", "currentMedications",
 ]);
 
 /**

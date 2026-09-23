@@ -82,7 +82,7 @@ export default function StartReferralFromChart({ sourceReferralId, allowed, inFo
     </div>
   </HomeDialog> : null;
   return <>
-    <button type="button" disabled={saving} onClick={() => void showAssignment()}
+    <button type="button" aria-label="Create intake" title="Create intake" disabled={saving} onClick={() => void showAssignment()}
       className={inFolder ? workspaceFolderStyles.createTab : "min-h-10 border border-[#0f8b73] bg-white px-4 text-[13px] font-bold text-[#0c705f] hover:bg-[#effaf5] disabled:opacity-60"}>
       Create intake
     </button>

@@ -15,7 +15,6 @@ import {
   FolderOpen,
   History,
   LoaderCircle,
-  MoreHorizontal,
   Plus,
   RefreshCw,
   Trash2,
@@ -2474,20 +2473,24 @@ export default function ReferralPacketCanvas({
                 <History size={15} aria-hidden="true" />
                 <span>Activity</span>
               </button>
-              {trashControlVisible && !readingAssessment ? (
-                <WorkspaceMoreMenu
+              {trashControlVisible ? (
+                <button
+                  type="button"
+                  className={`${workspaceFolderStyles.utilityTab} ${workspaceFolderStyles.trashTab}`}
+                  aria-label="Move workspace to trash"
+                  title="Move workspace to trash"
                   disabled={isDeleting}
-                  onMoveToTrash={() => {
+                  onClick={() => {
                     setDeleteError("");
                     setDeleteDialogOpen(true);
                   }}
-                />
+                ><Trash2 size={16} aria-hidden="true" /><span>Trash</span></button>
               ) : null}
             </div>
   );
 
   const renderWorkspaceHeader = () => (
-    <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined}>
+    <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined} data-reading-assessment={readingAssessment || undefined}>
           <div className={workspaceFolderStyles.tabRow}>
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
@@ -3021,34 +3024,6 @@ function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
   return <div data-testid="workspace-chart-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
     <div className={folderStyles.body}><div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>{children}</div></div>
   </div>;
-}
-
-/* The destructive workspace action keeps its confirmation and recovery, moved
-   one step back from the stage tabs it used to sit beside. */
-function WorkspaceMoreMenu({ disabled, onMoveToTrash }: { disabled: boolean; onMoveToTrash: () => void }) {
-  const menu = useRef<HTMLDetailsElement>(null);
-  const close = () => {
-    if (!menu.current) return;
-    menu.current.open = false;
-    menu.current.querySelector("summary")?.focus();
-  };
-  return (
-    <details
-      ref={menu}
-      className={workspaceFolderStyles.moreMenu}
-      onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); close(); }
-      }}
-    >
-      <summary aria-label="More workspace actions" title="More workspace actions"><MoreHorizontal size={16} aria-hidden="true" /><span>More</span></summary>
-      <div role="group" aria-label="Workspace actions" className={workspaceFolderStyles.moreMenuPanel}>
-        <button type="button" aria-label="Move workspace to trash" disabled={disabled} onClick={() => { close(); onMoveToTrash(); }}>
-          <Trash2 size={16} aria-hidden="true" />Move workspace to trash
-        </button>
-      </div>
-    </details>
-  );
 }
 
 function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
