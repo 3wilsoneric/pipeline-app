@@ -342,6 +342,22 @@ async function graphRejection(response: Response, operation: string) {
   return new GraphMailDeliveryError(code, `Microsoft Graph rejected ${operation} with status ${status}.`, status);
 }
 
+export async function sendUnderReviewEmail(referralId: number, message: string) {
+  const readiness = getGraphMailReadiness();
+  if (!readiness.configured) throw new GraphMailDeliveryError("under_review_email_unavailable", "Under Review email is not configured.");
+  if (!Number.isSafeInteger(referralId) || referralId < 1) throw new GraphMailDeliveryError("invalid_referral", "The workspace is invalid.");
+  if (!message.trim() || message.length > 4000) throw new GraphMailDeliveryError("invalid_message", "Add a message of up to 4,000 characters.");
+  const recipients = ["andrew@aaahealthservices.com", "sandeep@aaahealthservices.com"];
+  await graphRequest(`/users/${encodeURIComponent(readiness.sender)}/sendMail`, await graphAccessToken(), {
+    method: "POST",
+    body: JSON.stringify({ message: {
+      subject: "Pipeline referral under review",
+      body: { contentType: "Text", content: message },
+      toRecipients: recipients.map((recipient) => ({ emailAddress: { address: recipient } })),
+    }, saveToSentItems: true }),
+  }, 202, "send_under_review_notice");
+}
+
 export async function sendPacketVerificationCode(recipient: string, code: string) {
   const readiness = getGraphMailReadiness();
   if (!readiness.configured) throw new Error("Email verification is temporarily unavailable. Please try again.");

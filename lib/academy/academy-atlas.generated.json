@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f2193fabd0879f88",
-  "fingerprint": "f2193fabd0879f888b98e7ae25bc3b09f87c32725fdfd0bc354aef6ecfb0f2bc",
+  "generatedAt": "source-fingerprint:2cc68e0de3054d22",
+  "fingerprint": "2cc68e0de3054d227acb5eafd6772048ddaa61e57034b17e970673d548d27a6f",
   "totals": {
-    "files": 1390,
-    "lines": 366463,
-    "coveredFiles": 1390
+    "files": 1396,
+    "lines": 367104,
+    "coveredFiles": 1396
   },
   "entries": [
     {
@@ -1552,6 +1552,19 @@
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
+      ]
+    },
+    {
+      "path": "app/api/referrals/[referralId]/under-review-email/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 58,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -3251,7 +3264,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 394,
+      "lines": 421,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3263,7 +3276,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 447,
+      "lines": 450,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3287,7 +3300,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 239,
+      "lines": 240,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3587,7 +3600,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 73,
+      "lines": 99,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3599,7 +3612,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 246,
+      "lines": 285,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3612,6 +3625,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 66,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/UnderReviewEmailDialog.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 38,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3767,7 +3792,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 50,
+      "lines": 51,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4290,6 +4315,18 @@
       ]
     },
     {
+      "path": "database/migrations/0044_under_review_email_notifications.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 25,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -4752,6 +4789,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 21,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0044_under_review_email_notifications.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 13,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -8501,7 +8550,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 132,
+      "lines": 133,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -9149,7 +9198,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 395,
+      "lines": 411,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9201,6 +9250,18 @@
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
+      ]
+    },
+    {
+      "path": "lib/notifications/under-review-email.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 60,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
       ]
     },
     {
@@ -10917,7 +10978,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 119,
+      "lines": 196,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -14542,7 +14603,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 65,
+      "lines": 99,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14555,6 +14616,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 150,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/under-review-email.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 88,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15802,7 +15875,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 139,
+      "lines": 141,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -16199,7 +16272,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 214,
+      "lines": 238,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16223,7 +16296,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 332,
+      "lines": 333,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16427,7 +16500,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 319,
+      "lines": 423,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16703,7 +16776,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 260,
+      "lines": 263,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

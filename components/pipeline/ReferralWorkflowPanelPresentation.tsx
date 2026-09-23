@@ -70,6 +70,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onManualIntakeReasonChange: (value: string) => void;
   onUpdateRequirement: (item: AdmissionRequirement, status: RequirementStatus) => void;
   onSubmitDecision: () => void;
+  onOpenUnderReviewEmail?: () => void;
   onSubmitTransition: (target: ReferralStage, actualAdmissionDate?: string) => void;
   onAuthorizeManualIntake: () => void;
   onUpdateHandoff: (action: "queue" | "retry") => void;
@@ -99,6 +100,7 @@ export function ReferralWorkflowPanelPresentation({
   onManualIntakeReasonChange,
   onUpdateRequirement,
   onSubmitDecision,
+  onOpenUnderReviewEmail,
   onSubmitTransition,
   onAuthorizeManualIntake,
   onUpdateHandoff,
@@ -131,7 +133,7 @@ export function ReferralWorkflowPanelPresentation({
 
       <div className={styles.layout}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
-          <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} />
+          <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} />
           {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} /> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
@@ -240,7 +242,7 @@ function CurrentGateCard({
   );
 }
 
-export function DecisionCard({ workflow, busy, recommendation, onRecommendationChange, onSubmitDecision }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onRecommendationChange" | "onSubmitDecision">) {
+export function DecisionCard({ workflow, busy, recommendation, onRecommendationChange, onSubmitDecision, onOpenUnderReviewEmail }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onRecommendationChange" | "onSubmitDecision" | "onOpenUnderReviewEmail">) {
   if (workflow.decision) return <section className={styles.savedDecision} data-outcome={workflow.decision.outcome}>
     <RecordSummary title={workflow.decision.outcome === "accepted" ? "Accepted" : "Denied"} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} />
     <RecommendationOnFile workflow={workflow} compact />
@@ -266,6 +268,7 @@ export function DecisionCard({ workflow, busy, recommendation, onRecommendationC
       <div className={styles.decisionActions}>
         <p id="decision-action-hint" data-blocked={!savedUnderReview && action.disabled && !busy ? "true" : undefined}>{savedUnderReview ? "Under review saved. Edit the note to save an update." : action.hint}</p>
         {!savedUnderReview ? <PrimaryButton busy={Boolean(busy)} disabled={action.disabled} describedBy="decision-action-hint" onClick={onSubmitDecision}>{underReview ? "Save under review" : "Record decision"}<ArrowRight size={18} aria-hidden="true" /></PrimaryButton> : null}
+        {savedUnderReview && onOpenUnderReviewEmail ? <button type="button" className="min-h-11 font-semibold text-[#087d66] underline" onClick={onOpenUnderReviewEmail}>Review email to Andrew and Sandeep</button> : null}
       </div>
     </section>
   );

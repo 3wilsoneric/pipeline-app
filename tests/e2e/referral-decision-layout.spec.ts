@@ -71,7 +71,10 @@ for (const width of [1440, 834, 390, 320]) {
 
 for (const outcome of ["Deny", "Under review"] as const) {
   test(`${outcome} saves without suggesting an admission handoff`, async ({ page }) => {
+    if (outcome === "Under review") await page.setViewportSize({ width: 390, height: 844 });
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Example Decision Followup", owner: "", tags: [] });
+    let emailRequests = 0;
+    page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/under-review-email")) emailRequests++; });
     await createOperationalAssessment(page.request, referral.id);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
@@ -79,6 +82,26 @@ for (const outcome of ["Deny", "Under review"] as const) {
     await panel.getByRole("textbox").fill("Synthetic follow-up note.");
     await panel.getByRole("button", { name: outcome === "Deny" ? "Record decision" : "Save under review", exact: true }).click();
     if (outcome === "Deny") await page.getByRole("alertdialog").getByRole("button", { name: "Record denial", exact: true }).click();
+    if (outcome === "Under review") {
+      const email = page.getByRole("dialog", { name: "Under Review email" });
+      await expect(email).toBeVisible();
+      await expect(email.getByText("andrew@aaahealthservices.com; sandeep@aaahealthservices.com")).toBeVisible();
+      await expect(email.getByLabel("Message")).toContainText("Synthetic follow-up note.");
+      await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+      const violations = await page.evaluate(async () => {
+        const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+        return (await axe.run('[aria-label="Under Review email"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
+      });
+      expect(violations).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(emailRequests).toBe(0);
+      await email.getByLabel("Message").fill("Synthetic extra context for Andrew and Sandeep.");
+      await email.getByRole("button", { name: "Send email" }).click();
+      await expect(email.getByRole("alert")).toContainText("Email is not configured here");
+      expect(emailRequests).toBe(1);
+      await email.getByRole("button", { name: "Not now" }).click();
+      await expect(email).toHaveCount(0);
+    }
     await expect(panel.getByRole("button", { name: "Done", exact: true })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Review email & packet" })).toHaveCount(0);
     await expect(panel.getByRole("button", { name: /^Change stage to/ })).not.toBeVisible();
@@ -98,6 +121,7 @@ for (const outcome of ["Deny", "Under review"] as const) {
       await expect(panel.getByRole("button", { name: "Save under review" })).toBeEnabled();
       await expect(panel.getByRole("button", { name: "Done", exact: true })).toHaveCount(0);
       await panel.getByRole("button", { name: "Save under review" }).click();
+      await expect(page.getByRole("dialog", { name: "Under Review email" })).toBeVisible();
       await expect(panel.getByRole("button", { name: "Done", exact: true })).toBeVisible();
     }
   });
