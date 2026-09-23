@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:168dc4bfe8693ee5",
-  "fingerprint": "168dc4bfe8693ee5ec5319602ef00d7d207c888a5e11377bb04baf2a6f6bc6a3",
+  "generatedAt": "source-fingerprint:81ccb7fb8b5e16ac",
+  "fingerprint": "81ccb7fb8b5e16ac10fded0bd0b46fecbc9cbe2aa4f78beb2b797b33c0780466",
   "totals": {
     "files": 1397,
-    "lines": 367418,
+    "lines": 367535,
     "coveredFiles": 1397
   },
   "entries": [
@@ -1459,7 +1459,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 69,
+      "lines": 80,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -3240,7 +3240,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4233,
+      "lines": 4236,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3360,7 +3360,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 62,
+      "lines": 100,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -10363,7 +10363,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3469,
+      "lines": 3506,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -15371,7 +15371,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 207,
+      "lines": 235,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
