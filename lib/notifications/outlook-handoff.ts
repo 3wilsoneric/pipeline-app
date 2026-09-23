@@ -17,7 +17,7 @@ import { ensureOutlookAttachments, outlookAttachmentsMatch } from "./outlook-att
 type Mailbox = OutlookMailbox;
 export function outlookDraftView(packet: AdmissionPacket): OutlookDraftView {
   const draft = packet.outlook!;
-  return { packet_id: packet.id, status: draft.status, mailbox: draft.mailbox, web_link: draft.deliveryMode === "attachments" && !draft.attachmentsReady ? undefined : draft.webLink,
+  return { delivery_method: draft.transport, accepted_at: draft.acceptedAt, packet_id: packet.id, status: draft.status, mailbox: draft.mailbox, web_link: draft.deliveryMode === "attachments" && !draft.attachmentsReady ? undefined : draft.webLink,
     prepared_at: packet.createdAt, assessment_version: packet.assessmentVersion, file_count: packet.files.length, message: draft.note,
     to_recipients: draft.toRecipients, cc_recipients: draft.ccRecipients };
 }
@@ -139,7 +139,7 @@ async function requireCurrentSource(packet: AdmissionPacket) {
 }
 
 type DraftProgress = (fileId?: string, hash?: string) => Promise<void>;
-async function withDraftOperation(packetId: string, run: (packet: AdmissionPacket, progress: DraftProgress) => Promise<OutlookDraftView>) {
+export async function withDraftOperation(packetId: string, run: (packet: AdmissionPacket, progress: DraftProgress) => Promise<OutlookDraftView>) {
   const operation = { id: randomUUID(), expiresAt: Date.now() + 300_000 };
   const packet = await withAdmissionPacket(packetId, (value) => {
     if (!value?.outlook) throw new PacketAccessError("Outlook draft not found.", 404);
@@ -210,6 +210,7 @@ async function needsReview(packet: AdmissionPacket, note: string, revoke = false
 async function ownedDraft(packetId: string, referralId: number, mailbox: Mailbox) {
   return withAdmissionPacket(packetId, (packet) => {
     if (!packet?.outlook || packet.referralId !== referralId || packet.outlook.ownerId !== mailbox.id) throw new PacketAccessError("Outlook draft not found.", 404);
+    if (packet.outlook.transport === "assessor_email") throw new PacketAccessError("This packet was emailed to the assessor. Use its inbox handoff controls.", 409);
     if ((packet.outlook.mailboxId ?? packet.outlook.ownerId).toLowerCase() !== (mailbox.graphId ?? mailbox.id).toLowerCase()) throw new PacketAccessError("Reconnect the Outlook mailbox used to prepare this draft.", 403);
     return structuredClone(packet);
   });

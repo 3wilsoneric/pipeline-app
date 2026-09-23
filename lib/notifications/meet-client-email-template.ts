@@ -7,14 +7,14 @@ export function renderMeetClientEmail(
   deliveryId: string,
   attachmentNames: string[] = [],
   message?: MeetClientMessage,
-  options: { demo?: boolean; packetUrl?: string; packetLinkPreview?: boolean; logoUrl?: string } = {},
+  options: { demo?: boolean; packetUrl?: string; packetLinkPreview?: boolean; logoUrl?: string; forwarding?: { to: string[]; cc: string[] } } = {},
 ) {
   const subject = `${options.demo ? "[DEMO] " : ""}${message?.subject ?? `Meet the Client | ${summary.community || "New admission"}`}`;
 
   const linked = Boolean(options.packetUrl || options.packetLinkPreview);
   const content = meetClientContent(summary, linked ? [] : attachmentNames, message?.body);
   if (linked) appendPacketLink(content, attachmentNames.length, options.packetUrl);
-  const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>@media(max-width:600px){.email-sheet{padding:24px 16px!important}.email-table td{display:block!important;width:auto!important}.email-table td:first-child{border:0!important;padding:14px 0 2px!important}.email-table td:last-child{padding:0 0 14px!important}}</style></head><body style="margin:0;background:#fff;color:#243b32;font-family:Arial,sans-serif;font-size:17px;line-height:1.65;overflow-wrap:anywhere"><div class="email-sheet" style="max-width:760px;margin:0 auto;padding:32px;box-sizing:border-box"><div style="border-top:3px solid #0f8b73;padding-top:24px">${renderEmailHeader(options)}${content.html}<div style="margin-top:32px;border-top:1px solid #d9dfdb;padding-top:18px;font-size:13px;line-height:1.6;color:#59665f">${content.edited ? "Sender-edited handoff based on" : "Prepared from"} the signed assessment by ${escapeHtml(preparedBy)}.<br>Agreement status and coordination details come from the referral record; signing an assessment does not sign the admission agreement.<br>Confidential: contains protected health information. Use only for authorized care coordination.</div></div></div></body></html>`;
+  const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>@media(max-width:600px){.email-sheet{padding:24px 16px!important}.email-table td{display:block!important;width:auto!important}.email-table td:first-child{border:0!important;padding:14px 0 2px!important}.email-table td:last-child{padding:0 0 14px!important}}</style></head><body style="margin:0;background:#fff;color:#243b32;font-family:Arial,sans-serif;font-size:17px;line-height:1.65;overflow-wrap:anywhere"><div class="email-sheet" style="max-width:760px;margin:0 auto;padding:32px;box-sizing:border-box"><div style="border-top:3px solid #0f8b73;padding-top:24px">${renderEmailHeader(options)}${options.forwarding ? forwardingNote(options.forwarding) : ""}${content.html}<div style="margin-top:32px;border-top:1px solid #d9dfdb;padding-top:18px;font-size:13px;line-height:1.6;color:#59665f">${content.edited ? "Sender-edited handoff based on" : "Prepared from"} the signed assessment by ${escapeHtml(preparedBy)}.<br>Agreement status and coordination details come from the referral record; signing an assessment does not sign the admission agreement.<br>Confidential: contains protected health information. Use only for authorized care coordination.</div></div></div></body></html>`;
   return { subject, html, text: `${options.demo ? "Not production yet — no email will be sent. This admission packet is a demo.\n\n" : ""}${content.text}` };
 }
 
@@ -90,4 +90,8 @@ function appendPacketLink(content: { html: string; text: string }, fileCount: nu
   const link = packetUrl ? `<a href="${escapeHtml(packetUrl)}" style="display:inline-block;padding:12px 20px;background:#087d66;color:#fff;border-radius:6px;font-weight:700;text-decoration:none">Open admission packet</a>` : '<strong>Open admission packet — link included in your Outlook draft</strong>';
   content.html += `<section style="margin-top:24px;padding:20px;border:1px solid #cbd6d2;border-radius:6px"><h2 style="margin-top:0">Admission packet · ${fileCount} files</h2><p>All files are included in the secure packet. Verify the email address that received this message with a one-time code. No account is needed.</p>${link}</section>`;
   content.text += `\n\nAdmission packet: ${fileCount} files. Verify your email with a one-time code. ${packetUrl ?? "The secure link is included in your Outlook draft."}`;
+}
+
+function forwardingNote(audience: { to: string[]; cc: string[] }) {
+  return `<aside style="margin:0 0 24px;padding:16px;border:1px solid #cbd6d2;border-radius:6px;background:#f3f8f5;font-size:15px"><strong>For the assessor — ready to forward</strong><p>Choose Forward, add the recipients below, and review the message and attachments before sending. You can remove this note before forwarding.</p><p><strong>To:</strong> ${escapeHtml(audience.to.join("; "))}${audience.cc.length ? `<br><strong>Cc:</strong> ${escapeHtml(audience.cc.join("; "))}` : ""}</p></aside>`;
 }

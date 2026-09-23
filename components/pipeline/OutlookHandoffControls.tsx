@@ -8,14 +8,16 @@ import { useConfirmationDialog } from "./useConfirmationDialog";
 import OutlookConnectionNotice from "./OutlookConnectionNotice";
 import styles from "./OutlookHandoffControls.module.css";
 
-type State = { draft: OutlookDraftView | null; occupied: boolean; demo?: boolean; outlook_client_id?: string; account_email?: string };
-export default function OutlookHandoffControls({ referralId, selected, demo, ready, readinessReasons, sending, onPrepare, onSent, onExistingDraft }: {
+type State = { draft: OutlookDraftView | null; occupied: boolean; demo?: boolean; outlook_client_id?: string; account_email?: string; email_configured?: boolean; email_sender?: string };
+export default function OutlookHandoffControls({ referralId, selected, demo, ready, readinessReasons, sending, onPrepare, onEmail, onSent, onExistingDraft }: {
   referralId: number; selected: boolean; demo: boolean; ready: boolean; readinessReasons: string[]; sending: boolean;
+  onEmail: () => Promise<OutlookDraftView | undefined>;
   onPrepare: (token: string) => Promise<OutlookDraftView | undefined>;
   onSent: () => void; onExistingDraft: (draft: OutlookDraftView | null) => void;
 }) {
   const readinessId = useId();
   const [state, setState] = useState<State>({ draft: null, occupied: false });
+  const [delivery, setDelivery] = useState<"email" | "outlook">("email");
   const [mailbox, setMailbox] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -32,6 +34,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     const next = await fetchPipelineJson<State>(endpoint, { cache: "no-store", signal });
     if (signal?.aborted) return;
     setState(next);
+    if (next.draft) setDelivery(next.draft.delivery_method === "assessor_email" ? "email" : "outlook");
     callbacks.current.onExistingDraft(next.draft && !["sent", "discarded"].includes(next.draft.status) ? next.draft : null);
     if (next.draft?.status === "sent") callbacks.current.onSent();
   }, [endpoint]);
@@ -44,7 +47,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     return () => { cancelled = true; controller.abort(); };
   }, [load]);
   useEffect(() => {
-    if (!selected || demo || state.demo) return;
+    if (!selected || demo || state.demo || delivery !== "outlook") return;
     let cancelled = false;
     setCheckingConnection(true);
     const reconnect = async () => {
@@ -57,7 +60,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     } })
       .finally(() => { if (!cancelled) setCheckingConnection(false); });
     return () => { cancelled = true; };
-  }, [selected, demo, state.demo, state.outlook_client_id, state.account_email, endpoint]);
+  }, [selected, demo, state.demo, delivery, state.outlook_client_id, state.account_email, endpoint]);
   const action = async (name: "connect" | "check" | "discard", token: string) => {
     const result = await fetchPipelineJson<{ mailbox?: string; draft?: OutlookDraftView }>(endpoint, {
       method: "POST", headers: { "x-pipeline-outlook-token": token },
@@ -107,6 +110,24 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
       } catch (reason) { tab?.close(); await load().catch(() => undefined); throw reason; }
     });
   };
+  const emailPacket = () => run(async () => {
+    try { const draft = await onEmail(); if (draft) acceptDraft(draft); }
+    catch (reason) { await load().catch(() => undefined); throw reason; }
+  });
+  const inboxAction = async (name: "received" | "forwarded" | "replace") => {
+    const copy = name === "forwarded"
+      ? { title: "Did you forward the complete handoff?", message: "Confirm you sent the message and every attachment to the reviewed To / Cc list. This records your confirmation; it does not send an email or check your mailbox.", confirmLabel: "Yes, I sent it" }
+      : name === "replace"
+        ? { title: "Review a new handoff?", message: "Check your inbox, junk folder and Sent folder first. The earlier email cannot be recalled. Close this copy only when you are ready to review and prepare a replacement.", confirmLabel: "Close copy and review again", destructive: true }
+        : { title: "Has the complete packet arrived?", message: "Confirm the Alamo Admissions email is in your inbox with the message and all packet files attached.", confirmLabel: "Yes, I received it" };
+    if (!await confirm(copy)) return;
+    await run(async () => {
+      const result = await fetchPipelineJson<{ draft: OutlookDraftView }>(endpoint, {
+        method: "POST", body: JSON.stringify({ action: name, packet_id: state.draft?.packet_id, confirmed: true }),
+      });
+      acceptDraft(result.draft);
+    });
+  };
   const discard = async () => {
     const changed = state.draft?.status === "needs_review";
     if (!await confirm({ title: changed ? "Prepare an updated handoff?" : "Remove this Outlook draft?", message: changed
@@ -148,7 +169,31 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
 
     {reviewHint ? <div id={readinessId} role="status" className={styles.hint}><strong>Before saving to Outlook Drafts:</strong><ul>{readinessReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div> : null}</>;
   };
+  if (delivery === "email") return <section className={styles.panel} aria-label="Email packet to assessor">
+    <div className={styles.heading}><span className={styles.icon}><Mail size={22} aria-hidden="true" /></span>
+      <div><h3>{draft ? "Next: forward from your inbox" : "Email the packet to yourself"}</h3>
+        <p>{draft?.mailbox || state.account_email || "Loading your email address…"}</p></div>
+      {draft ? <span className={styles.badge}>{draft.status === "draft" ? "Ready to forward" : "Check inbox"}</span> : null}
+    </div>
+    {draft ? <p className={styles.hint} role="status">{draft.message || "Open the Alamo Admissions email, choose Forward, and add the reviewed To / Cc recipients. Keep every attachment."}</p>
+      : <p className={styles.hint}>From Alamo Admissions{state.email_sender ? ` (${state.email_sender})` : ""}. Your message, PDF data sheet and original files arrive in your inbox. You forward them to the recipients above. No Outlook connection needed.</p>}
+    {state.occupied ? <p role="status" className={styles.hint}>A teammate already has a prepared handoff for this workspace. Complete or close it first.</p> : null}
+    {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+    {!draft && !ready ? <div role="status" className={styles.hint}><strong>Before emailing the packet:</strong><ul>{readinessReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div> : null}
+    {!loading && !draft && !state.email_configured ? <p role="status" className={styles.hint}>Email from Alamo Admissions is unavailable for this account. You can use Outlook Drafts below.</p> : null}
+    <div className={styles.actions}>
+      {!draft ? <button type="button" className={styles.primary} disabled={busy || sending || loading || !ready || isDemo || state.occupied || !state.email_configured} onClick={() => void emailPacket()}>
+        {busy || sending ? <LoaderCircle size={16} className={styles.spin} /> : <Mail size={16} />}{busy || sending ? "Emailing packet…" : "Email packet to me"}</button>
+        : draft.status === "draft" ? <button type="button" className={styles.primary} disabled={busy || sending} onClick={() => void inboxAction("forwarded")}><Check size={16} />I forwarded the handoff</button>
+          : draft.status !== "needs_review" ? <button type="button" className={styles.primary} disabled={busy || sending} onClick={() => void inboxAction("received")}>I received the complete packet</button> : null}
+      {draft ? <button type="button" className={draft.status === "needs_review" ? styles.primary : styles.quiet} disabled={busy || sending} onClick={() => void inboxAction("replace")}>Review a new handoff</button>
+        : <button type="button" className={styles.quiet} disabled={busy || sending || loading || state.occupied} onClick={() => { setError(""); setDelivery("outlook"); }}>Use Outlook Drafts instead</button>}
+      {error ? <button type="button" className={styles.quiet} disabled={busy || sending} onClick={() => void run(load)}>Refresh status</button> : null}
+    </div>
+    {confirmationDialog}
+  </section>;
   return <section className={styles.panel} aria-label="Outlook handoff">
+    {!draft ? <button type="button" className={styles.switchMethod} disabled={disabled} onClick={() => { setError(""); setDelivery("email"); }}>Email packet to me instead — no Outlook connection</button> : null}
     {renderHeading()}
     {renderMessages()}
     {renderActions()}

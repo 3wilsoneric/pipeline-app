@@ -23,6 +23,9 @@ export type AdmissionPacket = {
   files: PacketFile[]; recipients: PacketRecipient[];
   message: { subject: string; body: string };
   outlook?: {
+    // Shared handoff envelope; absent transport preserves existing Outlook drafts.
+    transport?: "assessor_email";
+    acceptedAt?: string;
     ownerId: string; mailboxId?: string; mailbox: string; status: OutlookDraftState; audit: DeliveryAudit;
     referralVersion: number; packetRevision: string; messageId?: string; webLink?: string;
     note?: string;

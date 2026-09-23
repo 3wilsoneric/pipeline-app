@@ -6,7 +6,7 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
-import { isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
+import { getGraphMailReadiness, isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
@@ -70,7 +70,7 @@ export async function GET(
       const emailBlockers = meetClientEmailBlockers(
         report,
         snapshot.decision?.outcome,
-        mail.configured,
+        mail.configured || getGraphMailReadiness().configured,
         admissionPacket.blockers,
         getPlannedAdmissionDate(snapshot.referral),
       );
@@ -84,7 +84,7 @@ export async function GET(
         email: {
           example_only: exampleOnly,
           outlook_draft: outlook.draft,
-          configured: mail.configured,
+          configured: mail.configured || getGraphMailReadiness().configured,
           sender: mail.sender,
           prepared_by: auth.user.name,
           preview: report ? renderMeetClientEmail(

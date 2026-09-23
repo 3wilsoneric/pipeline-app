@@ -15,7 +15,7 @@ export type DeliveryAudit = {
   decisionId: string;
   reviewId?: string;
   reviewVersion?: number;
-  status: "reserved" | "sent" | "failed" | "unconfirmed" | "sent_needs_review";
+  status: "reserved" | "sent" | "failed" | "unconfirmed" | "sent_needs_review" | "assessor_emailed";
   actorId: string;
   actorName: string;
   recipientCount: number;
@@ -70,7 +70,7 @@ export async function reserveMeetClientDelivery(input: DeliveryAudit) {
 
 export async function completeMeetClientDelivery(
   input: DeliveryAudit,
-  status: "sent" | "failed" | "unconfirmed" | "sent_needs_review",
+  status: "sent" | "failed" | "unconfirmed" | "sent_needs_review" | "assessor_emailed",
   errorCode = "",
   retryable = false,
 ) {
@@ -140,7 +140,7 @@ function deliveryMayBeRetried(record: DeliveryAudit) {
   return (record.status === "failed" && record.retryable) || record.status === "sent_needs_review";
 }
 function deliveryEvent(status: Exclude<DeliveryAudit["status"], "reserved">) {
-  return { sent: "meet_client_summary_sent", unconfirmed: "meet_client_summary_unconfirmed",
+  return { assessor_emailed: "meet_client_packet_emailed_to_assessor", sent: "meet_client_summary_sent", unconfirmed: "meet_client_summary_unconfirmed",
     failed: "meet_client_summary_failed", sent_needs_review: "meet_client_outlook_sent_reviewed" }[status];
 }
 

@@ -73,6 +73,7 @@ export async function sendMeetClientMail(input: {
   message?: MeetClientMessage;
   packetUrl?: string;
   packetFiles?: { name: string; byteSize: number }[];
+  forwarding?: { to: string[]; cc: string[] };
 }) {
   const readiness = getGraphMailReadiness();
   if (!readiness.configured) throw new Error("Microsoft 365 email is not configured.");
@@ -87,7 +88,7 @@ export async function sendMeetClientMail(input: {
     input.deliveryId,
     packetFiles.map((attachment) => attachment.name),
     input.message,
-    { packetUrl: input.packetUrl },
+    { packetUrl: input.packetUrl, forwarding: input.forwarding },
   );
   const mode = input.packetUrl ? "secure_link" : meetClientAttachmentDeliveryMode(input.attachments);
   if (mode === "draft_upload" && !readiness.largeAttachmentDeliveryConfigured) {

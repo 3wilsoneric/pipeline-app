@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:81ccb7fb8b5e16ac",
-  "fingerprint": "81ccb7fb8b5e16ac10fded0bd0b46fecbc9cbe2aa4f78beb2b797b33c0780466",
+  "generatedAt": "source-fingerprint:5f75d57e9b654ec0",
+  "fingerprint": "5f75d57e9b654ec01d776f37bda67d2040a756092b097b4685c2e665edb5140b",
   "totals": {
-    "files": 1397,
-    "lines": 367535,
-    "coveredFiles": 1397
+    "files": 1399,
+    "lines": 368015,
+    "coveredFiles": 1399
   },
   "entries": [
     {
@@ -1447,7 +1447,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 454,
+      "lines": 476,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -1472,7 +1472,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 66,
+      "lines": 72,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2748,7 +2748,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 31,
+      "lines": 34,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2760,7 +2760,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 159,
+      "lines": 204,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -7974,7 +7974,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 1451,
+      "lines": 1452,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -7986,7 +7986,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 152,
+      "lines": 153,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -9126,10 +9126,22 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 158,
+      "lines": 161,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
+      ]
+    },
+    {
+      "path": "lib/notifications/assessor-email-handoff.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 133,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
       ]
     },
     {
@@ -9174,7 +9186,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 94,
+      "lines": 98,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -9198,7 +9210,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 411,
+      "lines": 412,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9222,7 +9234,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 24,
+      "lines": 26,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -9234,7 +9246,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 248,
+      "lines": 249,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -12065,6 +12077,18 @@
       ]
     },
     {
+      "path": "scripts/assessor-email-handoff.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 143,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/assessor-scheduling-independence.test.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -12502,7 +12526,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 62,
+      "lines": 103,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13558,7 +13582,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 334,
+      "lines": 350,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -13678,7 +13702,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 410,
+      "lines": 412,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -15563,7 +15587,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 453,
+      "lines": 509,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
