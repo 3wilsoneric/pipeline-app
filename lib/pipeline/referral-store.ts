@@ -3022,9 +3022,7 @@ function normalizeReferral(input: Referral): Referral {
     gender: input.gender ?? "",
     reportedAge: input.reportedAge ?? "",
     ssn: input.ssn ?? "",
-    phone: input.phone ?? "",
-    email: input.email ?? "",
-    payer: input.payer ?? "",
+    ...normalizeReferralContactFields(input),
     admissionDate: input.admissionDate ?? "",
     responsiblePerson: input.responsiblePerson ?? "",
     currentMedications: input.currentMedications ?? "",
@@ -3037,6 +3035,10 @@ function normalizeReferral(input: Referral): Referral {
     ...normalized,
     workflowStatus: input.workflowStatus ?? resolveReferralWorkflowStatus(normalized),
   };
+}
+
+function normalizeReferralContactFields(input: Referral): Pick<Referral, "phone" | "email" | "payer"> {
+  return { phone: input.phone ?? "", email: input.email ?? "", payer: input.payer ?? "" };
 }
 
 function hasAssignedOwner(value: Pick<Referral, "owner" | "ownerId">) {
