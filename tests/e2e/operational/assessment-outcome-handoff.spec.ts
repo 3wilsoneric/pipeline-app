@@ -27,6 +27,7 @@ test.describe("assessment outcome and admission handoff", () => {
       await page.getByRole("radio", { name: "Under review", exact: true }).check();
       await page.getByRole("textbox", { name: "What needs review?", exact: true }).fill("Synthetic follow-up information is needed.");
       await page.getByRole("button", { name: "Save under review", exact: true }).click();
+      await page.getByRole("dialog", { name: "Under Review email" }).getByRole("button", { name: "Not now" }).click();
       await expect.poll(async () => (await workflow(admin, referral.id)).recommendation?.outcome).toBe("needs_more_information");
       const submitted = await workflow(admin, referral.id);
       expect(submitted.review).toBeNull();
@@ -52,6 +53,7 @@ test.describe("assessment outcome and admission handoff", () => {
 
       await page.getByRole("textbox", { name: "What needs review?", exact: true }).fill("Clarified the synthetic follow-up information.");
       await page.getByRole("button", { name: "Save under review", exact: true }).click();
+      await page.getByRole("dialog", { name: "Under Review email" }).getByRole("button", { name: "Not now" }).click();
       await expect.poll(async () => (await workflow(admin, referral.id)).recommendation?.reasonNote).toBe("Clarified the synthetic follow-up information.");
       expect((await workflow(admin, referral.id)).review).toBeNull();
       const activity = await (await admin.get(`/api/referrals/${referral.id}/activity`)).text();

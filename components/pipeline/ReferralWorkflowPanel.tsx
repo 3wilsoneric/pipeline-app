@@ -26,6 +26,7 @@ import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sectio
 import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { AdmissionRequirement, AssessmentRecommendation, Referral, RequirementStatus } from "@/lib/pipeline/referral-types";
 import assessmentStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
+import UnderReviewEmailDialog, { defaultUnderReviewMessage } from "./UnderReviewEmailDialog";
 
 type ReferralWorkflowPanelProps = {
   referral: Referral;
@@ -72,6 +73,9 @@ export default function ReferralWorkflowPanel({
   const [admissionDateDraft, setAdmissionDateDraft] = useState(getPlannedAdmissionDate(referral));
   const [manualIntakeReason, setManualIntakeReason] = useState("");
   const [pendingDetail, setPendingDetail] = useState<PendingWorkflowDetail | null>(null);
+  const [emailRecommendation, setEmailRecommendation] = useState<AssessmentRecommendation | null>(null);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const mutationIds = useRef(new Map<string, string>());
   const recommendationDirty = useRef(false);
   const admissionDateDirty = useRef(false);
@@ -221,7 +225,7 @@ export default function ReferralWorkflowPanel({
 
   const saveRecommendation = (draft: RecommendationDraft) => {
     if (!draft.outcome || compactRecommendation && (recommendationAssessmentId !== workflow.context.assessmentId || workflow.context.assessmentSigned)) return;
-    void runMutation(
+    void runMutation<{ referral?: Referral; recommendation: AssessmentRecommendation }>(
       `recommendation:${currentReferral.version}:${sections.decision}:${JSON.stringify(draft)}`,
       `/api/referrals/${currentReferral.id}/recommendation`,
       "PUT",
@@ -233,9 +237,31 @@ export default function ReferralWorkflowPanel({
         reason_code: draft.reasonCode,
         reason_note: draft.reasonNote,
       },
-      draft.outcome === "needs_more_information" ? "Under review saved. The referral remains open." : "Recommendation saved. You can keep editing and sign separately.",
-    );
+      draft.outcome === "needs_more_information" ? "Under review saved. Review the email to Andrew and Sandeep before sending." : "Recommendation saved. You can keep editing and sign separately.",
+    ).then((payload) => {
+      if (draft.outcome !== "needs_more_information" || !payload) return;
+      setEmailError("");
+      setEmailRecommendation(payload.recommendation);
+    });
   };
+  const sendUnderReviewEmail = async (content: string) => {
+    if (!emailRecommendation || emailSending) return;
+    setEmailSending(true);
+    setEmailError("");
+    try {
+      const result = await fetchPipelineJson<{ notification: "sent" | "already_requested" | "unavailable" | "failed" }>(`/api/referrals/${currentReferral.id}/under-review-email`, {
+        method: "POST",
+        body: JSON.stringify({ recommendation_id: emailRecommendation.recommendationId, recommendation_version: emailRecommendation.version, message: content }),
+      });
+      if (result.notification === "sent") {
+        setMessage("Under review saved. Microsoft 365 accepted the email to Andrew and Sandeep.");
+        setEmailRecommendation(null);
+      } else setEmailError(result.notification === "already_requested" ? "This email is being sent already. Check Sent Items before trying again." : result.notification === "failed" ? "Microsoft 365 did not confirm the email. Check Sent Items and contact Andrew and Sandeep directly; this update will not resend automatically." : "Email is not configured here. Under Review remains saved; contact Andrew and Sandeep directly.");
+    } catch (failure) {
+      setEmailError(failure instanceof Error ? failure.message : "The email could not be sent.");
+    } finally { setEmailSending(false); }
+  };
+  const emailDialog = emailRecommendation ? <UnderReviewEmailDialog key={`${emailRecommendation.recommendationId}:${emailRecommendation.version}`} referralId={currentReferral.id} initialMessage={defaultUnderReviewMessage(currentReferral.id, emailRecommendation.reasonNote)} sending={emailSending} error={emailError} onSend={(content) => void sendUnderReviewEmail(content)} onClose={() => setEmailRecommendation(null)} /> : null;
   const submitDecision = async () => {
     if (!recommendationDraft.outcome) return;
     if (recommendationDraft.outcome === "needs_more_information") {
@@ -333,7 +359,7 @@ export default function ReferralWorkflowPanel({
   };
 
   if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return null;
-  if (compactRecommendation) return <div data-quick-recommendation data-outcome={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>
+  if (compactRecommendation) return <><div data-quick-recommendation data-outcome={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>
     <label><span>{workflow.decision ? "Recorded decision" : "Working decision"}</span><select aria-label={workflow.decision ? "Recorded decision" : "Working decision"} title={workflow.decision || workflow.context.assessmentSigned ? "Review this choice in Decision." : "Guides the next steps. Does not sign, send, or record final admission."} value={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
       const next = { ...recommendationDraft, outcome: event.target.value as AssessmentRecommendation["outcome"] };
       recommendationDirty.current = true;
@@ -346,10 +372,10 @@ export default function ReferralWorkflowPanel({
       <option value="needs_more_information">Under review</option>
     </select></label>
     {error ? <span role="alert">Not saved. {error}</span> : <span className="sr-only" role="status">{busy ? "Saving working decision..." : workflow.decision ? "Decision recorded" : message ? "Working decision saved" : "Not a final admission decision"}</span>}
-  </div>;
+  </div>{emailDialog}</>;
 
   return (
-    <>{confirmationDialog}<ReferralWorkflowPanelPresentation
+    <>{confirmationDialog}{emailDialog}<ReferralWorkflowPanelPresentation
       workflow={workflow}
       busy={busy}
       message={message}
@@ -371,6 +397,7 @@ export default function ReferralWorkflowPanel({
       onManualIntakeReasonChange={setManualIntakeReason}
       onUpdateRequirement={updateRequirement}
       onSubmitDecision={submitDecision}
+      onOpenUnderReviewEmail={() => { if (workflow.recommendation?.outcome === "needs_more_information") { setEmailError(""); setEmailRecommendation(workflow.recommendation); } }}
       onSubmitTransition={submitTransition}
       onAuthorizeManualIntake={authorizeManualIntake}
       onUpdateHandoff={updateHandoff}

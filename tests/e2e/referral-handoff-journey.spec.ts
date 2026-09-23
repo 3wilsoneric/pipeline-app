@@ -251,6 +251,7 @@ test("a failed signature or decision stays in place; retry advances only after s
   const decision = page.getByRole("region", { name: "Admission decision", exact: true });
   await decision.getByRole("radio", { name: "Under review", exact: true }).check();
   await decision.getByRole("button", { name: "Save under review", exact: true }).click();
+  await page.getByRole("dialog", { name: "Under Review email" }).getByRole("button", { name: "Not now" }).click();
   await expect(decision.getByRole("button", { name: "Done", exact: true })).toBeVisible();
   await decision.getByRole("radio", { name: "Accept", exact: true }).check();
   await decision.getByLabel("Reason (optional)").fill("Synthetic retained decision note");

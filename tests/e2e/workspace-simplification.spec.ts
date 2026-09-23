@@ -229,7 +229,10 @@ for (const outcome of ["Deny", "Under review"] as const) {
     if (outcome === "Deny") {
       await panel.getByRole("button", { name: "Record decision", exact: true }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
-    } else await panel.getByRole("button", { name: "Save under review", exact: true }).click();
+    } else {
+      await panel.getByRole("button", { name: "Save under review", exact: true }).click();
+      await page.getByRole("dialog", { name: "Under Review email" }).getByRole("button", { name: "Not now" }).click();
+    }
     await expect(panel.getByRole("button", { name: "Done", exact: true })).toBeVisible();
     await expect(panel.getByLabel("Admission date (optional)", { exact: true })).toHaveCount(0);
     await panel.getByRole("button", { name: "Done", exact: true }).click();
