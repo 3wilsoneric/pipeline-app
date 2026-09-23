@@ -55,14 +55,14 @@ async function createSource(request: APIRequestContext, overrides: Partial<Refer
   } } });
   expect(response.status(), await response.text()).toBe(201);
   let referral = (await response.json()).referral as Referral;
-  if (process.env.PIPELINE_DATABASE_MODE === "postgres" && (overrides.workspaceOrigin ?? "allo") === "allo") {
+  if (process.env.PIPELINE_DATABASE_MODE === "postgres" && ["allo", "import"].includes(overrides.workspaceOrigin ?? "allo")) {
     // The public create API cannot mint imported provenance; establish it only in this isolated test database.
     const sql = postgres(process.env.PIPELINE_DATABASE_URL!, { ssl: false, max: 1 });
     try {
       await sql`update pipeline.referrals
-        set workspace_origin = 'allo',
+        set workspace_origin = ${overrides.workspaceOrigin ?? "allo"},
             source_workspace_id = ${`fixture-${referral.id}`},
-            data = jsonb_set(data, '{workspaceOrigin}', '"allo"'::jsonb),
+            data = jsonb_set(data, '{workspaceOrigin}', ${JSON.stringify(overrides.workspaceOrigin ?? "allo")}::jsonb),
             workspace_status = ${overrides.workspaceStatus === "historical" ? "historical" : "active"}
         where referral_id = ${referral.id}`;
     } finally { await sql.end(); }
@@ -107,7 +107,7 @@ test("a chart allows another intake while retries remain idempotent", async ({ p
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
   await expect(page.locator("#packet-page-1")).toBeVisible();
   await expect(page.locator(`input[value="${created.name}"]`)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   const membersResponse = await page.request.get("/api/members?scope=assessors");
   expect(membersResponse.ok()).toBeTruthy();
   const members = (await membersResponse.json()).members as { principal_id: string; display_name: string }[];
@@ -151,11 +151,11 @@ test("a chart allows another intake while retries remain idempotent", async ({ p
   await page.screenshot({ path: testInfo.outputPath("seeded-intake.png"), fullPage: true });
 });
 
-test("only imported ALLO workspaces offer a new intake with carried chart details", async ({ page }, testInfo) => {
+test("saved client workspaces offer a new intake with carried chart details", async ({ page }, testInfo) => {
   const ordinary = await createSource(page.request, { workspaceOrigin: "pipeline" });
   await page.goto(`/?view=referrals&screen=packet&referralId=${ordinary.id}&workspaceStage=chart`);
-  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
-  const source = await createSource(page.request, { workspaceStatus: "historical" });
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
+  const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
   const members = (await (await page.request.get("/api/members?scope=assessors")).json()).members as { principal_id: string; display_name: string }[];
   expect(members.length).toBeGreaterThan(0);
   await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
@@ -181,7 +181,7 @@ test("only imported ALLO workspaces offer a new intake with carried chart detail
   expect(created.workspaceOrigin).toBe("pipeline");
   expect(created.workspaceStatus).toBe("active");
   await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceStage=intake`));
-  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Assessment", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Decision", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Finish & send", exact: true })).toBeVisible();
@@ -244,7 +244,7 @@ test("Clients and Workspace resolve the same confirmed chart, and new intake ret
 test("source validation rejects malformed, missing and cross-origin intake requests", async ({ request }) => {
   const source = await createSource(request);
   const ordinary = await createSource(request, { workspaceOrigin: "pipeline" });
-  expect((await request.post(`/api/referrals/${ordinary.id}/new-intake`, { data: { client_mutation_id: randomUUID() } })).status()).toBe(409);
+  expect((await request.post(`/api/referrals/${ordinary.id}/new-intake`, { data: { client_mutation_id: randomUUID() } })).status()).toBe(201);
   expect((await request.post(`/api/referrals/${source.id}/new-intake`, { data: {} })).status()).toBe(400);
   expect((await request.post(`/api/referrals/${source.id}/new-intake`, { data: { client_mutation_id: randomUUID(), assignee_id: "unknown-member" } })).status()).toBe(422);
   expect((await request.post(`/api/referrals/${source.id}oops/new-intake`, { data: { client_mutation_id: randomUUID() } })).status()).toBe(400);

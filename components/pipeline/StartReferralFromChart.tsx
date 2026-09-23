@@ -67,7 +67,7 @@ export default function StartReferralFromChart({ sourceReferralId, allowed, inFo
   }
   const currentMember = members.find((member) => member.principal_id === currentPrincipalId);
   const canAssignOthers = !currentMember?.roles.includes("reviewer") || currentMember.roles.includes("assessment_coordinator") || currentMember.roles.includes("admin");
-  const assignmentDialog = open ? <HomeDialog label="Assign new intake" title="Start a new intake" description="Choose an assessor. The ALLO record stays in client history; this intake opens in Workspaces." size="confirmation" onClose={() => { if (!saving) setOpen(false); }}>
+  const assignmentDialog = open ? <HomeDialog label="Assign new intake" title="Start a new intake" description="Choose an assessor or leave this intake unassigned. Existing client records remain available." size="confirmation" onClose={() => { if (!saving) setOpen(false); }}>
     <div className="px-6 pb-6">
       <label htmlFor="chart-intake-assignee" className="mb-2 block text-[14px] font-semibold text-[#334a40]">Assessor</label>
       <select id="chart-intake-assignee" value={assigneeId} disabled={loadingMembers || saving} onChange={(event) => setAssigneeId(event.target.value)} className="min-h-12 w-full rounded-md border border-[#bacfc5] bg-white px-3 text-[15px] text-[#243b32] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">

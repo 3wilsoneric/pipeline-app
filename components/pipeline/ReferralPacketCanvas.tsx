@@ -2423,7 +2423,7 @@ export default function ReferralPacketCanvas({
               {renderWorkspaceSyncStatus()}
               <StartReferralFromChart
                 sourceReferralId={loadedReferral?.id}
-                allowed={Boolean(loadedReferral?.workspaceOrigin === "allo" && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
+                allowed={Boolean(loadedReferral?.clientId && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
                 inFolder
                 beforeStart={async () => {
                   if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting an intake.");

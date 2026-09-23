@@ -251,7 +251,7 @@ function ResidentProfile({
     ?? profile.pipeline.referrals[0];
   const renderChartHeading = () => <>
         {!embedded ? <StartReferralFromChart sourceReferralId={newIntakeSource?.id}
-          allowed={profile.pipeline.permissions.can_create_identity_candidate && newIntakeSource?.workspaceOrigin === "allo"} /> : null}
+          allowed={Boolean(newIntakeSource?.clientId)} /> : null}
 
         {profile.freshness.status === "stale" || profile.freshness.warning ? (
           <div className="mt-4 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">

@@ -28,8 +28,7 @@ export async function POST(request: Request, context: { params: Promise<{ referr
     if (sourceId === null) return jsonError("referralId is invalid.");
     const access = await requireReferralAccess(auth.user, sourceId);
     if (!access.ok) return access.response;
-    if (access.referral.workspaceOrigin !== "allo") return jsonError("Start a new intake from an imported ALLO workspace.", 409);
-    if (!access.referral.clientId) return jsonError("Connect this workspace to its client before starting a new referral.", 409);
+    if (!access.referral.clientId) return jsonError("This workspace needs a client record before starting a new intake.", 409);
     const mutation = await readChartMutation(request);
     if (!mutation.ok) return mutation.response;
     await touchWorkspaceMember(auth.user);
