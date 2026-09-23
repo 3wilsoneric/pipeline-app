@@ -75,7 +75,7 @@ export function referralCanvasValue(referral: Referral, key: PersistedCanvasFiel
     summary: referral.note,
     currentMedications: referral.currentMedications ?? "",
   } satisfies Record<PersistedCanvasFieldKey, string>;
-  return values[key];
+  return values[key] ?? "";
 }
 
 export function fieldSourcesFromCanvas(fields: ReferralCanvasFields) {

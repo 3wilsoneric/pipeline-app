@@ -50,6 +50,11 @@ test("intake edits neither set nor clear existing actual admissions or their evi
   assert.equal(persistence.referralCanvasValue({ admissionDate: "2026-08-01" }, "admissionDate"), "2026-08-01");
 });
 
+test("imported charts with no contact fields remain readable", () => {
+  assert.equal(persistence.referralCanvasValue({}, "phone"), "");
+  assert.equal(persistence.referralCanvasValue({}, "email"), "");
+});
+
 test("requested admission remains packet evidence, never actual admission data", () => {
   const canvas = fields();
   const packet = [{ field_key: "referral.preferred_admission_date", value: "2026-09-20", review_status: "accepted" }];
