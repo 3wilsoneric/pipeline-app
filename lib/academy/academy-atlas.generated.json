@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:90b31846d61cbdac",
-  "fingerprint": "90b31846d61cbdac149f939050e03da13c819e76f9c82a744e53f4da98d110bd",
+  "generatedAt": "source-fingerprint:2cc68e0de3054d22",
+  "fingerprint": "2cc68e0de3054d227acb5eafd6772048ddaa61e57034b17e970673d548d27a6f",
   "totals": {
     "files": 1396,
-    "lines": 367102,
+    "lines": 367104,
     "coveredFiles": 1396
   },
   "entries": [
@@ -4320,7 +4320,7 @@
       "kind": "migration",
       "runtime": "postgres",
       "risk": "critical",
-      "lines": 23,
+      "lines": 25,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"

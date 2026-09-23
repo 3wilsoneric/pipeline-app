@@ -5,9 +5,11 @@ set local lock_timeout = '5s';
 set local statement_timeout = '30s';
 
 create table if not exists pipeline.under_review_email_notifications (
-  recommendation_id uuid not null references pipeline.assessment_recommendations(recommendation_id),
+  -- Keep identifiers without foreign keys: historical rollback drills remove
+  -- parent tables while preserving this send ledger to prevent duplicate mail.
+  recommendation_id uuid not null,
   recommendation_version integer not null check (recommendation_version > 0),
-  referral_id bigint not null references pipeline.referrals(referral_id),
+  referral_id bigint not null,
   status text not null check (status in ('sending', 'sent', 'failed')),
   claimed_at timestamptz not null default now(),
   finished_at timestamptz,

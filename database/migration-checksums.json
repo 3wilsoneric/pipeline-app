@@ -45,6 +45,6 @@
     "0041_community_recipient_lists.sql": "ea75c6ddd9366ab24ad53ab1fd355b8e91fcdc020a860974156a40c286314f7f",
     "0042_admission_packet_links.sql": "21ea59253a651c93df1f6c014d7a71528208dab794cd92c8106a7226c68526cb",
     "0043_presence_physical_health.sql": "8cb4b423ede4a870c59ec2da299a923c711366ff8e4272ce3551aeb30077f067",
-    "0044_under_review_email_notifications.sql": "bfb9b8e9d5f6f278cfdc8dbd1f105d71c6b48c54935e9faa75bcdffb0cd6fd73"
+    "0044_under_review_email_notifications.sql": "2605ec3d9ab6668936c5de7afe6d455ef126f72fe10b6fc9220ef15e7694bbea"
   }
 }
