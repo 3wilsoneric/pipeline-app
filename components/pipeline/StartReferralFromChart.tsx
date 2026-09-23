@@ -56,7 +56,7 @@ export default function StartReferralFromChart({ sourceReferralId, allowed, inFo
         body: JSON.stringify({ client_mutation_id: mutationId.current, ...(assigneeId ? { assignee_id: assigneeId } : {}) }),
       });
       setOpen(false);
-      pushPipelineHistory(`/?view=referrals&screen=packet&referralId=${result.referral.id}&workspaceStage=intake`);
+      pushPipelineHistory(`/?view=referrals&screen=packet&referralId=${result.referral.id}&workspaceStage=intake&workspaceField=name`);
       mutationId.current = null;
     } catch (error) {
       setError(error instanceof Error ? error.message : "The new intake could not be created. Try again.");

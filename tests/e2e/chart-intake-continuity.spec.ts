@@ -103,11 +103,10 @@ test("a chart allows another intake while retries remain idempotent", async ({ p
   expect(created.assessment).toBeUndefined();
   expect(created.admissionDecision).toBeUndefined();
   expect(created.fieldSources?.currentMedications).toContain(`workspace #${source.id}`);
-  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceStage=intake`));
-  await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceField=name`));
   await expect(page.locator("#packet-page-1")).toBeVisible();
   await expect(page.locator(`input[value="${created.name}"]`)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
   const membersResponse = await page.request.get("/api/members?scope=assessors");
   expect(membersResponse.ok()).toBeTruthy();
   const members = (await membersResponse.json()).members as { principal_id: string; display_name: string }[];
@@ -180,8 +179,9 @@ test("saved client workspaces offer a new intake with carried chart details", as
   expect(created.ownerId).toBe(members[0].principal_id);
   expect(created.workspaceOrigin).toBe("pipeline");
   expect(created.workspaceStatus).toBe("active");
-  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceStage=intake`));
-  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceField=name`));
+  await expect(page.locator("#packet-page-1")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Assessment", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Decision", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Finish & send", exact: true })).toBeVisible();
