@@ -146,7 +146,14 @@ assert.equal(writes[1][0].owner, "Unassigned");
 assert.notEqual(writes[1][1], assessorKey, "idempotency must be actor-bound");
 user = { id: "viewer", name: "Pipeline Staff", roles: ["viewer"] };
 assert.equal((await post()).status, 201, "existing all-staff policy permits a new intake");
+source.workspaceOrigin = "allo";
+source.workspaceStatus = "historical";
+assert.equal((await post({ client_mutation_id: "21d72f7d-ab88-4e78-ac7a-63d111638f0a" })).status, 201,
+  "a historical ALLO workspace can seed a new intake without becoming mutable");
+assert.equal(writes.at(-1)[0].workspaceOrigin, "pipeline");
+assert.equal(writes.at(-1)[0].workspaceStatus, "active");
+assert.equal(source.workspaceStatus, "historical");
 profile.pipeline.connection.status = "unavailable";
 assert.equal((await post()).status, 503);
-assert.equal(writes.length, 3);
+assert.equal(writes.length, 4);
 console.log("Chart/intake contracts passed: field mapping, source preservation, clean episode, protected provenance, role/access/origin checks, actor-bound retry keys, client-id injection and incomplete-chart refusal.");
