@@ -364,15 +364,15 @@ function RequirementGroup({ group, disabled, onChange }: { group: RequirementGro
   return (
     <section aria-label={`${group.label} requirements`}>
       <div className="mb-2 flex items-end justify-between gap-3">
-        <div><h4 className="text-[10px] font-black uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4><p className="mt-0.5 text-[9px] text-[#737c77]">{group.detail}</p></div>
-        <span className="shrink-0 text-[9px] font-black text-[#68716c]">{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
+        <div><h4 className="text-[14px] font-bold uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4><p className="mt-0.5 text-[14px] text-[#737c77]">{group.detail}</p></div>
+        <span className="shrink-0 text-[14px] font-semibold text-[#68716c]">{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
       </div>
       <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
         {group.items.map((item) => (
           <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-black text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[9px] font-black uppercase text-[#68716c]">To complete</span> : null}</div>
-              <div className="mt-1 text-[10px] leading-4 text-[#737373]">{requirementStatusDetail(item)}</div>
+              <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[14px] font-semibold uppercase text-[#68716c]">To complete</span> : null}</div>
+              <div className="mt-1 text-[14px] leading-5 text-[#737373]">{requirementStatusDetail(item)}</div>
             </div>
             <select aria-label={`${item.label} status`} value={item.status} disabled={disabled} onChange={(event) => onChange(item, event.target.value as RequirementStatus)} className="h-11 w-full border border-[#c9ceca] bg-white px-2 text-[14px] font-semibold outline-none focus:border-[#0f8b73]">{requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}</select>
           </div>
