@@ -496,6 +496,7 @@ export default function ReferralPacketCanvas({
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
   const [isBulkReviewing, setIsBulkReviewing] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [recoveredDraftAt, setRecoveredDraftAt] = useState("");
   const [recoveredPacketName, setRecoveredPacketName] = useState("");
   const [dirtyKeys, setDirtyKeys] = useState<Set<DirtyDraftKey>>(() => new Set());
@@ -2312,19 +2313,20 @@ export default function ReferralPacketCanvas({
     const current = loadedReferralRef.current;
     if (!current) return;
     setIsDeleting(true);
-    setSaveError("");
+    setDeleteError("");
     try {
+      await Promise.allSettled([intakeSaveQueueRef.current, fileUploadQueueRef.current]);
+      const latest = await fetchPipelineJson<{ referral: Referral }>(`/api/referrals/${current.id}`, { cache: "no-store" });
       await fetchPipelineJson(`/api/referrals/${current.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ if_match: current.version, client_mutation_id: deleteMutationIdRef.current }),
+        body: JSON.stringify({ if_match: latest.referral.version, client_mutation_id: deleteMutationIdRef.current }),
       });
       await clearSessionDraft(current.id);
       setDeleteDialogOpen(false);
       onReferralDeleted?.();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "The workspace could not be moved to trash.");
-      setDeleteDialogOpen(false);
+      setDeleteError(error instanceof Error ? error.message : "The workspace could not be moved to trash.");
     } finally {
       setIsDeleting(false);
     }
@@ -2419,6 +2421,18 @@ export default function ReferralPacketCanvas({
   const renderWorkspaceActions = () => (
             <div className={workspaceFolderStyles.actions}>
               {renderWorkspaceSyncStatus()}
+              <StartReferralFromChart
+                sourceReferralId={loadedReferral?.id}
+                allowed={Boolean(loadedReferral?.workspaceOrigin === "allo" && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
+                inFolder
+                beforeStart={async () => {
+                  if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting an intake.");
+                  await handoff.flush();
+                  await assessmentNavigationRef.current?.();
+                  await preservePendingIntake();
+                  await intakeSaveQueueRef.current;
+                }}
+              />
               {!readingAssessment ? <WorkspaceAssignedWorkControl
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
@@ -2432,7 +2446,7 @@ export default function ReferralPacketCanvas({
                   hasChanges={hasPendingWorkspaceChanges}
                   blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
                   onSave={saveWorkspaceDraft}
-                  retry={Boolean(saveError)}
+                  retry={false}
                 />
               ) : null}
               <button
@@ -2459,12 +2473,9 @@ export default function ReferralPacketCanvas({
               </button>
               {trashControlVisible && !readingAssessment ? (
                 <WorkspaceMoreMenu
-                  disabled={isSaving || isDeleting}
+                  disabled={isDeleting}
                   onMoveToTrash={() => {
-                    if (dirtyKeysRef.current.size > 0) {
-                      setSaveError("Wait for your changes to save before moving this workspace to trash.");
-                      return;
-                    }
+                    setDeleteError("");
                     setDeleteDialogOpen(true);
                   }}
                 />
@@ -2485,13 +2496,14 @@ export default function ReferralPacketCanvas({
           {editingControlsVisible && displayedPage !== 2 ? (
             <WorkspaceSaveStatus
               status={saveStatus}
-              error={saveError ? `Pending · ${saveError}` : ""}
+              error={saveError}
               createdWorkspaceId={createdWorkspaceId}
               referralId={editableReferralId}
               hasReferral={hasReferral}
               saving={isSaving}
               dirtyCount={dirtyKeys.size}
               queuedFileCount={queuedFileCount}
+              onRetry={hasReferral && hasPendingWorkspaceChanges ? () => void saveWorkspaceDraft() : undefined}
             />
           ) : null}
         </div>
@@ -2747,19 +2759,6 @@ export default function ReferralPacketCanvas({
       >
         {renderWorkspaceHeader()}
 
-        <StartReferralFromChart
-          sourceReferralId={loadedReferral?.id}
-          allowed={Boolean(loadedReferral && !loadedReferral.chartSource && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
-          prominent
-          beforeStart={async () => {
-            if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting another intake.");
-            await handoff.flush();
-            await assessmentNavigationRef.current?.();
-            await preservePendingIntake();
-            await intakeSaveQueueRef.current;
-          }}
-        />
-
         {renderRestoredEdits()}
 
         {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
@@ -2895,6 +2894,8 @@ export default function ReferralPacketCanvas({
         <DeleteWorkspaceDialog
           name={loadedReferral.name}
           busy={isDeleting}
+          unsavedChanges={hasPendingWorkspaceChanges}
+          error={deleteError}
           onConfirm={() => void moveWorkspaceToTrash()}
           onClose={() => { if (!isDeleting) setDeleteDialogOpen(false); }}
         />
@@ -3077,9 +3078,9 @@ function WorkspaceStageButton({ page, label, selected, onOpen }: {
   </button>;
 }
 
-function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount }: {
+function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount, onRetry }: {
   status: string; error: string; createdWorkspaceId: number | null; referralId: number | null;
-  hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number;
+  hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number; onRetry?: () => void;
 }) {
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
   const presentation = workspaceSavePresentation(status, error, hasReferral, saving, dirtyCount, queuedFileCount);
@@ -3089,13 +3090,12 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   const quiet = !error && !saving && /^Draft(?: saved.*)?$/.test(status);
   return <div data-testid="workspace-save-status" className={quiet ? "sr-only" : workspaceFolderStyles.saveNotice} aria-live="polite" title={error || status}>
     <FeedbackCue value={status} enabled={presentation.confirmed} />
-    <Icon size={13} aria-hidden="true" className={`mt-0.5 shrink-0 ${presentation.iconClassName}`} />
-    <span className={`min-w-0 ${presentation.textClassName}`}>
-      <span className="block truncate">{presentation.label}</span>
-      {created ? <span className="sr-only">Workspace created</span> : null}
-      {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
-      {error ? <span role="alert" className="block break-words text-[14px] font-medium leading-6">{error}</span> : null}
-    </span>
+    <Icon size={13} aria-hidden="true" className={`shrink-0 ${presentation.iconClassName}`} />
+    <span className={`shrink-0 ${presentation.textClassName}`}>{presentation.label}</span>
+    {created ? <span className="sr-only">Workspace created</span> : null}
+    {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
+    {error ? <span role="alert" className="min-w-0 max-w-[45ch] truncate text-[11px] font-medium text-[#8b4638]">{error}</span> : null}
+    {error && onRetry ? <button type="button" aria-label="Retry saving" onClick={onRetry} disabled={saving} className="shrink-0 text-[11px] font-bold text-[#0c705f] underline underline-offset-2">Retry</button> : null}
   </div>;
 }
 
