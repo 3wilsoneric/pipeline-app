@@ -948,20 +948,6 @@ async function createLocalReferral(
   }
 
   const creationReason = confirmLocalReferralCreation(input, options);
-  if (options.newEpisodeSourceReferralId !== undefined) {
-    const activeIntake = state.referrals.find((referral) =>
-      referral.clientId === input.clientId && referral.chartSource && !isDeletedReferral(referral)
-      && !isClosedStage(referral.stage) && (referral.workspaceStatus ?? "active") === "active",
-    );
-    if (activeIntake) {
-      if (mutationId) {
-        state.createMutations.set(mutationId, activeIntake.id);
-        await persist();
-      }
-      return { referral: activeIntake, revision: state.revision, idempotentReplay: true };
-    }
-  }
-
   if (state.referrals.length >= maxReferralRows) {
     throw new Error("Referral capacity reached. Archive closed referrals before creating more.");
   }
@@ -1891,30 +1877,6 @@ async function createPostgresReferral(
 
     const clientId = normalizeClientId(input.clientId) || `pipeline-client-${randomUUID()}`;
     const { personId, creationReason } = await resolvePostgresCreationPerson(tx, clientId, input, options);
-    if (options.newEpisodeSourceReferralId !== undefined) {
-      await tx`select pg_advisory_xact_lock(hashtextextended(${`active_chart_intake:${clientId}`}, 0))`;
-      const activeRows = await tx<{ referral_id: number }[]>`
-        select referral_id from pipeline.referrals
-        where person_id = ${personId}::uuid and deleted_at is null and closed_at is null
-          and workspace_status = 'active' and data ? 'chartSource'
-        order by referral_id desc limit 1
-      `;
-      if (activeRows[0]) {
-        const activeIntake = await getReferralInTransaction(tx, Number(activeRows[0].referral_id));
-        if (activeIntake) {
-          if (mutationId) await tx`
-            insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
-            values ('referral_create', ${mutationId}, 'referral', ${String(activeIntake.id)})
-            on conflict (scope, mutation_id) do nothing
-          `;
-          return {
-            referral: activeIntake,
-            revision: await getReferralRevisionInTransaction(tx),
-            idempotentReplay: true,
-          };
-        }
-      }
-    }
     const county = resolveWorkspaceCounty(input);
     const assigned = hasAssignedOwner(input);
     const assignedAt = assigned ? new Date() : null;

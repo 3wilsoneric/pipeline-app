@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import HomeDialog from "@/components/pipeline/HomeDialog";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { pushPipelineHistory } from "@/lib/pipeline/client-navigation";
@@ -23,16 +23,7 @@ export default function StartReferralFromChart({ sourceReferralId, allowed, inFo
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [currentPrincipalId, setCurrentPrincipalId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
-  const [availability, setAvailability] = useState<{ sourceId: number; activeId: number | null } | null>(null);
-  useEffect(() => {
-    if (!sourceReferralId || !allowed) return;
-    let current = true;
-    void fetchPipelineJson<{ active_referral_id: number | null }>(`/api/referrals/${sourceReferralId}/new-intake`, { cache: "no-store" })
-      .then((result) => { if (current) setAvailability({ sourceId: sourceReferralId, activeId: result.active_referral_id }); })
-      .catch(() => { if (current) setAvailability(null); });
-    return () => { current = false; };
-  }, [sourceReferralId, allowed]);
-  if (!sourceReferralId || !allowed || availability?.sourceId !== sourceReferralId || availability.activeId !== null) return null;
+  if (!sourceReferralId || !allowed) return null;
   async function showAssignment() {
     setOpen(true);
     setError("");
@@ -64,9 +55,9 @@ export default function StartReferralFromChart({ sourceReferralId, allowed, inFo
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ client_mutation_id: mutationId.current, ...(assigneeId ? { assignee_id: assigneeId } : {}) }),
       });
-      setAvailability({ sourceId: sourceReferralId, activeId: result.referral.id });
       setOpen(false);
       pushPipelineHistory(`/?view=referrals&screen=packet&referralId=${result.referral.id}&workspaceStage=intake`);
+      mutationId.current = null;
     } catch (error) {
       setError(error instanceof Error ? error.message : "The new intake could not be created. Try again.");
     } finally {
@@ -76,7 +67,7 @@ export default function StartReferralFromChart({ sourceReferralId, allowed, inFo
   }
   const currentMember = members.find((member) => member.principal_id === currentPrincipalId);
   const canAssignOthers = !currentMember?.roles.includes("reviewer") || currentMember.roles.includes("assessment_coordinator") || currentMember.roles.includes("admin");
-  const assignmentDialog = open ? <HomeDialog label="Assign new intake" title="Start a new intake" description="Choose an assessor. The prior ALLO record stays in client history; this intake becomes the active workspace." size="confirmation" onClose={() => { if (!saving) setOpen(false); }}>
+  const assignmentDialog = open ? <HomeDialog label="Assign new intake" title="Start a new intake" description="Choose an assessor or leave this intake unassigned. Existing client records remain available." size="confirmation" onClose={() => { if (!saving) setOpen(false); }}>
     <div className="px-6 pb-6">
       <label htmlFor="chart-intake-assignee" className="mb-2 block text-[14px] font-semibold text-[#334a40]">Assessor</label>
       <select id="chart-intake-assignee" value={assigneeId} disabled={loadingMembers || saving} onChange={(event) => setAssigneeId(event.target.value)} className="min-h-12 w-full rounded-md border border-[#bacfc5] bg-white px-3 text-[15px] text-[#243b32] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
