@@ -5,11 +5,15 @@ import { createPortal } from "react-dom";
 export default function DeleteWorkspaceDialog({
   name,
   busy,
+  unsavedChanges,
+  error,
   onConfirm,
   onClose,
 }: {
   name: string;
   busy: boolean;
+  unsavedChanges: boolean;
+  error: string;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -31,6 +35,8 @@ export default function DeleteWorkspaceDialog({
         <p className="mt-2 text-[12px] leading-5 text-[#595959]">
           <strong>{name}</strong> and its files will leave active work immediately. They can be restored from Trash for 30 days.
         </p>
+        {unsavedChanges ? <p className="mt-3 text-[12px] font-semibold leading-5 text-[#8b4638]">Changes not saved to Pipeline will be discarded from this device.</p> : null}
+        {error ? <p role="alert" className="mt-3 text-[12px] leading-5 text-[#8b4638]">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" disabled={busy} onClick={onClose} className="h-10 border border-[#c9ceca] px-4 text-[11px] font-black text-[#595959] hover:bg-[#f7faf9]">Cancel</button>
           <button type="button" disabled={busy} onClick={onConfirm} className="h-10 bg-[#a9473d] px-4 text-[11px] font-black text-white hover:bg-[#8d382f] disabled:opacity-50">{busy ? "Moving..." : "Move to trash"}</button>

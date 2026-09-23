@@ -1175,6 +1175,10 @@ test.describe("Referral home and packet canvas", () => {
     await page.route(`**/api/referrals/${historicalReferral.id}/assessments`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ assessments: [], total: 0 }) });
     });
+    await page.route(`**/api/referrals/${historicalReferral.id}/new-intake`, (route) => route.fulfill({
+      status: 200,
+      json: { active_referral_id: null },
+    }));
     await page.route(`**/api/referrals/${historicalReferral.id}/changes**`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ changed: false, sequence: 4, presence: [] }) });
     });
@@ -1196,7 +1200,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "More workspace actions" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Workspace files" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Workspace activity" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create new intake from this workspace" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
     await expect(page.getByText("Historical face sheet.pdf", { exact: true })).toBeVisible();
     expect(presenceWrites).toBe(0);
   });
