@@ -49,7 +49,7 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000
 
-RUN apk add --no-cache postgresql16-client \
+RUN apk add --no-cache postgresql16-client font-noto \
   && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 

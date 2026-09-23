@@ -28,7 +28,7 @@ for (const [name, engine, width, height] of [["desktop", chromium, 1440, 900], [
         }
         return route.fulfill(verified ? { json: { expires_at: "2026-10-21T12:00:00Z", session_expires_at: Date.now() + 3600_000,
           message: { subject: "Synthetic admission handoff", body: "Hello team,\nPlease review all records before arrival." },
-          files: [{ id: "file1", name: "Referral records — a long filename that must wrap on a phone.pdf", byteSize: 90 * 1024 ** 2 }, { id: "file2", name: "Client data sheet.html", byteSize: 32768 }] } }
+          files: [{ id: "file1", name: "Referral records — a long filename that must wrap on a phone.pdf", byteSize: 90 * 1024 ** 2 }, { id: "file2", name: "Client data sheet.pdf", byteSize: 32768 }] } }
           : { status: 401, json: { error: "Verify your email." } });
       });
       await page.goto(`${base}/admission-packet/${id}`);
