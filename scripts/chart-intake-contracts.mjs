@@ -22,6 +22,7 @@ assert(!JSON.stringify(displayedChart).includes("SYN-INTERNAL-71"));
 assert.equal(internalIdentity.resident_number, "SYN-INTERNAL-71", "presentation must preserve internal identity data");
 const source = {
   id: 71, clientId: "known-person", name: "Source Person", stage: "Accepted / Admitted", community: "San Pablo",
+  workspaceOrigin: "allo", workspaceStatus: "historical",
   date: "2025-01-01", createdAt: "2025-01-01T00:00:00Z", dob: "1980-01-01", gender: "Female", phone: "555-0101",
   email: "source@example.invalid", ssn: "fixture-only", owner: "Old assessor", ownerId: "old-assessor",
   admissionDate: "2025-01-03", county: "Alameda County", payer: "Source payer", source: "Old referrer",
@@ -130,6 +131,9 @@ accessAllowed = true;
 originAllowed = false;
 assert.equal((await post()).status, 403);
 originAllowed = true;
+source.workspaceOrigin = "pipeline";
+assert.equal((await post()).status, 409, "ordinary workspaces cannot seed an ALLO intake");
+source.workspaceOrigin = "allo";
 assert.equal((await post({})).status, 400);
 assert.equal((await post(requestBody, "71oops")).status, 400);
 assert.equal(writes.length, 0);
