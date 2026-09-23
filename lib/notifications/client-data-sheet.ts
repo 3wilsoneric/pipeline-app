@@ -1,23 +1,31 @@
+import "server-only";
+import { PDFDocument, type CanvasRenderingContext2D } from "@napi-rs/canvas";
 import { buildAdmissionAgreementSummary, type AssessmentSummaryReport, type AssessmentSummaryItem } from "@/lib/assessment/assessment-summary";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { escapeHtml } from "./meet-client-email-template";
 import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 
-export const clientDataSheetName = "Client data sheet.html";
+export const clientDataSheetName = "Client data sheet.pdf";
 
-export function renderClientDataSheet(report: AssessmentSummaryReport | null, referral: Referral) {
+// Use the existing server canvas PDF writer. Text remains selectable and fonts
+// are embedded; the runtime image supplies Noto Sans instead of a browser.
+export function renderClientDataSheet(report: AssessmentSummaryReport | null, referral: Referral): Buffer {
   const identity = report?.identity.map((item) => item.label === "Community" && referral.community
     ? { ...item, value: referral.community } : item) ?? [
     { label: "Name", value: referral.name }, { label: "Date of birth", value: referral.dob },
     { label: "Community", value: referral.community }, { label: "Referrer", value: referral.source },
   ];
-  const recordStatus = report?.signed ? `Signed ${report.signedAt ?? ""} by ${report.signedBy}` : "Working chart - not signed";
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Client data sheet</title><style>
-    *{box-sizing:border-box}body{margin:0;background:#f3f5f4;color:#233b32;font:16px/1.6 Georgia,serif}main{max-width:980px;margin:28px auto;padding:38px 44px;background:#fff;border:1px solid #dce3de}header{border-top:4px solid #087d66;padding-top:22px}h1{font:700 30px/1.2 sans-serif;margin:6px 0}h2{font:650 19px/1.3 sans-serif;border-bottom:1px solid #d4ded8;padding-bottom:10px;margin:30px 0 16px}.eyebrow,dt,footer{font-family:sans-serif}.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#087d66}dl{margin:0;display:grid;gap:18px 32px;grid-template-columns:1fr 1fr}dl>div{break-inside:avoid;min-width:0}dt{font-size:13px;font-weight:650;color:#607168}dd{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}footer{margin-top:32px;border-top:1px solid #d4ded8;padding-top:16px;font-size:12px;color:#607168}@media(max-width:600px){main{margin:0;padding:24px 18px;border:0}dl{grid-template-columns:1fr}}@media print{body{background:#fff}main{margin:0;border:0;padding:0;max-width:none}h2{break-after:avoid}header{border-color:#087d66}@page{size:letter;margin:.65in}}
-    </style></head><body><main><header><div class="eyebrow">Alamo Health Management / Clinical handoff</div><h1>${escapeHtml(referral.name)}</h1><p>Client data sheet · ${escapeHtml(recordStatus)}</p></header>
-    ${section("Client & referral", identity)}${section("Admission", admissionItems(referral))}
-    ${report ? report.sections.map((item) => section(item.title, item.items)).join("") : section("Intake notes", [{ label: "Summary", value: referral.note || "Not recorded" }, { label: "Medications", value: referral.currentMedications || "Not recorded" }])}
-    <footer>${report ? `Assessment ${escapeHtml(report.assessmentId)} · Version ${report.assessmentVersion}. ` : "Assessment not yet recorded. "}Referral version ${referral.version}. Snapshot only; later chart changes are not reflected in this copy.<br>Confidential client information. For authorized care coordination only.</footer></main></body></html>`;
+  const sheet = new DataSheet(referral.name);
+  sheet.text(report?.signed ? `Signed ${report.signedAt ?? ""} by ${report.signedBy}` : "Working chart - not signed", 10, false, "#596d64");
+  sheet.section("Client & referral", identity);
+  sheet.section("Admission", admissionItems(referral));
+  const sections = report?.sections ?? [{ title: "Intake notes", items: [
+    { label: "Summary", value: referral.note || "Not recorded" },
+    { label: "Medications", value: referral.currentMedications || "Not recorded" },
+  ] }];
+  for (const section of sections) sheet.section(section.title, section.items);
+  sheet.section("About this copy", [{ label: "Source record", value:
+    `${report ? `Assessment ${report.assessmentId} - Version ${report.assessmentVersion}.` : "Assessment not yet recorded."} Referral version ${referral.version}. Snapshot only; later chart changes are not reflected in this copy.` }]);
+  return sheet.close();
 }
 
 function admissionItems(referral: Referral): AssessmentSummaryItem[] {
@@ -30,6 +38,99 @@ function admissionItems(referral: Referral): AssessmentSummaryItem[] {
   ];
 }
 
-function section(title: string, items: AssessmentSummaryItem[]) {
-  return `<section><h2>${escapeHtml(title)}</h2><dl>${items.map((item) => `<div><dt>${escapeHtml(item.label)}</dt><dd>${escapeHtml(item.value || "Not recorded")}</dd></div>`).join("")}</dl></section>`;
+class DataSheet {
+  private readonly pdf = new PDFDocument({ title: "Client data sheet", author: "Alamo Health Management", creator: "Alamo Health Management" });
+  private ctx!: CanvasRenderingContext2D;
+  private y = 0;
+  private page = 0;
+  private readonly left = 44;
+  private readonly width = 524;
+  private readonly bottom = 714;
+
+  constructor(private readonly name: string) { this.newPage(); }
+
+  private font(size: number, bold: boolean) {
+    this.ctx.font = `${bold ? "bold " : ""}${size}px "Noto Sans", Arial, sans-serif`;
+    this.ctx.textBaseline = "top";
+  }
+
+  private newPage() {
+    if (this.page) this.pdf.endPage();
+    this.ctx = this.pdf.beginPage(612, 792);
+    this.page++;
+    this.ctx.fillStyle = "#087d66";
+    this.ctx.fillRect(this.left, 36, this.width, 3);
+    this.y = 50;
+    this.text("ALAMO HEALTH MANAGEMENT", 10, true, "#087d66");
+    this.text("Client data sheet", 12, true);
+    this.font(this.page === 1 ? 23 : 14, true);
+    const nameLines = wrapText(this.ctx, this.name || "Name not recorded", this.width);
+    this.ctx.fillStyle = "#233b32";
+    // Bound the repeated header; the identity section retains the full name.
+    for (const line of nameLines.slice(0, 2)) {
+      this.ctx.fillText(line, this.left, this.y);
+      this.y += this.page === 1 ? 34.5 : 21;
+    }
+    this.y += 10;
+    this.ctx.fillStyle = "#d4ded8";
+    this.ctx.fillRect(this.left, 739, this.width, 1);
+    this.font(8, false);
+    this.ctx.fillStyle = "#596d64";
+    this.ctx.fillText("Confidential client information. For authorized care coordination only.", this.left, 750);
+    const page = `Page ${this.page}`;
+    this.ctx.fillText(page, 568 - this.ctx.measureText(page).width, 765);
+  }
+
+  private room(height: number) { if (this.y + height > this.bottom) this.newPage(); }
+
+  text(value: string, size = 11, bold = false, color = "#233b32") {
+    this.font(size, bold);
+    const lines = wrapText(this.ctx, String(value), this.width);
+    for (const line of lines) {
+      this.room(size * 1.5);
+      this.font(size, bold);
+      this.ctx.fillStyle = color;
+      this.ctx.fillText(line, this.left, this.y);
+      this.y += size * 1.5;
+    }
+  }
+
+  section(title: string, items: AssessmentSummaryItem[]) {
+    this.room(92);
+    this.y += 16;
+    this.text(title, 14, true, "#087d66");
+    this.ctx.fillStyle = "#d4ded8";
+    this.ctx.fillRect(this.left, this.y + 3, this.width, 1);
+    this.y += 16;
+    for (const item of items) {
+      this.font(10, true);
+      // Keep the label and first value line together; long notes flow across pages.
+      this.room(wrapText(this.ctx, item.label, this.width).length * 15 + 17);
+      this.text(item.label, 10, true, "#596d64");
+      this.text(item.value || "Not recorded");
+      this.y += 10;
+    }
+  }
+
+  close() { this.pdf.endPage(); return this.pdf.close(); }
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, value: string, width: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of value.replace(/\r\n?/g, "\n").split("\n")) {
+    let line = "";
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (ctx.measureText(next).width <= width) { line = next; continue; }
+      if (line) lines.push(line);
+      line = "";
+      // Long unbroken identifiers and pasted URLs must not run off the page.
+      for (const character of word) {
+        if (line && ctx.measureText(line + character).width > width) { lines.push(line); line = ""; }
+        line += character;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
 }

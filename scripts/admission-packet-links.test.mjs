@@ -178,7 +178,7 @@ test("inventory paginates all 205 uploads, includes the chart, and detects chang
     "@/lib/extraction/document-access-policy": { isDocumentContentAvailable: (status) => status === "clean" },
     "@/lib/notifications/meet-client-attachment-policy": load("lib/notifications/meet-client-attachment-policy.ts", {}, { process: { env: {} } }),
     "@/lib/pipeline/referral-store": { listReferralFiles: async ({ cursor }) => ({ files: cursor ? uploads.slice(200) : uploads.slice(0, 200), next_cursor: cursor ? undefined : "next-page" }) },
-    "./client-data-sheet": { clientDataSheetName: "Client data sheet.html", renderClientDataSheet: () => "Synthetic chart" },
+    "./client-data-sheet": { clientDataSheetName: "Client data sheet.pdf", renderClientDataSheet: () => Buffer.from("%PDF-Synthetic chart") },
   });
   const inventory = await owner.getMeetClientAttachmentInventory({ id: 1, version: 1 }, { largeAttachmentDeliveryConfigured: true });
   assert.equal(inventory.files.length, 206); assert.equal(inventory.ready, true); assert.equal(inventory.deliveryMode, "secure_link");

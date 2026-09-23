@@ -1,5 +1,6 @@
 import { openRecipients } from "./support/handoff-review";
 import { readFile } from "node:fs/promises";
+import { readPdfText } from "./support/pdf";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 
@@ -46,10 +47,12 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   await expect(cc).toContainText("Transport");
   await page.getByRole("dialog", { name: "Check recipients", exact: true }).getByRole("button", { name: "Back", exact: true }).click();
   const download = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Open Client data sheet.html", exact: true }).click();
+  await page.getByRole("link", { name: "Open Client data sheet.pdf", exact: true }).click();
   const sheet = await download;
-  expect(sheet.suggestedFilename()).toBe("Client data sheet.html");
-  expect(await readFile((await sheet.path())!, "utf8")).toContain("Synthetic Handoff");
+  expect(sheet.suggestedFilename()).toBe("Client data sheet.pdf");
+  const pdf = await readFile((await sheet.path())!);
+  expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  expect(await readPdfText(pdf)).toContain("Synthetic Handoff");
   await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
   for (const width of [1440, 834, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });

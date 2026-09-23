@@ -21,7 +21,7 @@ export type MeetClientAttachmentItem = {
   contentType: string;
   byteSize: number;
   ready: boolean;
-  generatedContent?: string;
+  generatedContent?: Buffer;
   issue?: "missing_source" | "scan_pending" | "scan_failed" | "infected" | "empty";
 };
 
@@ -62,7 +62,7 @@ export async function getMeetClientAttachmentInventory(
   } while (cursor);
   const generatedContent = renderClientDataSheet(options.report ?? null, referral);
   files.unshift({ documentId: `chart:${referral.id}:${referral.version}:${options.report?.assessmentVersion ?? 0}`, name: clientDataSheetName,
-    category: "Assessment", contentType: "text/html", byteSize: Buffer.byteLength(generatedContent, "utf8"), ready: true, generatedContent });
+    category: "Assessment", contentType: "application/pdf", byteSize: generatedContent.length, ready: true, generatedContent });
   const totalBytes = files.reduce((total, file) => total + file.byteSize, 0);
   const deliveryMode = files.length > 0 && files.every((file) => file.ready)
     ? admissionPacketDeliveryMode(files, options.largeAttachmentDeliveryConfigured === true)
@@ -90,7 +90,7 @@ export async function prepareMeetClientMailAttachments(
   return Promise.all(inventory.files.map(async (file) => {
     if (file.generatedContent !== undefined) return {
       documentId: file.documentId, name: file.name, contentType: file.contentType, byteSize: file.byteSize,
-      contentBytes: Buffer.from(file.generatedContent, "utf8"),
+      contentBytes: file.generatedContent,
     };
     const asset = await getDocumentOriginalAsset(file.documentId);
     if (!asset || asset.byteSize !== file.byteSize) {
