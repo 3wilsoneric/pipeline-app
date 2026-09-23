@@ -21,7 +21,6 @@ export function assessorEmailDestination(user: PipelineUser) {
 }
 
 export function requireAssessorEmailCapacity(inventory: MeetClientAttachmentInventory) {
-  if (inventory.totalBytes > 20 * 1024 * 1024 || inventory.files.length > 50) throw new PacketAccessError("This packet exceeds Alamo Admissions’ email attachment limit. Use Outlook Drafts to prepare all files; no files have been removed or emailed.", 422);
   if (meetClientAttachmentDeliveryMode(inventory.files) === "draft_upload" && !getGraphMailReadiness().largeAttachmentDeliveryConfigured) throw new PacketAccessError("Alamo Admissions needs its large-file email setup completed for this packet. Use Outlook Drafts, or ask the Pipeline administrator to enable attachment delivery. No email was sent.", 503);
 }
 
