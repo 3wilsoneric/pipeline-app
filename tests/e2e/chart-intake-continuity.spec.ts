@@ -155,8 +155,11 @@ test("saved client workspaces offer a new intake with carried chart details", as
   await page.goto(`/?view=referrals&screen=packet&referralId=${ordinary.id}&workspaceStage=chart`);
   await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
-  const members = (await (await page.request.get("/api/members?scope=assessors")).json()).members as { principal_id: string; display_name: string }[];
-  expect(members.length).toBeGreaterThan(0);
+  const memberList = await (await page.request.get("/api/members?scope=assessors")).json() as {
+    members: { principal_id: string; display_name: string }[]; current_principal_id: string;
+  };
+  const selectedAssessor = memberList.members.find((member) => member.principal_id !== memberList.current_principal_id);
+  expect(selectedAssessor).toBeDefined();
   await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
   const action = page.getByRole("button", { name: "Create intake", exact: true });
   await expect(action).toBeVisible();
@@ -166,7 +169,7 @@ test("saved client workspaces offer a new intake with carried chart details", as
   await action.click();
   const assignment = page.getByRole("dialog", { name: "Assign new intake" });
   await expect(assignment).toBeVisible();
-  await assignment.getByRole("combobox", { name: "Assessor" }).selectOption(members[0].principal_id);
+  await assignment.getByRole("combobox", { name: "Assessor" }).selectOption(selectedAssessor!.principal_id);
   await assignment.getByRole("button", { name: "Create intake", exact: true }).click();
   const response = await createdResponse;
   expect(response.status(), await response.text()).toBe(201);
@@ -176,7 +179,8 @@ test("saved client workspaces offer a new intake with carried chart details", as
   expect(created.phone).toBe(source.phone);
   expect(created.admissionDate).toBe("");
   expect(created.documentName).toBe("");
-  expect(created.ownerId).toBe(members[0].principal_id);
+  expect(created.ownerId).toBe(selectedAssessor!.principal_id);
+  expect(created.owners?.map((owner) => owner.id)).toEqual([selectedAssessor!.principal_id]);
   expect(created.workspaceOrigin).toBe("pipeline");
   expect(created.workspaceStatus).toBe("active");
   await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceField=name`));
