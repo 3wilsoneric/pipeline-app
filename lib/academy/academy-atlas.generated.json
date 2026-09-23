@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:226cc9bdb5b67a8b",
-  "fingerprint": "226cc9bdb5b67a8bc4455bf6d7f2205f97834074a89e71a6e062f3a865e5b07b",
+  "generatedAt": "source-fingerprint:50ba904b50f4d7e9",
+  "fingerprint": "50ba904b50f4d7e9bed5514b4abd9124a2f66a75d19c48092968cff5da553d0b",
   "totals": {
     "files": 1401,
-    "lines": 368288,
+    "lines": 368337,
     "coveredFiles": 1401
   },
   "entries": [
@@ -1459,7 +1459,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 80,
+      "lines": 84,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -15419,7 +15419,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 276,
+      "lines": 318,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16380,7 +16380,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 174,
+      "lines": 177,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
