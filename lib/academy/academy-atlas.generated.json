@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9c22d7e924a8fb3a",
-  "fingerprint": "9c22d7e924a8fb3ab06d487f1a23df2979bd80e25af77a5e935b6894daf3f3b6",
+  "generatedAt": "source-fingerprint:1ac80495cf8caacd",
+  "fingerprint": "1ac80495cf8caacd1a47ba5f04f62f001d77db62d882bbea0ac092a03f82097b",
   "totals": {
-    "files": 1401,
-    "lines": 368353,
-    "coveredFiles": 1401
+    "files": 1402,
+    "lines": 368381,
+    "coveredFiles": 1402
   },
   "entries": [
     {
@@ -1293,7 +1293,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 134,
+      "lines": 135,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -3240,7 +3240,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4239,
+      "lines": 4214,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3324,7 +3324,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 364,
+      "lines": 358,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -8226,7 +8226,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 136,
+      "lines": 137,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8250,7 +8250,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 342,
+      "lines": 343,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -10433,6 +10433,18 @@
       ]
     },
     {
+      "path": "lib/pipeline/referrer-context.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 21,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/report-access.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
@@ -12106,7 +12118,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 734,
+      "lines": 757,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15035,7 +15047,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 195,
+      "lines": 196,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -16308,7 +16320,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 62,
+      "lines": 86,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16548,7 +16560,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 211,
+      "lines": 198,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
