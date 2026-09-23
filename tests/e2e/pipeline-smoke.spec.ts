@@ -1661,7 +1661,10 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
+    await page.getByRole("combobox", { name: "GENDER", exact: true }).selectOption("Female");
+    await expect(page.getByRole("textbox", { name: "Specify gender" })).toHaveCount(0);
     await page.getByRole("combobox", { name: "GENDER", exact: true }).selectOption("Other");
+    await page.getByRole("textbox", { name: "Specify gender" }).fill("Synthetic gender");
     await page.getByLabel("Date of birth", { exact: true }).fill("1951-08-14");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveCount(0);
     await expect(page.getByText(`Age ${expectedAge}`, { exact: true })).toBeVisible();
@@ -1931,6 +1934,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientIdentityTitle);
     await expect(page.getByRole("combobox", { name: "GENDER", exact: true })).toHaveValue("Other");
+    await expect(page.getByRole("textbox", { name: "Specify gender" })).toHaveValue("Synthetic gender");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue(expectedDob);
     await expect(page.getByRole("textbox", { name: "SSN (optional)", exact: true })).toHaveValue("111-11-1111");

@@ -326,6 +326,8 @@ export const initialFields: Record<FieldKey, PacketField> = {
   },
 };
 
+const genderOptions = ["Male", "Female", "Non-binary", "Unknown", "Other"] as const;
+
 const visibleChartFieldKeys: readonly FieldKey[] = [
   "name",
   "gender",
@@ -2590,7 +2592,7 @@ export default function ReferralPacketCanvas({
                         suggestion={intakeSuggestions[key]}
                         onAcceptSuggestion={acceptIntakeSuggestion}
                         className={key === "name" ? "sm:col-span-2" : key === "ssn" ? "sm:col-span-2 xl:col-span-1" : undefined}
-                        options={key === "gender" ? ["Male", "Female", "Nonbinary", "Other", "Prefer not to say"] : undefined}
+                        options={key === "gender" ? genderOptions : undefined}
                         detail={key === "dob" ? (
                           ageFromCalendarDate(fields.dob.value) !== null
                             ? `Age ${ageFromCalendarDate(fields.dob.value)}`
@@ -3449,14 +3451,28 @@ export function EditablePacketField({
   onFocus,
 }: EditablePacketFieldProps) {
   const label = ({ dob: "Date of birth", ssn: "SSN (optional)", community: "Requested community", county: "Client county", referent: "Referral facility / source", responsiblePerson: "Responsible person (optional)" } as Partial<Record<FieldKey, string>>)[fieldKey] ?? field.label;
+  const genderChoice = fieldKey === "gender" && field.value && !(genderOptions as readonly string[]).includes(field.value)
+    ? "Other"
+    : field.value;
+  const showGenderDetail = fieldKey === "gender" && genderChoice === "Other";
   return (
     <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
         <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{label}</label>
       </div>
-      <PacketFieldControl fieldKey={fieldKey} field={suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
+      <PacketFieldControl fieldKey={fieldKey} field={fieldKey === "gender" ? { ...field, value: genderChoice } : suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
       {suggestion ? <IntakeSuggestionLabel suggestion={suggestion} label={label} onAccept={() => onAcceptSuggestion?.(fieldKey, suggestion)} /> : null}
       {detail ? <div className="mt-1 text-[12px] font-bold text-[#176f60]" aria-live="polite">{detail}</div> : null}
+      {showGenderDetail ? (
+        <input
+          aria-label="Specify gender"
+          value={field.value === "Other" ? "" : field.value}
+          placeholder="Specify gender"
+          maxLength={80}
+          onChange={(event) => onChange(event.target.value || "Other")}
+          className="mt-2 h-9 w-full border-b border-[#aebdb6] bg-[#f7faf8] px-2 text-[14px] font-semibold text-[#18211d] outline-none placeholder:text-[#7a8881] focus:border-[#0f8b73]"
+        />
+      ) : null}
       {field.sourceFile ? (
         <div className="mt-2 flex items-center gap-1 text-[10px] font-black text-[#317f8f]">
           <CheckCircle2 size={12} />
