@@ -5,7 +5,7 @@ import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess, assignedOwnerForCreate, isAssessorUser } from "@/lib/pipeline/referral-access";
-import { createReferral, listReferralsByClient, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { createReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getUnifiedClientProfile } from "@/lib/pipeline/unified-profile";
 import { buildChartIntake } from "@/lib/pipeline/chart-intake";
 import { createReferralOwners } from "@/lib/pipeline/referral-ownership";
@@ -14,27 +14,6 @@ import { validateReferralCreateInput } from "@/lib/pipeline/referral-validation"
 import { getAssignableWorkspaceAssessor, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
-
-export async function GET(request: Request, context: { params: Promise<{ referralId: string }> }) {
-  return withApiLogging(request, "/api/referrals/[referralId]/new-intake", async () => {
-    const auth = await requirePipelineUser(request);
-    if (!auth.ok) return auth.response;
-    const store = requireReferralStore();
-    if (!store.ok) return store.response;
-    const { referralId } = await context.params;
-    const sourceId = parseSourceReferralId(referralId);
-    if (sourceId === null) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, sourceId);
-    if (!access.ok) return access.response;
-    if (access.referral.workspaceOrigin !== "allo" || !access.referral.clientId) {
-      return Response.json({ active_referral_id: null }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
-    }
-    const referrals = await listReferralsByClient(access.referral.clientId);
-    const active = referrals.find((referral) => referral.chartSource && (referral.workspaceStatus ?? "active") === "active"
-      && referral.stage !== "Declined" && referral.stage !== "Accepted / Admitted");
-    return Response.json({ active_referral_id: active?.id ?? null }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
-  });
-}
 
 export async function POST(request: Request, context: { params: Promise<{ referralId: string }> }) {
   return withApiLogging(request, "/api/referrals/[referralId]/new-intake", async () => {
