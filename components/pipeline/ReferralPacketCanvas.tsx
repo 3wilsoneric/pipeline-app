@@ -2749,7 +2749,7 @@ export default function ReferralPacketCanvas({
 
         <StartReferralFromChart
           sourceReferralId={loadedReferral?.id}
-          allowed={Boolean(loadedReferral && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
+          allowed={Boolean(loadedReferral && !loadedReferral.chartSource && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
           prominent
           beforeStart={async () => {
             if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting another intake.");
@@ -3599,7 +3599,10 @@ function canvasMutationKey(id: number, keys: ReadonlySet<DirtyDraftKey>, values:
 
 function canvasMutationBody(current: Referral, patch: ReturnType<typeof buildCanvasPatch>, clientMutationId: string, ownerTouched: boolean, ownerId: string, handoffReason: string) {
   const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
-  const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
+  const touchedSections = getReferralPatchSections({
+    ...patch,
+    ...(ownerTouched ? { requirements: current.requirements ?? [] } : {}),
+  } as Record<string, unknown>);
   return JSON.stringify({
     if_match: current.version,
     if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),
