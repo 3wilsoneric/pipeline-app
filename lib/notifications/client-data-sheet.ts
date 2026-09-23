@@ -67,10 +67,13 @@ class DataSheet {
     this.page++;
     this.ctx.fillStyle = "#087d66";
     this.ctx.fillRect(this.left, 36, this.width, 3);
-    const logoWidth = 210;
-    const logoHeight = logoWidth * this.logo.height / this.logo.width;
-    this.ctx.drawImage(this.logo, this.left, 46, logoWidth, logoHeight);
-    this.y = 46 + logoHeight + 12;
+    this.y = 50;
+    if (this.page === 1) {
+      const logoWidth = 210;
+      const logoHeight = logoWidth * this.logo.height / this.logo.width;
+      this.ctx.drawImage(this.logo, this.left, 46, logoWidth, logoHeight);
+      this.y = 46 + logoHeight + 12;
+    }
     this.text("Client data sheet", 12, true);
     this.font(this.page === 1 ? 23 : 14, true);
     const nameLines = wrapText(this.ctx, this.name || "Name not recorded", this.width);
