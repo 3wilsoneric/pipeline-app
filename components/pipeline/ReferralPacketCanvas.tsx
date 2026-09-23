@@ -3451,16 +3451,17 @@ export function EditablePacketField({
   onFocus,
 }: EditablePacketFieldProps) {
   const label = ({ dob: "Date of birth", ssn: "SSN (optional)", community: "Requested community", county: "Client county", referent: "Referral facility / source", responsiblePerson: "Responsible person (optional)" } as Partial<Record<FieldKey, string>>)[fieldKey] ?? field.label;
-  const genderChoice = fieldKey === "gender" && field.value && !(genderOptions as readonly string[]).includes(field.value)
+  const displayField = suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field;
+  const genderChoice = fieldKey === "gender" && displayField.value && !(genderOptions as readonly string[]).includes(displayField.value)
     ? "Other"
-    : field.value;
+    : displayField.value;
   const showGenderDetail = fieldKey === "gender" && genderChoice === "Other";
   return (
     <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
         <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{label}</label>
       </div>
-      <PacketFieldControl fieldKey={fieldKey} field={fieldKey === "gender" ? { ...field, value: genderChoice } : suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
+      <PacketFieldControl fieldKey={fieldKey} field={fieldKey === "gender" ? { ...displayField, value: genderChoice } : displayField} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
       {suggestion ? <IntakeSuggestionLabel suggestion={suggestion} label={label} onAccept={() => onAcceptSuggestion?.(fieldKey, suggestion)} /> : null}
       {detail ? <div className="mt-1 text-[12px] font-bold text-[#176f60]" aria-live="polite">{detail}</div> : null}
       {showGenderDetail ? (
