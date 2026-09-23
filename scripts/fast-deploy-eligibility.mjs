@@ -10,7 +10,12 @@ export function classifyFastDeployFiles(files) {
   const unsupported = [];
 
   for (const file of files) {
-    if (file.startsWith("docs/") || file.startsWith("tests/") || /^(?:scripts\/.*(?:\.test|-fixtures)\.mjs)$/.test(file)) continue;
+    if (
+      file.startsWith("docs/")
+      || file.startsWith("tests/")
+      || file === "lib/academy/academy-atlas.generated.json"
+      || /^scripts\/.*(?:\.test|-fixtures|-contracts)\.mjs$/.test(file)
+    ) continue;
 
     if (
       file === "app/globals.css"

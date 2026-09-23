@@ -25,7 +25,7 @@ the current `main` commit. For eligible web-only pushes, CI publishes a separate
 lane waits for both to pass, compares the commit with the image currently
 serving production, and refuses changes outside `app/(pipeline)`,
 `components/pipeline`, supported static image
-assets, and documentation/tests. It never changes environment settings,
+assets, generated Academy source mapping, and documentation/tests. It never changes environment settings,
 scheduled jobs, infrastructure, or database schema. It updates only the web
 image, waits for the new revision and live/readiness checks, and restores the
 previous image if the new revision fails health checks.

@@ -12,6 +12,8 @@ test("a UI edit and its tests may use the code-only lane", () => {
     "components/pipeline/ClientFolder.module.css",
     "components/pipeline/ClientProfileView.tsx",
     "tests/e2e/pipeline-smoke.spec.ts",
+    "lib/academy/academy-atlas.generated.json",
+    "scripts/chart-intake-contracts.mjs",
   ]);
   assert.equal(result.eligible, true);
   assert.equal(result.runtime.length, 2);
