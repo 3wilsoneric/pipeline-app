@@ -38,6 +38,7 @@ import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
+import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import folderStyles from "./ClientFolder.module.css";
 import { usePhoneAssessment } from "./use-phone-layout";
@@ -2741,6 +2742,19 @@ export default function ReferralPacketCanvas({
         className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""}`}
       >
         {renderWorkspaceHeader()}
+
+        <StartReferralFromChart
+          sourceReferralId={loadedReferral?.id}
+          allowed={Boolean(loadedReferral && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
+          prominent
+          beforeStart={async () => {
+            if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting another intake.");
+            await handoff.flush();
+            await assessmentNavigationRef.current?.();
+            await preservePendingIntake();
+            await intakeSaveQueueRef.current;
+          }}
+        />
 
         {renderRestoredEdits()}
 

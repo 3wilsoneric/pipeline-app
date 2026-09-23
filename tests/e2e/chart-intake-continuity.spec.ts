@@ -107,6 +107,26 @@ test("a chart creates a fresh intake for the same client and retry does not dupl
   await page.screenshot({ path: testInfo.outputPath("seeded-intake.png"), fullPage: true });
 });
 
+test("every saved workspace offers a new intake with carried chart details", async ({ page }, testInfo) => {
+  const source = await createSource(page.request);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  const action = page.getByRole("button", { name: "Create new intake from this workspace" });
+  await expect(action).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("workspace-new-intake-action.png"), fullPage: false });
+  const createdResponse = page.waitForResponse((response) => response.url().endsWith(`/referrals/${source.id}/new-intake`) && response.request().method() === "POST");
+  await action.click();
+  const response = await createdResponse;
+  expect(response.status(), await response.text()).toBe(201);
+  const created = (await response.json()).referral as Referral;
+  expect(created.clientId).toBe(source.clientId);
+  expect(created.name).toBe(source.name);
+  expect(created.phone).toBe(source.phone);
+  expect(created.admissionDate).toBe("");
+  expect(created.documentName).toBe("");
+  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceStage=intake`));
+  expect((await (await page.request.get(`/api/referrals/${source.id}`)).json()).referral).toEqual(source);
+});
+
 test("Clients and Workspace resolve the same confirmed chart, and new intake retains the connection", async ({ page }, testInfo) => {
   const source = await createSource(page.request, { county: "Alameda" });
   const linkResponse = await page.request.post("/api/resident-links", { headers, data: {

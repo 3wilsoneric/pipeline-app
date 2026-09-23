@@ -1072,7 +1072,7 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("opens imported history as a read-only workspace with source files intact", async ({ page }) => {
-    const historicalReferral: Referral = {
+    const historicalReferral = {
       id: 919191,
       version: 4,
       clientId: "historical-client-919191",
@@ -1098,12 +1098,9 @@ test.describe("Referral home and packet canvas", () => {
       updatedAt: "2024-06-10T12:00:00.000Z",
       dob: "1980-01-02",
       gender: "Female",
-      phone: "",
-      email: "",
-      payer: "",
       admissionDate: "2024-06-15",
       requirements: [],
-    };
+    } satisfies Omit<Referral, "phone" | "email" | "payer">;
     const historicalProfile = {
       mode: "historical_profile",
       referralId: historicalReferral.id,
@@ -1187,7 +1184,7 @@ test.describe("Referral home and packet canvas", () => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
     });
 
-    await page.goto(`/?view=referrals&screen=packet&referralId=${historicalReferral.id}&workspaceStage=assessment`);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${historicalReferral.id}&workspaceEntry=resume`);
     await expect(page.getByText("Historical · Read-only", { exact: true })).toHaveCount(0);
     await expect(page.getByText(/closed historical workspace/i)).toHaveCount(0);
     await expect(page.getByTestId("workspace-identity-title")).toHaveText("Morgan Historical");
@@ -1199,6 +1196,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "More workspace actions" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Workspace files" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Workspace activity" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create new intake from this workspace" })).toBeVisible();
     await expect(page.getByText("Historical face sheet.pdf", { exact: true })).toBeVisible();
     expect(presenceWrites).toBe(0);
   });
