@@ -26,7 +26,7 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   let sends = 0;
   page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
   await openMessage(page, referral.id);
-  await expect(page.getByRole("link", { name: "Open Client data sheet.html", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "Subject", exact: true }).fill("Arrival arrangements");
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
   const body = page.getByRole("textbox", { name: "Meet the Client message" });

@@ -9,7 +9,7 @@ import type { OutlookDraftState } from "./outlook-draft-contract";
 
 export type PacketFile = {
   id: string; name: string; contentType: string; byteSize: number;
-  source: { kind: "generated"; content: string } | { kind: "blob"; container: string; key: string; etag: string };
+  source: { kind: "generated"; content: string; encoding?: "base64" } | { kind: "blob"; container: string; key: string; etag: string };
 };
 export type PacketRecipient = {
   email: string;

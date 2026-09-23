@@ -1,3 +1,4 @@
+import { readPdfText } from "./support/pdf";
 import { openAdmitDate, openSummary, openFiles, openRecipients, confirmRecipients } from "./support/handoff-review";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { randomUUID } from "node:crypto";
@@ -169,7 +170,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(overview.getByRole("button", { name: "Continue review", exact: true })).toBeFocused();
   await page.reload(); await settleHandoff(page);
   const files = await openFiles(page);
-  await expect(files.getByRole("link", { name: "Open Client data sheet.html", exact: true })).toHaveAttribute("href", `/api/referrals/${referral.id}/admission-summary?download=chart`);
+  await expect(files.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toHaveAttribute("href", `/api/referrals/${referral.id}/admission-summary?download=chart`);
   await expect(page.locator("iframe")).toHaveCount(0);
   await expect(files.getByRole("button", { name: "Confirm packet", exact: true })).toBeInViewport();
   await files.getByRole("button", { name: "Confirm packet", exact: true }).click();
@@ -189,7 +190,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(preview.locator("body")).not.toContainText("Pipeline");
   await expect(preview.locator("body")).not.toContainText("one-time code");
   await expect(preview.locator("body")).not.toContainText("secure packet");
-  await expect(preview.locator("body")).toContainText("Client data sheet.html");
+  await expect(preview.locator("body")).toContainText("Client data sheet.pdf");
   await expect(preview.locator("body")).toContainText("2026-10-01");
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');
   await expect(preview.locator("body")).toContainText("Received; signatures still need review.");
@@ -223,7 +224,9 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   const { user } = await (await page.request.get("/api/auth/me")).json();
   expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name), undefined, { demo: payload.email.example_only }));
   const dataSheet = await page.request.get(`/api/referrals/${referral.id}/admission-summary?download=chart`);
-  expect(dataSheet.status()).toBe(200); expect(await dataSheet.text()).toContain("Received; signatures still need review.");
+  expect(dataSheet.status()).toBe(200);
+  expect(dataSheet.headers()["content-type"]).toBe("application/pdf");
+  expect(await readPdfText(await dataSheet.body())).toContain("Received; signatures still need review.");
 });
 
 for (const width of [1440, 834, 390]) test(`unsigned and undecided records retain one next action at ${width}px`, async ({ page }) => {
@@ -276,7 +279,7 @@ test("packet changes and assessment corrections return to their existing workspa
   const { referral } = await referralWithAssessment(page);
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
   await page.goto(url); const files = await openFiles(page);
-  await expect(files.getByRole("link", { name: "Open Client data sheet.html", exact: true })).toBeVisible();
+  await expect(files.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toBeVisible();
   await files.getByRole("button", { name: "Change packet files", exact: true }).click();
   await expect(page).toHaveURL(/workspaceView=files/); await expect(files).toHaveCount(0);
   await page.goto(url); const summary = await openSummary(page);
@@ -352,7 +355,7 @@ for (const width of [390, 834]) test(`packet check includes every uploaded file 
   await dialog.getByRole("button", { name: "Confirm packet", exact: true }).click();
   await addRecipient(page); await confirmRecipients(page);
   const body = page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body");
-  for (const name of ["Client data sheet.html", ...uploaded]) await expect(body).toContainText(name);
+  for (const name of ["Client data sheet.pdf", ...uploaded]) await expect(body).toContainText(name);
   await expect(body).not.toContainText("one-time code");
   await expect(body).not.toContainText("secure packet");
   await expect(body).toContainText("Not production yet — no email will be sent.");

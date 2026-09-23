@@ -39,7 +39,7 @@ export async function prepareAdmissionPacketRecord(input: PacketInput) {
     files.push(...await Promise.all(input.inventory.files.slice(offset, offset + 8).map(async (item): Promise<PacketFile> => {
     if (!item.ready) throw new PacketAccessError(`${item.name} is still being prepared. Retry when it is ready.`, 409);
     if (item.generatedContent !== undefined) {
-      return { id: item.documentId, name: item.name, contentType: item.contentType, byteSize: item.byteSize, source: { kind: "generated", content: item.generatedContent } };
+      return { id: item.documentId, name: item.name, contentType: item.contentType, byteSize: item.byteSize, source: { kind: "generated", content: item.generatedContent.toString("base64"), encoding: "base64" } };
     }
     if (await getDocumentReferralId(item.documentId) !== input.referralId) throw new PacketAccessError("A packet file changed. Refresh the file list and try again.", 409);
     const asset = await getDocumentOriginalAsset(item.documentId);
@@ -59,7 +59,7 @@ export async function prepareAdmissionPacketRecord(input: PacketInput) {
 
 export async function packetMailAttachment(file: PacketFile, referralId: number): Promise<MeetClientMailAttachment> {
   const common = { documentId: file.id, name: file.name, contentType: file.contentType, byteSize: file.byteSize };
-  if (file.source.kind === "generated") return { ...common, contentBytes: Buffer.from(file.source.content, "utf8") };
+  if (file.source.kind === "generated") return { ...common, contentBytes: Buffer.from(file.source.content, file.source.encoding ?? "utf8") };
   if (await getDocumentReferralId(file.id) !== referralId) throw new PacketAccessError("A file was withdrawn. Review the attachments before preparing this draft.", 409);
   const asset = await getDocumentOriginalAsset(file.id);
   if (!asset || asset.container !== file.source.container || asset.blobKey !== file.source.key) throw new PacketAccessError("A file changed. Review the attachments before preparing this draft.", 409);
@@ -70,7 +70,7 @@ export async function packetFileResponse(file: PacketFile, referralId: number, r
   const headers: Record<string, string> = { ...packetPrivateHeaders, "Content-Type": file.contentType,
     "Content-Disposition": `attachment; filename="${file.name.replace(/[^\x20-\x7e]|["\\/]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(file.name).replace(/['()*]/g, (value) => `%${value.charCodeAt(0).toString(16)}`)}`,
     "Content-Security-Policy": "sandbox; default-src 'none'", "Accept-Ranges": "bytes" };
-  if (file.source.kind === "generated") return new Response(file.source.content, { headers });
+  if (file.source.kind === "generated") return new Response(new Uint8Array(Buffer.from(file.source.content, file.source.encoding ?? "utf8")), { headers });
   // Respect a later withdrawal or adverse scan verdict, even with a valid session.
   if (await getDocumentReferralId(file.id) !== referralId) throw new PacketAccessError("This file has been withdrawn. Contact the sender for its replacement.", 410);
   const current = await getDocumentOriginalAsset(file.id);

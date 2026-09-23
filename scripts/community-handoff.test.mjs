@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 import { loadEntry } from "./contact-import-fixtures.mjs";
+
+async function pdfText(bytes) {
+  assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
+  const task = getDocument({ data: new Uint8Array(bytes), useSystemFonts: true });
+  try {
+    const document = await task.promise;
+    const pages = [];
+    for (let page = 1; page <= document.numPages; page++) pages.push((await (await document.getPage(page)).getTextContent()).items.map((item) => item.str).join(" "));
+    return pages.join(" ");
+  } finally { await task.destroy(); }
+}
 
 const root = process.cwd();
 const schema = loadTypeScriptModule(root, "lib/assessment/assessment-tool-schema.ts");
@@ -11,7 +23,7 @@ const emailOwner = loadTypeScriptModule(root, "lib/notifications/meet-client-ema
 const referral = { id: 7, version: 3, name: "Synthetic <script>alert(1)</script>", dob: "1980-01-01", community: "San Pablo", source: "Synthetic referrer", county: "Synthetic county", payer: "Recorded coverage", phone: "", email: "", admissionDate: "2026-09-30" };
 const assessment = { ...schema.createEmptyAssessmentToolData(), assessment_id: "synthetic-chart", version: 4, status: "complete", updated_by: { name: "Synthetic Assessor" }, signed_by: { name: "Synthetic Assessor" }, signed_at: "2026-09-19T12:00:00Z", prior_placements: "Synthetic placement note", medications_at_intake: ["Recorded medication"], conservatorship_type: "no", special_diet_details: "Recorded diet" };
 
-test("a changed placement and planned admit date reach the email and generated sheet without rewriting the assessment", () => {
+test("a changed placement and planned admit date reach the email and generated sheet without rewriting the assessment", async () => {
   const signed = { ...assessment, community: "San Pablo" };
   const current = { ...referral, community: "Turlock", plannedAdmissionDate: "2026-10-12" };
   const report = summaryOwner.buildAssessmentSummaryReport(signed, current);
@@ -21,9 +33,9 @@ test("a changed placement and planned admit date reach the email and generated s
   const email = emailOwner.renderMeetClientEmail(report.meetClient, "Synthetic sender", "preview");
   assert.equal(email.subject, "Meet the Client | Turlock");
   assert.match(email.html, /Turlock/);
-  const sheet = sheetOwner.renderClientDataSheet(report, current);
-  assert.match(sheet, /<dt>Community<\/dt><dd>Turlock<\/dd>/);
-  assert.match(sheet, /<dt>Admission date<\/dt><dd>2026-10-12<\/dd>/);
+  const sheet = await pdfText(sheetOwner.renderClientDataSheet(report, current));
+  assert.match(sheet, /Community\s+Turlock/);
+  assert.match(sheet, /Admission date\s+2026-10-12/);
   assert.doesNotMatch(sheet, /2026-09-30/);
   assert.equal(signed.community, "San Pablo");
   assert.equal(summaryOwner.buildMeetClientSummary(signed, { ...current, community: "" }).community, "San Pablo");
@@ -31,8 +43,8 @@ test("a changed placement and planned admit date reach the email and generated s
 
 test("email copy follows admission handoff sections without inventing example-client facts", () => {
   const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
-  const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "synthetic-delivery", ["Client data sheet.html"]);
-  for (const label of ["Med room", "Allergies &amp; diet", "Billing team", "Recorded diet", "Recorded coverage", "Not recorded", "Client data sheet.html"]) assert.ok(email.html.includes(label), label);
+  const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "synthetic-delivery", ["Client data sheet.pdf"]);
+  for (const label of ["Med room", "Allergies &amp; diet", "Billing team", "Recorded diet", "Recorded coverage", "Not recorded", "Client data sheet.pdf"]) assert.ok(email.html.includes(label), label);
   assert.equal(email.subject, `Meet the Client | ${summary.community || "New admission"}`);
   assert.doesNotMatch(email.html, /30 days of meds|No Food Allergy|SSI application has not started|<script>/i);
 });
@@ -42,10 +54,10 @@ test("editable handoff text keeps linked admission details, source provenance, a
   const defaults = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview");
   assert.match(defaults.text, /Recorded medication/);
   const message = { subject: "Arrival arrangements", body: "Hello team,\nPlease call first. <img src=x onerror=alert(1)>" };
-  const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", ["Admission packet.pdf", "Client data sheet.html"], message);
+  const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", ["Admission packet.pdf", "Client data sheet.pdf"], message);
   assert.equal(email.subject, message.subject);
   assert.equal(email.text, message.body);
-  for (const value of ["2026-10-01", "Admission packet.pdf", "Client data sheet.html", "Sender-edited handoff", "&lt;img"]) assert.ok(email.html.includes(value), value);
+  for (const value of ["2026-10-01", "Admission packet.pdf", "Client data sheet.pdf", "Sender-edited handoff", "&lt;img"]) assert.ok(email.html.includes(value), value);
   const images = email.html.match(/<img\b[^>]*>/g) ?? [];
   assert.equal(images.length, 1);
   assert.match(images[0], /alt="Alamo Health Management"/);
@@ -90,7 +102,7 @@ test("safety handoff keeps history and current support distinct, preserves zero,
   assert.ok(!noHistory.safetyNotes.some(({ label }) => label === "Last reported assault / context"));
 });
 
-test("agreement copy uses the work item status, never the assessment signature or an uploaded filename", () => {
+test("agreement copy uses the work item status, never the assessment signature or an uploaded filename", async () => {
   const expected = { needed: /Still needed/, requested: /awaiting the signed copy/, received: /signatures still need review/, reviewed: /Marked reviewed in the chart/, waived: /Requirement waived/, expired: /copy expired/, unavailable: /Signed copy unavailable/, not_applicable: /Marked not applicable/ };
   for (const [status, pattern] of Object.entries(expected)) {
     const context = { ...referral, requirements: [{ type: "signed_admission_agreement", status, evidenceDocumentName: "Signed-agreement.pdf", waiverReason: "Synthetic waiver" }] };
@@ -99,24 +111,23 @@ test("agreement copy uses the work item status, never the assessment signature o
     assert.match(agreement.value, pattern);
     assert.match(agreement.value, /Recorded evidence: Signed-agreement.pdf/);
     assert.match(emailOwner.renderMeetClientEmail(report.meetClient, "Fixture", "fixture").html, pattern);
-    assert.match(sheetOwner.renderClientDataSheet(report, context), pattern);
+    assert.match(await pdfText(sheetOwner.renderClientDataSheet(report, context)), pattern);
   }
   const absent = summaryOwner.buildMeetClientSummary(assessment, referral).admissionNotes.find(({ label }) => label === "Signed admission agreement");
   assert.match(absent.value, /Not recorded; confirm/);
   assert.match(summaryOwner.buildAdmissionAgreementSummary([{ type: "signed_admission_agreement", status: "reviewed" }]).value, /No supporting document is linked/);
-  assert.match(sheetOwner.renderClientDataSheet(null, { ...referral, requirements: [{ type: "signed_admission_agreement", status: "received" }] }), /signatures still need review/);
+  assert.match(await pdfText(sheetOwner.renderClientDataSheet(null, { ...referral, requirements: [{ type: "signed_admission_agreement", status: "received" }] })), /signatures still need review/);
 });
 
-test("data sheet contains canonical chart sections, recorded version, unsigned status and escaped text", () => {
+test("data sheet contains canonical chart sections, recorded version, unsigned status and inert text", async () => {
   const report = summaryOwner.buildAssessmentSummaryReport(assessment, referral);
-  const html = sheetOwner.renderClientDataSheet(report, referral);
+  const html = await pdfText(sheetOwner.renderClientDataSheet(report, referral));
   assert.ok(html.includes("Synthetic placement note"));
   assert.ok(html.includes("Assessment synthetic-chart"));
   assert.ok(html.includes("Version 4"));
   assert.ok(html.includes("Referral version 3"));
-  assert.ok(html.includes("&lt;script&gt;"));
-  assert.doesNotMatch(html, /<script>|<iframe|https?:\/\//i);
-  const draft = sheetOwner.renderClientDataSheet(null, referral);
+  assert.ok(html.includes("<script>alert(1)</script>"));
+  const draft = await pdfText(sheetOwner.renderClientDataSheet(null, referral));
   assert.ok(draft.includes("Working chart - not signed"));
   assert.ok(draft.includes("Assessment not yet recorded"));
 });
@@ -142,9 +153,8 @@ test("Graph direct send keeps To and Cc separate and attaches exact generated da
     requests.push({ url, init });
     return url.includes("/oauth2/") ? Response.json({ access_token: "synthetic-token" }) : new Response(null, { status: 202 });
   } });
-  const html = sheetOwner.renderClientDataSheet(summaryOwner.buildAssessmentSummaryReport(assessment, referral), referral);
-  const bytes = Buffer.from(html);
-  const result = await graph.sendMeetClientMail({ message: { subject: "Custom arrival", body: "Hello team, please call first." }, recipients: ["care@example.test"], ccRecipients: ["billing@example.test"], summary: summaryOwner.buildMeetClientSummary(assessment, referral), preparedBy: "Synthetic sender", deliveryId: "synthetic-delivery", attachments: [{ documentId: "chart:7", name: "Client data sheet.html", contentType: "text/html", byteSize: bytes.length, contentBytes: bytes }] });
+  const bytes = sheetOwner.renderClientDataSheet(summaryOwner.buildAssessmentSummaryReport(assessment, referral), referral);
+  const result = await graph.sendMeetClientMail({ message: { subject: "Custom arrival", body: "Hello team, please call first." }, recipients: ["care@example.test"], ccRecipients: ["billing@example.test"], summary: summaryOwner.buildMeetClientSummary(assessment, referral), preparedBy: "Synthetic sender", deliveryId: "synthetic-delivery", attachments: [{ documentId: "chart:7", name: "Client data sheet.pdf", contentType: "application/pdf", byteSize: bytes.length, contentBytes: bytes }] });
   assert.equal(result.attachmentCount, 1);
   assert.equal(requests.length, 2);
   const sent = JSON.parse(requests[1].init.body).message;
@@ -152,7 +162,8 @@ test("Graph direct send keeps To and Cc separate and attaches exact generated da
   assert.deepEqual(sent.ccRecipients, [{ emailAddress: { address: "billing@example.test" } }]);
   assert.equal(sent.subject, "Custom arrival");
   assert.match(sent.body.content, /Hello team, please call first/);
-  assert.equal(Buffer.from(sent.attachments[0].contentBytes, "base64").toString(), html);
+  assert.deepEqual(Buffer.from(sent.attachments[0].contentBytes, "base64"), bytes);
+  assert.equal(sent.attachments[0].contentType, "application/pdf");
 });
 
 test("packet includes chart documents, assessment attachments and data sheet without crossing referral or scan boundaries", async () => {
@@ -170,8 +181,9 @@ test("packet includes chart documents, assessment attachments and data sheet wit
   assert.equal(inventory.files.length, 3);
   assert.ok(inventory.files.some((file) => file.documentId === ids[1]));
   assert.ok(!inventory.files.some((file) => file.documentId === ids[2]));
-  assert.ok(inventory.files[0].generatedContent.includes("Synthetic placement note"));
-  assert.equal((await attachmentOwner.prepareMeetClientMailAttachments(inventory))[0].contentBytes.toString(), inventory.files[0].generatedContent);
+  assert.ok((await pdfText(inventory.files[0].generatedContent)).includes("Synthetic placement note"));
+  assert.equal(inventory.files[0].contentType, "application/pdf");
+  assert.deepEqual((await attachmentOwner.prepareMeetClientMailAttachments(inventory))[0].contentBytes, inventory.files[0].generatedContent);
   status = "infected";
   const blocked = await attachmentOwner.getMeetClientAttachmentInventory(referral);
   assert.equal(blocked.ready, false);
@@ -228,10 +240,62 @@ test("packet inventory keeps every page, waits for unsafe files, then uses a sec
 test("outgoing handoffs use Alamo branding with a reachable logo and no Pipeline copy", () => {
   const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
   for (const options of [{}, { demo: true }, { packetUrl: "https://alamo-pipeline.com/admission-packets/fixture" }]) {
-    const email = emailOwner.renderMeetClientEmail(summary, "Assessor", "delivery", ["Client data sheet.html"], undefined, options);
+    const email = emailOwner.renderMeetClientEmail(summary, "Assessor", "delivery", ["Client data sheet.pdf"], undefined, options);
     assert.match(email.html, /<img[^>]+alt="Alamo Health Management"/);
     assert.match(email.html, /src="https:\/\/alamo-pipeline\.com\/brand\/alamo-health-management\.png"/);
     assert.doesNotMatch(email.html, /Pipeline/);
     assert.doesNotMatch(email.text, /Pipeline/);
   }
+});
+
+test("PDF pages preserve long notes, Unicode, versions and deterministic packet bytes", async () => {
+  const unicode = "José Muñoz – café • ½";
+  const note = Array.from({ length: 180 }, (_, i) => `Recorded note ${i}: ${unicode}.`).join("\n");
+  const report = summaryOwner.buildAssessmentSummaryReport(assessment, referral);
+  report.sections = [{ title: "Long clinical notes", items: [{ label: "Recorded history", value: note }, { label: "Unbroken identifier", value: "x".repeat(800) }] }];
+  const bytes = sheetOwner.renderClientDataSheet(report, referral);
+  assert.deepEqual(sheetOwner.renderClientDataSheet(report, referral), bytes, "unchanged inventory must not change during review");
+  const text = await pdfText(bytes);
+  assert.ok(text.includes(unicode));
+  assert.ok(text.includes("Recorded note 179:"));
+  assert.ok(text.includes("Referral version 3"));
+  assert.ok(text.includes("Assessment synthetic-chart"));
+  const task = getDocument({ data: new Uint8Array(bytes), useSystemFonts: true });
+  try {
+    const document = await task.promise;
+    assert.ok(document.numPages > 3);
+    for (let page = 1; page <= document.numPages; page++) {
+      const items = (await (await document.getPage(page)).getTextContent()).items.filter((item) => item.str?.trim());
+      assert.ok(items.some((item) => item.str === `Page ${page}`));
+      for (const item of items) {
+        assert.ok(item.transform[4] >= 43 && item.transform[4] + item.width <= 570, `page ${page} horizontal bounds`);
+        assert.ok(item.transform[5] >= 15 && item.transform[5] <= 756, `page ${page} vertical bounds`);
+      }
+    }
+  } finally { await task.destroy(); }
+});
+
+test("PDF attachment bytes survive stored packet recovery and download; older text packets still open", async () => {
+  const bytes = sheetOwner.renderClientDataSheet(summaryOwner.buildAssessmentSummaryReport(assessment, referral), referral);
+  let persisted;
+  const files = loadEntry("lib/notifications/admission-packet-files.ts", {
+    "./admission-packet-store": { createAdmissionPacket: async (value) => { persisted = JSON.stringify(value); } },
+    "@/lib/extraction/document-assets": {}, "@/lib/extraction/azure-blob": {},
+  });
+  await files.prepareAdmissionPacketRecord({ id: "synthetic", referralId: referral.id, assessmentId: assessment.assessment_id, assessmentVersion: assessment.version,
+    recipients: ["care@outlook.com"], message: { subject: "Handoff", body: "See files" },
+    inventory: { files: [{ documentId: "chart:7", name: sheetOwner.clientDataSheetName, contentType: "application/pdf", byteSize: bytes.length, ready: true, generatedContent: bytes }] },
+  });
+  const file = JSON.parse(persisted).files[0];
+  assert.equal(file.source.encoding, "base64");
+  const restored = await files.packetMailAttachment(file, referral.id);
+  assert.deepEqual(restored.contentBytes, bytes);
+  assert.equal(restored.byteSize, bytes.length);
+  const response = await files.packetFileResponse(file, referral.id, new Request("https://example.invalid"));
+  assert.equal(response.headers.get("content-type"), "application/pdf");
+  assert.match(response.headers.get("content-disposition"), /Client data sheet.pdf/);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+  const legacy = { ...file, name: "Old sheet.html", contentType: "text/html", source: { kind: "generated", content: "<p>José</p>" } };
+  assert.equal((await files.packetMailAttachment(legacy, referral.id)).contentBytes.toString(), legacy.source.content);
+  assert.equal(await (await files.packetFileResponse(legacy, referral.id, new Request("https://example.invalid"))).text(), legacy.source.content);
 });
