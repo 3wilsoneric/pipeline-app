@@ -186,6 +186,10 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
+    "@/lib/notifications/assessor-email-handoff": {
+      assessorEmailDestination: user => user.email, requireAssessorEmailCapacity: () => {},
+      prepareAssessorEmail: async input => { messages.push(input); return { status: "draft", mailbox: input.destination, delivery_method: "assessor_email" }; },
+    },
     "@/lib/notifications/outlook-mail": { getOutlookMailReadiness: () => ({ configured: true, largeAttachmentDeliveryConfigured: true }), connectedOutlookMailbox: async () => ({ id: "synthetic-coordinator", graphId: "synthetic-home-mailbox", email: "coordinator@example.invalid", token: "synthetic-token" }) },
     "@/lib/notifications/outlook-handoff": { prepareOutlookHandoff: async input => { messages.push(input); return { status: "draft", mailbox: input.mailbox.email }; } },
     "@/lib/notifications/admission-packet-files": { prepareAdmissionPacketLink: async (input) => { assert.equal(input.inventory.files.length, 2); return "https://pipeline.invalid/admission-packet/synthetic"; } },
@@ -196,7 +200,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
     "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ enabled: exampleOnly, writable: exampleOnly }) },
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
       assert.equal(roles, undefined);
-      return denied ? { ok: false, response: jsonError("Forbidden", 403) } : { ok: true, user: { id: "synthetic-coordinator" } };
+      return denied ? { ok: false, response: jsonError("Forbidden", 403) } : { ok: true, user: { id: "synthetic-coordinator", email: "coordinator@example.invalid" } };
     } },
     "@/lib/auth/assessor-session-policy": { pipelineAccountableActor: () => ({ id: "synthetic-coordinator", name: "Synthetic Coordinator" }) },
     "@/lib/auth/request-security": { requireSameOriginMutation: () => null },
@@ -330,4 +334,16 @@ test("unsupported draft transports cannot fall back to sending mail", async () =
     assert.equal((await fixture.send("6", {}, delivery)).status, 400);
     assert.equal(fixture.providerCalls(), 0); assert.equal(fixture.reservationCalls(), 0);
   }
+});
+
+test("email-to-assessor route ignores caller destination, skips mailbox consent and retains reviewed audience", async () => {
+  const f = deliveryFixture();
+  const response = await f.send("6", { destination: "outsider@example.invalid", email: "outsider@example.invalid", recipients: ["community@example.invalid"], cc_recipients: ["care@outlook.com"] }, "assessor");
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).draft.mailbox, "coordinator@example.invalid");
+  assert.equal(f.messages[0].destination, "coordinator@example.invalid");
+  assert.deepEqual(Array.from(f.messages[0].recipients), ["community@example.invalid"]);
+  assert.deepEqual(Array.from(f.messages[0].ccRecipients), ["care@outlook.com"]);
+  assert.equal(f.audits[0].provider, "assessor_email");
+  assert.equal(f.providerCalls(), 0); assert.deepEqual(f.auditStates, []);
 });

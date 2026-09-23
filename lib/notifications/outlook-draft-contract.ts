@@ -1,5 +1,7 @@
 export type OutlookDraftState = "preparing" | "draft" | "unconfirmed" | "sent" | "needs_review" | "discarded";
 export type OutlookDraftView = {
+  delivery_method?: "assessor_email";
+  accepted_at?: string;
   packet_id: string;
   status: OutlookDraftState;
   mailbox: string;

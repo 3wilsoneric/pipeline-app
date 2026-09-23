@@ -28,3 +28,6 @@
 @keyframes outlook-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 @media (max-width: 560px) { .heading { grid-template-columns: 42px minmax(0, 1fr); gap: 8px; } .heading h3 { font-size: 16px; } .badge { grid-column: 2; margin-left: 0; justify-self: start; } .actions .primary { width: 100%; } }
+
+.switchMethod { display: block; margin: 0 0 16px; padding: 10px 0; min-height: 44px; background: transparent; border: 0; color: #087d66; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.switchMethod:focus-visible { outline: 3px solid #087d66; outline-offset: 3px; }

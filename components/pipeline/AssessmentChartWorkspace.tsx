@@ -128,7 +128,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     setReviewStep(1);
   };
 
-  const emailMeetClient = async (outlookToken: string) => {
+  const emailMeetClient = async (outlookToken: string, delivery: "outlook" | "assessor" = "outlook") => {
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
     if (!handoffDraftReady(emailDraft)) return;
     const recipientList = recipients;
@@ -143,10 +143,10 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     const deliver = async () => {
       await emailDraft.flush();
       const result = await fetchPipelineJson<{ recipient_count: number; attachment_count: number; delivery_id: string; audit_pending?: boolean; draft?: OutlookDraftView }>(
-        `/api/referrals/${payload.referral.id}/meet-client-email?delivery=outlook`,
+        `/api/referrals/${payload.referral.id}/meet-client-email?delivery=${delivery}`,
         {
           method: "POST",
-          headers: { "x-pipeline-outlook-token": outlookToken },
+          headers: outlookToken ? { "x-pipeline-outlook-token": outlookToken } : undefined,
           body: JSON.stringify({
             recipients: recipientList,
             cc_recipients: ccRecipients,
@@ -249,7 +249,7 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
   }, [complete, composerOpen]);
   const previewButton = <button type="button" data-guide-target={composerOpen ? undefined : ["chart-email-handoff", "packet-open-email"].join(" ")} className={styles.sendButton}
     onClick={(event) => { event.currentTarget.focus(); onPreviewEmail(); }}>
-    {handoffReviewLabel(complete, reviewedCount, Boolean(existingDraft))}<ArrowRight size={18} aria-hidden="true" />
+    {handoffReviewLabel(complete, reviewedCount, existingDraft)}<ArrowRight size={18} aria-hidden="true" />
   </button>;
 
   if (complete) return <section className={styles.guidedTask} aria-label="Handoff readiness">
@@ -261,8 +261,8 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
   </section>;
 
   if (existingDraft) return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
-    <h3>Your Outlook draft is saved</h3>
-    <p>Continue with the message and files you already reviewed.</p>
+    <h3>{existingDraft.delivery_method === "assessor_email" ? "Your inbox handoff" : "Your Outlook draft is saved"}</h3>
+    <p>{existingDraft.delivery_method === "assessor_email" ? "Forward the email with its attachments, then confirm here when sent." : "Continue with the message and files you already reviewed."}</p>
     <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
   </section>;
 
@@ -281,8 +281,8 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
   </section>;
 }
 
-function handoffReviewLabel(complete: boolean, reviewedCount: number, existingDraft: boolean) {
-  if (existingDraft) return "Continue with Outlook draft";
+function handoffReviewLabel(complete: boolean, reviewedCount: number, existingDraft: OutlookDraftView | null) {
+  if (existingDraft) return existingDraft.delivery_method === "assessor_email" ? "Continue inbox handoff" : "Continue with Outlook draft";
   if (complete) return "View email";
   if (reviewedCount === 4) return "Preview email";
   return reviewedCount ? "Continue review" : "Review handoff";
@@ -515,11 +515,11 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
   email: ChartPayload["email"]; report: AssessmentSummaryReport | null; emailDraft?: HandoffRecipients; referral: Referral;
   confirmed: boolean; sending: boolean; sent: boolean; error: string; message: string; refresh: React.ReactNode;
   onBack: () => void; onReviewComplete: () => void;
-  onPrepareOutlook: (token: string) => Promise<OutlookDraftView | undefined>; onOutlookSent: () => void;
+  onPrepareOutlook: (token: string, delivery?: "outlook" | "assessor") => Promise<OutlookDraftView | undefined>; onOutlookSent: () => void;
 }) {
   const composerReadOnly = [!email.can_edit_recipients, sending, sent, Boolean(preparedDraft)].some(Boolean);
   const renderMessagePreview = () => (preparedDraft ? <PreparedDraftDetails draft={preparedDraft} /> : <>
-        <div className={styles.addressRow}><span>From</span><strong>Your Outlook mailbox</strong></div>
+        <div className={styles.addressRow}><span>Final sender</span><strong>You, from your own email</strong></div>
         <div className={styles.addressRow}><span>To</span><span>{emailDraft?.fields.to.map((contact) => contact.email).join("; ") || "No recipients"}</span></div>
         {emailDraft?.fields.cc.length ? <div className={styles.addressRow}><span>Cc</span><span>{emailDraft.fields.cc.map((contact) => contact.email).join("; ")}</span></div> : null}
         <MeetClientMessageEditor demo={email.example_only} summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
@@ -543,15 +543,15 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
     {sent || email.example_only ? renderCompletion() : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
       {!preparedDraft ? <button type="button" className={styles.textButton} disabled={sending} onClick={onBack}>Back to recipients</button> : null}
       <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, emailDraft, confirmed, sending)} readinessReasons={handoffReadinessReasons(email, emailDraft, confirmed, sending)} sending={sending}
-        onPrepare={onPrepareOutlook} onSent={onOutlookSent} onExistingDraft={onExistingDraft} />
+        onPrepare={onPrepareOutlook} onEmail={() => onPrepareOutlook("", "assessor")} onSent={onOutlookSent} onExistingDraft={onExistingDraft} />
     </footer>}
   </div>;
 }
 
 function handoffReadinessReasons(email: ChartPayload["email"], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean): string[] {
-  if (sending) return ["Preparing your Outlook draft. Please wait."];
+  if (sending) return ["Preparing your handoff. Please wait."];
   const reasons = [...email.blockers];
-  if (!email.can_send) reasons.push("This workspace cannot prepare an Outlook draft with your current access. Ask an administrator to check your access.");
+  if (!email.can_send) reasons.push("This workspace cannot prepare a handoff with your current access. Ask an administrator to check your access.");
   if (!draft || draft.loading) reasons.push("Loading the saved recipients and message. Please wait.");
   else if (draft.error) reasons.push(draft.error);
   else if (draft.hasPendingRecipients) reasons.push("Go back to recipients and press Enter or + to add the unfinished address.");

@@ -54,7 +54,7 @@ const checks = [
   {
     name: "Admission dates and packet delivery boundaries",
     command: "node",
-    args: ["--test", "scripts/admission-lifecycle.test.mjs", "scripts/meet-client-delivery-fixtures.test.mjs", "scripts/client-data-reports.test.mjs"],
+    args: ["--test", "scripts/admission-lifecycle.test.mjs", "scripts/meet-client-delivery-fixtures.test.mjs", "scripts/assessor-email-handoff.test.mjs", "scripts/client-data-reports.test.mjs"],
   },
   {
     name: "Hosted workshop isolation and session boundaries",

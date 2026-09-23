@@ -149,6 +149,6 @@ function OutlookConnectionActions(props: ConnectionView) {
 function OutlookConnectionDetails({ setup, mode, justConnected }: ConnectionView) {
   return <>
     {!setup?.demo ? <details className={styles.setup}><summary>Staying connected</summary><p>Your connection is remembered when you leave and return in this browser. Use the mailbox matching your Pipeline email and choose “Stay signed in” if Microsoft offers it. Signing out, clearing browser data or Microsoft security requirements may require you to reconnect.</p></details> : null}
-    {mode === "prompt" && !justConnected ? <p className={styles.hint}>Connect later lets you keep working. Connect in Settings or before saving your first Outlook draft.</p> : null}
+    {mode === "prompt" && !justConnected ? <p className={styles.hint}>Outlook connection is optional. Choose “Email packet to me” when preparing a handoff to receive it in your inbox and forward it yourself.</p> : null}
   </>;
 }
