@@ -70,6 +70,8 @@ test("a chart creates a fresh intake for the same client and retry does not dupl
   const createdRequest = page.waitForRequest((request) => request.url().endsWith(`/referrals/${source.id}/new-intake`) && request.method() === "POST");
   const createdResponse = page.waitForResponse((response) => response.url().endsWith(`/referrals/${source.id}/new-intake`) && response.request().method() === "POST");
   await page.getByRole("button", { name: "New referral", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Assign new intake" })).toBeVisible();
+  await page.getByRole("button", { name: "Create intake", exact: true }).click();
   const response = await createdResponse;
   expect(response.status(), await response.text()).toBe(201);
   const created = (await response.json()).referral as Referral;
@@ -85,6 +87,23 @@ test("a chart creates a fresh intake for the same client and retry does not dupl
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
   await expect(page.locator("#packet-page-1")).toBeVisible();
   await expect(page.locator(`input[value="${created.name}"]`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create new intake from this workspace" })).toHaveCount(0);
+  const membersResponse = await page.request.get("/api/members?scope=assessors");
+  expect(membersResponse.ok()).toBeTruthy();
+  const members = (await membersResponse.json()).members as { principal_id: string; display_name: string }[];
+  expect(members.length).toBeGreaterThan(0);
+  const ownerField = page.getByRole("combobox", { name: "Assessor", exact: true });
+  await ownerField.focus();
+  const ownerSave = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${created.id}`) && response.request().method() === "PATCH");
+  await ownerField.selectOption(members[0].principal_id);
+  await ownerField.press("Tab");
+  const ownerResponse = await ownerSave;
+  expect(ownerResponse.status(), await ownerResponse.text()).toBe(200);
+  await expect.poll(async () => {
+    const result = await page.request.get(`/api/referrals/${created.id}`);
+    return ((await result.json()) as { referral: Referral }).referral.ownerId;
+  }).toBe(members[0].principal_id);
+  await expect(page.getByText("if_match_sections is missing: workflow.")).toHaveCount(0);
   const mutation = (await createdRequest).postDataJSON();
   const replay = await page.request.post(`/api/referrals/${source.id}/new-intake`, { data: mutation });
   expect(replay.status(), await replay.text()).toBe(201);
@@ -102,19 +121,25 @@ test("a chart creates a fresh intake for the same client and retry does not dupl
     simultaneousIds.add((await response.json()).referral.id);
   }
   expect(simultaneousIds.size).toBe(1);
-  expect(simultaneousIds.has(created.id)).toBe(false);
+  expect(simultaneousIds.has(created.id)).toBe(true);
   expect((await (await page.request.get(`/api/referrals/${source.id}/canvas`)).json()).referral).toEqual(before.referral);
   await page.screenshot({ path: testInfo.outputPath("seeded-intake.png"), fullPage: true });
 });
 
 test("every saved workspace offers a new intake with carried chart details", async ({ page }, testInfo) => {
   const source = await createSource(page.request);
+  const members = (await (await page.request.get("/api/members?scope=assessors")).json()).members as { principal_id: string; display_name: string }[];
+  expect(members.length).toBeGreaterThan(0);
   await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
   const action = page.getByRole("button", { name: "Create new intake from this workspace" });
   await expect(action).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("workspace-new-intake-action.png"), fullPage: false });
   const createdResponse = page.waitForResponse((response) => response.url().endsWith(`/referrals/${source.id}/new-intake`) && response.request().method() === "POST");
   await action.click();
+  const assignment = page.getByRole("dialog", { name: "Assign new intake" });
+  await expect(assignment).toBeVisible();
+  await assignment.getByRole("combobox", { name: "Assessor" }).selectOption(members[0].principal_id);
+  await assignment.getByRole("button", { name: "Create intake", exact: true }).click();
   const response = await createdResponse;
   expect(response.status(), await response.text()).toBe(201);
   const created = (await response.json()).referral as Referral;
@@ -123,7 +148,9 @@ test("every saved workspace offers a new intake with carried chart details", asy
   expect(created.phone).toBe(source.phone);
   expect(created.admissionDate).toBe("");
   expect(created.documentName).toBe("");
+  expect(created.ownerId).toBe(members[0].principal_id);
   await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceStage=intake`));
+  await expect(page.getByRole("button", { name: "Create new intake from this workspace" })).toHaveCount(0);
   expect((await (await page.request.get(`/api/referrals/${source.id}`)).json()).referral).toEqual(source);
 });
 
@@ -178,6 +205,7 @@ test("Clients and Workspace resolve the same confirmed chart, and new intake ret
 test("source validation rejects malformed, missing and cross-origin intake requests", async ({ request }) => {
   const source = await createSource(request);
   expect((await request.post(`/api/referrals/${source.id}/new-intake`, { data: {} })).status()).toBe(400);
+  expect((await request.post(`/api/referrals/${source.id}/new-intake`, { data: { client_mutation_id: randomUUID(), assignee_id: "unknown-member" } })).status()).toBe(422);
   expect((await request.post(`/api/referrals/${source.id}oops/new-intake`, { data: { client_mutation_id: randomUUID() } })).status()).toBe(400);
   expect((await request.post("/api/referrals/99999999/new-intake", { data: { client_mutation_id: randomUUID() } })).status()).toBe(404);
   expect((await request.post(`/api/referrals/${source.id}/new-intake`, { headers: { origin: "https://wrong.invalid" }, data: { client_mutation_id: randomUUID() } })).status()).toBe(403);

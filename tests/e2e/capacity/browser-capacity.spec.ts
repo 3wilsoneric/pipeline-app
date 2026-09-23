@@ -67,7 +67,7 @@ test('sustained browser saves survive alternating application instances', async 
       page.on('response', response => { if (response.url().startsWith(baseURL!) && (response.status() >= 500 || response.status() === 429)) errors.push(`http_${response.status()}:${new URL(response.url()).pathname}:${i}`); });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
       await intakeChart(page).getByRole('button', { name: 'Edit Phone', exact: true }).click();
-      await expect(page.getByRole('textbox', { name: 'Client phone:', exact: true })).toBeVisible();
+      await expect(page.getByRole('textbox', { name: 'Referrer phone:', exact: true })).toBeVisible();
       sessions.push({ context, page, actor, id: referral.id, field: 'phone' });
     }));
     expect(sessions).toHaveLength(users);
@@ -78,7 +78,7 @@ test('sustained browser saves survive alternating application instances', async 
       sessions[i + 1].field = 'email';
       await sessions[i + 1].page.goto(`/?view=referrals&screen=packet&referralId=${sessions[i].id}`);
       await intakeChart(sessions[i + 1].page).getByRole('button', { name: 'Edit Email', exact: true }).click();
-      await expect(sessions[i + 1].page.getByRole('textbox', { name: 'Client email:', exact: true })).toBeVisible();
+      await expect(sessions[i + 1].page.getByRole('textbox', { name: 'Referrer email:', exact: true })).toBeVisible();
     }
     };
     await prepareSessions();
@@ -97,7 +97,7 @@ test('sustained browser saves survive alternating application instances', async 
       do {
         const { page, context, id, actor, field } = session;
         const value = field === 'email' ? `${runId}-${actor.id.split('-').at(-1)}-${cycle}@example.invalid` : `555-${actor.id.split('-').at(-1)}-${cycle}`;
-        const input = page.getByRole('textbox', { name: field === 'phone' ? 'Client phone:' : 'Client email:', exact: true });
+        const input = page.getByRole('textbox', { name: field === 'phone' ? 'Referrer phone:' : 'Referrer email:', exact: true });
         const navigateCalendarAndReturn = async () => {
 
           const navigationStarted = Date.now();

@@ -311,8 +311,9 @@ export const initialFields: Record<FieldKey, PacketField> = {
     value: "",
     placeholder: "",
   },
-  phone: { label: "Client phone:", value: "", placeholder: "Phone number" },
-  email: { label: "Client email:", value: "", placeholder: "Email address" },
+  phone: { label: "Referrer phone:", value: "", placeholder: "Phone number" },
+  email: { label: "Referrer email:", value: "", placeholder: "Email address" },
+  referrerName: { label: "Referrer name:", value: "", placeholder: "Name" },
   summary: {
     label: "Summary",
     value: "",
@@ -325,6 +326,8 @@ export const initialFields: Record<FieldKey, PacketField> = {
   },
 };
 
+const genderOptions = ["Male", "Female", "Non-binary", "Unknown", "Other"] as const;
+
 const visibleChartFieldKeys: readonly FieldKey[] = [
   "name",
   "gender",
@@ -336,6 +339,7 @@ const visibleChartFieldKeys: readonly FieldKey[] = [
   "county",
   "referent",
   "responsiblePerson",
+  "referrerName",
   "phone",
   "email",
   "currentMedications",
@@ -2588,7 +2592,7 @@ export default function ReferralPacketCanvas({
                         suggestion={intakeSuggestions[key]}
                         onAcceptSuggestion={acceptIntakeSuggestion}
                         className={key === "name" ? "sm:col-span-2" : key === "ssn" ? "sm:col-span-2 xl:col-span-1" : undefined}
-                        options={key === "gender" ? ["Male", "Female", "Nonbinary", "Other", "Prefer not to say"] : undefined}
+                        options={key === "gender" ? genderOptions : undefined}
                         detail={key === "dob" ? (
                           ageFromCalendarDate(fields.dob.value) !== null
                             ? `Age ${ageFromCalendarDate(fields.dob.value)}`
@@ -2674,9 +2678,9 @@ export default function ReferralPacketCanvas({
                   </div>
                 </ChartSection>
 
-                <ChartSection title="Contact and coordination" complete={countCompleteFields(fields, ["phone", "email"])} total={2}>
-                  <div className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2">
-                    {(["phone", "email"] as FieldKey[]).map((key) => (
+                <ChartSection title="Contact and coordination" complete={countCompleteFields(fields, ["referrerName", "phone", "email"])} total={3}>
+                  <div className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2 lg:grid-cols-3">
+                    {(["referrerName", "phone", "email"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
                         fieldKey={key}
@@ -2690,8 +2694,8 @@ export default function ReferralPacketCanvas({
                   </div>
                   <div className="border-t border-[#bfcac5] px-5 py-4 sm:px-6"><ReferralContactsCard
                     referralId={editableReferralId ?? undefined}
-                    clientPhone={fields.phone.value}
-                    clientEmail={fields.email.value}
+                    referrerPhone={fields.phone.value}
+                    referrerEmail={fields.email.value}
                   /></div>
                 </ChartSection>
 
@@ -2745,7 +2749,7 @@ export default function ReferralPacketCanvas({
 
         <StartReferralFromChart
           sourceReferralId={loadedReferral?.id}
-          allowed={Boolean(loadedReferral && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
+          allowed={Boolean(loadedReferral && !loadedReferral.chartSource && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
           prominent
           beforeStart={async () => {
             if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting another intake.");
@@ -3447,14 +3451,16 @@ export function EditablePacketField({
   onFocus,
 }: EditablePacketFieldProps) {
   const label = ({ dob: "Date of birth", ssn: "SSN (optional)", community: "Requested community", county: "Client county", referent: "Referral facility / source", responsiblePerson: "Responsible person (optional)" } as Partial<Record<FieldKey, string>>)[fieldKey] ?? field.label;
+  const displayField = packetFieldForControl(fieldKey, field, suggestion);
   return (
     <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
         <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{label}</label>
       </div>
-      <PacketFieldControl fieldKey={fieldKey} field={suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
+      <PacketFieldControl fieldKey={fieldKey} field={displayField} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
       {suggestion ? <IntakeSuggestionLabel suggestion={suggestion} label={label} onAccept={() => onAcceptSuggestion?.(fieldKey, suggestion)} /> : null}
       {detail ? <div className="mt-1 text-[12px] font-bold text-[#176f60]" aria-live="polite">{detail}</div> : null}
+      <GenderFieldDetail fieldKey={fieldKey} field={field} displayValue={displayField.value} onChange={onChange} />
       {field.sourceFile ? (
         <div className="mt-2 flex items-center gap-1 text-[10px] font-black text-[#317f8f]">
           <CheckCircle2 size={12} />
@@ -3463,6 +3469,29 @@ export function EditablePacketField({
       ) : null}
     </div>
   );
+}
+
+function packetFieldForControl(fieldKey: FieldKey, field: PacketField, suggestion?: IntakeFieldSuggestion): PacketField {
+  const displayField = suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field;
+  if (fieldKey !== "gender" || !displayField.value || (genderOptions as readonly string[]).includes(displayField.value)) return displayField;
+  return { ...displayField, value: "Other" };
+}
+
+function GenderFieldDetail({ fieldKey, field, displayValue, onChange }: {
+  fieldKey: FieldKey;
+  field: PacketField;
+  displayValue: string;
+  onChange: (value: string) => void;
+}) {
+  if (fieldKey !== "gender" || displayValue !== "Other") return null;
+  return <input
+    aria-label="Specify gender"
+    value={field.value === "Other" ? "" : field.value}
+    placeholder="Specify gender"
+    maxLength={80}
+    onChange={(event) => onChange(event.target.value || "Other")}
+    className="mt-2 h-9 w-full border-b border-[#aebdb6] bg-[#f7faf8] px-2 text-[14px] font-semibold text-[#18211d] outline-none placeholder:text-[#7a8881] focus:border-[#0f8b73]"
+  />;
 }
 
 function PacketFieldControl({ fieldKey, field, options, directory, referralId, label, onChange }: Pick<EditablePacketFieldProps, "fieldKey" | "field" | "options" | "directory" | "referralId" | "onChange"> & { label: string }) {
@@ -3570,7 +3599,10 @@ function canvasMutationKey(id: number, keys: ReadonlySet<DirtyDraftKey>, values:
 
 function canvasMutationBody(current: Referral, patch: ReturnType<typeof buildCanvasPatch>, clientMutationId: string, ownerTouched: boolean, ownerId: string, handoffReason: string) {
   const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
-  const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
+  const touchedSections = getReferralPatchSections({
+    ...patch,
+    ...(ownerTouched ? { requirements: current.requirements ?? [] } : {}),
+  } as Record<string, unknown>);
   return JSON.stringify({
     if_match: current.version,
     if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),

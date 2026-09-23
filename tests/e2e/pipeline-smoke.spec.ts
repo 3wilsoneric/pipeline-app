@@ -504,8 +504,8 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Assessment", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "Edit referral details" }).click();
     await expect(page.getByRole("region", { name: "Referral summary chart section", exact: true })).toHaveCount(0);
-    await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("(415) 555-0131");
-    await page.getByRole("textbox", { name: "Client phone:", exact: true }).blur();
+    await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).fill("(415) 555-0131");
+    await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).blur();
     const referralId = new URL(page.url()).searchParams.get("referralId");
     expect(referralId).not.toBeNull();
     const shellResponse = await page.request.get(`/api/referrals/${referralId}`);
@@ -535,7 +535,7 @@ test.describe("Referral home and packet canvas", () => {
     if (await documentPanel.getAttribute("open") === null) await documentToggle.click();
     await expect(documentPanel).toHaveAttribute("open", "");
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(payload.referral.name);
-    await expect(page.getByRole("textbox", { name: "Client phone:", exact: true })).toHaveValue("(415) 555-0131");
+    await expect(page.getByRole("textbox", { name: "Referrer phone:", exact: true })).toHaveValue("(415) 555-0131");
     await expect(page.getByRole("button", { name: "Signed Medication List: drop document or browse" })).toBeVisible();
   });
 
@@ -1522,7 +1522,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByTestId("packet-workspace")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open referrals" })).toHaveAttribute("data-active", "true");
     await expect(page.getByRole("button", { name: "Create new referral" })).not.toHaveAttribute("data-active", "true");
-    const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
+    const phone = page.getByRole("textbox", { name: "Referrer phone:", exact: true });
     await page.getByRole("button", { name: "Edit referral details" }).click();
     await expect(phone).toHaveValue("");
     await phone.fill("(415) 555-0132");
@@ -1661,7 +1661,10 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
+    await page.getByRole("combobox", { name: "GENDER", exact: true }).selectOption("Female");
+    await expect(page.getByRole("textbox", { name: "Specify gender" })).toHaveCount(0);
     await page.getByRole("combobox", { name: "GENDER", exact: true }).selectOption("Other");
+    await page.getByRole("textbox", { name: "Specify gender" }).fill("Synthetic gender");
     await page.getByLabel("Date of birth", { exact: true }).fill("1951-08-14");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveCount(0);
     await expect(page.getByText(`Age ${expectedAge}`, { exact: true })).toBeVisible();
@@ -1673,7 +1676,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByLabel("Admission date:", { exact: true })).toHaveCount(0);
     await page.getByRole("combobox", { name: "Referral facility / source" }).fill("Synthetic County Access");
     await page.getByRole("combobox", { name: "Responsible person (optional)", exact: true }).fill("Synthetic Responsible Person");
-    await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("(415) 555-0133");
+    await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).fill("(415) 555-0133");
     await page.getByRole("textbox", { name: "Tags", exact: true }).fill("Urgent Review, county-intake");
     await page.getByRole("combobox", { name: "Conservatorship", exact: true }).selectOption("yes");
 
@@ -1931,6 +1934,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientIdentityTitle);
     await expect(page.getByRole("combobox", { name: "GENDER", exact: true })).toHaveValue("Other");
+    await expect(page.getByRole("textbox", { name: "Specify gender" })).toHaveValue("Synthetic gender");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue(expectedDob);
     await expect(page.getByRole("textbox", { name: "SSN (optional)", exact: true })).toHaveValue("111-11-1111");
@@ -1958,7 +1962,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Chart", exact: true }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(fullHistory).not.toBeVisible();
-    const savedPhone = page.getByRole("textbox", { name: "Client phone:", exact: true });
+    const savedPhone = page.getByRole("textbox", { name: "Referrer phone:", exact: true });
     await expect(savedPhone).toHaveValue("(415) 555-0133");
     await savedPhone.fill("(415) 555-0163");
     await savedPhone.blur();
@@ -2211,7 +2215,9 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByLabel("Date of birth", { exact: true }).fill("1984-06-12");
-    await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("5550003434");
+    await page.getByRole("textbox", { name: "Referrer name:", exact: true }).fill("San Pablo intake desk");
+    await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).fill("5550003434");
+    await page.getByRole("textbox", { name: "Referrer email:", exact: true }).fill("intake@example.test");
     await page.getByRole("combobox", { name: "Requested community" }).selectOption("San Pablo");
     await page.getByRole("combobox", { name: "Client county" }).selectOption("Contra Costa County");
     await page.getByRole("combobox", { name: "Referral facility / source", exact: true }).fill("San Pablo intake team");
@@ -2227,6 +2233,10 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Assessment", exact: true }).click();
     const referralId = new URL(page.url()).searchParams.get("referralId");
     expect(referralId).toBeTruthy();
+    const savedReferral = (await (await page.request.get(`/api/referrals/${referralId}`)).json()).referral;
+    expect(savedReferral.referrerName).toBe("San Pablo intake desk");
+    expect(savedReferral.phone).toBe("5550003434");
+    expect(savedReferral.email).toBe("intake@example.test");
     const assessmentInterview = page.locator("[data-assessment-view]");
     await expect(assessmentInterview).toBeVisible();
     await expect(page.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");

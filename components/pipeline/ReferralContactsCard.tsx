@@ -37,12 +37,12 @@ const emptyContactForm: ContactForm = {
 
 export default function ReferralContactsCard({
   referralId,
-  clientPhone,
-  clientEmail,
+  referrerPhone,
+  referrerEmail,
 }: {
   referralId?: number;
-  clientPhone: string;
-  clientEmail: string;
+  referrerPhone: string;
+  referrerEmail: string;
 }) {
   const [links, setLinks] = useState<ReferralContactRecord[]>([]);
   const { confirm, confirmationDialog } = useConfirmationDialog();
@@ -97,9 +97,9 @@ export default function ReferralContactsCard({
     };
   }, [links, mode, query, referralId]);
 
-  const reachableClient = Boolean(clientPhone.trim() || clientEmail.trim());
+  const reachableContact = Boolean(referrerPhone.trim() || referrerEmail.trim());
   const schedulingContact = links.find((link) => link.primaryForScheduling && link.contact.active);
-  const ready = reachableClient || Boolean(schedulingContact?.contact.phone.trim() || schedulingContact?.contact.email.trim());
+  const ready = reachableContact || Boolean(schedulingContact?.contact.phone.trim() || schedulingContact?.contact.email.trim());
 
   const reload = async () => {
     if (!referralId) return;
@@ -251,11 +251,6 @@ export default function ReferralContactsCard({
           <p className="mt-1 text-[11px] text-[#68716d]">People connected to this referral. Information only—no messages are sent.</p>
         </div>
         <ContactReadinessBadge ready={ready} />
-      </div>
-
-      <div className="grid border-b border-[#d7ddd9] sm:grid-cols-2">
-        <ContactFact label="Client phone" value={clientPhone} />
-        <ContactFact label="Client email" value={clientEmail} className="sm:border-l" />
       </div>
 
       <ReferralContactList
@@ -446,10 +441,6 @@ function ContactSearchResults({ query, results, form, busy, setQuery, setForm, o
       </div>
     </>
   );
-}
-
-function ContactFact({ label, value, className = "" }: { label: string; value: string; className?: string }) {
-  return <div className={`min-w-0 px-4 py-3 ${className}`}><div className="text-[9px] font-black uppercase tracking-[0.07em] text-[#68716d]">{label}</div><div className="mt-1 truncate text-sm font-semibold text-[#25302b]">{value.trim() || "Not recorded"}</div></div>;
 }
 
 function ContactEditor({ form, setForm, onSave, onCancel, busy, includeLinkOptions = false, createMode = false }: { form: ContactForm; setForm: (value: ContactForm) => void; onSave: () => void; onCancel: () => void; busy: boolean; includeLinkOptions?: boolean; createMode?: boolean }) {

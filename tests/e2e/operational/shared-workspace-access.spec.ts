@@ -89,7 +89,7 @@ test.describe("shared workspace editing", () => {
       const referral = await createOperationalReferral(owner, "assessorA", { documentName: "", dob: "" });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
-      const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
+      const phone = page.getByRole("textbox", { name: "Referrer phone:", exact: true });
       await expect(phone).toBeEnabled();
       await phone.fill("555-0197");
       await phone.blur();

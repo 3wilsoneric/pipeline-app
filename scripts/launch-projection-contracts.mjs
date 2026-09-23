@@ -103,7 +103,7 @@ const transferredChart = load("components/pipeline/TransferredWorkspaceChart.tsx
 const fields = [
   { label: "NAME", value: "Fixture Person" }, { label: "DOB", value: "01/02/1990" },
   { label: "Owner (@name):", value: "Original owner" }, { label: "County:", value: "Source county" },
-  { label: "Client phone:", value: "Source contact" }, { label: "AGE", value: "" },
+  { label: "Referrer phone:", value: "Source contact" }, { label: "AGE", value: "" },
   { label: "Summary", value: "Preserved introduction\n\n## Reason for referral\nRecorded reason\n\n## Current presentation\n<script>untrusted source text</script>" },
 ];
 const source = { facts: [], sections: [], unmappedEvidence: [], sourceSections: [] };

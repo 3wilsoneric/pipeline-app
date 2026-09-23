@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9446bc6d82bba321",
-  "fingerprint": "9446bc6d82bba321b03007bdf77e4e869d914b9e00e73e654da9f987beb03a4c",
+  "generatedAt": "source-fingerprint:81ccb7fb8b5e16ac",
+  "fingerprint": "81ccb7fb8b5e16ac10fded0bd0b46fecbc9cbe2aa4f78beb2b797b33c0780466",
   "totals": {
     "files": 1397,
-    "lines": 367364,
+    "lines": 367535,
     "coveredFiles": 1397
   },
   "entries": [
@@ -1459,7 +1459,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 69,
+      "lines": 80,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -3108,7 +3108,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 515,
+      "lines": 506,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3240,7 +3240,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4204,
+      "lines": 4236,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3360,7 +3360,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 62,
+      "lines": 100,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -10122,7 +10122,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 225,
+      "lines": 226,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10158,7 +10158,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 201,
+      "lines": 205,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10279,7 +10279,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 364,
+      "lines": 365,
       "moduleIds": [
         "pre-assessment-workflow",
         "provenance-review"
@@ -10327,7 +10327,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 104,
+      "lines": 105,
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
@@ -10363,7 +10363,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3468,
+      "lines": 3506,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -10376,7 +10376,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 368,
+      "lines": 370,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -10389,7 +10389,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 546,
+      "lines": 548,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -10558,7 +10558,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 352,
+      "lines": 354,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -11854,7 +11854,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2231,
+      "lines": 2246,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13870,7 +13870,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 355,
+      "lines": 350,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15371,7 +15371,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 207,
+      "lines": 235,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16212,7 +16212,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2884,
+      "lines": 2894,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

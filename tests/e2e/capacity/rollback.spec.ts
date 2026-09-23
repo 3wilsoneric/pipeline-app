@@ -23,7 +23,7 @@ test('previous release and restarted process retain writes made by the new appli
     const url = `/?view=referrals&screen=packet&referralId=${referral.id}`;
     await page.goto(url);
     await page.locator('article[aria-label="Referral chart"]:not([data-testid="profile-workspace"] article)').getByRole('button', { name: 'Edit Phone', exact: true }).click();
-    const phone = page.getByRole('textbox', { name: 'Client phone:', exact: true });
+    const phone = page.getByRole('textbox', { name: 'Referrer phone:', exact: true });
     await phone.fill('555-0711'); await phone.blur();
     const read = async (origin: string) => (await (await context.request.get(`${origin}/api/referrals/${referral.id}`)).json()).referral;
     await expect.poll(async () => (await read(old)).phone).toBe('555-0711');
