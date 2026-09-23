@@ -150,13 +150,15 @@ for (const width of [1440, 834]) {
     await page.setViewportSize({ width, height: 950 });
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Standard Workspace", owner: "", tags: [] });
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-    await page.locator("summary", { hasText: "Admission details" }).click();
+    const decision = page.getByRole("region", { name: "Decision", exact: true });
+    await decision.locator("summary").filter({ hasText: /^Admission paperwork & EHR handoff$/ }).click();
     const requirement = page.getByRole("combobox", { name: /status$/ }).first();
     await expect(requirement).toBeVisible();
     const control = await requirement.evaluate((node) => ({ height: node.getBoundingClientRect().height, fontSize: parseFloat(getComputedStyle(node).fontSize) }));
     expect(control.height).toBeGreaterThanOrEqual(44);
     expect(control.fontSize).toBeGreaterThanOrEqual(14);
-    const stage = page.getByRole("combobox", { name: "Workflow stage", exact: true });
+    await decision.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+    const stage = decision.getByRole("combobox", { name: "Workflow stage", exact: true });
     expect((await stage.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     // Saving instructions and workflow distinctions stay readable.
     const smallEssential = await page.evaluate(() => {
