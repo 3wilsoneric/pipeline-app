@@ -51,7 +51,11 @@ export async function POST(request: Request, context: { params: Promise<{ referr
     input.chartSource = { referralId: access.referral.id, dataAsOf: profile.data_as_of, capturedAt: input.createdAt };
     Object.assign(input, assignedOwnerForCreate(auth.user, "Unassigned"));
     if (selectedOwner) Object.assign(input, { owner: selectedOwner.display_name, ownerId: selectedOwner.principal_id });
-    input.owners = createReferralOwners(auth.user, input, !isAssessorUser(auth.user));
+    // The actor is retained in the audit trail, but a different selected assessor
+    // must be the sole owner for Mine/board assignment queries.
+    input.owners = selectedOwner && selectedOwner.principal_id !== auth.user.id
+      ? [{ id: selectedOwner.principal_id, name: selectedOwner.display_name, responsibilities: ["assignee"] }]
+      : createReferralOwners(auth.user, input, !isAssessorUser(auth.user));
     input.requirements = createDefaultAdmissionRequirements([], {}, input.createdAt, input.owner, input.ownerId,
       { date_of_birth: input.dob, community: input.community, referral_source: input.source });
     const result = await createReferral(input, mutationId, pipelineAuditActor(auth.user), { newEpisodeSourceReferralId: access.referral.id });

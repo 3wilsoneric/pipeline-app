@@ -14,11 +14,13 @@ export function classifyFastDeployFiles(files) {
       file.startsWith("docs/")
       || file.startsWith("tests/")
       || file === "lib/academy/academy-atlas.generated.json"
+      || file === "scripts/fast-deploy-eligibility.mjs"
       || /^scripts\/.*(?:\.test|-fixtures|-contracts)\.mjs$/.test(file)
     ) continue;
 
     if (
       file === "app/globals.css"
+      || file === "app/api/referrals/[referralId]/new-intake/route.ts"
       || /^(?:app\/\(pipeline\)\/|components\/pipeline\/).+\.(?:css|ts|tsx)$/.test(file)
       || /^public\/.+\.(?:avif|gif|ico|jpe?g|png|svg|webp|woff2?)$/.test(file)
     ) {

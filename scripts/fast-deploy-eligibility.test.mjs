@@ -23,6 +23,20 @@ test("a documentation-only change is not a deployable image", () => {
   assert.equal(classifyFastDeployFiles(["docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md"]).eligible, false);
 });
 
+test("the intake API can use the web-image lane without widening it to other APIs", () => {
+  const result = classifyFastDeployFiles([
+    "components/pipeline/ReferralPacketCanvas.tsx",
+    "app/api/referrals/[referralId]/new-intake/route.ts",
+    "scripts/fast-deploy-eligibility.mjs",
+  ]);
+  assert.equal(result.eligible, true);
+  assert.deepEqual(result.runtime, [
+    "components/pipeline/ReferralPacketCanvas.tsx",
+    "app/api/referrals/[referralId]/new-intake/route.ts",
+  ]);
+  assert.equal(classifyFastDeployFiles(["app/api/referrals/route.ts"]).eligible, false);
+});
+
 test("database, API, worker, auth, dependency and deployment edits require the full lane", () => {
   for (const file of [
     "database/migrations/999_add_column.sql",

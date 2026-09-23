@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:700927d69975198c",
-  "fingerprint": "700927d69975198c836d9d034792433f37363acdc326735ddf88859ee3004cc2",
+  "generatedAt": "source-fingerprint:9c22d7e924a8fb3a",
+  "fingerprint": "9c22d7e924a8fb3ab06d487f1a23df2979bd80e25af77a5e935b6894daf3f3b6",
   "totals": {
     "files": 1401,
-    "lines": 368285,
+    "lines": 368353,
     "coveredFiles": 1401
   },
   "entries": [
@@ -1459,7 +1459,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 80,
+      "lines": 84,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -3240,7 +3240,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4236,
+      "lines": 4239,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -13114,7 +13114,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 67,
+      "lines": 69,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -13126,7 +13126,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 63,
+      "lines": 77,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15419,7 +15419,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 276,
+      "lines": 318,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16380,7 +16380,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 174,
+      "lines": 177,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"

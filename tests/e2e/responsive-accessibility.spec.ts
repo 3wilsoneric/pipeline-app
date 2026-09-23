@@ -80,13 +80,16 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoSeriousAxeViolations(page);
     if (compactSteps) await stepSelect.selectOption("files");
     else await page.getByRole("button", { name: "Workspace files" }).click();
-    await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Document checklist" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Choose referral documents" })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
     await expect(stepNavigation.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Create referral", exact: true }).click();
     await expect(page).toHaveURL(/referralId=\d+/);
+    const createdDialog = page.getByRole("dialog", { name: "Workspace created" });
+    if (await createdDialog.isVisible()) await createdDialog.getByRole("button", { name: "Close workspace created" }).click();
     if (compactSteps) await stepSelect.selectOption({ label: "Assessment" });
     else await page.getByRole("button", { name: "Assessment", exact: true }).click();
     await expect(page.getByRole("region", { name: "Assessment", exact: true })).toBeVisible();

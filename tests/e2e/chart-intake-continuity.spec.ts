@@ -84,6 +84,8 @@ test("a chart allows another intake while retries remain idempotent", async ({ p
   const source = await createSource(page.request);
   expect(source.admissionDate).toBe("2026-08-15");
   const before = await (await page.request.get(`/api/referrals/${source.id}/canvas`)).json();
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   // Start a fresh episode from Clients, not a duplicate action inside an intake.
   await page.goto(`/?screen=profile&clientId=pipeline:${source.clientId}`);
   await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
@@ -150,13 +152,33 @@ test("a chart allows another intake while retries remain idempotent", async ({ p
   await page.screenshot({ path: testInfo.outputPath("seeded-intake.png"), fullPage: true });
 });
 
+test("an assessor can create their own intake from an older chart", async ({ page }) => {
+  test.skip(process.env.PIPELINE_MOCK_USER_ROLES !== "reviewer", "Run with an assessor role fixture.");
+  const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  await page.getByRole("button", { name: "Create intake", exact: true }).click();
+  const assignment = page.getByRole("dialog", { name: "Assign new intake" });
+  const members = await (await page.request.get("/api/members?scope=assessors")).json() as { current_principal_id: string };
+  await expect(assignment.getByRole("combobox", { name: "Assessor" })).toHaveValue("");
+  const createdResponse = page.waitForResponse((response) => response.url().endsWith(`/referrals/${source.id}/new-intake`) && response.request().method() === "POST");
+  await assignment.getByRole("button", { name: "Create intake", exact: true }).click();
+  const response = await createdResponse;
+  expect(response.status(), await response.text()).toBe(201);
+  const created = (await response.json()).referral as Referral;
+  expect(created.ownerId).toBe(members.current_principal_id);
+  await expect(page.locator("#packet-page-1")).toBeVisible();
+});
+
 test("saved client workspaces offer a new intake with carried chart details", async ({ page }, testInfo) => {
   const ordinary = await createSource(page.request, { workspaceOrigin: "pipeline" });
   await page.goto(`/?view=referrals&screen=packet&referralId=${ordinary.id}&workspaceStage=chart`);
   await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
-  const members = (await (await page.request.get("/api/members?scope=assessors")).json()).members as { principal_id: string; display_name: string }[];
-  expect(members.length).toBeGreaterThan(0);
+  const memberList = await (await page.request.get("/api/members?scope=assessors")).json() as {
+    members: { principal_id: string; display_name: string }[]; current_principal_id: string;
+  };
+  const selectedAssessor = memberList.members.find((member) => member.principal_id !== memberList.current_principal_id);
+  expect(selectedAssessor).toBeDefined();
   await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
   const action = page.getByRole("button", { name: "Create intake", exact: true });
   await expect(action).toBeVisible();
@@ -166,7 +188,7 @@ test("saved client workspaces offer a new intake with carried chart details", as
   await action.click();
   const assignment = page.getByRole("dialog", { name: "Assign new intake" });
   await expect(assignment).toBeVisible();
-  await assignment.getByRole("combobox", { name: "Assessor" }).selectOption(members[0].principal_id);
+  await assignment.getByRole("combobox", { name: "Assessor" }).selectOption(selectedAssessor!.principal_id);
   await assignment.getByRole("button", { name: "Create intake", exact: true }).click();
   const response = await createdResponse;
   expect(response.status(), await response.text()).toBe(201);
@@ -176,15 +198,35 @@ test("saved client workspaces offer a new intake with carried chart details", as
   expect(created.phone).toBe(source.phone);
   expect(created.admissionDate).toBe("");
   expect(created.documentName).toBe("");
-  expect(created.ownerId).toBe(members[0].principal_id);
+  expect(created.ownerId).toBe(selectedAssessor!.principal_id);
+  expect(created.owners?.map((owner) => owner.id)).toEqual([selectedAssessor!.principal_id]);
   expect(created.workspaceOrigin).toBe("pipeline");
   expect(created.workspaceStatus).toBe("active");
   await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceField=name`));
   await expect(page.locator("#packet-page-1")).toBeVisible();
   await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Assessment", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Decision", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Finish & send", exact: true })).toBeVisible();
+  const stages = page.getByRole("navigation", { name: "Workspace stages" });
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    const view = stages.getByRole("combobox", { name: "Workspace view" });
+    await expect(view).toHaveValue("1");
+    await expect(view.getByRole("option", { name: "Assessment" })).toHaveCount(1);
+    await expect(view.getByRole("option", { name: "Decision" })).toHaveCount(1);
+    await expect(view.getByRole("option", { name: "Finish & send" })).toHaveCount(1);
+    await view.selectOption("3");
+    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await view.selectOption("1");
+  } else {
+    await expect(stages.getByRole("button", { name: "Intake", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toBeVisible();
+    await expect(stages.getByRole("button", { name: "Decision", exact: true })).toBeVisible();
+    await expect(stages.getByRole("button", { name: "Finish & send", exact: true })).toBeVisible();
+    await stages.getByRole("button", { name: "Chart", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await stages.getByRole("button", { name: "Intake", exact: true }).click();
+  }
+  await expect(page.locator("#packet-page-1")).toBeVisible();
+  await page.reload();
+  await expect(page.locator("#packet-page-1")).toBeVisible();
   expect((await (await page.request.get(`/api/referrals/${source.id}`)).json()).referral).toEqual(source);
   const active = await (await page.request.get("/api/referrals?limit=100")).json() as { referrals: Referral[] };
   expect(active.referrals.some((referral) => referral.id === created.id)).toBe(true);

@@ -2293,8 +2293,11 @@ export default function ReferralPacketCanvas({
     ? savedWorkspaceSteps.filter((step) => step.page !== "workflow" && step.page !== "email")
     : workspacePresentation.usesSourceProfile && !historicalReadOnly
       ? [...steps, savedWorkspaceSteps[3]] : steps;
+  const navigableWorkspaceSteps: ReadonlyArray<WorkspaceStep> = loadedReferral?.chartSource && !historicalReadOnly
+    ? [{ page: 1, label: "Intake" }, ...workspaceSteps]
+    : workspaceSteps;
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
-  const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
+  const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
@@ -2423,7 +2426,7 @@ export default function ReferralPacketCanvas({
               {renderWorkspaceSyncStatus()}
               <StartReferralFromChart
                 sourceReferralId={loadedReferral?.id}
-                allowed={Boolean(loadedReferral?.clientId && !loadedReferral.chartSource && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
+                allowed={Boolean(loadedReferral?.clientId && !loadedReferral.chartSource && !trainingAssessmentMode && !trainingIntakeMode)}
                 inFolder
                 beforeStart={async () => {
                   if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting an intake.");
@@ -2489,7 +2492,7 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
             </h1>
-            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === 1 && loadedReferral ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
+            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
 
             {renderWorkspaceActions()}
           </div>
