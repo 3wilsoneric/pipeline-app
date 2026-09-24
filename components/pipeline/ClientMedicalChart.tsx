@@ -118,7 +118,9 @@ export function ChartGrid({
     : columns === "priorities"
       ? "lg:grid-cols-2"
       : "sm:grid-cols-2 lg:grid-cols-3";
-  return <dl aria-label={ariaLabel} className={designV2 ? `grid gap-x-4 pb-2 ${layout}` : `grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
+  // The redesign's record rail takes ~240px, so the chart widens to six columns only on wide screens.
+  const railLayout = columns === "identity" ? "grid-cols-2 xl:grid-cols-6" : columns === "care" ? "sm:grid-cols-2 xl:grid-cols-3" : layout;
+  return <dl aria-label={ariaLabel} className={designV2 ? `grid gap-x-4 pb-2 ${railLayout}` : `grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
 function chartCellSpan(fact: ClientChartFact, multiline: boolean) {
