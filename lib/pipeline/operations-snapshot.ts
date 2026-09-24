@@ -786,7 +786,7 @@ function toReferralWorklistItem(
 ): ReferralWorklistItem {
   const categories: ReferralWorklistItem["categories"] = [];
   const missingDocuments = requirements.filter((requirement) =>
-    isDocumentRequirementType(requirement.type),
+    isDocumentRequirementType(requirement.type) && !isRequirementStatusResolved(requirement.status),
   );
   const extractionConflict = Boolean(referral.packetFields?.some((field) => field.is_conflict));
   const explicitBlocked = referral.packetStatus === "failed"

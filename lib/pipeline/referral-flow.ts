@@ -68,9 +68,12 @@ function decisionBoardState(referral: Referral, context: WorkflowContext, state:
 function acceptedBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState {
   if (state.assessment === "ready_to_sign") return { ...boardCard("decision", "Accept", "Review and sign the assessment", "assessment"), location: { view: "assessment", assessmentMode: "review" } };
   if (state.assessment !== "signed") return boardCard("decision", "Accept", "Complete the assessment", "assessment");
-  const outstanding = (context.requirements ?? referral.requirements ?? []).find((requirement) =>
+  const outstanding = (context.requirements ?? referral.requirements ?? []).filter((requirement) =>
     ["admission_decision", "move_in"].includes(requirement.requiredFor) && !isRequirementResolved(requirement));
-  if (outstanding) return boardCard("decision", "Accept", outstanding.nextStep?.trim() || outstanding.label, isDocumentRequirementType(outstanding.type) ? "files" : "workflow");
+  if (outstanding.some((requirement) => isDocumentRequirementType(requirement.type))) {
+    return boardCard("decision", "Accept", "Complete admission documents", "files");
+  }
+  if (outstanding.length > 0) return boardCard("decision", "Accept", "Review admission requirements", "workflow");
   return boardCard("decision", "Awaiting admit", "Record admission", "workflow");
 }
 

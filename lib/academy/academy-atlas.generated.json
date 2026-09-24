@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c658276d02d91197",
-  "fingerprint": "c658276d02d91197cb222320f8fa648e4d8200d79be582a23f1bd28468c3d753",
+  "generatedAt": "source-fingerprint:46af9c5149ebd2b0",
+  "fingerprint": "46af9c5149ebd2b0a3306255d18de618878f80f6300dcf5a4d3964de71864ba0",
   "totals": {
     "files": 1414,
-    "lines": 370177,
+    "lines": 370221,
     "coveredFiles": 1414
   },
   "entries": [
@@ -3360,7 +3360,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 262,
+      "lines": 263,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3372,7 +3372,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 240,
+      "lines": 239,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3384,7 +3384,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 240,
+      "lines": 218,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -10338,7 +10338,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 133,
+      "lines": 136,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -15755,7 +15755,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 356,
+      "lines": 360,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15863,7 +15863,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 469,
+      "lines": 514,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16920,7 +16920,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 134,
+      "lines": 148,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

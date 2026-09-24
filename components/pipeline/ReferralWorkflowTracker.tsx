@@ -155,8 +155,7 @@ function LifecycleCard({ item, showOwner, onOpenPacket }: {
     { label: "Community", value: item.community },
     ...plannedAdmissionDetail(item),
     ...(showOwner ? [{ label: "Assessor", value: item.owner || "Unassigned" }] : []),
-    { label: "File progress", value: `${Math.round(item.completion_pct)}% complete` },
-    { label: "Documents needed", value: String(item.missing_document_count) },
+    ...(item.missing_document_count > 0 ? [{ label: "Documents needed", value: String(item.missing_document_count) }] : []),
   ];
   return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
     <span className={boardStyles.tabs}>
