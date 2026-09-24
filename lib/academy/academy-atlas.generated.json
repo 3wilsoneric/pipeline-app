@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ec9ba32cd064364a",
-  "fingerprint": "ec9ba32cd064364aeddb5ceb1be241247f63d5f8bab23d8f0e7f22b88dd432c4",
+  "generatedAt": "source-fingerprint:c658276d02d91197",
+  "fingerprint": "c658276d02d91197cb222320f8fa648e4d8200d79be582a23f1bd28468c3d753",
   "totals": {
-    "files": 1413,
-    "lines": 369932,
-    "coveredFiles": 1413
+    "files": 1414,
+    "lines": 370177,
+    "coveredFiles": 1414
   },
   "entries": [
     {
@@ -3336,7 +3336,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 417,
+      "lines": 469,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -16023,6 +16023,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/acceptance-save-recovery.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 193,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
       ]
     },
     {

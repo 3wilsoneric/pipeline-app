@@ -24,7 +24,7 @@ import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fe
 import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
 import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
 import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
-import type { AdmissionRequirement, AssessmentRecommendation, Referral, RequirementStatus } from "@/lib/pipeline/referral-types";
+import type { AdmissionDecision, AdmissionRequirement, AssessmentRecommendation, Referral, RequirementStatus } from "@/lib/pipeline/referral-types";
 import assessmentStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import UnderReviewEmailDialog, { defaultUnderReviewMessage } from "./UnderReviewEmailDialog";
 
@@ -77,6 +77,7 @@ export default function ReferralWorkflowPanel({
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState("");
   const mutationIds = useRef(new Map<string, string>());
+  const confirmedDecision = useRef<{ referral: Referral; decision: AdmissionDecision } | null>(null);
   const recommendationDirty = useRef(false);
   const admissionDateDirty = useRef(false);
   const mutationInFlight = useRef(false);
@@ -115,10 +116,22 @@ export default function ReferralWorkflowPanel({
   });
 
   const loadWorkflow = useCallback(async (signal?: AbortSignal) => {
+    if (confirmedDecision.current?.referral.id !== referral.id) confirmedDecision.current = null;
     const payload = await fetchPipelineJson<WorkflowResponse>(`/api/referrals/${referral.id}/workflow`, {
       cache: "no-store",
       signal,
     });
+    const confirmed = confirmedDecision.current;
+    if (confirmed && payload.decision?.decisionId !== confirmed.decision.decisionId) {
+      if ((payload.referral.version ?? 0) <= (confirmed.referral.version ?? 0)) {
+        // An older read must not reopen the form after the server confirmed the decision.
+        setLoading(false);
+        return { ...payload, referral: confirmed.referral, decision: confirmed.decision };
+      }
+      confirmedDecision.current = null;
+    } else if (confirmed) {
+      confirmedDecision.current = { ...confirmed, referral: payload.referral };
+    }
     setWorkflow(payload);
     setError("");
     if (!recommendationDirty.current) {
@@ -130,6 +143,7 @@ export default function ReferralWorkflowPanel({
     }
     if (!admissionDateDirty.current) setAdmissionDateDraft(getPlannedAdmissionDate(payload.referral));
     setLoading(false);
+    return payload;
   }, [referral.id]);
 
   useEffect(() => {
@@ -137,12 +151,17 @@ export default function ReferralWorkflowPanel({
     setLoading(true);
     loadWorkflow(controller.signal).catch((loadError) => {
       if (!controller.signal.aborted) {
-        setError(loadError instanceof Error ? loadError.message : "Workflow could not be loaded.");
+        if (confirmedDecision.current?.referral.id === referral.id) {
+          setMessage("Decision recorded. The latest details could not refresh; reload the page to check them.");
+          setError("");
+        } else {
+          setError(loadError instanceof Error ? loadError.message : "Workflow could not be loaded.");
+        }
         setLoading(false);
       }
     });
     return () => controller.abort();
-  }, [loadWorkflow, referral.version]);
+  }, [loadWorkflow, referral.id, referral.version]);
 
   const clearSavedDraftState = (key: string) => {
     if (key.startsWith("recommendation:")) recommendationDirty.current = false;
@@ -150,7 +169,7 @@ export default function ReferralWorkflowPanel({
     if (key.startsWith("admit-date:")) admissionDateDirty.current = false;
   };
 
-  const runMutation = async <T extends { referral?: Referral }>(
+  const runMutation = async <T extends { referral?: Referral; decision?: AdmissionDecision }>(
     key: string,
     url: string,
     method: "PATCH" | "POST" | "PUT",
@@ -167,24 +186,57 @@ export default function ReferralWorkflowPanel({
     setError("");
     setMessage("");
     try {
-      const payload = await fetchPipelineJson<T>(url, {
-        method,
-        body: JSON.stringify({ ...body, client_mutation_id: clientMutationId }),
-      });
+      let payload: T;
+      try {
+        payload = await fetchPipelineJson<T>(url, {
+          method,
+          body: JSON.stringify({ ...body, client_mutation_id: clientMutationId }),
+        });
+      } catch (mutationError) {
+        if (key.startsWith("decision:")) {
+          try {
+            const latest = await loadWorkflow();
+            onReferralChange(latest.referral);
+            if (latest.decision) {
+              confirmedDecision.current = { referral: latest.referral, decision: latest.decision };
+              mutationIds.current.delete(mutationKey);
+              clearSavedDraftState(key);
+              setMessage(latest.decision.outcome === body.outcome
+                ? `${latest.decision.outcome === "accepted" ? "Acceptance" : "Denial"} is already recorded. Review the saved decision before continuing.`
+                : "A different decision is recorded. Review it before continuing.");
+              return null;
+            }
+          } catch { /* Preserve the original save error when the decision cannot be read back. */ }
+        } else if (mutationError instanceof PipelineApiError && mutationError.status === 409) {
+          const latest = referralFromConflictPayload(mutationError.payload);
+          if (latest) onReferralChange(latest);
+          await loadWorkflow().catch(() => undefined);
+        }
+        const uncertainDecision = key.startsWith("decision:")
+          && (!(mutationError instanceof PipelineApiError) || mutationError.status === 0 || mutationError.status === 499 || mutationError.status >= 500);
+        setError(uncertainDecision
+          ? "Could not confirm whether the decision was saved. Reload the workspace to check before trying again."
+          : mutationError instanceof Error ? mutationError.message : "The workflow change could not be saved.");
+        return null;
+      }
       mutationIds.current.delete(mutationKey);
+      if (key.startsWith("decision:") && payload.decision && payload.referral) {
+        confirmedDecision.current = { referral: payload.referral, decision: payload.decision };
+        setWorkflow((current) => current ? {
+          ...current,
+          referral: payload.referral ?? current.referral,
+          decision: payload.decision ?? current.decision,
+        } : current);
+      }
       if (payload.referral) onReferralChange(payload.referral);
       clearSavedDraftState(key);
       setMessage(successMessage);
-      await loadWorkflow();
-      return payload;
-    } catch (mutationError) {
-      if (mutationError instanceof PipelineApiError && mutationError.status === 409) {
-        const latest = referralFromConflictPayload(mutationError.payload);
-        if (latest) onReferralChange(latest);
-        await loadWorkflow().catch(() => undefined);
+      try {
+        await loadWorkflow();
+      } catch {
+        setMessage(`${successMessage}. The latest details could not refresh; reload the page to check them.`);
       }
-      setError(mutationError instanceof Error ? mutationError.message : "The workflow change could not be saved.");
-      return null;
+      return payload;
     } finally {
       mutationInFlight.current = false;
       setBusy("");
