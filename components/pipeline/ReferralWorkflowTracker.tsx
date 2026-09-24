@@ -98,8 +98,13 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
           }}>
             <div className={boardStyles.stageHeading}>
               <h2><button type="button" data-open-folder aria-label={`Open ${stage.label.toLowerCase()} folder`} aria-haspopup="dialog" aria-expanded={expanded?.stage === stage.key} className={boardStyles.openFolder} onClick={(event) => openFolder(stage.key, event.currentTarget)}>
-                <span className={boardStyles.stageIcon}><FolderOpen size={23} aria-hidden="true" /></span>
-                <span className={boardStyles.stageTitle}>{stage.label}<span>{stageItems.length.toLocaleString()} {stageItems.length === 1 ? "file" : "files"}</span></span>
+                {designV2 ? <>
+                  <span className={boardStyles.stageTitle}>{stage.label}</span>
+                  <span className={boardStyles.stageCount}>{stageItems.length.toLocaleString()} {stageItems.length === 1 ? "file" : "files"}</span>
+                </> : <>
+                  <span className={boardStyles.stageIcon}><FolderOpen size={23} aria-hidden="true" /></span>
+                  <span className={boardStyles.stageTitle}>{stage.label}<span>{stageItems.length.toLocaleString()} {stageItems.length === 1 ? "file" : "files"}</span></span>
+                </>}
                 <span className={boardStyles.expandAffordance}>{designV2 ? <><span>View all</span><Maximize2 size={16} aria-hidden="true" /></> : <><Maximize2 size={18} aria-hidden="true" /><span>View all</span></>}</span>
               </button></h2>
             </div>

@@ -290,10 +290,11 @@
   .docket[data-board-stage="in_progress"] { --stage-accent: var(--color-stage-blue); --stage-tint: var(--color-stage-blue-tile); --docket-edge: var(--color-stage-blue-border); --stage-column: var(--stage-blue-column); }
   .docket[data-board-stage="decision"] { --stage-accent: var(--color-stage-orange); --stage-tint: var(--color-stage-orange-tile); --docket-edge: var(--color-stage-orange-border); --stage-column: var(--stage-orange-column); }
 
-  .stageHeading { margin: 0 0 14px; }
+  .stageHeading { margin: 0 0 6px; }
   .stageHeading h2 { width: 100%; margin: 0; text-transform: none; }
-  .openFolder { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 72px; padding: 12px 16px; border: 1px solid var(--docket-edge); border-radius: var(--radius-paper); background: rgb(255 255 255 / 82%); text-align: left; font: inherit; color: var(--color-ink); }
-  .openFolder:hover { background: var(--color-paper); border-color: var(--stage-accent); }
+  .openFolder { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 72px; padding: 4px 6px; border: 1px solid transparent; border-radius: var(--radius-paper); background: transparent; text-align: left; font: inherit; color: var(--color-ink); }
+  .openFolder:hover { background: rgb(255 255 255 / 45%); }
+  .stageCount { flex-shrink: 0; padding: 2px 8px; border-radius: var(--radius-chip); background: var(--color-count); color: var(--color-ink-2); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: var(--text-label--font-weight); font-variant-numeric: tabular-nums; }
   .openFolder:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   .stageIcon { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: var(--radius-paper); color: var(--stage-accent); background: var(--stage-tint); }
   .stageTitle { min-width: 0; font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: var(--text-section--font-weight); overflow-wrap: anywhere; }

@@ -69,7 +69,7 @@ Home uses the card system from the "Referrals" board image in place of manila fo
 ## Home board colors (2026-09-24, owner)
 
 - Stage columns are tinted: green, blue, and peach.
-- Each column has a white header card with a colored folder-icon tile, the title, the file count, and "View all", as in "Board, folder style".
+- Each column header is a plain row: the title, the file count as a small chip, and "View all". There is no header box and no icon (owner, 2026-09-24).
 - Referral cards inside the columns stay white cards.
 
 ## Out of scope (owner, 2026-09-24)
