@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  asRecord,
   createOperationalReferral,
   readOperationalReferral,
 } from "../support/operational-api";
@@ -28,7 +29,7 @@ test.describe("operational concurrent referral editing scaffold", () => {
           data: {
             if_match: created.version,
             if_match_sections: { identity: created.sectionVersions.identity },
-            patch: { phone: "555-0101" },
+            patch: { gender: "Nonbinary" },
           },
         }),
         coordinator.patch(`/api/referrals/${created.id}`, {
@@ -44,18 +45,20 @@ test.describe("operational concurrent referral editing scaffold", () => {
       expect(intakeSave.status()).toBe(200);
 
       const latest = await readOperationalReferral(admin, created.id);
+      expect(latest.sectionVersions.identity).toBe(created.sectionVersions.identity + 1);
+      expect(latest.sectionVersions.intake).toBe(created.sectionVersions.intake + 1);
       const [firstSameSection, secondSameSection] = await Promise.all([
         admin.patch(`/api/referrals/${created.id}`, {
           data: {
             if_match: latest.version,
-            if_match_sections: { identity: latest.sectionVersions.identity },
+            if_match_sections: { intake: latest.sectionVersions.intake },
             patch: { phone: "555-0201" },
           },
         }),
         coordinator.patch(`/api/referrals/${created.id}`, {
           data: {
             if_match: latest.version,
-            if_match_sections: { identity: latest.sectionVersions.identity },
+            if_match_sections: { intake: latest.sectionVersions.intake },
             patch: { phone: "555-0202" },
           },
         }),
@@ -67,7 +70,14 @@ test.describe("operational concurrent referral editing scaffold", () => {
       const conflictResponse = firstSameSection.status() === 409 ? firstSameSection : secondSameSection;
       const conflict = await conflictResponse.json();
       expect(conflict.conflict).toBe(true);
-      expect(conflict.conflicting_sections ?? []).toContain("identity");
+      expect(conflict.conflicting_sections ?? []).toContain("intake");
+
+      const finalResponse = await admin.get(`/api/referrals/${created.id}`);
+      expect(finalResponse.status()).toBe(200);
+      const finalReferral = asRecord(asRecord(await finalResponse.json()).referral);
+      expect(finalReferral.gender).toBe("Nonbinary");
+      expect(finalReferral.note).toBe("Coordinator added intake context during certification.");
+      expect(finalReferral.phone).toBe(firstSameSection.status() === 200 ? "555-0201" : "555-0202");
     } finally {
       await Promise.all([
         admin.dispose(),

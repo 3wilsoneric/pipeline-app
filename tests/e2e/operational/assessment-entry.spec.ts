@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { isoToOperationalInput } from "../../../components/pipeline/pipeline-calendar-model";
 import type { PipelineAssessmentRecord } from "../../../lib/assessment/assessment-records";
 import type { Referral } from "../../../lib/pipeline/referral-types";
 import { completeOperationalAssessment, signOperationalAssessment, startOperationalAssessment } from "../support/operational-api";
@@ -40,17 +41,15 @@ test.describe("assessment editing entry and return paths", () => {
         // Reopen without leaving the workspace, not just via a saved Home link.
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
-        await full.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true }).click();
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
-        await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
-        await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
         await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
+        await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
         await page.locator('[data-home-module="current-work"]').getByRole("button", { name: "Open current work", exact: true }).click();
         const board = page.getByRole("dialog", { name: "Current work", exact: true });
         await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
         await expect(full).toBeVisible();
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
-        await expect(full.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true })).toContainText(answer);
+        await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
         const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
         expect(records).toHaveLength(1);
         expect(records[0].assessment_id).toBe(assessment.assessment_id);
@@ -77,19 +76,27 @@ test.describe("assessment editing entry and return paths", () => {
         await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
         const full = page.locator("[data-assessment-view]");
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
-        await full.locator('summary[aria-label="Assessment details"]').click();
-        await full.getByRole("button", { name: "Change appointment", exact: true }).click();
+        await page.getByRole("region", { name: "Assessment progress", exact: true })
+          .getByRole("button", { name: "Schedule interview", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         await expect(schedule).toBeVisible();
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
+        const newStart = new Date(Date.parse(assessment.scheduled_start_at!) + 86_400_000);
+        newStart.setUTCHours(20, 0, 0, 0);
+        await schedule.getByLabel("Assessment date and time").fill(isoToOperationalInput(newStart.toISOString()));
         await schedule.getByRole("button", { name: "Save new time", exact: true }).click();
         await expect(schedule).not.toBeVisible();
         await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
         await expect(full).toBeVisible();
         const saved = await readAssessment(api, assessment.assessment_id);
         expect(saved.assessment_id).toBe(assessment.assessment_id);
+        expect(saved.schedule_status).toBe("scheduled");
+        expect(saved.scheduled_start_at).toBe(newStart.toISOString());
         expect(saved.current_location).toBe("Synthetic placement");
         expect(saved.started_at).toBeNull();
+        const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
+        expect(records).toHaveLength(1);
+        expect(records[0].assessment_id).toBe(assessment.assessment_id);
       } finally {
         await context.close();
         await api.dispose();
@@ -114,7 +121,7 @@ test.describe("assessment editing entry and return paths", () => {
       await page.goto("/?screen=calendar");
       await page.getByRole("region", { name: "Timed assessment week", exact: true })
         .getByRole("button", { name: new RegExp(referral.name!) }).click();
-      await page.getByRole("dialog", { name: "Calendar item", exact: true }).getByRole("button", { name: "Open assessment", exact: true }).click();
+      await page.getByRole("dialog", { name: "Calendar item", exact: true }).getByRole("button", { name: "Continue assessment", exact: true }).click();
       await expect(page.locator("[data-assessment-view]")).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
       await page.reload();
@@ -135,11 +142,20 @@ test.describe("assessment editing entry and return paths", () => {
       const started = await startOperationalAssessment(api, assessment);
       const complete = await completeOperationalAssessment(api, started);
       const signed = await signOperationalAssessment(api, complete);
+      const signedRecord = await readAssessment(api, signed.assessment_id);
+      expect(signedRecord.signed_at).toBeTruthy();
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
       const full = page.locator("[data-assessment-view]");
       await expect(full).toBeVisible();
-      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
+      const placements = full.getByRole("textbox", { name: "Prior placements", exact: true });
+      await expect(placements).toBeEditable();
       await expect(full.getByRole("button", { name: "Add note", exact: true })).toHaveCount(0);
+      const signedAnswer = "Synthetic placement correction after signing, before sending.";
+      await placements.fill(signedAnswer);
+      await placements.blur();
+      await expect.poll(async () => (await readAssessment(api, signed.assessment_id)).prior_placements).toBe(signedAnswer);
+      const editedSigned = await readAssessment(api, signed.assessment_id);
+      expect(editedSigned.signed_at).toBe(signedRecord.signed_at);
       const next = await api.post(`/api/referrals/${referral.id}/assessments`, { data: {
         client_mutation_id: randomUUID(), data: { current_location: "Synthetic reassessment placement" },
       } });
@@ -151,10 +167,19 @@ test.describe("assessment editing entry and return paths", () => {
       } });
       expect(scheduled.status(), await scheduled.text()).toBe(200);
       await page.reload();
-      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
-      await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("");
-      expect((await readAssessment(api, signed.assessment_id)).version).toBe(signed.version);
+      await expect(placements).toBeEditable();
+      await expect(placements).toHaveValue("");
+      const nextAnswer = "Synthetic placement in the new interview.";
+      await placements.fill(nextAnswer);
+      await placements.blur();
+      await expect.poll(async () => (await readAssessment(api, nextDraft.assessment_id)).prior_placements).toBe(nextAnswer);
+      const retainedSigned = await readAssessment(api, signed.assessment_id);
+      expect(retainedSigned.prior_placements).toBe(signedAnswer);
+      expect(retainedSigned.version).toBe(editedSigned.version);
+      expect(retainedSigned.signed_at).toBe(signedRecord.signed_at);
       expect(nextDraft.assessment_id).not.toBe(signed.assessment_id);
+      const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
+      expect(records).toHaveLength(2);
     } finally {
       await context.close();
       await api.dispose();

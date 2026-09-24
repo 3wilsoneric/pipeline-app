@@ -39,6 +39,10 @@ check("acceptance requires an accepted decision", hasBlocker(
   workflow.getReferralTransitionBlockers(referral("Community Review"), "Accepted / Admitted", { requirements: [] }),
   "admission_decision_required",
 ));
+check("confirmed admission requires an actual arrival date", hasBlocker(
+  workflow.getReferralTransitionBlockers(referral("Community Review"), "Accepted / Admitted", { decision: { outcome: "accepted" } }),
+  "admission_actual_date_required",
+));
 check("move-in requirements remain visible as alerts", hasBlocker(
   workflow.getReferralTransitionAlerts(referral("Community Review"), "Accepted / Admitted", {
     decision: { outcome: "accepted" },
@@ -62,12 +66,12 @@ check("missing decline reasons remain visible as alerts", hasBlocker(
   "decline_reason_required",
 ));
 
-check("missing readiness data never blocks an authorized sequential continuation", [
+check("missing noncritical readiness data never blocks an authorized sequential continuation", [
   [referral("New"), "Packet Needed", {}],
   [referral("Packet Needed", { owner: "Operator" }), "Packet Review", {}],
   [referral("Packet Review", { owner: "Operator" }), "Assessment", {}],
   [referral("Assessment"), "Community Review", { assessmentComplete: false }],
-  [referral("Community Review"), "Accepted / Admitted", {
+  [referral("Community Review", { actualAdmissionDate: "2026-08-01" }), "Accepted / Admitted", {
     decision: { outcome: "accepted" },
     requirements: [{ type: "tb_test", label: "TB test", status: "needed", requiredFor: "move_in", blocker: true }],
   }],

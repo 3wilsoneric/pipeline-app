@@ -184,7 +184,7 @@ export default function OutlookHandoffControls({ referralId, selected, demo, rea
     <div className={styles.actions}>
       {!draft ? <button type="button" className={styles.primary} disabled={busy || sending || loading || !ready || isDemo || state.occupied || !state.email_configured} onClick={() => void emailPacket()}>
         {busy || sending ? <LoaderCircle size={16} className={styles.spin} /> : <Mail size={16} />}{busy || sending ? "Emailing packet…" : "Email packet to me"}</button>
-        : draft.status === "draft" ? <button type="button" className={styles.primary} disabled={busy || sending} onClick={() => void inboxAction("forwarded")}><Check size={16} />I forwarded the handoff</button>
+        : draft.status === "draft" ? <><a className={styles.primary} href="https://outlook.office.com/mail/inbox" target="_blank" rel="noopener noreferrer">Open Outlook inbox<ExternalLink size={16} aria-hidden="true" /></a><button type="button" className={styles.secondary} disabled={busy || sending} onClick={() => void inboxAction("forwarded")}><Check size={16} />I forwarded the handoff</button></>
           : draft.status !== "needs_review" ? <button type="button" className={styles.primary} disabled={busy || sending} onClick={() => void inboxAction("received")}>I received the complete packet</button> : null}
       {draft ? <button type="button" className={draft.status === "needs_review" ? styles.primary : styles.quiet} disabled={busy || sending} onClick={() => void inboxAction("replace")}>Review a new handoff</button>
         : <button type="button" className={styles.quiet} disabled={busy || sending || loading || state.occupied} onClick={() => { setError(""); setDelivery("outlook"); }}>Use Outlook Drafts instead</button>}

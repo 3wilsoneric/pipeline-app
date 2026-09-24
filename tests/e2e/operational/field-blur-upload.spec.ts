@@ -133,10 +133,14 @@ test.describe("field exit saves and single uploads", () => {
       await cell.getByRole("textbox").fill("Synthetic source unavailable");
       await page.waitForTimeout(900);
       expect(writes).toHaveLength(2);
-      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
+      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspace files", exact: true }).click();
       await expect(editor).toHaveCount(0);
       await expect.poll(async () => (await read()).im_injections).toBe("unable_to_assess");
       await expect.poll(async () => (await read()).unable_to_assess_reasons.im_injections).toBe("Synthetic source unavailable");
+      await page.reload();
+      await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
+      await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("medication");
+      await expect(cell.getByRole("textbox")).toHaveValue("Synthetic source unavailable");
     } finally { await context.close(); await api.dispose(); }
   });
 
@@ -191,6 +195,7 @@ test.describe("field exit saves and single uploads", () => {
       await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
+      await confirmReferralFileLabels(page);
       await expect.poll(() => reservations.length).toBe(2);
       await expect(page.getByTestId("workspace-save-status")).toContainText("Files uploaded");
       expect(new Set(reservations).size).toBe(1);

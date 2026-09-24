@@ -20,6 +20,8 @@ import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
 import OutlookHandoffControls from "./OutlookHandoffControls";
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
+import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
+import { formatClientIdentityTitle, resolveClientCommunity } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import styles from "./MeetClientEmailPage.module.css";
@@ -57,7 +59,7 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenIntake, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
@@ -66,6 +68,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   onSendingChange?: (sending: boolean) => void;
   onReferralChange?: (referral: Referral) => void;
   onOpenFiles?: () => void;
+  onOpenIntake?: () => void;
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
 }) {
@@ -193,7 +196,8 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
 
   const renderReviewBody = (step: number) => {
     if (step === 0) return <MeetClientAdmissionReview referral={readyPayload.referral} editable={readyPayload.email.can_edit_recipients} demo={readyPayload.email.example_only}
-      onConfirm={confirmAdmissionDate} onSavingChange={(saving) => { setSavingDate(saving); onSendingChange?.(saving); }} onReload={() => void load()} />;
+      onConfirm={confirmAdmissionDate} onReviewWithoutDate={() => { setConfirmed(false); setReviewedCount(1); setReviewStep(1); }}
+      onSavingChange={(saving) => { setSavingDate(saving); onSendingChange?.(saving); }} onReload={() => void load()} />;
     return step < 4 ? <HandoffReviewStep step={step} payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
           onBack={() => setReviewStep(step - 1)} onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment}
           onContinue={() => { setReviewedCount((count) => Math.max(count, step + 1)); setReviewStep(step + 1); }} />
@@ -203,14 +207,14 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
             preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
             onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
   };
-  const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
+  const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} compact={reviewStep === 4 && existingDraft?.delivery_method === "assessor_email"} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
     {renderReviewBody(reviewStep)}
   </MeetClientComposeDialog> : null);
 
   const renderEmailPage = () => (
     <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
-        <div><h2>Meet the Client</h2><p>{readyPayload.report?.meetClient.name || readyPayload.referral.name} · {readyPayload.report?.meetClient.community || readyPayload.referral.community}</p></div>
+        <div><h2>Meet the Client</h2><p>{formatClientIdentityTitle({ name: readyPayload.report ? readyPayload.report.meetClient.name : readyPayload.referral.name, referralId: readyPayload.referral.id })} · {(readyPayload.report ? resolveClientCommunity(readyPayload.report.meetClient.community) : resolveClientCommunity(readyPayload.referral.community)) || "Community not selected"}</p></div>
         <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={sent ? styles.deliveryStatus : "sr-only"} data-sent={sent || undefined}>{deliveryStatus}</span>
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
@@ -218,7 +222,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
         existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
-        onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
+        onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {renderReviewDialog()}
     </section>
   );
@@ -235,10 +239,11 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   );
 }
 
-function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onOpenAssessment, onOpenDecision }: {
+function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onOpenIntake, onOpenAssessment, onOpenDecision }: {
   existingDraft: OutlookDraftView | null; payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean; reviewedCount: number;
   finishActions?: React.ReactNode;
   onPreviewEmail: () => void;
+  onOpenIntake?: () => void;
   onOpenAssessment?: () => void; onOpenDecision?: () => void;
 }) {
   const { report, email } = payload;
@@ -260,8 +265,18 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
     <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details>
   </section>;
 
+  const identityIssues = meetClientIdentityIssues(report?.meetClient ?? null);
+  if (identityIssues.length) return <section className={styles.guidedTask} aria-label="Handoff readiness">
+    <FileText className={styles.taskIcon} size={32} aria-hidden="true" />
+    <h3>Complete client details</h3>
+    <p>Check the chart before preparing or forwarding Meet the Client.</p>
+    <ul className={styles.identityIssues}>{identityIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
+    {existingDraft ? <p className={styles.draftWarning}>The existing email copy is kept, but it will not update automatically. Review and replace it after correcting the chart.</p> : null}
+    {onOpenIntake ? <footer aria-label="Handoff actions" className={styles.taskActions}><button type="button" className={styles.sendButton} onClick={onOpenIntake}>Edit referral details<ArrowRight size={18} aria-hidden="true" /></button></footer> : null}
+  </section>;
+
   if (existingDraft) return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
-    <h3>{existingDraft.delivery_method === "assessor_email" ? "Your inbox handoff" : "Your Outlook draft is saved"}</h3>
+    <h3>{existingDraft.delivery_method === "assessor_email" ? "Email copy prepared" : "Outlook draft saved"}</h3>
     <p>{existingDraft.delivery_method === "assessor_email" ? "Forward the email with its attachments, then confirm here when sent." : "Continue with the message and files you already reviewed."}</p>
     <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
   </section>;
@@ -322,7 +337,7 @@ function HandoffSection({ title, items, children }: { title: string; items: Asse
 
 const handoffStepTitles = ["Confirm admit date", "Check client summary", "Check admission packet", "Check recipients", "Preview email"];
 
-function MeetClientComposeDialog({ step, sending, onClose, children }: { step: number; sending: boolean; onClose: () => void; children: React.ReactNode }) {
+function MeetClientComposeDialog({ step, compact, sending, onClose, children }: { step: number; compact: boolean; sending: boolean; onClose: () => void; children: React.ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -332,7 +347,7 @@ function MeetClientComposeDialog({ step, sending, onClose, children }: { step: n
     titleRef.current?.focus();
     return () => { dialog?.close(); if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus(); };
   }, []);
-  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${step === 0 ? styles.admissionDateDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
+  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${step === 0 ? styles.admissionDateDialog : ""} ${compact ? styles.inboxReadyDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
     onCancel={(event) => { event.preventDefault(); if (!sending) onClose(); }}>
     <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step + 1} / {handoffStepTitles.length}</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 4 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
     {children}
@@ -595,13 +610,30 @@ function renderPacketAccess(email: ChartPayload["email"], sent: boolean, referra
 }
 
 function PreparedDraftDetails({ draft }: { draft: OutlookDraftView }) {
+  const [copyStatus, setCopyStatus] = useState("");
+  const copyAddresses = async (label: "To" | "Cc", addresses: string[]) => {
+    try {
+      await navigator.clipboard.writeText(addresses.join("; "));
+      setCopyStatus(`${label} addresses copied`);
+    } catch {
+      setCopyStatus("Could not copy automatically. Select the addresses above and copy them.");
+    }
+  };
+  const addressRow = (label: "To" | "Cc", addresses: string[]) => <div className={styles.addressRow}>
+    <span>{label}</span>
+    <div className={styles.preparedAddresses}>
+      <span>{addresses.join("; ") || "None"}</span>
+      {draft.delivery_method === "assessor_email" && addresses.length ? <button type="button" className={styles.copyAddresses} aria-label={`Copy ${label} addresses`} onClick={() => void copyAddresses(label, addresses)}>Copy</button> : null}
+    </div>
+  </div>;
   return <section className={styles.recipientSection} style={{ overflowWrap: "anywhere" }} aria-label="Prepared handoff details">
-    <h3>Prepared handoff</h3>
-    <p>Use the prepared message in {draft.mailbox}. To change the message, recipients or files, prepare a replacement below.</p>
+    <h3>{draft.delivery_method === "assessor_email" ? "Recipients for your forward" : "Prepared handoff"}</h3>
+    <p>{draft.delivery_method === "assessor_email" ? `Forward the Alamo Admissions email in ${draft.mailbox} with every attachment. Copy the reviewed addresses below.` : `Use the prepared message in ${draft.mailbox}. To change the message, recipients or files, prepare a replacement below.`}</p>
     {draft.to_recipients ? <>
-      <div className={styles.addressRow}><span>To</span><div>{draft.to_recipients?.join("; ")}</div></div>
-      <div className={styles.addressRow}><span>Cc</span><div>{draft.cc_recipients?.join("; ") || "None"}</div></div>
+      {addressRow("To", draft.to_recipients)}
+      {addressRow("Cc", draft.cc_recipients ?? [])}
     </> : null}
+    {copyStatus ? <p className={styles.copyStatus} role="status">{copyStatus}</p> : null}
     <p>Assessment version {draft.assessment_version} · {draft.file_count} files in the prepared packet.</p>
   </section>;
 }

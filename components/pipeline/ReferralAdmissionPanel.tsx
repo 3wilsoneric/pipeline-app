@@ -1,7 +1,6 @@
 "use client";
 
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
-import { plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 type Props = {
@@ -26,9 +25,9 @@ export default function ReferralAdmissionPanel({ referral, packetSentAt, admissi
         Planned admission date
         <input data-guide-target="workspace-admit-date" id="workflow-admit-date" type="date" value={admissionDate} onChange={(event) => onAdmissionDateChange(event.target.value)} disabled={disabled} className={inputClass} aria-describedby="planned-admission-help" />
       </label>
-      <span data-guide-target="workspace-finish-send"><button type="button" disabled={disabled || (!packetSentAt && Boolean(plannedAdmissionDateError(admissionDate)))} onClick={onSaveAdmissionDate} className={buttonClass}>Review email &amp; packet</button></span>
+      <span data-guide-target="workspace-finish-send"><button type="button" disabled={disabled} onClick={onSaveAdmissionDate} className={buttonClass}>Review email &amp; packet</button></span>
     </div>
-    <p id="planned-admission-help" className="text-[11px] text-[#68716c]">{packetSentAt ? "The packet has been sent. Reviewing it or changing the planned date does not send another email." : "An admit date is required before reviewing the email and packet. It fills into the email automatically. The assessor sends the finished draft from Outlook."}</p>
+    <p id="planned-admission-help" className="text-[11px] text-[#68716c]">{packetSentAt ? "The packet has been sent. Reviewing it or changing the planned date does not send another email." : "You can review the email and packet now. Add a planned admit date before sending; it will populate the email automatically."}</p>
     {packetSentAt ? <p role="status" className="text-[12px] font-semibold text-[#0f6f5e]">Packet sent {formatProfileDate(packetSentAt)}{admitted ? "" : " · Awaiting admission"}</p> : null}
     {admitted ? <p role="status" className="text-[12px] text-[#303b34]">Admission confirmed{referral.actualAdmissionDate ? ` · ${formatProfileDate(referral.actualAdmissionDate)}` : " · Actual date not recorded"}. This workspace remains available in Finished referrals and All Workspaces.</p> : null}
   </section>;

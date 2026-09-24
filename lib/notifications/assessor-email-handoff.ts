@@ -49,7 +49,7 @@ export async function prepareAssessorEmail(input: {
     sending = true;
     const result = await sendMeetClientMail({ recipients: [input.destination], ccRecipients: [],
       summary: input.summary, preparedBy: input.preparedBy, deliveryId: audit.deliveryId, message: input.message,
-      attachments, forwarding: { to: input.recipients, cc: input.ccRecipients } });
+      attachments });
     accepted = true;
     await completeMeetClientDelivery({ ...audit, recipientCount: 1, recipientDomains: [input.destination.split("@")[1]] }, "assessor_emailed");
     return await withAdmissionPacket(packet.id, value => {

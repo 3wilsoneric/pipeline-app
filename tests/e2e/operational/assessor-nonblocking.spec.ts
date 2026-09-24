@@ -82,7 +82,7 @@ test.describe("independent assessor workflow steps", () => {
       expect(summary.report.signed).toBe(true);
       expect(await acceptedCount(admin)).toBe(acceptedBeforeSigning + 1);
       expect(summary.report.meetClient.admissionDate).toBe("");
-      expect(summary.email.blockers.join(" ")).toContain("planned admission date");
+      expect(summary.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");
       expect((await workflow(admin, referral.id)).decision).toEqual(accepted.decision);
       expect(await (await admin.get(`/api/referrals/${referral.id}/activity`)).text()).not.toMatch(/meet_client_email_sent|ehr_handoff_sent/);
     } finally { await context.close(); await assessor.dispose(); await admin.dispose(); }

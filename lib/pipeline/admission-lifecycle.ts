@@ -17,7 +17,7 @@ export function getPlannedAdmissionDate(referral: { plannedAdmissionDate?: strin
 
 export function plannedAdmissionDateError(value: unknown): string | null {
   return typeof value === "string" && normalizeCalendarDate(value)
-    ? null : "Add a planned admit date before continuing with Meet the Client. It will populate the email automatically.";
+    ? null : "Add a planned admit date before sending Meet the Client. It will populate the email automatically.";
 }
 
 export function actualAdmissionDateError(value: unknown): string | null {

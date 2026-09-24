@@ -56,8 +56,8 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
     await expect(panel.getByRole("group", { name: "Recorded decision", exact: true })).toBeFocused();
     await expect(panel.getByRole("region", { name: "Prepare client handoff" })).toContainText("Sign the assessment before sending");
-    await expect(panel.getByRole("button", { name: "Review email & packet", exact: true })).toBeDisabled();
-    await expect(panel).toContainText("An admit date is required before reviewing the email and packet.");
+    await expect(panel.getByRole("button", { name: "Review email & packet", exact: true })).toBeEnabled();
+    await expect(panel).toContainText("Add a planned admit date before sending");
     await expectAccessibleDecision(page);
     await page.screenshot({ path: info.outputPath(`accepted-${width}.png`), animations: "disabled" });
     await page.reload();

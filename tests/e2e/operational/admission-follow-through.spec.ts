@@ -6,6 +6,28 @@ import { actorApiContext, actorPage, requireOperationalBaseURL } from "../suppor
 
 test.describe("admission follow-through", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Uses isolated operational stores.");
+  test("accepted referral opens email review without an admit date", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessorA", url);
+    const { page, context } = await actorPage(browser, "assessorA", url);
+    try {
+      const created = await createOperationalReferral(api, "assessorA", { name: `Synthetic Preview ${randomUUID()}` });
+      const referral = await recordOperationalAcceptance(api, created);
+      let sendRequests = 0;
+      page.on("request", (request) => {
+        if (request.method() === "POST" && /meet-client-email|outlook-draft/.test(request.url())) sendRequests++;
+      });
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
+      const review = page.getByRole("region", { name: "Admission follow-through" }).getByRole("button", { name: "Review email & packet" });
+      await expect(review).toBeEnabled();
+      await review.click();
+      await expect(page.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
+      const summary = await (await api.get(`/api/referrals/${referral.id}/admission-summary`)).json();
+      expect(summary.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");
+      expect(sendRequests).toBe(0);
+    } finally { await context.close(); await api.dispose(); }
+  });
+
   for (const width of [1440, 390]) test(`planned dates, confirmation and reopening persist at ${width}`, async ({ browser, baseURL }, info) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessorA", url);
@@ -29,7 +51,7 @@ test.describe("admission follow-through", () => {
       await admission.getByRole("button", { name: "Review email & packet" }).click();
       await expect(page.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
       const summary = await (await api.get(`/api/referrals/${referral.id}/admission-summary`)).json();
-      expect(summary.email.blockers.join(" ")).toContain("planned admission date");
+      expect(summary.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
       await admission.getByLabel("Planned admission date", { exact: true }).fill("2026-10-12");
       await admission.getByRole("button", { name: "Review email & packet" }).click();
@@ -64,8 +86,8 @@ test.describe("admission follow-through", () => {
       const reopen = await api.post(`/api/referrals/${referral.id}/transition`, { data: { if_match: confirmed.version, if_match_section: confirmed.sectionVersions.workflow, target_stage: "Assessment", client_mutation_id: randomUUID() } });
       expect(reopen.status()).toBe(200);
       referral = (await reopen.json()).referral;
-      const edit = await api.patch(`/api/referrals/${referral.id}`, { data: { if_match: referral.version, if_match_sections: { identity: referral.sectionVersions.identity }, patch: { phone: "555-0166" }, client_mutation_id: randomUUID() } });
-      expect(edit.status()).toBe(200);
+      const edit = await api.patch(`/api/referrals/${referral.id}`, { data: { if_match: referral.version, if_match_sections: { intake: referral.sectionVersions.intake }, patch: { phone: "555-0166" }, client_mutation_id: randomUUID() } });
+      expect(edit.status(), await edit.text()).toBe(200);
       const activity = await (await api.get(`/api/referrals/${referral.id}/activity`)).text();
       expect(activity).toContain("actualAdmissionDate");
     } finally { await context.close(); await api.dispose(); }

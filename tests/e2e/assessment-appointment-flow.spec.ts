@@ -3,12 +3,15 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 
 async function review(page: Page) {
+  const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
+  await section.selectOption((await section.locator("option").last().getAttribute("value"))!);
+  await page.getByRole("navigation", { name: "Assessment section steps" }).getByRole("button", { name: "Open interview" }).click();
   if (page.viewportSize()!.width < 640) {
     await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
     await page.getByRole("dialog", { name: "Questionnaire sections" }).getByRole("button", { name: /^Review assessment/ }).click();
   } else {
-    await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("provenance_qc");
-    await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
+    await section.selectOption("provenance_qc");
+    await page.getByRole("navigation", { name: "Assessment section steps" }).getByRole("button", { name: "Review assessment" }).click();
   }
 }
 
@@ -24,20 +27,18 @@ for (const width of [1440, 834, 390, 320]) {
     await page.route("**/api/assessments/*/start", (route) => { startRequests++; return route.fulfill({ status: 503, json: { error: "No start call should be needed" } }); });
     const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=identity`;
     await page.goto(url);
-    const appointment = page.getByRole("region", { name: "Assessment appointment", exact: true });
-    const schedule = appointment.getByRole("button", { name: "Schedule interview", exact: true });
+    const progress = page.getByRole("region", { name: "Assessment progress", exact: true });
+    const schedule = progress.getByRole("button", { name: "Schedule interview", exact: true });
     await expect(schedule).toBeInViewport();
     expect((await schedule.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`appointment-${width}.png`), animations: "disabled" });
 
-    if (width < 640) {
-      await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-      await page.getByRole("dialog", { name: "Questionnaire sections" }).getByRole("button", { name: /Date assessment performed/ }).click();
-    }
-    const performed = page.getByLabel("Date assessment performed", { exact: true });
-    await performed.fill("2026-09-20");
-    await performed.blur();
+    await page.locator('summary[aria-label="Assessment details"]').click();
+    await page.getByRole("button", { name: /^Interview date/ }).click();
+    const dateDialog = page.getByRole("dialog", { name: "Interview date", exact: true });
+    await dateDialog.locator("#assessment-assessment_date").fill("2026-09-20");
+    await dateDialog.getByRole("button", { name: "Close interview date" }).click();
     await expect.poll(async () => (await read()).assessment_date).toBe("2026-09-20");
     expect((await read()).started_at).toBeNull();
 
@@ -46,26 +47,26 @@ for (const width of [1440, 834, 390, 320]) {
     await dialog.getByLabel("Assessment date and time").fill("2027-09-20T10:00");
     await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(appointment).toContainText("Sep 20, 2027");
+    await expect(progress.getByLabel("Assessment appointment", { exact: true })).toContainText("Sep 20");
     const booked = await read();
     expect(booked.started_at).toBeNull();
     expect(booked.assessment_date).toBe("2026-09-20");
     expect(booked.scheduled_start_at).toBe("2027-09-20T17:00:00.000Z");
 
     await page.reload();
-    const reschedule = appointment.getByRole("button", { name: "Change appointment", exact: true });
+    const reschedule = progress.getByRole("button", { name: "Edit assessment appointment", exact: true });
     await expect(reschedule).toBeVisible();
     await reschedule.click();
     await dialog.getByLabel("Assessment date and time").fill("2027-09-21T11:00");
     await dialog.getByRole("button", { name: "Save new time", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(appointment).toContainText("Sep 21, 2027");
+    await expect(progress.getByLabel("Assessment appointment", { exact: true })).toContainText("Sep 21");
     expect((await read()).assessment_date).toBe("2026-09-20");
 
     await review(page);
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic retained answer");
     await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
-    await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
     const signed = await read();
     expect(signed.signed_at).toBeTruthy();
@@ -85,7 +86,7 @@ test("a previously recorded start does not hide rescheduling or overwrite histor
   expect(start.status()).toBe(200);
   const startedAt = (await start.json()).assessment.started_at;
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-  await page.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Assessment progress" }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await dialog.getByLabel("Assessment date and time").fill("2027-09-22T11:00");
   await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();

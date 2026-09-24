@@ -2499,7 +2499,7 @@ export default function ReferralPacketCanvas({
 
             {renderWorkspaceActions()}
           </div>
-          {editingControlsVisible && displayedPage !== 2 ? (
+          {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
             <WorkspaceSaveStatus
               status={saveStatus}
               error={saveError}
@@ -2820,6 +2820,7 @@ export default function ReferralPacketCanvas({
                 onReferralChange={applyConfirmedWorkflowReferral}
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={handoff}
+                onOpenIntake={() => void navigatePage(1)}
                 onOpenFiles={() => void navigatePage("files")} onOpenAssessment={() => void navigatePage(2, undefined, "review")}
                 onOpenDecision={() => void navigatePage("workflow")}
                 finishActions={onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
@@ -3087,6 +3088,7 @@ function workspaceSavePresentation(status: string, error: string, hasReferral: b
   if (error) return { label: "Not saved to Pipeline", Icon: CircleAlert, iconClassName: "text-[#a4473c]", textClassName: "text-[#93382d]", confirmed: false };
   if (saving) return { label: "Saving...", Icon: LoaderCircle, iconClassName: "motion-safe:animate-spin text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (deviceOnly) return { label: "Saved on this device · waiting to sync", Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
+  if (status === "No unsaved changes") return { label: status, Icon: CheckCircle2, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
   if (confirmed) return { label: "Saved to Pipeline", Icon: CheckCircle2, iconClassName: "text-[#0c705f]", textClassName: "text-[#0c705f]", confirmed: true };
   return { label: status, Icon: UploadCloud, iconClassName: "text-[#68716c]", textClassName: "text-[#59645e]", confirmed: false };
 }

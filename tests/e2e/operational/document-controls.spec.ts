@@ -43,7 +43,7 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     expect((await api.delete(`/api/files/${file.id}`, { data: { confirmed: false } })).status()).toBe(400);
     await list.getByRole("button", { name: `Preview ${packet.name}`, exact: true }).click();
     const preview = page.getByRole("dialog", { name: `Preview ${packet.name}`, exact: true });
-    await expect(preview.locator("iframe")).toBeVisible();
+    await expect(preview.getByRole("img", { name: `Preview ${packet.name}` })).toBeVisible();
     expect(await (await api.get(file.downloadUrl)).body()).toEqual(packet.buffer);
     await preview.getByRole("button", { name: "Close preview", exact: true }).click();
     await list.getByRole("button", { name: `Delete ${packet.name}` }).click();

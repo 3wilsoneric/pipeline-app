@@ -238,7 +238,7 @@
 .chartReview [data-assessment-record] > section { padding-block: 16px; }
 .chartReview [data-assessment-record] > section > h3 { margin-bottom: 12px; }
 .chartReview [data-assessment-record] > section > dl { row-gap: 14px; }
-.chartReview [data-assessment-record] dd { margin-top: 3px; line-height: 1.55; }
+.chartReview [data-assessment-record] dd { margin-top: 3px; line-height: 1.6; }
 .footer [data-assessment-primary-action] > button, .phonePreparationSteps [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; height: auto; padding: 10px 16px; border: 1px solid #007254; border-radius: 5px; background: #007e60; color: #fff; font-size: 14px; font-weight: 600; }
 .phonePreparationSteps { flex-shrink: 0; padding: 8px 12px; border-top: 1px solid #dce3de; background: #fff; }
 .phonePreparationSteps :is(button, select):focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
