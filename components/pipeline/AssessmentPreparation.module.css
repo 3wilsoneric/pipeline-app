@@ -1,188 +1,387 @@
-.surface.surface { min-height: 0; padding: 0 8px 8px; }
-.beginDialog {
-  width: min(480px, calc(100% - 32px));
-  max-height: calc(100dvh - 32px);
-  margin: auto;
-  padding: 24px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border: 1px solid #cbd6d2;
-  border-top: 3px solid #087d66;
-  border-radius: 8px;
-  background: #fff;
-  color: #243b32;
-  box-shadow: 0 20px 70px #172a3033;
-}
-.beginDialog::backdrop { background: #1020194d; }
-.beginDialog h2 { font-size: 21px; font-weight: 700; line-height: 1.35; }
-.beginDialog > p { margin-top: 12px; color: #53665d; font-size: 15px; line-height: 1.6; }
-.beginDialog dl { margin-top: 20px; border-block: 1px solid #dfe5e2; }
-.beginDialog dl > div { display: grid; gap: 4px; padding-block: 12px; overflow-wrap: anywhere; }
-.beginDialog dl > div + div { border-top: 1px solid #edf1ef; }
-.beginDialog dt { color: #53665d; font-size: 13px; line-height: 1.5; }
-.beginDialog dd { font-size: 15px; font-weight: 600; line-height: 1.5; }
-.beginDialog [role="alert"] { color: #9c342f; }
-.beginDialog footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
-.beginDialog button { min-height: 48px; padding: 10px 12px; border: 1px solid #cbd6d2; border-radius: 5px; font-size: 14px; font-weight: 600; line-height: 1.5; cursor: pointer; }
-.beginDialog button:hover:not(:disabled) { background: #f0f4f2; }
-.beginDialog button:last-child { border-color: #087d66; background: #087d66; color: #fff; }
-.beginDialog button:last-child:hover:not(:disabled) { background: #066653; }
-.beginDialog button:disabled { opacity: .5; cursor: wait; }
-.beginDialog button:focus-visible { outline: 2px solid #087d66; outline-offset: 3px; }
-.scheduleOverlay {
-  position: fixed; inset-inline: 0; top: var(--mobile-viewport-top, 0px);
-  height: var(--mobile-viewport-height, 100dvh);
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
-}
-@media (min-width: 640px) {
-  .scheduleOverlay { padding: 24px; }
-}
-.workspaceFile, .workspaceFile > div, .workspacePaper { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
-.workspaceFile > div { padding: 7px; }
-.workspacePaper { padding: 0; background: #fff; }
-.workspacePaper footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
-.workspacePaper > footer { border-top: 1px solid #d8d8cb; }
-@media (min-width: 640px) and (min-height: 501px), (min-width: 960px), (min-width: 640px) and (pointer: fine) {
-  .workspaceFile, .workspaceFile > div, .workspacePaper { flex: 1 0 auto; min-height: auto; overflow: visible; }
-  .workspacePaper > div, .workspacePaper main { min-height: auto; overflow: visible; }
-  .workspacePaper main { background: #fff; }
-  .workspacePaper > footer { position: sticky; bottom: 0; z-index: 10; padding-bottom: max(8px, env(safe-area-inset-bottom)); box-shadow: 0 -3px 12px #203a3210; }
-}
-@media (max-width: 639px) {
-  .workspaceFile, .workspacePaper { border: 0; border-radius: 0; box-shadow: none; background: #fff; }
-  .workspaceFile > div { padding: 0; border: 0; background: #fff; }
-  .workspacePaper footer .fileDetails > summary { font-size: 12px; }
-}
-.folderHeader { position: relative; z-index: 10; display: flex; align-items: flex-end; flex-shrink: 0; gap: 0; min-width: 0; padding-top: 4px; padding-left: 50px; }
-.folderHeader .folderIdentity { position: relative; z-index: 4; flex: 0 1 38%; max-width: 420px; min-height: 50px; margin-left: 0; }
-.folderIdentity > span { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
-.fileDetails { position: relative; }
-.fileDetails > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; list-style: none; cursor: pointer; color: #4c6157; font-size: 13px; font-weight: 600; }
-.fileDetails > summary::-webkit-details-marker { display: none; }
-.folderIdentity.fileDetails { display: block; padding-block: 3px; }
-.folderIdentity > summary > h2 { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
-.fileDetails > summary > svg { flex-shrink: 0; }
-.fileDetailsPanel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(320px, calc(100vw - 80px)); max-height: 60dvh; overflow-y: auto; overscroll-behavior: contain; padding: 8px; border: 1px solid #cbd6cf; border-radius: 6px; background: #fff; box-shadow: 0 8px 32px #18382a26; }
-.fileDetailsPanel button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; color: #354d40; font-size: 14px; font-weight: 500; text-align: left; }
-.fileDetailsPanel button:hover { background: #edf4ef; }
-.fileDetailsPanel :is(button, select):focus-visible, .fileDetails > summary:focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
-.embedded footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
-.folderHeader .filePages { flex-shrink: 0; overflow: visible; max-width: none; margin-left: -8px; padding: 6px 0 0; }
-.filePages button:focus-visible, .groupNavigation button:focus-visible, .returnButton:focus-visible { outline: 2px solid #087e64; outline-offset: -3px; }
-.returnButton { display: inline-flex; align-items: center; align-self: center; justify-content: center; gap: 7px; flex-shrink: 0; min-height: 44px; margin-left: auto; padding: 8px 12px; border: 1px solid #bfcfc7; border-radius: 5px; background: #ffffffa6; color: #2c5142; font-size: 14px; font-weight: 600; }
-.returnButton svg { flex-shrink: 0; }
-.returnCompact { display: none; }
-.returnButton:hover:not(:disabled) { background: #fff; border-color: #859d90; }
-.returnButton:disabled { opacity: .5; cursor: wait; }
-.folderBody { min-height: 0; padding: 7px; border-top-left-radius: 3px; border-top-right-radius: 3px; }
-.folderPaper { min-height: 0; overflow: hidden; }
-.folderPaper > footer[aria-label="Assessment actions"] { border: 0; border-top: 1px solid #d8d8cb; border-radius: 0; background: #fafaf6; box-shadow: none; }
+/* Design switch (docs/design/DECISIONS.md, "Rollout"). Two blocks until the switch is removed:
+   the first is the current design; the second applies only under html[data-design="v2"].
+   :where() adds no specificity, so each block cascades exactly as it would alone.
+   While both exist, a fix to shared behavior belongs in both blocks. */
+@keyframes file-page-in { from { opacity: 0.7; transform: translateX(6px); } to { opacity: 1; transform: none; } }
 
-.groupNavigation { color: #283a33; }
-.groupNavigation button {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  width: 100%;
-  min-height: 64px;
-  padding: 12px 10px;
-  border-bottom: 1px solid #dee5e1;
-  text-align: left;
-  font-size: 13px;
-  font-weight: 600;
-}
-.groupNavigation button[aria-current] { background: #fff; box-shadow: -3px 0 #168464; }
-.groupNavigation button:hover { background: #ffffffb3; }
-.groupNavigation small { display: block; margin-top: 4px; color: #65726c; font-size: 11px; font-weight: 400; }
-.groupNumber { color: #61786e; font-size: 11px; font-variant-numeric: tabular-nums; }
-.groupNavigation p { margin: 24px 10px 0; color: #617168; font-size: 12px; line-height: 1.7; }
-
-.worksheet { --folder-fill: #ede4d0; --folder-edge: #cbbd9d; min-width: 0; }
-.embedded { display: flex; flex-direction: column; min-width: 0; background: #fff; }
-.file article[aria-label="Referral preparation chart"] { overflow: clip; }
-.embedded > div:has(> main) { align-items: flex-start; }
-.embedded main { overflow: visible; scroll-margin-top: 64px; background: #fff; }
-.embedded aside[aria-label="Preparation navigation"] { position: sticky; top: 66px; align-self: flex-start; overflow: visible; background: #f7faf8; }
-.embedded .worksheet { padding: 0; border: 1px solid #bfcac5; border-radius: 0; background: #fff; box-shadow: none; }
-.embedded .worksheet > div { border: 0; border-radius: 0; box-shadow: none; }
-.embedded > footer { position: sticky; bottom: 0; z-index: 10; border-top: 1px solid #bfcac5; box-shadow: 0 -3px 12px rgb(30 55 43 / 4%); }
-.questionGroup + .questionGroup { border-top: 1px solid #d5dfd9; }
-.questionGroup h4 { padding: 12px 18px; border-bottom: 1px solid #e0e6e2; background: #f4f7f5; color: #36594a; font-size: 12px; font-weight: 600; }
-.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 20px; }
-.referenceSelector { display: block; grid-column: 1 / -1; width: 100%; min-height: 40px; margin-top: 14px; padding: 6px 8px; border: 1px solid #c9d3dc; border-radius: 4px; background: #fff; color: #354b5a; font-size: 12px; }
-.referenceSelector:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
-
-@media (prefers-reduced-motion: no-preference) {
-  .worksheet { animation: file-page-in 150ms ease-out; }
-  @keyframes file-page-in { from { opacity: 0.7; transform: translateX(6px); } to { opacity: 1; transform: none; } }
-}
-
-@media (max-width: 1100px), (hover: none) and (pointer: coarse) {
-  .file > div { padding: 4px; border-top: 0; border-radius: 0 0 6px 6px; }
-  .file > div > div { padding: 0; border: 0; }
-  .file article[aria-label="Referral preparation chart"] > header > div { padding: 10px 12px; }
-  .file article[aria-label="Referral preparation chart"] > header h1 { font-size: 15px; }
-}
-
-@media (max-width: 639px) {
-  .fields { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 16px 12px; }
-  .returnText { display: none; }
-  .returnCompact { display: inline; }
-}
-
-@media (max-width: 959px) {
-  .surface main { scroll-padding-block: 72px 20px; overscroll-behavior-y: contain; }
-}
-
-@media (max-width: 959px), (hover: none) and (pointer: coarse) {
-  .surface.surface { padding: 0 4px 4px; }
-  .folderHeader { gap: 0; padding-left: 54px; padding-top: 5px; }
-  .folderHeader .folderIdentity { flex: 1; min-width: 100px; min-height: 52px; margin-left: 0; padding: 5px 8px; border: 1px solid var(--folder-edge); border-bottom: 0; background: linear-gradient(#fbf3df, var(--folder-fill)); }
-  .folderIdentity > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; padding: 2px 4px; font-size: 16px; line-height: 21px; }
-  .folderIdentity > summary > h2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 16px; line-height: 21px; }
-  .folderHeader .filePages button { min-height: 44px; padding-inline: 16px; }
-  .returnButton { gap: 5px; max-width: 150px; padding-inline: 8px; font-size: 13px; }
-  .folderBody { padding: 3px; }
-  .embedded select[id="preparation-group-mobile"] { min-height: 44px; font-size: 16px; }
-  .surface footer[aria-label="Assessment actions"], .embedded footer[aria-label="Assessment actions"] {
-    gap: 8px;
-    padding: 8px 12px max(8px, env(safe-area-inset-bottom));
-    border-radius: 0;
+:where(html:not([data-design="v2"])) {
+  .surface.surface { min-height: 0; padding: 0 8px 8px; }
+  .beginDialog {
+    width: min(480px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    padding: 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid #cbd6d2;
+    border-top: 3px solid #087d66;
+    border-radius: 8px;
+    background: #fff;
+    color: #243b32;
+    box-shadow: 0 20px 70px #172a3033;
   }
-  .surface footer[aria-label="Assessment actions"] button, .embedded footer[aria-label="Assessment actions"] button,
-  .surface[data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button,
-  .embedded main div:has(> [data-guide-target="assessment-next-section"]) > button {
-    min-height: 44px;
-    height: auto;
-    white-space: normal;
-    font-size: 14px;
+  .beginDialog::backdrop { background: #1020194d; }
+  .beginDialog h2 { font-size: 21px; font-weight: 700; line-height: 1.35; }
+  .beginDialog > p { margin-top: 12px; color: #53665d; font-size: 15px; line-height: 1.6; }
+  .beginDialog dl { margin-top: 20px; border-block: 1px solid #dfe5e2; }
+  .beginDialog dl > div { display: grid; gap: 4px; padding-block: 12px; overflow-wrap: anywhere; }
+  .beginDialog dl > div + div { border-top: 1px solid #edf1ef; }
+  .beginDialog dt { color: #53665d; font-size: 13px; line-height: 1.5; }
+  .beginDialog dd { font-size: 15px; font-weight: 600; line-height: 1.5; }
+  .beginDialog [role="alert"] { color: #9c342f; }
+  .beginDialog footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+  .beginDialog button { min-height: 48px; padding: 10px 12px; border: 1px solid #cbd6d2; border-radius: 5px; font-size: 14px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+  .beginDialog button:hover:not(:disabled) { background: #f0f4f2; }
+  .beginDialog button:last-child { border-color: #087d66; background: #087d66; color: #fff; }
+  .beginDialog button:last-child:hover:not(:disabled) { background: #066653; }
+  .beginDialog button:disabled { opacity: .5; cursor: wait; }
+  .beginDialog button:focus-visible { outline: 2px solid #087d66; outline-offset: 3px; }
+  .scheduleOverlay {
+    position: fixed; inset-inline: 0; top: var(--mobile-viewport-top, 0px);
+    height: var(--mobile-viewport-height, 100dvh);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   }
-  .surface [data-guide-target="assessment-save-status"], .embedded [data-guide-target="assessment-save-status"] { font-size: 12px; }
-  .surface [data-working-field], .embedded [data-working-field] { scroll-margin-block: 8px; }
-  .surface [data-working-field] label[for], .embedded [data-working-field] label[for] { font-size: 15px; line-height: 1.45; }
-  .surface [data-working-field] label[for] + span, .embedded [data-working-field] label[for] + span { font-size: 10px; color: #59665e; }
-  .surface [data-working-field] :is(input:not([type="checkbox"]), select, textarea),
-  .embedded [data-working-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 48px; font-size: 16px; scroll-margin-block: 8px; }
-  .surface [data-working-field] [role="group"], .embedded [data-working-field] [role="group"] { height: auto; min-height: 48px; }
-  .surface [data-working-field] [role="group"] :is(button, label), .embedded [data-working-field] [role="group"] :is(button, label) { min-height: 48px; font-size: 14px; }
-  .surface [data-working-field] button, .embedded [data-working-field] button { min-height: 44px; min-width: 44px; }
-  .surface [data-working-field] p, .embedded [data-working-field] p { font-size: 13px; line-height: 1.5; }
-  .surface [data-working-field] summary[data-guide-target="assessment-answer-help"],
-  .embedded [data-working-field] summary[data-guide-target="assessment-answer-help"] { min-height: 44px; flex-wrap: wrap; gap: 4px 10px; padding-block: 8px; }
-  .surface [data-guide-target="assessment-answer-help"] > span, .embedded [data-guide-target="assessment-answer-help"] > span { font-size: 12px; }
-  .embedded .referenceSelector { min-height: 44px; font-size: 16px; }
+  @media (min-width: 640px) {
+    .scheduleOverlay { padding: 24px; }
+  }
+  .workspaceFile, .workspaceFile > div, .workspacePaper { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+  .workspaceFile > div { padding: 7px; }
+  .workspacePaper { padding: 0; background: #fff; }
+  .workspacePaper footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
+  .workspacePaper > footer { border-top: 1px solid #d8d8cb; }
+  @media (min-width: 640px) and (min-height: 501px), (min-width: 960px), (min-width: 640px) and (pointer: fine) {
+    .workspaceFile, .workspaceFile > div, .workspacePaper { flex: 1 0 auto; min-height: auto; overflow: visible; }
+    .workspacePaper > div, .workspacePaper main { min-height: auto; overflow: visible; }
+    .workspacePaper main { background: #fff; }
+    .workspacePaper > footer { position: sticky; bottom: 0; z-index: 10; padding-bottom: max(8px, env(safe-area-inset-bottom)); box-shadow: 0 -3px 12px #203a3210; }
+  }
+  @media (max-width: 639px) {
+    .workspaceFile, .workspacePaper { border: 0; border-radius: 0; box-shadow: none; background: #fff; }
+    .workspaceFile > div { padding: 0; border: 0; background: #fff; }
+    .workspacePaper footer .fileDetails > summary { font-size: 12px; }
+  }
+  .folderHeader { position: relative; z-index: 10; display: flex; align-items: flex-end; flex-shrink: 0; gap: 0; min-width: 0; padding-top: 4px; padding-left: 50px; }
+  .folderHeader .folderIdentity { position: relative; z-index: 4; flex: 0 1 38%; max-width: 420px; min-height: 50px; margin-left: 0; }
+  .folderIdentity > span { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
+  .fileDetails { position: relative; }
+  .fileDetails > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; list-style: none; cursor: pointer; color: #4c6157; font-size: 13px; font-weight: 600; }
+  .fileDetails > summary::-webkit-details-marker { display: none; }
+  .folderIdentity.fileDetails { display: block; padding-block: 3px; }
+  .folderIdentity > summary > h2 { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
+  .fileDetails > summary > svg { flex-shrink: 0; }
+  .fileDetailsPanel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(320px, calc(100vw - 80px)); max-height: 60dvh; overflow-y: auto; overscroll-behavior: contain; padding: 8px; border: 1px solid #cbd6cf; border-radius: 6px; background: #fff; box-shadow: 0 8px 32px #18382a26; }
+  .fileDetailsPanel button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; color: #354d40; font-size: 14px; font-weight: 500; text-align: left; }
+  .fileDetailsPanel button:hover { background: #edf4ef; }
+  .fileDetailsPanel :is(button, select):focus-visible, .fileDetails > summary:focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
+  .embedded footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
+  .folderHeader .filePages { flex-shrink: 0; overflow: visible; max-width: none; margin-left: -8px; padding: 6px 0 0; }
+  .filePages button:focus-visible, .groupNavigation button:focus-visible, .returnButton:focus-visible { outline: 2px solid #087e64; outline-offset: -3px; }
+  .returnButton { display: inline-flex; align-items: center; align-self: center; justify-content: center; gap: 7px; flex-shrink: 0; min-height: 44px; margin-left: auto; padding: 8px 12px; border: 1px solid #bfcfc7; border-radius: 5px; background: #ffffffa6; color: #2c5142; font-size: 14px; font-weight: 600; }
+  .returnButton svg { flex-shrink: 0; }
+  .returnCompact { display: none; }
+  .returnButton:hover:not(:disabled) { background: #fff; border-color: #859d90; }
+  .returnButton:disabled { opacity: .5; cursor: wait; }
+  .folderBody { min-height: 0; padding: 7px; border-top-left-radius: 3px; border-top-right-radius: 3px; }
+  .folderPaper { min-height: 0; overflow: hidden; }
+  .folderPaper > footer[aria-label="Assessment actions"] { border: 0; border-top: 1px solid #d8d8cb; border-radius: 0; background: #fafaf6; box-shadow: none; }
+
+  .groupNavigation { color: #283a33; }
+  .groupNavigation button {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    width: 100%;
+    min-height: 64px;
+    padding: 12px 10px;
+    border-bottom: 1px solid #dee5e1;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .groupNavigation button[aria-current] { background: #fff; box-shadow: -3px 0 #168464; }
+  .groupNavigation button:hover { background: #ffffffb3; }
+  .groupNavigation small { display: block; margin-top: 4px; color: #65726c; font-size: 11px; font-weight: 400; }
+  .groupNumber { color: #61786e; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .groupNavigation p { margin: 24px 10px 0; color: #617168; font-size: 12px; line-height: 1.7; }
+
+  .worksheet { --folder-fill: #ede4d0; --folder-edge: #cbbd9d; min-width: 0; }
+  .embedded { display: flex; flex-direction: column; min-width: 0; background: #fff; }
+  .file article[aria-label="Referral preparation chart"] { overflow: clip; }
+  .embedded > div:has(> main) { align-items: flex-start; }
+  .embedded main { overflow: visible; scroll-margin-top: 64px; background: #fff; }
+  .embedded aside[aria-label="Preparation navigation"] { position: sticky; top: 66px; align-self: flex-start; overflow: visible; background: #f7faf8; }
+  .embedded .worksheet { padding: 0; border: 1px solid #bfcac5; border-radius: 0; background: #fff; box-shadow: none; }
+  .embedded .worksheet > div { border: 0; border-radius: 0; box-shadow: none; }
+  .embedded > footer { position: sticky; bottom: 0; z-index: 10; border-top: 1px solid #bfcac5; box-shadow: 0 -3px 12px rgb(30 55 43 / 4%); }
+  .questionGroup + .questionGroup { border-top: 1px solid #d5dfd9; }
+  .questionGroup h4 { padding: 12px 18px; border-bottom: 1px solid #e0e6e2; background: #f4f7f5; color: #36594a; font-size: 12px; font-weight: 600; }
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 20px; }
+  .referenceSelector { display: block; grid-column: 1 / -1; width: 100%; min-height: 40px; margin-top: 14px; padding: 6px 8px; border: 1px solid #c9d3dc; border-radius: 4px; background: #fff; color: #354b5a; font-size: 12px; }
+  .referenceSelector:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .worksheet { animation: file-page-in 150ms ease-out; }
+  
+  }
+
+  @media (max-width: 1100px), (hover: none) and (pointer: coarse) {
+    .file > div { padding: 4px; border-top: 0; border-radius: 0 0 6px 6px; }
+    .file > div > div { padding: 0; border: 0; }
+    .file article[aria-label="Referral preparation chart"] > header > div { padding: 10px 12px; }
+    .file article[aria-label="Referral preparation chart"] > header h1 { font-size: 15px; }
+  }
+
+  @media (max-width: 639px) {
+    .fields { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 16px 12px; }
+    .returnText { display: none; }
+    .returnCompact { display: inline; }
+  }
+
+  @media (max-width: 959px) {
+    .surface main { scroll-padding-block: 72px 20px; overscroll-behavior-y: contain; }
+  }
+
+  @media (max-width: 959px), (hover: none) and (pointer: coarse) {
+    .surface.surface { padding: 0 4px 4px; }
+    .folderHeader { gap: 0; padding-left: 54px; padding-top: 5px; }
+    .folderHeader .folderIdentity { flex: 1; min-width: 100px; min-height: 52px; margin-left: 0; padding: 5px 8px; border: 1px solid var(--folder-edge); border-bottom: 0; background: linear-gradient(#fbf3df, var(--folder-fill)); }
+    .folderIdentity > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; padding: 2px 4px; font-size: 16px; line-height: 21px; }
+    .folderIdentity > summary > h2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 16px; line-height: 21px; }
+    .folderHeader .filePages button { min-height: 44px; padding-inline: 16px; }
+    .returnButton { gap: 5px; max-width: 150px; padding-inline: 8px; font-size: 13px; }
+    .folderBody { padding: 3px; }
+    .embedded select[id="preparation-group-mobile"] { min-height: 44px; font-size: 16px; }
+    .surface footer[aria-label="Assessment actions"], .embedded footer[aria-label="Assessment actions"] {
+      gap: 8px;
+      padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+      border-radius: 0;
+    }
+    .surface footer[aria-label="Assessment actions"] button, .embedded footer[aria-label="Assessment actions"] button,
+    .surface[data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button,
+    .embedded main div:has(> [data-guide-target="assessment-next-section"]) > button {
+      min-height: 44px;
+      height: auto;
+      white-space: normal;
+      font-size: 14px;
+    }
+    .surface [data-guide-target="assessment-save-status"], .embedded [data-guide-target="assessment-save-status"] { font-size: 12px; }
+    .surface [data-working-field], .embedded [data-working-field] { scroll-margin-block: 8px; }
+    .surface [data-working-field] label[for], .embedded [data-working-field] label[for] { font-size: 15px; line-height: 1.45; }
+    .surface [data-working-field] label[for] + span, .embedded [data-working-field] label[for] + span { font-size: 10px; color: #59665e; }
+    .surface [data-working-field] :is(input:not([type="checkbox"]), select, textarea),
+    .embedded [data-working-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 48px; font-size: 16px; scroll-margin-block: 8px; }
+    .surface [data-working-field] [role="group"], .embedded [data-working-field] [role="group"] { height: auto; min-height: 48px; }
+    .surface [data-working-field] [role="group"] :is(button, label), .embedded [data-working-field] [role="group"] :is(button, label) { min-height: 48px; font-size: 14px; }
+    .surface [data-working-field] button, .embedded [data-working-field] button { min-height: 44px; min-width: 44px; }
+    .surface [data-working-field] p, .embedded [data-working-field] p { font-size: 13px; line-height: 1.5; }
+    .surface [data-working-field] summary[data-guide-target="assessment-answer-help"],
+    .embedded [data-working-field] summary[data-guide-target="assessment-answer-help"] { min-height: 44px; flex-wrap: wrap; gap: 4px 10px; padding-block: 8px; }
+    .surface [data-guide-target="assessment-answer-help"] > span, .embedded [data-guide-target="assessment-answer-help"] > span { font-size: 12px; }
+    .embedded .referenceSelector { min-height: 44px; font-size: 16px; }
+  }
+
+  @media (forced-colors: active) {
+    .filePages button[aria-current], .groupNavigation button[aria-current] { border: 2px solid Highlight; }
+  }
+
+  @media (min-width: 640px) and (max-width: 767px) {
+    .folderHeader .filePages button { padding-inline: 12px; font-size: 13px; }
+    .returnButton { max-width: 130px; }
+  }
+  .headerTools { flex-shrink: 0; margin: 0 10px 4px; }
+  @media (max-width: 900px) {
+    .folderHeader:has(.headerTools) { flex-wrap: wrap; }
+    .folderHeader .headerTools { order: 3; flex-basis: 100%; margin: 4px 10px; }
+  }
 }
 
-@media (forced-colors: active) {
-  .filePages button[aria-current], .groupNavigation button[aria-current] { border: 2px solid Highlight; }
-}
+:where(html[data-design="v2"]) {
+  .surface.surface { min-height: 0; padding: 0 8px 8px; }
+  .beginDialog {
+    width: min(480px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    padding: 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--color-control-border);
+    border-top: 3px solid var(--color-link);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--color-ink);
+    box-shadow: 0 20px 70px #172a3033;
+  }
+  .beginDialog::backdrop { background: #1020194d; }
+  .beginDialog h2 { font-size: 21px; font-weight: 700; line-height: 1.35; }
+  .beginDialog > p { margin-top: 12px; color: #53665d; font-size: 15px; line-height: 1.6; }
+  .beginDialog dl { margin-top: 20px; border-block: 1px solid #dfe5e2; }
+  .beginDialog dl > div { display: grid; gap: 4px; padding-block: 12px; overflow-wrap: anywhere; }
+  .beginDialog dl > div + div { border-top: 1px solid #edf1ef; }
+  .beginDialog dt { color: #53665d; font-size: 13px; line-height: 1.5; }
+  .beginDialog dd { font-size: 15px; font-weight: 600; line-height: 1.5; }
+  .beginDialog [role="alert"] { color: #9c342f; }
+  .beginDialog footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+  .beginDialog button { min-height: 48px; padding: 10px 12px; border: 1px solid var(--color-control-border); border-radius: 5px; font-size: 14px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+  .beginDialog button:hover:not(:disabled) { background: #f0f4f2; }
+  .beginDialog button:last-child { border-color: var(--color-link); background: var(--color-link); color: #fff; }
+  .beginDialog button:last-child:hover:not(:disabled) { background: #066653; }
+  .beginDialog button:disabled { opacity: .5; cursor: wait; }
+  .beginDialog button:focus-visible { outline: 2px solid var(--color-link); outline-offset: 3px; }
+  .scheduleOverlay {
+    position: fixed; inset-inline: 0; top: var(--mobile-viewport-top, 0px);
+    height: var(--mobile-viewport-height, 100dvh);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+  @media (min-width: 640px) {
+    .scheduleOverlay { padding: 24px; }
+  }
+  .workspaceFile, .workspaceFile > div, .workspacePaper { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+  .workspaceFile > div { padding: 8px; }
+  .workspacePaper { padding: 0; border-color: var(--color-paper-rule); border-top: 4px solid var(--stage-edge, var(--color-paper-rule)); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: none; }
+  .workspacePaper footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
+  .workspacePaper > footer { border-top: 1px solid var(--color-paper-rule); border-radius: 0 0 var(--radius-paper) var(--radius-paper); background: var(--color-sheet); }
+  @media (min-width: 640px) and (min-height: 501px), (min-width: 960px), (min-width: 640px) and (pointer: fine) {
+    .workspaceFile, .workspaceFile > div, .workspacePaper { flex: 1 0 auto; min-height: auto; overflow: visible; }
+    .workspacePaper > div, .workspacePaper main { min-height: auto; overflow: visible; }
+    .workspacePaper main { background: var(--color-paper); }
+    .workspacePaper > footer { position: sticky; bottom: 0; z-index: 10; padding-bottom: max(8px, env(safe-area-inset-bottom)); box-shadow: 0 -3px 12px #203a3210; }
+  }
+  @media (max-width: 639px) {
+    .workspaceFile, .workspacePaper { border: 0; border-radius: 0; box-shadow: none; background: #fff; }
+    .workspaceFile > div { padding: 0; border: 0; background: #fff; }
+    .workspacePaper footer .fileDetails > summary { font-size: 12px; }
+  }
+  .folderHeader { position: relative; z-index: 10; display: flex; align-items: flex-end; flex-shrink: 0; gap: 0; min-width: 0; padding-top: 4px; padding-left: 50px; }
+  .folderHeader .folderIdentity { position: relative; z-index: 4; flex: 0 1 38%; max-width: 420px; min-height: 50px; margin-left: 0; }
+  .folderIdentity > span { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
+  .fileDetails { position: relative; }
+  .fileDetails > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; list-style: none; cursor: pointer; color: #4c6157; font-size: 13px; font-weight: 600; }
+  .fileDetails > summary::-webkit-details-marker { display: none; }
+  .folderIdentity.fileDetails { display: block; padding-block: 3px; }
+  .folderIdentity > summary > h2 { font-size: 17px; line-height: 23px; white-space: normal; overflow-wrap: anywhere; }
+  .fileDetails > summary > svg { flex-shrink: 0; }
+  .fileDetailsPanel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(320px, calc(100vw - 80px)); max-height: 60dvh; overflow-y: auto; overscroll-behavior: contain; padding: 8px; border: 1px solid #cbd6cf; border-radius: 6px; background: #fff; box-shadow: 0 8px 32px #18382a26; }
+  .fileDetailsPanel button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; color: #354d40; font-size: 14px; font-weight: 500; text-align: left; }
+  .fileDetailsPanel button:hover { background: var(--color-primary-soft); }
+  .fileDetailsPanel :is(button, select):focus-visible, .fileDetails > summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+  .embedded footer .fileDetailsPanel { left: auto; right: 0; top: auto; bottom: calc(100% + 4px); }
+  .folderHeader .filePages { flex-shrink: 0; overflow: visible; max-width: none; margin-left: -8px; padding: 6px 0 0; }
+  .filePages button:focus-visible, .groupNavigation button:focus-visible, .returnButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
+  .returnButton { display: inline-flex; align-items: center; align-self: center; justify-content: center; gap: 7px; flex-shrink: 0; min-height: 44px; margin-left: auto; padding: 8px 12px; border: 1px solid var(--color-control-border); border-radius: 5px; background: #ffffffa6; color: #2c5142; font-size: 14px; font-weight: 600; }
+  .returnButton svg { flex-shrink: 0; }
+  .returnCompact { display: none; }
+  .returnButton:hover:not(:disabled) { background: #fff; border-color: #859d90; }
+  .returnButton:disabled { opacity: .5; cursor: wait; }
+  .folderBody { min-height: 0; padding: 7px; border-top-left-radius: 3px; border-top-right-radius: 3px; }
+  .folderPaper { min-height: 0; overflow: hidden; }
+  .folderPaper > footer[aria-label="Assessment actions"] { border: 0; border-top: 1px solid #d8d8cb; border-radius: 0; background: var(--color-sheet); box-shadow: none; }
 
-@media (min-width: 640px) and (max-width: 767px) {
-  .folderHeader .filePages button { padding-inline: 12px; font-size: 13px; }
-  .returnButton { max-width: 130px; }
-}
-.headerTools { flex-shrink: 0; margin: 0 10px 4px; }
-@media (max-width: 900px) {
-  .folderHeader:has(.headerTools) { flex-wrap: wrap; }
-  .folderHeader .headerTools { order: 3; flex-basis: 100%; margin: 4px 10px; }
+  .groupNavigation { color: #283a33; }
+  .groupNavigation button {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    width: 100%;
+    min-height: 64px;
+    padding: 12px 10px;
+    border-bottom: 1px solid #dee5e1;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .groupNavigation button[aria-current] { background: #fff; box-shadow: -3px 0 #168464; }
+  .groupNavigation button:hover { background: #ffffffb3; }
+  .groupNavigation small { display: block; margin-top: 4px; color: #65726c; font-size: 11px; font-weight: 400; }
+  .groupNumber { color: #61786e; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .groupNavigation p { margin: 24px 10px 0; color: #617168; font-size: 12px; line-height: 1.7; }
+
+  .worksheet { --folder-fill: #ede4d0; --folder-edge: #cbbd9d; min-width: 0; }
+  .embedded { display: flex; flex-direction: column; min-width: 0; background: #fff; }
+  .file article[aria-label="Referral preparation chart"] { overflow: clip; }
+  .embedded > div:has(> main) { align-items: flex-start; }
+  .embedded main { overflow: visible; scroll-margin-top: 64px; background: #fff; }
+  .embedded aside[aria-label="Preparation navigation"] { position: sticky; top: 66px; align-self: flex-start; overflow: visible; background: #f7faf8; }
+  .embedded .worksheet { padding: 0; border: 1px solid #bfcac5; border-radius: 0; background: #fff; box-shadow: none; }
+  .embedded .worksheet > div { border: 0; border-radius: 0; box-shadow: none; }
+  .embedded > footer { position: sticky; bottom: 0; z-index: 10; border-top: 1px solid #bfcac5; box-shadow: 0 -3px 12px rgb(30 55 43 / 4%); }
+  .questionGroup + .questionGroup { border-top: 1px solid #d5dfd9; }
+  .questionGroup h4 { padding: 12px 18px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-sheet); color: #36594a; font-size: 12px; font-weight: 600; }
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 20px; }
+  .referenceSelector { display: block; grid-column: 1 / -1; width: 100%; min-height: 40px; margin-top: 14px; padding: 6px 8px; border: 1px solid #c9d3dc; border-radius: 4px; background: #fff; color: #354b5a; font-size: 12px; }
+  .referenceSelector:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .worksheet { animation: file-page-in 150ms ease-out; }
+  
+  }
+
+  @media (max-width: 1100px), (hover: none) and (pointer: coarse) {
+    .file > div { padding: 4px; border-top: 0; border-radius: 0 0 6px 6px; }
+    .file > div > div { padding: 0; border: 0; }
+    .file article[aria-label="Referral preparation chart"] > header > div { padding: 10px 12px; }
+    .file article[aria-label="Referral preparation chart"] > header h1 { font-size: 15px; }
+  }
+
+  @media (max-width: 639px) {
+    .fields { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 16px 12px; }
+    .returnText { display: none; }
+    .returnCompact { display: inline; }
+  }
+
+  @media (max-width: 959px) {
+    .surface main { scroll-padding-block: 72px 20px; overscroll-behavior-y: contain; }
+  }
+
+  @media (max-width: 959px), (hover: none) and (pointer: coarse) {
+    .surface.surface { padding: 0 4px 4px; }
+    .folderHeader { gap: 0; padding-left: 54px; padding-top: 5px; }
+    .folderHeader .folderIdentity { flex: 1; min-width: 100px; min-height: 52px; margin-left: 0; padding: 5px 8px; border: 1px solid var(--folder-edge); border-bottom: 0; background: linear-gradient(#fbf3df, var(--folder-fill)); }
+    .folderIdentity > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; padding: 2px 4px; font-size: 16px; line-height: 21px; }
+    .folderIdentity > summary > h2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 16px; line-height: 21px; }
+    .folderHeader .filePages button { min-height: 44px; padding-inline: 16px; }
+    .returnButton { gap: 5px; max-width: 150px; padding-inline: 8px; font-size: 13px; }
+    .folderBody { padding: 3px; }
+    .embedded select[id="preparation-group-mobile"] { min-height: 44px; font-size: 16px; }
+    .surface footer[aria-label="Assessment actions"], .embedded footer[aria-label="Assessment actions"] {
+      gap: 8px;
+      padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+      border-radius: 0;
+    }
+    .surface footer[aria-label="Assessment actions"] button, .embedded footer[aria-label="Assessment actions"] button,
+    .surface[data-assessment-view="chart"] main div:has(> [data-guide-target="assessment-next-section"]) > button,
+    .embedded main div:has(> [data-guide-target="assessment-next-section"]) > button {
+      min-height: 44px;
+      height: auto;
+      white-space: normal;
+      font-size: 14px;
+    }
+    .surface [data-guide-target="assessment-save-status"], .embedded [data-guide-target="assessment-save-status"] { font-size: 12px; }
+    .surface [data-working-field], .embedded [data-working-field] { scroll-margin-block: 8px; }
+    .surface [data-working-field] label[for], .embedded [data-working-field] label[for] { font-size: 15px; line-height: 1.45; }
+    .surface [data-working-field] label[for] + span, .embedded [data-working-field] label[for] + span { font-size: 10px; color: #59665e; }
+    .surface [data-working-field] :is(input:not([type="checkbox"]), select, textarea),
+    .embedded [data-working-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 48px; font-size: 16px; scroll-margin-block: 8px; }
+    .surface [data-working-field] [role="group"], .embedded [data-working-field] [role="group"] { height: auto; min-height: 48px; }
+    .surface [data-working-field] [role="group"] :is(button, label), .embedded [data-working-field] [role="group"] :is(button, label) { min-height: 48px; font-size: 14px; }
+    .surface [data-working-field] button, .embedded [data-working-field] button { min-height: 44px; min-width: 44px; }
+    .surface [data-working-field] p, .embedded [data-working-field] p { font-size: 13px; line-height: 1.5; }
+    .surface [data-working-field] summary[data-guide-target="assessment-answer-help"],
+    .embedded [data-working-field] summary[data-guide-target="assessment-answer-help"] { min-height: 44px; flex-wrap: wrap; gap: 4px 10px; padding-block: 8px; }
+    .surface [data-guide-target="assessment-answer-help"] > span, .embedded [data-guide-target="assessment-answer-help"] > span { font-size: 12px; }
+    .embedded .referenceSelector { min-height: 44px; font-size: 16px; }
+  }
+
+  @media (forced-colors: active) {
+    .filePages button[aria-current], .groupNavigation button[aria-current] { border: 2px solid Highlight; }
+  }
+
+  @media (min-width: 640px) and (max-width: 767px) {
+    .folderHeader .filePages button { padding-inline: 12px; font-size: 13px; }
+    .returnButton { max-width: 130px; }
+  }
+  .headerTools { flex-shrink: 0; margin: 0 10px 4px; }
+  @media (max-width: 900px) {
+    .folderHeader:has(.headerTools) { flex-wrap: wrap; }
+    .folderHeader .headerTools { order: 3; flex-basis: 100%; margin: 4px 10px; }
+  }
 }

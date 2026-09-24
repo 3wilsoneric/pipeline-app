@@ -1,211 +1,433 @@
-.page { width: 100%; max-width: 1480px; margin: 0 auto; color: #243b32; }
-.pageHeader { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
-.pageHeader h2 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.025em; }
-.pageHeader p { margin: 6px 0 0; color: #59665f; font-size: 16px; line-height: 1.5; }
-.deliveryStatus { display: inline-flex; align-items: center; min-height: 30px; padding: 4px 10px; border: 1px solid #dce4df; border-radius: 5px; color: #53615a; background: #f7f9f8; font-size: 13px; font-weight: 600; white-space: nowrap; }
-.deliveryStatus[data-sent] { border-color: #b4d5c8; color: #08664f; background: #edf7f2; }
-.composer { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; background: #fff; }
-.subjectInput { width: 100%; min-width: 0; border: 0; border-radius: 3px; padding: 5px 7px; background: transparent; font: inherit; color: inherit; }
-.subjectInput:focus-visible { outline: 2px solid #08745d; outline-offset: 2px; }
-.messageTools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 16px; padding: 6px 24px; border-block: 1px solid #dce4df; }
-.messageTools > div { display: flex; gap: 8px; }
-.messageTools > span { color: #59665f; font-size: 13px; }
-.messageTools button[aria-pressed="true"] { background: #edf5f0; text-decoration: underline; text-underline-offset: 4px; }
-.messageEditor { display: grid; gap: 8px; padding: 20px clamp(14px, 3vw, 32px); font-size: 14px; }
-.messageEditor textarea { width: 100%; min-height: 360px; resize: vertical; border: 1px solid #bdcdc4; border-radius: 4px; padding: 16px; font: 16px/1.6 Arial, sans-serif; color: #243b32; background: #fff; }
-.messageEditor textarea:focus-visible { outline: 2px solid #08745d; outline-offset: 2px; }
-.toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 24px; border-top: 1px solid #d9e1dd; background: #f7f9f8; }
-.sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: 6px; background: #087d66; color: #fff; font-size: 16px; font-weight: 650; }
-.sendButton:hover:enabled { background: #06634f; }
-.sendButton:disabled { background: #e9e9e9; color: #616161; cursor: not-allowed; }
-.addressRow { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: start; gap: 16px; margin: 0 28px; padding: 12px 0; border-bottom: 1px solid #ededed; font-size: 16px; line-height: 26px; }
-.addressRow > :first-child { color: #616161; white-space: nowrap; }
-.addressRow textarea { min-height: 24px; width: 100%; resize: vertical; background: transparent; outline-offset: 4px; }
-.addressRow textarea::placeholder { color: #707070; }
-.addressRow > span { overflow-wrap: anywhere; }
-.subject { font-weight: 600; }
-.recipientSection { padding: 0 28px; }
-.recipientSection > h3 { margin: 20px 0 6px; font-size: 20px; font-weight: 680; letter-spacing: -.02em; }
-.recipientSection > p { margin: 0 0 12px; line-height: 1.55; }
-.preparedAddresses { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
-.preparedAddresses > span { min-width: 0; overflow-wrap: anywhere; }
-.copyAddresses { flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid #b9d5ca; border-radius: 6px; color: #08664f; background: #f1f8f4; font-size: 14px; font-weight: 650; }
-.copyAddresses:hover { background: #e3f2ea; }
-.copyStatus { margin: 8px 28px; color: #08664f; font-size: 14px; }
-.textButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 6px 8px; color: #08745d; font-size: 15px; font-weight: 600; text-align: left; }
-.textButton:hover { background: #edf5f1; border-radius: 4px; }
-.textButton:disabled { opacity: .6; }
-.chartActions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-bottom: 12px; }
-.attachments { padding: 10px 24px 16px; border-bottom: 1px solid #ededed; }
-.attachmentHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-.attachmentHeading > span { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: #59665f; }
-.attachmentList { display: flex; flex-wrap: wrap; gap: 9px; margin: 4px 0 0; padding: 2px; list-style: none; }
-.attachmentList > li { max-width: 100%; }
-.attachment { display: flex; align-items: center; gap: 10px; max-width: 380px; min-height: 60px; padding: 10px 14px; border: 1px solid #dce4df; border-radius: 4px; color: #08745d; background: #fafcfb; }
-.attachment:hover { border-color: #8bb8a6; background: #f0f7f3; }
-.attachment > span { min-width: 0; }
-.attachment strong { display: block; overflow: hidden; color: #283e33; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.attachment small { display: block; color: #59665f; font-size: 13px; }
-.emptyAttachments { margin: 2px 0 0; color: #59665f; font-size: 14px; line-height: 1.5; }
-.messageBody { background: #fff; }
-.emailFrame { display: block; width: 100%; height: 960px; min-height: 540px; border: 0; background: #fff; }
-.emptyPreview { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 330px; padding: 30px; text-align: center; color: #616161; }
-.emptyPreview h3 { margin: 14px 0 6px; color: #283e33; font-size: 21px; font-weight: 650; }
-.emptyPreview p { max-width: 520px; font-size: 16px; line-height: 1.6; }
-.footer { display: grid; gap: 10px; border-top: 1px solid #ededed; padding: 20px 28px; color: #59665f; font-size: 14px; line-height: 1.6; }
-.footer > p { margin: 0; }
-.deliveryDetails summary { cursor: pointer; width: fit-content; font-weight: 600; color: #424242; }
-.deliveryDetails ul { margin: 8px 0; padding-left: 18px; }
-.deliveryDetails p { margin: 6px 0; }
-.nextStep { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid #e8e8e8; background: #f7f9f8; color: #59665f; font-size: 14px; line-height: 1.5; }
-.nextStep p { margin: 0; }
-.nextStep .textButton { padding-inline: 0; font-size: 14px; }
-.confirmation { display: flex; align-items: start; gap: 12px; max-width: 680px; min-height: 44px; cursor: pointer; }
-.confirmation input { flex-shrink: 0; margin-top: 2px; width: 20px; height: 20px; accent-color: #087d66; }
-.confirmation strong { display: block; margin-bottom: 3px; color: #243b32; font-size: 17px; font-weight: 650; }
-.confirmation span span { display: block; color: #59665f; font-size: 15px; line-height: 1.5; }
-.notice { margin: 0 0 14px; padding: 16px 24px; border-bottom: 1px solid #dce4df; background: #f3f7f5; color: #345247; font-size: 15px; line-height: 1.6; }
-.page :is(button, a, input, textarea, summary):focus-visible { outline: 2px solid #087d66; outline-offset: 3px; }
-.handoffOverview { min-width: 0; }
-.guidedTask { max-width: 600px; margin: 42px auto 64px; padding: 32px 24px; text-align: center; }
-.taskIcon { box-sizing: content-box; margin: 0 auto 24px; padding: 18px; border-radius: 50%; background: #edf5f0; color: #08745d; }
-.guidedTask h3 { margin: 0; font-size: 28px; line-height: 1.25; font-weight: 650; letter-spacing: -.025em; }
-.guidedTask > p { margin: 12px auto 0; max-width: 440px; color: #59665f; font-size: 16px; line-height: 1.6; }
-.identityIssues { max-width: 470px; margin: 20px auto 0; padding-left: 20px; color: #344b40; font-size: 15px; line-height: 1.55; text-align: left; }
-.identityIssues li + li { margin-top: 8px; }
-.guidedTask > .draftWarning { margin-top: 18px; padding: 12px 14px; border-left: 3px solid #a87939; background: #fbf5e9; color: #684d2c; text-align: left; }
-.taskActions { display: flex; justify-content: center; margin-top: 28px; }
-.completedDetails { margin-top: 16px; color: #59665f; font-size: 14px; }
-.completedDetails summary { width: fit-content; min-height: 44px; margin: 0 auto; padding: 12px 4px; cursor: pointer; }
-.completedDetails button { margin-top: 8px; }
-.reviewHeading { margin: 26px 0 0; padding-top: 24px; border-top: 1px solid #dce3de; font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
-.reviewActions { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #dce3de; padding: 16px 0; background: #fff; }
-.reviewActions > span { font-size: 14px; color: #59665f; }
-.handoffReading { min-width: 0; }
-.handoffSection { padding: 28px 0; border-bottom: 1px solid #dce3de; }
-.handoffSection h3 { margin: 0 0 20px; font-size: 22px; font-weight: 680; letter-spacing: -.025em; color: #214d40; }
-.handoffSection dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 32px; margin: 0; }
-.handoffSection dt { color: #596b62; font-size: 14px; font-weight: 650; }
-.handoffSection dd { margin: 5px 0 0; font-size: 18px; line-height: 1.65; overflow-wrap: anywhere; }
-.handoffSection [data-handoff-field="Signed admission agreement"], .handoffSection[aria-label="Behavior & safety"] dl > div { grid-column: 1 / -1; }
-.medicationList { padding-left: 22px; margin: 0 0 22px; font-size: 18px; line-height: 1.7; }
-.medicationList li + li { margin-top: 8px; }
-.previewNote { margin: 0 0 14px; color: #5c695f; font-size: 13px; line-height: 1.5; }
-.sourceNote, .missing { font-size: 15px; line-height: 1.6; color: #616d65; }
-.sourceNote { padding: 20px 0; }
-.composeDialog { position: fixed; inset: 0; width: min(1380px, calc(100vw - 48px)); height: min(1020px, calc(100dvh - 48px)); max-width: none; max-height: none; margin: auto; padding: 0; border: 1px solid #afc2b9; border-radius: 12px; background: #fff; color: #243b32; box-shadow: 0 24px 100px #152d3540; overflow: hidden; }
-.composeDialog[open] { display: flex; flex-direction: column; animation: composeIn 160ms ease-out; }
-.composeDialog.inboxReadyDialog { height: fit-content; max-height: calc(100dvh - 48px); }
-.inboxReadyDialog .composer, .inboxReadyDialog .composeScroll { flex: 0 1 auto; }
-.composeDialog::backdrop { background: #162a305c; backdrop-filter: blur(3px); }
-.dialogHeader { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px 10px 24px; border-bottom: 1px solid #cad9d2; background: linear-gradient(110deg, #e7f1ec, #f6f9f7); }
-.dialogHeader > div { display: flex; align-items: center; gap: 12px; }
-.dialogHeader h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.025em; }
-.dialogHeader button { display: grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: 5px; }
-.dialogHeader button:hover:enabled { background: #dde9e3; }
-.dialogHeader button:disabled { opacity: .5; }
-.composeScroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.composer > .notice { flex-shrink: 0; max-height: 25dvh; overflow-y: auto; margin: 0; padding: 12px 24px; border-top: 1px solid #dce4df; }
+/* Design switch (docs/design/DECISIONS.md, "Rollout"). Two blocks until the switch is removed:
+   the first is the current design; the second applies only under html[data-design="v2"].
+   :where() adds no specificity, so each block cascades exactly as it would alone.
+   While both exist, a fix to shared behavior belongs in both blocks. */
 @keyframes composeIn { from { transform: translateY(8px) scale(.99); } to { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .composeDialog[open] { animation: none; } }
-@media (max-width: 1000px) {
-  .handoffSection dl { grid-template-columns: 1fr; }
-}
-@media (max-width: 640px) {
-  .pageHeader { align-items: center; gap: 10px; padding: 14px 12px; margin-bottom: 0; }
-  .pageHeader h2 { font-size: 21px; }
-  .pageHeader p { font-size: 15px; overflow-wrap: anywhere; }
-  .toolbar { padding: 10px 12px; gap: 12px; flex-wrap: wrap; }
-  .sendButton, .textButton { min-height: 44px; }
-  .addressRow { margin: 0 14px; gap: 8px; padding: 13px 0; }
-  .addressRow textarea { font-size: 16px; }
-  .recipientSection { padding: 0 12px; }
-  .copyStatus { margin-inline: 14px; }
-  .attachments { padding: 8px 14px 14px; }
-  .attachmentList > li, .attachment { width: 100%; max-width: none; }
-  .footer { padding: 14px; }
-  .notice { padding: 14px; }
-  .handoffOverview { padding: 0 14px; }
-  .page > .previewNote { padding: 0 14px; }
-  .guidedTask { margin: 20px 0 40px; padding: 24px 16px; }
-  .guidedTask h3 { font-size: 25px; }
-  .guidedTask > p { font-size: 15px; }
-  .taskActions .sendButton { width: 100%; padding-inline: 12px; font-size: 15px; }
-  .reviewHeading { margin-top: 16px; padding-top: 18px; font-size: 22px; }
-  .reviewActions { flex-direction: column; align-items: stretch; gap: 8px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
-  .reviewActions > span { font-size: 13px; }
-  .handoffReading { width: 100%; }
-  .handoffSection { padding: 23px 0; }
-  .handoffSection h3 { font-size: 21px; }
-  .handoffSection dd { font-size: 17px; }
-  .composeDialog { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
-  .dialogHeader { padding: 6px 10px 6px 14px; }
-  .dialogHeader h2 { font-size: 18px; }
-  .toolbar { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
-  .toolbar .sendButton { width: 100%; }
-  .confirmation { gap: 10px; }
-  .confirmation strong { font-size: 15px; }
-  .confirmation span span { font-size: 13px; }
-  .nextStep { padding: 10px 14px; }
+
+:where(html:not([data-design="v2"])) {
+  .page { width: 100%; max-width: 1480px; margin: 0 auto; color: #243b32; }
+  .pageHeader { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .pageHeader h2 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.025em; }
+  .pageHeader p { margin: 6px 0 0; color: #59665f; font-size: 16px; line-height: 1.5; }
+  .deliveryStatus { display: inline-flex; align-items: center; min-height: 30px; padding: 4px 10px; border: 1px solid #dce4df; border-radius: 5px; color: #53615a; background: #f7f9f8; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .deliveryStatus[data-sent] { border-color: #b4d5c8; color: #08664f; background: #edf7f2; }
+  .composer { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; background: #fff; }
+  .subjectInput { width: 100%; min-width: 0; border: 0; border-radius: 3px; padding: 5px 7px; background: transparent; font: inherit; color: inherit; }
+  .subjectInput:focus-visible { outline: 2px solid #08745d; outline-offset: 2px; }
+  .messageTools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 16px; padding: 6px 24px; border-block: 1px solid #dce4df; }
+  .messageTools > div { display: flex; gap: 8px; }
+  .messageTools > span { color: #59665f; font-size: 13px; }
+  .messageTools button[aria-pressed="true"] { background: #edf5f0; text-decoration: underline; text-underline-offset: 4px; }
+  .messageEditor { display: grid; gap: 8px; padding: 20px clamp(14px, 3vw, 32px); font-size: 14px; }
+  .messageEditor textarea { width: 100%; min-height: 360px; resize: vertical; border: 1px solid #bdcdc4; border-radius: 4px; padding: 16px; font: 16px/1.6 Arial, sans-serif; color: #243b32; background: #fff; }
+  .messageEditor textarea:focus-visible { outline: 2px solid #08745d; outline-offset: 2px; }
+  .toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 24px; border-top: 1px solid #d9e1dd; background: #f7f9f8; }
+  .sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: 6px; background: #087d66; color: #fff; font-size: 16px; font-weight: 650; }
+  .sendButton:hover:enabled { background: #06634f; }
+  .sendButton:disabled { background: #e9e9e9; color: #616161; cursor: not-allowed; }
+  .addressRow { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: start; gap: 16px; margin: 0 28px; padding: 12px 0; border-bottom: 1px solid #ededed; font-size: 16px; line-height: 26px; }
+  .addressRow > :first-child { color: #616161; white-space: nowrap; }
+  .addressRow textarea { min-height: 24px; width: 100%; resize: vertical; background: transparent; outline-offset: 4px; }
+  .addressRow textarea::placeholder { color: #707070; }
+  .addressRow > span { overflow-wrap: anywhere; }
+  .subject { font-weight: 600; }
+  .recipientSection { padding: 0 28px; }
+  .recipientSection > h3 { margin: 20px 0 6px; font-size: 20px; font-weight: 680; letter-spacing: -.02em; }
+  .recipientSection > p { margin: 0 0 12px; line-height: 1.55; }
+  .preparedAddresses { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+  .preparedAddresses > span { min-width: 0; overflow-wrap: anywhere; }
+  .copyAddresses { flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid #b9d5ca; border-radius: 6px; color: #08664f; background: #f1f8f4; font-size: 14px; font-weight: 650; }
+  .copyAddresses:hover { background: #e3f2ea; }
+  .copyStatus { margin: 8px 28px; color: #08664f; font-size: 14px; }
+  .textButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 6px 8px; color: #08745d; font-size: 15px; font-weight: 600; text-align: left; }
+  .textButton:hover { background: #edf5f1; border-radius: 4px; }
+  .textButton:disabled { opacity: .6; }
+  .chartActions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-bottom: 12px; }
+  .attachments { padding: 10px 24px 16px; border-bottom: 1px solid #ededed; }
+  .attachmentHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .attachmentHeading > span { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: #59665f; }
+  .attachmentList { display: flex; flex-wrap: wrap; gap: 9px; margin: 4px 0 0; padding: 2px; list-style: none; }
+  .attachmentList > li { max-width: 100%; }
+  .attachment { display: flex; align-items: center; gap: 10px; max-width: 380px; min-height: 60px; padding: 10px 14px; border: 1px solid #dce4df; border-radius: 4px; color: #08745d; background: #fafcfb; }
+  .attachment:hover { border-color: #8bb8a6; background: #f0f7f3; }
+  .attachment > span { min-width: 0; }
+  .attachment strong { display: block; overflow: hidden; color: #283e33; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .attachment small { display: block; color: #59665f; font-size: 13px; }
+  .emptyAttachments { margin: 2px 0 0; color: #59665f; font-size: 14px; line-height: 1.5; }
+  .messageBody { background: #fff; }
+  .emailFrame { display: block; width: 100%; height: 960px; min-height: 540px; border: 0; background: #fff; }
+  .emptyPreview { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 330px; padding: 30px; text-align: center; color: #616161; }
+  .emptyPreview h3 { margin: 14px 0 6px; color: #283e33; font-size: 21px; font-weight: 650; }
+  .emptyPreview p { max-width: 520px; font-size: 16px; line-height: 1.6; }
+  .footer { display: grid; gap: 10px; border-top: 1px solid #ededed; padding: 20px 28px; color: #59665f; font-size: 14px; line-height: 1.6; }
+  .footer > p { margin: 0; }
+  .deliveryDetails summary { cursor: pointer; width: fit-content; font-weight: 600; color: #424242; }
+  .deliveryDetails ul { margin: 8px 0; padding-left: 18px; }
+  .deliveryDetails p { margin: 6px 0; }
+  .nextStep { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid #e8e8e8; background: #f7f9f8; color: #59665f; font-size: 14px; line-height: 1.5; }
+  .nextStep p { margin: 0; }
+  .nextStep .textButton { padding-inline: 0; font-size: 14px; }
+  .confirmation { display: flex; align-items: start; gap: 12px; max-width: 680px; min-height: 44px; cursor: pointer; }
+  .confirmation input { flex-shrink: 0; margin-top: 2px; width: 20px; height: 20px; accent-color: #087d66; }
+  .confirmation strong { display: block; margin-bottom: 3px; color: #243b32; font-size: 17px; font-weight: 650; }
+  .confirmation span span { display: block; color: #59665f; font-size: 15px; line-height: 1.5; }
+  .notice { margin: 0 0 14px; padding: 16px 24px; border-bottom: 1px solid #dce4df; background: #f3f7f5; color: #345247; font-size: 15px; line-height: 1.6; }
+  .page :is(button, a, input, textarea, summary):focus-visible { outline: 2px solid #087d66; outline-offset: 3px; }
+  .handoffOverview { min-width: 0; }
+  .guidedTask { max-width: 600px; margin: 42px auto 64px; padding: 32px 24px; text-align: center; }
+  .taskIcon { box-sizing: content-box; margin: 0 auto 24px; padding: 18px; border-radius: 50%; background: #edf5f0; color: #08745d; }
+  .guidedTask h3 { margin: 0; font-size: 28px; line-height: 1.25; font-weight: 650; letter-spacing: -.025em; }
+  .guidedTask > p { margin: 12px auto 0; max-width: 440px; color: #59665f; font-size: 16px; line-height: 1.6; }
+  .identityIssues { max-width: 470px; margin: 20px auto 0; padding-left: 20px; color: #344b40; font-size: 15px; line-height: 1.55; text-align: left; }
+  .identityIssues li + li { margin-top: 8px; }
+  .guidedTask > .draftWarning { margin-top: 18px; padding: 12px 14px; border-left: 3px solid #a87939; background: #fbf5e9; color: #684d2c; text-align: left; }
+  .taskActions { display: flex; justify-content: center; margin-top: 28px; }
+  .completedDetails { margin-top: 16px; color: #59665f; font-size: 14px; }
+  .completedDetails summary { width: fit-content; min-height: 44px; margin: 0 auto; padding: 12px 4px; cursor: pointer; }
+  .completedDetails button { margin-top: 8px; }
+  .reviewHeading { margin: 26px 0 0; padding-top: 24px; border-top: 1px solid #dce3de; font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
+  .reviewActions { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #dce3de; padding: 16px 0; background: #fff; }
+  .reviewActions > span { font-size: 14px; color: #59665f; }
+  .handoffReading { min-width: 0; }
+  .handoffSection { padding: 28px 0; border-bottom: 1px solid #dce3de; }
+  .handoffSection h3 { margin: 0 0 20px; font-size: 22px; font-weight: 680; letter-spacing: -.025em; color: #214d40; }
+  .handoffSection dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 32px; margin: 0; }
+  .handoffSection dt { color: #596b62; font-size: 14px; font-weight: 650; }
+  .handoffSection dd { margin: 5px 0 0; font-size: 18px; line-height: 1.65; overflow-wrap: anywhere; }
+  .handoffSection [data-handoff-field="Signed admission agreement"], .handoffSection[aria-label="Behavior & safety"] dl > div { grid-column: 1 / -1; }
+  .medicationList { padding-left: 22px; margin: 0 0 22px; font-size: 18px; line-height: 1.7; }
+  .medicationList li + li { margin-top: 8px; }
+  .previewNote { margin: 0 0 14px; color: #5c695f; font-size: 13px; line-height: 1.5; }
+  .sourceNote, .missing { font-size: 15px; line-height: 1.6; color: #616d65; }
+  .sourceNote { padding: 20px 0; }
+  .composeDialog { position: fixed; inset: 0; width: min(1380px, calc(100vw - 48px)); height: min(1020px, calc(100dvh - 48px)); max-width: none; max-height: none; margin: auto; padding: 0; border: 1px solid #afc2b9; border-radius: 12px; background: #fff; color: #243b32; box-shadow: 0 24px 100px #152d3540; overflow: hidden; }
+  .composeDialog[open] { display: flex; flex-direction: column; animation: composeIn 160ms ease-out; }
+  .composeDialog.inboxReadyDialog { height: fit-content; max-height: calc(100dvh - 48px); }
+  .inboxReadyDialog .composer, .inboxReadyDialog .composeScroll { flex: 0 1 auto; }
+  .composeDialog::backdrop { background: #162a305c; backdrop-filter: blur(3px); }
+  .dialogHeader { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px 10px 24px; border-bottom: 1px solid #cad9d2; background: linear-gradient(110deg, #e7f1ec, #f6f9f7); }
+  .dialogHeader > div { display: flex; align-items: center; gap: 12px; }
+  .dialogHeader h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.025em; }
+  .dialogHeader button { display: grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: 5px; }
+  .dialogHeader button:hover:enabled { background: #dde9e3; }
+  .dialogHeader button:disabled { opacity: .5; }
+  .composeScroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .composer > .notice { flex-shrink: 0; max-height: 25dvh; overflow-y: auto; margin: 0; padding: 12px 24px; border-top: 1px solid #dce4df; }
+
+  @media (prefers-reduced-motion: reduce) { .composeDialog[open] { animation: none; } }
+  @media (max-width: 1000px) {
+    .handoffSection dl { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .pageHeader { align-items: center; gap: 10px; padding: 14px 12px; margin-bottom: 0; }
+    .pageHeader h2 { font-size: 21px; }
+    .pageHeader p { font-size: 15px; overflow-wrap: anywhere; }
+    .toolbar { padding: 10px 12px; gap: 12px; flex-wrap: wrap; }
+    .sendButton, .textButton { min-height: 44px; }
+    .addressRow { margin: 0 14px; gap: 8px; padding: 13px 0; }
+    .addressRow textarea { font-size: 16px; }
+    .recipientSection { padding: 0 12px; }
+    .copyStatus { margin-inline: 14px; }
+    .attachments { padding: 8px 14px 14px; }
+    .attachmentList > li, .attachment { width: 100%; max-width: none; }
+    .footer { padding: 14px; }
+    .notice { padding: 14px; }
+    .handoffOverview { padding: 0 14px; }
+    .page > .previewNote { padding: 0 14px; }
+    .guidedTask { margin: 20px 0 40px; padding: 24px 16px; }
+    .guidedTask h3 { font-size: 25px; }
+    .guidedTask > p { font-size: 15px; }
+    .taskActions .sendButton { width: 100%; padding-inline: 12px; font-size: 15px; }
+    .reviewHeading { margin-top: 16px; padding-top: 18px; font-size: 22px; }
+    .reviewActions { flex-direction: column; align-items: stretch; gap: 8px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .reviewActions > span { font-size: 13px; }
+    .handoffReading { width: 100%; }
+    .handoffSection { padding: 23px 0; }
+    .handoffSection h3 { font-size: 21px; }
+    .handoffSection dd { font-size: 17px; }
+    .composeDialog { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+    .dialogHeader { padding: 6px 10px 6px 14px; }
+    .dialogHeader h2 { font-size: 18px; }
+    .toolbar { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .toolbar .sendButton { width: 100%; }
+    .confirmation { gap: 10px; }
+    .confirmation strong { font-size: 15px; }
+    .confirmation span span { font-size: 13px; }
+    .nextStep { padding: 10px 14px; }
+  }
+
+  .packetDescription { margin: 0 0 18px; color: #59665f; font-size: 15px; line-height: 1.5; }
+  .attachmentHeading h3 { margin: 0; font-size: 17px; font-weight: 650; color: #263d33; }
+  .messageHeading { margin: 0; padding: 18px 24px 0; font-size: 17px; font-weight: 650; }
+  .previewNote, .demoNotice { padding: 14px 18px; border: 1px solid #d8c387; border-radius: 6px; background: #fff8e6; color: #684f17; font-size: 15px; font-weight: 650; line-height: 1.5; }
+  .demoNotice { margin: 12px 24px; }
+  @media (max-width: 640px) { .demoNotice { margin: 12px 14px; } .messageHeading { padding-inline: 14px; } }
+
+  .deliveryChoice { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cbd9d1; border-radius: 7px; background: #f4f7f5; }
+  .deliveryChoice button { min-height: 38px; padding: 6px 15px; border: 1px solid transparent; border-radius: 4px; color: #54675b; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .deliveryChoice button[aria-pressed="true"] { border-color: #bed4c8; background: white; color: #096b56; box-shadow: 0 1px 3px #233e3112; }
+  .deliveryChoice button:focus-visible { outline: 3px solid #087d66; outline-offset: 2px; }
+  .senderCaption { display: block; margin-top: 5px; color: #58695f; font-size: 14px; }
+  .outlookToolbar { flex-direction: column; align-items: stretch; gap: 14px; max-height: 48dvh; overflow-y: auto; overscroll-behavior: contain; }
+  @media (max-width: 560px) { .deliveryChoice button { min-height: 44px; padding-inline: 12px; } .outlookToolbar { max-height: 44dvh; } }
+
+  /* One check at a time, followed by the email itself. */
+  .reviewLanding { max-width: 620px; margin: 40px auto 64px; padding: 24px; }
+  .reviewLanding > h3 { margin: 0; color: #234d40; font-size: 28px; font-weight: 650; letter-spacing: -.025em; line-height: 1.25; }
+  .reviewLanding > p { margin: 12px 0 28px; color: #59665f; font-size: 17px; line-height: 1.5; }
+  .reviewChecklist { padding: 0; margin: 0; list-style: none; border-top: 1px solid #dce4df; }
+  .reviewChecklist li { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 14px; padding: 21px 0; border-bottom: 1px solid #dce4df; }
+  .reviewChecklist li > span { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #c4d4cb; border-radius: 50%; color: #587064; font-size: 15px; }
+  .reviewChecklist strong { font-size: 18px; font-weight: 600; }
+  .reviewChecklist small { color: #66786e; font-size: 14px; }
+  .reviewChecklist [data-complete] > span { border-color: #b6d6c6; background: #eaf5ef; color: #087d66; }
+  .reviewLanding .taskActions { justify-content: flex-end; }
+  .reviewDialog { width: min(880px, calc(100vw - 48px)); height: min(850px, calc(100dvh - 48px)); }
+  .admissionDateField { display: grid; gap: 10px; color: #243b32; font-size: 17px; font-weight: 650; }
+  .admissionDateField input { width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; border: 1px solid #b3c8bd; border-radius: 6px; background: #fff; color: #243b32; font: inherit; }
+  .stepNumber { color: #526c5f; font-size: 13px; font-weight: 650; white-space: nowrap; }
+  .dialogHeader h2:focus { outline: none; }
+  .reviewContent { padding: 24px 32px; }
+  .reviewInstruction { margin: 0 0 20px; color: #53675c; font-size: 17px; line-height: 1.6; }
+  .reviewContent .confirmation { margin: 28px 0 12px; padding-top: 24px; border-top: 1px solid #dce4df; }
+  .packetReview { padding: 24px 32px; border: 0; }
+  .packetReview > p { margin: 12px 0 24px; color: #53675c; font-size: 16px; line-height: 1.6; }
+  .packetReview .attachmentList { display: grid; gap: 12px; }
+  .packetReview .attachment { width: 100%; max-width: none; min-height: 76px; }
+  .packetReview .attachment strong { white-space: normal; overflow-wrap: anywhere; }
+  .packetReview > .textButton { margin-top: 16px; }
+  .composer > .toolbar > .textButton { flex-shrink: 0; }
+  .composeScroll > .deliveryDetails { margin: 20px 28px; color: #59665f; font-size: 14px; }
+  @media (max-width: 640px) {
+    .reviewLanding { margin: 8px auto 24px; padding: 20px 14px; }
+    .reviewLanding > h3 { font-size: 25px; }
+    .reviewLanding > p { font-size: 16px; }
+    .reviewChecklist li { gap: 10px; padding: 19px 0; }
+    .reviewChecklist strong { font-size: 16px; }
+    .reviewChecklist small { font-size: 12px; }
+    .reviewLanding .sendButton { width: 100%; }
+    .reviewDialog { width: 100vw; height: 100dvh; }
+    .reviewContent, .packetReview { padding: 20px 16px; }
+    .reviewDialog .toolbar { flex-wrap: nowrap; gap: 12px; }
+    .reviewDialog .toolbar .sendButton { width: auto; flex: 1; font-size: 15px; padding-inline: 12px; }
+    .reviewDialog .toolbar > span { font-size: 13px; color: #59665f; }
+  }
+  .reviewLanding .taskActions { justify-content: flex-start; margin: 0 0 28px; }
+  .admissionDateDialog { width: min(600px, calc(100vw - 24px)); height: min(500px, calc(100dvh - 24px)); border: 1px solid #afc2b9; border-radius: 12px; }
+  .admissionDateDialog .toolbar { flex-wrap: wrap; }
+  .admissionDateDialog .toolbar > span { font-size: 14px; color: #59665f; }
 }
 
-.packetDescription { margin: 0 0 18px; color: #59665f; font-size: 15px; line-height: 1.5; }
-.attachmentHeading h3 { margin: 0; font-size: 17px; font-weight: 650; color: #263d33; }
-.messageHeading { margin: 0; padding: 18px 24px 0; font-size: 17px; font-weight: 650; }
-.previewNote, .demoNotice { padding: 14px 18px; border: 1px solid #d8c387; border-radius: 6px; background: #fff8e6; color: #684f17; font-size: 15px; font-weight: 650; line-height: 1.5; }
-.demoNotice { margin: 12px 24px; }
-@media (max-width: 640px) { .demoNotice { margin: 12px 14px; } .messageHeading { padding-inline: 14px; } }
+:where(html[data-design="v2"]) {
+  .page { width: 100%; max-width: 1480px; margin: 0 auto; color: var(--color-ink); }
+  .pageHeader { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .pageHeader h2 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.025em; }
+  .pageHeader p { margin: 6px 0 0; color: var(--color-ink-muted); font-size: 16px; line-height: 1.5; }
+  .deliveryStatus { display: inline-flex; align-items: center; min-height: 30px; padding: 4px 10px; border: 1px solid var(--color-paper-rule); border-radius: 5px; color: #53615a; background: var(--color-sheet); font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .deliveryStatus[data-sent] { border-color: #b4d5c8; color: #08664f; background: var(--color-primary-soft); }
+  .composer { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; background: #fff; }
+  .subjectInput { width: 100%; min-width: 0; border: 0; border-radius: 3px; padding: 5px 7px; background: transparent; font: inherit; color: inherit; }
+  .subjectInput:focus-visible { outline: 2px solid var(--color-link); outline-offset: 2px; }
+  .messageTools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 16px; padding: 6px 24px; border-block: 1px solid var(--color-paper-rule); }
+  .messageTools > div { display: flex; gap: 8px; }
+  .messageTools > span { color: var(--color-ink-muted); font-size: 13px; }
+  .messageTools button[aria-pressed="true"] { background: var(--color-primary-soft); text-decoration: underline; text-underline-offset: 4px; }
+  .messageEditor { display: grid; gap: 8px; padding: 20px clamp(14px, 3vw, 32px); font-size: 14px; }
+  .messageEditor textarea { width: 100%; min-height: 360px; resize: vertical; border: 1px solid #bdcdc4; border-radius: 4px; padding: 16px; font: 16px/1.6 Arial, sans-serif; color: var(--color-ink); background: #fff; }
+  .messageEditor textarea:focus-visible { outline: 2px solid var(--color-link); outline-offset: 2px; }
+  .toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 24px; border-top: 1px solid #d9e1dd; background: var(--color-sheet); }
+  .sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: 6px; background: var(--color-link); color: #fff; font-size: 16px; font-weight: 650; }
+  .sendButton:hover:enabled { background: #06634f; }
+  .sendButton:disabled { background: var(--color-paper-rule); color: var(--color-ink-muted); cursor: not-allowed; }
+  .addressRow { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: start; gap: 16px; margin: 0 28px; padding: 12px 0; border-bottom: 1px solid var(--color-paper-rule); font-size: 16px; line-height: 26px; }
+  .addressRow > :first-child { color: var(--color-ink-muted); white-space: nowrap; }
+  .addressRow textarea { min-height: 24px; width: 100%; resize: vertical; background: transparent; outline-offset: 4px; }
+  .addressRow textarea::placeholder { color: #707070; }
+  .addressRow > span { overflow-wrap: anywhere; }
+  .subject { font-weight: 600; }
+  .recipientSection { padding: 0 28px; }
+  .recipientSection > h3 { margin: 20px 0 6px; font-size: 20px; font-weight: 680; letter-spacing: -.02em; }
+  .recipientSection > p { margin: 0 0 12px; line-height: 1.55; }
+  .preparedAddresses { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+  .preparedAddresses > span { min-width: 0; overflow-wrap: anywhere; }
+  .copyAddresses { flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid #b9d5ca; border-radius: 6px; color: #08664f; background: #f1f8f4; font-size: 14px; font-weight: 650; }
+  .copyAddresses:hover { background: #e3f2ea; }
+  .copyStatus { margin: 8px 28px; color: #08664f; font-size: 14px; }
+  .textButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 6px 8px; color: var(--color-link); font-size: 15px; font-weight: 600; text-align: left; }
+  .textButton:hover { background: var(--color-primary-soft); border-radius: 4px; }
+  .textButton:disabled { opacity: .6; }
+  .chartActions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-bottom: 12px; }
+  .attachments { padding: 10px 24px 16px; border-bottom: 1px solid var(--color-paper-rule); }
+  .attachmentHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .attachmentHeading > span { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--color-ink-muted); }
+  .attachmentList { display: flex; flex-wrap: wrap; gap: 9px; margin: 4px 0 0; padding: 2px; list-style: none; }
+  .attachmentList > li { max-width: 100%; }
+  .attachment { display: flex; align-items: center; gap: 10px; max-width: 380px; min-height: 60px; padding: 10px 14px; border: 1px solid var(--color-paper-rule); border-radius: 4px; color: var(--color-link); background: var(--color-sheet); }
+  .attachment:hover { border-color: #8bb8a6; background: var(--color-primary-soft); }
+  .attachment > span { min-width: 0; }
+  .attachment strong { display: block; overflow: hidden; color: var(--color-ink); font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .attachment small { display: block; color: var(--color-ink-muted); font-size: 13px; }
+  .emptyAttachments { margin: 2px 0 0; color: var(--color-ink-muted); font-size: 14px; line-height: 1.5; }
+  .messageBody { background: #fff; }
+  .emailFrame { display: block; width: 100%; height: 960px; min-height: 540px; border: 0; background: #fff; }
+  .emptyPreview { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 330px; padding: 30px; text-align: center; color: var(--color-ink-muted); }
+  .emptyPreview h3 { margin: 14px 0 6px; color: var(--color-ink); font-size: 21px; font-weight: 650; }
+  .emptyPreview p { max-width: 520px; font-size: 16px; line-height: 1.6; }
+  .footer { display: grid; gap: 10px; border-top: 1px solid var(--color-paper-rule); padding: 20px 28px; color: var(--color-ink-muted); font-size: 14px; line-height: 1.6; }
+  .footer > p { margin: 0; }
+  .deliveryDetails summary { cursor: pointer; width: fit-content; font-weight: 600; color: #424242; }
+  .deliveryDetails ul { margin: 8px 0; padding-left: 18px; }
+  .deliveryDetails p { margin: 6px 0; }
+  .nextStep { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-sheet); color: var(--color-ink-muted); font-size: 14px; line-height: 1.5; }
+  .nextStep p { margin: 0; }
+  .nextStep .textButton { padding-inline: 0; font-size: 14px; }
+  .confirmation { display: flex; align-items: start; gap: 12px; max-width: 680px; min-height: 44px; cursor: pointer; }
+  .confirmation input { flex-shrink: 0; margin-top: 2px; width: 20px; height: 20px; accent-color: var(--color-link); }
+  .confirmation strong { display: block; margin-bottom: 3px; color: var(--color-ink); font-size: 17px; font-weight: 650; }
+  .confirmation span span { display: block; color: var(--color-ink-muted); font-size: 15px; line-height: 1.5; }
+  .notice { margin: 0 0 14px; padding: 16px 24px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-sheet); color: #345247; font-size: 15px; line-height: 1.6; }
+  .page :is(button, a, input, textarea, summary):focus-visible { outline: 2px solid var(--color-link); outline-offset: 3px; }
+  .handoffOverview { min-width: 0; }
+  .guidedTask { max-width: 600px; margin: 42px auto 64px; padding: 32px 24px; text-align: center; }
+  .taskIcon { box-sizing: content-box; margin: 0 auto 24px; padding: 18px; border-radius: 50%; background: var(--color-primary-soft); color: var(--color-link); }
+  .guidedTask h3 { margin: 0; font-size: 28px; line-height: 1.25; font-weight: 650; letter-spacing: -.025em; }
+  .guidedTask > p { margin: 12px auto 0; max-width: 440px; color: var(--color-ink-muted); font-size: 16px; line-height: 1.6; }
+  .identityIssues { max-width: 470px; margin: 20px auto 0; padding-left: 20px; color: #344b40; font-size: 15px; line-height: 1.55; text-align: left; }
+  .identityIssues li + li { margin-top: 8px; }
+  .guidedTask > .draftWarning { margin-top: 18px; padding: 12px 14px; border-left: 3px solid #a87939; background: #fbf5e9; color: #684d2c; text-align: left; }
+  .taskActions { display: flex; justify-content: center; margin-top: 28px; }
+  .completedDetails { margin-top: 16px; color: var(--color-ink-muted); font-size: 14px; }
+  .completedDetails summary { width: fit-content; min-height: 44px; margin: 0 auto; padding: 12px 4px; cursor: pointer; }
+  .completedDetails button { margin-top: 8px; }
+  .reviewHeading { margin: 26px 0 0; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
+  .reviewActions { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--color-paper-rule); padding: 16px 0; background: #fff; }
+  .reviewActions > span { font-size: 14px; color: var(--color-ink-muted); }
+  .handoffReading { min-width: 0; }
+  .handoffSection { padding: 28px 0; border-bottom: 1px solid var(--color-paper-rule); }
+  .handoffSection h3 { margin: 0 0 20px; font-size: 22px; font-weight: 680; letter-spacing: -.025em; color: #214d40; }
+  .handoffSection dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 32px; margin: 0; }
+  .handoffSection dt { color: #596b62; font-size: 14px; font-weight: 650; }
+  .handoffSection dd { margin: 5px 0 0; font-size: 18px; line-height: 1.65; overflow-wrap: anywhere; }
+  .handoffSection [data-handoff-field="Signed admission agreement"], .handoffSection[aria-label="Behavior & safety"] dl > div { grid-column: 1 / -1; }
+  .medicationList { padding-left: 22px; margin: 0 0 22px; font-size: 18px; line-height: 1.7; }
+  .medicationList li + li { margin-top: 8px; }
+  .previewNote { margin: 0 0 14px; color: #5c695f; font-size: 13px; line-height: 1.5; }
+  .sourceNote, .missing { font-size: 15px; line-height: 1.6; color: #616d65; }
+  .sourceNote { padding: 20px 0; }
+  .composeDialog { position: fixed; inset: 0; width: min(1380px, calc(100vw - 48px)); height: min(1020px, calc(100dvh - 48px)); max-width: none; max-height: none; margin: auto; padding: 0; border: 1px solid var(--color-control-border); border-radius: 12px; background: #fff; color: var(--color-ink); box-shadow: 0 24px 100px #152d3540; overflow: hidden; }
+  .composeDialog[open] { display: flex; flex-direction: column; animation: composeIn 160ms ease-out; }
+  .composeDialog.inboxReadyDialog { height: fit-content; max-height: calc(100dvh - 48px); }
+  .inboxReadyDialog .composer, .inboxReadyDialog .composeScroll { flex: 0 1 auto; }
+  .composeDialog::backdrop { background: #162a305c; backdrop-filter: blur(3px); }
+  .dialogHeader { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px 10px 24px; border-bottom: 1px solid #cad9d2; background: linear-gradient(110deg, var(--color-primary-soft), var(--color-sheet)); }
+  .dialogHeader > div { display: flex; align-items: center; gap: 12px; }
+  .dialogHeader h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.025em; }
+  .dialogHeader button { display: grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: 5px; }
+  .dialogHeader button:hover:enabled { background: #dde9e3; }
+  .dialogHeader button:disabled { opacity: .5; }
+  .composeScroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .composer > .notice { flex-shrink: 0; max-height: 25dvh; overflow-y: auto; margin: 0; padding: 12px 24px; border-top: 1px solid var(--color-paper-rule); }
 
-.deliveryChoice { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cbd9d1; border-radius: 7px; background: #f4f7f5; }
-.deliveryChoice button { min-height: 38px; padding: 6px 15px; border: 1px solid transparent; border-radius: 4px; color: #54675b; font-size: 14px; font-weight: 600; cursor: pointer; }
-.deliveryChoice button[aria-pressed="true"] { border-color: #bed4c8; background: white; color: #096b56; box-shadow: 0 1px 3px #233e3112; }
-.deliveryChoice button:focus-visible { outline: 3px solid #087d66; outline-offset: 2px; }
-.senderCaption { display: block; margin-top: 5px; color: #58695f; font-size: 14px; }
-.outlookToolbar { flex-direction: column; align-items: stretch; gap: 14px; max-height: 48dvh; overflow-y: auto; overscroll-behavior: contain; }
-@media (max-width: 560px) { .deliveryChoice button { min-height: 44px; padding-inline: 12px; } .outlookToolbar { max-height: 44dvh; } }
+  @media (prefers-reduced-motion: reduce) { .composeDialog[open] { animation: none; } }
+  @media (max-width: 1000px) {
+    .handoffSection dl { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .pageHeader { align-items: center; gap: 10px; padding: 14px 12px; margin-bottom: 0; }
+    .pageHeader h2 { font-size: 21px; }
+    .pageHeader p { font-size: 15px; overflow-wrap: anywhere; }
+    .toolbar { padding: 10px 12px; gap: 12px; flex-wrap: wrap; }
+    .sendButton, .textButton { min-height: 44px; }
+    .addressRow { margin: 0 14px; gap: 8px; padding: 13px 0; }
+    .addressRow textarea { font-size: 16px; }
+    .recipientSection { padding: 0 12px; }
+    .copyStatus { margin-inline: 14px; }
+    .attachments { padding: 8px 14px 14px; }
+    .attachmentList > li, .attachment { width: 100%; max-width: none; }
+    .footer { padding: 14px; }
+    .notice { padding: 14px; }
+    .handoffOverview { padding: 0 14px; }
+    .page > .previewNote { padding: 0 14px; }
+    .guidedTask { margin: 20px 0 40px; padding: 24px 16px; }
+    .guidedTask h3 { font-size: 25px; }
+    .guidedTask > p { font-size: 15px; }
+    .taskActions .sendButton { width: 100%; padding-inline: 12px; font-size: 15px; }
+    .reviewHeading { margin-top: 16px; padding-top: 18px; font-size: 22px; }
+    .reviewActions { flex-direction: column; align-items: stretch; gap: 8px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .reviewActions > span { font-size: 13px; }
+    .handoffReading { width: 100%; }
+    .handoffSection { padding: 23px 0; }
+    .handoffSection h3 { font-size: 21px; }
+    .handoffSection dd { font-size: 17px; }
+    .composeDialog { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+    .dialogHeader { padding: 6px 10px 6px 14px; }
+    .dialogHeader h2 { font-size: 18px; }
+    .toolbar { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .toolbar .sendButton { width: 100%; }
+    .confirmation { gap: 10px; }
+    .confirmation strong { font-size: 15px; }
+    .confirmation span span { font-size: 13px; }
+    .nextStep { padding: 10px 14px; }
+  }
 
-/* One check at a time, followed by the email itself. */
-.reviewLanding { max-width: 620px; margin: 40px auto 64px; padding: 24px; }
-.reviewLanding > h3 { margin: 0; color: #234d40; font-size: 28px; font-weight: 650; letter-spacing: -.025em; line-height: 1.25; }
-.reviewLanding > p { margin: 12px 0 28px; color: #59665f; font-size: 17px; line-height: 1.5; }
-.reviewChecklist { padding: 0; margin: 0; list-style: none; border-top: 1px solid #dce4df; }
-.reviewChecklist li { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 14px; padding: 21px 0; border-bottom: 1px solid #dce4df; }
-.reviewChecklist li > span { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #c4d4cb; border-radius: 50%; color: #587064; font-size: 15px; }
-.reviewChecklist strong { font-size: 18px; font-weight: 600; }
-.reviewChecklist small { color: #66786e; font-size: 14px; }
-.reviewChecklist [data-complete] > span { border-color: #b6d6c6; background: #eaf5ef; color: #087d66; }
-.reviewLanding .taskActions { justify-content: flex-end; }
-.reviewDialog { width: min(880px, calc(100vw - 48px)); height: min(850px, calc(100dvh - 48px)); }
-.admissionDateField { display: grid; gap: 10px; color: #243b32; font-size: 17px; font-weight: 650; }
-.admissionDateField input { width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; border: 1px solid #b3c8bd; border-radius: 6px; background: #fff; color: #243b32; font: inherit; }
-.stepNumber { color: #526c5f; font-size: 13px; font-weight: 650; white-space: nowrap; }
-.dialogHeader h2:focus { outline: none; }
-.reviewContent { padding: 24px 32px; }
-.reviewInstruction { margin: 0 0 20px; color: #53675c; font-size: 17px; line-height: 1.6; }
-.reviewContent .confirmation { margin: 28px 0 12px; padding-top: 24px; border-top: 1px solid #dce4df; }
-.packetReview { padding: 24px 32px; border: 0; }
-.packetReview > p { margin: 12px 0 24px; color: #53675c; font-size: 16px; line-height: 1.6; }
-.packetReview .attachmentList { display: grid; gap: 12px; }
-.packetReview .attachment { width: 100%; max-width: none; min-height: 76px; }
-.packetReview .attachment strong { white-space: normal; overflow-wrap: anywhere; }
-.packetReview > .textButton { margin-top: 16px; }
-.composer > .toolbar > .textButton { flex-shrink: 0; }
-.composeScroll > .deliveryDetails { margin: 20px 28px; color: #59665f; font-size: 14px; }
-@media (max-width: 640px) {
-  .reviewLanding { margin: 8px auto 24px; padding: 20px 14px; }
-  .reviewLanding > h3 { font-size: 25px; }
-  .reviewLanding > p { font-size: 16px; }
-  .reviewChecklist li { gap: 10px; padding: 19px 0; }
-  .reviewChecklist strong { font-size: 16px; }
-  .reviewChecklist small { font-size: 12px; }
-  .reviewLanding .sendButton { width: 100%; }
-  .reviewDialog { width: 100vw; height: 100dvh; }
-  .reviewContent, .packetReview { padding: 20px 16px; }
-  .reviewDialog .toolbar { flex-wrap: nowrap; gap: 12px; }
-  .reviewDialog .toolbar .sendButton { width: auto; flex: 1; font-size: 15px; padding-inline: 12px; }
-  .reviewDialog .toolbar > span { font-size: 13px; color: #59665f; }
+  .packetDescription { margin: 0 0 18px; color: var(--color-ink-muted); font-size: 15px; line-height: 1.5; }
+  .attachmentHeading h3 { margin: 0; font-size: 17px; font-weight: 650; color: #263d33; }
+  .messageHeading { margin: 0; padding: 18px 24px 0; font-size: 17px; font-weight: 650; }
+  .previewNote, .demoNotice { padding: 14px 18px; border: 1px solid #d8c387; border-radius: 6px; background: var(--color-warning-soft); color: #684f17; font-size: 15px; font-weight: 650; line-height: 1.5; }
+  .demoNotice { margin: 12px 24px; }
+  @media (max-width: 640px) { .demoNotice { margin: 12px 14px; } .messageHeading { padding-inline: 14px; } }
+
+  .deliveryChoice { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cbd9d1; border-radius: 7px; background: var(--color-sheet); }
+  .deliveryChoice button { min-height: 38px; padding: 6px 15px; border: 1px solid transparent; border-radius: 4px; color: #54675b; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .deliveryChoice button[aria-pressed="true"] { border-color: #bed4c8; background: white; color: #096b56; box-shadow: 0 1px 3px #233e3112; }
+  .deliveryChoice button:focus-visible { outline: 3px solid var(--color-link); outline-offset: 2px; }
+  .senderCaption { display: block; margin-top: 5px; color: #58695f; font-size: 14px; }
+  .outlookToolbar { flex-direction: column; align-items: stretch; gap: 14px; max-height: 48dvh; overflow-y: auto; overscroll-behavior: contain; }
+  @media (max-width: 560px) { .deliveryChoice button { min-height: 44px; padding-inline: 12px; } .outlookToolbar { max-height: 44dvh; } }
+
+  /* One check at a time, followed by the email itself. */
+  .reviewLanding { max-width: 620px; margin: 40px auto 64px; padding: 24px; }
+  .reviewLanding > h3 { margin: 0; color: #234d40; font-size: 28px; font-weight: 650; letter-spacing: -.025em; line-height: 1.25; }
+  .reviewLanding > p { margin: 12px 0 28px; color: var(--color-ink-muted); font-size: 17px; line-height: 1.5; }
+  .reviewChecklist { padding: 0; margin: 0; list-style: none; border-top: 1px solid var(--color-paper-rule); }
+  .reviewChecklist li { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 14px; padding: 21px 0; border-bottom: 1px solid var(--color-paper-rule); }
+  .reviewChecklist li > span { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #c4d4cb; border-radius: 50%; color: #587064; font-size: 15px; }
+  .reviewChecklist strong { font-size: 18px; font-weight: 600; }
+  .reviewChecklist small { color: #66786e; font-size: 14px; }
+  .reviewChecklist [data-complete] > span { border-color: #b6d6c6; background: var(--color-primary-soft); color: var(--color-link); }
+  .reviewLanding .taskActions { justify-content: flex-end; }
+  .reviewDialog { width: min(880px, calc(100vw - 48px)); height: min(850px, calc(100dvh - 48px)); }
+  .admissionDateField { display: grid; gap: 10px; color: var(--color-ink); font-size: 17px; font-weight: 650; }
+  .admissionDateField input { width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; border: 1px solid #b3c8bd; border-radius: 6px; background: #fff; color: var(--color-ink); font: inherit; }
+  .stepNumber { color: #526c5f; font-size: 13px; font-weight: 650; white-space: nowrap; }
+  .dialogHeader h2:focus { outline: none; }
+  .reviewContent { padding: 24px 32px; }
+  .reviewInstruction { margin: 0 0 20px; color: var(--color-ink-muted); font-size: 17px; line-height: 1.6; }
+  .reviewContent .confirmation { margin: 28px 0 12px; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); }
+  .packetReview { padding: 24px 32px; border: 0; }
+  .packetReview > p { margin: 12px 0 24px; color: var(--color-ink-muted); font-size: 16px; line-height: 1.6; }
+  .packetReview .attachmentList { display: grid; gap: 12px; }
+  .packetReview .attachment { width: 100%; max-width: none; min-height: 76px; }
+  .packetReview .attachment strong { white-space: normal; overflow-wrap: anywhere; }
+  .packetReview > .textButton { margin-top: 16px; }
+  .composer > .toolbar > .textButton { flex-shrink: 0; }
+  .composeScroll > .deliveryDetails { margin: 20px 28px; color: var(--color-ink-muted); font-size: 14px; }
+  @media (max-width: 640px) {
+    .reviewLanding { margin: 8px auto 24px; padding: 20px 14px; }
+    .reviewLanding > h3 { font-size: 25px; }
+    .reviewLanding > p { font-size: 16px; }
+    .reviewChecklist li { gap: 10px; padding: 19px 0; }
+    .reviewChecklist strong { font-size: 16px; }
+    .reviewChecklist small { font-size: 12px; }
+    .reviewLanding .sendButton { width: 100%; }
+    .reviewDialog { width: 100vw; height: 100dvh; }
+    .reviewContent, .packetReview { padding: 20px 16px; }
+    .reviewDialog .toolbar { flex-wrap: nowrap; gap: 12px; }
+    .reviewDialog .toolbar .sendButton { width: auto; flex: 1; font-size: 15px; padding-inline: 12px; }
+    .reviewDialog .toolbar > span { font-size: 13px; color: var(--color-ink-muted); }
+  }
+  .reviewLanding .taskActions { justify-content: flex-start; margin: 0 0 28px; }
+  .admissionDateDialog { width: min(600px, calc(100vw - 24px)); height: min(500px, calc(100dvh - 24px)); border: 1px solid var(--color-control-border); border-radius: 12px; }
+  .admissionDateDialog .toolbar { flex-wrap: wrap; }
+  .admissionDateDialog .toolbar > span { font-size: 14px; color: var(--color-ink-muted); }
 }
-.reviewLanding .taskActions { justify-content: flex-start; margin: 0 0 28px; }
-.admissionDateDialog { width: min(600px, calc(100vw - 24px)); height: min(500px, calc(100dvh - 24px)); border: 1px solid #afc2b9; border-radius: 12px; }
-.admissionDateDialog .toolbar { flex-wrap: wrap; }
-.admissionDateDialog .toolbar > span { font-size: 14px; color: #59665f; }

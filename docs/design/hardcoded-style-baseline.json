@@ -1,0 +1,409 @@
+{
+  "totals": {
+    "hex": 5461,
+    "radius": 324
+  },
+  "files": {
+    "app/(pipeline)/error.tsx": {
+      "hex": 5
+    },
+    "app/(pipeline)/loading.tsx": {
+      "hex": 7
+    },
+    "app/(standalone-review)/layout.tsx": {
+      "hex": 1
+    },
+    "app/control-polish.css": {
+      "hex": 2
+    },
+    "app/desktop-manifest.webmanifest/route.ts": {
+      "hex": 2
+    },
+    "app/globals.css": {
+      "hex": 40,
+      "radius": 3
+    },
+    "app/not-found.tsx": {
+      "hex": 3
+    },
+    "app/pipeline-surfaces.css": {
+      "hex": 176,
+      "radius": 41
+    },
+    "components/auth/AuthenticationBrand.tsx": {
+      "hex": 8
+    },
+    "components/auth/AuthenticationProgress.tsx": {
+      "hex": 15
+    },
+    "components/auth/PipelineSignIn.tsx": {
+      "hex": 16
+    },
+    "components/pipeline/ActionDetailDialog.tsx": {
+      "hex": 19
+    },
+    "components/pipeline/AdmissionPacketRecipient.module.css": {
+      "hex": 22,
+      "radius": 4
+    },
+    "components/pipeline/AssessmentChartWorkspace.tsx": {
+      "hex": 20
+    },
+    "components/pipeline/AssessmentExcelBackup.module.css": {
+      "hex": 56,
+      "radius": 6
+    },
+    "components/pipeline/AssessmentInterviewFields.tsx": {
+      "hex": 80
+    },
+    "components/pipeline/AssessmentPhoneInterview.module.css": {
+      "hex": 87,
+      "radius": 14
+    },
+    "components/pipeline/AssessmentPreparation.module.css": {
+      "hex": 112,
+      "radius": 10
+    },
+    "components/pipeline/AssessmentSchedulingDialogs.tsx": {
+      "hex": 36,
+      "radius": 1
+    },
+    "components/pipeline/AssessmentViewToggle.tsx": {
+      "hex": 8
+    },
+    "components/pipeline/AssessmentWorkingSection.module.css": {
+      "hex": 307,
+      "radius": 47
+    },
+    "components/pipeline/AssessmentWorkspace.tsx": {
+      "hex": 70
+    },
+    "components/pipeline/AssessorSessionControl.tsx": {
+      "hex": 40
+    },
+    "components/pipeline/AssignedWorkButton.tsx": {
+      "hex": 3
+    },
+    "components/pipeline/CalendarWork.module.css": {
+      "hex": 90,
+      "radius": 15
+    },
+    "components/pipeline/CalendarWorkDetails.tsx": {
+      "hex": 30
+    },
+    "components/pipeline/ClientAssessmentRecord.tsx": {
+      "hex": 9
+    },
+    "components/pipeline/ClientAssessmentSummary.tsx": {
+      "hex": 12
+    },
+    "components/pipeline/ClientFolder.module.css": {
+      "hex": 173,
+      "radius": 32
+    },
+    "components/pipeline/ClientIdentityReview.tsx": {
+      "hex": 44
+    },
+    "components/pipeline/ClientMedicalChart.tsx": {
+      "hex": 27
+    },
+    "components/pipeline/ClientProfileDirectory.tsx": {
+      "hex": 41
+    },
+    "components/pipeline/ClientProfileView.tsx": {
+      "hex": 179
+    },
+    "components/pipeline/CommunicationHistory.module.css": {
+      "hex": 28,
+      "radius": 3
+    },
+    "components/pipeline/CommunityContactLists.module.css": {
+      "hex": 62,
+      "radius": 10
+    },
+    "components/pipeline/ContactDirectoryImport.tsx": {
+      "hex": 29
+    },
+    "components/pipeline/ContactDirectorySuggestion.tsx": {
+      "hex": 5
+    },
+    "components/pipeline/ContinueWorkPanel.tsx": {
+      "hex": 15
+    },
+    "components/pipeline/CurrentWorkOverlay.tsx": {
+      "hex": 13
+    },
+    "components/pipeline/DeleteWorkspaceDialog.tsx": {
+      "hex": 11
+    },
+    "components/pipeline/DemoAssessmentLabButton.tsx": {
+      "hex": 4
+    },
+    "components/pipeline/DemoPersonaSwitch.tsx": {
+      "hex": 8
+    },
+    "components/pipeline/DuplicateReferralReviewDialog.tsx": {
+      "hex": 25
+    },
+    "components/pipeline/GuidedAssessmentInterview.tsx": {
+      "hex": 78,
+      "radius": 7
+    },
+    "components/pipeline/HistoricalReferralProfile.tsx": {
+      "hex": 62
+    },
+    "components/pipeline/HomeDialog.tsx": {
+      "hex": 11
+    },
+    "components/pipeline/HomeFocusDeck.module.css": {
+      "hex": 77,
+      "radius": 13
+    },
+    "components/pipeline/HomeModuleDashboard.tsx": {
+      "hex": 49
+    },
+    "components/pipeline/IntakeExtractionProgress.tsx": {
+      "hex": 12
+    },
+    "components/pipeline/MeetClientEmailPage.module.css": {
+      "hex": 174,
+      "radius": 28
+    },
+    "components/pipeline/OperationsDashboard.tsx": {
+      "hex": 44
+    },
+    "components/pipeline/OutlookHandoffControls.module.css": {
+      "hex": 26,
+      "radius": 5
+    },
+    "components/pipeline/PacketExtractionReview.tsx": {
+      "hex": 67
+    },
+    "components/pipeline/PipelineActionNav.tsx": {
+      "hex": 29
+    },
+    "components/pipeline/PipelineAppShell.tsx": {
+      "hex": 1
+    },
+    "components/pipeline/PipelineCalendarPresentation.tsx": {
+      "hex": 188
+    },
+    "components/pipeline/PipelineDeveloperAcademy.tsx": {
+      "hex": 39
+    },
+    "components/pipeline/PipelineHeader.tsx": {
+      "hex": 61
+    },
+    "components/pipeline/PipelineMaintenanceCover.tsx": {
+      "hex": 5
+    },
+    "components/pipeline/PipelineMobileShell.module.css": {
+      "hex": 45,
+      "radius": 9
+    },
+    "components/pipeline/PipelineOperatorAcademy.tsx": {
+      "hex": 6
+    },
+    "components/pipeline/PipelineOverviewRoute.tsx": {
+      "hex": 4
+    },
+    "components/pipeline/PipelineSearchPanel.tsx": {
+      "hex": 67
+    },
+    "components/pipeline/PipelineTrash.tsx": {
+      "hex": 26
+    },
+    "components/pipeline/PipelineWelcome.tsx": {
+      "hex": 26
+    },
+    "components/pipeline/ReferralActivityPanel.tsx": {
+      "hex": 27
+    },
+    "components/pipeline/ReferralAdmissionPanel.tsx": {
+      "hex": 16
+    },
+    "components/pipeline/ReferralClientActivationPanel.tsx": {
+      "hex": 39
+    },
+    "components/pipeline/ReferralContactsCard.tsx": {
+      "hex": 64
+    },
+    "components/pipeline/ReferralDecision.module.css": {
+      "hex": 61,
+      "radius": 10
+    },
+    "components/pipeline/ReferralDocumentUpload.module.css": {
+      "hex": 50,
+      "radius": 10
+    },
+    "components/pipeline/ReferralDocumentUpload.tsx": {
+      "hex": 7
+    },
+    "components/pipeline/ReferralDraftResumeList.tsx": {
+      "hex": 17
+    },
+    "components/pipeline/ReferralFilePreviewDialog.tsx": {
+      "hex": 30
+    },
+    "components/pipeline/ReferralHandoffContacts.module.css": {
+      "hex": 18,
+      "radius": 2
+    },
+    "components/pipeline/ReferralHome.tsx": {
+      "hex": 28
+    },
+    "components/pipeline/ReferralHomeDirectory.tsx": {
+      "hex": 130
+    },
+    "components/pipeline/ReferralPacketCanvas.tsx": {
+      "hex": 127
+    },
+    "components/pipeline/ReferralProgressPanel.tsx": {
+      "hex": 43
+    },
+    "components/pipeline/ReferralWorkflowPanelPresentation.tsx": {
+      "hex": 47
+    },
+    "components/pipeline/ReferralWorkflowTracker.module.css": {
+      "hex": 79,
+      "radius": 17
+    },
+    "components/pipeline/ReferralWorkflowTracker.tsx": {
+      "hex": 34
+    },
+    "components/pipeline/ReferralWorklist.tsx": {
+      "hex": 46
+    },
+    "components/pipeline/ReferralWorkspaceFolder.module.css": {
+      "hex": 99,
+      "radius": 14
+    },
+    "components/pipeline/StaffProfileSettings.module.css": {
+      "hex": 33,
+      "radius": 6
+    },
+    "components/pipeline/StartReferralFromChart.tsx": {
+      "hex": 11
+    },
+    "components/pipeline/StructuredNarrativeField.tsx": {
+      "hex": 39
+    },
+    "components/pipeline/SupervisorCommandCenter.tsx": {
+      "hex": 49
+    },
+    "components/pipeline/TeamPresenceList.tsx": {
+      "hex": 13
+    },
+    "components/pipeline/TransferredWorkspaceChart.tsx": {
+      "hex": 2
+    },
+    "components/pipeline/UnderReviewEmailDialog.tsx": {
+      "hex": 7
+    },
+    "components/pipeline/UploadedDocumentList.tsx": {
+      "hex": 18
+    },
+    "components/pipeline/WorkAssessmentGraph.tsx": {
+      "hex": 46
+    },
+    "components/pipeline/WorkspaceActivityFeed.tsx": {
+      "hex": 77
+    },
+    "components/pipeline/WorkspaceDirectory.module.css": {
+      "hex": 7
+    },
+    "components/pipeline/WorkspaceMultiFilter.tsx": {
+      "hex": 12
+    },
+    "components/pipeline/academy/AcademyCurriculumView.tsx": {
+      "hex": 109
+    },
+    "components/pipeline/academy/AcademyJourneyLibrary.tsx": {
+      "hex": 43
+    },
+    "components/pipeline/academy/AcademyLabsView.tsx": {
+      "hex": 44
+    },
+    "components/pipeline/academy/AcademyMasteryView.tsx": {
+      "hex": 57
+    },
+    "components/pipeline/academy/AcademyRepositoryAtlas.tsx": {
+      "hex": 50
+    },
+    "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx": {
+      "hex": 101
+    },
+    "components/pipeline/training/DemoEnvironmentBanner.tsx": {
+      "hex": 2
+    },
+    "components/pipeline/training/FocusedAssessmentDemo.tsx": {
+      "hex": 65
+    },
+    "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx": {
+      "hex": 48
+    },
+    "components/pipeline/training/OperatorCertification.tsx": {
+      "hex": 32
+    },
+    "components/pipeline/training/OperatorCurriculumView.tsx": {
+      "hex": 105
+    },
+    "components/pipeline/training/OperatorDemoEntry.tsx": {
+      "hex": 10
+    },
+    "components/pipeline/training/OperatorGuidedTours.tsx": {
+      "hex": 63
+    },
+    "components/pipeline/training/OperatorJobAids.tsx": {
+      "hex": 24
+    },
+    "components/pipeline/training/OperatorLessonVideo.tsx": {
+      "hex": 10
+    },
+    "components/pipeline/training/OperatorPracticeLab.tsx": {
+      "hex": 57
+    },
+    "components/pipeline/training/OperatorProductMap.tsx": {
+      "hex": 14
+    },
+    "components/pipeline/training/PipelineDemoCenter.tsx": {
+      "hex": 86
+    },
+    "components/pipeline/training/PipelineGuidedCoach.module.css": {
+      "hex": 72,
+      "radius": 9
+    },
+    "components/pipeline/training/PipelineProcessTester.tsx": {
+      "hex": 15
+    },
+    "components/pipeline/training/SubmissionAcceptanceDemo.tsx": {
+      "hex": 47
+    },
+    "components/pipeline/training/TutorialReferralPractice.module.css": {
+      "hex": 39,
+      "radius": 5
+    },
+    "components/pipeline/useConfirmationDialog.tsx": {
+      "hex": 11
+    },
+    "lib/extraction/document-assets.ts": {
+      "hex": 1
+    },
+    "lib/extraction/local-packet-evidence.ts": {
+      "hex": 1
+    },
+    "lib/notifications/client-data-sheet.ts": {
+      "hex": 9
+    },
+    "lib/notifications/meet-client-email-template.ts": {
+      "hex": 14,
+      "radius": 3
+    },
+    "lib/pipeline/community-config.ts": {
+      "hex": 12
+    },
+    "lib/pipeline/referral-workflow.ts": {
+      "hex": 7
+    }
+  }
+}

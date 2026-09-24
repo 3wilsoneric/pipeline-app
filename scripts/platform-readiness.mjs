@@ -32,6 +32,11 @@ const checks = [
     args: ["scripts/code-quality-readiness.mjs"],
   },
   {
+    name: "Design token ratchet",
+    command: "node",
+    args: ["scripts/design-token-ratchet.mjs"],
+  },
+  {
     name: "Developer Academy freshness",
     command: "node",
     args: ["scripts/academy-readiness.mjs"],

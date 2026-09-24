@@ -1,0 +1,125 @@
+/*
+ * Design tokens. Single source for color, radius, shadow, type, and motion.
+ * Rules: docs/design/PRINCIPLES.md; owner decisions: docs/design/DECISIONS.md.
+ *
+ * @theme values generate Tailwind utilities (bg-stage-blue-tile, rounded-paper,
+ * shadow-folder, text-label, ease-open, ...). Gradients have no Tailwind theme
+ * namespace, so they live on :root and are used as bg-(image:--folder-body).
+ */
+
+@theme static {
+  /* Text */
+  --color-ink: #1e2420;
+  --color-ink-2: #4a524c;
+  --color-ink-muted: #5e6660;
+
+  /* Surfaces: page ground, sheet, paper (principle 3) */
+  --color-sheet: #fbfaf6;
+  --color-sheet-border: #e4e0d5;
+  --color-control-border: #dcd8cc;
+  --color-paper: #fffdf8;
+  --color-paper-rule: #efe8d8;
+  --color-track: #efe9da;
+  --color-folder-edge: #d9c8a2;
+  --color-folder: #efe4cb;
+  --color-column: #efece4;
+  --color-page: #f5f3ed;
+  --color-segment: #e9e6dc;
+  --color-segment-count: #d9d5c8;
+  --color-card-border: #e4e0d5;
+  --color-count: #ffffff;
+
+  /* Brand and primary action: the one filled button per screen, and focus rings */
+  --color-primary: #0f8b73;
+  --color-primary-hover: #0c705f;
+  --color-primary-soft: #effaf5;
+  --color-focus: #0f8b73;
+  --color-link: #2e6a4c;
+
+  /* Stage families (principle 1). Mapping to tabs: DECISIONS.md.
+     green = Referral received; blue = In progress, Chart, Assessment;
+     orange = Decision, Finish & send. No stage uses red. */
+  --color-stage-green: #2e6a4c;
+  --color-stage-green-tile: #e1ede5;
+  --color-stage-green-border: #cbdfd2;
+  --color-stage-blue: #34539e;
+  --color-stage-blue-tile: #e7ecf7;
+  --color-stage-blue-border: #d0d9ef;
+  --color-stage-orange: #9a4a22;
+  --color-stage-orange-tile: #f6e9e1;
+  --color-stage-orange-border: #ead5c6;
+  --color-stage-rose: #9b3f4e;
+  --color-stage-rose-tile: #f6e4e5;
+  --color-stage-rose-border: #e8c9cd;
+  --color-stage-amber: #7a5418;
+  --color-stage-amber-tile: #f7eedb;
+  --color-stage-amber-border: #e6d3ad;
+
+  /* Status icon set (principle 6): non-interactive, same everywhere */
+  --color-status-done: #256b4c;
+  --color-status-done-soft: #e3f0e8;
+  --color-status-pending: #5e6660;
+  --color-status-in-progress: #34539e;
+  --color-status-blocked: #a9473d;
+
+  /* Missing or unverified information: amber text, never an error */
+  --color-warning: #865e20;
+  --color-warning-soft: #fdf6e7;
+
+  /* Destructive actions and errors only */
+  --color-danger: #a9473d;
+  --color-danger-soft: #fff7f5;
+
+  /* Radius steps down as surfaces nest (principle 9) */
+  --radius-sheet: 24px;
+  --radius-folder: 16px;
+  --radius-paper: 12px;
+  --radius-input: 10px;
+  --radius-chip: 6px;
+  --radius-pill: 999px;
+
+  /* Shadows only on things that sit above other things */
+  --shadow-sheet: 0 8px 30px rgb(60 50 30 / 0.06);
+  --shadow-card: 0 1px 2px rgb(30 36 32 / 0.05);
+  --shadow-card-hover: 0 6px 16px rgb(30 36 32 / 0.1);
+  --shadow-folder: 0 2px 6px rgb(120 95 40 / 0.1);
+  --shadow-folder-lift: 0 14px 28px rgb(120 95 40 / 0.22);
+  --shadow-popover: 0 12px 32px rgb(30 36 32 / 0.18);
+
+  /* Five type roles (principle 5). Entered values: font-bold; empty: font-normal text-ink-muted. */
+  --text-title: 22px;
+  --text-title--line-height: 28px;
+  --text-title--font-weight: 700;
+  --text-section: 18px;
+  --text-section--line-height: 24px;
+  --text-section--font-weight: 700;
+  --text-label: 13px;
+  --text-label--line-height: 18px;
+  --text-label--font-weight: 600;
+  --text-value: 14px;
+  --text-value--line-height: 20px;
+  --text-meta: 12px;
+  --text-meta--line-height: 16px;
+
+  /* One motion language (principle 10) */
+  --ease-open: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root {
+  --duration-move: 260ms;
+  --duration-fade: 200ms;
+
+  --page-ground: linear-gradient(135deg, #eaeee7 0%, #f1eee6 55%, #f3ede6 100%);
+  --folder-tab: linear-gradient(180deg, #f6eedc 0%, #efe4cb 100%);
+  --folder-body: linear-gradient(180deg, #efe4cb 0%, #e7d9b8 100%);
+  --stage-green-column: linear-gradient(180deg, #dcebe2 0%, #eef4ef 100%);
+  --stage-blue-column: linear-gradient(180deg, #e0e6f6 0%, #eef1f9 100%);
+  --stage-orange-column: linear-gradient(180deg, #f4e5da 0%, #f9f2ec 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-move: 0ms;
+    --duration-fade: 0ms;
+  }
+}

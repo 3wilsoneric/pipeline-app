@@ -30,6 +30,7 @@ import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/l
 import type { AdmissionRequirement, AssessmentRecommendation, EhrHandoffStatus, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import styles from "./ReferralDecision.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 type RecommendationDraft = {
   outcome: AssessmentRecommendation["outcome"] | "";
@@ -383,7 +384,8 @@ function RequirementGroup({ group, disabled, onChange }: { group: RequirementGro
 }
 
 function PrimaryButton({ busy, disabled, describedBy, onClick, children }: { busy?: boolean; disabled?: boolean; describedBy?: string; onClick: () => void; children: ReactNode }) {
-  return <button type="button" disabled={disabled || busy} aria-describedby={describedBy} onClick={onClick} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md bg-[#08775e] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#065f4b] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
+  const designV2 = useDesignV2();
+  return <button type="button" disabled={disabled || busy} aria-describedby={describedBy} onClick={onClick} className={designV2 ? "mt-3 inline-flex min-h-11 items-center gap-2 rounded-input bg-link px-5 py-2 text-value font-semibold text-paper hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-40" : "mt-3 inline-flex min-h-11 items-center gap-2 rounded-md bg-[#08775e] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#065f4b] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40"}>{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
 }
 
 function SecondaryButton({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: ReactNode }) {

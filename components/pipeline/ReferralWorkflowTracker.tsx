@@ -13,6 +13,7 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import folderStyles from "./ClientFolder.module.css";
 import boardStyles from "./ReferralWorkflowTracker.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons" }: {
   briefing: HomeBriefingSnapshot;
@@ -61,6 +62,7 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   initialStage?: ReferralBoardStage;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
+  const designV2 = useDesignV2();
   const [mobileStage, setMobileStage] = useState<ReferralBoardStage>(initialStage);
   const [expanded, setExpanded] = useState<{ stage: ReferralBoardStage; origin: HomeDialogOrigin } | null>(null);
   const active = items.filter((item) => item.board.stage !== null);
@@ -83,12 +85,12 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
     <>
       <label className="relative mb-4 block lg:hidden">
         <span className="sr-only">Referral stage</span>
-        <select data-guide-target="home-board-stage" value={mobileStage} onChange={(event) => setMobileStage(event.target.value as ReferralBoardStage)} className="h-11 w-full appearance-none border border-[#c7d1cb] bg-white px-3 pr-10 text-[13px] font-bold text-[#202320] focus-visible:outline-[#0f8b73]">
+        <select data-guide-target="home-board-stage" value={mobileStage} onChange={(event) => setMobileStage(event.target.value as ReferralBoardStage)} className={designV2 ? "h-11 w-full appearance-none rounded-input border border-control-border bg-paper px-3 pr-10 text-value font-bold text-ink focus-visible:outline-focus" : "h-11 w-full appearance-none border border-[#c7d1cb] bg-white px-3 pr-10 text-[13px] font-bold text-[#202320] focus-visible:outline-[#0f8b73]"}>
           {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label} ({active.filter((item) => item.board.stage === stage.key).length})</option>)}
         </select>
-        <ChevronDown size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#176f60]" aria-hidden="true" />
+        <ChevronDown size={17} className={designV2 ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted" : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#176f60]"} aria-hidden="true" />
       </label>
-      <div data-current-work-board className="grid items-start gap-4 lg:grid-cols-3">
+      <div data-current-work-board className={designV2 ? "grid items-start gap-5 lg:grid-cols-3" : "grid items-start gap-4 lg:grid-cols-3"}>
         {stages.map((stage) => {
           const stageItems = active.filter((item) => item.board.stage === stage.key);
           return <div key={stage.key} data-board-stage={stage.key} className={`${boardStyles.docket} ${mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`} onClick={(event) => {
@@ -98,12 +100,12 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
               <h2><button type="button" data-open-folder aria-label={`Open ${stage.label.toLowerCase()} folder`} aria-haspopup="dialog" aria-expanded={expanded?.stage === stage.key} className={boardStyles.openFolder} onClick={(event) => openFolder(stage.key, event.currentTarget)}>
                 <span className={boardStyles.stageIcon}><FolderOpen size={23} aria-hidden="true" /></span>
                 <span className={boardStyles.stageTitle}>{stage.label}<span>{stageItems.length.toLocaleString()} {stageItems.length === 1 ? "file" : "files"}</span></span>
-                <span className={boardStyles.expandAffordance}><Maximize2 size={18} aria-hidden="true" /><span>View all</span></span>
+                <span className={boardStyles.expandAffordance}>{designV2 ? <><span>View all</span><Maximize2 size={16} aria-hidden="true" /></> : <><Maximize2 size={18} aria-hidden="true" /><span>View all</span></>}</span>
               </button></h2>
             </div>
             <div data-folder-stack className={boardStyles.stack}>
               {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
-              {stageItems.length === 0 ? <p className="py-5 text-center text-[11px] font-medium text-[#77817a]">No referrals here</p> : null}
+              {stageItems.length === 0 ? <p className={designV2 ? "text-center" : "py-5 text-center text-[11px] font-medium text-[#77817a]"}>No referrals here</p> : null}
             </div>
             {expanded?.stage === stage.key ? <ExpandedStageFolder title={stage.label} items={stageItems} allItems={allActive.filter((item) => item.board.stage === stage.key)} origin={expanded.origin} showOwner={showOwner} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
           </div>;
@@ -148,8 +150,10 @@ function LifecycleCard({ item, showOwner, onOpenPacket }: {
   showOwner: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
+  const designV2 = useDesignV2();
   const descriptionId = useId();
   const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
+  if (designV2) return <LifecycleCardV2 item={item} name={name} descriptionId={descriptionId} showOwner={showOwner} onOpenPacket={onOpenPacket} />;
   const status = item.board.detail;
   const details = [
     { label: "Community", value: item.community },
@@ -182,6 +186,50 @@ function LifecycleCard({ item, showOwner, onOpenPacket }: {
       </span>
     </span>
   </button>;
+}
+
+// Redesign card (docs/design/DECISIONS.md, "Home board"): same words and click target as LifecycleCard.
+function LifecycleCardV2({ item, name, descriptionId, showOwner, onOpenPacket }: {
+  item: ReferralWorklistItem;
+  name: string;
+  descriptionId: string;
+  showOwner: boolean;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+}) {
+  const status = item.board.detail;
+  const planned = plannedAdmissionDetail(item)[0];
+  const owner = showOwner ? item.owner || "Unassigned" : null;
+  const completion = Math.round(item.completion_pct);
+  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={boardStyles.card}>
+    <span className={boardStyles.identity}>
+      <strong data-folder-name className={boardStyles.name}>{name}</strong>
+      <span className={boardStyles.fileIndex}>
+        <span>{item.packet_sent_at ? `Packet sent ${formatProfileDate(item.packet_sent_at)}` : `Referral #${item.referral_id}`}</span>
+        <span className={boardStyles.detail}><span className={boardStyles.hiddenLabel}>Community</span><span title={item.community}>{item.community}</span></span>
+        {item.received_at ? <span>Received {formatProfileDate(item.received_at)}</span> : null}
+        {planned ? <span className={boardStyles.detail}>{planned.label} {planned.value}</span> : null}
+      </span>
+    </span>
+    <span><span id={`${descriptionId}-status`} data-board-status className={boardStyles.status}>{status}</span></span>
+    <span data-folder-body data-folder-details className={boardStyles.progress}>
+      <span className={boardStyles.progressRow}>
+        <span className={boardStyles.detail}><span className={boardStyles.hiddenLabel}>File progress</span><strong>{completion}% complete</strong></span>
+        <span className={boardStyles.docsNeeded}><span>Documents needed</span><strong>{item.missing_document_count}</strong></span>
+      </span>
+      <span className={boardStyles.track} aria-hidden="true"><span style={{ width: `${Math.min(100, Math.max(0, completion))}%` }} /></span>
+    </span>
+    <span className={boardStyles.footer}>
+      {owner ? <span className={boardStyles.owner}><span className={boardStyles.avatar} aria-hidden="true">{ownerInitials(owner)}</span><span className={boardStyles.hiddenLabel}>Assessor</span><span className={boardStyles.ownerName}>{owner}</span></span> : null}
+      <span className={boardStyles.nextStep}>
+        <span id={`${descriptionId}-action`} className={boardStyles.actionText}>{item.board.next_action}</span>
+        <ArrowRight size={16} aria-hidden="true" />
+      </span>
+    </span>
+  </button>;
+}
+
+function ownerInitials(owner: string) {
+  return owner.split(/\s+/u).filter(Boolean).slice(0, 2).map((part) => part[0]!.toUpperCase()).join("");
 }
 
 function WorkflowRibbon({ item, showOwner, onOpenPacket, current }: {

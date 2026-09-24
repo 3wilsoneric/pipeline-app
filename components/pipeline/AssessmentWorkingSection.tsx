@@ -27,6 +27,7 @@ import {
   groupWorkingQuestions,
 } from "@/components/pipeline/assessment-working-view";
 import styles from "@/components/pipeline/AssessmentWorkingSection.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 type WorkingData = { data: AssessmentToolData; pending: readonly AssessmentToolFieldKey[] };
 type QuestionTarget = { field: AssessmentToolFieldKey };
@@ -38,20 +39,22 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
   guideTargets: Readonly<Record<AssessmentToolSection, string>>;
   onSectionChange: (section: AssessmentToolSection) => void;
 }) {
+  const designV2 = useDesignV2();
   const sections = assessmentWorkingSections(data, pending, preparing);
   const index = sections.findIndex((section) => section.key === activeSection);
   const counts = assessmentWorkingCounts(sections[index].questions, data, pending);
   const total = sections[index].questions.length;
-  return <nav aria-label="Assessment sections" className={styles.navigation}>
-    <label className={styles.sectionPicker}>
+  const picker = <label className={styles.sectionPicker}>
       <span className={styles.sectionPosition} aria-label={`Section ${index + 1} of ${sections.length}`}>{index + 1} / {sections.length}</span>
       <select aria-label="Assessment section" data-guide-target={["assessment-section-nav", ...Object.values(guideTargets)].join(" ")} value={activeSection} onChange={(event) => onSectionChange(event.target.value as AssessmentToolSection)}>
         {sections.map((section) => <option key={section.key} value={section.key}>{section.label}</option>)}
       </select>
-    </label>
+    </label>;
+  return <nav aria-label="Assessment sections" className={styles.navigation}>
+    {designV2 ? <div className={styles.sectionTitle}>{picker}<div className={styles.sectionRail} aria-hidden="true">{sections.map((section, position) => <span key={section.key} data-state={position < index ? "past" : position === index ? "current" : "upcoming"} />)}</div></div> : picker}
     <div className={styles.sectionProgress}>
       {recordedAnswers ?? <span role="status" aria-live="polite" aria-atomic="true"><strong>{counts.captured}</strong> / {total} recorded{counts.verify ? <small>{counts.verify} to verify</small> : null}{counts.reasons ? <small>{counts.reasons} {counts.reasons === 1 ? "needs" : "need"} a reason</small> : null}</span>}
-      <div className={styles.progressTrack} role="progressbar" aria-label="Recorded in this section" aria-valuemin={0} aria-valuemax={total || 1} aria-valuenow={counts.captured}><span style={{ width: `${counts.captured / (total || 1) * 100}%` }} /></div>
+      <div className={styles.progressTrack} role="progressbar" aria-label="Recorded in this section" aria-valuemin={0} aria-valuemax={total || 1} aria-valuenow={counts.captured} style={designV2 ? { "--recorded": `${counts.captured / (total || 1) * 100}%` } as React.CSSProperties : undefined}><span style={{ width: `${counts.captured / (total || 1) * 100}%` }} /></div>
     </div>
   </nav>;
 }
@@ -96,6 +99,7 @@ export type WorkingSectionProps = WorkingData & {
 };
 
 export default function AssessmentWorkingSection(props: WorkingSectionProps) {
+  const designV2 = useDesignV2();
   const { data, pending, questions, target } = props;
   const [localTarget, setLocalTarget] = useState<QuestionTarget | null>(target);
   const [receivedTarget, setReceivedTarget] = useState(target);
@@ -169,11 +173,17 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
       {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Review this section in Current information." : "This section is complete. Review the reference, or continue to the next section."}</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.questionGroup}>
         <div className={styles.fields}>
-          {group.questions.map((question) => <div key={question.field} className={question.span === "full" ? styles.fullField : undefined}>
+          {group.questions.map((question) => {
+            const answer = <>
             <WorkingAssessmentField {...props} question={question} onFieldFocus={focusField} onAnswerBlur={finishReference} />
             {assessmentQuestionStatus(question, data, pending) === "captured" ? <span className={styles.recorded}>Recorded</span> : null}
             {props.preparing && hasAssessmentInterviewValue(data[question.field]) ? <AssessmentAnswerSource assessment={props.assessment} data={data} field={question.field} /> : null}
-          </div>)}
+            </>;
+            // Redesign: a status circle beside each question (dashed until recorded).
+            return designV2
+              ? <div key={question.field} className={`${styles.questionRow} ${question.span === "full" ? styles.fullField : ""}`}><span aria-hidden="true" className={styles.questionStatus} data-status={assessmentQuestionStatus(question, data, pending)} /><div className="min-w-0">{answer}</div></div>
+              : <div key={question.field} className={question.span === "full" ? styles.fullField : undefined}>{answer}</div>;
+          })}
         </div>
       </section>)}
       </div>

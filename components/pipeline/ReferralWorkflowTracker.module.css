@@ -1,261 +1,434 @@
-.stack {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  padding: 4px 1px 8px;
-  isolation: isolate;
+/* Design switch (docs/design/DECISIONS.md, "Rollout"). Two blocks until the switch is removed:
+   the first is the current design; the second applies only under html[data-design="v2"].
+   :where() adds no specificity, so each block cascades exactly as it would alone.
+   While both exist, a fix to shared behavior belongs in both blocks. */
+:where(html:not([data-design="v2"])) {
+  .stack {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 4px 1px 8px;
+    isolation: isolate;
+  }
+
+  .docket { transform-origin: center top; transition: transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms ease; cursor: pointer; }
+  :global(.pipeline-surfaces) .docket > .stageHeading:first-child { padding: 0; margin: 0 0 14px; border: 0; }
+  :global(.pipeline-surfaces) .docket > .stageHeading:first-child::before { display: none; }
+  .stageHeading h2 { width: 100%; }
+  .openFolder { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 82px; padding: 13px 12px; border: 1px solid var(--docket-edge); border-radius: 10px; background: linear-gradient(115deg, #fff, rgb(255 255 255 / 65%)); box-shadow: 0 2px 4px rgb(31 53 45 / 4%); text-align: left; font: inherit; color: #283e35; }
+  .openFolder:hover { background: #fff; border-color: var(--stage-accent); }
+  .stageIcon, .expandedIcon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border: 1px solid color-mix(in srgb, var(--stage-accent) 18%, white); border-radius: 11px; color: var(--stage-accent); background: linear-gradient(135deg, #fff, var(--stage-tint, #edf3f0)); }
+  .stageTitle { min-width: 0; font-size: 17px; font-weight: 700; line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
+  .stageTitle > span { display: block; margin-top: 5px; color: #5d6c65; font-size: 13px; font-weight: 450; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .expandAffordance { display: flex; flex-direction: column; align-items: center; gap: 5px; padding-left: 8px; color: var(--stage-accent); font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .openFolder:focus-visible { outline: 2px solid var(--stage-accent); outline-offset: 2px; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .docket:hover:not(:has(dialog[open])) { transform: translateY(-3px) scale(1.012); box-shadow: inset 0 1px 0 #fff, 0 10px 22px rgb(32 48 42 / 13%); }
+  }
+
+  dialog.expandedFolder {
+    width: calc(100% - 32px);
+    max-width: 1600px;
+    height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
+    border: 1px solid #d3dfda;
+    border-radius: 18px;
+    background: #f4f7f6;
+    box-shadow: 0 2px 0 #fff inset, 0 24px 80px rgb(18 42 32 / 20%);
+    transform-origin: top left;
+    cursor: default;
+  }
+  dialog.expandedFolder::backdrop { background: rgb(23 38 32 / 25%); backdrop-filter: blur(8px); }
+  dialog.expandedFolder > div:first-child {
+    min-height: 90px;
+    padding: 18px 28px;
+    border-bottom: 1px solid #dce6e0;
+    background: linear-gradient(115deg, #fff 40%, var(--stage-tint, #edf3f0));
+  }
+  dialog.expandedFolder > div:first-child > div { min-width: 0; }
+  .docket dialog.expandedFolder h2 {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin: 0;
+    color: #243d33;
+    font-size: clamp(22px, 2vw, 29px);
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -.035em;
+  }
+  .expandedIcon { width: 48px; height: 48px; border-radius: 14px; box-shadow: 0 2px 4px rgb(32 54 45 / 5%); }
+  .expandedLabel { min-width: 0; overflow-wrap: anywhere; }
+  .expandedCount { padding: 6px 10px; border-radius: 7px; color: #50655b; background: rgb(255 255 255 / 85%); border: 1px solid #d9e4dc; font-size: 13px; font-weight: 500; line-height: 1.25; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  dialog.expandedFolder > div:first-child > button { flex-shrink: 0; border: 1px solid #d1dfd7; border-radius: 10px; color: #456052; background: rgb(255 255 255 / 85%); }
+  dialog.expandedFolder > div:first-child > button:hover { background: #fff; border-color: var(--stage-accent); }
+  dialog.expandedFolder > div:first-child > button:focus-visible { outline: 2px solid #087e64; outline-offset: 3px; }
+  .expandedScroll {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 28px;
+    background: radial-gradient(ellipse at 0 0, var(--stage-tint, #edf3f0), transparent 65%), linear-gradient(135deg, #f8faf9, #eff4f2);
+    scrollbar-color: #9bafa3 transparent;
+  }
+  .scopeBar { display: flex; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 10px 16px; padding: 12px 20px; border-bottom: 1px solid #dce6e0; background: #fff; }
+  .scopeBar p { margin: 0; color: #50655b; font-size: 13px; line-height: 1.5; }
+  .scopeToggle { display: flex; gap: 3px; padding: 3px; border: 1px solid #d1dfd7; border-radius: 10px; background: #f1f5f3; }
+  .scopeToggle button { min-width: 72px; min-height: 44px; padding: 8px 16px; border-radius: 7px; color: #456052; font-size: 14px; font-weight: 650; }
+  .scopeToggle button[aria-pressed="true"] { background: #176f60; color: #fff; box-shadow: 0 1px 3px rgb(23 38 32 / 15%); }
+  .scopeToggle button:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .scopeToggle button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
+  .expandedGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); align-items: start; gap: 24px; }
+  .expandedGrid .folder, .expandedGrid .folder:not(:last-child), .expandedGrid .folder:not(:last-child):is(:hover, :focus-within) { margin: 0; transition: transform 160ms ease; }
+  .expandedGrid .folder { --folder-fill: #fff; --folder-edge: #d1dfd7; min-width: 0; border-radius: 12px; }
+  .expandedGrid .tabs { align-items: flex-end; gap: 8px; padding: 0; }
+  .expandedGrid .nameTab { flex: 1 1 auto; min-height: 55px; padding: 15px 16px 12px; border-radius: 12px 18px 0 0; background: #fff; box-shadow: none; font-size: 21px; line-height: 1.25; letter-spacing: -.03em; text-align: left; }
+  .expandedGrid .nameTab > span { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: #253c32; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+  .expandedGrid .statusTab { flex: 0 1 auto; max-width: 40%; min-height: 32px; padding: 7px 9px 8px; border: 1px solid color-mix(in srgb, var(--stage-accent, #087e64) 25%, white); border-bottom: 0; border-radius: 8px 8px 0 0; color: var(--stage-accent, #087e64); background: var(--status-fill); box-shadow: none; font-size: 12px; line-height: 1.3; font-weight: 600; }
+  .expandedGrid .folder .body {
+    height: auto;
+    min-height: 216px;
+    padding: 0;
+    border-color: #d1dfd7;
+    border-radius: 0 0 12px 12px;
+    background: #fff;
+    box-shadow: 0 2px 3px rgb(28 53 42 / 4%), 0 12px 24px -16px rgb(28 53 42 / 25%);
+  }
+  .expandedGrid .body::before, .expandedGrid .body::after { display: none; }
+  .expandedGrid .paper { border: 0; border-radius: inherit; background: transparent; box-shadow: none; }
+  .expandedGrid .folder:not(:last-child) .paper > * { opacity: 1; }
+  .expandedGrid .fileIndex { padding: 14px 18px 0; color: #5c6e63; font-size: 11px; font-weight: 450; line-height: 1.5; }
+  .expandedGrid .nextStep { min-height: 67px; padding: 8px 18px 16px; }
+  .expandedGrid .nextStep svg { margin-top: 4px; color: var(--stage-accent, #087e64); }
+  .expandedGrid .actionText { display: block; overflow: visible; font-size: 16px; font-weight: 600; line-height: 1.5; letter-spacing: -.01em; }
+  .expandedGrid .details { gap: 0 18px; margin: 0 18px; border-color: #e1e9e4; background: transparent; }
+  .expandedGrid .detail { padding: 10px 0; border-bottom: 1px solid #edf1ee; background: transparent; }
+  .expandedGrid .detail:nth-last-child(-n + 2) { border-bottom: 0; padding-bottom: 16px; }
+  .expandedGrid .detailLabel { color: #5b6e61; font-size: 12px; line-height: 1.4; font-weight: 450; }
+  .expandedGrid .detailValue { display: block; overflow: visible; margin-top: 4px; color: #2b4336; font-size: 14px; font-weight: 600; line-height: 1.4; }
+  .emptyFolder { display: grid; place-content: center; min-height: 240px; max-width: 620px; margin: 16px auto; border: 1px dashed #b9cdc0; border-radius: 14px; background: rgb(255 255 255 / 70%); color: #4a6656; font-size: 17px; text-align: center; padding: 20px; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .expandedGrid .folder:hover { transform: translateY(-3px); }
+    .expandedGrid .folder:hover .body { border-color: var(--stage-accent); background: #fff; box-shadow: 0 4px 8px rgb(28 53 42 / 5%), 0 14px 26px -16px rgb(28 53 42 / 25%); }
+    .expandedGrid .folder:hover .nameTab { border-color: var(--stage-accent); }
+  }
+
+  @media (max-width: 639px) {
+    dialog.expandedFolder { margin: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+    dialog.expandedFolder > div:first-child { min-height: 80px; padding: 14px 16px; gap: 12px; }
+    .docket dialog.expandedFolder h2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; font-size: 21px; }
+    .expandedIcon { display: none; }
+    .expandedCount { justify-self: start; padding: 0; border: 0; background: none; font-size: 12px; grid-row: 2; }
+    .expandedScroll { padding: 20px 12px; }
+    .expandedGrid { gap: 22px; }
+    .expandedGrid .nameTab { font-size: 20px; padding: 13px 12px 11px; }
+    .expandedGrid .statusTab { padding: 7px; font-size: 11px; }
+    .expandedGrid .fileIndex { padding: 12px 14px 0; }
+    .expandedGrid .nextStep { padding: 8px 14px 14px; }
+    .expandedGrid .details { margin: 0 14px; }
+  }
+
+  .folder {
+    --folder-fill: #ede4d0;
+    --folder-edge: #c5b28f;
+    --status-fill: var(--stage-tint, #eaf7f0);
+    position: relative;
+    z-index: 0;
+    flex: none;
+    height: auto;
+    margin: 0 0 12px;
+    border-radius: 8px;
+  }
+
+  .tabs {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    padding: 0 10px;
+    margin-bottom: -1px;
+  }
+
+  .nameTab {
+    flex: 0 1 auto;
+    align-self: auto;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    padding: 6px 7px 8px;
+    border-radius: 9px 11px 0 0;
+    color: #1c2923;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 23px;
+    text-align: center;
+    background: linear-gradient(#f5eddd, var(--folder-fill));
+  }
+
+  .nameTab > span { padding: 3px 5px; border-color: #d6ccb7; }
+
+  .statusTab {
+    flex: 0 0 auto;
+    max-width: 44%;
+    padding: 5px 7px 6px;
+    border: 1px solid;
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    background: var(--status-fill);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 75%);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  .folder[data-card-stage="decision"] { --status-fill: #fff1c4; --status-ink: #72520e; }
+  .folder[data-board-outcome="accepted"] { --status-fill: #dcefe4; --status-ink: #176344; }
+  .folder[data-board-outcome="declined"] { --status-fill: #f8dfdc; --status-ink: #963e35; }
+  .folder .statusTab { color: var(--status-ink, var(--stage-accent)); border-color: color-mix(in srgb, var(--status-ink, var(--stage-accent)) 35%, white); }
+
+  .body {
+    position: relative;
+    flex: none;
+    min-height: 250px;
+    padding: 8px 8px 22px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: linear-gradient(110deg, #f4ecd9, var(--folder-fill) 60%, #e4d5b7);
+    box-shadow: inset 0 1px 0 #fff8e9, 0 2px 3px rgb(62 48 25 / 10%), 0 7px 12px rgb(62 48 25 / 7%);
+  }
+
+  /* A paper edge and shallow front lip, rather than another rectangular card. */
+  .body::before {
+    content: "";
+    position: absolute;
+    inset: 5px 13px auto;
+    height: 8px;
+    border: 1px solid #d7d0c2;
+    border-radius: 3px 3px 0 0;
+    background: #fcfaf5;
+  }
+
+  .body::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 19px;
+    border-top: 1px solid #c5b28f;
+    border-radius: 0 0 7px 7px;
+    background: linear-gradient(#efe2c7, #e4d3af);
+    box-shadow: inset 0 1px 0 #f8f0df;
+  }
+
+  .paper { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  .fileIndex { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; padding: 9px 11px 0; color: #536157; font-size: 10px; font-weight: 650; line-height: 14px; font-variant-numeric: tabular-nums; }
+  .nextStep { display: flex; align-items: flex-start; gap: 8px; min-height: 64px; padding: 9px 11px 12px; color: #26372e; }
+  .nextStep svg { flex: none; margin-top: 2px; color: #768079; }
+  .actionText { display: -webkit-box; flex: 1; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; font-weight: 650; line-height: 21px; }
+  .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; border-top: 1px solid #dde3de; background: #dde3de; }
+  .detail { min-width: 0; padding: 8px 11px; background: #fff; }
+  .detail:first-child:nth-last-child(3) { grid-column: 1 / -1; }
+  .detailLabel { display: block; color: #536157; font-size: 10px; font-weight: 700; line-height: 14px; }
+  .detailValue { display: -webkit-box; margin-top: 3px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: #25382e; font-size: 13px; font-weight: 650; line-height: 18px; font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 639px), (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+    .folder:not(:last-child) { margin-bottom: -218px; }
+    .folder { transition: margin-bottom 160ms ease-out; }
+
+    /* Keep names and status tabs exposed; tapping a phone folder opens it directly. */
+    .folder:not(:last-child) .paper > * { opacity: 0; }
+    .folder:not(:last-child):focus-visible { margin-bottom: -130px; }
+    .folder:not(:last-child):focus-visible :is(.fileIndex, .nextStep) { opacity: 1; }
+  }
+
+  @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+    .body { height: 250px; }
+    .folder:not(:last-child):is(:hover, :focus-within) { margin-bottom: -130px; }
+    .folder:not(:last-child):is(:hover, :focus-within) :is(.fileIndex, .nextStep) { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .folder, .docket { transition: none; }
+    .docket:hover:not(:has(dialog[open])) { transform: none; }
+    .expandedGrid .folder, .expandedGrid .folder:not(:last-child), .expandedGrid .folder:not(:last-child):is(:hover, :focus-within) { transition: none; transform: none; filter: none; }
+  }
+
+  @media (forced-colors: active) {
+    .body, .nameTab, .statusTab, .body::after { background: Canvas; border-color: ButtonText; }
+    .expandedScroll, .expandedIcon, .expandedLabel, .openFolder { background: Canvas; border-color: ButtonText; box-shadow: none; }
+    .expandedCount, .expandedGrid .statusTab, .expandedGrid .folder[data-board-outcome] .statusTab { color: CanvasText; }
+  }
 }
 
-.docket { transform-origin: center top; transition: transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms ease; cursor: pointer; }
-:global(.pipeline-surfaces) .docket > .stageHeading:first-child { padding: 0; margin: 0 0 14px; border: 0; }
-:global(.pipeline-surfaces) .docket > .stageHeading:first-child::before { display: none; }
-.stageHeading h2 { width: 100%; }
-.openFolder { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 82px; padding: 13px 12px; border: 1px solid var(--docket-edge); border-radius: 10px; background: linear-gradient(115deg, #fff, rgb(255 255 255 / 65%)); box-shadow: 0 2px 4px rgb(31 53 45 / 4%); text-align: left; font: inherit; color: #283e35; }
-.openFolder:hover { background: #fff; border-color: var(--stage-accent); }
-.stageIcon, .expandedIcon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border: 1px solid color-mix(in srgb, var(--stage-accent) 18%, white); border-radius: 11px; color: var(--stage-accent); background: linear-gradient(135deg, #fff, var(--stage-tint, #edf3f0)); }
-.stageTitle { min-width: 0; font-size: 17px; font-weight: 700; line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
-.stageTitle > span { display: block; margin-top: 5px; color: #5d6c65; font-size: 13px; font-weight: 450; letter-spacing: 0; font-variant-numeric: tabular-nums; }
-.expandAffordance { display: flex; flex-direction: column; align-items: center; gap: 5px; padding-left: 8px; color: var(--stage-accent); font-size: 11px; font-weight: 600; white-space: nowrap; }
-.openFolder:focus-visible { outline: 2px solid var(--stage-accent); outline-offset: 2px; }
+:where(html[data-design="v2"]) {
+  /* Referral board. Tokens: app/design-tokens.css. Rules: docs/design/PRINCIPLES.md. */
 
-@media (hover: hover) and (pointer: fine) {
-  .docket:hover:not(:has(dialog[open])) { transform: translateY(-3px) scale(1.012); box-shadow: inset 0 1px 0 #fff, 0 10px 22px rgb(32 48 42 / 13%); }
-}
+  /* Stage column: warm neutral ground; the stage color marks the dot, status, and progress. */
+  .docket {
+    --stage-accent: var(--color-stage-green);
+    --stage-tint: var(--color-stage-green-tile);
+    --docket-edge: var(--color-stage-green-border);
+    --stage-column: var(--stage-green-column);
+    position: relative;
+    padding: 14px;
+    border: 1px solid var(--docket-edge);
+    border-radius: var(--radius-folder);
+    background: var(--stage-column);
+    cursor: pointer;
+    transform-origin: center top;
+    transition: transform var(--duration-fade) var(--ease-open);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .docket:hover:not(:has(dialog[open])) { transform: scale(1.012); }
+  }
+  .docket[data-board-stage="in_progress"] { --stage-accent: var(--color-stage-blue); --stage-tint: var(--color-stage-blue-tile); --docket-edge: var(--color-stage-blue-border); --stage-column: var(--stage-blue-column); }
+  .docket[data-board-stage="decision"] { --stage-accent: var(--color-stage-orange); --stage-tint: var(--color-stage-orange-tile); --docket-edge: var(--color-stage-orange-border); --stage-column: var(--stage-orange-column); }
 
-dialog.expandedFolder {
-  width: calc(100% - 32px);
-  max-width: 1600px;
-  height: calc(100dvh - 32px);
-  max-height: calc(100dvh - 32px);
-  border: 1px solid #d3dfda;
-  border-radius: 18px;
-  background: #f4f7f6;
-  box-shadow: 0 2px 0 #fff inset, 0 24px 80px rgb(18 42 32 / 20%);
-  transform-origin: top left;
-  cursor: default;
-}
-dialog.expandedFolder::backdrop { background: rgb(23 38 32 / 25%); backdrop-filter: blur(8px); }
-dialog.expandedFolder > div:first-child {
-  min-height: 90px;
-  padding: 18px 28px;
-  border-bottom: 1px solid #dce6e0;
-  background: linear-gradient(115deg, #fff 40%, var(--stage-tint, #edf3f0));
-}
-dialog.expandedFolder > div:first-child > div { min-width: 0; }
-.docket dialog.expandedFolder h2 {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-  margin: 0;
-  color: #243d33;
-  font-size: clamp(22px, 2vw, 29px);
-  font-weight: 650;
-  line-height: 1.25;
-  letter-spacing: -.035em;
-}
-.expandedIcon { width: 48px; height: 48px; border-radius: 14px; box-shadow: 0 2px 4px rgb(32 54 45 / 5%); }
-.expandedLabel { min-width: 0; overflow-wrap: anywhere; }
-.expandedCount { padding: 6px 10px; border-radius: 7px; color: #50655b; background: rgb(255 255 255 / 85%); border: 1px solid #d9e4dc; font-size: 13px; font-weight: 500; line-height: 1.25; letter-spacing: 0; font-variant-numeric: tabular-nums; }
-dialog.expandedFolder > div:first-child > button { flex-shrink: 0; border: 1px solid #d1dfd7; border-radius: 10px; color: #456052; background: rgb(255 255 255 / 85%); }
-dialog.expandedFolder > div:first-child > button:hover { background: #fff; border-color: var(--stage-accent); }
-dialog.expandedFolder > div:first-child > button:focus-visible { outline: 2px solid #087e64; outline-offset: 3px; }
-.expandedScroll {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 28px;
-  background: radial-gradient(ellipse at 0 0, var(--stage-tint, #edf3f0), transparent 65%), linear-gradient(135deg, #f8faf9, #eff4f2);
-  scrollbar-color: #9bafa3 transparent;
-}
-.scopeBar { display: flex; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 10px 16px; padding: 12px 20px; border-bottom: 1px solid #dce6e0; background: #fff; }
-.scopeBar p { margin: 0; color: #50655b; font-size: 13px; line-height: 1.5; }
-.scopeToggle { display: flex; gap: 3px; padding: 3px; border: 1px solid #d1dfd7; border-radius: 10px; background: #f1f5f3; }
-.scopeToggle button { min-width: 72px; min-height: 44px; padding: 8px 16px; border-radius: 7px; color: #456052; font-size: 14px; font-weight: 650; }
-.scopeToggle button[aria-pressed="true"] { background: #176f60; color: #fff; box-shadow: 0 1px 3px rgb(23 38 32 / 15%); }
-.scopeToggle button:hover { text-decoration: underline; text-underline-offset: 3px; }
-.scopeToggle button:focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
-.expandedGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); align-items: start; gap: 24px; }
-.expandedGrid .folder, .expandedGrid .folder:not(:last-child), .expandedGrid .folder:not(:last-child):is(:hover, :focus-within) { margin: 0; transition: transform 160ms ease; }
-.expandedGrid .folder { --folder-fill: #fff; --folder-edge: #d1dfd7; min-width: 0; border-radius: 12px; }
-.expandedGrid .tabs { align-items: flex-end; gap: 8px; padding: 0; }
-.expandedGrid .nameTab { flex: 1 1 auto; min-height: 55px; padding: 15px 16px 12px; border-radius: 12px 18px 0 0; background: #fff; box-shadow: none; font-size: 21px; line-height: 1.25; letter-spacing: -.03em; text-align: left; }
-.expandedGrid .nameTab > span { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: #253c32; text-align: left; white-space: normal; overflow-wrap: anywhere; }
-.expandedGrid .statusTab { flex: 0 1 auto; max-width: 40%; min-height: 32px; padding: 7px 9px 8px; border: 1px solid color-mix(in srgb, var(--stage-accent, #087e64) 25%, white); border-bottom: 0; border-radius: 8px 8px 0 0; color: var(--stage-accent, #087e64); background: var(--status-fill); box-shadow: none; font-size: 12px; line-height: 1.3; font-weight: 600; }
-.expandedGrid .folder .body {
-  height: auto;
-  min-height: 216px;
-  padding: 0;
-  border-color: #d1dfd7;
-  border-radius: 0 0 12px 12px;
-  background: #fff;
-  box-shadow: 0 2px 3px rgb(28 53 42 / 4%), 0 12px 24px -16px rgb(28 53 42 / 25%);
-}
-.expandedGrid .body::before, .expandedGrid .body::after { display: none; }
-.expandedGrid .paper { border: 0; border-radius: inherit; background: transparent; box-shadow: none; }
-.expandedGrid .folder:not(:last-child) .paper > * { opacity: 1; }
-.expandedGrid .fileIndex { padding: 14px 18px 0; color: #5c6e63; font-size: 11px; font-weight: 450; line-height: 1.5; }
-.expandedGrid .nextStep { min-height: 67px; padding: 8px 18px 16px; }
-.expandedGrid .nextStep svg { margin-top: 4px; color: var(--stage-accent, #087e64); }
-.expandedGrid .actionText { display: block; overflow: visible; font-size: 16px; font-weight: 600; line-height: 1.5; letter-spacing: -.01em; }
-.expandedGrid .details { gap: 0 18px; margin: 0 18px; border-color: #e1e9e4; background: transparent; }
-.expandedGrid .detail { padding: 10px 0; border-bottom: 1px solid #edf1ee; background: transparent; }
-.expandedGrid .detail:nth-last-child(-n + 2) { border-bottom: 0; padding-bottom: 16px; }
-.expandedGrid .detailLabel { color: #5b6e61; font-size: 12px; line-height: 1.4; font-weight: 450; }
-.expandedGrid .detailValue { display: block; overflow: visible; margin-top: 4px; color: #2b4336; font-size: 14px; font-weight: 600; line-height: 1.4; }
-.emptyFolder { display: grid; place-content: center; min-height: 240px; max-width: 620px; margin: 16px auto; border: 1px dashed #b9cdc0; border-radius: 14px; background: rgb(255 255 255 / 70%); color: #4a6656; font-size: 17px; text-align: center; padding: 20px; }
+  .stageHeading { margin: 0 0 14px; }
+  .stageHeading h2 { width: 100%; margin: 0; text-transform: none; }
+  .openFolder { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 72px; padding: 12px 16px; border: 1px solid var(--docket-edge); border-radius: var(--radius-paper); background: rgb(255 255 255 / 82%); text-align: left; font: inherit; color: var(--color-ink); }
+  .openFolder:hover { background: var(--color-paper); border-color: var(--stage-accent); }
+  .openFolder:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .stageIcon { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: var(--radius-paper); color: var(--stage-accent); background: var(--stage-tint); }
+  .stageTitle { min-width: 0; font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: var(--text-section--font-weight); overflow-wrap: anywhere; }
+  .stageTitle > span { display: block; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .expandAffordance { display: flex; align-items: center; gap: 6px; min-height: 44px; margin-left: auto; padding: 0 4px; color: var(--stage-accent); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; white-space: nowrap; }
 
-@media (hover: hover) and (pointer: fine) {
-  .expandedGrid .folder:hover { transform: translateY(-3px); }
-  .expandedGrid .folder:hover .body { border-color: var(--stage-accent); background: #fff; box-shadow: 0 4px 8px rgb(28 53 42 / 5%), 0 14px 26px -16px rgb(28 53 42 / 25%); }
-  .expandedGrid .folder:hover .nameTab { border-color: var(--stage-accent); }
-}
+  .stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .stack > p { display: grid; min-height: 64px; align-content: center; margin: 0; padding: 20px 10px; border: 1px dashed var(--docket-edge); background: rgb(255 255 255 / 50%); border-radius: var(--radius-paper); color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); }
 
-@media (max-width: 639px) {
-  dialog.expandedFolder { margin: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; border-radius: 0; }
-  dialog.expandedFolder > div:first-child { min-height: 80px; padding: 14px 16px; gap: 12px; }
-  .docket dialog.expandedFolder h2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; font-size: 21px; }
-  .expandedIcon { display: none; }
-  .expandedCount { justify-self: start; padding: 0; border: 0; background: none; font-size: 12px; grid-row: 2; }
-  .expandedScroll { padding: 20px 12px; }
-  .expandedGrid { gap: 22px; }
-  .expandedGrid .nameTab { font-size: 20px; padding: 13px 12px 11px; }
-  .expandedGrid .statusTab { padding: 7px; font-size: 11px; }
-  .expandedGrid .fileIndex { padding: 12px 14px 0; }
-  .expandedGrid .nextStep { padding: 8px 14px 14px; }
-  .expandedGrid .details { margin: 0 14px; }
-}
+  /* Card: one white sheet per referral. */
+  .card {
+    --status-ink: var(--stage-accent);
+    --status-fill: var(--stage-tint);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    padding: 18px 20px 16px;
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--radius-paper);
+    background: var(--color-paper);
+    box-shadow: var(--shadow-card);
+    color: var(--color-ink);
+    text-align: left;
+    font: inherit;
+    transition: box-shadow var(--duration-fade) ease, border-color var(--duration-fade) ease;
+  }
+  .card[data-board-outcome="accepted"] { --status-ink: var(--color-status-done); --status-fill: var(--color-status-done-soft); }
+  .card[data-board-outcome="declined"] { --status-ink: var(--color-ink-muted); --status-fill: var(--color-sheet); }
+  .card:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) {
+    .card:hover { border-color: var(--color-control-border); box-shadow: var(--shadow-card-hover); }
+  }
 
-.folder {
-  --folder-fill: #ede4d0;
-  --folder-edge: #c5b28f;
-  --status-fill: var(--stage-tint, #eaf7f0);
-  position: relative;
-  z-index: 0;
-  flex: none;
-  height: auto;
-  margin: 0 0 12px;
-  border-radius: 8px;
-}
+  .identity { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .name { min-width: 0; font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: var(--text-section--font-weight); overflow-wrap: anywhere; }
+  .fileIndex { display: flex; flex-wrap: wrap; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); font-variant-numeric: tabular-nums; }
+  .fileIndex > * + *::before { content: "\00b7"; padding: 0 6px; }
+  .status { display: inline-block; max-width: 100%; margin-top: -4px; padding: 3px 9px; border-radius: var(--radius-chip); background: var(--status-fill); color: var(--status-ink); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; overflow-wrap: anywhere; }
+  .detail { position: relative; min-width: 0; overflow-wrap: anywhere; }
+  /* Labels the layout makes visually obvious stay available to screen readers. */
+  .hiddenLabel { position: absolute; top: 0; left: 0; max-width: 100%; overflow-wrap: anywhere; clip-path: inset(50%); pointer-events: none; }
+  .progress { display: flex; flex-direction: column; gap: 8px; }
+  .progressRow { display: flex; justify-content: space-between; gap: 12px; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); font-variant-numeric: tabular-nums; }
+  .progressRow strong { color: var(--color-ink); font-weight: 600; }
+  .docsNeeded { display: flex; gap: 4px; }
+  .docsNeeded strong { color: var(--color-ink-muted); font-weight: 400; }
+  .track { height: 6px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
+  .track > span { display: block; height: 100%; border-radius: inherit; background: var(--stage-accent); }
 
-.tabs {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: flex-end;
-  gap: 5px;
-  padding: 0 10px;
-  margin-bottom: -1px;
-}
+  .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid var(--color-paper-rule); }
+  .owner { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); }
+  .ownerName { min-width: 0; overflow-wrap: anywhere; }
+  .avatar { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: var(--color-stage-blue-tile); color: var(--color-stage-blue); font-size: 12px; font-weight: 700; }
+  .nextStep { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--color-link); text-align: right; }
+  .nextStep svg { flex: none; }
+  .actionText { font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; overflow-wrap: anywhere; }
 
-.nameTab {
-  flex: 0 1 auto;
-  align-self: auto;
-  min-width: 0;
-  max-width: none;
-  margin: 0;
-  padding: 6px 7px 8px;
-  border-radius: 9px 11px 0 0;
-  color: #1c2923;
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 23px;
-  text-align: center;
-  background: linear-gradient(#f5eddd, var(--folder-fill));
-}
+  /* "View all" dialog: the same folders, unstacked, on the stage column. */
+  dialog.expandedFolder {
+    width: calc(100% - 32px);
+    max-width: 1600px;
+    height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
+    border: 1px solid var(--color-sheet-border);
+    border-radius: var(--radius-sheet);
+    background: var(--color-sheet);
+    box-shadow: var(--shadow-popover);
+    transform-origin: top left;
+    cursor: default;
+  }
+  dialog.expandedFolder::backdrop { background: rgb(23 38 32 / 25%); backdrop-filter: blur(8px); }
+  dialog.expandedFolder > div:first-child {
+    min-height: 90px;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--color-sheet-border);
+    background: linear-gradient(115deg, var(--color-paper) 40%, var(--stage-tint));
+  }
+  dialog.expandedFolder > div:first-child > div { min-width: 0; }
+  .docket dialog.expandedFolder h2 {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin: 0;
+    color: var(--color-ink);
+    font-size: var(--text-title);
+    line-height: var(--text-title--line-height);
+    font-weight: var(--text-title--font-weight);
+  }
+  .expandedIcon { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: var(--radius-paper); color: var(--stage-accent); background: var(--stage-tint); }
+  .expandedLabel { min-width: 0; overflow-wrap: anywhere; }
+  .expandedCount { padding: 4px 10px; border: 1px solid var(--color-sheet-border); border-radius: var(--radius-chip); color: var(--color-ink-2); background: var(--color-paper); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 500; font-variant-numeric: tabular-nums; }
+  dialog.expandedFolder > div:first-child > button { flex-shrink: 0; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); color: var(--color-ink-2); background: var(--color-paper); }
+  dialog.expandedFolder > div:first-child > button:hover { border-color: var(--stage-accent); }
+  dialog.expandedFolder > div:first-child > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+  .expandedScroll {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 28px;
+    background: var(--stage-column);
+    scrollbar-color: var(--color-ink-muted) transparent;
+  }
+  .scopeBar { display: flex; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 10px 16px; padding: 12px 20px; border-bottom: 1px solid var(--color-sheet-border); background: var(--color-paper); }
+  .scopeBar p { margin: 0; color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); }
+  .scopeToggle { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-sheet); }
+  .scopeToggle button { min-width: 72px; min-height: 44px; padding: 8px 16px; border: 1px solid transparent; border-radius: var(--radius-chip); color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; }
+  .scopeToggle button[aria-pressed="true"] { border-color: var(--color-control-border); background: var(--color-paper); color: var(--color-ink); }
+  .scopeToggle button:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .scopeToggle button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .expandedGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); align-items: start; gap: 24px; }
+  .emptyFolder { display: grid; place-content: center; min-height: 240px; max-width: 620px; margin: 16px auto; padding: 20px; border: 1px dashed var(--docket-edge); border-radius: var(--radius-paper); background: rgb(255 255 255 / 70%); color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); text-align: center; }
 
-.nameTab > span { padding: 3px 5px; border-color: #d6ccb7; }
+  @media (max-width: 639px) {
+    dialog.expandedFolder { margin: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+    dialog.expandedFolder > div:first-child { min-height: 80px; padding: 14px 16px; gap: 12px; }
+    .docket dialog.expandedFolder h2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; }
+    .expandedIcon { display: none; }
+    .expandedCount { justify-self: start; padding: 0; border: 0; background: none; grid-row: 2; }
+    .expandedScroll { padding: 20px 12px; }
+    .expandedGrid { gap: 22px; }
+  }
 
-.statusTab {
-  flex: 0 0 auto;
-  max-width: 44%;
-  padding: 5px 7px 6px;
-  border: 1px solid;
-  border-bottom: 0;
-  border-radius: 6px 6px 0 0;
-  background: var(--status-fill);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 75%);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 14px;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
+  @media (prefers-reduced-motion: reduce) {
+    .docket:hover:not(:has(dialog[open])) { transform: none; }
+  }
 
-.folder[data-card-stage="decision"] { --status-fill: #fff1c4; --status-ink: #72520e; }
-.folder[data-board-outcome="accepted"] { --status-fill: #dcefe4; --status-ink: #176344; }
-.folder[data-board-outcome="declined"] { --status-fill: #f8dfdc; --status-ink: #963e35; }
-.folder .statusTab { color: var(--status-ink, var(--stage-accent)); border-color: color-mix(in srgb, var(--status-ink, var(--stage-accent)) 35%, white); }
-
-.body {
-  position: relative;
-  flex: none;
-  min-height: 250px;
-  padding: 8px 8px 22px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: linear-gradient(110deg, #f4ecd9, var(--folder-fill) 60%, #e4d5b7);
-  box-shadow: inset 0 1px 0 #fff8e9, 0 2px 3px rgb(62 48 25 / 10%), 0 7px 12px rgb(62 48 25 / 7%);
-}
-
-/* A paper edge and shallow front lip, rather than another rectangular card. */
-.body::before {
-  content: "";
-  position: absolute;
-  inset: 5px 13px auto;
-  height: 8px;
-  border: 1px solid #d7d0c2;
-  border-radius: 3px 3px 0 0;
-  background: #fcfaf5;
-}
-
-.body::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0;
-  height: 19px;
-  border-top: 1px solid #c5b28f;
-  border-radius: 0 0 7px 7px;
-  background: linear-gradient(#efe2c7, #e4d3af);
-  box-shadow: inset 0 1px 0 #f8f0df;
-}
-
-.paper { position: relative; flex: 1; min-height: 0; overflow: hidden; }
-.fileIndex { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; padding: 9px 11px 0; color: #536157; font-size: 10px; font-weight: 650; line-height: 14px; font-variant-numeric: tabular-nums; }
-.nextStep { display: flex; align-items: flex-start; gap: 8px; min-height: 64px; padding: 9px 11px 12px; color: #26372e; }
-.nextStep svg { flex: none; margin-top: 2px; color: #768079; }
-.actionText { display: -webkit-box; flex: 1; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; font-weight: 650; line-height: 21px; }
-.details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; border-top: 1px solid #dde3de; background: #dde3de; }
-.detail { min-width: 0; padding: 8px 11px; background: #fff; }
-.detail:first-child:nth-last-child(3) { grid-column: 1 / -1; }
-.detailLabel { display: block; color: #536157; font-size: 10px; font-weight: 700; line-height: 14px; }
-.detailValue { display: -webkit-box; margin-top: 3px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: #25382e; font-size: 13px; font-weight: 650; line-height: 18px; font-variant-numeric: tabular-nums; }
-
-@media (max-width: 639px), (min-width: 1024px) and (hover: hover) and (pointer: fine) {
-  .folder:not(:last-child) { margin-bottom: -218px; }
-  .folder { transition: margin-bottom 160ms ease-out; }
-
-  /* Keep names and status tabs exposed; tapping a phone folder opens it directly. */
-  .folder:not(:last-child) .paper > * { opacity: 0; }
-  .folder:not(:last-child):focus-visible { margin-bottom: -130px; }
-  .folder:not(:last-child):focus-visible :is(.fileIndex, .nextStep) { opacity: 1; }
-}
-
-@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
-  .body { height: 250px; }
-  .folder:not(:last-child):is(:hover, :focus-within) { margin-bottom: -130px; }
-  .folder:not(:last-child):is(:hover, :focus-within) :is(.fileIndex, .nextStep) { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .folder, .docket { transition: none; }
-  .docket:hover:not(:has(dialog[open])) { transform: none; }
-  .expandedGrid .folder, .expandedGrid .folder:not(:last-child), .expandedGrid .folder:not(:last-child):is(:hover, :focus-within) { transition: none; transform: none; filter: none; }
-}
-
-@media (forced-colors: active) {
-  .body, .nameTab, .statusTab, .body::after { background: Canvas; border-color: ButtonText; }
-  .expandedScroll, .expandedIcon, .expandedLabel, .openFolder { background: Canvas; border-color: ButtonText; box-shadow: none; }
-  .expandedCount, .expandedGrid .statusTab, .expandedGrid .folder[data-board-outcome] .statusTab { color: CanvasText; }
+  @media (forced-colors: active) {
+    .docket { --docket-edge: ButtonText; --stage-accent: ButtonText; --stage-tint: Canvas; --stage-column: Canvas; }
+    .card, .status, .track { background: Canvas; border-color: ButtonText; }
+    .expandedScroll, .expandedIcon, .expandedLabel, .openFolder { background: Canvas; border-color: ButtonText; box-shadow: none; }
+    .expandedCount, .status { color: CanvasText; }
+    .track > span { background: CanvasText; }
+  }
 }

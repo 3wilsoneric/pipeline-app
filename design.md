@@ -1,5 +1,7 @@
 # Pipeline interface design language
 
+> **Superseded in part (2026-09-23):** for this app's redesign, `docs/design/PRINCIPLES.md` and `docs/design/DECISIONS.md` take precedence where they conflict with this file (corner radius, label case, surfaces, shadows).
+
 This file is the portable visual and interaction specification for making another application look and feel like Pipeline. It describes the shipped interface as a system, not as a set of screenshots to imitate. Use it for new products, redesigns, prototypes, or agent-generated interfaces.
 
 The goal is recognizable family resemblance: the same judgment about hierarchy, density, color, controls, and operational clarity, even when the content and workflows are entirely different.

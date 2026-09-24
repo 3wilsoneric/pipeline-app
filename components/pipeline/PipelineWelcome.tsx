@@ -24,6 +24,7 @@ import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { prefetchPipelineWorkspace, cancelPipelineWarmup } from "@/lib/pipeline/client-navigation";
 import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 import deckStyles from "./HomeFocusDeck.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 export default function PipelineWelcome({
   onOpenPacket,
@@ -267,15 +268,16 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
 }
 
 function UpcomingAssessmentsPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
+  const designV2 = useDesignV2();
   return (
-    <section aria-label="Upcoming assessments" className="min-w-0 bg-white">
+    <section aria-label="Upcoming assessments" className={designV2 ? "min-w-0" : "min-w-0 bg-white"}>
       <SectionHeader title="Upcoming assessments" detail={briefing.unavailable_sections.includes("upcoming") ? "Unavailable" : "Next 7 days"} icon={<CalendarClock size={15} />} />
       {briefing.unavailable_sections.includes("upcoming") ? (
         <UnavailableLine />
       ) : briefing.upcoming.length === 0 ? (
         <div className={deckStyles.empty}><CalendarClock aria-hidden="true" /><h3>A little room in your schedule.</h3><p>No assessments are scheduled in the next seven days.</p></div>
       ) : (
-        <div className="divide-y divide-[#e5e9e7]">
+        <div className={designV2 ? "flex flex-col gap-2.5" : "divide-y divide-[#e5e9e7]"}>
           {briefing.upcoming.slice(0, 6).map((event) => <ScheduleRow key={event.id} event={event} onOpenPacket={onOpenPacket} />)}
         </div>
       )}
