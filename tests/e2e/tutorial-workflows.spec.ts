@@ -158,6 +158,30 @@ test("sign, accept, preview and simulate send stay local without confirming admi
   expect(writes).toEqual([]);
 });
 
+test("accepted handoff previews before an admit date but cannot simulate send", async ({ page }, info) => {
+  const writes = observeLiveWrites(page);
+  await page.goto("/tutorials/referral?task=record-decision");
+  await page.getByRole("radio", { name: "Accept", exact: true }).check();
+  await page.getByRole("button", { name: "Record decision", exact: true }).click();
+  await expect(page.getByLabel("Planned admission date", { exact: true })).toHaveValue("");
+  await page.getByRole("button", { name: "Review email & packet", exact: true }).click();
+  await expect(page.frameLocator('iframe[title="Sample Meet the Client email"]').getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
+  await page.getByRole("checkbox", { name: "Recipients checked" }).check();
+  await expect(page.getByRole("button", { name: "Simulate send", exact: true })).toBeDisabled();
+  await expect(page.getByRole("status")).toContainText("Add a planned admission date in Decision");
+  await expect(page.getByRole("complementary", { name: "Tutorial steps" })).toContainText("return to Decision and add the planned admission date");
+  await page.screenshot({ path: info.outputPath("preview-before-date.png"), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath("preview-before-date-mobile.png") });
+  await chooseStep(page, 5);
+  await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-04");
+  await chooseStep(page, 6);
+  await page.getByRole("checkbox", { name: "Recipients checked" }).check();
+  await expect(page.getByRole("button", { name: "Simulate send", exact: true })).toBeEnabled();
+  expect(writes).toEqual([]);
+});
+
 for (const outcome of ["Deny", "Under review"]) test(outcome + " does not fabricate an admission", async ({ page }) => {
   const writes = observeLiveWrites(page);
   await page.goto("/tutorials/referral?task=record-decision");

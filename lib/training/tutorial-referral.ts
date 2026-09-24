@@ -16,7 +16,7 @@ export const tutorialReferralSteps = [
   { title: "Schedule", instruction: "Choose a time and meeting method, then select Schedule interview. The assessment opens next.", target: "assessment-schedule-fields" },
   { title: "Assessment", instruction: "Choose a section. Try editing an answer or filling a blank; watch for the saved confirmation. Continue to Review & sign when ready.", target: "assessment-section-nav" },
   { title: "Review & sign", instruction: "Review the chart and unanswered items, then sign the sample assessment.", target: "assessment-sign" },
-  { title: "Decision", instruction: "Record Accept, Deny, or Under review. Acceptance opens the admission date and packet.", target: "tutorial-decision" },
+  { title: "Decision", instruction: "Record Accept, Deny, or Under review. An accepted referral can preview the handoff before an admission date is known.", target: "tutorial-decision" },
   { title: "Email & packet", instruction: "Review Meet the Client, the chart and files. Check the recipients, then try Simulate send. No email leaves this tutorial.", target: "tutorial-packet" },
   { title: "Client handoff", instruction: "The packet has not been sent. Use Review email & packet to finish the sample handoff.", target: "tutorial-admission" },
   { title: "Back on the board", instruction: "Open the card to return to this sample. Return to work closes the tutorial without changing your real referrals.", target: "home-board-card" },
@@ -46,7 +46,7 @@ const outcomeInstructions: Partial<Record<number, Partial<Record<"pending" | "re
     sent: "The sample handoff is complete. Its decision stays recorded; return to the board to see where it appears.",
     review: "Saved under review. No admission packet is needed yet. Return to the board, or choose another decision here.",
     declined: "Denied. No admission packet is needed. Return to the board, or use Change sample decision to try acceptance.",
-    accepted: "Accepted. Enter the planned admission date, then select Review email & packet. Acceptance alone does not send anything.",
+    accepted: "Accepted. Review the email and packet now; add the planned admission date before sending. Acceptance alone does not send anything.",
   },
   6: { review: noPacketInstruction, declined: noPacketInstruction, sent: "Simulated send complete. Nobody received an email. Continue to Client handoff to check the recorded status." },
   7: { review: noPacketInstruction, declined: noPacketInstruction, sent: "The sample packet is marked sent; the client is still awaiting admission. Continue to the board to see that status." },
@@ -59,6 +59,7 @@ const outcomeInstructions: Partial<Record<number, Partial<Record<"pending" | "re
 
 export function tutorialStepInstruction(state: TutorialReferral, step: number): string {
   const outcome = state.sentAt ? "sent" : state.underReview ? "review" : state.referral.admissionDecision?.outcome ?? "pending";
+  if (step === 6 && outcome === "accepted" && !state.referral.plannedAdmissionDate) return "Preview Meet the Client, the chart, and files now. To simulate sending, return to Decision and add the planned admission date.";
   return outcomeInstructions[step]?.[outcome] ?? tutorialReferralSteps[step].instruction;
 }
 
@@ -88,8 +89,8 @@ const stepHelp = [
     { problem: "Need to change the decision?", action: "Use Change sample decision before the packet is sent. Under review and Deny do not need an admission date or packet." },
   ],
   [
-    { problem: "Simulate send is disabled?", action: "Check that To has an address, then select Recipients checked. This tutorial never sends an email." },
-    { problem: "Where does the real email go?", action: "In a real workspace, review the saved email and attachments, then choose Send email & packet. Alamo Admissions sends to the reviewed recipients and copies the assessor; replies go to the assessor. Reopen the exact email in the workspace Email history. An uncertain result never sends an automatic duplicate." },
+    { problem: "Simulate send is disabled?", action: "Add the planned admission date in Decision, check that To has an address, then select Recipients checked. This tutorial never sends an email." },
+    { problem: "Where does the real email go?", action: "In a real workspace, review the recipients, email, chart, and files. The handoff can be sent from Alamo Admissions or prepared for your own inbox or Outlook, depending on the available option. Reopen a sent handoff in workspace Email history. Check the exact status before trying again; an uncertain result must not create a duplicate." },
   ],
   [
     { problem: "Why isn't this client admitted?", action: "Accepting and sending a packet do not mark someone admitted. The actual admission is recorded later, after it happens." },
@@ -140,8 +141,9 @@ export function tutorialDecision(state: TutorialReferral, outcome: "accepted" | 
 // Jumping ahead supplies only missing prerequisites, never replaces edited answers.
 export function prepareTutorialStep(state: TutorialReferral, index: number): TutorialReferral {
   const next = { ...state, referral: { ...state.referral }, assessment: prepareSampleAssessment(state.assessment, index) };
-  if (index >= 6 && !next.referral.admissionDecision && !next.underReview) next.referral.admissionDecision = tutorialDecision(next, "accepted");
-  if (index >= 6 && next.referral.admissionDecision?.outcome === "accepted") {
+  const suppliedDecision = index >= 6 && !next.referral.admissionDecision && !next.underReview;
+  if (suppliedDecision) next.referral.admissionDecision = tutorialDecision(next, "accepted");
+  if (suppliedDecision) {
     next.referral.plannedAdmissionDate ||= calendarToday();
   }
   return next;
