@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { ArrowLeft, ArrowRight, CircleAlert, FileText, ImageOff, LoaderCircle, Search, X } from "lucide-react";
 
 import type {
@@ -50,6 +51,8 @@ import { ClientAssessmentRecords } from "@/components/pipeline/ClientAssessmentR
 import folderStyles from "./ClientFolder.module.css";
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
 import { clientChartRecord, clientChartAssessments, clientReferralSections, clientSourceSections, referralChartEditFields, type ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
+
+const ReferralFilePreviewDialog = dynamic(() => import("./ReferralFilePreviewDialog"), { ssr: false });
 
 export default function ClientProfileView({
   residentKey,
@@ -662,6 +665,7 @@ function ClientHistorySummary({ history }: { history: UnifiedClientProfileRespon
 }
 
 export function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
+  const [preview, setPreview] = useState<ReferralFile | null>(null);
   if (documents.length === 0) {
     return (
       <div className="border-l-2 border-[#d9d9d9] bg-[#f8f8f8] px-4 py-3 text-[12px] leading-5 text-[#595959]">
@@ -670,11 +674,11 @@ export function ClientDocumentGallery({ documents }: { documents: ReferralFile[]
     );
   }
 
-  return (
+  return <>
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {documents.map((document) => (
         <article key={document.id} className="min-w-0 overflow-hidden border border-[#d9d9d9] bg-white">
-          <DocumentThumbnail document={document} />
+          <DocumentThumbnail document={document} onOpen={() => setPreview(document)} />
           <div className="p-3.5">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{document.category}</span>
@@ -687,12 +691,13 @@ export function ClientDocumentGallery({ documents }: { documents: ReferralFile[]
             </div>
             <div className="mt-1 text-[10px] text-[#737373]">Uploaded {formatDate(document.uploadedAt)}</div>
             {document.previewUrl || document.downloadUrl ? (
-              <a
-                href={document.previewUrl ?? document.downloadUrl}
+              <button
+                type="button"
+                onClick={() => setPreview(document)}
                 className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]"
               >
                 {document.previewUrl ? "Open file" : "Download file"} <ArrowRight size={12} />
-              </a>
+              </button>
             ) : (
               <div className="mt-3 text-[10px] font-semibold text-[#8a6118]">Preview is still processing</div>
             )}
@@ -700,7 +705,8 @@ export function ClientDocumentGallery({ documents }: { documents: ReferralFile[]
         </article>
       ))}
     </div>
-  );
+    {preview ? <ReferralFilePreviewDialog key={preview.id} file={preview} onClose={() => setPreview(null)} /> : null}
+  </>;
 }
 
 function ClientFactReview({
@@ -1133,7 +1139,7 @@ function ClinicalSourceThumbnail({
   );
 }
 
-export function DocumentThumbnail({ document }: { document: ReferralFile }) {
+export function DocumentThumbnail({ document, onOpen }: { document: ReferralFile; onOpen?: () => void }) {
   const [failed, setFailed] = useState(false);
   const available = Boolean(document.thumbnailUrl) && !failed;
   const content = available ? (
@@ -1154,6 +1160,16 @@ export function DocumentThumbnail({ document }: { document: ReferralFile }) {
   );
 
   const openUrl = document.previewUrl ?? document.downloadUrl;
+  if (openUrl && onOpen) return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="block h-40 w-full border-b border-[#d9d9d9] bg-[#f2f5f3] text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f8b73]"
+      aria-label={`Open ${document.name}`}
+    >
+      {content}
+    </button>
+  );
   return openUrl ? (
     <a
       href={openUrl}
