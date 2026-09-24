@@ -12,10 +12,19 @@ function ChartFieldLabel({ label, onEdit, editHint = "Edit" }: { label: string; 
   return onEdit ? <button type="button" aria-label={`Edit ${label}`} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
     className={designV2 ? "group -my-3 inline-flex min-h-11 max-w-full flex-wrap items-center gap-x-2.5 gap-y-1 rounded-sm text-left hover:text-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus" : "group -my-3 inline-flex min-h-11 max-w-full flex-wrap items-center gap-x-2.5 gap-y-1 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]"}>
     <span>{label}</span>
-    <span aria-hidden="true" className={designV2 ? "inline-flex shrink-0 items-center gap-1 text-meta font-semibold text-link underline-offset-2 group-hover:underline" : "inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold leading-4 text-[#0a6a58] underline-offset-2 group-hover:underline"}>
+    {designV2 ? null : <span aria-hidden="true" className={designV2 ? "inline-flex shrink-0 items-center gap-1 text-meta font-semibold text-link underline-offset-2 group-hover:underline" : "inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold leading-4 text-[#0a6a58] underline-offset-2 group-hover:underline"}>
       <Pencil size={12} className="shrink-0" />{editHint}
-    </span>
+    </span>}
   </button> : label;
+}
+
+// Redesign: the edit hint sits under the value, small and muted (the label stays the keyboard control).
+function ChartEditHint({ onEdit, editHint = "Edit" }: { onEdit?: () => void; editHint?: string }) {
+  // Inline size: the global button reset (font: inherit) outranks utility classes.
+  return onEdit ? <button type="button" tabIndex={-1} aria-hidden="true" onClick={onEdit} style={{ fontSize: 11, lineHeight: "16px", fontWeight: 500 }}
+    className="mt-1 inline-flex items-center gap-1 text-ink-muted hover:text-link hover:underline underline-offset-2">
+    <Pencil size={10} className="shrink-0" />{editHint}
+  </button> : null;
 }
 
 export default function ClientMedicalChart({
@@ -138,6 +147,7 @@ export function ChartCell({ fact, multiline = false, onEdit, editHint }: { fact:
       <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? fact.required ? (designV2 ? "text-warning" : "text-[#865e20]") : (designV2 ? "text-ink-muted" : "text-[#68716d]") : (designV2 ? "text-ink" : "text-[#18211d]")}`}>
         {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}
       </dd>
+      {designV2 ? <ChartEditHint onEdit={onEdit} editHint={editHint} /> : null}
     </div>
   );
 }
@@ -151,6 +161,7 @@ export function ChartFacts({ facts, className = "", editActions, editHint }: { f
       return <div key={`${index}:${fact.label}`} data-chart-fact={fact.label} className={`min-w-0 ${narrative ? "sm:col-span-2" : ""}`}>
         <dt className={designV2 ? "text-label text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}><ChartFieldLabel label={fact.label} onEdit={fact.onEdit ?? editActions?.[fact.label]} editHint={editHint} /></dt>
         <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? (designV2 ? "text-ink" : "text-[#18211d]") : (designV2 ? "text-ink-muted" : "text-[#68716d]")}`}><ReadableChartText value={value || "Not reported"} /></dd>
+        {designV2 ? <ChartEditHint onEdit={fact.onEdit ?? editActions?.[fact.label]} editHint={editHint} /> : null}
       </div>;
     })}
   </dl>;

@@ -755,6 +755,10 @@
     .verticalFlow .utilityTab { width: 100%; justify-content: flex-start; gap: 10px; padding: 0 12px; border: 0; }
     .verticalFlow .utilityTab span { display: inline; }
     .verticalFlow .assessmentTools { margin: 0; }
+    /* Trash is a small, quiet icon button at the end of the rail; its accessible name stays on the button. */
+    .verticalFlow .actions > .trashTab { align-self: flex-end; width: 32px; min-width: 32px; min-height: 32px; margin-top: 4px; padding: 0; justify-content: center; border-radius: var(--radius-input); color: var(--color-ink-muted); }
+    .verticalFlow .actions > .trashTab span { display: none; }
+    .verticalFlow .actions > .trashTab:hover:not(:disabled) { background: var(--color-danger-soft); color: var(--color-danger); }
     /* The rail carries the active step's color on its top edge, like the page's paper. */
     .verticalFlow > .header { border-top: 4px solid var(--stage-edge, var(--color-sheet-border)); }
     .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -8px; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
