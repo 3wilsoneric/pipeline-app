@@ -93,7 +93,7 @@ for (const width of [1440, 834, 390]) {
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
     await expect(decision.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
     await expect(decision.getByLabel("Planned admission date", {exact: true})).toHaveValue("");
-    await expect(decision.getByRole("button", { name: "Review email & packet", exact: true })).toBeDisabled();
+    await expect(decision.getByRole("button", { name: "Review email & packet", exact: true })).toBeEnabled();
     await decision.getByLabel("Planned admission date", { exact: true }).fill("2026-10-01");
     await decision.getByRole("button", { name: "Review email & packet", exact: true }).click();
     const email = page.getByRole("region", { name: "Email and referral packet", exact: true });

@@ -130,11 +130,17 @@ test("a changed admit date must be reloaded and the confirmed date populates the
   await expect(email).toContainText("2026-10-05"); await expect(email).not.toContainText("2026-10-04");
 });
 
-test("Decision requires an admit date and carries it into the first handoff check", async ({ page }) => {
+test("Decision previews before an admit date and carries a saved date into the first handoff check", async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
+  const decisionUrl = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`;
+  await page.goto(decisionUrl);
   const button = page.getByRole("button", { name: "Review email & packet", exact: true });
-  await expect(button).toBeDisabled();
+  await expect(button).toBeEnabled();
+  await button.click();
+  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
+  const before = await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json();
+  expect(before.email.blockers.join(" ")).toContain("planned admit date");
+  await page.goto(decisionUrl);
   await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-06");
   await button.click();
   await openAdmitDate(page);
