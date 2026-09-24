@@ -108,6 +108,7 @@ function OutlookConnectionCard(props: ConnectionView) {
   const { setup, mailbox, busy, loading, error } = props;
   return <section className={`${styles.panel} ${props.mode === "settings" ? styles.connectionSettings : styles.connectionPrompt}`} aria-label="Outlook connection" aria-busy={busy || loading}>
     <OutlookConnectionHeading {...props} />
+    {props.mode === "settings" && !mailbox && !setup?.demo ? <p className={styles.hint}>Optional, for existing Outlook drafts. New handoffs send from Alamo Admissions without this connection.</p> : null}
     {connectionDescription(setup, mailbox)}
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     {!loading && setup && !setup.demo && !setup.outlook_client_id ? <p role="status" className={styles.hint}>Outlook setup is pending.</p> : null}
@@ -118,14 +119,14 @@ function OutlookConnectionCard(props: ConnectionView) {
 
 function OutlookConnectionHeading({ mailbox, setup, loading, error }: ConnectionView) {
   return <div className={styles.heading}><span className={styles.icon}><Mail size={22} aria-hidden="true" /></span>
-    <div><h3>{mailbox ? "Outlook is connected" : "Your Outlook email"}</h3><p>{mailbox || setup?.account_email}</p></div>
+    <div><h3>{mailbox ? "Outlook is connected" : "Outlook draft access"}</h3><p>{mailbox || setup?.account_email}</p></div>
     <span className={styles.badge}>{setup?.demo ? "Not production yet" : loading ? "Checking connection…" : error ? "Check unavailable" : mailbox ? <><Check size={13} aria-hidden="true" /> Connected</> : "Not connected"}</span>
   </div>;
 }
 
 function connectionDescription(setup: Setup | null, mailbox: string) {
   if (setup?.demo) return <p className={styles.hint}>Demo only — Outlook connection is not enabled. No draft will be created and no email will be sent.</p>;
-  if (mailbox) return <p className={styles.hint}>Your handoffs will open in your Outlook Drafts. You review and send them.</p>;
+  if (mailbox) return <p className={styles.hint}>You can reopen and check handoffs already saved to your Outlook Drafts. New handoffs send from Alamo Admissions.</p>;
   return <OutlookConnectionNotice />;
 }
 
@@ -149,6 +150,6 @@ function OutlookConnectionActions(props: ConnectionView) {
 function OutlookConnectionDetails({ setup, mode, justConnected }: ConnectionView) {
   return <>
     {!setup?.demo ? <details className={styles.setup}><summary>Staying connected</summary><p>Your connection is remembered when you leave and return in this browser. Use the mailbox matching your Pipeline email and choose “Stay signed in” if Microsoft offers it. Signing out, clearing browser data or Microsoft security requirements may require you to reconnect.</p></details> : null}
-    {mode === "prompt" && !justConnected ? <p className={styles.hint}>Outlook connection is optional. Choose “Email packet to me” when preparing a handoff to receive it in your inbox and forward it yourself.</p> : null}
+    {mode === "prompt" && !justConnected ? <p className={styles.hint}>New handoffs send from Alamo Admissions without connecting Outlook. Connect only to manage an existing Outlook draft.</p> : null}
   </>;
 }

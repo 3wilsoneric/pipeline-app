@@ -31,6 +31,13 @@ export async function purgeExpiredReferrals(limit = 100, dryRun = true) {
   let failed = 0;
   for (const candidate of candidates) {
     try {
+      const communications = await sql<{ objects: Array<{ container: string; key: string }> }[]>`
+        select record->'communication'->'archiveObjects' as objects from pipeline.admission_packet_links
+        where referral_id = ${candidate.referral_id} and record->'communication' is not null
+      `;
+      for (const communication of communications) for (const object of communication.objects ?? []) {
+        await signer.deleteBlob(object.container, object.key);
+      }
       const documents = await sql<RetentionDocument[]>`
         select document_id, blob_container, blob_key, preview_blob_key
         from pipeline.documents

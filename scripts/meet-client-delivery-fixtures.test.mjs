@@ -208,6 +208,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
+    "@/lib/notifications/direct-handoff": {},
     "@/lib/notifications/assessor-email-handoff": {
       assessorEmailDestination: user => user.email, requireAssessorEmailCapacity: () => {},
       prepareAssessorEmail: async input => { messages.push(input); return { status: "draft", mailbox: input.destination, delivery_method: "assessor_email" }; },

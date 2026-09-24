@@ -119,6 +119,8 @@ const actionLabels: Record<string, string> = {
   admission_decision_recorded: "Admission decision recorded",
   admission_decision_overridden: "Admission decision changed",
   admission_declined: "Admission denied",
+  meet_client_email_preview_saved: "Email preview and packet saved",
+  meet_client_email_submitted: "Email submitted for delivery",
   ehr_handoff_updated: "EHR handoff updated",
 };
 

@@ -24,6 +24,7 @@ type PacketInput = {
   id: string; referralId: number; assessmentId: string; assessmentVersion: number;
   recipients: string[]; inventory: MeetClientAttachmentInventory; message: AdmissionPacket["message"];
   outlook?: AdmissionPacket["outlook"];
+  communication?: AdmissionPacket["communication"];
 };
 export async function prepareAdmissionPacketLink(input: PacketInput & { requestUrl: string }) {
   const url = admissionPacketUrl(input.id, input.requestUrl);
@@ -52,7 +53,7 @@ export async function prepareAdmissionPacketRecord(input: PacketInput) {
   }
   const packet: AdmissionPacket = { schema: 1, id: input.id, referralId: input.referralId, assessmentId: input.assessmentId,
     assessmentVersion: input.assessmentVersion, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(),
-    files, message: input.message, ...(input.outlook ? { outlook: input.outlook } : {}), recipients: [...new Set(input.recipients.map((email) => email.trim().toLowerCase()))].map((email) => ({ email, sessions: [], requestedAt: [] })), events: [] };
+    files, message: input.message, ...(input.outlook ? { outlook: input.outlook } : {}), ...(input.communication ? { communication: input.communication } : {}), recipients: [...new Set(input.recipients.map((email) => email.trim().toLowerCase()))].map((email) => ({ email, sessions: [], requestedAt: [] })), events: [] };
   await createAdmissionPacket(packet);
   return packet;
 }

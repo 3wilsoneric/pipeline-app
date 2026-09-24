@@ -21,7 +21,7 @@ export function assessorEmailDestination(user: PipelineUser) {
 }
 
 export function requireAssessorEmailCapacity(inventory: MeetClientAttachmentInventory) {
-  if (meetClientAttachmentDeliveryMode(inventory.files) === "draft_upload" && !getGraphMailReadiness().largeAttachmentDeliveryConfigured) throw new PacketAccessError("Alamo Admissions needs its large-file email setup completed for this packet. Use Outlook Drafts, or ask the Pipeline administrator to enable attachment delivery. No email was sent.", 503);
+  if (meetClientAttachmentDeliveryMode(inventory.files) === "draft_upload" && !getGraphMailReadiness().largeAttachmentDeliveryConfigured) throw new PacketAccessError("Alamo Admissions needs its large-file email setup completed for this packet. Ask the Pipeline administrator to finish the mailbox attachment setup. No email was sent.", 503);
 }
 
 export async function prepareAssessorEmail(input: {

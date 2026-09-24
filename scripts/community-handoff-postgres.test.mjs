@@ -27,10 +27,11 @@ test("recipient drafts: migrated PostgreSQL persistence, private ownership, conc
     started = true;
     sql = postgres({ host: "127.0.0.1", port, database: "postgres", username: process.env.USER, ssl: false, max: 4, prepare: false, onnotice: () => {} });
     const url = `postgres://${encodeURIComponent(process.env.USER)}@127.0.0.1:${port}/postgres`;
-    for (const name of ["0001_pipeline_core", "0006_user_workspace_state", "0033_workflow_continuity", "0038_assessment_packet_finalization", "0040_referral_email_drafts", "0042_admission_packet_links"]) {
+    for (const name of ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0006_user_workspace_state", "0008_client_workspaces", "0012_referral_trash", "0033_workflow_continuity", "0038_assessment_packet_finalization", "0040_referral_email_drafts", "0042_admission_packet_links"]) {
       execFileSync(binary("psql"), [url, "-v", "ON_ERROR_STOP=1", "-f", join(root, "database/migrations", `${name}.sql`)], { stdio: "pipe" });
     }
     await checkAssessorEmailPersistence(sql);
+    await checkCommunicationPersistence(sql);
     const dependencies = {
       "@/lib/auth/pipeline-auth": { getPipelineAuthMode: () => "entra_jwt" },
       "@/lib/desktop/desktop-server-config": { isPipelineDesktopStateEnabled: () => false },
@@ -61,6 +62,57 @@ test("recipient drafts: migrated PostgreSQL persistence, private ownership, conc
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+async function checkCommunicationPersistence(sql) {
+  const db = { getPipelineDatabaseMode: () => "postgres", getPipelineSql: () => sql };
+  const store = () => loadEntry("lib/notifications/admission-packet-store.ts", { "@/lib/database/pipeline-database": db });
+  const [referral] = await sql`select referral_id from pipeline.referrals limit 1`;
+  const referralId = Number(referral.referral_id);
+  const base = { schema: 1, referralId, assessmentId: "assessor-email-test", assessmentVersion: 7, createdAt: "2026-09-23T12:00:00.000Z", expiresAt: "2026-10-23T12:00:00.000Z", files: [{ id: "sheet", name: "Saved sheet.pdf", byteSize: 7, contentType: "application/pdf", source: { kind: "generated", encoding: "base64", content: Buffer.from("%PDF-qa").toString("base64") } }], recipients: [], message: { subject: "Preserved email", body: "Exact copy" }, events: [],
+    communication: { status: "ready", ownerId: "coordinator", assessorId: "assessor", clientName: "Synthetic Client", community: "San Pablo", requestKey: "stable-key", html: "<h1>Preserved email</h1>", archiveObjects: [] } };
+  const records = Array.from({ length: 22 }, (_, i) => ({ ...base, id: randomUUID(), createdAt: new Date(Date.UTC(2026, 8, 23, 12, 0, i)).toISOString() }));
+  for (const record of records) await store().createAdmissionPacket(record);
+  const first = await store().listCommunicationPackets({ ownerId: "assessor", query: "synthetic" });
+  assert.equal(first.items.length, 20); assert.ok(first.nextCursor);
+  const second = await store().listCommunicationPackets({ ownerId: "assessor", cursor: first.nextCursor });
+  assert.equal(second.items.length, 2); assert.equal(second.nextCursor, undefined);
+  assert.equal(new Set([...first.items, ...second.items].map(item => item.id)).size, 22);
+  assert.equal((await store().listCommunicationPackets({ ownerId: "other" })).items.length, 0);
+  assert.equal((await store().listCommunicationPackets({ referralId: referralId + 500 })).items.length, 0);
+  assert.equal((await store().findPreparedCommunication(referralId, "coordinator", "stable-key")).id, records.at(-1).id);
+  const chosen = records[0].id;
+  const transitions = await Promise.allSettled([1, 2].map(() => store().withAdmissionPacket(chosen, packet => {
+    if (packet.communication.status !== "ready") throw new Error("already started");
+    packet.communication.status = "sending";
+    packet.events.push({ action: "meet_client_email_submitted", at: "2026-09-23T13:00:00.000Z", actorId: "coordinator", actorName: "Synthetic Coordinator" });
+  })));
+  assert.equal(transitions.filter(item => item.status === "fulfilled").length, 1);
+  const restored = await store().withAdmissionPacket(chosen, packet => structuredClone(packet));
+  assert.equal(restored.communication.html, base.communication.html); assert.equal(restored.events.length, 0);
+  assert.equal((await sql`select 1 from pipeline.audit_events where metadata->>'packet_id' = ${chosen}`).length, 1);
+  assert.equal((await store().listAdmissionPacketLinks(referralId)).length, 0);
+  const [document] = await sql`insert into pipeline.documents (referral_id, category, file_name, content_type, byte_size, sha256, blob_container, blob_key, processing_status, uploaded_by, malware_scan_status, deleted_at)
+    values (${referralId}, 'Other', 'Withdrawn.pdf', 'application/pdf', 7, ${"a".repeat(64)}, 'raw', 'withdrawn.pdf', 'quarantined', 'fixture', 'infected', now()) returning document_id::text`;
+  const assets = loadEntry("lib/extraction/document-assets.ts", { "@/lib/database/pipeline-database": db });
+  assert.equal(await assets.getDocumentFileMetadata(document.document_id), null, "ordinary file routes still hide removed files");
+  assert.equal((await assets.getDocumentFileMetadata(document.document_id, { includeDeleted: true })).malware_scan_status, "infected", "history still sees adverse verdicts after withdrawal");
+  const archive = { container: "artifacts", key: `communications/${referralId}/${chosen}/original` };
+  await store().withAdmissionPacket(chosen, packet => { packet.communication.archiveObjects = [archive]; });
+  await sql`update pipeline.referrals set deleted_at = now() - interval '31 days', delete_after = now() - interval '1 day', deleted_by = 'fixture', deleted_by_name = 'Fixture' where referral_id = ${referralId}`;
+  let rejectDelete = true; const deletions = [];
+  const retention = loadEntry("lib/pipeline/referral-retention.ts", {
+    "@/lib/database/pipeline-database": { ...db, getPipelineDatabaseReadiness: () => ({ ready: true }) },
+    "@/lib/extraction/azure-blob": { getAzureBlobUploadSigner: () => ({ deleteBlob: async (container, key) => { if (rejectDelete) throw new Error("synthetic storage outage"); deletions.push({ container, key }); return true; } }) },
+    "@/lib/observability/pipeline-metrics": { recordPipelineMetric: () => {} },
+  });
+  assert.equal((await retention.purgeExpiredReferrals(100, true)).eligible, 1);
+  assert.equal((await retention.purgeExpiredReferrals(100, false)).failed, 1);
+  assert.ok(await store().withAdmissionPacket(chosen, packet => packet), "failed cleanup preserves records for retry");
+  rejectDelete = false;
+  assert.equal((await retention.purgeExpiredReferrals(100, false)).deleted, 1);
+  assert.deepEqual(deletions, [archive, { container: "raw", key: "withdrawn.pdf" }]);
+  assert.equal(await store().withAdmissionPacket(chosen, packet => packet), null, "referral retention cascades to saved messages");
+}
 
 async function checkAssessorEmailPersistence(sql) {
   const database = { getPipelineDatabaseMode: () => "postgres", getPipelineDatabaseReadiness: () => ({ ready: true }), getPipelineSql: () => sql };

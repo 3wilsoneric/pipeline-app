@@ -89,7 +89,7 @@ const stepHelp = [
   ],
   [
     { problem: "Simulate send is disabled?", action: "Check that To has an address, then select Recipients checked. This tutorial never sends an email." },
-    { problem: "Where does the real email go?", action: "In a real workspace, choose Email packet to me. Alamo Admissions emails you the message and files; forward them to the reviewed To / Cc list, then confirm forwarding in Pipeline. Outlook Drafts is also available. Check your inbox before retrying an uncertain send." },
+    { problem: "Where does the real email go?", action: "In a real workspace, review the saved email and attachments, then choose Send email & packet. Alamo Admissions sends to the reviewed recipients and copies the assessor; replies go to the assessor. Reopen the exact email in Email history or Communications. An uncertain result never sends an automatic duplicate." },
   ],
   [
     { problem: "Why isn't this client admitted?", action: "Accepting and sending a packet do not mark someone admitted. The actual admission is recorded later, after it happens." },
