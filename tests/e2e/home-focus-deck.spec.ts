@@ -1,5 +1,50 @@
 import { expect, test, webkit, type Page } from "@playwright/test";
 import type { AxeResults } from "axe-core";
+import { getReferralBoardState } from "@/lib/pipeline/referral-flow";
+import type { Referral } from "@/lib/pipeline/referral-types";
+import type { WorkspaceStateProjection } from "@/lib/pipeline/workspace-state";
+
+test("accepted board cards lead to the admission checklist rather than inventing a request", () => {
+  const requirement = {
+    id: "tb-result",
+    type: "tb_test",
+    requiredFor: "move_in",
+    status: "needed",
+    nextStep: "Request a current TB result and verify its date.",
+  } as NonNullable<Referral["requirements"]>[number];
+  const referral = {
+    stage: "Assessment",
+    workflowStatus: "approved_for_placement",
+    requirements: [requirement],
+  } as Referral;
+  const state = {
+    lifecycle: "active",
+    outcome: "accepted",
+    assessment: "signed",
+    assessment_is_reassessment: false,
+  } as WorkspaceStateProjection;
+
+  expect(getReferralBoardState(referral, {}, state)).toMatchObject({
+    stage: "decision",
+    detail: "Accept",
+    next_action: "Complete admission documents",
+    location: { view: "files" },
+  });
+  expect(getReferralBoardState({ ...referral, requirements: [{ ...requirement, status: "received" }] }, {}, state)).toMatchObject({
+    detail: "Awaiting admit",
+    next_action: "Record admission",
+  });
+});
+
+test("board folders show document work without an overall completion percentage", async ({ page }, testInfo) => {
+  await homeFixture(page);
+  await page.goto("/");
+  const card = page.locator("[data-board-card]").first();
+  await expect(card).toContainText(/Documents needed\s*1/);
+  await expect(card).not.toContainText("File progress");
+  await expect(card).not.toContainText(/\d+% complete/);
+  await card.screenshot({ path: testInfo.outputPath("board-card.png"), animations: "disabled" });
+});
 
 async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only") {
   const acknowledgments: unknown[] = [];

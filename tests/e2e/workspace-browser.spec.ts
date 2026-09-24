@@ -37,6 +37,20 @@ async function openWorkspaces(page: Page) {
   await expect(page.getByRole("main", { name: "Referral workspaces" })).toBeVisible();
 }
 
+for (const width of [1440, 390]) {
+  test(`workspace directory shows status instead of a completion score at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockDirectory(page);
+    await page.goto("/?view=referrals");
+    const directory = page.getByRole("main", { name: "Referral workspaces" });
+    const row = directory.getByRole("button", { name: "Open Avery Example referral workspace" }).first();
+    await expect(row).toContainText("Referral created");
+    await expect(row).not.toContainText(/\d+%/);
+    await expect(row.locator("[data-workspace-progress]")).toHaveCount(0);
+    await row.screenshot({ path: testInfo.outputPath(`workspace-row-${width}.png`), animations: "disabled" });
+  });
+}
+
 for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
   for (const width of [1440, 834, 390, 320]) {
     test(`${name} uses one workspace directory at ${width}px`, async ({ baseURL }, info) => {
