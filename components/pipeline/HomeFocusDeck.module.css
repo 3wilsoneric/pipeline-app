@@ -1,6 +1,6 @@
 .deck {
   --deck-ink: #24352f;
-  --deck-edge: #d9d8d1;
+  --deck-edge: #6d9d80;
   --deck-accent: #096e58;
   --deck-ease: cubic-bezier(.2, .85, .22, 1.08);
   color: var(--deck-ink);
@@ -73,10 +73,10 @@
   min-height: 420px;
   padding: 12px 24px 22px;
   border: 1px solid var(--deck-edge);
-  border-top-color: #fff;
+  border-top-color: #8bb69a;
   border-radius: 20px;
   background: linear-gradient(120deg, #fffefa 0%, #fff 62%, #fafbf7);
-  box-shadow: 0 2px 3px rgb(41 49 32 / 6%), 0 18px 36px -16px rgb(45 50 34 / 20%), 0 40px 65px -45px rgb(45 50 34 / 25%);
+  box-shadow: 0 2px 5px rgb(23 67 45 / 9%), 0 18px 38px -12px rgb(23 67 45 / 24%), 0 36px 64px -28px rgb(23 67 45 / 22%);
   transform-origin: 50% 0;
   transition: transform 560ms var(--deck-ease), opacity 340ms ease, filter 340ms ease, box-shadow 400ms ease;
 }
