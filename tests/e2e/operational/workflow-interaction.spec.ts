@@ -300,7 +300,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
       const chart = page.locator('[data-assessment-view]');
       await expect(chart).toBeVisible();
-      const exit = page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true });
+      const exit = page.getByRole("button", { name: "Open referrals", exact: true });
       const answer = "Synthetic final answer, entered immediately before closing.";
       let saving = false;
       await page.route(`**/api/assessments/${assessmentId}`, async (route) => {
@@ -310,25 +310,25 @@ test.describe("workflow interaction and durable feedback", () => {
         }
         await route.continue();
       });
-      await chart.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
+      await chart.getByRole("textbox", { name: "Prior placements", exact: true }).fill(answer);
       await exit.click();
       await expect.poll(() => saving).toBe(true);
       // A durable recovery copy releases navigation before the canonical write completes.
       await expect(chart).toHaveCount(0);
       const recovery = await api.get(`/api/me/assessment-drafts/${assessmentId}`);
       expect(recovery.status()).toBe(200);
-      expect((await recovery.json()).draft.data.prior_5150_5250_holds).toBe(answer);
+      expect((await recovery.json()).draft.data.prior_placements).toBe(answer);
       release();
       await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
-      await expect.poll(async () => (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_5150_5250_holds).toBe(answer);
+      await expect.poll(async () => (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_placements).toBe(answer);
       await page.getByRole("button", { name: "Open current work", exact: true }).click();
       const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
       // Stacked folders expose their name tab; the next folder intentionally covers part of the body.
       await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).getByText(referral.name, { exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
       await expect(chart).toBeVisible();
-      await chart.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true }).click();
-      await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
+      await chart.getByRole("button", { name: "Edit Prior placements", exact: true }).click();
+      await expect(chart.getByRole("textbox", { name: "Prior placements", exact: true })).toHaveValue(answer);
       await exit.click();
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await page.getByRole("searchbox", { name: "Search all workspaces", exact: true }).fill(referral.name);
@@ -359,13 +359,13 @@ test.describe("workflow interaction and durable feedback", () => {
       await page.evaluate(() => {
         IDBDatabase.prototype.transaction = () => { throw new DOMException("Synthetic storage unavailable", "QuotaExceededError"); };
       });
-      await chart.getByRole("textbox", { name: /Prior 5150/ }).fill("Synthetic unsaved answer must remain visible.");
-      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
+      await chart.getByRole("textbox", { name: "Prior placements", exact: true }).fill("Synthetic unsaved answer must remain visible.");
+      await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await expect(chart).toBeVisible();
       await expect(chart.getByRole("alert")).toContainText(/save|saved|unavailable/i);
-      await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Synthetic unsaved answer must remain visible.");
+      await expect(chart.getByRole("textbox", { name: "Prior placements", exact: true })).toHaveValue("Synthetic unsaved answer must remain visible.");
       await page.unroute(`**/api/assessments/${assessmentId}`);
-      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
+      await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await expect(chart).toHaveCount(0);
     } finally {
       await context.close();
@@ -407,7 +407,10 @@ test.describe("workflow interaction and durable feedback", () => {
       const scheduled = (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment;
       expect(scheduled.scheduled_start_at).toBe("2026-09-18T17:30:00.000Z");
       expect(scheduled.scheduled_method).toBe("zoom");
+      await page.getByRole("button", { name: "Begin interview", exact: true }).click();
+      await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
       await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
       const editor = page.locator('[data-assessment-view]');
       const sectionSelect = editor.getByRole("combobox", { name: "Assessment section", exact: true });
       const sectionBody = editor.locator('[data-assessment-working-section]');
@@ -453,7 +456,7 @@ test.describe("workflow interaction and durable feedback", () => {
         await expect(status).toBeVisible();
         const close = width < 640
           ? page.getByRole("button", { name: "Back to previous page", exact: true })
-          : page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true });
+          : page.getByRole("button", { name: "Open referrals", exact: true });
         await expect(close).toBeVisible();
         const bounds = await close.boundingBox();
         expect(bounds!.x).toBeGreaterThanOrEqual(0);

@@ -10,6 +10,7 @@ test("workspace sync badge appears for a merged remote edit without displacing a
   const header = page.getByTestId("workspace-folder-header");
   const status = header.getByTestId("workspace-sync-status");
   await expect(status).toHaveCount(0);
+  await expect(page.getByTestId("workspace-save-status")).toHaveClass("sr-only");
   const before = (await header.boundingBox())!;
   const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   const updated = await page.request.patch(`/api/referrals/${referral.id}`, { data: {
@@ -52,12 +53,12 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
     await expect(header.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
     await expect(header.getByTestId("workspace-identity-title").locator("span")).toHaveCSS("font-size", "18px");
     const documentsToggle = page.getByTestId("document-checklist-toggle");
-    await expect(documentsToggle.getByText("Beta", { exact: true })).toBeVisible();
+    await expect(documentsToggle).toContainText("Documents");
     await expect(page.getByRole("heading", { name: "Document suggestions", exact: true })).toHaveCount(0);
     await documentsToggle.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("region", { name: "Extraction review", exact: true })).toHaveCount(0);
-    await expect(page.getByTestId("initial-packet-input")).toHaveCount(1);
+    await expect(page.getByTestId("referral-documents-input")).toHaveCount(1);
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
     await expect(folder.locator(":scope > strong")).toHaveCount(0);
@@ -93,6 +94,7 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referralId}`)).json()).referral.email).toBe("folder-tabs@example.invalid");
     await expect(page.getByTestId("workspace-identity-title")).toHaveText(name);
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
+    await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(folder).toBeVisible();
     const beforeUpdate = (await header.boundingBox())!;
@@ -111,7 +113,8 @@ for (const width of [1440, 1194, 1024, 834, 768, 640, 390, 320]) {
       expect(await header.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     }
     await open("Assessment");
-    await expect(phone ? page.locator("[data-phone-interview]") : page.locator("[data-assessment-view]")).toBeVisible();
+    await expect(page.locator("[data-assessment-view]")).toBeVisible();
+    if (phone) await expect(page.getByRole("button", { name: "Begin interview", exact: true })).toBeVisible();
     if (phone) await expect(picker).toHaveValue("2");
     else await expectRaisedTab(header.getByRole("button", { name: "Assessment", exact: true }), header.getByRole("button", { name: "Chart", exact: true }));
     await open("Chart");
