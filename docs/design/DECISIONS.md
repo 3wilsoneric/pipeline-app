@@ -72,6 +72,14 @@ Home uses the card system from the "Referrals" board image in place of manila fo
 - Each column header is a plain row: the title, the file count as a small chip, and "View all". There is no header box and no icon (owner, 2026-09-24).
 - Referral cards inside the columns stay white cards.
 
+## Sidebar (owner, 2026-09-24)
+
+- The rail is warm paper with a thin edge.
+- Icon buttons are 48px and rounded.
+- Icons are muted by default. The active destination takes the soft green tint with green icon and text.
+- The new-referral "+" uses the link green.
+- The P logo, the order, and the labels are unchanged.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.

@@ -139,3 +139,24 @@
   .profileMenu, .utilities > div > [role="alert"] { left: calc(var(--sidebar-rail-width) + 8px); width: min(320px, calc(100vw - var(--sidebar-rail-width) - 20px)); }
   .shell [data-guide-target="packet-workspace"] { scroll-padding-block: 128px 76px; }
 }
+
+/* Redesign sidebar (docs/design/DECISIONS.md, "Sidebar"): warm paper rail, rounded icon buttons,
+   one soft active tint. These selectors match only under html[data-design="v2"]; the rules
+   above stay the current design. Remove the rules above this block when the switch is removed. */
+:where(html[data-design="v2"]) .shell .sidebar { gap: 8px; padding: 16px 12px; border-right: 1px solid var(--color-sheet-border); background: var(--color-sheet); box-shadow: none; }
+:where(html[data-design="v2"]) .home { color: var(--color-link); }
+:where(html[data-design="v2"]) .brandDivider { background: var(--color-sheet-border); }
+:where(html[data-design="v2"]) .navigation[data-sidebar-expanded="true"] .navigationPanel { box-shadow: var(--shadow-popover); }
+:where(html[data-design="v2"]) .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command) { height: 48px; min-height: 48px; border: 0; border-radius: var(--radius-paper); background: transparent; box-shadow: none; color: var(--color-ink-muted); transition: background-color var(--duration-fade) ease, color var(--duration-fade) ease; }
+:where(html[data-design="v2"]) .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command):hover { background: var(--color-segment); color: var(--color-ink); box-shadow: none; }
+:where(html[data-design="v2"]) .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command)[data-active="true"] { background: var(--color-primary-soft); color: var(--color-link); }
+:where(html[data-design="v2"]) .shell .sidebar [data-testid="primary-navigation"] > :global(.pipeline-command.pipeline-command) { color: var(--color-link); }
+:where(html[data-design="v2"]) .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command) span { color: inherit; font-size: var(--text-value); font-weight: 500; }
+:where(html[data-design="v2"]) .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command)[data-active="true"] span { font-weight: 600; }
+:where(html[data-design="v2"]) .utilities { border-top-color: var(--color-sheet-border); }
+:where(html[data-design="v2"]) .shell .utilities > button, :where(html[data-design="v2"]) .shell .utilities > div > button { height: 48px; min-height: 48px; border-radius: var(--radius-paper); color: var(--color-ink-muted); }
+:where(html[data-design="v2"]) .utilities > button:hover, :where(html[data-design="v2"]) .utilities > div > button:hover { background-color: var(--color-segment); color: var(--color-ink); }
+:where(html[data-design="v2"]) .expandButton { color: var(--color-ink-muted); }
+:where(html[data-design="v2"]) .expandButton::before { border-color: var(--color-sheet-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); }
+:where(html[data-design="v2"]) .expandButton:hover::before { border-color: var(--color-control-border); background: var(--color-segment); }
+:where(html[data-design="v2"]) .shell .utilities > button > span:not([aria-hidden]), :where(html[data-design="v2"]) .shell .utilities > div > button > span:not([aria-hidden]) { font-size: var(--text-value); font-weight: 500; }
