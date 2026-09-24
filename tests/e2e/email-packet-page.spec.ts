@@ -141,6 +141,30 @@ test("Decision requires an admit date and carries it into the first handoff chec
   await expect(page.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-06");
 });
 
+test("Finish & send does not claim an intake save and routes incomplete identity back to the chart", async ({ page }, info) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.report.meetClient.name = "Name not recorded";
+    payload.report.meetClient.community = "Unassigned";
+    payload.email.outlook_draft = { status: "draft", delivery_method: "assessor_email" };
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  const readiness = page.getByRole("region", { name: "Handoff readiness", exact: true });
+  await expect(readiness.getByRole("heading", { name: "Complete client details" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Email and referral packet" })).toContainText("Unnamed referral · #");
+  await expect(page.getByRole("region", { name: "Email and referral packet" })).toContainText("Community not selected");
+  await expect(readiness).toContainText("existing email copy is kept");
+  await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
+  await expect(readiness.getByRole("button", { name: "Continue inbox handoff" })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("incomplete-handoff.png"), animations: "disabled" });
+  await readiness.getByRole("button", { name: "Edit referral details" }).click();
+  await expect(page).toHaveURL(/workspaceField=name/);
+  await expect(page.getByTestId("intake-client-folder").getByRole("heading", { name: "Referral details", exact: true })).toBeVisible();
+});
+
 for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the branded email at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const { referral } = await referralWithAssessment(page);

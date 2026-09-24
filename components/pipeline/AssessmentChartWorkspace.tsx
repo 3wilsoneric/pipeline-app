@@ -20,6 +20,8 @@ import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
 import OutlookHandoffControls from "./OutlookHandoffControls";
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
+import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
+import { formatClientIdentityTitle, resolveClientCommunity } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import styles from "./MeetClientEmailPage.module.css";
@@ -57,7 +59,7 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenIntake, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
   embedded?: boolean;
   emailPage?: boolean;
@@ -66,6 +68,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   onSendingChange?: (sending: boolean) => void;
   onReferralChange?: (referral: Referral) => void;
   onOpenFiles?: () => void;
+  onOpenIntake?: () => void;
   onOpenAssessment?: () => void;
   onOpenDecision?: () => void;
 }) {
@@ -210,7 +213,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const renderEmailPage = () => (
     <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
-        <div><h2>Meet the Client</h2><p>{readyPayload.report?.meetClient.name || readyPayload.referral.name} · {readyPayload.report?.meetClient.community || readyPayload.referral.community}</p></div>
+        <div><h2>Meet the Client</h2><p>{formatClientIdentityTitle({ name: readyPayload.report ? readyPayload.report.meetClient.name : readyPayload.referral.name, referralId: readyPayload.referral.id })} · {(readyPayload.report ? resolveClientCommunity(readyPayload.report.meetClient.community) : resolveClientCommunity(readyPayload.referral.community)) || "Community not selected"}</p></div>
         <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={sent ? styles.deliveryStatus : "sr-only"} data-sent={sent || undefined}>{deliveryStatus}</span>
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
@@ -218,7 +221,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
         existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
-        onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
+        onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {renderReviewDialog()}
     </section>
   );
@@ -235,10 +238,11 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   );
 }
 
-function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onOpenAssessment, onOpenDecision }: {
+function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onOpenIntake, onOpenAssessment, onOpenDecision }: {
   existingDraft: OutlookDraftView | null; payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean; reviewedCount: number;
   finishActions?: React.ReactNode;
   onPreviewEmail: () => void;
+  onOpenIntake?: () => void;
   onOpenAssessment?: () => void; onOpenDecision?: () => void;
 }) {
   const { report, email } = payload;
@@ -260,8 +264,18 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
     <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details>
   </section>;
 
+  const identityIssues = meetClientIdentityIssues(report?.meetClient ?? null);
+  if (identityIssues.length) return <section className={styles.guidedTask} aria-label="Handoff readiness">
+    <FileText className={styles.taskIcon} size={32} aria-hidden="true" />
+    <h3>Complete client details</h3>
+    <p>Check the chart before preparing or forwarding Meet the Client.</p>
+    <ul className={styles.identityIssues}>{identityIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
+    {existingDraft ? <p className={styles.draftWarning}>The existing email copy is kept, but it will not update automatically. Review and replace it after correcting the chart.</p> : null}
+    {onOpenIntake ? <footer aria-label="Handoff actions" className={styles.taskActions}><button type="button" className={styles.sendButton} onClick={onOpenIntake}>Edit referral details<ArrowRight size={18} aria-hidden="true" /></button></footer> : null}
+  </section>;
+
   if (existingDraft) return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
-    <h3>{existingDraft.delivery_method === "assessor_email" ? "Your inbox handoff" : "Your Outlook draft is saved"}</h3>
+    <h3>{existingDraft.delivery_method === "assessor_email" ? "Email copy prepared" : "Outlook draft saved"}</h3>
     <p>{existingDraft.delivery_method === "assessor_email" ? "Forward the email with its attachments, then confirm here when sent." : "Continue with the message and files you already reviewed."}</p>
     <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
   </section>;

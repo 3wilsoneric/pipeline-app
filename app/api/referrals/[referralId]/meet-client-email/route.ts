@@ -9,6 +9,7 @@ import { buildAssessmentSummaryReport, buildMeetClientSummary, selectSignedAsses
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
+import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
 import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet-files";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { findWorkspaceOutlookDraft, PacketAccessError } from "@/lib/notifications/admission-packet-store";
@@ -300,6 +301,8 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   if (assessment.assessment_id !== assessmentId || assessment.version !== assessmentVersion) {
     return { ok: false as const, response: jsonError("The assessment changed. Refresh and review Meet the Client before sending.", 409) };
   }
+  const identityIssues = meetClientIdentityIssues(buildMeetClientSummary(assessment, snapshot.referral));
+  if (identityIssues.length) return { ok: false as const, response: jsonError(identityIssues.join(" "), 422) };
   return {
     ok: true as const,
     assessment,

@@ -9,7 +9,7 @@ import {
 } from "./assessment-tool-schema";
 import type { AdmissionRequirement, Referral } from "@/lib/pipeline/referral-types";
 import { referralReferrerContact, referralReferrerName } from "@/lib/pipeline/referrer-context";
-import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { formatClientIdentityTitle, isSystemPlaceholderClientName, normalizeClientName, resolveClientCommunity } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 type AssessmentReferralContext = Pick<Referral, "name" | "dob" | "community" | "source" | "currentMedications" | "admissionDate" | "plannedAdmissionDate">
   & Partial<Pick<Referral, "county" | "conserved" | "payer" | "responsiblePerson" | "requirements" | "referrerName" | "phone" | "email">>;
@@ -150,7 +150,7 @@ export function buildMeetClientSummary(
   return {
     name: assessmentClientName(assessment, referral),
     dateOfBirth: assessment.date_of_birth || referral.dob,
-    community: referral.community || assessment.community,
+    community: resolveClientCommunity(referral.community, assessment.community) || "",
     assessmentDate: assessment.assessment_date || "",
     admissionDate: getPlannedAdmissionDate(referral),
     admissionNotes: compactItems([
@@ -257,7 +257,7 @@ function buildIdentity(assessment: PipelineAssessmentRecord, referral: Assessmen
   return compactItems([
     item("Name", assessmentClientName(assessment, referral)),
     item("Date of birth", assessment.date_of_birth || referral.dob),
-    item("Community", assessment.community || referral.community),
+    item("Community", resolveClientCommunity(assessment.community, referral.community) || ""),
     item("Current location", assessment.current_location),
     item("Time at current location", assessment.time_at_current_location),
     item("Date referral received", assessment.referral_received_date),
@@ -269,9 +269,10 @@ function buildIdentity(assessment: PipelineAssessmentRecord, referral: Assessmen
 }
 
 function assessmentClientName(assessment: PipelineAssessmentRecord, referral: AssessmentReferralContext) {
+  const assessedName = assessment.resident_name;
   return formatClientIdentityTitle({
-    name: assessment.resident_name || referral.name,
-    community: assessment.community || referral.community,
+    name: assessedName && normalizeClientName(assessedName) && !isSystemPlaceholderClientName(assessedName) ? assessedName : referral.name,
+    community: resolveClientCommunity(assessment.community, referral.community) || "",
   });
 }
 

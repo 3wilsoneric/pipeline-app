@@ -102,7 +102,7 @@ check("cleared packet selections settle while replacement packets remain pending
 check("draft save status distinguishes queued files from durable uploads",
   canvasSaveState.referralDraftSaveStatus("Draft saved", false, 1) === "Draft saved · 1 file queued"
     && canvasSaveState.referralDraftSaveStatus("Draft saved", false, 2) === "Draft saved · 2 files queued"
-    && canvasSaveState.referralDraftSaveStatus("Workspace loaded", true, 0) === "All changes saved");
+    && canvasSaveState.referralDraftSaveStatus("Workspace loaded", true, 0) === "No unsaved changes");
 check("extraction cannot replace locally dirty fields",
   canvas.includes("!dirtyKeys.has(key)")
     && canvas.includes("mergeExtractedFields(")

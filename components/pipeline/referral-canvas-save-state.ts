@@ -80,7 +80,7 @@ export function referralDraftSaveStatus(savedAt: string, hasReferral: boolean, q
   if (!hasReferral && queuedFileCount > 0) {
     return `${savedAt} · ${queuedFileCount.toLocaleString()} file${queuedFileCount === 1 ? "" : "s"} queued`;
   }
-  return savedAt === "Workspace loaded" ? "All changes saved" : savedAt;
+  return savedAt === "Workspace loaded" ? "No unsaved changes" : savedAt;
 }
 
 export function draftKeySignature(key: ReferralCanvasDirtyKey, input: DraftValueSnapshot) {

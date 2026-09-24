@@ -4,6 +4,7 @@ import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assess
 import { buildAssessmentSummaryReport, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import { jsonError } from "@/lib/extraction/contracts";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
+import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
 import { getGraphMailReadiness, isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
@@ -151,6 +152,7 @@ function meetClientEmailBlockers(
   if (dateError) blockers.push(dateError);
   if (!report) blockers.push("Complete an assessment before preparing the summary.");
   else if (!report.signed) blockers.push("Sign the assessment before preparing the summary.");
+  blockers.push(...meetClientIdentityIssues(report?.meetClient ?? null));
   if (outcome !== "accepted") blockers.push("Record an accepted admission decision before emailing the summary.");
   if (!configured) blockers.push("Configure the Outlook connection.");
   blockers.push(...attachmentBlockers);

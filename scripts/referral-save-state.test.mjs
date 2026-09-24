@@ -10,6 +10,11 @@ const values = (name = "Synthetic", sourceFile = "original.pdf") => ({
 });
 const snapshot = (draft, keys = ["name"]) => state.captureReferralSaveSnapshot(new Set(keys), draft, "face_sheet", {});
 
+test("loading a workspace does not claim a new server save", () => {
+  assert.equal(state.referralDraftSaveStatus("Workspace loaded", true, 0), "No unsaved changes");
+  assert.match(state.referralSaveStatus(0, false), /^Saved /);
+});
+
 test("save acknowledgement clears only unchanged captured fields", () => {
   const saved = snapshot(values());
   assert.deepEqual([...state.reconcileSavedDirtyKeys(new Set(["name", "phone"]), saved, values(), true)], ["phone"]);

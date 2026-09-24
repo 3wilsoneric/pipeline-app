@@ -16,6 +16,17 @@ const source = ts.transpileModule(readFileSync("app/api/referrals/[referralId]/m
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 
+test("corrected identity replaces placeholders in the Meet the Client summary", () => {
+  const assessment = { ...schemaOwner.createEmptyAssessmentToolData(), resident_name: "Pending Review", community: "Unassigned" };
+  const referral = { name: "Casey Rivera", community: "San Pablo", dob: "", currentMedications: "", source: "" };
+  const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
+  assert.equal(summary.name, "Casey Rivera");
+  assert.equal(summary.community, "San Pablo");
+  const fromAssessment = summaryOwner.buildMeetClientSummary({ ...assessment, resident_name: "Jordan Lee", community: "Santa Clarita" }, { ...referral, name: "Pending Review", community: "Unassigned" });
+  assert.equal(fromAssessment.name, "Jordan Lee");
+  assert.equal(fromAssessment.community, "Santa Clarita");
+});
+
 test("provider acceptance survives audit failure without recording a false failed send", async () => {
   const fixture = deliveryFixture({ auditFailure: true });
   const response = await fixture.send();
@@ -69,6 +80,17 @@ test("an assessment edited after preview cannot send unseen changes", async () =
   assert.equal((await fixture.send()).status, 409);
   assert.equal(fixture.providerCalls(), 0);
   assert.equal(fixture.reservationCalls(), 0);
+});
+
+test("an unnamed or unassigned handoff cannot reserve or email a packet", async () => {
+  for (const identity of [{ name: "Pending Review", community: "San Pablo" }, { name: "Synthetic Client", community: "Unassigned" }]) {
+    const fixture = deliveryFixture(identity);
+    const response = await fixture.send();
+    assert.equal(response.status, 422);
+    assert.match((await response.json()).error, /chart before preparing Meet the Client/);
+    assert.equal(fixture.reservationCalls(), 0);
+    assert.equal(fixture.providerCalls(), 0);
+  }
 });
 
 test("the preview must identify a valid assessment and its exact version", async () => {
@@ -172,7 +194,7 @@ test("edited message reaches the provider unchanged, and malformed edits never r
   }
 });
 
-function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, previewAssessmentVersion = 7, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment" } = {}) {
+function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly = false, auditFailure = false, providerFailure = false, finalizationFailure = false, assessmentChanged = false, denied = false, admissionDate = "2026-09-20", previewVersion = 4, previewAssessmentVersion = 7, decisionVersion = 7, signed = true, decisionAssessmentId = "synthetic-assessment", name = "Synthetic Client", community = "San Pablo" } = {}) {
   let calls = 0;
   let reservations = 0;
   const mutationIds = new Set();
@@ -182,7 +204,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   const messages = [];
   const packetReports = [];
   const assessment = { ...schemaOwner.createEmptyAssessmentToolData(), assessment_id: "synthetic-assessment", version: 7, updated_by: { name: "Synthetic Assessor" }, signed_at: signed ? "2026-09-11T10:00:00Z" : null, im_injections: "yes", last_injection: "Synthetic injection - date unknown", assault_history: "yes", last_assault_details: "Synthetic historical incident" };
-  const referral = { id: 6, version: 4, name: "Synthetic Client", dob: "1970-01-01", source: "Synthetic Clinic", community: "San Pablo", admissionDate, requirements: [{ type: "signed_admission_agreement", status: "needed" }] };
+  const referral = { id: 6, version: 4, name, dob: "1970-01-01", source: "Synthetic Clinic", community, admissionDate, requirements: [{ type: "signed_admission_agreement", status: "needed" }] };
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
@@ -196,6 +218,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
     "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {}, findWorkspaceOutlookDraft: async () => null },
     "@/lib/notifications/meet-client-email-template": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-email-template.ts"),
     "@/lib/notifications/meet-client-message": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-message.ts"),
+    "@/lib/notifications/meet-client-identity": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-identity.ts"),
     "@/lib/pipeline/admission-lifecycle": loadTypeScriptModule(process.cwd(), "lib/pipeline/admission-lifecycle.ts"),
     "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ enabled: exampleOnly, writable: exampleOnly }) },
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles) => {
