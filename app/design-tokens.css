@@ -115,6 +115,8 @@
   --stage-green-column: linear-gradient(180deg, #dcebe2 0%, #eef4ef 100%);
   --stage-blue-column: linear-gradient(180deg, #e0e6f6 0%, #eef1f9 100%);
   --stage-orange-column: linear-gradient(180deg, #f4e5da 0%, #f9f2ec 100%);
+  --stage-rose-column: linear-gradient(180deg, #f3dfe1 0%, #f9eff0 100%);
+  --stage-amber-column: linear-gradient(180deg, #f0ddb4 0%, #f7eed9 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {

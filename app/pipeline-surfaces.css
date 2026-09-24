@@ -698,9 +698,9 @@
   }
 
 
-  /* The open record's paper carries the active stage's color as its top edge (docs/design/DECISIONS.md). */
-  .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="1"][aria-current="page"], [data-folder-stage="3"][aria-current="page"]) { --stage-edge: var(--color-stage-blue); }
-  .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="2"][aria-current="page"]) { --stage-edge: var(--color-stage-rose); }
-  .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="workflow"][aria-current="page"]) { --stage-edge: var(--color-stage-amber); }
-  .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="email"][aria-current="page"]) { --stage-edge: var(--color-stage-green); }
+  /* The open record carries the active stage's color: the paper's top edge, and on wide screens the page's wash (docs/design/DECISIONS.md). */
+  .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="1"][aria-current="page"], [data-folder-stage="3"][aria-current="page"]) { --stage-edge: var(--color-stage-blue); --stage-wash: var(--stage-blue-column); --stage-line: var(--color-stage-blue-border); }
+  .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="2"][aria-current="page"]) { --stage-edge: var(--color-stage-rose); --stage-wash: var(--stage-rose-column); --stage-line: var(--color-stage-rose-border); }
+  .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="workflow"][aria-current="page"]) { --stage-edge: var(--color-stage-amber); --stage-wash: var(--stage-amber-column); --stage-line: var(--color-stage-amber-border); }
+  .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="email"][aria-current="page"]) { --stage-edge: var(--color-stage-green); --stage-wash: var(--stage-green-column); --stage-line: var(--color-stage-green-border); }
 }

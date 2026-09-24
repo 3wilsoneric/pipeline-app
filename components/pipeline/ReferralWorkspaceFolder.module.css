@@ -770,7 +770,29 @@
     .nextStepBar > button svg { color: var(--color-link); }
     .nextStepBar > button:hover { border-color: var(--color-ink-muted); box-shadow: var(--shadow-card-hover); }
     .nextStepBar > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-    /* The page is its own folder now that the tabs live in the rail. */
-    .verticalFlow .connectedFolder > div { border-top: 1px solid var(--folder-edge); border-radius: var(--radius-folder); }
+    /* Three layers, like the Home board: warm page, the step's color wash, white cards on the wash.
+       The wash replaces the manila folder now that the tabs live in the rail. */
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section { overflow: visible; padding: 16px; border: 1px solid var(--stage-line, var(--color-card-border)); border-radius: var(--radius-sheet); background: var(--stage-wash, var(--color-column)); }
+    .verticalFlow .connectedFolder { margin: 0; }
+    .verticalFlow .connectedFolder > div { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    /* Single-sheet steps (Decision, Finish & send): the page is one white card. */
+    .verticalFlow .connectedFolder > div > div { border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    /* Chart: each part is its own card on the wash. */
+    .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) { padding: 0; border: 0; background: transparent; box-shadow: none; }
+    .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) > div { display: flex; flex-direction: column; gap: 16px; padding: 0; overflow: visible; }
+    .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) > div > * { margin: 0; }
+    .verticalFlow :is(article[aria-label="Referral chart"], section[aria-label="Document checklist"], section[aria-label="Admission requirements"]) { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    /* The chart's own sections: identity is the first card; each later section is a title on the wash over its card. */
+    .verticalFlow article[aria-label="Referral chart"] { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+    .verticalFlow article[aria-label="Referral chart"] > header { border: 1px solid var(--color-card-border); border-bottom-color: var(--color-paper-rule); border-radius: var(--radius-paper) var(--radius-paper) 0 0; }
+    .verticalFlow article[aria-label="Referral chart"] > dl { border: 1px solid var(--color-card-border); border-top: 0; border-radius: 0 0 var(--radius-paper) var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    .verticalFlow article[aria-label="Referral chart"] > section { margin-top: 20px; }
+    .verticalFlow article[aria-label="Referral chart"] > section > h2 { padding-inline: 20px; padding-top: 0; border-top: 0; }
+    .verticalFlow article[aria-label="Referral chart"] > section > dl { border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    .verticalFlow [data-testid="profile-workspace"] { padding: 0; background: transparent; }
+    .verticalFlow [data-testid="profile-workspace"] > div { margin: 0; }
+    .verticalFlow [data-testid="profile-workspace"] > div > section { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    /* Steps without a folder (an unprepared assessment) show their panel as a card too. */
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section > div > section { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
   }
 }
