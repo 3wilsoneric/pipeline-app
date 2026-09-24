@@ -48,7 +48,6 @@ export default function CommunicationHistory({ referralId, refreshKey = "", onPr
       <span className={styles.status} data-issue={["not_sent", "unconfirmed"].includes(item.status)}>{communicationStatusLabels[item.status]}</span>
     </button></li>)}</ul>
     {cursor ? <button type="button" className={styles.secondary} disabled={loading} onClick={() => void load(cursor)}>Load earlier handoffs</button> : null}
-    {referralId ? <Link className={styles.secondary} href={toPipelinePath("/communications")}>All communications</Link> : null}
     {record ? <CommunicationDialog title={`${record.clientName} · Email history`} onClose={() => setRecord(null)}>
       <CommunicationRecord record={record} history />
       {onPrepareUpdated && ["submitted", "not_sent", "ready"].includes(record.status) ? <button type="button" className={styles.primary} onClick={() => { setRecord(null); onPrepareUpdated(); }}>Review an updated handoff</button> : null}

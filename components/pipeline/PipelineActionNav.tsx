@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CalendarDays, FolderOpen, Mail, Plus, UsersRound } from "lucide-react";
+import { BarChart3, CalendarDays, FolderOpen, Plus, UsersRound } from "lucide-react";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 
 export type PipelineNavTarget = "referrals" | "calendar" | "profiles" | "operations" | "packet" | "communications" | null;
@@ -102,11 +102,6 @@ export default function PipelineActionNav({
           <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>
             Clients
           </span>
-        </button>
-        <button type="button" aria-label="Open communications" title="Communications" aria-current={active === "communications" ? "page" : undefined}
-          data-active={active === "communications" ? "true" : undefined} onClick={() => onNavigate("communications")}
-          className={`${navItem} ${workspaceDestinationSize} text-[#0c705f] ${active === "communications" ? "border-[#0f8b73] bg-[#e7f3ee]" : inactiveReferrals}`}>
-          <Mail size={20} className="shrink-0" /><span className={`${labelClass} text-[12px] font-black`}>Communications</span>
         </button>
         {showReports ? (
           <button
