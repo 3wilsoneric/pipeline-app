@@ -432,6 +432,7 @@ export default function AssessmentWorkspace({
   const onActiveSectionChangeRef = useRef(onActiveSectionChange);
   const sectionRevisionRef = useRef(0);
   const packetSyncKeysRef = useRef(new Set<string>());
+  const createMutationRef = useRef<{ referralId: number; id: string } | null>(null);
   const dirty = dirtySections.size > 0;
   const offlinePrincipal = assessmentOfflinePrincipal(trainingAssessmentMode, viewer);
 
@@ -971,22 +972,44 @@ export default function AssessmentWorkspace({
 
   const createAssessmentDraft = async () => {
     if (!referralId) return;
-    setIsBusy(true);
-    setError("");
-    setMessage("Creating assessment record...");
-    try {
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-        `/api/referrals/${referralId}/assessments`,
-        {
-          method: "POST",
-          body: JSON.stringify({ data: {}, client_mutation_id: mutationId("assessment-create") }),
-        },
-      );
-      upsertAssessment(payload.assessment, true);
-      setMessage("Assessment draft created");
+    const clientMutationId = createMutationRef.current?.referralId === referralId
+      ? createMutationRef.current.id : mutationId("assessment-create");
+    createMutationRef.current = { referralId, id: clientMutationId };
+    const openDraft = (assessment: PipelineAssessmentRecord, message: string) => {
+      upsertAssessment(assessment, true);
+      setMessage(message);
       setActiveSection("identity");
       setIsFocused(true);
       setShowScheduleDialog(false);
+    };
+    setIsBusy(true);
+    setError("");
+    setMessage("Creating assessment record...");
+    const sendCreate = async () => {
+      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+        `/api/referrals/${referralId}/assessments`,
+        { method: "POST", body: JSON.stringify({ data: {}, client_mutation_id: clientMutationId }) },
+      );
+      if (!payload?.assessment) throw new Error("The assessment creation response was incomplete.");
+      return payload.assessment;
+    };
+    try {
+      let created: PipelineAssessmentRecord;
+      try {
+        created = await sendCreate();
+      } catch (createError) {
+        const ambiguous = !(createError instanceof PipelineApiError)
+          || createError.status === 0 || createError.status === 408 || createError.status === 499 || createError.status >= 500;
+        if (!ambiguous) throw createError;
+        try {
+          // The store replays this exact mutation ID if the first response was lost.
+          created = await sendCreate();
+        } catch {
+          throw new Error("Could not confirm whether the assessment draft was created. Try Prepare assessment again; it will use the same request safely.");
+        }
+      }
+      createMutationRef.current = null;
+      openDraft(created, "Assessment draft created");
     } catch (createError) {
       setError(messageFor(createError, "The assessment record could not be created."));
       setMessage("");
@@ -1555,11 +1578,16 @@ export default function AssessmentWorkspace({
       );
       if (!isCurrent()) return;
       upsertAssessment(payload.assessment, true);
-      await onAssessmentSaved?.(payload.assessment);
+      let referralRefreshed = true;
+      try {
+        await onAssessmentSaved?.(payload.assessment);
+      } catch {
+        referralRefreshed = false;
+      }
       if (!isCurrent()) return;
       void clearRecoveryDraft(payload.assessment.assessment_id);
       void persistOfflineWorkingSet(payload.assessment);
-      setMessage("Assessment signed");
+      setMessage(referralRefreshed ? "Assessment signed" : "Assessment signed. Referral details could not refresh; reload to check them.");
       onContinueToWorkflow?.();
     } catch (signError) {
       setError(messageFor(signError, "The assessment could not be signed."));
@@ -1689,11 +1717,15 @@ export default function AssessmentWorkspace({
         },
       );
       upsertAssessment(payload.assessment, true);
-      await onAssessmentSaved?.(payload.assessment);
       setAddendumReason("");
       setAddendumNote("");
       setShowAddendum(false);
-      setMessage("Note added");
+      try {
+        await onAssessmentSaved?.(payload.assessment);
+        setMessage("Note added");
+      } catch {
+        setMessage("Note added. Referral details could not refresh; reload to check them.");
+      }
     } catch (addendumError) {
       setError(messageFor(addendumError, "The note could not be saved."));
       setMessage("");
