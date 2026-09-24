@@ -10,7 +10,7 @@ import {
 } from "./assessment-tool-schema";
 import type { AssessmentCreateInput } from "./assessment-records";
 import type { Referral } from "../pipeline/referral-types";
-import { referralReferrerContact, referralReferrerName, referralSourceName } from "../pipeline/referrer-context";
+import { referralReferrerContact, referralReferrerName } from "../pipeline/referrer-context";
 
 type AssessmentSeed = Pick<
   AssessmentCreateInput,
@@ -30,14 +30,14 @@ const canonicalReferralFields: ReadonlyArray<{
   { target: "referral_received_date", source: "referral.received_date", value: (referral) => isoDateOrNull(referral.date), canvasSource: "referralReceived" },
   {
     target: "referrer_name",
-    source: (referral) => referral.referrerName?.trim() ? "referral.referrer_name" : "referral.source",
+    source: "referral.referrer_name",
     value: referralReferrerName,
-    canvasSource: (referral) => referral.referrerName?.trim() ? "referrerName" : "referent",
+    canvasSource: "referrerName",
   },
   { target: "referrer_contact", source: "referral.contact", value: referralReferrerContact },
-  { target: "referring_facility", source: "referral.source", value: referralSourceName, canvasSource: "referent" },
   { target: "county", source: "referral.county", value: (referral) => referral.county?.trim() || null, canvasSource: "county" },
   { target: "medications_at_intake", source: "referral.current_medications", value: (referral) => medicationList(referral.currentMedications), canvasSource: "currentMedications" },
+  { target: "conservatorship_type", source: "referral.conserved", value: (referral) => referral.conserved === "no" ? "non_conserved" : null },
 ];
 
 export function buildAssessmentSeedFromReferral(

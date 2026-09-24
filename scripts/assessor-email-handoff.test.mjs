@@ -51,7 +51,7 @@ test("inbox delivery preserves selected recipients and PDF bytes, survives reloa
   const f = fixture(t); const draft = await f.prepare();
   assert.equal(draft.delivery_method, "assessor_email"); assert.equal(draft.status, "draft");
   assert.deepEqual(clean(f.sendInput.recipients), [user.email]); assert.deepEqual(clean(f.sendInput.ccRecipients), []);
-  assert.deepEqual(clean(f.sendInput.forwarding), { to: ["care@example.invalid"], cc: ["team@outlook.com"] });
+  assert.deepEqual(clean(draft.to_recipients), ["care@example.invalid"]); assert.deepEqual(clean(draft.cc_recipients), ["team@outlook.com"]);
   assert.equal(f.sendInput.attachments[0].contentBytes.toString(), "%PDF-qa");
   assert.equal(f.finalized, 0); assert.equal(f.records()[0].status, "assessor_emailed");
   assert.equal(await f.audit.reserveMeetClientDelivery({ ...f.delivery, deliveryId: randomUUID() }), false);
@@ -112,10 +112,11 @@ test("large packets have no Pipeline count or size cap and still require a confi
   assert.equal(f.sent, 0);
 });
 
-test("forwarding instructions retain the Alamo HTML, admission data and literal edited message", t => {
+test("assessor copy retains the handoff without forwarding instructions or recipient addresses", t => {
   const f = fixture(t);
-  const result = template.renderMeetClientEmail(f.input.summary, user.name, "id", ["Client data sheet.pdf"], f.input.message, { forwarding: { to: f.input.recipients, cc: f.input.ccRecipients } });
-  for (const text of ["alamo-health-management.png", "Sep 24, 2026", "care@example.invalid", "team@outlook.com", "&lt;no markup&gt;", "Client data sheet.pdf", "Choose Forward"]) assert.ok(result.html.includes(text), text);
+  const result = template.renderMeetClientEmail(f.input.summary, user.name, "id", ["Client data sheet.pdf"], f.input.message);
+  for (const text of ["alamo-health-management.png", "Sep 24, 2026", "&lt;no markup&gt;", "Client data sheet.pdf"]) assert.ok(result.html.includes(text), text);
+  for (const text of ["For the assessor", "Choose Forward", user.email, "care@example.invalid", "team@outlook.com"]) assert.ok(!result.html.includes(text), text);
   assert.equal(result.subject, "Synthetic handoff"); assert.doesNotMatch(result.html, />[^<]*Pipeline/);
 });
 
@@ -131,12 +132,13 @@ test("actual service mail composition sends the original bytes and populated HTM
   const originals = [{ name: "Client data sheet.pdf", contentType: "application/pdf", contentBytes: Buffer.from("%PDF-synthetic") }, { name: "Original.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", contentBytes: Buffer.from([80, 75, 3, 4, 0, 255, 128]) }];
   await mail.sendMeetClientMail({ recipients: [user.email], ccRecipients: [], deliveryId: randomUUID(), preparedBy: user.name,
     summary: { name: "Synthetic Client", community: "San Pablo", admissionDate: "2026-10-01" }, message: { subject: "Synthetic subject", body: "Reviewed handoff" },
-    forwarding: { to: ["community@example.invalid"], cc: ["care@outlook.com"] }, attachments: originals.map((file, index) => ({ ...file, documentId: String(index), byteSize: file.contentBytes.length })) });
+    attachments: originals.map((file, index) => ({ ...file, documentId: String(index), byteSize: file.contentBytes.length })) });
   assert.equal(requests.length, 2);
   assert.ok(requests[1].url.endsWith("/users/admissions%40example.invalid/sendMail"));
   const { message } = JSON.parse(requests[1].init.body);
   assert.deepEqual(message.toRecipients, [{ emailAddress: { address: user.email } }]); assert.deepEqual(message.ccRecipients, []);
   assert.equal(message.subject, "Synthetic subject");
-  for (const text of ["alamo-health-management.png", "2026-10-01", "Synthetic Client", "Reviewed handoff", "community@example.invalid"]) assert.ok(message.body.content.includes(text));
+  for (const text of ["alamo-health-management.png", "2026-10-01", "Synthetic Client", "Reviewed handoff"]) assert.ok(message.body.content.includes(text));
+  for (const text of ["For the assessor", "Choose Forward", "community@example.invalid", "care@outlook.com"]) assert.ok(!message.body.content.includes(text), text);
   message.attachments.forEach((attachment, index) => { assert.equal(attachment.name, originals[index].name); assert.equal(attachment.contentType, originals[index].contentType); assert.deepEqual(Buffer.from(attachment.contentBytes, "base64"), originals[index].contentBytes); });
 });

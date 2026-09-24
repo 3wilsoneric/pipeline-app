@@ -36,7 +36,9 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   await page.getByRole("button", { name: "Interview", exact: true }).click();
   await expect(page).toHaveURL(/assessmentMode=interview/);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/assessmentMode=interview/);
+  if (width >= 768) await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+  else await expect(page.locator("[data-phone-interview]")).toBeVisible();
   expect((await read()).started_at).toBeFalsy();
   expect((await read()).assessment_date).toBeFalsy();
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
@@ -48,7 +50,9 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   expect(writes.filter(url => url.endsWith("/schedule"))).toHaveLength(1);
   await page.reload();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/assessmentMode=interview/);
+  if (width >= 768) await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+  else await expect(page.locator("[data-phone-interview]")).toBeVisible();
 });
 
 test("opening from Workspaces resumes scheduling; a newer booking supersedes the old draft", async ({ page }) => {
