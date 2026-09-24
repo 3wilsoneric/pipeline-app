@@ -44,7 +44,7 @@
     "certify:assurance:live": "node scripts/platform-assurance-certification.mjs --profile=live",
     "check:admissions-zone": "node scripts/admissions-zone-contracts.mjs",
     "check:assessor-workflow": "node scripts/assessor-workflow-contracts.mjs",
-    "check:meet-client-delivery": "node --test scripts/assessor-email-handoff.test.mjs scripts/meet-client-delivery-fixtures.test.mjs scripts/assessment-final-send-fixtures.test.mjs scripts/admission-packet-links.test.mjs scripts/outlook-handoff.test.mjs scripts/outlook-attachments.test.mjs",
+    "check:meet-client-delivery": "node --test scripts/direct-handoff.test.mjs scripts/assessor-email-handoff.test.mjs scripts/meet-client-delivery-fixtures.test.mjs scripts/assessment-final-send-fixtures.test.mjs scripts/admission-packet-links.test.mjs scripts/outlook-handoff.test.mjs scripts/outlook-attachments.test.mjs",
     "check:contacts": "node scripts/contact-directory-contracts.mjs",
     "check:assessment-store-characterization": "node scripts/assessment-store-characterization.mjs",
     "check:workflow-store-characterization": "node scripts/workflow-store-characterization.mjs",

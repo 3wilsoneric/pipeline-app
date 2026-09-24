@@ -344,13 +344,10 @@ test("a recorded send remains read-only and distinct from a demo review after re
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   await expect(page.getByRole("status", { name: "Email delivery status", exact: true })).toHaveText("Sent");
   await page.reload(); await expect(page.getByRole("heading", { name: "Handoff sent", exact: true })).toBeVisible();
-  await page.locator("summary").filter({ hasText: "Review email again" }).click();
-  await page.getByRole("button", { name: "View email", exact: true }).click();
-  const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
-  await expect(composer.getByRole("combobox")).toHaveCount(0);
-  await expect(composer.getByRole("textbox", { name: "Subject" })).toHaveAttribute("readonly", "");
-  await expect(composer.getByRole("button", { name: "Save to Outlook Drafts", exact: true })).toHaveCount(0);
-  await expect(composer.getByRole("button", { name: "Edit message", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Email history", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit message", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toHaveCount(0);
 });
 
 for (const width of [1440, 390]) test(`recipient check remains readable with a full list at ${width}px`, async ({ page }, info) => {
@@ -468,7 +465,6 @@ test("workspace recovery blocks entry and refreshing requires checks without los
   try { await expect(page.getByTestId("packet-workspace")).toHaveAttribute("inert", ""); } finally { release(); }
   await expect(page.getByTestId("packet-workspace")).not.toHaveAttribute("inert", "");
   const composer = await openPreview(page);
-  await composer.locator("summary").filter({ hasText: "Delivery details" }).click();
   const refreshed = page.waitForResponse(response => response.url().endsWith(`/api/referrals/${referral.id}/admission-summary`));
   await composer.getByRole("button", { name: "Refresh", exact: true }).click(); await refreshed;
   await expect(composer).toHaveCount(0);
@@ -477,7 +473,7 @@ test("workspace recovery blocks entry and refreshing requires checks without los
   await expect(page.getByRole("checkbox", { name: /I verified/ })).not.toBeChecked();
 });
 
-for (const width of [1440, 390]) test(`Outlook readiness explains a missing upload beside the action at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 390]) test(`email readiness explains a missing upload before preparing at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const { referral } = await referralWithAssessment(page);
   // Exercise real attachment readiness, with only the demo presentation flag overridden.
@@ -489,13 +485,12 @@ for (const width of [1440, 390]) test(`Outlook readiness explains a missing uplo
   await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: { occupied: false, draft: null } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const composer = await openPreview(page);
-  await composer.getByRole("button", { name: "Use Outlook Drafts instead", exact: true }).click();
-  const outlook = composer.getByRole("region", { name: "Outlook handoff" });
+  const outlook = composer;
   await expect(outlook.getByText("Upload at least one file to this workspace before sending the admission packet.", { exact: true })).toBeVisible();
   await expect(outlook).not.toContainText("Finish the email review and verify recipients");
   await expect(outlook).not.toContainText("Go back to recipients");
   expect(await outlook.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-  expect(await checkA11y(page, 'section[aria-label="Outlook handoff"]')).toEqual([]);
+  expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
   await outlook.getByText("Upload at least one file to this workspace before sending the admission packet.", { exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath(`outlook-readiness-${width}.png`), animations: "disabled" });
 });
@@ -503,14 +498,12 @@ for (const width of [1440, 390]) test(`Outlook readiness explains a missing uplo
 test.describe("assessor inbox delivery", () => {
   // Network responses below are synthetic; service workers must not bypass the route fixtures.
   test.use({ serviceWorkers: "block" });
-for (const width of [1440, 834, 390]) test(`email packet to assessor: clear next step, reload and forwarding confirmation at ${width}px`, async ({ page }) => {
+for (const width of [1440, 834, 390]) test(`existing inbox packet: reload and forwarding confirmation at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 });
   const { referral, assessment } = await referralWithAssessment(page);
-  let draft: Record<string, unknown> | null = null;
+  let draft: Record<string, unknown> | null = { packet_id: "00000000-0000-4000-8000-000000000001", status: "draft", delivery_method: "assessor_email", mailbox: "assessor@example.invalid", prepared_at: new Date().toISOString(), assessment_version: assessment.version + 1, file_count: 1, to_recipients: ["care@example.invalid"], cc_recipients: [] };
   let sends = 0;
   let outlookConnects = 0;
-  let reviewedTo: string[] = [];
-  let reviewedCc: string[] = [];
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
     const response = await route.fetch(); const payload = await response.json();
     payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], outlook_draft: draft };
@@ -530,33 +523,18 @@ for (const width of [1440, 834, 390]) test(`email packet to assessor: clear next
     expect(route.request().headers()["x-pipeline-outlook-token"]).toBeUndefined();
     const body = route.request().postDataJSON();
     expect(body.recipients).toContain("care@example.invalid"); expect(body.confirmed).toBe(true);
-    reviewedTo = body.recipients; reviewedCc = body.cc_recipients;
     draft = { packet_id: "00000000-0000-4000-8000-000000000001", status: "draft", delivery_method: "assessor_email", mailbox: "assessor@example.invalid", prepared_at: new Date().toISOString(), assessment_version: assessment.version + 1, file_count: 1, to_recipients: body.recipients, cc_recipients: body.cc_recipients };
     await route.fulfill({ json: { draft } });
   });
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
-  await page.goto(url); await settleHandoff(page); await openPreview(page);
+  await page.goto(url); await settleHandoff(page); await page.getByRole("button", { name: "Continue inbox handoff" }).click();
   const inbox = page.getByRole("region", { name: "Email packet to assessor" });
   await expect(inbox.getByText("assessor@example.invalid", { exact: true })).toBeVisible();
-  await expect(inbox.getByRole("button", { name: "Email packet to me", exact: true })).toBeEnabled();
+  await expect(inbox.getByRole("button", { name: "Email packet to me", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Connect Outlook", exact: true })).toHaveCount(0);
   expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
   await inbox.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `output/assessor-email-${width}.png`, fullPage: true });
-  await inbox.getByRole("button", { name: "Email packet to me", exact: true }).click();
-  await expect(inbox.getByRole("link", { name: "Open Outlook inbox" })).toHaveAttribute("href", "https://outlook.office.com/mail/inbox");
-  const prepared = page.getByRole("region", { name: "Prepared handoff details" });
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await prepared.getByRole("button", { name: "Copy To addresses" }).click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(reviewedTo.join("; "));
-  if (reviewedCc.length) {
-    await prepared.getByRole("button", { name: "Copy Cc addresses" }).click();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(reviewedCc.join("; "));
-  } else await expect(prepared.getByRole("button", { name: "Copy Cc addresses" })).toHaveCount(0);
-  expect(await prepared.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-  expect(await page.getByRole("dialog", { name: "Meet the Client email" }).evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(850);
-  expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
-  await page.screenshot({ path: `output/assessor-email-prepared-${width}.png`, animations: "disabled" });
   await expect(inbox.getByRole("button", { name: "I forwarded the handoff" })).toBeVisible();
   await page.reload(); await settleHandoff(page);
   await page.getByRole("button", { name: "Continue inbox handoff" }).click();
@@ -565,7 +543,82 @@ for (const width of [1440, 834, 390]) test(`email packet to assessor: clear next
   await expect(page.getByRole("alertdialog", { name: "Did you forward the complete handoff?" })).toBeVisible();
   await page.getByRole("button", { name: "Yes, I sent it", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Handoff sent" })).toBeVisible();
-  expect(sends).toBe(1); expect(outlookConnects).toBe(0);
+  expect(sends).toBe(0); expect(outlookConnects).toBe(0);
+});
+
+test.describe("direct email history", () => {
+  test.use({ serviceWorkers: "block" });
+  for (const width of [1440, 834, 390]) test(`exact preview, direct send and saved history at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const { referral } = await referralWithAssessment(page);
+    type RecordView = import("../../lib/notifications/communication-contract").CommunicationView;
+    let record: RecordView | null = null;
+    let sends = 0, preparations = 0;
+    let summary: Parameters<typeof renderMeetClientEmail>[0];
+    await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
+      const response = await route.fetch(); const payload = await response.json(); summary = payload.report.meetClient;
+      payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], outlook_draft: null, sent_at: record?.submittedAt ?? null };
+      await route.fulfill({ json: payload });
+    });
+    await page.route("**/api/communications?**", async route => {
+      const params = new URL(route.request().url()).searchParams;
+      if (params.get("file_id")) { const response = await page.request.get(`/api/referrals/${referral.id}/admission-summary?download=chart`); return route.fulfill({ status: 200, contentType: "application/pdf", body: await response.body() }); }
+      return route.fulfill({ json: params.get("packet_id") ? { communication: record } : { items: record ? [{ ...record, html: undefined }] : [], can_view_team: true } });
+    });
+    await page.route(`**/api/referrals/${referral.id}/meet-client-email?delivery=direct`, async route => {
+      const body = route.request().postDataJSON(); expect(body.confirmed).toBe(true);
+      expect(route.request().headers()["x-pipeline-outlook-token"]).toBeUndefined();
+      if (body.snapshot_id) {
+        expect(body.snapshot_id).toBe(record!.id); sends++;
+        record = { ...record!, status: "submitted", submittedAt: new Date().toISOString() };
+      } else {
+        preparations++;
+        const content = renderMeetClientEmail(summary, "Synthetic Assessor", "preview", ["Client data sheet.pdf"], body.message);
+        record = { id: randomUUID(), referralId: referral.id, clientName: summary.name, community: summary.community,
+          admissionDate: summary.admissionDate, createdAt: new Date().toISOString(), status: "ready", from: "admissions@alamo-pipeline.com",
+          to: body.recipients, cc: [...body.cc_recipients, "assessor@outlook.com"], replyTo: "assessor@outlook.com", assessorName: "Synthetic Assessor", preparedBy: "Synthetic Assessor",
+          assessmentVersion: body.if_match_assessment, subject: content.subject, html: content.html,
+          files: [{ id: "sheet", name: "Client data sheet.pdf", contentType: "application/pdf", byteSize: 12345 }] };
+      }
+      await route.fulfill({ json: { communication: record } });
+    });
+    const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
+    await page.goto(url); await settleHandoff(page); const composer = await openPreview(page);
+    const send = composer.getByRole("button", { name: "Send email & packet", exact: true });
+    await expect(send).toBeEnabled(); expect(sends).toBe(0); expect(preparations).toBe(1);
+    await expect(composer).toContainText("admissions@alamo-pipeline.com");
+    await expect(composer).toContainText("assessor@outlook.com");
+    await expect(page.getByRole("button", { name: "Connect Outlook", exact: true })).toHaveCount(0);
+    if (width === 1440) {
+      await composer.getByRole("button", { name: "Edit message", exact: true }).click();
+      await composer.getByRole("textbox", { name: "Meet the Client message", exact: true }).fill("A revised message reviewed before sending.");
+      await composer.getByRole("button", { name: "Save & preview email", exact: true }).click();
+      await expect(page.frameLocator('iframe[title="Exact email preview"]').locator("body")).toContainText("A revised message reviewed before sending.");
+      expect(preparations).toBe(2);
+    }
+    await expect.poll(() => page.frameLocator('iframe[title="Exact email preview"]').locator('img[alt="Alamo Health Management"]').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    const approvedHtml = await composer.locator('iframe[title="Exact email preview"]').getAttribute("srcdoc");
+    await composer.getByRole("button", { name: /Client data sheet.pdf/ }).click();
+    const file = page.getByRole("dialog", { name: "Client data sheet.pdf", exact: true }); await expect(file).toBeVisible();
+    await file.getByRole("button", { name: "Close Client data sheet.pdf" }).click();
+    expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
+    expect(await composer.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await send.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`exact-email-${width}.png`) });
+    await send.click(); await composer.getByRole("button", { name: "Done · view history", exact: true }).click();
+    expect(sends).toBe(1);
+    await page.reload(); await settleHandoff(page);
+    const history = page.getByRole("region", { name: "Email history", exact: true });
+    await history.getByRole("button", { name: /Submitted for delivery/ }).click();
+    const saved = page.getByRole("dialog", { name: `${referral.name} · Email history`, exact: true });
+    await expect(saved).toBeVisible(); expect(await saved.locator('iframe[title="Saved handoff email"]').getAttribute("srcdoc")).toBe(approvedHtml);
+    await expect(saved.getByRole("button", { name: "Send email & packet" })).toHaveCount(0);
+    expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
+    await page.screenshot({ path: info.outputPath(`saved-email-${width}.png`) });
+    await page.keyboard.press("Escape"); await expect(saved).toHaveCount(0);
+    await page.goto("/communications"); await expect(page.getByRole("heading", { name: "Communications", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(referral.name!) })).toBeVisible(); expect(sends).toBe(1);
+    await page.screenshot({ path: info.outputPath(`communications-${width}.png`) });
+  });
 });
 
 });

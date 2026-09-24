@@ -18,6 +18,9 @@ import MeetClientMessageEditor from "./MeetClientMessageEditor";
 import MeetClientAdmissionReview from "./MeetClientAdmissionReview";
 import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
 import OutlookHandoffControls from "./OutlookHandoffControls";
+import DirectHandoffPreview from "./DirectHandoffPreview";
+import CommunicationHistory from "./CommunicationHistory";
+import type { CommunicationView } from "@/lib/notifications/communication-contract";
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
@@ -105,6 +108,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       );
       setPayload(next);
       setExistingDraft(next.email.outlook_draft && !["sent", "discarded"].includes(next.email.outlook_draft.status) ? next.email.outlook_draft : null);
+      return next;
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "The assessment records could not be loaded.");
     } finally {
@@ -185,6 +189,33 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     }
   };
 
+  const prepareDirect = async (snapshotId?: string): Promise<CommunicationView> => {
+    if (!payload || !handoffDraftReady(emailDraft) || !confirmed || sendInFlight.current) throw new Error("Finish reviewing the recipients before preparing this email.");
+    const key = handoffRequestKey(payload, recipients, ccRecipients, emailDraft.fields.message);
+    if (sendRequest.current?.key !== key) sendRequest.current = { key, mutationId: crypto.randomUUID() };
+    sendInFlight.current = true; setSending(true); onSendingChange?.(true); setError("");
+    try {
+      await emailDraft.flush();
+      const result = await fetchPipelineJson<{ communication: CommunicationView }>(`/api/referrals/${payload.referral.id}/meet-client-email?delivery=direct`, {
+        method: "POST", body: JSON.stringify({ recipients, cc_recipients: ccRecipients, confirmed: true,
+          if_match: payload.referral.version, assessment_id: payload.report?.assessmentId, if_match_assessment: payload.report?.assessmentVersion,
+          client_mutation_id: sendRequest.current.mutationId, packet_revision: payload.email.admission_packet.revision,
+          message: emailDraft.fields.message, ...(snapshotId ? { snapshot_id: snapshotId } : {}) }),
+      }, { timeoutMs: 300_000 });
+      if (result.communication.status === "submitted") setAcceptedReferralId(payload.referral.id);
+      return result.communication;
+    } catch (failure) {
+      if (snapshotId) {
+        const recovered = await fetchPipelineJson<{ communication: CommunicationView }>(`/api/communications?referral_id=${payload.referral.id}&packet_id=${snapshotId}`, { cache: "no-store" }).catch(() => null);
+        if (recovered && recovered.communication.status !== "ready") {
+          if (recovered.communication.status === "submitted") setAcceptedReferralId(payload.referral.id);
+          return recovered.communication;
+        }
+      }
+      throw failure;
+    } finally { sendInFlight.current = false; setSending(false); onSendingChange?.(false); }
+  };
+
   const unavailable = chartUnavailableState(referralId, loading, payload, error, load, embedded, emailPage);
   if (unavailable) return unavailable;
   const readyPayload = payload!;
@@ -205,7 +236,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
             confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
             onBack={() => setReviewStep(3)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
             preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
-            onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
+            onPrepareDirect={prepareDirect} onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
   };
   const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} compact={reviewStep === 4 && existingDraft?.delivery_method === "assessor_email"} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
     {renderReviewBody(reviewStep)}
@@ -223,6 +254,8 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
         existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
         onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
+      {!readyPayload.email.example_only ? <CommunicationHistory referralId={readyPayload.referral.id} refreshKey={`${sent}:${composerOpen}`}
+        onPrepareUpdated={readyPayload.email.can_send ? () => { void load().then(next => { if (next) { setAcceptedReferralId(null); setReviewStep(0); } }); } : undefined} /> : null}
       {renderReviewDialog()}
     </section>
   );
@@ -262,7 +295,7 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
     <h3>{sent ? "Handoff sent" : "Demo review complete"}</h3>
     <p>{sent ? "The handoff is recorded as sent. Recipient delivery is not tracked." : "No email was sent."}</p>
     <footer ref={finishRef} aria-label="Handoff actions" className={styles.taskActions}>{finishActions}</footer>
-    <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details>
+    {email.example_only ? <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details> : null}
   </section>;
 
   const identityIssues = meetClientIdentityIssues(report?.meetClient ?? null);
@@ -375,7 +408,7 @@ function canStartMeetClientSend(payload: ChartPayload | null, alreadyAccepted: b
 function meetClientDeliveryStatus(email: ChartPayload["email"], sent: boolean, sending: boolean, confirmed: boolean, recipients: string[]) {
   if (sent) return "Sent";
   if (sending) return "Sending";
-  return !email.example_only && email.ready && confirmed && recipients.length ? "Ready to save draft" : "Preview";
+  return !email.example_only && email.ready && confirmed && recipients.length ? "Ready to preview email" : "Preview";
 }
 
 function chartUnavailableState(
@@ -383,7 +416,7 @@ function chartUnavailableState(
   loading: boolean,
   payload: ChartPayload | null,
   error: string,
-  load: () => Promise<void>,
+  load: () => Promise<unknown>,
   embedded: boolean,
   emailPage: boolean,
 ) {
@@ -525,13 +558,19 @@ function AdmissionPacketReview({ email, referral, onOpenFiles }: { email: ChartP
   </section>;
 }
 
-function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onBack, onReviewComplete, onPrepareOutlook, onOutlookSent }: {
+function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report, emailDraft, referral, confirmed, sending, sent, error, message, refresh, onBack, onReviewComplete, onPrepareDirect, onPrepareOutlook, onOutlookSent }: {
   preparedDraft: OutlookDraftView | null; onExistingDraft: (draft: OutlookDraftView | null) => void;
   email: ChartPayload["email"]; report: AssessmentSummaryReport | null; emailDraft?: HandoffRecipients; referral: Referral;
   confirmed: boolean; sending: boolean; sent: boolean; error: string; message: string; refresh: React.ReactNode;
   onBack: () => void; onReviewComplete: () => void;
+  onPrepareDirect: (snapshotId?: string) => Promise<CommunicationView>;
   onPrepareOutlook: (token: string, delivery?: "outlook" | "assessor") => Promise<OutlookDraftView | undefined>; onOutlookSent: () => void;
 }) {
+  if (!preparedDraft && !email.example_only) return <div className={styles.composeScroll} style={{ padding: "20px 24px" }}>
+    <DirectHandoffPreview refresh={refresh} prepare={onPrepareDirect} onBack={onBack} onDone={onReviewComplete} ready={email.ready && confirmed && handoffDraftReady(emailDraft)} sending={sending} readinessReasons={handoffReadinessReasons(email, emailDraft, confirmed, false)}
+      editor={<MeetClientMessageEditor initialEditing summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
+        attachments={email.admission_packet.files.map(file => file.name)} draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={sending} />} />
+  </div>;
   const composerReadOnly = [!email.can_edit_recipients, sending, sent, Boolean(preparedDraft)].some(Boolean);
   const renderMessagePreview = () => (preparedDraft ? <PreparedDraftDetails draft={preparedDraft} /> : <>
         <div className={styles.addressRow}><span>Final sender</span><strong>You, from your own email</strong></div>

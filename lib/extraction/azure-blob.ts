@@ -20,6 +20,7 @@ export type AzureBlobUploadSigner = {
   createDeleteUrl(container: string, blobPath: string, lifetimeSeconds?: number): Promise<string>;
   getBlobProperties(container: string, blobPath: string): Promise<BlobProperties>;
   deleteBlob(container: string, blobPath: string): Promise<boolean>;
+  archiveBlob(source: { container: string; key: string; etag: string }, destination: { container: string; key: string }): Promise<BlobProperties>;
 };
 
 export type BlobProperties = {
@@ -55,6 +56,20 @@ export function getAzureBlobUploadSigner(): AzureBlobUploadSigner {
   const rawContainer = process.env.AZURE_STORAGE_CONTAINER_RAW?.trim() || "raw";
 
   return {
+    async archiveBlob(source, destination) {
+      assertSafeBlobPart(source.container, "container");
+      assertSafeBlobPath(source.key);
+      assertSafeBlobPart(destination.container, "container");
+      assertSafeBlobPath(destination.key);
+      const sourceUrl = await createSignedBlobUrl(account, source.container, source.key, "r", new Date(Date.now() + 300_000));
+      const blob = getBlobServiceClient(account).getContainerClient(destination.container).getBlockBlobClient(destination.key);
+      await blob.syncUploadFromURL(sourceUrl, {
+        conditions: { ifNoneMatch: "*" }, sourceConditions: { ifMatch: source.etag },
+        abortSignal: AbortSignal.timeout(120_000),
+      });
+      const properties = await blob.getProperties();
+      return { exists: true, etag: properties.etag, byteSize: properties.contentLength, contentType: properties.contentType };
+    },
     async createUploadUrls(input) {
       if (!input.packet_id || !isUuid(input.packet_id)) {
         throw new Error("A durable packet id is required before signing uploads.");

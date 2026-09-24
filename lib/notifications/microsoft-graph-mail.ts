@@ -66,6 +66,8 @@ export function validateMeetClientRecipients(recipients: unknown) {
 export async function sendMeetClientMail(input: {
   recipients: string[];
   ccRecipients?: string[];
+  replyTo?: string[];
+  preparedContent?: ReturnType<typeof renderMeetClientEmail>;
   summary: MeetClientSummary;
   preparedBy: string;
   deliveryId: string;
@@ -81,7 +83,7 @@ export async function sendMeetClientMail(input: {
   }
   const accessToken = await graphAccessToken().catch(() => { throw new GraphMailDeliveryError("mail_preparation_failed", "Microsoft 365 authentication could not be completed. No email was sent."); });
   const packetFiles = input.packetFiles ?? input.attachments;
-  const content = renderMeetClientEmail(
+  const content = input.preparedContent ?? renderMeetClientEmail(
     input.summary,
     input.preparedBy,
     input.deliveryId,
@@ -139,10 +141,12 @@ async function sendDirectMessage(
       },
       body: JSON.stringify({
         message: {
+          from: { emailAddress: { address: readiness.sender, name: "Alamo Admissions" } },
           subject: content.subject,
           body: { contentType: "HTML", content: content.html },
           toRecipients: input.recipients.map((address) => ({ emailAddress: { address } })),
           ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
+          replyTo: (input.replyTo ?? []).map((address) => ({ emailAddress: { address } })),
           internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
           attachments,
         },
@@ -166,10 +170,12 @@ async function sendDraftWithAttachments(
   const draftResponse = await graphRequest(`${senderPath}/messages`, accessToken, {
     method: "POST",
     body: JSON.stringify({
+      from: { emailAddress: { address: readiness.sender, name: "Alamo Admissions" } },
       subject: content.subject,
       body: { contentType: "HTML", content: content.html },
       toRecipients: input.recipients.map((address) => ({ emailAddress: { address } })),
       ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
+      replyTo: (input.replyTo ?? []).map((address) => ({ emailAddress: { address } })),
       internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
     }),
   }, 201, "create_draft").catch((error) => { if (error instanceof GraphMailDeliveryError) throw error; throw new GraphMailDeliveryError("mail_preparation_failed", "The email draft could not be prepared. No email was sent."); });

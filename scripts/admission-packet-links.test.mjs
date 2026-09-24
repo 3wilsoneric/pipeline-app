@@ -22,6 +22,7 @@ const secret = "synthetic-packet-verification-secret-32-characters";
 function fixture(sql, directory) {
   const globals = { process: { env: { PIPELINE_ENTRA_SESSION_SECRET: secret, PIPELINE_PACKET_LINK_STORE_PATH: directory, PIPELINE_AUTH_MODE: "mock" } } };
   const store = load("lib/notifications/admission-packet-store.ts", {
+    "@/lib/pipeline/keyset-cursor": load("lib/pipeline/keyset-cursor.ts"),
     "@/lib/database/pipeline-database": { getPipelineDatabaseMode: () => sql ? "postgres" : "local_file", getPipelineSql: () => sql },
   }, globals);
   let withdrawn = false;

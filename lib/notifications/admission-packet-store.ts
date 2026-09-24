@@ -6,9 +6,12 @@ import { dirname, join, resolve } from "node:path";
 import { getPipelineDatabaseMode, getPipelineSql } from "@/lib/database/pipeline-database";
 import type { DeliveryAudit } from "@/lib/pipeline/meet-client-delivery-audit";
 import type { OutlookDraftState } from "./outlook-draft-contract";
+import type { CommunicationStatus } from "./communication-contract";
+import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
 
 export type PacketFile = {
   id: string; name: string; contentType: string; byteSize: number;
+  archived?: boolean;
   source: { kind: "generated"; content: string; encoding?: "base64" } | { kind: "blob"; container: string; key: string; etag: string };
 };
 export type PacketRecipient = {
@@ -22,6 +25,15 @@ export type AdmissionPacket = {
   createdAt: string; expiresAt: string; revokedAt?: string;
   files: PacketFile[]; recipients: PacketRecipient[];
   message: { subject: string; body: string };
+  communication?: {
+    status: CommunicationStatus; ownerId: string; assessorId: string; assessorName: string;
+    clientName: string; community: string; admissionDate: string;
+    from: string; to: string[]; cc: string[]; replyTo: string;
+    html: string; preparedBy: string; requestKey: string;
+    audit: DeliveryAudit; submittedAt?: string; note?: string;
+    originals: PacketFile[];
+    archiveObjects: Array<{ container: string; key: string }>;
+  };
   outlook?: {
     // Shared handoff envelope; absent transport preserves existing Outlook drafts.
     transport?: "assessor_email";
@@ -109,7 +121,7 @@ export async function listAdmissionPacketLinks(referralId: number) {
   let records: AdmissionPacket[];
   if (getPipelineDatabaseMode() === "postgres") {
     const sql = getPipelineSql();
-    const rows = await sql<{ record: AdmissionPacket }[]>`select record from pipeline.admission_packet_links where referral_id = ${referralId} and coalesce(record->'outlook'->>'deliveryMode', '') <> 'attachments' order by created_at desc limit 50`;
+    const rows = await sql<{ record: AdmissionPacket }[]>`select record from pipeline.admission_packet_links where referral_id = ${referralId} and record->'communication' is null and coalesce(record->'outlook'->>'deliveryMode', '') <> 'attachments' order by created_at desc limit 50`;
     records = rows.map((row) => row.record);
   } else {
     const directory = dirname(localPath("00000000-0000-4000-8000-000000000000"));
@@ -119,7 +131,7 @@ export async function listAdmissionPacketLinks(referralId: number) {
       const record = JSON.parse(await readFile(join(directory, name), "utf8")) as AdmissionPacket;
       if (record.referralId === referralId) records.push(record);
     }
-    records = records.filter((packet) => packet.outlook?.deliveryMode !== "attachments");
+    records = records.filter((packet) => !packet.communication && packet.outlook?.deliveryMode !== "attachments");
     records.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     records = records.slice(0, 50);
   }
@@ -130,7 +142,7 @@ export async function listAdmissionPacketLinks(referralId: number) {
 export async function manageAdmissionPacketLink(id: string, referralId: number, action: "renew" | "revoke", actor: { id: string; name: string }) {
   return withAdmissionPacket(id, (packet) => {
     if (!packet || packet.referralId !== referralId) throw new PacketAccessError("Packet not found.", 404);
-    if (packet.outlook?.deliveryMode === "attachments") throw new PacketAccessError("This handoff uses email attachments, not a download link.", 409);
+    if (packet.communication || packet.outlook?.deliveryMode === "attachments") throw new PacketAccessError("This handoff uses email attachments, not a download link.", 409);
     if (action === "renew" && packet.outlook && packet.outlook.status !== "sent") throw new PacketAccessError("Prepare a new handoff to share this packet again.", 409);
     const now = new Date();
     if (action === "revoke") packet.revokedAt = now.toISOString();
@@ -157,4 +169,63 @@ export async function findWorkspaceOutlookDraft(referralId: number): Promise<Adm
     if (packet.referralId === referralId && packet.outlook && packet.outlook.status !== "discarded") records.push(packet);
   }
   return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
+}
+
+// Paging is bounded even when later record-access checks hide some entries.
+export async function listCommunicationPackets(options: { referralId?: number; ownerId?: string; cursor?: string; query?: string }) {
+  const cursor = decodeKeysetCursor(options.cursor);
+  if (options.cursor && !cursor) throw new PacketAccessError("Invalid history page.", 400);
+  const query = options.query?.trim().toLowerCase() ?? "";
+  let records: AdmissionPacket[];
+  if (getPipelineDatabaseMode() === "postgres") {
+    const sql = getPipelineSql();
+    const rows = await sql<{ record: AdmissionPacket }[]>`
+      select record from pipeline.admission_packet_links
+      where record->'communication' is not null
+      and (${options.referralId ?? null}::bigint is null or referral_id = ${options.referralId ?? null})
+      and (${options.ownerId ?? null}::text is null or record->'communication'->>'ownerId' = ${options.ownerId ?? null}
+        or record->'communication'->>'assessorId' = ${options.ownerId ?? null})
+      and (${cursor?.timestamp ?? null}::text is null or
+        (record->>'createdAt', packet_id::text) < (${cursor?.timestamp ?? null}, ${cursor?.key ?? null}))
+      and (${query} = '' or position(${query} in lower(concat(record->'communication'->>'clientName', ' ', record->'communication'->>'community', ' ', record->'message'->>'subject'))) > 0)
+      order by record->>'createdAt' desc, packet_id::text desc limit 21
+    `;
+    records = rows.map(row => row.record);
+  } else {
+    const directory = dirname(localPath("00000000-0000-4000-8000-000000000000"));
+    const names = await readdir(directory).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return []; throw error; });
+    records = [];
+    for (const name of names.filter(name => validPacketId(name.replace(/\.json$/, "")) && name.endsWith(".json"))) {
+      const packet: AdmissionPacket = JSON.parse(await readFile(join(directory, name), "utf8"));
+      const c = packet.communication;
+      if (!c || (options.referralId && packet.referralId !== options.referralId)
+        || (options.ownerId && c.ownerId !== options.ownerId && c.assessorId !== options.ownerId)
+        || !isAfterDescendingCursor(packet.createdAt, packet.id, cursor)
+        || !`${c.clientName} ${c.community} ${packet.message.subject}`.toLowerCase().includes(query)) continue;
+      records.push(packet);
+    }
+    records.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+  }
+  const items = records.slice(0, 20);
+  const last = items.at(-1);
+  return { items, nextCursor: records.length > 20 && last ? encodeKeysetCursor({ timestamp: last.createdAt, key: last.id }) : undefined };
+}
+
+export async function findPreparedCommunication(referralId: number, ownerId: string, requestKey: string) {
+  if (getPipelineDatabaseMode() === "postgres") {
+    const sql = getPipelineSql();
+    const [row] = await sql<{ record: AdmissionPacket }[]>`select record from pipeline.admission_packet_links
+      where referral_id = ${referralId} and record->'communication'->>'ownerId' = ${ownerId}
+      and record->'communication'->>'requestKey' = ${requestKey} and record->'communication'->>'status' = 'ready'
+      order by created_at desc limit 1`;
+    return row?.record ?? null;
+  }
+  let cursor: string | undefined;
+  do {
+    const page = await listCommunicationPackets({ referralId, ownerId, cursor });
+    const found = page.items.find(packet => packet.communication?.status === "ready" && packet.communication.requestKey === requestKey);
+    if (found) return found;
+    cursor = page.nextCursor;
+  } while (cursor);
+  return null;
 }

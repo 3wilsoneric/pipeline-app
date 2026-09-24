@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export function deploymentMailSettings(environment, secrets, activation = "preserve") {
+export function deploymentMailSettings(environment, secrets, activation = "preserve", enableLargePackets = false) {
   if (!["preserve", "enabled", "disabled"].includes(activation)) throw new Error("Choose preserve, enabled or disabled for Meet the Client activation.");
   const mail = environment.filter(({ name }) => /^PIPELINE_(GRAPH_|MEET_CLIENT_)/u.test(name));
   const references = new Set(mail.map(({ secretRef }) => secretRef).filter(Boolean));
@@ -14,7 +14,12 @@ export function deploymentMailSettings(environment, secrets, activation = "prese
       ? { name, keyVaultUrl: secret.keyVaultUrl, identity: secret.identity }
       : { name, value: secret.value };
   });
-  return { environment: activateMeetClient(mail, activation), secrets: preservedSecrets };
+  const activatedMail = activateMeetClient(mail, activation);
+  const configuredMail = enableLargePackets && mail.some(({ name }) => name === "PIPELINE_GRAPH_CLIENT_ID")
+    ? [...activatedMail.filter(({ name }) => name !== "PIPELINE_GRAPH_MAIL_READ_WRITE"),
+      { name: "PIPELINE_GRAPH_MAIL_READ_WRITE", value: "true" }]
+    : activatedMail;
+  return { environment: configuredMail, secrets: preservedSecrets };
 }
 
 function activateMeetClient(mail, activation) {
@@ -32,12 +37,13 @@ function readAzure(args) {
 }
 
 function main() {
-  const [resourceGroup, appName, outputPath, bootstrap, activation = "preserve"] = process.argv.slice(2);
+  const [resourceGroup, appName, outputPath, bootstrap, activation = "preserve", largePackets = "false"] = process.argv.slice(2);
   if (!resourceGroup || !appName || !outputPath) throw new Error("Resource group, application name and output path are required.");
+  if (!["true", "false"].includes(largePackets)) throw new Error("Choose true or false for large packet delivery.");
   const scope = ["--resource-group", resourceGroup, "--name", appName];
   const environment = bootstrap === "true" ? [] : readAzure(["containerapp", "show", ...scope, "--query", "properties.template.containers[0].env"]);
   const needsSecrets = environment.some(({ name, secretRef }) => /^PIPELINE_(GRAPH_|MEET_CLIENT_)/u.test(name) && secretRef);
-  const settings = deploymentMailSettings(environment, needsSecrets ? readAzure(["containerapp", "secret", "list", ...scope, "--show-values"]) : [], activation);
+  const settings = deploymentMailSettings(environment, needsSecrets ? readAzure(["containerapp", "secret", "list", ...scope, "--show-values"]) : [], activation, largePackets === "true");
   for (const secret of settings.secrets) {
     if (secret.value && process.env.GITHUB_ACTIONS === "true") process.stdout.write(`::add-mask::${secret.value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}\n`);
   }

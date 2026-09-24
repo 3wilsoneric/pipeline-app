@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a9f01bb68ae09378",
-  "fingerprint": "a9f01bb68ae093782c817a214877d7b024af0df844cff9bd059aa23c88eb40ad",
+  "generatedAt": "source-fingerprint:f1277f8ec9a4a940",
+  "fingerprint": "f1277f8ec9a4a940a47d7dc3af1c0ef01eafe262caa6b80aab455d6da837a823",
   "totals": {
-    "files": 1403,
-    "lines": 368697,
-    "coveredFiles": 1403
+    "files": 1412,
+    "lines": 369703,
+    "coveredFiles": 1412
   },
   "entries": [
     {
@@ -130,6 +130,18 @@
     },
     {
       "path": "app/(pipeline)/assessments/page.tsx",
+      "subsystem": "App Router",
+      "kind": "react-component",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 6,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "app/(pipeline)/communications/page.tsx",
       "subsystem": "App Router",
       "kind": "react-component",
       "runtime": "shared",
@@ -594,6 +606,18 @@
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
+      ]
+    },
+    {
+      "path": "app/api/communications/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 61,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -1447,7 +1471,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 479,
+      "lines": 503,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2112,7 +2136,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 640,
+      "lines": 679,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2431,6 +2455,42 @@
       ]
     },
     {
+      "path": "components/pipeline/CommunicationHistory.module.css",
+      "subsystem": "Pipeline UI",
+      "kind": "repository-file",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 29,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/CommunicationHistory.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 60,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/CommunicationRecord.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 66,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/CommunityContactLists.module.css",
       "subsystem": "Pipeline UI",
       "kind": "repository-file",
@@ -2533,6 +2593,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 49,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/DirectHandoffPreview.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 56,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2688,7 +2760,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 52,
+      "lines": 53,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2736,7 +2808,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 155,
+      "lines": 156,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2808,7 +2880,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 164,
+      "lines": 169,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2820,7 +2892,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 108,
+      "lines": 106,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2880,7 +2952,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 406,
+      "lines": 408,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -5677,7 +5749,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 58,
+      "lines": 50,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -8634,7 +8706,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 248,
+      "lines": 263,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -9114,7 +9186,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 92,
+      "lines": 93,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -9126,7 +9198,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 161,
+      "lines": 232,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -9151,6 +9223,30 @@
       "runtime": "shared",
       "risk": "standard",
       "lines": 149,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/communication-contract.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 17,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/direct-handoff.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 196,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9222,7 +9318,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 411,
+      "lines": 417,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10146,7 +10242,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 226,
+      "lines": 228,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10327,7 +10423,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 89,
+      "lines": 96,
       "moduleIds": [
         "operations-recovery-release",
         "query-performance-retention"
@@ -11722,7 +11818,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 284,
+      "lines": 285,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -12550,7 +12646,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 103,
+      "lines": 155,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13031,6 +13127,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 139,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/direct-handoff.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 206,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13630,7 +13738,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 373,
+      "lines": 374,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -14062,7 +14170,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 51,
+      "lines": 57,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -14074,7 +14182,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 57,
+      "lines": 89,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -15635,7 +15743,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 572,
+      "lines": 625,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
