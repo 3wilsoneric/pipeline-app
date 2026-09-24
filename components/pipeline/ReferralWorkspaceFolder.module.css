@@ -391,32 +391,34 @@
     z-index: 2;
     display: flex;
     align-items: center;
-    flex: 0 1 290px;
+    /* The name tab hugs the name and shares the folder's fill, so tab and folder read as one piece. */
+    flex: 0 1 auto;
+    max-width: 360px;
     min-width: 110px;
-    min-height: 58px;
+    min-height: 54px;
     margin: 0 0 -1px;
-    padding: 7px 10px 8px;
+    padding: 7px 7px 9px;
     border: 1px solid var(--folder-edge);
     border-bottom-color: var(--folder-fill);
     border-radius: var(--radius-paper) var(--radius-paper) 0 0;
-    background: var(--folder-tab);
+    background: var(--folder-fill);
     box-shadow: none;
   }
 
   .nameLabel {
     overflow: hidden;
-    width: 100%;
-    padding: 5px 10px;
+    width: auto;
+    padding: 7px 18px;
     border: 1px solid var(--color-paper-rule);
-    border-radius: var(--radius-chip);
+    border-radius: var(--radius-input);
     background: var(--color-paper);
-    box-shadow: none;
+    box-shadow: var(--shadow-card);
     color: var(--color-ink);
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 700;
-    line-height: 24px;
-    letter-spacing: -.018em;
-    text-align: center;
+    line-height: 22px;
+    letter-spacing: 0;
+    text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -586,7 +588,7 @@
   .connectedFolder > div { border-top: 0; border-radius: 0 var(--radius-folder) var(--radius-folder) var(--radius-folder); }
 
   @media (min-width: 1251px) {
-    .identity + .stages { margin-left: -10px; }
+    .identity + .stages { margin-left: 8px; }
   }
 
   .readingWorkspace { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: 4px; }
