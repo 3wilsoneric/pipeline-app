@@ -25,6 +25,13 @@
 .addressRow > span { overflow-wrap: anywhere; }
 .subject { font-weight: 600; }
 .recipientSection { padding: 0 28px; }
+.recipientSection > h3 { margin: 20px 0 6px; font-size: 20px; font-weight: 680; letter-spacing: -.02em; }
+.recipientSection > p { margin: 0 0 12px; line-height: 1.55; }
+.preparedAddresses { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.preparedAddresses > span { min-width: 0; overflow-wrap: anywhere; }
+.copyAddresses { flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid #b9d5ca; border-radius: 6px; color: #08664f; background: #f1f8f4; font-size: 14px; font-weight: 650; }
+.copyAddresses:hover { background: #e3f2ea; }
+.copyStatus { margin: 8px 28px; color: #08664f; font-size: 14px; }
 .textButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 6px 8px; color: #08745d; font-size: 15px; font-weight: 600; text-align: left; }
 .textButton:hover { background: #edf5f1; border-radius: 4px; }
 .textButton:disabled { opacity: .6; }
@@ -88,6 +95,8 @@
 .sourceNote { padding: 20px 0; }
 .composeDialog { position: fixed; inset: 0; width: min(1380px, calc(100vw - 48px)); height: min(1020px, calc(100dvh - 48px)); max-width: none; max-height: none; margin: auto; padding: 0; border: 1px solid #afc2b9; border-radius: 12px; background: #fff; color: #243b32; box-shadow: 0 24px 100px #152d3540; overflow: hidden; }
 .composeDialog[open] { display: flex; flex-direction: column; animation: composeIn 160ms ease-out; }
+.composeDialog.inboxReadyDialog { height: fit-content; max-height: calc(100dvh - 48px); }
+.inboxReadyDialog .composer, .inboxReadyDialog .composeScroll { flex: 0 1 auto; }
 .composeDialog::backdrop { background: #162a305c; backdrop-filter: blur(3px); }
 .dialogHeader { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px 10px 24px; border-bottom: 1px solid #cad9d2; background: linear-gradient(110deg, #e7f1ec, #f6f9f7); }
 .dialogHeader > div { display: flex; align-items: center; gap: 12px; }
@@ -111,6 +120,7 @@
   .addressRow { margin: 0 14px; gap: 8px; padding: 13px 0; }
   .addressRow textarea { font-size: 16px; }
   .recipientSection { padding: 0 12px; }
+  .copyStatus { margin-inline: 14px; }
   .attachments { padding: 8px 14px 14px; }
   .attachmentList > li, .attachment { width: 100%; max-width: none; }
   .footer { padding: 14px; }

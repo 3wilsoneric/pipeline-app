@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:1ac80495cf8caacd",
-  "fingerprint": "1ac80495cf8caacd1a47ba5f04f62f001d77db62d882bbea0ac092a03f82097b",
+  "generatedAt": "source-fingerprint:8ece0b4c4535a368",
+  "fingerprint": "8ece0b4c4535a36866a274074c03ed6e3dbd907ac3c21c23815690d3c79ee555",
   "totals": {
     "files": 1402,
-    "lines": 368381,
+    "lines": 368463,
     "coveredFiles": 1402
   },
   "entries": [
@@ -2112,7 +2112,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 608,
+      "lines": 625,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2676,7 +2676,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 199,
+      "lines": 209,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -9150,7 +9150,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 137,
+      "lines": 149,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9186,7 +9186,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 98,
+      "lines": 94,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -9210,7 +9210,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 412,
+      "lines": 411,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10438,7 +10438,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 21,
+      "lines": 15,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -12094,7 +12094,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 143,
+      "lines": 145,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12118,7 +12118,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 757,
+      "lines": 765,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15083,7 +15083,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 193,
+      "lines": 185,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15191,7 +15191,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 228,
+      "lines": 239,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15251,7 +15251,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 147,
+      "lines": 151,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15623,7 +15623,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 509,
+      "lines": 525,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16320,7 +16320,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 86,
+      "lines": 107,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

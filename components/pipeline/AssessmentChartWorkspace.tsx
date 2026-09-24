@@ -206,7 +206,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
             preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
             onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
   };
-  const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
+  const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} compact={reviewStep === 4 && existingDraft?.delivery_method === "assessor_email"} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
     {renderReviewBody(reviewStep)}
   </MeetClientComposeDialog> : null);
 
@@ -336,7 +336,7 @@ function HandoffSection({ title, items, children }: { title: string; items: Asse
 
 const handoffStepTitles = ["Confirm admit date", "Check client summary", "Check admission packet", "Check recipients", "Preview email"];
 
-function MeetClientComposeDialog({ step, sending, onClose, children }: { step: number; sending: boolean; onClose: () => void; children: React.ReactNode }) {
+function MeetClientComposeDialog({ step, compact, sending, onClose, children }: { step: number; compact: boolean; sending: boolean; onClose: () => void; children: React.ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -346,7 +346,7 @@ function MeetClientComposeDialog({ step, sending, onClose, children }: { step: n
     titleRef.current?.focus();
     return () => { dialog?.close(); if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus(); };
   }, []);
-  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${step === 0 ? styles.admissionDateDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
+  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${step === 0 ? styles.admissionDateDialog : ""} ${compact ? styles.inboxReadyDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
     onCancel={(event) => { event.preventDefault(); if (!sending) onClose(); }}>
     <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step + 1} / {handoffStepTitles.length}</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 4 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
     {children}
@@ -609,13 +609,30 @@ function renderPacketAccess(email: ChartPayload["email"], sent: boolean, referra
 }
 
 function PreparedDraftDetails({ draft }: { draft: OutlookDraftView }) {
+  const [copyStatus, setCopyStatus] = useState("");
+  const copyAddresses = async (label: "To" | "Cc", addresses: string[]) => {
+    try {
+      await navigator.clipboard.writeText(addresses.join("; "));
+      setCopyStatus(`${label} addresses copied`);
+    } catch {
+      setCopyStatus("Could not copy automatically. Select the addresses above and copy them.");
+    }
+  };
+  const addressRow = (label: "To" | "Cc", addresses: string[]) => <div className={styles.addressRow}>
+    <span>{label}</span>
+    <div className={styles.preparedAddresses}>
+      <span>{addresses.join("; ") || "None"}</span>
+      {draft.delivery_method === "assessor_email" && addresses.length ? <button type="button" className={styles.copyAddresses} aria-label={`Copy ${label} addresses`} onClick={() => void copyAddresses(label, addresses)}>Copy</button> : null}
+    </div>
+  </div>;
   return <section className={styles.recipientSection} style={{ overflowWrap: "anywhere" }} aria-label="Prepared handoff details">
-    <h3>Prepared handoff</h3>
-    <p>Use the prepared message in {draft.mailbox}. To change the message, recipients or files, prepare a replacement below.</p>
+    <h3>{draft.delivery_method === "assessor_email" ? "Recipients for your forward" : "Prepared handoff"}</h3>
+    <p>{draft.delivery_method === "assessor_email" ? `Forward the Alamo Admissions email in ${draft.mailbox} with every attachment. Copy the reviewed addresses below.` : `Use the prepared message in ${draft.mailbox}. To change the message, recipients or files, prepare a replacement below.`}</p>
     {draft.to_recipients ? <>
-      <div className={styles.addressRow}><span>To</span><div>{draft.to_recipients?.join("; ")}</div></div>
-      <div className={styles.addressRow}><span>Cc</span><div>{draft.cc_recipients?.join("; ") || "None"}</div></div>
+      {addressRow("To", draft.to_recipients)}
+      {addressRow("Cc", draft.cc_recipients ?? [])}
     </> : null}
+    {copyStatus ? <p className={styles.copyStatus} role="status">{copyStatus}</p> : null}
     <p>Assessment version {draft.assessment_version} · {draft.file_count} files in the prepared packet.</p>
   </section>;
 }

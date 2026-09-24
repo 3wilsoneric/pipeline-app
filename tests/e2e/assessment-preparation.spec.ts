@@ -83,24 +83,37 @@ for (const width of [1440, 768]) {
     const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByRole("button", { name: /Close/ }).click();
     await expect(schedule).toHaveCount(0);
-    await folder.getByRole("button", { name: "Begin assessment", exact: true }).click();
-    const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await folder.getByRole("button", { name: "Begin interview", exact: true }).click();
+    const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
+    await begin.getByRole("button", { name: "Begin interview", exact: true }).click();
     await expect(begin).toHaveCount(0);
+    await expect(page).toHaveURL(/assessmentMode=interview/);
     await section(page, "diagnosis_clinical");
+    await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
+    await page.locator("#assessment-current_symptoms").fill("Observed during the interview.");
+    await openAssessmentChart(page);
+    await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Observed during the interview.");
+    await returnToAssessmentQuestions(page);
+    await expect(page).toHaveURL(/assessmentMode=interview/);
+    await expect(page.getByRole("combobox", { name: "Assessment section" })).toHaveValue("diagnosis_clinical");
+    const referenceToggle = reference.getByRole("button", { name: /^Current information/ });
+    if (await referenceToggle.isVisible() && await referenceToggle.getAttribute("aria-expanded") === "false") await referenceToggle.click();
     await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    await expect(page).toHaveURL(/assessmentMode=prepare/);
     await expect(secondary).toHaveValue("Documented secondary diagnosis from the referral.");
     await secondary.fill("Updated during the interview.");
     await openAssessmentChart(page);
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Updated during the interview.");
     await returnToAssessmentQuestions(page);
-    await expect(page.getByRole("combobox", { name: "Assessment section" })).toHaveValue("diagnosis_clinical");
+    await expect(page).toHaveURL(/assessmentMode=prepare/);
+    await expect(page.getByRole("combobox", { name: "Assessment section" })).toHaveValue("prior_history");
     await page.keyboard.press("Escape");
     await expect(folder).toBeVisible();
     const records = (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
     expect(records).toHaveLength(1);
     expect(records[0].started_at).toBeTruthy();
     expect(records[0].secondary_diagnoses).toEqual(["Updated during the interview."]);
+    expect(records[0].current_symptoms).toBe("Observed during the interview.");
     expect(records[0].current_location).toBe("Synthetic referring facility");
     expect(records[0].current_self_harm_ideation).toBeNull();
     expect(errors).toEqual([]);
@@ -117,10 +130,7 @@ for (const width of [1440, 768]) {
     expect(assessments).toHaveLength(1);
     for (const destination of ["Files", "Activity", "Chart"]) {
       await section(page, "identity");
-      if (destination !== "Files") {
-        await expect(page.locator("#assessment-current_location")).toHaveCount(0);
-        await editPreparedAnswer(page, "Current location");
-      }
+      await expect(page.locator("#assessment-current_location")).toBeVisible();
       const value = `Last answer before ${destination}`;
       await page.locator("#assessment-current_location").fill(value);
       if (destination === "Chart") await openPage(page, destination);
@@ -176,7 +186,8 @@ test("signed answers stay editable until sent, then become read only", async ({ 
     await route.fulfill({ response, json: body });
   });
   await page.reload();
-  await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Corrected before sending");
+  await expect(page.getByRole("textbox", { name: "Secondary diagnosis" })).toHaveValue("Corrected before sending");
+  await expect(page.getByRole("textbox", { name: "Secondary diagnosis" })).toHaveAttribute("readonly", "");
   await expect(page.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: "Bipolar disorder", exact: true })).toBeDisabled();
   expect((await read()).secondary_diagnoses).toEqual(["Corrected before sending"]);
