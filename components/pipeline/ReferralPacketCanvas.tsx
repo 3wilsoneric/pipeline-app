@@ -149,6 +149,7 @@ import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import ContactDirectorySuggestion from "@/components/pipeline/ContactDirectorySuggestion";
 import { ageFromCalendarDate, calendarToday, normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
 import { stringLimits } from "@/lib/pipeline/referral-validation";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 const ReferralWorkflowPanel = dynamic(
   () => import("@/components/pipeline/ReferralWorkflowPanel"),
@@ -404,6 +405,7 @@ export default function ReferralPacketCanvas({
   onOpenProfile = () => undefined,
   onOpenAssignedWork,
 }: ReferralPacketCanvasProps = {}) {
+  const designV2 = useDesignV2();
   const phone = usePhoneAssessment();
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
@@ -2497,6 +2499,18 @@ export default function ReferralPacketCanvas({
             </h1>
             <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
 
+            {/* Redesign: presence rides in the tab row so no notice separates the tabs from the folder. */}
+            {designV2 && presence.length > 0 ? (
+              <div className={workspaceFolderStyles.presence} aria-live="polite" aria-label="People editing this workspace">
+                {presence.map((item) => (
+                  <span key={item.lease_id}>
+                    <span aria-hidden="true" />
+                    {item.actor_name} is editing {presenceSectionLabel(item.section)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
             {renderWorkspaceActions()}
           </div>
           {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
@@ -2769,7 +2783,7 @@ export default function ReferralPacketCanvas({
 
         {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
 
-        {presence.length > 0 ? (
+        {!designV2 && presence.length > 0 ? (
           <div className="mb-3 flex flex-wrap items-center gap-2 border border-[#cfe4da] bg-[#f7fbf9] px-3 py-2" aria-live="polite" aria-label="People editing this workspace">
             {presence.map((item) => (
               <span key={item.lease_id} className="inline-flex items-center gap-2 rounded-full border border-[#c7ded4] bg-white px-2.5 py-1 text-[10px] font-bold text-[#315e50]">

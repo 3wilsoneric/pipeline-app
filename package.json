@@ -36,6 +36,8 @@
     "check:refactor-agent": "node scripts/refactor-agent-control-fixtures.mjs && node scripts/refactor-agent-control.mjs select --requested auto",
     "certify:refactor": "npm run check:refactor-setup && npm run complexity:check && npm run codebase:baseline && npm run check:platform:fast && npm run certify:test-effectiveness && npm run build",
     "check:hygiene": "node scripts/code-hygiene-audit.mjs",
+    "design:check": "node scripts/design-token-ratchet.mjs",
+    "design:baseline": "node scripts/design-token-ratchet.mjs --write-baseline",
     "audit:repository": "node scripts/complete-repository-audit.mjs",
     "check:platform": "node scripts/platform-readiness.mjs",
     "check:platform:fast": "node scripts/platform-readiness.mjs --skip-build",

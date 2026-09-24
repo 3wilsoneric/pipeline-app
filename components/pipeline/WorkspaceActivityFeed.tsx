@@ -7,6 +7,7 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import deckStyles from "./HomeFocusDeck.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 import type {
   WorkspaceActivityItem,
   WorkspaceActivityResponse,
@@ -133,6 +134,7 @@ export function SinceLastVisitAssignments({
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   onAcknowledge: (ids: string[], through?: string) => Promise<void>;
 }) {
+  const designV2 = useDesignV2();
   const [acknowledging, setAcknowledging] = useState(false);
   const [acknowledgmentError, setAcknowledgmentError] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -151,11 +153,11 @@ export function SinceLastVisitAssignments({
   };
 
   return (
-    <section aria-label="Since your last visit" className="min-w-0 bg-white">
+    <section aria-label="Since your last visit" className={designV2 ? "min-w-0" : "min-w-0 bg-white"}>
       <div className="flex h-12 items-center justify-between gap-3 px-1">
         <h2 className="flex items-center gap-2.5 text-[15px] font-bold text-[#202723]"><UserPlus size={15} className="text-[#0f8b73]" />New assignments</h2>
         {items.length > 0 ? (
-          <button type="button" disabled={acknowledging} onClick={() => void acknowledgeAll()} className="text-[10px] font-black text-[#0c705f] underline underline-offset-2 disabled:opacity-50">
+          <button type="button" disabled={acknowledging} onClick={() => void acknowledgeAll()} className={designV2 ? "min-h-11 text-label font-semibold text-link underline underline-offset-2 disabled:opacity-50" : "text-[10px] font-black text-[#0c705f] underline underline-offset-2 disabled:opacity-50"}>
             {acknowledging ? "Saving" : "Mark shown seen"}
           </button>
         ) : <span className="text-[11px] font-bold text-[#626a65]">Since your last visit</span>}
@@ -166,25 +168,25 @@ export function SinceLastVisitAssignments({
       ) : items.length === 0 ? (
         <div className={`${deckStyles.empty} ${deckStyles.assignmentEmpty}`}><UserPlus aria-hidden="true" /><h3>You&apos;re up to date.</h3><p>No referrals were assigned since your last visit.</p></div>
       ) : (
-        <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
+        <div className={designV2 ? "flex flex-col gap-2.5" : "divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]"}>
           {visibleItems.map((item) => (
             <button key={item.event_id} type="button" onClick={() => {
               void onAcknowledge([item.event_id]).catch(() => {
                 setAcknowledgmentError("Assignment could not be marked seen. Try again.");
               });
               openActivityItem(item, onOpenPacket);
-            }} className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-l-2 border-[#0f8b73] bg-[#f5faf8] px-3 py-3 text-left hover:bg-[#eaf5ef] sm:px-4">
+            }} className={designV2 ? "group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-paper border border-card-border bg-paper px-4 py-4 text-left shadow-card transition-shadow hover:shadow-card-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:px-5" : "group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-l-2 border-[#0f8b73] bg-[#f5faf8] px-3 py-3 text-left hover:bg-[#eaf5ef] sm:px-4"}>
               <span className="min-w-0">
-                <span className="block truncate text-[14px] font-bold text-[#202723]">{item.workspace.client_name}</span>
-                <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.workspace.community}</span>
+                <span className={designV2 ? "block truncate text-section text-ink" : "block truncate text-[14px] font-bold text-[#202723]"}>{item.workspace.client_name}</span>
+                <span className={designV2 ? "mt-0.5 block truncate text-value text-ink-muted" : "mt-0.5 block truncate text-[12px] font-medium text-[#69716c]"}>{item.workspace.community}</span>
               </span>
-              <span className="flex shrink-0 items-center gap-2 text-[10px] font-bold text-[#176f60]"><span className="rounded-sm border border-[#b7d6ca] bg-white px-1.5 py-0.5">New</span>Assigned {relativeTime(item.created_at)}<ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" /></span>
+              <span className={designV2 ? "flex shrink-0 items-center gap-2 text-label font-semibold text-link" : "flex shrink-0 items-center gap-2 text-[10px] font-bold text-[#176f60]"}><span className={designV2 ? "rounded-chip bg-stage-orange-tile px-2 py-0.5 text-stage-orange" : "rounded-sm border border-[#b7d6ca] bg-white px-1.5 py-0.5"}>New</span>Assigned {relativeTime(item.created_at)}<ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" /></span>
             </button>
           ))}
         </div>
       )}
       {!unavailable && items.length > 6 ? (
-        <button type="button" onClick={() => setShowAll((current) => !current)} aria-expanded={showAll} className="mt-2 min-h-10 w-full px-2 text-right text-[11px] font-bold text-[#176f60] hover:bg-[#f5faf8]">
+        <button type="button" onClick={() => setShowAll((current) => !current)} aria-expanded={showAll} className={designV2 ? "mt-2 min-h-11 w-full rounded-input px-2 text-right text-label font-semibold text-link hover:bg-sheet" : "mt-2 min-h-10 w-full px-2 text-right text-[11px] font-bold text-[#176f60] hover:bg-[#f5faf8]"}>
           {showAll ? "Show fewer" : `Show ${items.length - 6} more assignments`}
         </button>
       ) : null}
