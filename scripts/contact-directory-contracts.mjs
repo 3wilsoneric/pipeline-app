@@ -89,9 +89,9 @@ check("assessor directory reads and individual mutations stay referral-scoped; s
   && linksRoute.includes("requireMutableReferralAccess")
   && linkRoute.includes("requireMutableReferralAccess"));
 
-check("Intake presents client contact fields and the reusable contact directory",
+check("Intake presents referrer contact fields and the reusable contact directory",
   canvas.includes('title="Contact and coordination"')
-  && canvas.includes('(["phone", "email"] as FieldKey[])')
+  && canvas.includes('(["referrerName", "phone", "email"] as FieldKey[])')
   && canvas.includes("<ReferralContactsCard"));
 check("contact UI exposes information without native communication actions",
   card.includes("Information only—no messages are sent.")

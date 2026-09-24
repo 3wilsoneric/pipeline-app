@@ -202,19 +202,19 @@ export async function listReferralContacts(referralId: number): Promise<Referral
 
 export async function getContactSchedulingReadiness(
   referralId: number,
-  client: { phone?: string | null; email?: string | null },
+  referral: { phone?: string | null; email?: string | null },
 ): Promise<ContactSchedulingReadiness> {
-  const hasReachableClient = Boolean(client.phone?.trim() || client.email?.trim());
+  const hasReachableReferrer = Boolean(referral.phone?.trim() || referral.email?.trim());
   const links = await listReferralContacts(referralId);
   const hasPrimarySchedulingContact = links.some((link) =>
     link.primaryForScheduling && link.contact.active && Boolean(link.contact.phone.trim() || link.contact.email.trim()),
   );
-  const ready = hasReachableClient || hasPrimarySchedulingContact;
+  const ready = hasReachableReferrer || hasPrimarySchedulingContact;
   return {
     ready,
-    hasReachableClient,
+    hasReachableReferrer,
     hasPrimarySchedulingContact,
-    blockers: ready ? [] : ["Add a client phone/email or a reachable primary scheduling contact before scheduling."],
+    blockers: ready ? [] : ["Add a referrer phone/email or a reachable primary scheduling contact before scheduling."],
   };
 }
 

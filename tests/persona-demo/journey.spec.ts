@@ -80,8 +80,8 @@ test("intake saves on switch and the assigned workspace appears for the assessor
   await page.getByRole("region", { name: "Current work", exact: true }).getByRole("button", { name: `Open ${name}`, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(name);
-  await page.getByRole("textbox", { name: "Client phone:", exact: true }).click();
-  await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("555-010-0200");
+  await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).click();
+  await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).fill("555-010-0200");
   await page.getByRole("button", { name: "Switch to Supervisor", exact: true }).click();
   await expect(page.getByRole("button", { name: "Switch to Assessor", exact: true })).toBeVisible();
   const saved = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;

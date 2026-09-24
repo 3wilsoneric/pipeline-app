@@ -50,8 +50,8 @@ test.describe("field exit saves and single uploads", () => {
       const referral = await createReferral(api);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
-      const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
-      const email = page.getByRole("textbox", { name: "Client email:", exact: true });
+      const phone = page.getByRole("textbox", { name: "Referrer phone:", exact: true });
+      const email = page.getByRole("textbox", { name: "Referrer email:", exact: true });
       await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       await expect(phone).toBeVisible();
       const writes = recordWrites(page);
@@ -177,7 +177,7 @@ test.describe("field exit saves and single uploads", () => {
       await confirmReferralFileLabels(page);
       await expect.poll(() => interrupted, { timeout: 20_000 }).toBe(true);
       await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true })).toBeEnabled();
-      const phone = page.getByRole("textbox", { name: "Client phone:", exact: true });
+      const phone = page.getByRole("textbox", { name: "Referrer phone:", exact: true });
       await phone.fill("555-0199");
       await phone.blur();
       await expect.poll(async () => (await readReferral(api, referral.id)).phone).toBe("555-0199");

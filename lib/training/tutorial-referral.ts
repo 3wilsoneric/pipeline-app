@@ -89,7 +89,7 @@ const stepHelp = [
   ],
   [
     { problem: "Simulate send is disabled?", action: "Check that To has an address, then select Recipients checked. This tutorial never sends an email." },
-    { problem: "Where does the real email go?", action: "In a real workspace, save it to Outlook Drafts, send it from Outlook, then check sent status in Pipeline before retrying." },
+    { problem: "Where does the real email go?", action: "In a real workspace, choose Email packet to me. Alamo Admissions emails you the message and files; forward them to the reviewed To / Cc list, then confirm forwarding in Pipeline. Outlook Drafts is also available. Check your inbox before retrying an uncertain send." },
   ],
   [
     { problem: "Why isn't this client admitted?", action: "Accepting and sending a packet do not mark someone admitted. The actual admission is recorded later, after it happens." },

@@ -277,8 +277,8 @@ test.describe("workflow interaction and durable feedback", () => {
       expect(new URL(page.url()).searchParams.get("referralId")).toBe(String(second.id));
       expect((await (await api.get(`/api/referrals/${first.id}`)).json()).referral.name).toBe(revisedName);
       expect((await (await api.get(`/api/referrals/${second.id}`)).json()).referral.name).toBe(second.name);
-      await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("555-0123");
-      await page.getByRole("textbox", { name: "Client phone:", exact: true }).blur();
+      await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).fill("555-0123");
+      await page.getByRole("textbox", { name: "Referrer phone:", exact: true }).blur();
       await expect.poll(async () => (await (await api.get(`/api/referrals/${second.id}`)).json()).referral.phone).toBe("555-0123");
       expect((await (await api.get(`/api/referrals/${first.id}`)).json()).referral.phone).toBe(first.phone);
     } finally {

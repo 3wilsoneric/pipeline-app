@@ -64,7 +64,9 @@ export type RecentDestinationInput =
 
 export const referralDraftExtraKeys = ["conserved", "tags", "documents", "initialPacket"] as const;
 export type ReferralDraftDirtyKey = ReferralCanvasFieldKey | (typeof referralDraftExtraKeys)[number];
-const legacyDefaultDraftFieldKeys = new Set<ReferralCanvasFieldKey>(["currentMedications", "phone", "email"]);
+const legacyDefaultDraftFieldKeys = new Set<ReferralCanvasFieldKey>([
+  "currentMedications", "phone", "email", "referrerName",
+]);
 
 export type PipelineReferralDraft = {
   schema: 1;

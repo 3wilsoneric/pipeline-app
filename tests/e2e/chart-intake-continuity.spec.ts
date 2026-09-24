@@ -13,6 +13,12 @@ test.beforeAll(async () => {
     if (database.hostname !== "127.0.0.1" || !database.pathname.endsWith("_test")) {
       throw new Error("Chart continuity tests require an explicitly isolated local test database.");
     }
+    const sql = postgres(process.env.PIPELINE_DATABASE_URL!, { ssl: false, max: 1 });
+    try {
+      await sql`insert into pipeline.workspace_members (principal_id, display_name, email, roles)
+        values ('chart-intake-fixture-assessor', 'Chart Intake Assessor', 'chart-intake@example.invalid', array['reviewer'])
+        on conflict (principal_id) do nothing`;
+    } finally { await sql.end(); }
   }
   clinicalServer = createServer((request, response) => {
     if (request.url?.includes("/assets/")) {
@@ -45,10 +51,24 @@ async function createSource(request: APIRequestContext, overrides: Partial<Refer
     owner: "Unassigned", note: "Original referral narrative", createdAt: "2026-08-10T12:00:00Z", dob: "1984-06-12",
     gender: "Female", county: "Los Angeles", currentMedications: "Old medication history", phone: "555-0101",
     email: "fixture@example.invalid", payer: "Example Plan", conserved: "no",
-    responsiblePerson: "Fixture contact", requirements: [], ...overrides,
+    responsiblePerson: "Fixture contact", requirements: [], workspaceOrigin: "allo", ...overrides,
   } } });
   expect(response.status(), await response.text()).toBe(201);
-  const referral = (await response.json()).referral as Referral;
+  let referral = (await response.json()).referral as Referral;
+  if (process.env.PIPELINE_DATABASE_MODE === "postgres" && ["allo", "import"].includes(overrides.workspaceOrigin ?? "allo")) {
+    // The public create API cannot mint imported provenance; establish it only in this isolated test database.
+    const sql = postgres(process.env.PIPELINE_DATABASE_URL!, { ssl: false, max: 1 });
+    try {
+      await sql`update pipeline.referrals
+        set workspace_origin = ${overrides.workspaceOrigin ?? "allo"},
+            source_workspace_id = ${`fixture-${referral.id}`},
+            data = jsonb_set(data, '{workspaceOrigin}', ${JSON.stringify(overrides.workspaceOrigin ?? "allo")}::jsonb),
+            workspace_status = ${overrides.workspaceStatus === "historical" ? "historical" : "active"}
+        where referral_id = ${referral.id}`;
+    } finally { await sql.end(); }
+    referral = (await (await request.get(`/api/referrals/${referral.id}`)).json()).referral as Referral;
+  }
+  if (referral.workspaceStatus === "historical") return referral;
   // New intakes cannot claim an admission date. Populate the existing chart
   // through its versioned update API so the next intake must clear real data.
   const chartUpdate = await request.patch(`/api/referrals/${referral.id}`, { data: {
@@ -60,16 +80,20 @@ async function createSource(request: APIRequestContext, overrides: Partial<Refer
   return (await chartUpdate.json()).referral as Referral;
 }
 
-test("a chart creates a fresh intake for the same client and retry does not duplicate it", async ({ page }, testInfo) => {
+test("a chart allows another intake while retries remain idempotent", async ({ page }, testInfo) => {
   const source = await createSource(page.request);
   expect(source.admissionDate).toBe("2026-08-15");
   const before = await (await page.request.get(`/api/referrals/${source.id}/canvas`)).json();
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   // Start a fresh episode from Clients, not a duplicate action inside an intake.
   await page.goto(`/?screen=profile&clientId=pipeline:${source.clientId}`);
-  await expect(page.getByRole("button", { name: "New referral", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   const createdRequest = page.waitForRequest((request) => request.url().endsWith(`/referrals/${source.id}/new-intake`) && request.method() === "POST");
   const createdResponse = page.waitForResponse((response) => response.url().endsWith(`/referrals/${source.id}/new-intake`) && response.request().method() === "POST");
-  await page.getByRole("button", { name: "New referral", exact: true }).click();
+  await page.getByRole("button", { name: "Create intake", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Assign new intake" })).toBeVisible();
+  await page.getByRole("dialog", { name: "Assign new intake" }).getByRole("button", { name: "Create intake", exact: true }).click();
   const response = await createdResponse;
   expect(response.status(), await response.text()).toBe(201);
   const created = (await response.json()).referral as Referral;
@@ -81,10 +105,26 @@ test("a chart creates a fresh intake for the same client and retry does not dupl
   expect(created.assessment).toBeUndefined();
   expect(created.admissionDecision).toBeUndefined();
   expect(created.fieldSources?.currentMedications).toContain(`workspace #${source.id}`);
-  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceStage=intake`));
-  await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceField=name`));
   await expect(page.locator("#packet-page-1")).toBeVisible();
   await expect(page.locator(`input[value="${created.name}"]`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
+  const membersResponse = await page.request.get("/api/members?scope=assessors");
+  expect(membersResponse.ok()).toBeTruthy();
+  const members = (await membersResponse.json()).members as { principal_id: string; display_name: string }[];
+  expect(members.length).toBeGreaterThan(0);
+  const ownerField = page.getByRole("combobox", { name: "Assessor", exact: true });
+  await ownerField.focus();
+  const ownerSave = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${created.id}`) && response.request().method() === "PATCH");
+  await ownerField.selectOption(members[0].principal_id);
+  await ownerField.press("Tab");
+  const ownerResponse = await ownerSave;
+  expect(ownerResponse.status(), await ownerResponse.text()).toBe(200);
+  await expect.poll(async () => {
+    const result = await page.request.get(`/api/referrals/${created.id}`);
+    return ((await result.json()) as { referral: Referral }).referral.ownerId;
+  }).toBe(members[0].principal_id);
+  await expect(page.getByText("if_match_sections is missing: workflow.")).toHaveCount(0);
   const mutation = (await createdRequest).postDataJSON();
   const replay = await page.request.post(`/api/referrals/${source.id}/new-intake`, { data: mutation });
   expect(replay.status(), await replay.text()).toBe(201);
@@ -103,18 +143,53 @@ test("a chart creates a fresh intake for the same client and retry does not dupl
   }
   expect(simultaneousIds.size).toBe(1);
   expect(simultaneousIds.has(created.id)).toBe(false);
+  const duplicateId = [...simultaneousIds][0];
+  const duplicate = (await (await page.request.get(`/api/referrals/${duplicateId}`)).json()).referral as Referral;
+  expect(duplicate.clientId).toBe(created.clientId);
   expect((await (await page.request.get(`/api/referrals/${source.id}/canvas`)).json()).referral).toEqual(before.referral);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("seeded-intake.png"), fullPage: true });
 });
 
-test("every saved workspace offers a new intake with carried chart details", async ({ page }, testInfo) => {
-  const source = await createSource(page.request);
+test("an assessor can create their own intake from an older chart", async ({ page }) => {
+  test.skip(process.env.PIPELINE_MOCK_USER_ROLES !== "reviewer", "Run with an assessor role fixture.");
+  const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
   await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
-  const action = page.getByRole("button", { name: "Create new intake from this workspace" });
+  await page.getByRole("button", { name: "Create intake", exact: true }).click();
+  const assignment = page.getByRole("dialog", { name: "Assign new intake" });
+  const members = await (await page.request.get("/api/members?scope=assessors")).json() as { current_principal_id: string };
+  await expect(assignment.getByRole("combobox", { name: "Assessor" })).toHaveValue("");
+  const createdResponse = page.waitForResponse((response) => response.url().endsWith(`/referrals/${source.id}/new-intake`) && response.request().method() === "POST");
+  await assignment.getByRole("button", { name: "Create intake", exact: true }).click();
+  const response = await createdResponse;
+  expect(response.status(), await response.text()).toBe(201);
+  const created = (await response.json()).referral as Referral;
+  expect(created.ownerId).toBe(members.current_principal_id);
+  await expect(page.locator("#packet-page-1")).toBeVisible();
+});
+
+test("saved client workspaces offer a new intake with carried chart details", async ({ page }, testInfo) => {
+  const ordinary = await createSource(page.request, { workspaceOrigin: "pipeline" });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${ordinary.id}&workspaceStage=chart`);
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
+  const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
+  const memberList = await (await page.request.get("/api/members?scope=assessors")).json() as {
+    members: { principal_id: string; display_name: string }[]; current_principal_id: string;
+  };
+  const selectedAssessor = memberList.members.find((member) => member.principal_id !== memberList.current_principal_id);
+  expect(selectedAssessor).toBeDefined();
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  const action = page.getByRole("button", { name: "Create intake", exact: true });
   await expect(action).toBeVisible();
+  await expect(page.getByTestId("workspace-folder-header").getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("workspace-new-intake-action.png"), fullPage: false });
   const createdResponse = page.waitForResponse((response) => response.url().endsWith(`/referrals/${source.id}/new-intake`) && response.request().method() === "POST");
   await action.click();
+  const assignment = page.getByRole("dialog", { name: "Assign new intake" });
+  await expect(assignment).toBeVisible();
+  await assignment.getByRole("combobox", { name: "Assessor" }).selectOption(selectedAssessor!.principal_id);
+  await assignment.getByRole("button", { name: "Create intake", exact: true }).click();
   const response = await createdResponse;
   expect(response.status(), await response.text()).toBe(201);
   const created = (await response.json()).referral as Referral;
@@ -123,8 +198,41 @@ test("every saved workspace offers a new intake with carried chart details", asy
   expect(created.phone).toBe(source.phone);
   expect(created.admissionDate).toBe("");
   expect(created.documentName).toBe("");
-  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceStage=intake`));
+  expect(created.ownerId).toBe(selectedAssessor!.principal_id);
+  expect(created.owners?.map((owner) => owner.id)).toEqual([selectedAssessor!.principal_id]);
+  expect(created.workspaceOrigin).toBe("pipeline");
+  expect(created.workspaceStatus).toBe("active");
+  await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceField=name`));
+  await expect(page.locator("#packet-page-1")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
+  const stages = page.getByRole("navigation", { name: "Workspace stages" });
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    const view = stages.getByRole("combobox", { name: "Workspace view" });
+    await expect(view).toHaveValue("1");
+    await expect(view.getByRole("option", { name: "Assessment" })).toHaveCount(1);
+    await expect(view.getByRole("option", { name: "Decision" })).toHaveCount(1);
+    await expect(view.getByRole("option", { name: "Finish & send" })).toHaveCount(1);
+    await view.selectOption("3");
+    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await view.selectOption("1");
+  } else {
+    await expect(stages.getByRole("button", { name: "Intake", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toBeVisible();
+    await expect(stages.getByRole("button", { name: "Decision", exact: true })).toBeVisible();
+    await expect(stages.getByRole("button", { name: "Finish & send", exact: true })).toBeVisible();
+    await stages.getByRole("button", { name: "Chart", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await stages.getByRole("button", { name: "Intake", exact: true }).click();
+  }
+  await expect(page.locator("#packet-page-1")).toBeVisible();
+  await page.reload();
+  await expect(page.locator("#packet-page-1")).toBeVisible();
   expect((await (await page.request.get(`/api/referrals/${source.id}`)).json()).referral).toEqual(source);
+  const active = await (await page.request.get("/api/referrals?limit=100")).json() as { referrals: Referral[] };
+  expect(active.referrals.some((referral) => referral.id === created.id)).toBe(true);
+  expect(active.referrals.some((referral) => referral.id === source.id)).toBe(false);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
 });
 
 test("Clients and Workspace resolve the same confirmed chart, and new intake retains the connection", async ({ page }, testInfo) => {
@@ -177,14 +285,17 @@ test("Clients and Workspace resolve the same confirmed chart, and new intake ret
 
 test("source validation rejects malformed, missing and cross-origin intake requests", async ({ request }) => {
   const source = await createSource(request);
+  const ordinary = await createSource(request, { workspaceOrigin: "pipeline" });
+  expect((await request.post(`/api/referrals/${ordinary.id}/new-intake`, { data: { client_mutation_id: randomUUID() } })).status()).toBe(201);
   expect((await request.post(`/api/referrals/${source.id}/new-intake`, { data: {} })).status()).toBe(400);
+  expect((await request.post(`/api/referrals/${source.id}/new-intake`, { data: { client_mutation_id: randomUUID(), assignee_id: "unknown-member" } })).status()).toBe(422);
   expect((await request.post(`/api/referrals/${source.id}oops/new-intake`, { data: { client_mutation_id: randomUUID() } })).status()).toBe(400);
   expect((await request.post("/api/referrals/99999999/new-intake", { data: { client_mutation_id: randomUUID() } })).status()).toBe(404);
   expect((await request.post(`/api/referrals/${source.id}/new-intake`, { headers: { origin: "https://wrong.invalid" }, data: { client_mutation_id: randomUUID() } })).status()).toBe(403);
 });
 
 test("a census-only client includes its confirmed workspace records in either chart", async ({ request }) => {
-  const source = await createSource(request, { county: "Contra Costa" });
+  const source = await createSource(request, { county: "Contra Costa", workspaceOrigin: "pipeline" });
   const linkResponse = await request.post("/api/resident-links", { headers, data: {
     pipeline_client_id: source.clientId, display_name: source.name, referral_id: source.id,
     resident_key: "337:R-200", resident_number: "R-200", community_id: "337",

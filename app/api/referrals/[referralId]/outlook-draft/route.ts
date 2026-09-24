@@ -1,9 +1,10 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
-import { isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
+import { getGraphMailReadiness, isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
 import { readJsonBody } from "@/lib/extraction/contracts";
 import { packetPrivateHeaders } from "@/lib/notifications/admission-packet-files";
 import { PacketAccessError } from "@/lib/notifications/admission-packet-store";
+import { updateAssessorEmail } from "@/lib/notifications/assessor-email-handoff";
 import { checkOutlookHandoff, discardOutlookHandoff, workspaceOutlookState } from "@/lib/notifications/outlook-handoff";
 import { connectedOutlookMailbox, getOutlookClientId, OutlookMailError } from "@/lib/notifications/outlook-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -17,7 +18,7 @@ export async function GET(request: Request, context: Context) {
   return withApiLogging(request, "/api/referrals/[referralId]/outlook-draft", async () => {
     const access = await authorize(request, context);
     if (!access.ok) return access.response;
-    const connection = { outlook_client_id: getOutlookClientId(), account_email: access.user.email };
+    const connection = { outlook_client_id: getOutlookClientId(), account_email: access.user.email, email_configured: getGraphMailReadiness().configured && !access.user.delegation, email_sender: getGraphMailReadiness().sender };
     if (!isMeetClientLive()) return json({ draft: null, occupied: false, demo: true, ...connection });
     try { return json({ ...await workspaceOutlookState(access.referralId, access.user.delegation ? "" : access.user.id), ...connection }); }
     catch (error) { return failure(error); }
@@ -35,6 +36,11 @@ export async function POST(request: Request, context: Context) {
     try {
       const mutable = await requireMutableReferralAccess(access.user, access.referralId);
       if (!mutable.ok) return mutable.response;
+      const input = body.value as { action?: string; packet_id?: string; confirmed?: boolean };
+      if (["received", "forwarded", "replace"].includes(input.action ?? "")) {
+        if (typeof input.packet_id !== "string" || input.confirmed !== true) return json({ error: "Confirm this step for the emailed packet." }, 400);
+        return json({ draft: await updateAssessorEmail(input.packet_id, access.referralId, access.user, input.action as "received" | "forwarded" | "replace") });
+      }
       const mailbox = await connectedOutlookMailbox(request, access.user);
       return await handleAction(body.value, access.referralId, mailbox, request.url);
     } catch (error) { return failure(error); }

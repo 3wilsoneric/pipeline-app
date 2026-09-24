@@ -30,7 +30,7 @@ async function seed(s: Awaited<ReturnType<typeof session>>) {
 async function editPhone(page: Page, id: number) {
   await page.goto(`/?view=referrals&screen=packet&referralId=${id}`);
   await page.locator('article[aria-label="Referral chart"]:not([data-testid="profile-workspace"] article)').getByRole('button', { name: 'Edit Phone', exact: true }).click();
-  return page.getByRole('textbox', { name: 'Client phone:', exact: true });
+  return page.getByRole('textbox', { name: 'Referrer phone:', exact: true });
 }
 
 async function openAssessment(page: Page, referralId: number) {
@@ -63,7 +63,7 @@ test('same-field conflict keeps the losing answer and still permits a different 
     await expect(b.page.getByRole('button', { name: 'Keep mine', exact: true })).toBeVisible();
     expect((await (await b.context.request.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe('555-0111');
     await b.page.unroute(`**/api/referrals/${referral.id}`);
-    const email = b.page.getByRole('textbox', { name: 'Client email:', exact: true });
+    const email = b.page.getByRole('textbox', { name: 'Referrer email:', exact: true });
     await email.fill('other-field@example.invalid'); await email.blur();
     await expect.poll(async () => (await (await b.context.request.get(`/api/referrals/${referral.id}`)).json()).referral.email).toBe('other-field@example.invalid');
     await expect(phoneB).toHaveValue('555-0222');
@@ -90,7 +90,7 @@ test('lost save acknowledgement retries without duplicate audit and keeps typing
   try {
     const referral = await seed(s);
     const phone = await editPhone(s.page, referral.id);
-    const email = s.page.getByRole('textbox', { name: 'Client email:', exact: true });
+    const email = s.page.getByRole('textbox', { name: 'Referrer email:', exact: true });
     const mutations: string[] = [];
     let first = true;
     await s.page.route(`**/api/referrals/${referral.id}`, async route => {
@@ -122,7 +122,7 @@ test('lost save acknowledgement retries without duplicate audit and keeps typing
     await email.blur();
     await expect.poll(async () => (await (await s.context.request.get(`/api/referrals/${referral.id}`)).json()).referral.email).toBe('not-blurred@example.invalid');
     await s.page.reload();
-    await expect(s.page.getByRole('textbox', { name: 'Client email:', exact: true })).toHaveValue('not-blurred@example.invalid');
+    await expect(s.page.getByRole('textbox', { name: 'Referrer email:', exact: true })).toHaveValue('not-blurred@example.invalid');
   } finally { await s.context.close(); await sql.end(); }
 });
 
@@ -367,7 +367,7 @@ test('a real disposable database outage retains the field and recovers without a
     await s.page.getByRole('button', { name: 'Retry saving', exact: true }).click();
     await expect.poll(async () => (await (await s.context.request.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe('555-0555');
     await s.page.reload();
-    await expect(s.page.getByRole('textbox', { name: 'Client phone:', exact: true })).toHaveValue('555-0555');
+    await expect(s.page.getByRole('textbox', { name: 'Referrer phone:', exact: true })).toHaveValue('555-0555');
   } finally {
     if (stopped) await restart();
     await s.context.close();

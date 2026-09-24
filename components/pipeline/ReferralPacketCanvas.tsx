@@ -15,7 +15,6 @@ import {
   FolderOpen,
   History,
   LoaderCircle,
-  MoreHorizontal,
   Plus,
   RefreshCw,
   Trash2,
@@ -311,8 +310,9 @@ export const initialFields: Record<FieldKey, PacketField> = {
     value: "",
     placeholder: "",
   },
-  phone: { label: "Client phone:", value: "", placeholder: "Phone number" },
-  email: { label: "Client email:", value: "", placeholder: "Email address" },
+  phone: { label: "Referrer phone:", value: "", placeholder: "Phone number" },
+  email: { label: "Referrer email:", value: "", placeholder: "Email address" },
+  referrerName: { label: "Referrer name:", value: "", placeholder: "Name" },
   summary: {
     label: "Summary",
     value: "",
@@ -325,6 +325,8 @@ export const initialFields: Record<FieldKey, PacketField> = {
   },
 };
 
+const genderOptions = ["Male", "Female", "Non-binary", "Unknown", "Other"] as const;
+
 const visibleChartFieldKeys: readonly FieldKey[] = [
   "name",
   "gender",
@@ -336,6 +338,7 @@ const visibleChartFieldKeys: readonly FieldKey[] = [
   "county",
   "referent",
   "responsiblePerson",
+  "referrerName",
   "phone",
   "email",
   "currentMedications",
@@ -492,6 +495,7 @@ export default function ReferralPacketCanvas({
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
   const [isBulkReviewing, setIsBulkReviewing] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [recoveredDraftAt, setRecoveredDraftAt] = useState("");
   const [recoveredPacketName, setRecoveredPacketName] = useState("");
   const [dirtyKeys, setDirtyKeys] = useState<Set<DirtyDraftKey>>(() => new Set());
@@ -2288,8 +2292,11 @@ export default function ReferralPacketCanvas({
     ? savedWorkspaceSteps.filter((step) => step.page !== "workflow" && step.page !== "email")
     : workspacePresentation.usesSourceProfile && !historicalReadOnly
       ? [...steps, savedWorkspaceSteps[3]] : steps;
+  const navigableWorkspaceSteps: ReadonlyArray<WorkspaceStep> = loadedReferral?.chartSource && !historicalReadOnly
+    ? [{ page: 1, label: "Intake" }, ...workspaceSteps]
+    : workspaceSteps;
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
-  const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
+  const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
@@ -2308,19 +2315,20 @@ export default function ReferralPacketCanvas({
     const current = loadedReferralRef.current;
     if (!current) return;
     setIsDeleting(true);
-    setSaveError("");
+    setDeleteError("");
     try {
+      await Promise.allSettled([intakeSaveQueueRef.current, fileUploadQueueRef.current]);
+      const latest = await fetchPipelineJson<{ referral: Referral }>(`/api/referrals/${current.id}`, { cache: "no-store" });
       await fetchPipelineJson(`/api/referrals/${current.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ if_match: current.version, client_mutation_id: deleteMutationIdRef.current }),
+        body: JSON.stringify({ if_match: latest.referral.version, client_mutation_id: deleteMutationIdRef.current }),
       });
       await clearSessionDraft(current.id);
       setDeleteDialogOpen(false);
       onReferralDeleted?.();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "The workspace could not be moved to trash.");
-      setDeleteDialogOpen(false);
+      setDeleteError(error instanceof Error ? error.message : "The workspace could not be moved to trash.");
     } finally {
       setIsDeleting(false);
     }
@@ -2415,6 +2423,18 @@ export default function ReferralPacketCanvas({
   const renderWorkspaceActions = () => (
             <div className={workspaceFolderStyles.actions}>
               {renderWorkspaceSyncStatus()}
+              <StartReferralFromChart
+                sourceReferralId={loadedReferral?.id}
+                allowed={Boolean(loadedReferral?.clientId && !loadedReferral.chartSource && !trainingAssessmentMode && !trainingIntakeMode)}
+                inFolder
+                beforeStart={async () => {
+                  if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting an intake.");
+                  await handoff.flush();
+                  await assessmentNavigationRef.current?.();
+                  await preservePendingIntake();
+                  await intakeSaveQueueRef.current;
+                }}
+              />
               {!readingAssessment ? <WorkspaceAssignedWorkControl
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
@@ -2428,7 +2448,7 @@ export default function ReferralPacketCanvas({
                   hasChanges={hasPendingWorkspaceChanges}
                   blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
                   onSave={saveWorkspaceDraft}
-                  retry={Boolean(saveError)}
+                  retry={false}
                 />
               ) : null}
               <button
@@ -2453,41 +2473,43 @@ export default function ReferralPacketCanvas({
                 <History size={15} aria-hidden="true" />
                 <span>Activity</span>
               </button>
-              {trashControlVisible && !readingAssessment ? (
-                <WorkspaceMoreMenu
-                  disabled={isSaving || isDeleting}
-                  onMoveToTrash={() => {
-                    if (dirtyKeysRef.current.size > 0) {
-                      setSaveError("Wait for your changes to save before moving this workspace to trash.");
-                      return;
-                    }
+              {trashControlVisible ? (
+                <button
+                  type="button"
+                  className={`${workspaceFolderStyles.utilityTab} ${workspaceFolderStyles.trashTab}`}
+                  aria-label="Move workspace to trash"
+                  title="Move workspace to trash"
+                  disabled={isDeleting}
+                  onClick={() => {
+                    setDeleteError("");
                     setDeleteDialogOpen(true);
                   }}
-                />
+                ><Trash2 size={16} aria-hidden="true" /><span>Trash</span></button>
               ) : null}
             </div>
   );
 
   const renderWorkspaceHeader = () => (
-    <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined}>
+    <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined} data-reading-assessment={readingAssessment || undefined}>
           <div className={workspaceFolderStyles.tabRow}>
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
             </h1>
-            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage === 1 && loadedReferral ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
+            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
 
             {renderWorkspaceActions()}
           </div>
           {editingControlsVisible && displayedPage !== 2 ? (
             <WorkspaceSaveStatus
               status={saveStatus}
-              error={saveError ? `Pending · ${saveError}` : ""}
+              error={saveError}
               createdWorkspaceId={createdWorkspaceId}
               referralId={editableReferralId}
               hasReferral={hasReferral}
               saving={isSaving}
               dirtyCount={dirtyKeys.size}
               queuedFileCount={queuedFileCount}
+              onRetry={hasReferral && hasPendingWorkspaceChanges ? () => void saveWorkspaceDraft() : undefined}
             />
           ) : null}
         </div>
@@ -2588,7 +2610,7 @@ export default function ReferralPacketCanvas({
                         suggestion={intakeSuggestions[key]}
                         onAcceptSuggestion={acceptIntakeSuggestion}
                         className={key === "name" ? "sm:col-span-2" : key === "ssn" ? "sm:col-span-2 xl:col-span-1" : undefined}
-                        options={key === "gender" ? ["Male", "Female", "Nonbinary", "Other", "Prefer not to say"] : undefined}
+                        options={key === "gender" ? genderOptions : undefined}
                         detail={key === "dob" ? (
                           ageFromCalendarDate(fields.dob.value) !== null
                             ? `Age ${ageFromCalendarDate(fields.dob.value)}`
@@ -2674,9 +2696,9 @@ export default function ReferralPacketCanvas({
                   </div>
                 </ChartSection>
 
-                <ChartSection title="Contact and coordination" complete={countCompleteFields(fields, ["phone", "email"])} total={2}>
-                  <div className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2">
-                    {(["phone", "email"] as FieldKey[]).map((key) => (
+                <ChartSection title="Contact and coordination" complete={countCompleteFields(fields, ["referrerName", "phone", "email"])} total={3}>
+                  <div className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2 lg:grid-cols-3">
+                    {(["referrerName", "phone", "email"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
                         fieldKey={key}
@@ -2690,8 +2712,8 @@ export default function ReferralPacketCanvas({
                   </div>
                   <div className="border-t border-[#bfcac5] px-5 py-4 sm:px-6"><ReferralContactsCard
                     referralId={editableReferralId ?? undefined}
-                    clientPhone={fields.phone.value}
-                    clientEmail={fields.email.value}
+                    referrerPhone={fields.phone.value}
+                    referrerEmail={fields.email.value}
                   /></div>
                 </ChartSection>
 
@@ -2742,19 +2764,6 @@ export default function ReferralPacketCanvas({
         className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""}`}
       >
         {renderWorkspaceHeader()}
-
-        <StartReferralFromChart
-          sourceReferralId={loadedReferral?.id}
-          allowed={Boolean(loadedReferral && canSupervise && !trainingAssessmentMode && !trainingIntakeMode)}
-          prominent
-          beforeStart={async () => {
-            if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting another intake.");
-            await handoff.flush();
-            await assessmentNavigationRef.current?.();
-            await preservePendingIntake();
-            await intakeSaveQueueRef.current;
-          }}
-        />
 
         {renderRestoredEdits()}
 
@@ -2891,6 +2900,8 @@ export default function ReferralPacketCanvas({
         <DeleteWorkspaceDialog
           name={loadedReferral.name}
           busy={isDeleting}
+          unsavedChanges={hasPendingWorkspaceChanges}
+          error={deleteError}
           onConfirm={() => void moveWorkspaceToTrash()}
           onClose={() => { if (!isDeleting) setDeleteDialogOpen(false); }}
         />
@@ -3015,34 +3026,6 @@ function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
   </div>;
 }
 
-/* The destructive workspace action keeps its confirmation and recovery, moved
-   one step back from the stage tabs it used to sit beside. */
-function WorkspaceMoreMenu({ disabled, onMoveToTrash }: { disabled: boolean; onMoveToTrash: () => void }) {
-  const menu = useRef<HTMLDetailsElement>(null);
-  const close = () => {
-    if (!menu.current) return;
-    menu.current.open = false;
-    menu.current.querySelector("summary")?.focus();
-  };
-  return (
-    <details
-      ref={menu}
-      className={workspaceFolderStyles.moreMenu}
-      onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); close(); }
-      }}
-    >
-      <summary aria-label="More workspace actions" title="More workspace actions"><MoreHorizontal size={16} aria-hidden="true" /><span>More</span></summary>
-      <div role="group" aria-label="Workspace actions" className={workspaceFolderStyles.moreMenuPanel}>
-        <button type="button" aria-label="Move workspace to trash" disabled={disabled} onClick={() => { close(); onMoveToTrash(); }}>
-          <Trash2 size={16} aria-hidden="true" />Move workspace to trash
-        </button>
-      </div>
-    </details>
-  );
-}
-
 function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
   steps: ReadonlyArray<WorkspaceStep>;
   activePage: WorkspaceView;
@@ -3073,9 +3056,9 @@ function WorkspaceStageButton({ page, label, selected, onOpen }: {
   </button>;
 }
 
-function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount }: {
+function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount, onRetry }: {
   status: string; error: string; createdWorkspaceId: number | null; referralId: number | null;
-  hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number;
+  hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number; onRetry?: () => void;
 }) {
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
   const presentation = workspaceSavePresentation(status, error, hasReferral, saving, dirtyCount, queuedFileCount);
@@ -3085,13 +3068,12 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   const quiet = !error && !saving && /^Draft(?: saved.*)?$/.test(status);
   return <div data-testid="workspace-save-status" className={quiet ? "sr-only" : workspaceFolderStyles.saveNotice} aria-live="polite" title={error || status}>
     <FeedbackCue value={status} enabled={presentation.confirmed} />
-    <Icon size={13} aria-hidden="true" className={`mt-0.5 shrink-0 ${presentation.iconClassName}`} />
-    <span className={`min-w-0 ${presentation.textClassName}`}>
-      <span className="block truncate">{presentation.label}</span>
-      {created ? <span className="sr-only">Workspace created</span> : null}
-      {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
-      {error ? <span role="alert" className="block break-words text-[14px] font-medium leading-6">{error}</span> : null}
-    </span>
+    <Icon size={13} aria-hidden="true" className={`shrink-0 ${presentation.iconClassName}`} />
+    <span className={`shrink-0 ${presentation.textClassName}`}>{presentation.label}</span>
+    {created ? <span className="sr-only">Workspace created</span> : null}
+    {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
+    {error ? <span role="alert" className="min-w-0 max-w-[45ch] truncate text-[11px] font-medium text-[#8b4638]">{error}</span> : null}
+    {error && onRetry ? <button type="button" aria-label="Retry saving" onClick={onRetry} disabled={saving} className="shrink-0 text-[11px] font-bold text-[#0c705f] underline underline-offset-2">Retry</button> : null}
   </div>;
 }
 
@@ -3447,14 +3429,16 @@ export function EditablePacketField({
   onFocus,
 }: EditablePacketFieldProps) {
   const label = ({ dob: "Date of birth", ssn: "SSN (optional)", community: "Requested community", county: "Client county", referent: "Referral facility / source", responsiblePerson: "Responsible person (optional)" } as Partial<Record<FieldKey, string>>)[fieldKey] ?? field.label;
+  const displayField = packetFieldForControl(fieldKey, field, suggestion);
   return (
     <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
         <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{label}</label>
       </div>
-      <PacketFieldControl fieldKey={fieldKey} field={suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
+      <PacketFieldControl fieldKey={fieldKey} field={displayField} options={options} directory={directory} referralId={referralId} label={label} onChange={onChange} />
       {suggestion ? <IntakeSuggestionLabel suggestion={suggestion} label={label} onAccept={() => onAcceptSuggestion?.(fieldKey, suggestion)} /> : null}
       {detail ? <div className="mt-1 text-[12px] font-bold text-[#176f60]" aria-live="polite">{detail}</div> : null}
+      <GenderFieldDetail fieldKey={fieldKey} field={field} displayValue={displayField.value} onChange={onChange} />
       {field.sourceFile ? (
         <div className="mt-2 flex items-center gap-1 text-[10px] font-black text-[#317f8f]">
           <CheckCircle2 size={12} />
@@ -3463,6 +3447,29 @@ export function EditablePacketField({
       ) : null}
     </div>
   );
+}
+
+function packetFieldForControl(fieldKey: FieldKey, field: PacketField, suggestion?: IntakeFieldSuggestion): PacketField {
+  const displayField = suggestion && !suggestion.conflicting ? { ...field, value: suggestion.value } : field;
+  if (fieldKey !== "gender" || !displayField.value || (genderOptions as readonly string[]).includes(displayField.value)) return displayField;
+  return { ...displayField, value: "Other" };
+}
+
+function GenderFieldDetail({ fieldKey, field, displayValue, onChange }: {
+  fieldKey: FieldKey;
+  field: PacketField;
+  displayValue: string;
+  onChange: (value: string) => void;
+}) {
+  if (fieldKey !== "gender" || displayValue !== "Other") return null;
+  return <input
+    aria-label="Specify gender"
+    value={field.value === "Other" ? "" : field.value}
+    placeholder="Specify gender"
+    maxLength={80}
+    onChange={(event) => onChange(event.target.value || "Other")}
+    className="mt-2 h-9 w-full border-b border-[#aebdb6] bg-[#f7faf8] px-2 text-[14px] font-semibold text-[#18211d] outline-none placeholder:text-[#7a8881] focus:border-[#0f8b73]"
+  />;
 }
 
 function PacketFieldControl({ fieldKey, field, options, directory, referralId, label, onChange }: Pick<EditablePacketFieldProps, "fieldKey" | "field" | "options" | "directory" | "referralId" | "onChange"> & { label: string }) {
@@ -3570,7 +3577,10 @@ function canvasMutationKey(id: number, keys: ReadonlySet<DirtyDraftKey>, values:
 
 function canvasMutationBody(current: Referral, patch: ReturnType<typeof buildCanvasPatch>, clientMutationId: string, ownerTouched: boolean, ownerId: string, handoffReason: string) {
   const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
-  const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
+  const touchedSections = getReferralPatchSections({
+    ...patch,
+    ...(ownerTouched ? { requirements: current.requirements ?? [] } : {}),
+  } as Record<string, unknown>);
   return JSON.stringify({
     if_match: current.version,
     if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),

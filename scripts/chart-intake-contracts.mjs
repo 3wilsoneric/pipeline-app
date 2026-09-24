@@ -22,6 +22,7 @@ assert(!JSON.stringify(displayedChart).includes("SYN-INTERNAL-71"));
 assert.equal(internalIdentity.resident_number, "SYN-INTERNAL-71", "presentation must preserve internal identity data");
 const source = {
   id: 71, clientId: "known-person", name: "Source Person", stage: "Accepted / Admitted", community: "San Pablo",
+  workspaceOrigin: "allo", workspaceStatus: "historical",
   date: "2025-01-01", createdAt: "2025-01-01T00:00:00Z", dob: "1980-01-01", gender: "Female", phone: "555-0101",
   email: "source@example.invalid", ssn: "fixture-only", owner: "Old assessor", ownerId: "old-assessor",
   admissionDate: "2025-01-03", county: "Alameda County", payer: "Source payer", source: "Old referrer",
@@ -153,7 +154,12 @@ assert.equal((await post({ client_mutation_id: "21d72f7d-ab88-4e78-ac7a-63d11163
 assert.equal(writes.at(-1)[0].workspaceOrigin, "pipeline");
 assert.equal(writes.at(-1)[0].workspaceStatus, "active");
 assert.equal(source.workspaceStatus, "historical");
+for (const [workspaceOrigin, mutationId] of [["import", "5f072d56-b806-4b49-8637-98674c2fe008"], ["pipeline", "4b864258-4a40-4bf3-88a9-2e939efc2ef7"]]) {
+  source.workspaceOrigin = workspaceOrigin;
+  assert.equal((await post({ client_mutation_id: mutationId })).status, 201,
+    `${workspaceOrigin} workspaces can seed a new intake`);
+}
 profile.pipeline.connection.status = "unavailable";
 assert.equal((await post()).status, 503);
-assert.equal(writes.length, 4);
+assert.equal(writes.length, 6);
 console.log("Chart/intake contracts passed: field mapping, source preservation, clean episode, protected provenance, role/access/origin checks, actor-bound retry keys, client-id injection and incomplete-chart refusal.");

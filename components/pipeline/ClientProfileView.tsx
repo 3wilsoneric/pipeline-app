@@ -247,9 +247,11 @@ function ResidentProfile({
     delete summaryEditActions["Conserved status"];
   }
 
+  const newIntakeSource = profile.pipeline.referrals.find((referral) => referral.id === sourceReferralId)
+    ?? profile.pipeline.referrals[0];
   const renderChartHeading = () => <>
-        {!embedded ? <StartReferralFromChart sourceReferralId={sourceReferralId ?? profile.pipeline.referrals[0]?.id}
-          allowed={profile.pipeline.permissions.can_create_identity_candidate} /> : null}
+        {!embedded ? <StartReferralFromChart sourceReferralId={newIntakeSource?.id}
+          allowed={Boolean(newIntakeSource?.clientId && !newIntakeSource.chartSource)} /> : null}
 
         {profile.freshness.status === "stale" || profile.freshness.warning ? (
           <div className="mt-4 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -26,9 +27,10 @@ test("recipient drafts: migrated PostgreSQL persistence, private ownership, conc
     started = true;
     sql = postgres({ host: "127.0.0.1", port, database: "postgres", username: process.env.USER, ssl: false, max: 4, prepare: false, onnotice: () => {} });
     const url = `postgres://${encodeURIComponent(process.env.USER)}@127.0.0.1:${port}/postgres`;
-    for (const name of ["0001_pipeline_core", "0006_user_workspace_state", "0033_workflow_continuity", "0040_referral_email_drafts"]) {
+    for (const name of ["0001_pipeline_core", "0006_user_workspace_state", "0033_workflow_continuity", "0038_assessment_packet_finalization", "0040_referral_email_drafts", "0042_admission_packet_links"]) {
       execFileSync(binary("psql"), [url, "-v", "ON_ERROR_STOP=1", "-f", join(root, "database/migrations", `${name}.sql`)], { stdio: "pipe" });
     }
+    await checkAssessorEmailPersistence(sql);
     const dependencies = {
       "@/lib/auth/pipeline-auth": { getPipelineAuthMode: () => "entra_jwt" },
       "@/lib/desktop/desktop-server-config": { isPipelineDesktopStateEnabled: () => false },
@@ -59,3 +61,42 @@ test("recipient drafts: migrated PostgreSQL persistence, private ownership, conc
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+async function checkAssessorEmailPersistence(sql) {
+  const database = { getPipelineDatabaseMode: () => "postgres", getPipelineDatabaseReadiness: () => ({ ready: true }), getPipelineSql: () => sql };
+  const owner = () => loadEntry("lib/pipeline/meet-client-delivery-audit.ts", { "@/lib/database/pipeline-database": database });
+  const packetOwner = () => loadEntry("lib/notifications/admission-packet-store.ts", { "@/lib/database/pipeline-database": database });
+  const [person] = await sql`insert into pipeline.people (display_name) values ('Synthetic inbox test') returning person_id`;
+  const [referral] = await sql`insert into pipeline.referrals (person_id, stage, community, created_by, created_by_name, updated_by, updated_by_name)
+    values (${person.person_id}, 'Assessment', 'San Pablo', 'fixture', 'Fixture', 'fixture', 'Fixture') returning referral_id`;
+  const referralId = Number(referral.referral_id);
+  await sql`insert into pipeline.assessments (assessment_id, referral_id, status, version, created_by, created_by_name, updated_by, updated_by_name)
+    values ('assessor-email-test', ${referralId}, 'complete', 7, 'fixture', 'Fixture', 'fixture', 'Fixture')`;
+  const audit = { deliveryId: randomUUID(), mutationId: randomUUID(), referralId, assessmentId: 'assessor-email-test', assessmentVersion: 7, decisionId: 'fixture',
+    status: 'reserved', actorId: 'fixture', actorName: 'Fixture', recipientCount: 1, recipientDomains: ['example.invalid'], attachmentCount: 1, attachmentBytes: 7,
+    provider: 'assessor_email', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const rival = { ...audit, deliveryId: randomUUID() };
+  const reservations = await Promise.all([owner().reserveMeetClientDelivery(audit), owner().reserveMeetClientDelivery(rival)]);
+  assert.equal(reservations.filter(Boolean).length, 1);
+  const winner = reservations[0] ? audit : rival;
+  await owner().completeMeetClientDelivery(winner, 'assessor_emailed');
+  const [unsent] = await sql`select meet_client_sent_at, version from pipeline.assessments where assessment_id = 'assessor-email-test'`;
+  assert.equal(unsent.meet_client_sent_at, null); assert.equal(unsent.version, 7);
+  assert.equal(await owner().reserveMeetClientDelivery({ ...winner, deliveryId: randomUUID() }), false);
+  const packet = { schema: 1, id: winner.deliveryId, referralId, assessmentId: winner.assessmentId, assessmentVersion: 7,
+    createdAt: winner.createdAt, expiresAt: winner.createdAt, files: [], recipients: [], message: { subject: 'Synthetic', body: 'Fixture' }, events: [],
+    outlook: { transport: 'assessor_email', ownerId: 'fixture', mailbox: 'staff@example.invalid', status: 'draft', deliveryMode: 'attachments', audit: winner, referralVersion: 1, packetRevision: '1'.repeat(64) } };
+  await packetOwner().createAdmissionPacket(packet);
+  assert.equal((await packetOwner().findWorkspaceOutlookDraft(referralId)).outlook.transport, 'assessor_email');
+  assert.equal((await packetOwner().listAdmissionPacketLinks(referralId)).length, 0);
+  await owner().completeMeetClientDelivery(winner, 'failed', 'assessor_closed_inbox_copy', true);
+  const replacement = { ...winner, deliveryId: randomUUID() };
+  assert.equal(await owner().reserveMeetClientDelivery(replacement), true);
+  await owner().completeMeetClientDelivery(winner, 'failed', 'assessor_closed_inbox_copy', true);
+  assert.equal(await owner().reserveMeetClientDelivery({ ...winner, deliveryId: randomUUID() }), false, 'old closure cannot unlock replacement');
+  await owner().completeMeetClientDelivery(replacement, 'sent');
+  const [sent] = await sql`select meet_client_sent_at, meet_client_sent_version from pipeline.assessments where assessment_id = 'assessor-email-test'`;
+  assert.ok(sent.meet_client_sent_at); assert.equal(sent.meet_client_sent_version, 7);
+  const events = await sql`select action from pipeline.audit_events where entity_id = ${String(referralId)}`;
+  assert.ok(events.some(event => event.action === 'meet_client_packet_emailed_to_assessor'));
+}

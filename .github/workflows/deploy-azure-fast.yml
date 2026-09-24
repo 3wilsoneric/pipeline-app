@@ -1,0 +1,171 @@
+name: Deploy Pipeline web fast lane
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+  id-token: write
+
+concurrency:
+  group: pipeline-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Promote verified web-only image
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@93381592711f247e165c389ebb30b596c84cdc48 # v3.0.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Read the current production revision without changing settings
+        id: current
+        shell: bash
+        run: |
+          set -euo pipefail
+          outputs="$(az deployment group show \
+            --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
+            --name pipeline-foundation-state \
+            --query properties.outputs --output json)"
+          prefix="$(jq -r '.namePrefix.value' <<<"$outputs")"
+          environment="$(jq -r '.environment.value' <<<"$outputs")"
+          web_name="$(printf '%s-%s-web' "$prefix" "$environment" | cut -c1-32)"
+          registry_name="$(jq -r '.containerRegistryName.value' <<<"$outputs")"
+          registry_server="$(jq -r '.containerRegistryLoginServer.value' <<<"$outputs")"
+          state="$(az containerapp show \
+            --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
+            --name "$web_name" \
+            --query '{image:properties.template.containers[0].image,mode:properties.configuration.activeRevisionsMode,latest:properties.latestRevisionName,ready:properties.latestReadyRevisionName,traffic:properties.configuration.ingress.traffic,fqdn:properties.configuration.ingress.fqdn}' \
+            --output json)"
+          test "$(jq -r '.mode' <<<"$state")" = Single
+          test "$(jq -r '.latest' <<<"$state")" = "$(jq -r '.ready' <<<"$state")"
+          jq -e '(.traffic | length) == 1 and .traffic[0].latestRevision == true and .traffic[0].weight == 100' <<<"$state" > /dev/null
+          previous_image="$(jq -r '.image' <<<"$state")"
+          test "$(jq -r '.fqdn' <<<"$state")" != null
+          image_prefix="$registry_server/pipeline-app:"
+          [[ "$previous_image" == "$image_prefix"* ]] || { echo 'Production image is not a Pipeline commit tag.' >&2; exit 1; }
+          base_sha="${previous_image#"$image_prefix"}"
+          base_sha="${base_sha#fast-}"
+          [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'Production commit cannot be determined.' >&2; exit 1; }
+          echo "web_name=$web_name" >> "$GITHUB_OUTPUT"
+          echo "registry_name=$registry_name" >> "$GITHUB_OUTPUT"
+          echo "registry_server=$registry_server" >> "$GITHUB_OUTPUT"
+          echo "previous_image=$previous_image" >> "$GITHUB_OUTPUT"
+          echo "previous_revision=$(jq -r '.ready' <<<"$state")" >> "$GITHUB_OUTPUT"
+          echo "fqdn=$(jq -r '.fqdn' <<<"$state")" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Reject changes requiring the full deployment lane
+        run: node scripts/fast-deploy-eligibility.mjs --base '${{ steps.current.outputs.base_sha }}' --head '${{ github.sha }}'
+
+      - name: Wait for required verification and the exact published image
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..60}; do
+            checks="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100")"
+            verify="$(jq -r '[.check_runs[] | select(.name == "verify")] | if length == 0 then "" else max_by(.started_at).conclusion // "" end' <<<"$checks")"
+            image="$(jq -r '[.check_runs[] | select(.name == "Publish immutable release image")] | if length == 0 then "" else max_by(.started_at).conclusion // "" end' <<<"$checks")"
+            if [[ "$verify" == success && "$image" == success ]]; then
+              break
+            fi
+            if [[ "$verify" =~ ^(failure|cancelled|timed_out)$ || "$image" =~ ^(failure|cancelled|timed_out)$ ]]; then
+              echo "Required verification or image publication failed: verify=$verify image=$image" >&2
+              exit 1
+            fi
+            if [[ "$attempt" == 60 ]]; then
+              echo 'The exact commit was not verified and published within ten minutes.' >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          current_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$current_main" = "$GITHUB_SHA" || { echo 'Main advanced while the release waited; dispatch again for the current commit.' >&2; exit 1; }
+          az acr manifest show-metadata \
+            --registry '${{ steps.current.outputs.registry_name }}' \
+            --name "pipeline-app:fast-${GITHUB_SHA}" \
+            --query digest --output tsv | grep -E '^sha256:[0-9a-f]{64}$'
+
+      - name: Promote only the web image and roll back on failed health
+        shell: bash
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          WEB_NAME: ${{ steps.current.outputs.web_name }}
+          REGISTRY_SERVER: ${{ steps.current.outputs.registry_server }}
+          PREVIOUS_IMAGE: ${{ steps.current.outputs.previous_image }}
+          PREVIOUS_REVISION: ${{ steps.current.outputs.previous_revision }}
+          FQDN: ${{ steps.current.outputs.fqdn }}
+        run: |
+          set -euo pipefail
+          candidate="$REGISTRY_SERVER/pipeline-app:fast-${GITHUB_SHA}"
+          current_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$current_main" = "$GITHUB_SHA" || { echo 'Main advanced before rollout.' >&2; exit 1; }
+          current_image="$(az containerapp show --resource-group "$RESOURCE_GROUP" --name "$WEB_NAME" --query properties.template.containers[0].image --output tsv)"
+          test "$current_image" = "$PREVIOUS_IMAGE" || { echo 'Production changed before rollout.' >&2; exit 1; }
+          suffix="f${GITHUB_SHA:0:10}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          attempted=false
+          succeeded=false
+          rollback() {
+            if [[ "$attempted" != true || "$succeeded" == true ]]; then return; fi
+            echo 'Candidate failed health checks; restoring the prior image.' >&2
+            if ! az containerapp update \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$WEB_NAME" \
+              --image "$PREVIOUS_IMAGE" \
+              --revision-suffix "rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --output none; then
+              echo 'Automatic rollback failed; restore the prior revision immediately.' >&2
+              return
+            fi
+            for recovery_attempt in {1..30}; do
+              recovery="$(az containerapp show --resource-group "$RESOURCE_GROUP" --name "$WEB_NAME" --query '{ready:properties.latestReadyRevisionName,latest:properties.latestRevisionName,image:properties.template.containers[0].image}' --output json)"
+              if [[ "$(jq -r '.ready' <<<"$recovery")" == "$(jq -r '.latest' <<<"$recovery")" \
+                && "$(jq -r '.image' <<<"$recovery")" == "$PREVIOUS_IMAGE" ]] \
+                && curl --fail --silent --show-error --max-time 15 "https://$FQDN/api/health" > /dev/null; then
+                echo 'Previous image is ready again.' >&2
+                return
+              fi
+              sleep 10
+            done
+            echo 'Rollback was requested but did not become ready; operator intervention is required.' >&2
+          }
+          trap rollback EXIT
+          attempted=true
+          az containerapp update \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEB_NAME" \
+            --image "$candidate" \
+            --revision-suffix "$suffix" \
+            --output none
+          expected_revision="$WEB_NAME--$suffix"
+          for attempt in {1..30}; do
+            state="$(az containerapp show \
+              --resource-group "$RESOURCE_GROUP" --name "$WEB_NAME" \
+              --query '{latest:properties.latestRevisionName,ready:properties.latestReadyRevisionName,image:properties.template.containers[0].image}' \
+              --output json)"
+            if [[ "$(jq -r '.latest' <<<"$state")" == "$expected_revision" \
+              && "$(jq -r '.ready' <<<"$state")" == "$expected_revision" \
+              && "$(jq -r '.image' <<<"$state")" == "$candidate" ]] \
+              && curl --fail --silent --show-error --max-time 10 "https://$FQDN/api/health/live" > /dev/null \
+              && curl --fail --silent --show-error --max-time 15 "https://$FQDN/api/health" > /dev/null; then
+              succeeded=true
+              break
+            fi
+            sleep 10
+          done
+          test "$succeeded" == true || { echo 'The candidate did not become ready; rollback is starting.' >&2; exit 1; }
+          echo "Pipeline fast lane deployed ${GITHUB_SHA}; previous revision: $PREVIOUS_REVISION"

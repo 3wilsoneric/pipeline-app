@@ -56,6 +56,7 @@ export const referralCanvasFieldKeys = [
   "responsiblePerson",
   "phone",
   "email",
+  "referrerName",
   "summary",
   "currentMedications",
 ] as const;
@@ -311,6 +312,7 @@ export type Referral = {
   fieldSources?: Partial<Record<ReferralCanvasFieldKey, string>>;
   phone: string;
   email: string;
+  referrerName?: string;
   payer: string;
   packetId?: string;
   packetStatus?: PacketStatusResponse["status"];

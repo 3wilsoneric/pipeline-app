@@ -13,6 +13,7 @@ import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { findWorkspaceOutlookDraft, PacketAccessError } from "@/lib/notifications/admission-packet-store";
 import { getOutlookMailReadiness, connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
+import { assessorEmailDestination, prepareAssessorEmail, requireAssessorEmailCapacity } from "@/lib/notifications/assessor-email-handoff";
 import { prepareOutlookHandoff } from "@/lib/notifications/outlook-handoff";
 import {
   getMeetClientAttachmentInventory,
@@ -50,10 +51,16 @@ export async function POST(
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;
     const delivery = new URL(request.url).searchParams.get("delivery");
-    if (![null, "", "outlook"].includes(delivery)) return jsonError("Choose Save to Outlook Drafts to prepare this handoff.", 400);
+    if (![null, "", "outlook", "assessor"].includes(delivery)) return jsonError("Choose Save to Outlook Drafts to prepare this handoff.", 400);
     const outlook = delivery === "outlook";
+    const assessorEmail = delivery === "assessor";
+    let destination = "";
+    if (assessorEmail) {
+      try { destination = assessorEmailDestination(user); }
+      catch (error) { return outlookFailure(error); }
+    }
     const activeDraft = await findWorkspaceOutlookDraft(referralId);
-    if (activeDraft?.outlook && !["sent", "discarded"].includes(activeDraft.outlook.status)) return jsonError("This workspace already has an Outlook draft. Reopen or remove it before preparing another handoff.", 409);
+    if (activeDraft?.outlook && !["sent", "discarded"].includes(activeDraft.outlook.status)) return jsonError("This workspace already has a prepared handoff. Continue with it or close it before preparing another.", 409);
     let mailbox: Awaited<ReturnType<typeof connectedOutlookMailbox>> | undefined;
     if (outlook) {
       try { mailbox = await connectedOutlookMailbox(request, user); }
@@ -63,8 +70,12 @@ export async function POST(
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
-    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook);
+    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook || assessorEmail);
     if (!attachmentContext.ok) return attachmentContext.response;
+    if (assessorEmail) {
+      try { requireAssessorEmailCapacity(attachmentContext.inventory); }
+      catch (error) { return outlookFailure(error); }
+    }
 
     const reserveAndDeliver = async () => {
       const deliveryId = randomUUID();
@@ -83,8 +94,19 @@ export async function POST(
         attachmentBytes: attachmentContext.inventory.totalBytes,
       });
       if (outlook) audit.provider = "outlook_draft";
+      if (assessorEmail) audit.provider = "assessor_email";
       const reserved = await reserveMeetClientDelivery(audit);
       if (!reserved) return jsonError("This assessment already has a send in progress or awaiting confirmation. Check the workspace activity and the sending mailbox before retrying; refreshing will not send a duplicate.", 409);
+
+      if (assessorEmail) {
+        try {
+          const draft = await prepareAssessorEmail({ user, destination, audit, referralVersion: prepared.referralVersion,
+            packetRevision: prepared.packetRevision, recipients: prepared.recipients, ccRecipients: prepared.ccRecipients,
+            summary: buildMeetClientSummary(assessment, handoffReferral), preparedBy: accountableActor.name,
+            message: prepared.message, inventory: attachmentContext.inventory });
+          return Response.json({ draft }, { headers: privateHeaders() });
+        } catch (error) { return outlookFailure(error); }
+      }
 
       if (mailbox) {
         try {

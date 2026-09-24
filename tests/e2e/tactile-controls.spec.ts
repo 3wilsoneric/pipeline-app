@@ -87,30 +87,18 @@ test("disabled create action does not get hover or press animation", async ({ pa
   await expect(page).toHaveURL(/referralId=\d+/);
 });
 
-test("workspace actions menu keeps the destructive action reachable behind its confirmation", async ({ page }) => {
+test("workspace header keeps trash visible while confirmation guards deletion", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Menu Workspace", owner: "", tags: [] });
   let deletions = 0;
   page.on("request", (request) => { if (request.method() === "DELETE" && request.url().includes(`/api/referrals/${referral.id}`)) deletions += 1; });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
   const header = page.getByTestId("workspace-folder-header");
   await expect(header).toBeVisible();
-  // The destructive action no longer sits beside the stage tabs.
-  await expect(header.getByRole("button", { name: "Move workspace to trash" })).toHaveCount(0);
-  const menu = header.locator('summary[aria-label="More workspace actions"]');
-  await expect(menu).toBeVisible();
-  const trigger = (await menu.boundingBox())!;
-  expect(trigger.height).toBeGreaterThanOrEqual(44);
-  expect(trigger.width).toBeGreaterThanOrEqual(44);
-  await menu.focus();
-  await page.keyboard.press("Enter");
-  const trash = page.getByRole("button", { name: "Move workspace to trash", exact: true });
+  const trash = header.getByRole("button", { name: "Move workspace to trash", exact: true });
   await expect(trash).toBeVisible();
   expect((await trash.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await page.keyboard.press("Escape");
-  await expect(trash).toBeHidden();
-  await expect(menu).toBeFocused();
-  await menu.click();
-  await trash.click();
+  await trash.focus();
+  await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Move workspace to trash?", exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("restored from Trash for 30 days");
@@ -120,18 +108,44 @@ test("workspace actions menu keeps the destructive action reachable behind its c
   expect((await page.request.get(`/api/referrals/${referral.id}`)).status()).toBe(200);
 });
 
+test("a failed save does not block moving a workspace to trash", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Unsaved Trash", owner: "", tags: [] });
+  await page.route(`**/api/referrals/${referral.id}`, (route) => route.request().method() === "PATCH"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic save interruption." } })
+    : route.continue());
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+  await page.getByRole("button", { name: "Edit referral details" }).click();
+  const name = page.getByRole("textbox", { name: "NAME", exact: true });
+  await name.fill("Synthetic Unsaved Change");
+  await name.press("Tab");
+  const status = page.getByTestId("workspace-save-status");
+  await expect(status).toContainText("Not saved to Pipeline");
+  const box = await status.boundingBox();
+  expect(box?.height).toBeLessThan(40);
+  await page.getByRole("button", { name: "Move workspace to trash", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Move workspace to trash?", exact: true });
+  await expect(dialog).toContainText("Changes not saved to Pipeline will be discarded");
+  const deletion = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}`) && response.request().method() === "DELETE");
+  await dialog.getByRole("button", { name: "Move to trash", exact: true }).click();
+  expect((await deletion).status()).toBe(200);
+  await expect(dialog).toHaveCount(0);
+  expect((await page.request.get(`/api/referrals/${referral.id}`)).status()).toBe(404);
+});
+
 for (const width of [1440, 834]) {
   test(`admission requirement controls and workspace status stay above micro-type at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 950 });
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Standard Workspace", owner: "", tags: [] });
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-    await page.locator("summary", { hasText: "Admission details" }).click();
+    const decision = page.getByRole("region", { name: "Decision", exact: true });
+    await decision.locator("summary").filter({ hasText: /^Admission paperwork & EHR handoff$/ }).click();
     const requirement = page.getByRole("combobox", { name: /status$/ }).first();
     await expect(requirement).toBeVisible();
     const control = await requirement.evaluate((node) => ({ height: node.getBoundingClientRect().height, fontSize: parseFloat(getComputedStyle(node).fontSize) }));
     expect(control.height).toBeGreaterThanOrEqual(44);
     expect(control.fontSize).toBeGreaterThanOrEqual(14);
-    const stage = page.getByRole("combobox", { name: "Workflow stage", exact: true });
+    await decision.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+    const stage = decision.getByRole("combobox", { name: "Workflow stage", exact: true });
     expect((await stage.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     // Saving instructions and workflow distinctions stay readable.
     const smallEssential = await page.evaluate(() => {

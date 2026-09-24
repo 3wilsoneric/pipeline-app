@@ -948,7 +948,6 @@ async function createLocalReferral(
   }
 
   const creationReason = confirmLocalReferralCreation(input, options);
-
   if (state.referrals.length >= maxReferralRows) {
     throw new Error("Referral capacity reached. Archive closed referrals before creating more.");
   }
@@ -2859,6 +2858,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "fieldSources",
     "phone",
     "email",
+    "referrerName",
     "payer",
     "packetId",
     "packetStatus",
@@ -3037,8 +3037,8 @@ function normalizeReferral(input: Referral): Referral {
   };
 }
 
-function normalizeReferralContactFields(input: Referral): Pick<Referral, "phone" | "email" | "payer"> {
-  return { phone: input.phone ?? "", email: input.email ?? "", payer: input.payer ?? "" };
+function normalizeReferralContactFields(input: Referral): Pick<Referral, "phone" | "email" | "referrerName" | "payer"> {
+  return { phone: input.phone ?? "", email: input.email ?? "", referrerName: input.referrerName ?? "", payer: input.payer ?? "" };
 }
 
 function hasAssignedOwner(value: Pick<Referral, "owner" | "ownerId">) {

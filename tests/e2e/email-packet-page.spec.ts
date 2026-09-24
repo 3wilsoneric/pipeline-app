@@ -379,6 +379,7 @@ for (const width of [834, 390]) test(`saved Outlook draft retains its frozen aud
   const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
   await expect(composer).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Confirm admit date", exact: true })).toHaveCount(0);
+  await composer.getByRole("button", { name: "Use Outlook Drafts instead", exact: true }).click();
   const outlook = composer.getByRole("region", { name: "Outlook handoff" });
   await expect(outlook.getByRole("heading", { name: "Your Outlook draft" })).toBeVisible();
   await expect(composer.getByRole("region", { name: "Prepared handoff details" })).toContainText("reviewed@example.invalid");
@@ -441,6 +442,7 @@ for (const width of [1440, 390]) test(`Outlook readiness explains a missing uplo
   await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: { occupied: false, draft: null } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const composer = await openPreview(page);
+  await composer.getByRole("button", { name: "Use Outlook Drafts instead", exact: true }).click();
   const outlook = composer.getByRole("region", { name: "Outlook handoff" });
   await expect(outlook.getByText("Upload at least one file to this workspace before sending the admission packet.", { exact: true })).toBeVisible();
   await expect(outlook).not.toContainText("Finish the email review and verify recipients");
@@ -449,4 +451,58 @@ for (const width of [1440, 390]) test(`Outlook readiness explains a missing uplo
   expect(await checkA11y(page, 'section[aria-label="Outlook handoff"]')).toEqual([]);
   await outlook.getByText("Upload at least one file to this workspace before sending the admission packet.", { exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath(`outlook-readiness-${width}.png`), animations: "disabled" });
+});
+
+test.describe("assessor inbox delivery", () => {
+  // Network responses below are synthetic; service workers must not bypass the route fixtures.
+  test.use({ serviceWorkers: "block" });
+for (const width of [1440, 834, 390]) test(`email packet to assessor: clear next step, reload and forwarding confirmation at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const { referral, assessment } = await referralWithAssessment(page);
+  let draft: Record<string, unknown> | null = null;
+  let sends = 0;
+  let outlookConnects = 0;
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
+    const response = await route.fetch(); const payload = await response.json();
+    payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], outlook_draft: draft };
+    await route.fulfill({ json: payload });
+  });
+  await page.route(`**/api/referrals/${referral.id}/outlook-draft`, async route => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON();
+      if (body.action === "connect") outlookConnects++;
+      expect(body.action).toBe("forwarded"); expect(body.confirmed).toBe(true);
+      draft = { ...draft, status: "sent" };
+    }
+    await route.fulfill({ json: { draft, occupied: false, account_email: "assessor@example.invalid", email_configured: true, email_sender: "admissions@alamo-pipeline.com" } });
+  });
+  await page.route(`**/api/referrals/${referral.id}/meet-client-email?delivery=assessor`, async route => {
+    sends++;
+    expect(route.request().headers()["x-pipeline-outlook-token"]).toBeUndefined();
+    const body = route.request().postDataJSON();
+    expect(body.recipients).toContain("care@example.invalid"); expect(body.confirmed).toBe(true);
+    draft = { packet_id: "00000000-0000-4000-8000-000000000001", status: "draft", delivery_method: "assessor_email", mailbox: "assessor@example.invalid", prepared_at: new Date().toISOString(), assessment_version: assessment.version + 1, file_count: 1, to_recipients: body.recipients, cc_recipients: body.cc_recipients };
+    await route.fulfill({ json: { draft } });
+  });
+  const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
+  await page.goto(url); await settleHandoff(page); await openPreview(page);
+  const inbox = page.getByRole("region", { name: "Email packet to assessor" });
+  await expect(inbox.getByText("assessor@example.invalid", { exact: true })).toBeVisible();
+  await expect(inbox.getByRole("button", { name: "Email packet to me", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Connect Outlook", exact: true })).toHaveCount(0);
+  expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
+  await inbox.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `output/assessor-email-${width}.png`, fullPage: true });
+  await inbox.getByRole("button", { name: "Email packet to me", exact: true }).click();
+  await expect(inbox.getByRole("button", { name: "I forwarded the handoff" })).toBeVisible();
+  await page.reload(); await settleHandoff(page);
+  await page.getByRole("button", { name: "Continue inbox handoff" }).click();
+  await expect(inbox.getByRole("button", { name: "Email packet to me", exact: true })).toHaveCount(0);
+  await inbox.getByRole("button", { name: "I forwarded the handoff" }).click();
+  await expect(page.getByRole("alertdialog", { name: "Did you forward the complete handoff?" })).toBeVisible();
+  await page.getByRole("button", { name: "Yes, I sent it", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Handoff sent" })).toBeVisible();
+  expect(sends).toBe(1); expect(outlookConnects).toBe(0);
+});
+
 });
