@@ -6,7 +6,6 @@ import { useHandoffRecipients } from "./useHandoffRecipients";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
-import dynamic from "next/dynamic";
 import {
   ArrowRight,
   CalendarClock,
@@ -35,6 +34,7 @@ import { useIntakeFileExtraction } from "@/components/pipeline/use-intake-file-e
 import { IntakeExtractionProgress, IntakeSuggestionLabel } from "@/components/pipeline/IntakeExtractionProgress";
 import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
+import ReferralWorkflowPanel from "@/components/pipeline/ReferralWorkflowPanel";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
@@ -149,17 +149,6 @@ import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import ContactDirectorySuggestion from "@/components/pipeline/ContactDirectorySuggestion";
 import { ageFromCalendarDate, calendarToday, normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
 import { stringLimits } from "@/lib/pipeline/referral-validation";
-
-const ReferralWorkflowPanel = dynamic(
-  () => import("@/components/pipeline/ReferralWorkflowPanel"),
-  {
-    loading: () => (
-      <p aria-live="polite" className="text-sm text-[#666]">
-        Loading decision...
-      </p>
-    ),
-  },
-);
 
 type FieldKey = ReferralCanvasFieldKey;
 
