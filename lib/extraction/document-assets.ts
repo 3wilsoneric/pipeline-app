@@ -54,7 +54,7 @@ export type DocumentFileMetadata = {
 
 export async function getDocumentFileMetadata(
   documentId: string,
-  options: { afterPage?: number; limit?: number } = {},
+  options: { afterPage?: number; limit?: number; includeDeleted?: boolean } = {},
 ): Promise<DocumentFileMetadata | null> {
   if (!isDocumentId(documentId)) return null;
   const afterPage = options.afterPage ?? 0;
@@ -77,7 +77,7 @@ export async function getDocumentFileMetadata(
       processing_status, preview_status, malware_scan_status, page_count,
       uploaded_at, updated_at
     from pipeline.documents
-    where document_id = ${documentId}::uuid and deleted_at is null
+    where document_id = ${documentId}::uuid and (${options.includeDeleted === true} or deleted_at is null)
     limit 1
   `;
   if (!rows[0]) return null;

@@ -15,6 +15,7 @@ import { findWorkspaceOutlookDraft, PacketAccessError } from "@/lib/notification
 import { getOutlookMailReadiness, connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
 import { assessorEmailDestination, prepareAssessorEmail, requireAssessorEmailCapacity } from "@/lib/notifications/assessor-email-handoff";
 import { prepareOutlookHandoff } from "@/lib/notifications/outlook-handoff";
+import { communicationView, ownedDirectHandoff, prepareDirectHandoff, sendDirectHandoff } from "@/lib/notifications/direct-handoff";
 import {
   getMeetClientAttachmentInventory,
   prepareMeetClientMailAttachments,
@@ -51,7 +52,14 @@ export async function POST(
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;
     const delivery = new URL(request.url).searchParams.get("delivery");
-    if (![null, "", "outlook", "assessor"].includes(delivery)) return jsonError("Choose Save to Outlook Drafts to prepare this handoff.", 400);
+    if (![null, "", "outlook", "assessor", "direct"].includes(delivery)) return jsonError("Choose an available handoff delivery method.", 400);
+    const direct = delivery === "direct";
+    if (direct && prepared.snapshotId) {
+      try {
+        const existing = await ownedDirectHandoff(prepared.snapshotId, referralId, user.id);
+        if (existing.communication!.status === "submitted") return Response.json({ communication: communicationView(existing, true) }, { headers: privateHeaders() });
+      } catch (error) { return outlookFailure(error); }
+    }
     const outlook = delivery === "outlook";
     const assessorEmail = delivery === "assessor";
     let destination = "";
@@ -70,7 +78,7 @@ export async function POST(
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
-    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook || assessorEmail);
+    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook, outlook || assessorEmail || direct);
     if (!attachmentContext.ok) return attachmentContext.response;
     if (assessorEmail) {
       try { requireAssessorEmailCapacity(attachmentContext.inventory); }
@@ -95,6 +103,20 @@ export async function POST(
       });
       if (outlook) audit.provider = "outlook_draft";
       if (assessorEmail) audit.provider = "assessor_email";
+      if (direct) {
+        const input = { user, assessment, audit, referralVersion: prepared.referralVersion, packetRevision: prepared.packetRevision,
+          recipients: prepared.recipients, ccRecipients: prepared.ccRecipients, inventory: attachmentContext.inventory,
+          summary: buildMeetClientSummary(assessment, handoffReferral), preparedBy: accountableActor.name, message: prepared.message };
+        try {
+          const communication = prepared.snapshotId ? await sendDirectHandoff(prepared.snapshotId, input, async () => {
+            const fresh = await loadMeetClientContext(referralId, prepared.referralVersion, prepared.assessmentId, prepared.assessmentVersion);
+            if (!fresh.ok) throw new PacketAccessError("The admission or assessment changed after preview. Review the updated handoff before sending.", 409);
+            const files = await getMeetClientAttachmentInventory(handoffReferral, { report: buildAssessmentSummaryReport(assessment, handoffReferral) });
+            if (!files.ready || files.revision !== prepared.packetRevision) throw new PacketAccessError("The packet changed after preview. Review the updated files before sending.", 409);
+          }) : await prepareDirectHandoff(input);
+          return Response.json({ communication }, { headers: privateHeaders() });
+        } catch (error) { return outlookFailure(error, true); }
+      }
       const reserved = await reserveMeetClientDelivery(audit);
       if (!reserved) return jsonError("This assessment already has a send in progress or awaiting confirmation. Check the workspace activity and the sending mailbox before retrying; refreshing will not send a duplicate.", 409);
 
@@ -235,7 +257,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string; snapshotId?: string }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 256_000);
@@ -243,6 +265,8 @@ async function prepareEmailRequest(request: Request): Promise<
   if (!confirmedRequest(body.value)) {
     return { ok: false, response: jsonError("Confirm that every recipient is authorized to receive this client information.") };
   }
+  const snapshotId = body.value.snapshot_id;
+  if (snapshotId !== undefined && (typeof snapshotId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(snapshotId))) return { ok: false, response: jsonError("Choose a saved email preview.") };
   const message = parseMeetClientMessage(body.value.message);
   if (!message) return { ok: false, response: jsonError("Use a subject up to 200 characters and message up to 20,000 characters, without unsupported control characters.") };
   const packetRevision = body.value.packet_revision;
@@ -263,7 +287,7 @@ async function prepareEmailRequest(request: Request): Promise<
     return { ok: false, response: jsonError("Refresh and review the assessment summary before sending.", 409) };
   }
   const audience = prepareHandoffAudience(body.value);
-  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision } : audience;
+  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision, snapshotId: snapshotId as string | undefined } : audience;
 }
 
 function prepareHandoffAudience(body: Record<string, unknown>) {
@@ -310,7 +334,7 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   };
 }
 
-async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord, packetRevision: string, outlook = false) {
+async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord, packetRevision: string, outlook = false, attachmentsOnly = outlook) {
   try {
     const readiness = handoffMailReadiness(outlook);
     const inventory = await getMeetClientAttachmentInventory(referral, {
@@ -321,16 +345,16 @@ async function loadAdmissionPacket(referral: Referral, assessment: PipelineAsses
       return { ok: false as const, response: jsonError(inventory.blockers.join(" "), 422) };
     }
     if (inventory.revision !== packetRevision) return { ok: false as const, response: jsonError("The packet files changed. Refresh the preview to include every current file before sending.", 409) };
-    const attachments = outlook || inventory.deliveryMode === "secure_link" ? [] : await prepareMeetClientMailAttachments(inventory);
+    const attachments = attachmentsOnly || inventory.deliveryMode === "secure_link" ? [] : await prepareMeetClientMailAttachments(inventory);
     return { ok: true as const, inventory, attachments };
   } catch {
     return { ok: false as const, response: jsonError("The admission packet could not be prepared. Refresh the chart and try again.", 503) };
   }
 }
 
-function outlookFailure(error: unknown) {
+function outlookFailure(error: unknown, direct = false) {
   if (error instanceof PacketAccessError || error instanceof OutlookMailError) return jsonError(error.message, error.status === 401 ? 428 : error.status);
-  return jsonError("Outlook could not confirm the draft. Check its status before trying again.", 503);
+  return jsonError(direct ? "The handoff could not be confirmed. Check Email history before trying again." : "Outlook could not confirm the draft. Check its status before trying again.", 503);
 }
 
 function buildDeliveryAudit({

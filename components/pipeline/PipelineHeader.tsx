@@ -99,7 +99,7 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
     if (target === "operations" && !canAccessReports) return;
     setSearchOpen(false);
     setHomeMode("workspace");
-    const destination = target === "referrals"
+    const destination = target === "communications" ? "/communications" : target === "referrals"
       ? "/?view=referrals"
       : target === "calendar"
         ? "/?screen=calendar"
@@ -385,6 +385,7 @@ function navigatePipelineDestination(
 }
 
 function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): PipelineNavTarget {
+  if (pathname === "/communications") return "communications";
   if (searchParams.get("screen") === "packet") {
     return searchParams.has("referralId") ? "referrals" : "packet";
   }
@@ -397,6 +398,7 @@ function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): Pi
 }
 
 function headerPageLabel(pathname: string, activeSearchParams: URLSearchParams, activeNav: PipelineNavTarget) {
+  if (pathname === "/communications") return "Communications";
   return pathname === "/settings" ? "Settings" : activeSearchParams.get("screen") === "packet" ? "Workspace" : activeNav === "calendar" ? "Calendar" : activeNav === "profiles" ? "Clients" : activeNav === "operations" ? "Reports" : "Workspaces";
 }
 

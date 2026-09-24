@@ -61,7 +61,9 @@ export async function GET(
           "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
         } });
       }
-      const mail = getOutlookMailReadiness();
+      const exampleOnly = !isMeetClientLive();
+      const outlook = await summaryOutlookState(referralId, auth.user, exampleOnly);
+      const mail = outlook.draft && outlook.draft.delivery_method !== "assessor_email" ? getOutlookMailReadiness() : getGraphMailReadiness();
       const admissionPacket = await loadAdmissionPacketInventory(
         handoffReferral,
         mail.largeAttachmentDeliveryConfigured,
@@ -70,21 +72,19 @@ export async function GET(
       const emailBlockers = meetClientEmailBlockers(
         report,
         snapshot.decision?.outcome,
-        mail.configured || getGraphMailReadiness().configured,
+        mail.configured,
         admissionPacket.blockers,
         getPlannedAdmissionDate(snapshot.referral),
       );
-      const exampleOnly = !isMeetClientLive();
       const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
 
-      const outlook = await summaryOutlookState(referralId, auth.user, exampleOnly);
       return Response.json({
         referral: snapshot.referral,
         report,
         email: {
           example_only: exampleOnly,
           outlook_draft: outlook.draft,
-          configured: mail.configured || getGraphMailReadiness().configured,
+          configured: mail.configured,
           sender: mail.sender,
           prepared_by: auth.user.name,
           preview: report ? renderMeetClientEmail(
@@ -152,7 +152,7 @@ function meetClientEmailBlockers(
   if (!report) blockers.push("Complete an assessment before preparing the summary.");
   else if (!report.signed) blockers.push("Sign the assessment before preparing the summary.");
   if (outcome !== "accepted") blockers.push("Record an accepted admission decision before emailing the summary.");
-  if (!configured) blockers.push("Configure the Outlook connection.");
+  if (!configured) blockers.push("Alamo Admissions email is not configured yet. Contact the Pipeline administrator.");
   blockers.push(...attachmentBlockers);
   return blockers;
 }
