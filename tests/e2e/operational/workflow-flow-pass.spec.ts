@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { calendarToday } from "../../../lib/pipeline/calendar-date";
 import { actorApiContext, actorPage, operationalActorHeaders, requireOperationalBaseURL } from "../support/pipeline-actors";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment, submitOperationalRecommendation, transitionOperationalReferral } from "../support/operational-api";
 
@@ -33,7 +34,7 @@ test.describe("uninterrupted workflow", () => {
         if_match: workflow.referral.version, if_match_section: workflow.referral.sectionVersions.decision, action: "queue",
       } });
       expect(queued.status(), await queued.text()).toBe(200);
-      referral = await transitionOperationalReferral(api, await readOperationalReferral(api, referral.id), "Accepted / Admitted");
+      referral = await transitionOperationalReferral(api, await readOperationalReferral(api, referral.id), "Accepted / Admitted", calendarToday());
       referral = await transitionOperationalReferral(api, referral, "Packet Review");
       expect((await (await api.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Packet Review");
       expect((await (await api.get(`/api/referrals/${referral.id}/workflow`)).json()).referral.workflowStatus).toBe("approved_for_placement");
@@ -54,7 +55,7 @@ test.describe("uninterrupted workflow", () => {
       const editor = page.locator("[data-assessment-view]");
       await expect(editor).toBeVisible();
       await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-      const answer = editor.getByRole("textbox", { name: /Prior 5150/ });
+      const answer = editor.getByRole("textbox", { name: "Prior placements", exact: true });
       let rejectWrites = true;
       let syncCommitted = () => {};
       const committed = new Promise<void>(resolve => { syncCommitted = resolve; });
@@ -82,11 +83,11 @@ test.describe("uninterrupted workflow", () => {
       await answer.fill("Newer answer typed while the earlier save returns.");
       await answer.blur();
       releaseSync();
-      await expect.poll(async () => (await (await api.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_5150_5250_holds).toBe("Newer answer typed while the earlier save returns.");
+      await expect.poll(async () => (await (await api.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements).toBe("Newer answer typed while the earlier save returns.");
       await expect(editor.getByRole("button", { name: "Keep mine", exact: true })).toHaveCount(0);
       await expect(answer).toHaveValue("Newer answer typed while the earlier save returns.");
-      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
-      await expect(editor).toHaveCount(0);
+      await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
     } finally { releaseSync(); await context.close(); await api.dispose(); }
   });
 

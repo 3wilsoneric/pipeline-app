@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type APIResponse } from "@playwright/test";
+import { calendarToday } from "../../../lib/pipeline/calendar-date";
 
 import {
   actorApiContext,
@@ -348,13 +349,24 @@ test.describe("workflow store characterization", () => {
         data: {
           if_match: workItem.version,
           client_mutation_id: "workflow-characterization-invalid-waiver",
+          patch: { evidenceDocumentId: "not-a-document-id" },
+        },
+      });
+      await responseRecord(invalid, 400);
+
+      const waiver = await actors.coordinator.patch(`/api/referrals/${referral.id}/work-items/${workItem.id}`, {
+        data: {
+          if_match: workItem.version,
+          client_mutation_id: "workflow-characterization-waiver-without-reason",
           patch: { status: "waived" },
         },
       });
-      await responseRecord(invalid, 422);
+      const waivedWorkItem = asRecord((await responseRecord(waiver, 200)).work_item);
+      expect(waivedWorkItem.status).toBe("waived");
+      expect(waivedWorkItem.waiverReason ?? "").toBe("");
 
       const request = {
-        if_match: workItem.version,
+        if_match: Number(waivedWorkItem.version),
         client_mutation_id: "workflow-characterization-work-item-replay",
         patch: {
           status: "requested",
@@ -589,7 +601,7 @@ async function admittedReferral(actors: WorkflowActors) {
   referral = asReferralPayload(await responseRecord(decision, 200)).referral;
   await resolveOperationalMoveInRequirements(actors.supervisor, referral.id);
   referral = await readOperationalReferral(actors.supervisor, referral.id);
-  return transitionOperationalReferral(actors.supervisor, referral, "Accepted / Admitted");
+  return transitionOperationalReferral(actors.supervisor, referral, "Accepted / Admitted", calendarToday());
 }
 
 function transitionRequest(
