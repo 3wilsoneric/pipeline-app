@@ -152,7 +152,7 @@ jobs:
             test "$DEMO_CENTER_ENABLED" == "false" || { echo "Disable the Demo Center for production Meet the Client activation."; exit 1; }
             test -n "$OUTLOOK_CLIENT_ID" || { echo "Configure the public Outlook Drafts client before activation."; exit 1; }
           fi
-          node scripts/preserve-deployment-mail.mjs "$RESOURCE_GROUP" "${WEB_NAME:0:32}" "$RUNNER_TEMP/pipeline-mail-parameters.json" "$INITIAL_BOOTSTRAP" "$MEET_CLIENT_ACTIVATION"
+          node scripts/preserve-deployment-mail.mjs "$RESOURCE_GROUP" "${WEB_NAME:0:32}" "$RUNNER_TEMP/pipeline-mail-parameters.json" "$INITIAL_BOOTSTRAP" "$MEET_CLIENT_ACTIVATION" '${{ inputs.enable_meet_client_large_packets }}'
 
       - name: Sign in to Azure Container Registry
         shell: bash

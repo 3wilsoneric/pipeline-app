@@ -54,3 +54,35 @@ test("explicit activation needs no domain allowlist and rejects unknown activati
   assert.throws(() => deploymentMailSettings([], [], "typo"), /Choose preserve/);
   assert.deepEqual(deploymentMailSettings([], [], "disabled"), { environment: [{ name: "PIPELINE_MEET_CLIENT_LIVE_ENABLED", value: "false" }], secrets: [] });
 });
+
+test("large packet activation changes only the Graph write flag in existing mail configuration", () => {
+  const environment = [
+    { name: "PIPELINE_GRAPH_TENANT_ID", value: "mail-tenant" },
+    { name: "PIPELINE_GRAPH_CLIENT_ID", value: "mail-app" },
+    { name: "PIPELINE_GRAPH_CLIENT_SECRET", secretRef: "mail" },
+    { name: "PIPELINE_MEET_CLIENT_SENDER", value: "admissions@example.test" },
+    { name: "PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS", value: "example.test" },
+    { name: "PIPELINE_MEET_CLIENT_LIVE_ENABLED", value: "true" },
+    { name: "PIPELINE_GRAPH_MAIL_READ_WRITE", value: "false" },
+  ];
+  const secret = { name: "mail", keyVaultUrl: "https://example.vault.azure.net/secrets/mail", identity: "identity" };
+  const configured = deploymentMailSettings(environment, [secret], "preserve", true);
+  assert.deepEqual(configured.environment, [
+    ...environment.slice(0, -1),
+    { name: "PIPELINE_GRAPH_MAIL_READ_WRITE", value: "true" },
+  ]);
+  assert.deepEqual(configured.secrets, [secret]);
+  assert.deepEqual(deploymentMailSettings(environment, [secret]), { environment, secrets: [secret] });
+  assert.deepEqual(deploymentMailSettings([], [], "preserve", true), { environment: [], secrets: [] });
+});
+
+test("large packet activation adds the flag when existing Graph mail settings predate it", () => {
+  const environment = [
+    { name: "PIPELINE_GRAPH_CLIENT_ID", value: "mail-app" },
+    { name: "PIPELINE_MEET_CLIENT_SENDER", value: "admissions@example.test" },
+  ];
+  assert.deepEqual(deploymentMailSettings(environment, [], "preserve", true).environment, [
+    ...environment,
+    { name: "PIPELINE_GRAPH_MAIL_READ_WRITE", value: "true" },
+  ]);
+});
