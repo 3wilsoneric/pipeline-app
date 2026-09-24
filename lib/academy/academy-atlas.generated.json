@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:46af9c5149ebd2b0",
-  "fingerprint": "46af9c5149ebd2b0a3306255d18de618878f80f6300dcf5a4d3964de71864ba0",
+  "generatedAt": "source-fingerprint:224872d9eb13f537",
+  "fingerprint": "224872d9eb13f53727aa749b1a5e16b3172d50fa79bf29110cb928bf610748dc",
   "totals": {
     "files": 1414,
-    "lines": 370221,
+    "lines": 370236,
     "coveredFiles": 1414
   },
   "entries": [
@@ -3360,7 +3360,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 263,
+      "lines": 264,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -10338,7 +10338,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 136,
+      "lines": 139,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -15863,7 +15863,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 514,
+      "lines": 525,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
