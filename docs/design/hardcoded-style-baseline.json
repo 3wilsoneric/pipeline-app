@@ -1,6 +1,6 @@
 {
   "totals": {
-    "hex": 5462,
+    "hex": 5457,
     "radius": 324
   },
   "files": {
@@ -27,7 +27,7 @@
       "hex": 3
     },
     "app/pipeline-surfaces.css": {
-      "hex": 177,
+      "hex": 175,
       "radius": 41
     },
     "components/auth/AuthenticationBrand.tsx": {
@@ -180,7 +180,7 @@
       "hex": 67
     },
     "components/pipeline/PipelineActionNav.tsx": {
-      "hex": 29
+      "hex": 26
     },
     "components/pipeline/PipelineAppShell.tsx": {
       "hex": 1
