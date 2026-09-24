@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { isoToOperationalInput } from "../../../components/pipeline/pipeline-calendar-model";
 import type { PipelineAssessmentRecord } from "../../../lib/assessment/assessment-records";
 import type { Referral } from "../../../lib/pipeline/referral-types";
 import { completeOperationalAssessment, signOperationalAssessment, startOperationalAssessment } from "../support/operational-api";
@@ -75,19 +76,27 @@ test.describe("assessment editing entry and return paths", () => {
         await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
         const full = page.locator("[data-assessment-view]");
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
-        await full.locator('summary[aria-label="Assessment details"]').click();
-        await full.getByRole("button", { name: "Change appointment", exact: true }).click();
+        await page.getByRole("region", { name: "Assessment progress", exact: true })
+          .getByRole("button", { name: "Schedule interview", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         await expect(schedule).toBeVisible();
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
+        const newStart = new Date(Date.parse(assessment.scheduled_start_at!) + 86_400_000);
+        newStart.setUTCHours(20, 0, 0, 0);
+        await schedule.getByLabel("Assessment date and time").fill(isoToOperationalInput(newStart.toISOString()));
         await schedule.getByRole("button", { name: "Save new time", exact: true }).click();
         await expect(schedule).not.toBeVisible();
         await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
         await expect(full).toBeVisible();
         const saved = await readAssessment(api, assessment.assessment_id);
         expect(saved.assessment_id).toBe(assessment.assessment_id);
+        expect(saved.schedule_status).toBe("scheduled");
+        expect(saved.scheduled_start_at).toBe(newStart.toISOString());
         expect(saved.current_location).toBe("Synthetic placement");
         expect(saved.started_at).toBeNull();
+        const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
+        expect(records).toHaveLength(1);
+        expect(records[0].assessment_id).toBe(assessment.assessment_id);
       } finally {
         await context.close();
         await api.dispose();
