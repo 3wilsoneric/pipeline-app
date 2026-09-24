@@ -10,10 +10,12 @@ import dynamic from "next/dynamic";
 import {
   ArrowRight,
   CalendarClock,
+  Check,
   CheckCircle2,
   CircleAlert,
   FolderOpen,
   History,
+  House,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -2497,7 +2499,7 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
             </h1>
-            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} />
+            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
 
             {/* Redesign: presence rides in the tab row so no notice separates the tabs from the folder. */}
             {designV2 && presence.length > 0 ? (
@@ -2775,7 +2777,7 @@ export default function ReferralPacketCanvas({
         data-testid="packet-workspace"
         inert={draftRecoveryLoading}
         aria-busy={draftRecoveryLoading}
-        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""}`}
+        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${designV2 && loadedReferral && !phone ? workspaceFolderStyles.verticalFlow : ""}`}
       >
         {renderWorkspaceHeader()}
 
@@ -3041,10 +3043,11 @@ function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
   </div>;
 }
 
-function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
+function WorkspaceStageNavigation({ steps, activePage, onOpen, progress }: {
   steps: ReadonlyArray<WorkspaceStep>;
   activePage: WorkspaceView;
   onOpen: (page: WorkspaceView) => void;
+  progress?: StepProgress;
 }) {
   return (
     <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className={workspaceFolderStyles.stages}>
@@ -3055,20 +3058,40 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
         {steps.map((step) => <option key={step.page} value={step.page}>{step.label}</option>)}
         <optgroup label="File tools"><option value="files">Files</option><option value="activity">Activity</option></optgroup>
       </select>
-      {steps.map((step) => <WorkspaceStageButton key={step.page} {...step} selected={activePage === step.page} onOpen={onOpen} />)}
+      {steps.map((step) => <WorkspaceStageButton key={step.page} {...step} selected={activePage === step.page} onOpen={onOpen} progress={progress?.[String(step.page)]} />)}
     </nav>
   );
 }
 
-function WorkspaceStageButton({ page, label, selected, onOpen }: {
-  page: WorkspaceStep["page"]; label: string; selected: boolean; onOpen: (page: WorkspaceView) => void;
+function WorkspaceStageButton({ page, label, selected, onOpen, progress }: {
+  page: WorkspaceStep["page"]; label: string; selected: boolean; onOpen: (page: WorkspaceView) => void; progress?: StepState;
 }) {
+  const designV2 = useDesignV2();
+  // Redesign rail: Chart is the record's home; the other stages show progress as icon-only markers.
+  const home = label === "Chart";
   return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : label === "Chart" ? "chart-stage" : page === "email" ? "chart-meet-client-tab" : undefined}
     onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
     data-folder-stage={page}
+    data-step-home={designV2 && home ? "true" : undefined}
+    data-step-state={designV2 && !home ? progress ?? "todo" : undefined}
     className={workspaceFolderStyles.stageTab}>
+    {designV2 ? <span aria-hidden="true" className={workspaceFolderStyles.stepMarker}>{home ? <House size={17} /> : progress === "done" ? <Check size={14} strokeWidth={3} /> : null}</span> : null}
     <span className="whitespace-nowrap">{label}</span>
   </button>;
+}
+
+type StepState = "done" | "active" | "todo";
+type StepProgress = Partial<Record<string, StepState>>;
+
+// Visual progress for the redesign rail, derived from the recorded workflow status.
+function workspaceStepProgress(status: Referral["workflowStatus"]): StepProgress {
+  const assessmentDone = ["assessment_signed", "recommendation_submitted", "changes_requested", "decision_pending", "approved_for_placement", "accepted", "admitted", "declined", "closed"];
+  const assessmentActive = ["assessment_scheduled", "assessment_in_progress", "waiting_for_information", "assessment_ready_to_sign"];
+  const decisionDone = ["approved_for_placement", "accepted", "admitted", "declined", "closed"];
+  const decisionActive = ["recommendation_submitted", "changes_requested", "decision_pending"];
+  const finishDone = ["admitted", "closed"];
+  const state = (done: string[], active: string[]): StepState => status && done.includes(status) ? "done" : status && active.includes(status) ? "active" : "todo";
+  return { 2: state(assessmentDone, assessmentActive), workflow: state(decisionDone, decisionActive), email: state(finishDone, ["approved_for_placement", "accepted"]) };
 }
 
 function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount, onRetry }: {

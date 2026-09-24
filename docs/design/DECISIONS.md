@@ -72,6 +72,21 @@ Home uses the card system from the "Referrals" board image in place of manila fo
 - Each column header is a plain row: the title, the file count as a small chip, and "View all". There is no header box and no icon (owner, 2026-09-24).
 - Referral cards inside the columns stay white cards.
 
+## Record layout (owner, 2026-09-24, prototype)
+
+- On screens 1024px and wider, an opened record is a vertical flow: a sticky progress rail on the left and the step's page on the right.
+- The rail holds:
+  - the client's name
+  - Chart, with a house icon, as the record's home
+  - the progress steps (Assessment, Decision, Finish & send) with icon-only markers and a connecting line
+  - Files, Activity, and Trash
+- Markers:
+  - dashed: not started
+  - solid ring: in progress
+  - filled check: done
+- Markers derive from the recorded workflow status. They add no words.
+- New-referral drafts and phones keep the tab layout.
+
 ## Sidebar (owner, 2026-09-24)
 
 - The rail is warm paper with a thin edge.

@@ -722,4 +722,40 @@
     .stageTab[aria-current="page"]::after { display: none; }
     .tabRow .createTab:focus-visible { outline-color: Highlight; }
   }
+
+  /* Vertical flow (docs/design/DECISIONS.md, "Record layout"): a progress rail on the left,
+     the step's page on the right. Chart is the record's home at the top of the rail. */
+  @media (min-width: 1024px) {
+    .verticalFlow { display: grid; grid-template-columns: 248px minmax(0, 1fr); column-gap: 24px; align-items: start; padding-top: 16px; }
+    .verticalFlow > * { grid-column: 2; min-width: 0; }
+    .verticalFlow > .header { grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 16px; z-index: 20; padding: 14px 12px; border: 1px solid var(--color-sheet-border); border-radius: var(--radius-folder); background: var(--color-sheet); box-shadow: var(--shadow-card); }
+    .verticalFlow .tabRow { display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 0; border: 0; }
+    .verticalFlow .identity { flex: none; width: 100%; max-width: none; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+    .verticalFlow .nameLabel { width: 100%; padding: 10px 12px; font-size: 18px; line-height: 24px; white-space: normal; overflow-wrap: anywhere; }
+    .verticalFlow .identity + .stages { margin-left: 0; }
+    .verticalFlow .stages { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 0; overflow: visible; }
+    .verticalFlow .stageTab, .verticalFlow .stageTab + .stageTab { position: relative; justify-content: flex-start; gap: 12px; width: 100%; min-height: 52px; margin: 0; padding: 0 12px; border: 1px solid transparent; border-radius: var(--radius-paper); background: transparent; color: var(--color-ink-2); font-size: 15px; font-weight: 600; transform: none; text-align: left; }
+    .verticalFlow .stageTab:hover:not(:disabled):not([aria-current="page"]) { background: var(--color-segment); transform: none; }
+    .verticalFlow .stageTab[aria-current="page"] { border-color: var(--tab-edge); background: var(--tab-fill); color: var(--tab-ink); transform: none; }
+    .verticalFlow .stageTab[aria-current="page"]::after { display: none; }
+    .verticalFlow .stageTab[data-step-home="true"] { margin-bottom: 10px; }
+    .verticalFlow .stageTab[data-step-home="true"]::before { content: ""; position: absolute; right: 8px; bottom: -6px; left: 8px; height: 1px; background: var(--color-sheet-border); }
+    .stepMarker { position: relative; display: grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; border: 2px dashed var(--color-folder-edge); border-radius: 50%; background: var(--color-paper); color: var(--color-paper); }
+    .stageTab[data-step-home="true"] .stepMarker { border: 0; background: transparent; color: var(--tab-ink); }
+    .stageTab[data-step-state="active"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
+    .stageTab[data-step-state="active"] .stepMarker::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--tab-ink); }
+    .stageTab[data-step-state="done"] .stepMarker { border: 0; background: var(--tab-ink); }
+    /* Connector between progress steps. */
+    .stageTab[data-step-state]:not(:last-child) .stepMarker::after { content: ""; position: absolute; top: calc(100% + 2px); left: calc(50% - 1px); width: 2px; height: 26px; background: var(--color-folder-edge); }
+    .stageTab[data-step-state="done"]:not(:last-child) .stepMarker::after { background: var(--tab-ink); }
+    .verticalFlow .presence { margin-left: 0; flex-direction: column; align-items: stretch; }
+    .verticalFlow .presence + .actions { margin-left: 0; }
+    .verticalFlow .actions { flex-direction: column; align-items: stretch; gap: 2px; margin: 0; padding-top: 12px; border-top: 1px solid var(--color-sheet-border); }
+    .verticalFlow .actions > * { width: 100%; justify-content: flex-start; padding-inline: 12px; text-align: left; }
+    .verticalFlow .utilityTab { width: 100%; justify-content: flex-start; gap: 10px; padding: 0 12px; border: 0; }
+    .verticalFlow .utilityTab span { display: inline; }
+    .verticalFlow .assessmentTools { margin: 0; }
+    /* The page is its own folder now that the tabs live in the rail. */
+    .verticalFlow .connectedFolder > div { border-top: 1px solid var(--folder-edge); border-radius: var(--radius-folder); }
+  }
 }
