@@ -64,12 +64,14 @@ type ReferralSelection = { id: number; name?: string; gender?: string; community
 
 function useDeferredWorkSurfaces(screen: PipelineScreen) {
   const [surfaces, setSurfaces] = useState<DeferredWorkSurfaces | null>(null);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   useEffect(() => {
-    if (surfaces) return;
+    if (surfaces || loadError) return;
     let cancelled = false;
-    const load = () => void loadDeferredWorkSurfaces().then((loaded) => {
-      if (!cancelled) setSurfaces(loaded);
-    });
+    const load = () => void loadDeferredWorkSurfaces().then(
+      (loaded) => { if (!cancelled) setSurfaces(loaded); },
+      (error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error : new Error("Workspace code could not load.")); },
+    );
     // Deep links load immediately. Home's authenticated content/reads get the
     // first turn before the large work surfaces are prepared for navigation.
     const idle = screen === "home" && "requestIdleCallback" in window
@@ -81,7 +83,10 @@ function useDeferredWorkSurfaces(screen: PipelineScreen) {
       window.clearTimeout(timer);
       if (idle !== undefined) window.cancelIdleCallback(idle);
     };
-  }, [screen, surfaces]);
+  }, [screen, surfaces, loadError]);
+  // Prewarming must not take Home down, but an attempted workspace should not
+  // remain on a loading skeleton forever when its code belongs to an old build.
+  if (loadError && (screen === "packet" || screen === "profile")) throw loadError;
   return surfaces;
 }
 
