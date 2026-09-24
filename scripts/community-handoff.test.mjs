@@ -33,7 +33,7 @@ test("a changed placement and planned admit date reach the email and generated s
   const email = emailOwner.renderMeetClientEmail(report.meetClient, "Synthetic sender", "preview");
   assert.equal(email.subject, "Meet the Client | Turlock");
   assert.match(email.html, /Turlock/);
-  const sheet = await pdfText(sheetOwner.renderClientDataSheet(report, current));
+  const sheet = await pdfText(await sheetOwner.renderClientDataSheet(report, current));
   assert.match(sheet, /Community\s+Turlock/);
   assert.match(sheet, /Admission date\s+2026-10-12/);
   assert.doesNotMatch(sheet, /2026-09-30/);
@@ -111,23 +111,23 @@ test("agreement copy uses the work item status, never the assessment signature o
     assert.match(agreement.value, pattern);
     assert.match(agreement.value, /Recorded evidence: Signed-agreement.pdf/);
     assert.match(emailOwner.renderMeetClientEmail(report.meetClient, "Fixture", "fixture").html, pattern);
-    assert.match(await pdfText(sheetOwner.renderClientDataSheet(report, context)), pattern);
+    assert.match(await pdfText(await sheetOwner.renderClientDataSheet(report, context)), pattern);
   }
   const absent = summaryOwner.buildMeetClientSummary(assessment, referral).admissionNotes.find(({ label }) => label === "Signed admission agreement");
   assert.match(absent.value, /Not recorded; confirm/);
   assert.match(summaryOwner.buildAdmissionAgreementSummary([{ type: "signed_admission_agreement", status: "reviewed" }]).value, /No supporting document is linked/);
-  assert.match(await pdfText(sheetOwner.renderClientDataSheet(null, { ...referral, requirements: [{ type: "signed_admission_agreement", status: "received" }] })), /signatures still need review/);
+  assert.match(await pdfText(await sheetOwner.renderClientDataSheet(null, { ...referral, requirements: [{ type: "signed_admission_agreement", status: "received" }] })), /signatures still need review/);
 });
 
 test("data sheet contains canonical chart sections, recorded version, unsigned status and inert text", async () => {
   const report = summaryOwner.buildAssessmentSummaryReport(assessment, referral);
-  const html = await pdfText(sheetOwner.renderClientDataSheet(report, referral));
+  const html = await pdfText(await sheetOwner.renderClientDataSheet(report, referral));
   assert.ok(html.includes("Synthetic placement note"));
   assert.ok(html.includes("Assessment synthetic-chart"));
   assert.ok(html.includes("Version 4"));
   assert.ok(html.includes("Referral version 3"));
   assert.ok(html.includes("<script>alert(1)</script>"));
-  const draft = await pdfText(sheetOwner.renderClientDataSheet(null, referral));
+  const draft = await pdfText(await sheetOwner.renderClientDataSheet(null, referral));
   assert.ok(draft.includes("Working chart - not signed"));
   assert.ok(draft.includes("Assessment not yet recorded"));
 });
@@ -153,7 +153,7 @@ test("Graph direct send keeps To and Cc separate and attaches exact generated da
     requests.push({ url, init });
     return url.includes("/oauth2/") ? Response.json({ access_token: "synthetic-token" }) : new Response(null, { status: 202 });
   } });
-  const bytes = sheetOwner.renderClientDataSheet(summaryOwner.buildAssessmentSummaryReport(assessment, referral), referral);
+  const bytes = await sheetOwner.renderClientDataSheet(summaryOwner.buildAssessmentSummaryReport(assessment, referral), referral);
   const result = await graph.sendMeetClientMail({ message: { subject: "Custom arrival", body: "Hello team, please call first." }, recipients: ["care@example.test"], ccRecipients: ["billing@example.test"], summary: summaryOwner.buildMeetClientSummary(assessment, referral), preparedBy: "Synthetic sender", deliveryId: "synthetic-delivery", attachments: [{ documentId: "chart:7", name: "Client data sheet.pdf", contentType: "application/pdf", byteSize: bytes.length, contentBytes: bytes }] });
   assert.equal(result.attachmentCount, 1);
   assert.equal(requests.length, 2);
@@ -253,8 +253,8 @@ test("PDF pages preserve long notes, Unicode, versions and deterministic packet 
   const note = Array.from({ length: 180 }, (_, i) => `Recorded note ${i}: ${unicode}.`).join("\n");
   const report = summaryOwner.buildAssessmentSummaryReport(assessment, referral);
   report.sections = [{ title: "Long clinical notes", items: [{ label: "Recorded history", value: note }, { label: "Unbroken identifier", value: "x".repeat(800) }] }];
-  const bytes = sheetOwner.renderClientDataSheet(report, referral);
-  assert.deepEqual(sheetOwner.renderClientDataSheet(report, referral), bytes, "unchanged inventory must not change during review");
+  const bytes = await sheetOwner.renderClientDataSheet(report, referral);
+  assert.deepEqual(await sheetOwner.renderClientDataSheet(report, referral), bytes, "unchanged inventory must not change during review");
   const text = await pdfText(bytes);
   assert.ok(text.includes(unicode));
   assert.ok(text.includes("Recorded note 179:"));
@@ -276,7 +276,7 @@ test("PDF pages preserve long notes, Unicode, versions and deterministic packet 
 });
 
 test("PDF attachment bytes survive stored packet recovery and download; older text packets still open", async () => {
-  const bytes = sheetOwner.renderClientDataSheet(summaryOwner.buildAssessmentSummaryReport(assessment, referral), referral);
+  const bytes = await sheetOwner.renderClientDataSheet(summaryOwner.buildAssessmentSummaryReport(assessment, referral), referral);
   let persisted;
   const files = loadEntry("lib/notifications/admission-packet-files.ts", {
     "./admission-packet-store": { createAdmissionPacket: async (value) => { persisted = JSON.stringify(value); } },

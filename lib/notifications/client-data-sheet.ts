@@ -1,20 +1,27 @@
 import "server-only";
-import { PDFDocument, type CanvasRenderingContext2D } from "@napi-rs/canvas";
+import { join } from "node:path";
+import { loadImage, PDFDocument, type CanvasRenderingContext2D, type Image, type SKRSContext2D } from "@napi-rs/canvas";
 import { buildAdmissionAgreementSummary, type AssessmentSummaryReport, type AssessmentSummaryItem } from "@/lib/assessment/assessment-summary";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 
 export const clientDataSheetName = "Client data sheet.pdf";
 
+// Embed the shipped brand asset so the logo also appears offline and in print.
+let alamoLogo: Promise<Image> | undefined;
+// Native PDF pages support drawImage, omitted by the package's base context type.
+type PdfPageContext = CanvasRenderingContext2D & Pick<SKRSContext2D, "drawImage">;
+
 // Use the existing server canvas PDF writer. Text remains selectable and fonts
 // are embedded; the runtime image supplies Noto Sans instead of a browser.
-export function renderClientDataSheet(report: AssessmentSummaryReport | null, referral: Referral): Buffer {
+export async function renderClientDataSheet(report: AssessmentSummaryReport | null, referral: Referral): Promise<Buffer> {
+  const logo = await (alamoLogo ??= loadImage(join(process.cwd(), "public/brand/alamo-health-management.png")));
   const identity = report?.identity.map((item) => item.label === "Community" && referral.community
     ? { ...item, value: referral.community } : item) ?? [
     { label: "Name", value: referral.name }, { label: "Date of birth", value: referral.dob },
     { label: "Community", value: referral.community }, { label: "Referrer", value: referral.source },
   ];
-  const sheet = new DataSheet(referral.name);
+  const sheet = new DataSheet(referral.name, logo);
   sheet.text(report?.signed ? `Signed ${report.signedAt ?? ""} by ${report.signedBy}` : "Working chart - not signed", 10, false, "#596d64");
   sheet.section("Client & referral", identity);
   sheet.section("Admission", admissionItems(referral));
@@ -40,14 +47,14 @@ function admissionItems(referral: Referral): AssessmentSummaryItem[] {
 
 class DataSheet {
   private readonly pdf = new PDFDocument({ title: "Client data sheet", author: "Alamo Health Management", creator: "Alamo Health Management" });
-  private ctx!: CanvasRenderingContext2D;
+  private ctx!: PdfPageContext;
   private y = 0;
   private page = 0;
   private readonly left = 44;
   private readonly width = 524;
   private readonly bottom = 714;
 
-  constructor(private readonly name: string) { this.newPage(); }
+  constructor(private readonly name: string, private readonly logo: Image) { this.newPage(); }
 
   private font(size: number, bold: boolean) {
     this.ctx.font = `${bold ? "bold " : ""}${size}px "Noto Sans", Arial, sans-serif`;
@@ -56,12 +63,17 @@ class DataSheet {
 
   private newPage() {
     if (this.page) this.pdf.endPage();
-    this.ctx = this.pdf.beginPage(612, 792);
+    this.ctx = this.pdf.beginPage(612, 792) as PdfPageContext;
     this.page++;
     this.ctx.fillStyle = "#087d66";
     this.ctx.fillRect(this.left, 36, this.width, 3);
     this.y = 50;
-    this.text("ALAMO HEALTH MANAGEMENT", 10, true, "#087d66");
+    if (this.page === 1) {
+      const logoWidth = 210;
+      const logoHeight = logoWidth * this.logo.height / this.logo.width;
+      this.ctx.drawImage(this.logo, this.left, 46, logoWidth, logoHeight);
+      this.y = 46 + logoHeight + 12;
+    }
     this.text("Client data sheet", 12, true);
     this.font(this.page === 1 ? 23 : 14, true);
     const nameLines = wrapText(this.ctx, this.name || "Name not recorded", this.width);

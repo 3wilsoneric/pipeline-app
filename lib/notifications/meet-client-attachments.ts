@@ -60,7 +60,7 @@ export async function getMeetClientAttachmentInventory(
     files.push(...await Promise.all(page.map(toAttachmentItem)));
     cursor = result.next_cursor;
   } while (cursor);
-  const generatedContent = renderClientDataSheet(options.report ?? null, referral);
+  const generatedContent = await renderClientDataSheet(options.report ?? null, referral);
   files.unshift({ documentId: `chart:${referral.id}:${referral.version}:${options.report?.assessmentVersion ?? 0}`, name: clientDataSheetName,
     category: "Assessment", contentType: "application/pdf", byteSize: generatedContent.length, ready: true, generatedContent });
   const totalBytes = files.reduce((total, file) => total + file.byteSize, 0);
