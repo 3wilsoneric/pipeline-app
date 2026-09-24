@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { actorApiContext, operationalActorHeaders, requireOperationalBaseURL } from "../support/pipeline-actors";
 import { createOperationalAssessment, createOperationalReferral, signOperationalAssessment } from "../support/operational-api";
 import { assessmentToolFieldDefinitions } from "../../../lib/assessment/assessment-tool-schema";
+import { preparationGroupForSection } from "../../../lib/assessment/assessment-preparation";
 
 test.describe("assessor meeting fields", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Isolated stores required.");
@@ -19,10 +20,11 @@ test.describe("assessor meeting fields", () => {
       const assessmentUrl = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`;
       await page.goto(assessmentUrl);
       const editor = page.locator('[data-assessment-view]');
+      await editor.getByRole("button", { name: "All questions", exact: true }).click();
       const find = async (name: string) => {
         const definition = assessmentToolFieldDefinitions.find((field) => field.label === name)!;
         expect(definition, `Canonical question: ${name}`).toBeDefined();
-        await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption(definition.section);
+        await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption(preparationGroupForSection(definition.section).key);
         const captured = editor.getByRole("button", { name: `Edit ${name}`, exact: true });
         if (await captured.isVisible()) await captured.click();
       };
@@ -56,6 +58,7 @@ test.describe("assessor meeting fields", () => {
       await expect(details).toHaveAttribute("placeholder", "What happened, when, the context, and the outcome");
       await expect(details).not.toHaveAttribute("required");
       await page.setViewportSize({ width: 390, height: 844 });
+      await editor.getByRole("button", { name: "Interview", exact: true }).click();
       await editor.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
       const questions = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
       const search = questions.getByRole("searchbox", { name: "Find a question", exact: true });
@@ -66,9 +69,12 @@ test.describe("assessor meeting fields", () => {
       await search.fill("");
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
+      const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
+      await stages.getByRole("button", { name: "Chart", exact: true }).click();
+      await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
       await page.goto(assessmentUrl);
       await expect(editor).toBeVisible();
+      await editor.getByRole("button", { name: "All questions", exact: true }).click();
       await find("Injection frequency");
       await expect(editor.getByRole("textbox", { name: "Injection frequency", exact: true })).toHaveValue(entries[0][2]);
       const saved = await read();
