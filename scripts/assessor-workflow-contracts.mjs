@@ -428,11 +428,19 @@ const referredBy = assessmentSeed.buildAssessmentSeedFromReferral({
 check("intake referrer name and contact carry into later assessment questions",
   referredBy.data.referrer_name === "County coordinator"
   && referredBy.data.referrer_contact === "555-0100 · coordinator@example.org"
-  && referredBy.data.referring_facility === "County referral"
+  && referredBy.data.referring_facility === null
   && referredBy.field_provenance.referrer_name?.at(-1)?.source_field_key === "referral.referrer_name");
-check("older intake sources still seed the referrer question when no person is named",
-  seededAssessment.data.referrer_name === "County referral"
-  && seededAssessment.field_provenance.referrer_name?.at(-1)?.source_field_key === "referral.source");
+check("an unconfirmed referral source does not become a person or prior placement",
+  seededAssessment.data.referrer_name === null
+  && seededAssessment.data.referring_facility === null
+  && !seededAssessment.field_provenance.referrer_name
+  && !seededAssessment.field_provenance.referring_facility);
+const notConserved = assessmentSeed.buildAssessmentSeedFromReferral({ ...referral, conserved: "no" }, "Assigned Assessor");
+const conservedTypeUnknown = assessmentSeed.buildAssessmentSeedFromReferral({ ...referral, conserved: "yes" }, "Assigned Assessor");
+check("a documented non-conserved status populates legal questions without guessing a conservatorship type",
+  notConserved.data.conservatorship_type === "non_conserved"
+  && notConserved.field_provenance.conservatorship_type?.at(-1)?.source_field_key === "referral.conserved"
+  && conservedTypeUnknown.data.conservatorship_type === null);
 check("pre-assessment medications seed the assessment medication profile", seededAssessment.data.medications_at_intake.join("|") === "Olanzapine 10 mg|Metformin 500 mg");
 check("paused autofill does not attach unused packet evidence to answers", !seededAssessment.field_provenance.mobility);
 check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));

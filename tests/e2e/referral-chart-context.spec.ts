@@ -15,6 +15,8 @@ test("intake referrer details appear on the chart and seed the assessment", asyn
     referrerName: "County coordinator",
     phone: "555-0101",
     email: "coordinator@example.org",
+    currentMedications: "Olanzapine 10 mg\nMetformin 500 mg",
+    conserved: "no",
   }, { assigneeId: "provisional:allo:annette" });
   await page.goto(`/?view=referrals&screen=packet&referralId=${created.id}&workspaceStage=chart`);
   const header = page.getByTestId("workspace-folder-header");
@@ -27,7 +29,26 @@ test("intake referrer details appear on the chart and seed the assessment", asyn
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.referrer_name).toBe("County coordinator");
   expect(saved.referrer_contact).toBe("555-0101 · coordinator@example.org");
-  expect(saved.referring_facility).toBe("County services");
+  expect(saved.referring_facility).toBeNull();
+  expect(saved.medications_at_intake).toEqual(["Olanzapine 10 mg", "Metformin 500 mg"]);
+  expect(saved.conservatorship_type).toBe("non_conserved");
+  expect(saved.field_provenance.conservatorship_type.at(-1).source_field_key).toBe("referral.conserved");
+});
+
+test("unconfirmed referral source stays out of referrer and placement answers", async ({ page }) => {
+  const created = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Unconfirmed Source ${randomUUID()}`,
+    source: "County services",
+    referrerName: "",
+    conserved: "yes",
+    owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  const assessment = await createOperationalAssessment(page.request, created.id);
+  const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect(saved.referrer_name).toBeNull();
+  expect(saved.referring_facility).toBeNull();
+  expect(saved.conservatorship_type).toBeNull();
+  expect(saved.field_provenance.referrer_name).toBeUndefined();
 });
 
 test("intake uses its own referral data, while the same connected Client chart keeps resident fields", async ({ page }) => {

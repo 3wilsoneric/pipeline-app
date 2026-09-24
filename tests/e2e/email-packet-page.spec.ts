@@ -379,7 +379,7 @@ for (const width of [834, 390]) test(`saved Outlook draft retains its frozen aud
   const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
   await expect(composer).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Confirm admit date", exact: true })).toHaveCount(0);
-  await composer.getByRole("button", { name: "Use Outlook Drafts instead", exact: true }).click();
+  await expect(composer.getByRole("button", { name: "Use Outlook Drafts instead", exact: true })).toHaveCount(0);
   const outlook = composer.getByRole("region", { name: "Outlook handoff" });
   await expect(outlook.getByRole("heading", { name: "Your Outlook draft" })).toBeVisible();
   await expect(composer.getByRole("region", { name: "Prepared handoff details" })).toContainText("reviewed@example.invalid");
@@ -462,6 +462,8 @@ for (const width of [1440, 834, 390]) test(`email packet to assessor: clear next
   let draft: Record<string, unknown> | null = null;
   let sends = 0;
   let outlookConnects = 0;
+  let reviewedTo: string[] = [];
+  let reviewedCc: string[] = [];
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
     const response = await route.fetch(); const payload = await response.json();
     payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], outlook_draft: draft };
@@ -481,6 +483,7 @@ for (const width of [1440, 834, 390]) test(`email packet to assessor: clear next
     expect(route.request().headers()["x-pipeline-outlook-token"]).toBeUndefined();
     const body = route.request().postDataJSON();
     expect(body.recipients).toContain("care@example.invalid"); expect(body.confirmed).toBe(true);
+    reviewedTo = body.recipients; reviewedCc = body.cc_recipients;
     draft = { packet_id: "00000000-0000-4000-8000-000000000001", status: "draft", delivery_method: "assessor_email", mailbox: "assessor@example.invalid", prepared_at: new Date().toISOString(), assessment_version: assessment.version + 1, file_count: 1, to_recipients: body.recipients, cc_recipients: body.cc_recipients };
     await route.fulfill({ json: { draft } });
   });
@@ -494,6 +497,19 @@ for (const width of [1440, 834, 390]) test(`email packet to assessor: clear next
   await inbox.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `output/assessor-email-${width}.png`, fullPage: true });
   await inbox.getByRole("button", { name: "Email packet to me", exact: true }).click();
+  await expect(inbox.getByRole("link", { name: "Open Outlook inbox" })).toHaveAttribute("href", "https://outlook.office.com/mail/inbox");
+  const prepared = page.getByRole("region", { name: "Prepared handoff details" });
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await prepared.getByRole("button", { name: "Copy To addresses" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(reviewedTo.join("; "));
+  if (reviewedCc.length) {
+    await prepared.getByRole("button", { name: "Copy Cc addresses" }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(reviewedCc.join("; "));
+  } else await expect(prepared.getByRole("button", { name: "Copy Cc addresses" })).toHaveCount(0);
+  expect(await prepared.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  expect(await page.getByRole("dialog", { name: "Meet the Client email" }).evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(850);
+  expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
+  await page.screenshot({ path: `output/assessor-email-prepared-${width}.png`, animations: "disabled" });
   await expect(inbox.getByRole("button", { name: "I forwarded the handoff" })).toBeVisible();
   await page.reload(); await settleHandoff(page);
   await page.getByRole("button", { name: "Continue inbox handoff" }).click();

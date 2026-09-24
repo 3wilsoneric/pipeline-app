@@ -5,7 +5,7 @@ import { assessmentInterviewSections } from "../../lib/assessment/assessment-int
 import { buildTrainingAssessment } from "../../lib/training/mock-assessment";
 import { createEmptyAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
 import { createOperationalReferral } from "./support/operational-api";
-import { editPreparedAnswer, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 
 test("gap itinerary retains every canonical section, zeros, and source checks", () => {
   const data = buildTrainingAssessment("interview");
@@ -39,6 +39,8 @@ for (const width of [1440, 768, 390, 320]) {
       expect((await field.boundingBox())!.y - (await editor.boundingBox())!.y).toBeLessThan(40);
       await expect(editor.getByRole("heading")).toHaveCount(0);
       const reference = folder.getByRole("complementary", { name: "Current information" });
+      const referenceToggle = reference.getByRole("button", { name: /^Current information/ });
+      if (await referenceToggle.isVisible() && await referenceToggle.getAttribute("aria-expanded") === "false") await referenceToggle.click();
       const recorded = reference.getByRole("button", { name: "Edit Prior placements", exact: true });
       await expect(recorded).toBeInViewport();
       const reading = reference.locator("[data-assessment-reference-page]");
@@ -46,7 +48,7 @@ for (const width of [1440, 768, 390, 320]) {
       await recorded.click();
       await expect(folder.getByRole("textbox", { name: "Prior placements", exact: true })).toBeFocused();
     } else {
-      await expect(folder.getByText("Question 1 of 3", { exact: true })).toBeVisible();
+      await expect(folder.getByRole("navigation", { name: "Question steps" })).toContainText(/1\s*\/\s*2/);
       await expect(folder.getByText(/gaps this visit|3 in the chart|to finish here/)).toHaveCount(0);
       await expect(folder.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
     }
@@ -55,7 +57,7 @@ for (const width of [1440, 768, 390, 320]) {
 }
 
 for (const width of [1440, 768, 390, 320]) {
-  test(`assessment fills chart gaps without re-asking recorded answers at ${width}px`, async ({ page }, info) => {
+  test(`assessment keeps recorded answers as reference and saves interview gaps at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 320 ? 650 : 950 });
     await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&workspaceStage=assessment&assessmentSection=identity");
     const folder = page.getByTestId("assessment-client-folder");
@@ -66,41 +68,31 @@ for (const width of [1440, 768, 390, 320]) {
     const next = width < 640 ? folder.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: "Next section", exact: true }) : footer.getByRole("button", { name: "Next section", exact: true });
     await next.click();
     await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
-    const field = folder.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
-    await expect(field).toBeVisible();
     const questions = page.locator(width < 640 ? "[data-phone-interview]" : "[data-assessment-question-editor]");
+    await expect(questions.locator('[data-working-field="secondary_diagnoses"]')).toHaveCount(0);
     await expect(questions.locator('[data-working-field="current_symptoms"]')).toHaveCount(0);
     await expect(questions.locator('[data-working-field="cognition_orientation"]')).toHaveCount(0);
-    await field.fill("Synthetic interview gap completed");
-    await field.blur();
-    await expect(field).toBeVisible();
-    await expect(field).toHaveValue("Synthetic interview gap completed");
-    await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
-    await next.click();
-    await expect(page).toHaveURL(/assessmentSection=functional_adl/);
-    await expect(questions.locator('[data-working-field="ambulatory"]')).toHaveCount(0);
     if (width < 640) {
       await folder.getByRole("button", { name: "Client info", exact: true }).click();
       const reference = page.getByRole("dialog", { name: "Client information", exact: true });
       await expect(reference.getByRole("combobox", { name: "Reference information", exact: true })).toHaveValue("section");
-      await expect(reference).not.toContainText("Synthetic interview gap completed");
-      await reference.getByRole("button", { name: "Review Ambulatory", exact: true }).click();
-      await questions.getByRole("group", { name: "Ambulatory", exact: true }).getByRole("button", { name: "No", exact: true }).click();
-      await questions.getByRole("button", { name: "Next", exact: true }).click();
-      await expect(questions.getByPlaceholder("Type of device", { exact: true })).toBeVisible();
+      await expect(reference).toContainText("Current symptoms");
+      await reference.getByRole("button", { name: "Close information panel", exact: true }).click();
+      await folder.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+      await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /Recent care and history/ }).click();
     } else {
-      await page.getByLabel("Assessment section", { exact: true }).selectOption("medication");
-      await next.click();
-      // Completed sections keep their place in the itinerary.
-      await expect(page).toHaveURL(/assessmentSection=prior_placement/);
-      await next.click();
-      await expect(page).toHaveURL(/assessmentSection=prior_history/);
-      await page.getByLabel("Assessment section", { exact: true }).selectOption("provenance_qc");
-      await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
-      await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic interview gap completed");
-      await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeVisible();
-      await returnToAssessmentQuestions(page);
+      await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
     }
+    await expect(page).toHaveURL(/assessmentSection=prior_history/);
+    const field = folder.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true });
+    await expect(field).toBeVisible();
+    await field.fill("Synthetic interview gap completed");
+    await field.blur();
+    await expect(field).toHaveValue("Synthetic interview gap completed");
+    await openAssessmentChart(page);
+    await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic interview gap completed");
+    await returnToAssessmentQuestions(page);
+    await expect(page).toHaveURL(/assessmentSection=prior_history/);
     await page.screenshot({ path: info.outputPath(`gap-flow-${width}.png`) });
   });
 }
@@ -126,10 +118,10 @@ for (const preparing of [true, false]) test(`${preparing ? "prep" : "interview"}
   const all = assessmentWorkingSections(data, [], preparing).flatMap((section) => section.questions);
   expect(gaps()).toHaveLength(all.length);
   data.prior_hospitalizations_count = 0;
-  data.secondary_diagnoses = ["Synthetic source diagnosis"];
+  data.current_symptoms = "Synthetic source observation";
   expect(gaps()).not.toContain("prior_hospitalizations_count");
-  expect(gaps()).not.toContain("secondary_diagnoses");
-  expect(gaps(["secondary_diagnoses"])).toContain("secondary_diagnoses");
+  expect(gaps()).not.toContain("current_symptoms");
+  expect(gaps(["current_symptoms"])).toContain("current_symptoms");
   data.ambulatory = "no";
   expect(gaps()).toContain("mobility");
   data.mobility = "Synthetic walker";
@@ -140,11 +132,11 @@ for (const preparing of [true, false]) test(`${preparing ? "prep" : "interview"}
   expect(gaps()).toContain("ambulatory");
   data.unable_to_assess_reasons.ambulatory = "Client was unavailable for this part.";
   expect(gaps()).not.toContain("ambulatory");
-  data.secondary_diagnoses = [];
-  expect(gaps()).toContain("secondary_diagnoses");
+  data.current_symptoms = null;
+  expect(gaps()).toContain("current_symptoms");
 });
 
-test("saved prep shrinks across fresh visits, can be corrected, and becomes interview reference", async ({ page }, info) => {
+test("saved preparation remains editable across visits and becomes interview reference", async ({ page }, info) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Gap ${randomUUID()}`, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
   expect(created.status()).toBe(201);
@@ -166,7 +158,7 @@ test("saved prep shrinks across fresh visits, can be corrected, and becomes inte
   await expect(field).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("Assessment section", { exact: true })).toBeVisible();
-  await expect(field).toHaveCount(0);
+  await expect(field).toHaveValue("Synthetic diagnosis from day one records");
   await page.screenshot({ path: info.outputPath("return-to-gaps.png") });
   await editPreparedAnswer(page, "Secondary diagnosis");
   await expect(field).toBeFocused();
@@ -181,9 +173,9 @@ test("saved prep shrinks across fresh visits, can be corrected, and becomes inte
   await expect.poll(async () => (await read()).secondary_diagnoses).toEqual(["Synthetic corrected diagnosis from later records"]);
   await page.reload();
   await expect(page.getByLabel("Assessment section", { exact: true })).toBeVisible();
-  await expect(field).toHaveCount(0);
-  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
-  await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+  await expect(field).toHaveValue("Synthetic corrected diagnosis from later records");
+  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
+  await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
   await page.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
   await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic corrected diagnosis from later records");
   await expect(field).toHaveCount(0);

@@ -440,7 +440,7 @@ export default function AssessmentWorkspace({
   const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
   const reviewingChart = chartReview ?? notebookView === "chart";
   const embeddedFolder = Boolean(workspaceTitle);
-  const preparationActive = () => notebookView === "prepare" || (!trainingAssessmentMode && notebookView === null && assessmentReadyToBegin(selected) && unrecordedStartId !== selectedId);
+  const preparationActive = () => notebookView === "prepare" || (notebookView === null && (trainingAssessmentMode === "prepare" || trainingAssessmentMode === "schedule" || (!trainingAssessmentMode && assessmentReadyToBegin(selected) && unrecordedStartId !== selectedId)));
   const preparing = preparationActive();
   const phoneInterview = phoneLayout && !preparing;
   const preparationGroup = preparationGroupForSection(activeSection);

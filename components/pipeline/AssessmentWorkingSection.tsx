@@ -139,11 +139,11 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
     if (editor.current) editor.current.scrollTop = 0;
     if (props.preparing) editor.current?.closest("main")?.scrollTo({ top: 0, behavior: "instant" });
     editor.current?.closest('[data-guide-target="packet-workspace"]')?.scrollTo({ top: 0, behavior: "instant" });
-    // Move focus to the new section heading so keyboard progression continues
-    // into that section's questions. Keep focus in the section picker while it
-    // is being used, so choosing with the keyboard is not interrupted.
+    // Keep focus in the section picker while it is being used. Otherwise move
+    // directly to the first interview question instead of a repeated title.
     if (previousSection.current !== props.section && !document.activeElement?.matches('[aria-label="Assessment section"]')) {
-      sectionHeading.current?.focus({ preventScroll: true });
+      if (props.preparing) sectionHeading.current?.focus({ preventScroll: true });
+      else (editor.current?.querySelector<HTMLElement>('[data-working-field] :is(input, textarea, select, button):not(:disabled)') ?? editor.current)?.focus({ preventScroll: true });
     }
     previousSection.current = props.section;
   }, [props.section, props.preparing]);
@@ -164,8 +164,8 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   return <div data-assessment-working-section data-assessment-section={props.section} data-assessment-phase={props.preparing ? "preparation" : "interview"} className={`${styles.book} ${props.preparing ? styles.preparing : ""}`}>
     {renderReference()}
     <div data-guide-target="assessment-fields" data-assessment-question-editor className={styles.editor}>
-      <div ref={editor} className={styles.questionPage} data-assessment-question-page>
-      {props.sectionLabel ? <h3 ref={sectionHeading} tabIndex={-1} data-assessment-section-heading className={styles.sectionHeading}>{props.sectionLabel}</h3> : null}
+      <div ref={editor} tabIndex={-1} role="region" aria-label={`${props.sectionLabel ?? "Assessment"} questions`} className={styles.questionPage} data-assessment-question-page>
+      {props.preparing && props.sectionLabel ? <h3 ref={sectionHeading} tabIndex={-1} data-assessment-section-heading className={styles.sectionHeading}>{props.sectionLabel}</h3> : null}
       {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Review this section in Current information." : "This section is complete. Review the reference, or continue to the next section."}</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.questionGroup}>
         <div className={styles.fields}>
