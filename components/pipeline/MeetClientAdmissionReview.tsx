@@ -8,11 +8,12 @@ import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sectio
 import type { Referral } from "@/lib/pipeline/referral-types";
 import styles from "./MeetClientEmailPage.module.css";
 
-export default function MeetClientAdmissionReview({ referral, editable, demo, onConfirm, onSavingChange, onReload }: {
+export default function MeetClientAdmissionReview({ referral, editable, demo, onConfirm, onReviewWithoutDate, onSavingChange, onReload }: {
   referral: Referral;
   editable: boolean;
   demo: boolean;
   onConfirm: (referral: Referral) => Promise<void>;
+  onReviewWithoutDate: () => void;
   onSavingChange: (saving: boolean) => void;
   onReload: () => void;
 }) {
@@ -64,13 +65,14 @@ export default function MeetClientAdmissionReview({ referral, editable, demo, on
           <input type="date" required value={date} readOnly={!editable} disabled={saving || conflict}
             onChange={(event) => { setDate(event.target.value); setError(""); }} aria-describedby="handoff-admit-date-help" />
         </label>
-        <p id="handoff-admit-date-help" className={styles.sourceNote}>Required before continuing. This date is saved to the workspace and added to the email automatically.</p>
+        <p id="handoff-admit-date-help" className={styles.sourceNote}>Required before sending. You can review the email and packet now; the date will be added to the email when saved.</p>
         {error ? <p role="alert" className={styles.notice}>{error}</p> : null}
         {conflict ? <button type="button" className={styles.textButton} onClick={onReload}>Reload saved date</button> : null}
       </div>
     </div>
     <footer className={styles.toolbar}>
       <span>{saving ? "Saving admit date…" : "Then check the client summary"}</span>
+      {!date && !getPlannedAdmissionDate(referral) ? <button type="button" className={styles.textButton} disabled={saving || conflict} onClick={onReviewWithoutDate}>Review without admit date</button> : null}
       <button type="submit" className={styles.sendButton} disabled={saving || conflict || Boolean(plannedAdmissionDateError(date))}>
         {saving ? "Saving…" : "Confirm admit date"}<ArrowRight size={18} aria-hidden="true" />
       </button>

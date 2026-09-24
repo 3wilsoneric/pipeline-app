@@ -132,6 +132,10 @@ test("a changed admit date must be reloaded and the confirmed date populates the
 
 test("Decision previews before an admit date and carries a saved date into the first handoff check", async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
+  let mailPosts = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && /meet-client-email|outlook-draft/.test(request.url())) mailPosts++;
+  });
   const decisionUrl = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`;
   await page.goto(decisionUrl);
   const button = page.getByRole("button", { name: "Review email & packet", exact: true });
@@ -140,6 +144,19 @@ test("Decision previews before an admit date and carries a saved date into the f
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
   const before = await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json();
   expect(before.email.blockers.join(" ")).toContain("planned admit date");
+  const date = await openAdmitDate(page);
+  await date.getByRole("button", { name: "Review without admit date", exact: true }).click();
+  const summary = page.getByRole("dialog", { name: "Check client summary", exact: true });
+  await expect(summary).toBeVisible();
+  await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
+  const files = page.getByRole("dialog", { name: "Check admission packet", exact: true });
+  await expect(files).toBeVisible();
+  await files.getByRole("button", { name: "Confirm packet", exact: true }).click();
+  await addRecipient(page);
+  await confirmRecipients(page);
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
+  expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBeFalsy();
+  expect(mailPosts).toBe(0);
   await page.goto(decisionUrl);
   await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-06");
   await button.click();
