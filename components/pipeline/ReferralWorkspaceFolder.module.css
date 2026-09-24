@@ -726,43 +726,43 @@
   /* Vertical flow (docs/design/DECISIONS.md, "Record layout"): a progress rail on the left,
      the step's page on the right. Chart is the record's home at the top of the rail. */
   @media (min-width: 1024px) {
-    .verticalFlow { display: grid; grid-template-columns: 248px minmax(0, 1fr); column-gap: 24px; align-items: start; padding-top: 16px; }
+    .verticalFlow { display: grid; grid-template-columns: 208px minmax(0, 1fr); column-gap: 28px; align-items: start; padding-top: 20px; }
     .verticalFlow > * { grid-column: 2; min-width: 0; }
-    .verticalFlow > .header { grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 16px; z-index: 20; padding: 14px 12px; border: 1px solid var(--color-sheet-border); border-radius: var(--radius-folder); background: var(--color-sheet); box-shadow: var(--shadow-card); }
-    .verticalFlow .tabRow { display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 0; border: 0; }
+    .verticalFlow > .header { grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 20px; z-index: 20; padding: 12px 8px 10px; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: rgb(255 253 248 / 88%); box-shadow: var(--shadow-card-hover); backdrop-filter: blur(6px); }
+    .verticalFlow .tabRow { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 0; border: 0; }
     .verticalFlow .identity { flex: none; width: 100%; max-width: none; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; background: transparent; }
-    .verticalFlow .nameLabel { width: 100%; padding: 10px 12px; font-size: 18px; line-height: 24px; white-space: normal; overflow-wrap: anywhere; }
+    .verticalFlow .nameLabel { width: 100%; padding: 2px 8px 0; border: 0; background: transparent; box-shadow: none; font-size: 16px; line-height: 22px; white-space: normal; overflow-wrap: anywhere; }
     .verticalFlow .identity + .stages { margin-left: 0; }
     .verticalFlow .stages { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 0; overflow: visible; }
-    .verticalFlow .stageTab, .verticalFlow .stageTab + .stageTab { position: relative; justify-content: flex-start; gap: 12px; width: 100%; min-height: 52px; margin: 0; padding: 0 12px; border: 1px solid transparent; border-radius: var(--radius-paper); background: transparent; color: var(--color-ink-2); font-size: 15px; font-weight: 600; transform: none; text-align: left; }
+    .verticalFlow .stageTab, .verticalFlow .stageTab + .stageTab { position: relative; justify-content: flex-start; gap: 10px; width: 100%; min-height: 44px; margin: 0; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-input); background: transparent; color: var(--color-ink-2); font-size: var(--text-value); font-weight: 600; transform: none; text-align: left; }
     .verticalFlow .stageTab:hover:not(:disabled):not([aria-current="page"]) { background: var(--color-segment); transform: none; }
     .verticalFlow .stageTab[aria-current="page"] { border-color: var(--tab-edge); background: var(--tab-fill); color: var(--tab-ink); transform: none; }
     .verticalFlow .stageTab[aria-current="page"]::after { display: none; }
-    .verticalFlow .stageTab[data-step-home="true"] { margin-bottom: 10px; }
+    .verticalFlow .stageTab[data-step-home="true"] { margin-bottom: 8px; }
     .verticalFlow .stageTab[data-step-home="true"]::before { content: ""; position: absolute; right: 8px; bottom: -6px; left: 8px; height: 1px; background: var(--color-sheet-border); }
-    .stepMarker { position: relative; display: grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; border: 2px dashed var(--color-folder-edge); border-radius: 50%; background: var(--color-paper); color: var(--color-paper); }
+    .stepMarker { position: relative; display: grid; place-items: center; flex-shrink: 0; width: 22px; height: 22px; border: 2px dashed var(--color-folder-edge); border-radius: 50%; background: var(--color-paper); color: var(--color-paper); }
     .stageTab[data-step-home="true"] .stepMarker { border: 0; background: transparent; color: var(--tab-ink); }
     .stageTab[data-step-state="active"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
-    .stageTab[data-step-state="active"] .stepMarker::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--tab-ink); }
+    .stageTab[data-step-state="active"] .stepMarker::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--tab-ink); }
     .stageTab[data-step-state="done"] .stepMarker { border: 0; background: var(--tab-ink); }
     /* Connector between progress steps. */
-    .stageTab[data-step-state]:not(:last-child) .stepMarker::after { content: ""; position: absolute; top: calc(100% + 2px); left: calc(50% - 1px); width: 2px; height: 26px; background: var(--color-folder-edge); }
+    .stageTab[data-step-state]:not(:last-child) .stepMarker::after { content: ""; position: absolute; top: calc(100% + 2px); left: calc(50% - 1px); width: 2px; height: 22px; background: var(--color-folder-edge); }
     .stageTab[data-step-state="done"]:not(:last-child) .stepMarker::after { background: var(--tab-ink); }
     .verticalFlow .presence { margin-left: 0; flex-direction: column; align-items: stretch; }
     .verticalFlow .presence + .actions { margin-left: 0; }
-    .verticalFlow .actions { flex-direction: column; align-items: stretch; gap: 2px; margin: 0; padding-top: 12px; border-top: 1px solid var(--color-sheet-border); }
-    .verticalFlow .actions > * { width: 100%; justify-content: flex-start; padding-inline: 12px; text-align: left; }
+    .verticalFlow .actions { flex-direction: column; align-items: stretch; gap: 0; margin: 0; padding-top: 8px; border-top: 1px solid var(--color-sheet-border); }
+    .verticalFlow .actions > * { width: 100%; min-height: 40px; justify-content: flex-start; padding-inline: 8px; font-size: var(--text-label); text-align: left; }
     .verticalFlow .utilityTab { width: 100%; justify-content: flex-start; gap: 10px; padding: 0 12px; border: 0; }
     .verticalFlow .utilityTab span { display: inline; }
     .verticalFlow .assessmentTools { margin: 0; }
     /* The rail carries the active step's color on its top edge, like the page's paper. */
     .verticalFlow > .header { border-top: 4px solid var(--stage-edge, var(--color-sheet-border)); }
-    .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -6px; padding: 0 4px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
-    .railProgress { display: block; height: 6px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
+    .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -8px; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
+    .railProgress { display: block; height: 4px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
     .railProgress > span { display: block; height: 100%; border-radius: inherit; background: var(--color-status-done); }
-    /* Walk the flow: a quiet way to the next step at the end of each page (the page's own action stays primary). */
-    .nextStepBar { display: flex; justify-content: flex-end; margin-top: 16px; }
-    .nextStepBar > button { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); font-size: var(--text-value); font-weight: 600; box-shadow: var(--shadow-card); transition: box-shadow var(--duration-fade) ease, border-color var(--duration-fade) ease; }
+    /* Walk the flow: a quiet way to the next step, floating with the rail (the page's own action stays primary). */
+    .nextStepBar { display: flex; margin: 2px 0 0; }
+    .nextStepBar > button { display: inline-flex; flex: 1; align-items: center; justify-content: space-between; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-pill); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; box-shadow: var(--shadow-card); transition: box-shadow var(--duration-fade) ease, border-color var(--duration-fade) ease; }
     .nextStepBar > button svg { color: var(--color-link); }
     .nextStepBar > button:hover { border-color: var(--color-ink-muted); box-shadow: var(--shadow-card-hover); }
     .nextStepBar > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }

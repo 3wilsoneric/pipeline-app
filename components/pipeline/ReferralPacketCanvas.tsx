@@ -2513,6 +2513,13 @@ export default function ReferralPacketCanvas({
               </div>
             ) : null}
             <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
+            {verticalFlow && nextWorkspaceStep ? (
+              <div className={workspaceFolderStyles.nextStepBar}>
+                <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
+                  Next: {nextWorkspaceStep.label}<ArrowRight size={15} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
 
             {/* Redesign: presence rides in the tab row so no notice separates the tabs from the folder. */}
             {designV2 && presence.length > 0 ? (
@@ -2924,13 +2931,6 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           )}
         </div>
-        {verticalFlow && nextWorkspaceStep ? (
-          <div className={workspaceFolderStyles.nextStepBar}>
-            <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
-              Next: {nextWorkspaceStep.label}<ArrowRight size={17} aria-hidden="true" />
-            </button>
-          </div>
-        ) : null}
       </div>
       {renderCreationHandoff()}
       {deleteDialogOpen && loadedReferral ? (
