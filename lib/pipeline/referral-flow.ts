@@ -68,12 +68,15 @@ function decisionBoardState(referral: Referral, context: WorkflowContext, state:
 function acceptedBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState {
   if (state.assessment === "ready_to_sign") return { ...boardCard("decision", "Accept", "Review and sign the assessment", "assessment"), location: { view: "assessment", assessmentMode: "review" } };
   if (state.assessment !== "signed") return boardCard("decision", "Accept", "Complete the assessment", "assessment");
-  const outstanding = (context.requirements ?? referral.requirements ?? []).filter((requirement) =>
-    ["admission_decision", "move_in"].includes(requirement.requiredFor) && !isRequirementResolved(requirement));
-  if (outstanding.some((requirement) => isDocumentRequirementType(requirement.type))) {
-    return boardCard("decision", "Accept", "Complete admission documents", "files");
+  const outstanding = (context.requirements ?? referral.requirements ?? [])
+    .filter((requirement) => ["admission_decision", "move_in"].includes(requirement.requiredFor) && !isRequirementResolved(requirement))
+    .sort((left, right) => Number(right.blocker) - Number(left.blocker)
+      || (left.dueAt || "9999").localeCompare(right.dueAt || "9999")
+      || Number(left.requiredFor !== "admission_decision") - Number(right.requiredFor !== "admission_decision"));
+  if (outstanding.length > 0) {
+    const nextItems = outstanding.slice(0, 3).map((requirement) => requirement.label.trim()).filter(Boolean).join(", ");
+    return boardCard("decision", "Accept", nextItems || "Review admission requirements", isDocumentRequirementType(outstanding[0].type) ? "files" : "workflow");
   }
-  if (outstanding.length > 0) return boardCard("decision", "Accept", "Review admission requirements", "workflow");
   return boardCard("decision", "Awaiting admit", "Record admission", "workflow");
 }
 
