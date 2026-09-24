@@ -172,7 +172,7 @@ test("an assessor can create their own intake from an older chart", async ({ pag
 test("saved client workspaces offer a new intake with carried chart details", async ({ page }, testInfo) => {
   const ordinary = await createSource(page.request, { workspaceOrigin: "pipeline" });
   await page.goto(`/?view=referrals&screen=packet&referralId=${ordinary.id}&workspaceStage=chart`);
-  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create intake", exact: true })).toHaveCount(0);
   const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
   const memberList = await (await page.request.get("/api/members?scope=assessors")).json() as {
     members: { principal_id: string; display_name: string }[]; current_principal_id: string;

@@ -2425,7 +2425,7 @@ export default function ReferralPacketCanvas({
               {renderWorkspaceSyncStatus()}
               <StartReferralFromChart
                 sourceReferralId={loadedReferral?.id}
-                allowed={Boolean(loadedReferral?.clientId && !loadedReferral.chartSource && !trainingAssessmentMode && !trainingIntakeMode)}
+                allowed={Boolean(loadedReferral?.clientId && isImportedWorkspace(loadedReferral) && !loadedReferral.chartSource && !trainingAssessmentMode && !trainingIntakeMode)}
                 inFolder
                 beforeStart={async () => {
                   if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting an intake.");
@@ -3064,9 +3064,9 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
   const presentation = workspaceSavePresentation(status, error, hasReferral, saving, dirtyCount, queuedFileCount);
   const { Icon } = presentation;
-  // A saved, pending, device-only or failed state stays visible; an untouched
-  // draft has nothing to report yet.
-  const quiet = !error && !saving && /^Draft(?: saved.*)?$/.test(status);
+  // Confirmed saves do not need a second visible strip below the folder tabs.
+  // Keep pending, device-only, and failed saves visible.
+  const quiet = !error && !saving && (presentation.confirmed || status === "No unsaved changes" || /^Draft(?: saved.*)?$/.test(status));
   return <div data-testid="workspace-save-status" className={quiet ? "sr-only" : workspaceFolderStyles.saveNotice} aria-live="polite" title={error || status}>
     <FeedbackCue value={status} enabled={presentation.confirmed} />
     <Icon size={13} aria-hidden="true" className={`shrink-0 ${presentation.iconClassName}`} />
