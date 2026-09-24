@@ -755,6 +755,17 @@
     .verticalFlow .utilityTab { width: 100%; justify-content: flex-start; gap: 10px; padding: 0 12px; border: 0; }
     .verticalFlow .utilityTab span { display: inline; }
     .verticalFlow .assessmentTools { margin: 0; }
+    /* The rail carries the active step's color on its top edge, like the page's paper. */
+    .verticalFlow > .header { border-top: 4px solid var(--stage-edge, var(--color-sheet-border)); }
+    .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -6px; padding: 0 4px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
+    .railProgress { display: block; height: 6px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
+    .railProgress > span { display: block; height: 100%; border-radius: inherit; background: var(--color-status-done); }
+    /* Walk the flow: a quiet way to the next step at the end of each page (the page's own action stays primary). */
+    .nextStepBar { display: flex; justify-content: flex-end; margin-top: 16px; }
+    .nextStepBar > button { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); font-size: var(--text-value); font-weight: 600; box-shadow: var(--shadow-card); transition: box-shadow var(--duration-fade) ease, border-color var(--duration-fade) ease; }
+    .nextStepBar > button svg { color: var(--color-link); }
+    .nextStepBar > button:hover { border-color: var(--color-ink-muted); box-shadow: var(--shadow-card-hover); }
+    .nextStepBar > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
     /* The page is its own folder now that the tabs live in the rail. */
     .verticalFlow .connectedFolder > div { border-top: 1px solid var(--folder-edge); border-radius: var(--radius-folder); }
   }

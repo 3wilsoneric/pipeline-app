@@ -2301,6 +2301,13 @@ export default function ReferralPacketCanvas({
     : workspaceSteps;
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
+  // Redesign vertical flow (docs/design/DECISIONS.md, "Record layout").
+  const verticalFlow = designV2 && Boolean(loadedReferral) && !phone;
+  const railActivePage = displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage;
+  const railStepIndex = navigableWorkspaceSteps.findIndex((step) => step.page === railActivePage);
+  const nextWorkspaceStep = railStepIndex >= 0 ? navigableWorkspaceSteps[railStepIndex + 1] : undefined;
+  const railProgress = verticalFlow ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined;
+  const railDone = railProgress ? Object.values(railProgress).filter((state) => state === "done").length : 0;
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
@@ -2499,6 +2506,12 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
             </h1>
+            {verticalFlow && loadedReferral ? (
+              <div className={workspaceFolderStyles.railMeta}>
+                <span>{`Referral #${loadedReferral.id}`}{loadedReferral.community ? ` · ${loadedReferral.community}` : ""}</span>
+                <span aria-hidden="true" className={workspaceFolderStyles.railProgress}><span style={{ width: `${Math.round(railDone / 3 * 100)}%` }} /></span>
+              </div>
+            ) : null}
             <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
 
             {/* Redesign: presence rides in the tab row so no notice separates the tabs from the folder. */}
@@ -2777,7 +2790,7 @@ export default function ReferralPacketCanvas({
         data-testid="packet-workspace"
         inert={draftRecoveryLoading}
         aria-busy={draftRecoveryLoading}
-        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${designV2 && loadedReferral && !phone ? workspaceFolderStyles.verticalFlow : ""}`}
+        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${verticalFlow ? workspaceFolderStyles.verticalFlow : ""}`}
       >
         {renderWorkspaceHeader()}
 
@@ -2911,6 +2924,13 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           )}
         </div>
+        {verticalFlow && nextWorkspaceStep ? (
+          <div className={workspaceFolderStyles.nextStepBar}>
+            <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
+              Next: {nextWorkspaceStep.label}<ArrowRight size={17} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
       </div>
       {renderCreationHandoff()}
       {deleteDialogOpen && loadedReferral ? (
