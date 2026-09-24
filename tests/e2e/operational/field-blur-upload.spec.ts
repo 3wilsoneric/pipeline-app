@@ -191,6 +191,7 @@ test.describe("field exit saves and single uploads", () => {
       await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
+      await confirmReferralFileLabels(page);
       await expect.poll(() => reservations.length).toBe(2);
       await expect(page.getByTestId("workspace-save-status")).toContainText("Files uploaded");
       expect(new Set(reservations).size).toBe(1);

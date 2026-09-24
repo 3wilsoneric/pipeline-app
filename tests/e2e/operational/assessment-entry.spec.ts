@@ -40,17 +40,15 @@ test.describe("assessment editing entry and return paths", () => {
         // Reopen without leaving the workspace, not just via a saved Home link.
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
-        await full.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true }).click();
         await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
-        await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
-        await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
         await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
+        await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
         await page.locator('[data-home-module="current-work"]').getByRole("button", { name: "Open current work", exact: true }).click();
         const board = page.getByRole("dialog", { name: "Current work", exact: true });
         await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
         await expect(full).toBeVisible();
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
-        await expect(full.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true })).toContainText(answer);
+        await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
         const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
         expect(records).toHaveLength(1);
         expect(records[0].assessment_id).toBe(assessment.assessment_id);

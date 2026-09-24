@@ -16,7 +16,10 @@ for (const width of [1440, 390]) test(`full questionnaire stays editable during 
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=diagnosis_clinical&assessmentQuestion=current_symptoms`);
   const symptoms = page.locator("#assessment-current_symptoms");
   await symptoms.fill("Synthetic interview observation");
-  await page.getByRole("button", { name: "All questions", exact: true }).click();
+  if (width === 390) {
+    await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+    await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /All questions/ }).click();
+  } else await page.getByRole("button", { name: "All questions", exact: true }).click();
   await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(symptoms).toHaveValue("Synthetic interview observation");
   await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic interview observation");
