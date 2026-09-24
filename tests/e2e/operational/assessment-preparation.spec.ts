@@ -15,7 +15,7 @@ test.describe("assessment preparation", () => {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       try {
-        const referral = await createReferral(api);
+        const referral = await createReferral(api, actor);
         await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
         const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
@@ -57,7 +57,7 @@ test.describe("assessment preparation", () => {
         const future = new Date(Date.now() + (30 + referral.id) * 86_400_000).toISOString().slice(0, 16);
         await schedule.getByLabel("Assessment date and time").fill(future);
         await schedule.getByLabel("Assessment method").selectOption("record_review");
-        await schedule.getByRole("button", { name: "Schedule interview", exact: true }).click();
+        await schedule.getByRole("button", { name: "Schedule record review", exact: true }).click();
         await expect(schedule).toHaveCount(0);
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
         const scheduled = await readAssessment(api, id);
@@ -68,7 +68,7 @@ test.describe("assessment preparation", () => {
         const finalAnswer = `${scheduledAnswer} Last edit immediately before rescheduling.`;
         await field.fill(finalAnswer);
         await field.blur();
-        await editor.getByRole("region", { name: "Assessment appointment" }).getByRole("button", { name: "Change appointment", exact: true }).click();
+        await editor.getByRole("button", { name: "Edit assessment appointment", exact: true }).click();
         await schedule.getByLabel("Assessment date and time").fill("2027-10-20T10:00");
         await page.route(`**/api/assessments/${id}/schedule`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic schedule failure. Retry without losing preparation." } }));
         await schedule.getByRole("button", { name: "Save new time", exact: true }).click();
@@ -98,7 +98,7 @@ test.describe("assessment preparation", () => {
     const api = await actorApiContext("assessorA", url);
     const other = await actorApiContext("outsider", url);
     try {
-      const referral = await createReferral(api);
+      const referral = await createReferral(api, "assessorA");
       const created = await api.post(`/api/referrals/${referral.id}/assessments`, { data: {
         client_mutation_id: randomUUID(), data: { prior_5150_5250_holds: "Synthetic record review before the interview." },
       } });
@@ -132,11 +132,11 @@ test.describe("assessment preparation", () => {
   });
 });
 
-async function createReferral(api: APIRequestContext) {
+async function createReferral(api: APIRequestContext, actor: "assessorA" | "assessmentCoordinator") {
   await api.get("/api/auth/me");
   const response = await api.post("/api/referrals", { data: {
-    client_mutation_id: randomUUID(), assignee_id: pipelineActors.assessorA.id,
-    referral: syntheticReferralInput("assessorA", { name: `Preparation ${randomUUID().replace(/\d/g, "x")}`, phone: "555-0101" }),
+    client_mutation_id: randomUUID(), assignee_id: pipelineActors[actor].id,
+    referral: syntheticReferralInput(actor, { name: `Preparation ${randomUUID().replace(/\d/g, "x")}`, phone: "555-0101" }),
   } });
   expect(response.status(), await response.text()).toBe(201);
   return (await response.json()).referral as { id: number; name: string; dob: string };

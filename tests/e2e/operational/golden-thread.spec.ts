@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { calendarToday } from "../../../lib/pipeline/calendar-date";
 
 import {
   actorApiContext,
@@ -193,6 +194,7 @@ test.describe("role-separated referral golden thread", () => {
           if_match: referral.version,
           if_match_section: referral.sectionVersions.workflow,
           target_stage: "Accepted / Admitted",
+          actual_admission_date: calendarToday(),
         },
       });
       expect(admittedWithOutstandingDocuments.status()).toBe(200);

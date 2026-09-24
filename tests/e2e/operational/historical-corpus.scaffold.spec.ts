@@ -1,6 +1,7 @@
 import { expect, request, test, type APIRequestContext, type APIResponse, type Browser, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { calendarToday } from "../../../lib/pipeline/calendar-date";
 
 import {
   operationalHeadersForActor,
@@ -488,7 +489,7 @@ async function runFullLifecycle(
     );
     await resolveOperationalMoveInRequirements(supervisor, referral.id);
     referral = await readOperationalReferral(supervisor, referral.id);
-    referral = await transitionOperationalReferral(supervisor, referral, "Accepted / Admitted");
+    referral = await transitionOperationalReferral(supervisor, referral, "Accepted / Admitted", calendarToday());
     const sent = await exerciseChaosAwareHandoff(
       handoffRecoveryCases.has(createdCase.item.case_id),
       supervisor,

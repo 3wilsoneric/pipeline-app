@@ -85,7 +85,7 @@ test.describe("referral intake usability", () => {
     const csv = `first_name,last_name,organization,phone,email\r\nExample,Scheduler,${organization},555-0120,scheduler@example.invalid\r\n,,Directory Source ${stamp},,\r\n`;
     try {
       await page.goto("/settings");
-      await page.getByText("Referral directory", { exact: true }).click();
+      await page.getByText("Contact & facility directory", { exact: true }).click();
       const directory = page.getByRole("region", { name: "Contact and facility directory" });
       await expect(directory).toBeVisible();
       const download = page.waitForEvent("download");

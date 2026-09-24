@@ -110,8 +110,8 @@ test.describe("shared workspace editing", () => {
       const answer = editor.getByRole("textbox", { name: /Prior 5150/ });
       await expect(answer).toBeEnabled();
       await answer.fill("A teammate can document this answer.");
-      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
-      await expect(editor).toHaveCount(0);
+      await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
       const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
       expect(records).toHaveLength(1);
       expect(records[0].prior_5150_5250_holds).toBe("A teammate can document this answer.");

@@ -47,12 +47,14 @@ export async function transitionOperationalReferral(
   context: APIRequestContext,
   referral: OperationalReferral,
   targetStage: string,
+  actualAdmissionDate?: string,
 ) {
   const response = await context.post(`/api/referrals/${referral.id}/transition`, {
     data: {
       if_match: referral.version,
       if_match_section: referral.sectionVersions.workflow,
       target_stage: targetStage,
+      ...(actualAdmissionDate ? { actual_admission_date: actualAdmissionDate } : {}),
     },
   });
   const bodyText = await response.text();

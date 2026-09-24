@@ -9,25 +9,31 @@ test.describe("independent assessor workflow steps", () => {
 
   test("an assessor opens a questionnaire from an empty intake and revisits intake", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessorA", url);
     const { page, context } = await actorPage(browser, "assessorA", url);
     try {
       await page.goto("/?view=referrals&screen=packet");
       const created = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/referrals" && response.request().method() === "POST");
       await page.getByRole("button", { name: "Create referral", exact: true }).click();
       const response = await created;
-      expect(response.status(), await response.text()).toBe(201);
-      const referral = (await response.json()).referral;
+      expect(response.status()).toBe(201);
+      await expect(page).toHaveURL(/referralId=\d+/);
+      const referralId = Number(new URL(page.url()).searchParams.get("referralId"));
+      const referralResponse = await api.get(`/api/referrals/${referralId}`);
+      expect(referralResponse.status()).toBe(200);
+      const referral = (await referralResponse.json()).referral;
+      expect(referral.id).toBe(referralId);
       expect(referral.dob).toBe("");
       expect(referral.documentName).toBe("");
       const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
-      await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+      await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: /^Assessment prep / }).click();
       const editor = page.locator('[data-assessment-view]');
       await expect(editor).toBeVisible();
       await stages.getByRole("button", { name: "Chart", exact: true }).click();
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toBeEditable();
       await expect(page.getByRole("textbox", { name: "Referrer phone:", exact: true })).toBeEditable();
-    } finally { await context.close(); }
+    } finally { await context.close(); await api.dispose(); }
   });
 
   for (const existingDraft of [false, true]) test(`acceptance ${existingDraft ? "during a draft" : "before assessment"} keeps work editable and signing separate`, async ({ browser, baseURL }) => {
@@ -58,7 +64,7 @@ test.describe("independent assessor workflow steps", () => {
       expect((await edited.json()).assessment.signed_at).toBeNull();
       const current = await readOperationalReferral(assessor, referral.id);
       const intake = await assessor.patch(`/api/referrals/${referral.id}`, { data: {
-        if_match: current.version, if_match_sections: { identity: current.sectionVersions.identity },
+        if_match: current.version, if_match_sections: { intake: current.sectionVersions.intake },
         client_mutation_id: randomUUID(), patch: { phone: "555-0188" },
       } });
       expect(intake.status(), await intake.text()).toBe(200);
@@ -95,9 +101,8 @@ test.describe("independent assessor workflow steps", () => {
     try {
       const referral = await incompleteReferral(assessor);
       const draft = await createOperationalAssessment(assessor, referral.id);
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-      await page.locator('summary[aria-label="Assessment details"]').click();
-      await page.getByRole("combobox", { name: "Placement recommendation", exact: true }).selectOption("accept");
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
+      await page.getByRole("region", { name: "Placement recommendation", exact: true }).getByRole("combobox", { name: "Working decision", exact: true }).selectOption("accept");
       await expect.poll(async () => (await workflow(assessor, referral.id)).recommendation?.outcome).toBe("accept");
       const recommended = await workflow(assessor, referral.id);
       expect(recommended.review).toBeNull();
