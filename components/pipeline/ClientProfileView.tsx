@@ -160,18 +160,20 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
-export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment, onEditReferralField, onEditAssessmentField, intakeReferral }: {
+export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment, onEditReferralField, onEditAssessmentField, intakeReferral, excludeReferralAssessments = false }: {
   profile: UnifiedClientProfileResponse;
   sourceReferralId: number;
   headerActions?: ReactNode;
   children?: ReactNode;
   assessment?: PipelineAssessmentRecord;
+  /** Redesign Chart home: this referral's assessments live in the Assessment tab; earlier ones stay. */
+  excludeReferralAssessments?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
   intakeReferral?: Referral;
 }) {
   return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
-    assessmentRecords={clientChartAssessments(profile, sourceReferralId, assessment)}
+    assessmentRecords={excludeReferralAssessments ? profile.pipeline.assessments.filter((record) => record.referral_id !== sourceReferralId) : clientChartAssessments(profile, sourceReferralId, assessment)}
     embedded sourceReferralId={sourceReferralId} headerActions={headerActions} additionalContent={children} onEditReferralField={onEditReferralField}
     editableAssessmentId={assessment?.assessment_id} onEditAssessmentField={onEditAssessmentField} intakeReferral={intakeReferral} />;
 }

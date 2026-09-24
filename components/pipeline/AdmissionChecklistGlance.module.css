@@ -1,0 +1,22 @@
+/* Chart home: the admission checklist at a glance (redesign only). Tokens: app/design-tokens.css. */
+.glance { margin: 16px 0; padding: 20px 24px 22px; border: 1px solid var(--color-paper-rule); border-top: 3px solid var(--color-stage-amber); border-radius: var(--radius-paper); background: var(--color-paper); }
+.header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
+.header h2 { margin: 0; color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; }
+.header p { margin: 2px 0 0; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); }
+.open { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: var(--color-link); font-size: var(--text-value); font-weight: 600; }
+.open:hover { text-decoration: underline; text-underline-offset: 3px; }
+.open:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-chip); }
+.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px 28px; }
+.group { min-width: 0; }
+.groupHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--color-paper-rule); }
+.groupHead h3 { margin: 0; color: var(--color-ink); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 700; }
+.groupHead span { flex-shrink: 0; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-variant-numeric: tabular-nums; }
+.group ul { margin: 0; padding: 0; list-style: none; }
+.group li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; padding: 8px 0; }
+.group li + li { border-top: 1px dashed var(--color-paper-rule); }
+.mark { display: grid; place-items: center; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; color: var(--color-ink-muted); }
+li[data-complete="true"] .mark { background: var(--color-status-done); color: var(--color-paper); }
+.item { display: flex; flex-direction: column; min-width: 0; }
+.item strong { color: var(--color-ink); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; overflow-wrap: anywhere; }
+.item span { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); overflow-wrap: anywhere; }
+li[data-complete="true"] .item strong { color: var(--color-ink-2); font-weight: 500; }

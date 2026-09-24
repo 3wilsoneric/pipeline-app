@@ -90,6 +90,12 @@ Home uses the card system from the "Referrals" board image in place of manila fo
 - Records still open on the last step the person was on. Chart stays one click away at the top of the sticky rail.
 - The rail is low profile: 208px wide, compact rows, and floating on the page with a soft shadow (owner). The rail card takes the active step's color as its top edge. Under the name it shows "Referral #id · community" (the board's wording) and a thin bar for completed steps.
 
+## Chart as home (owner, 2026-09-24, from staff feedback)
+
+- The Chart leads with the admission checklist as a read-only "at a glance" panel. It shows the Decision tab's "Admission requirements": the same data from the same endpoint, grouped, with each item's status line. "Open decision" goes to the one place that edits them.
+- This referral's full assessment answers leave the Chart; they live in the Assessment tab. The "n of 84 recorded" strip stays as the at-a-glance assessment status. Assessments from earlier referrals stay on the Chart as history.
+- Follow-up if staff ask: editing checklist items directly on the Chart.
+
 ## Sidebar (owner, 2026-09-24)
 
 - The rail is warm paper with a thin edge.

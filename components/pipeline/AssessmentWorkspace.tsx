@@ -2103,7 +2103,8 @@ export default function AssessmentWorkspace({
                 setNotebookView(isInterviewFocusField(field) ? "assessment" : "prepare");
                 onOpenAssessment?.();
               } : undefined}
-              assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)} />
+              assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)}
+              onOpenDecision={onContinueToWorkflow && !trainingAssessmentMode ? continueToWorkflow : undefined} />
             </div>
           </section>
   );
