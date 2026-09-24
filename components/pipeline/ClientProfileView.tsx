@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, CircleAlert, ExternalLink, FileText, ImageOff, LoaderCircle, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CircleAlert, FileText, ImageOff, LoaderCircle, Search, X } from "lucide-react";
 
 import type {
   ClinicalClientRecord,
@@ -689,11 +689,9 @@ export function ClientDocumentGallery({ documents }: { documents: ReferralFile[]
             {document.previewUrl || document.downloadUrl ? (
               <a
                 href={document.previewUrl ?? document.downloadUrl}
-                target="_blank"
-                rel="noreferrer"
                 className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]"
               >
-                {document.previewUrl ? "Open file" : "Download file"} <ExternalLink size={12} />
+                {document.previewUrl ? "Open file" : "Download file"} <ArrowRight size={12} />
               </a>
             ) : (
               <div className="mt-3 text-[10px] font-semibold text-[#8a6118]">Preview is still processing</div>
@@ -856,8 +854,8 @@ function ClientFactEvidenceDialog({
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-[11px] font-black text-[#111111]">{item.document_name} · Page {item.page_number}</div>
                     {previewPath ? (
-                      <a href={previewPath} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]">
-                        Open page <ExternalLink size={11} />
+                      <a href={previewPath} className="inline-flex items-center gap-1 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]">
+                        Open page <ArrowRight size={11} />
                       </a>
                     ) : null}
                   </div>
@@ -974,7 +972,7 @@ function ClientDocumentSearch({
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-black text-[#111111]">
                     <span>{result.document_name} · Page {result.page_number}</span>
                     {previewableDocumentIds.has(result.document_id) ? (
-                      <ExternalLink size={11} className="text-[#0f8b73]" />
+                      <ArrowRight size={11} className="text-[#0f8b73]" />
                     ) : (
                       <span className="text-[9px] uppercase text-[#737373]">Preview unavailable</span>
                     )}
@@ -986,8 +984,6 @@ function ClientDocumentSearch({
                   <a
                     key={`${result.document_id}:${result.page_number}`}
                     href={sourceDocumentPagePath(canonicalClientId, result.document_id, result.page_number)}
-                    target="_blank"
-                    rel="noreferrer"
                     className="block py-3 hover:bg-[#f7faf8]"
                   >
                     {content}
@@ -1082,11 +1078,9 @@ function ClinicalSourceDocumentGallery({
               {previewUrl ? (
                 <a
                   href={previewUrl}
-                  target="_blank"
-                  rel="noreferrer"
                   className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]"
                 >
-                  Open file <ExternalLink size={12} />
+                  Open file <ArrowRight size={12} />
                 </a>
               ) : (
                 <div className="mt-3 text-[10px] font-semibold text-[#737373]">Thumbnail only</div>
@@ -1129,8 +1123,6 @@ function ClinicalSourceThumbnail({
   return previewUrl ? (
     <a
       href={previewUrl}
-      target="_blank"
-      rel="noreferrer"
       className="block h-40 border-b border-[#d9d9d9] bg-[#f2f5f3] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f8b73]"
       aria-label={`Open ${document.display_name}`}
     >
@@ -1165,8 +1157,6 @@ export function DocumentThumbnail({ document }: { document: ReferralFile }) {
   return openUrl ? (
     <a
       href={openUrl}
-      target="_blank"
-      rel="noreferrer"
       className="block h-40 border-b border-[#d9d9d9] bg-[#f2f5f3] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f8b73]"
       aria-label={`Open ${document.name}`}
     >
