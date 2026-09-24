@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:7d2f6fb74f6c518e",
-  "fingerprint": "7d2f6fb74f6c518e482ffc71c2db4b78b50304603f5bc2ae0a7bc50db02e6436",
+  "generatedAt": "source-fingerprint:7685421b01dc933f",
+  "fingerprint": "7685421b01dc933f7293d84730b8d8e51309f92ddb750edea05f387de4968cca",
   "totals": {
     "files": 1412,
-    "lines": 369765,
+    "lines": 369795,
     "coveredFiles": 1412
   },
   "entries": [
@@ -170,7 +170,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 29,
+      "lines": 36,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -3012,7 +3012,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 596,
+      "lines": 601,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -3312,7 +3312,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4216,
+      "lines": 4205,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -16968,7 +16968,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 263,
+      "lines": 292,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
