@@ -276,9 +276,9 @@ function TutorialPacket({ state, files, onSend, onEdit, onRecipientChange }: { s
       {view === "chart" ? <CompleteAssessmentChart report={report} /> : null}
       {view === "files" ? <><SampleFiles referral={state.referral} /><ul>{files.map((item, index) => <li key={index}>{item.file.name}</li>)}</ul></> : null}
     </div>
-    <p className={styles.outlookNote}>In your workspace: save to Outlook Drafts, send from Outlook, then check sent status in Pipeline.</p>
+    <p className={styles.outlookNote}>In a real workspace, preview the handoff, confirm recipients and the admission date, then use the available email option. Check its status before retrying.</p>
     <footer className={styles.send}>
-      {state.sentAt ? <p role="status"><Check size={17} />Simulated send complete. No email was sent.</p> : <><label><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />Recipients checked</label><button type="button" className={styles.action} disabled={!confirmed || !state.packetRecipient.trim()} onClick={onSend}>Simulate send<ArrowRight size={17} /></button></>}
+      {state.sentAt ? <p role="status"><Check size={17} />Simulated send complete. No email was sent.</p> : <>{!state.referral.plannedAdmissionDate ? <p role="status">Add a planned admission date in Decision before simulating send. You can still preview the packet now.</p> : null}<label><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />Recipients checked</label><button type="button" className={styles.action} disabled={!state.referral.plannedAdmissionDate || !confirmed || !state.packetRecipient.trim()} onClick={onSend}>Simulate send<ArrowRight size={17} /></button></>}
     </footer>
   </section>;
 }
