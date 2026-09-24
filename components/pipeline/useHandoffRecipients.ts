@@ -115,8 +115,38 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     const current = session.current;
     if (!current) return;
     if (!current.saved) { setReloadKey(value => value + 1); return; }
-    current.queue = current.queue.catch(() => undefined); current.error = ""; current.queued = ""; setError("");
-    save();
+    await current.queue.catch(() => undefined);
+    try {
+      // The PUT may have committed even when its response was lost. Read it back
+      // before retrying with an old version or telling the assessor to resubmit.
+      const stored = await fetchPipelineJson<{ draft: DraftFields & { community: string } | null; version: number }>(endpoint, { cache: "no-store" });
+      if (session.current !== current) return;
+      const persisted = stored.draft?.community === community ? stored.draft : null;
+      if (persisted && JSON.stringify({ to: persisted.to, cc: persisted.cc, message: persisted.message }) === JSON.stringify(current.fields)) {
+        current.version = stored.version;
+        current.saved = JSON.stringify(current.fields);
+        current.queued = current.saved;
+        current.queue = Promise.resolve();
+        current.error = "";
+        setError("");
+        setMessage("Handoff draft saved");
+        return;
+      }
+      if (stored.version !== current.version) {
+        current.error = "This handoff draft changed in another session. Your edits are still here; reload the saved draft before replacing them.";
+        setError(current.error);
+        return;
+      }
+      current.queue = Promise.resolve();
+      current.error = "";
+      current.queued = "";
+      setError("");
+      save();
+    } catch (failure) {
+      if (session.current !== current) return;
+      current.error = failure instanceof Error ? failure.message : "The saved handoff draft could not be checked. Retry saving.";
+      setError(current.error);
+    }
   };
   const applyCommunityList = async () => {
     const current = session.current;

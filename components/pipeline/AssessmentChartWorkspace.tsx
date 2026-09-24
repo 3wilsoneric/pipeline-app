@@ -124,6 +124,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
 
   const confirmAdmissionDate = async (saved: Referral) => {
     onReferralChange?.(saved);
+    setPayload((current) => current ? { ...current, referral: saved } : current);
     const next = await fetchPipelineJson<ChartPayload>(`/api/referrals/${saved.id}/admission-summary`, { cache: "no-store" });
     if (getPlannedAdmissionDate(next.referral) !== getPlannedAdmissionDate(saved) || !next.report?.signed || !next.email.eligible) {
       throw new PipelineApiError("The handoff changed. Reload and check the saved admit date before continuing.", 409);

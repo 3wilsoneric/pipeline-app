@@ -2,7 +2,7 @@
 
 import { useConfirmationDialog } from "./useConfirmationDialog";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
 
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
@@ -54,6 +54,7 @@ export default function ReferralContactsCard({
   const [editing, setEditing] = useState<ReferralContactRecord | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const readGeneration = useRef(0);
 
   useEffect(() => {
     if (!referralId) {
@@ -62,13 +63,14 @@ export default function ReferralContactsCard({
       return;
     }
     let cancelled = false;
+    const generation = readGeneration.current;
     setLoading(true);
     fetchPipelineJson<{ contacts: ReferralContactRecord[] }>(`/api/referrals/${referralId}/contacts`, { cache: "no-store" })
       .then((payload) => {
-        if (!cancelled) setLinks(payload.contacts);
+        if (!cancelled && generation === readGeneration.current) setLinks(payload.contacts);
       })
       .catch((reason) => {
-        if (!cancelled) setError(contactError(reason));
+        if (!cancelled && generation === readGeneration.current) setError(contactError(reason));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -103,16 +105,26 @@ export default function ReferralContactsCard({
 
   const reload = async () => {
     if (!referralId) return;
+    const generation = readGeneration.current;
     const payload = await fetchPipelineJson<{ contacts: ReferralContactRecord[] }>(`/api/referrals/${referralId}/contacts`, { cache: "no-store" });
-    setLinks(payload.contacts);
+    if (generation === readGeneration.current) setLinks(payload.contacts);
+  };
+
+  const refreshAfterSave = async (savedMessage: string) => {
+    const generation = readGeneration.current;
+    try {
+      await reload();
+    } catch {
+      if (generation === readGeneration.current) setError(`${savedMessage} The latest contact list could not refresh. Reload the page to check it.`);
+    }
   };
 
   const attach = async (contact: ContactRecord) => {
-    if (!referralId) return;
+    if (!referralId) return false;
     setBusy(contact.id);
     setError("");
     try {
-      await fetchPipelineJson(`/api/referrals/${referralId}/contacts`, {
+      const saved = await fetchPipelineJson<{ record: ReferralContactRecord }>(`/api/referrals/${referralId}/contacts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -124,10 +136,15 @@ export default function ReferralContactsCard({
           client_mutation_id: crypto.randomUUID(),
         }),
       });
-      await reload();
+      readGeneration.current += 1;
+      setLinks((current) => [saved.record, ...current.filter((link) => link.id !== saved.record.id).map((link) =>
+        saved.record.primaryForScheduling ? { ...link, primaryForScheduling: false } : link)]);
       closeComposer();
+      await refreshAfterSave("Contact attached.");
+      return true;
     } catch (reason) {
       setError(contactError(reason));
+      return false;
     } finally {
       setBusy("");
     }
@@ -147,7 +164,12 @@ export default function ReferralContactsCard({
           client_mutation_id: crypto.randomUUID(),
         }),
       });
-      await attach(created.record);
+      if (!await attach(created.record)) {
+        setMode("search");
+        setQuery(contactDisplayName(created.record));
+        setResults([created.record]);
+        setError("Contact saved in the directory, but it was not linked to this referral. Select it below to retry the link.");
+      }
     } catch (reason) {
       setError(contactError(reason));
       setBusy("");
@@ -159,15 +181,18 @@ export default function ReferralContactsCard({
     setBusy(link.id);
     setError("");
     try {
-      await fetchPipelineJson(`/api/referrals/${referralId}/contacts/${link.id}`, {
+      const saved = await fetchPipelineJson<{ record: ReferralContactRecord }>(`/api/referrals/${referralId}/contacts/${link.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ if_match: link.version, primary_for_scheduling: true, client_mutation_id: crypto.randomUUID() }),
       });
-      await reload();
+      readGeneration.current += 1;
+      setLinks((current) => current.map((item) => item.id === link.id
+        ? saved.record : { ...item, primaryForScheduling: false }));
+      await refreshAfterSave("Primary scheduling contact saved.");
     } catch (reason) {
       setError(contactError(reason));
-      if (reason instanceof PipelineApiError && reason.status === 409) await reload();
+      if (reason instanceof PipelineApiError && reason.status === 409) await reload().catch(() => undefined);
     } finally {
       setBusy("");
     }
@@ -177,8 +202,9 @@ export default function ReferralContactsCard({
     if (!referralId || !editing) return;
     setBusy(editing.id);
     setError("");
+    let savedContact: ContactRecord | null = null;
     try {
-      await fetchPipelineJson(`/api/contacts/${editing.contactId}`, {
+      const contactResult = await fetchPipelineJson<{ record: ContactRecord }>(`/api/contacts/${editing.contactId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -188,12 +214,17 @@ export default function ReferralContactsCard({
           client_mutation_id: crypto.randomUUID(),
         }),
       });
+      savedContact = contactResult.record;
+      readGeneration.current += 1;
+      setLinks((current) => current.map((link) => link.contactId === editing.contactId
+        ? { ...link, contact: contactResult.record } : link));
+      setEditing((current) => current?.id === editing.id ? { ...current, contact: contactResult.record } : current);
       if (
         form.role !== editing.role ||
         form.relationship !== editing.relationship ||
         form.primaryForScheduling !== editing.primaryForScheduling
       ) {
-        await fetchPipelineJson(`/api/referrals/${referralId}/contacts/${editing.id}`, {
+        const linkResult = await fetchPipelineJson<{ record: ReferralContactRecord }>(`/api/referrals/${referralId}/contacts/${editing.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -204,13 +235,18 @@ export default function ReferralContactsCard({
             client_mutation_id: crypto.randomUUID(),
           }),
         });
+        readGeneration.current += 1;
+        setLinks((current) => current.map((link) => link.id === editing.id
+          ? linkResult.record : linkResult.record.primaryForScheduling ? { ...link, primaryForScheduling: false } : link));
       }
-      await reload();
       setEditing(null);
       setForm(emptyContactForm);
+      await refreshAfterSave("Contact changes saved.");
     } catch (reason) {
-      setError(contactError(reason));
-      if (reason instanceof PipelineApiError && reason.status === 409) await reload();
+      setError(savedContact
+        ? `Contact details saved, but referral role or scheduling changes could not be saved. ${contactError(reason)}`
+        : contactError(reason));
+      if (reason instanceof PipelineApiError && reason.status === 409) await reload().catch(() => undefined);
     } finally {
       setBusy("");
     }
@@ -226,10 +262,12 @@ export default function ReferralContactsCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ if_match: link.version, client_mutation_id: crypto.randomUUID() }),
       });
-      await reload();
+      readGeneration.current += 1;
+      setLinks((current) => current.filter((item) => item.id !== link.id));
+      await refreshAfterSave("Contact removed from this referral.");
     } catch (reason) {
       setError(contactError(reason));
-      if (reason instanceof PipelineApiError && reason.status === 409) await reload();
+      if (reason instanceof PipelineApiError && reason.status === 409) await reload().catch(() => undefined);
     } finally {
       setBusy("");
     }
@@ -388,7 +426,7 @@ function ContactComposer({ referralId, mode, query, results, form, busy, setMode
   setQuery: (value: string) => void;
   setForm: (value: ContactForm) => void;
   setError: (value: string) => void;
-  onAttach: (contact: ContactRecord) => Promise<void>;
+  onAttach: (contact: ContactRecord) => Promise<boolean>;
   onCreate: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -423,7 +461,7 @@ function ContactSearchResults({ query, results, form, busy, setQuery, setForm, o
   busy: string;
   setQuery: (value: string) => void;
   setForm: (value: ContactForm) => void;
-  onAttach: (contact: ContactRecord) => Promise<void>;
+  onAttach: (contact: ContactRecord) => Promise<boolean>;
 }) {
   return (
     <>
