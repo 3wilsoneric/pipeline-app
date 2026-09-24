@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:7685421b01dc933f",
-  "fingerprint": "7685421b01dc933f7293d84730b8d8e51309f92ddb750edea05f387de4968cca",
+  "generatedAt": "source-fingerprint:ec9ba32cd064364a",
+  "fingerprint": "ec9ba32cd064364aeddb5ceb1be241247f63d5f8bab23d8f0e7f22b88dd432c4",
   "totals": {
-    "files": 1412,
-    "lines": 369795,
-    "coveredFiles": 1412
+    "files": 1413,
+    "lines": 369932,
+    "coveredFiles": 1413
   },
   "entries": [
     {
@@ -9510,7 +9510,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 332,
+      "lines": 343,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -10014,7 +10014,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 90,
+      "lines": 92,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -15831,6 +15831,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/home-assessment-consistency.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 124,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
       ]
     },
     {

@@ -80,6 +80,17 @@ export function assessmentCalendarEvent(
   };
 }
 
+export function isUpcomingAssessmentAppointment(
+  event: Pick<PipelineCalendarEvent, "kind" | "status" | "scheduleStatus" | "startsAt" | "durationMinutes">,
+  now: Date,
+) {
+  if (event.kind !== "assessment" || event.status === "complete"
+    || !["scheduled", "rescheduled"].includes(event.scheduleStatus ?? "")) return false;
+  const startsAt = Date.parse(event.startsAt ?? "");
+  if (!Number.isFinite(startsAt)) return false;
+  return startsAt + (event.durationMinutes ?? 0) * 60_000 > now.getTime();
+}
+
 function scheduledAssessmentPresentation(assessment: CalendarAssessment, needsOutcome: boolean) {
   if (assessment.status === "complete") return { title: "Assessment completed", detail: "Completed" };
   if (assessment.status === "needs_review") return { title: "Assessment ready for review", detail: "Review extracted and entered data" };
