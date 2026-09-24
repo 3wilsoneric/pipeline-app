@@ -11,7 +11,14 @@ const vince = { id: "vince-fixture", name: "Vince Ceja", email: "vince@aaahealth
 const sandeep = { id: "sandeep-fixture", name: "Sandeep", email: "sandeep@aaahealthservices.com", roles: ["assessment_coordinator", "reviewer", "viewer"] };
 const andrew = { ...sandeep, id: "andrew-fixture", email: "andrew@aaahealthservices.com" };
 const administrator = { id: "admin-fixture", name: "Admin", email: "admin@pipeline.local", roles: ["admin"] };
-const referrals = [fixtureReferral(1, vince), fixtureReferral(2, sandeep), fixtureReferral(3, andrew)];
+const outsider = { id: "outsider-fixture", name: "Outsider", email: "outsider@pipeline.local", roles: [] };
+const noteLabUser = { ...vince, id: "note-lab-fixture", accessScope: "note_lab" };
+const referrals = [
+  fixtureReferral(1, vince),
+  fixtureReferral(2, sandeep),
+  fixtureReferral(3, andrew),
+  { ...fixtureReferral(4, vince), workspaceStatus: "historical" },
+];
 const environment = {
   ...process.env,
   NODE_ENV: "test",
@@ -28,23 +35,28 @@ const environment = {
 };
 
 try {
-  await writeFile(environment.PIPELINE_REFERRAL_STORE_PATH, JSON.stringify({ version: 1, revision: 1, next_id: 4, referrals }));
+  await writeFile(environment.PIPELINE_REFERRAL_STORE_PATH, JSON.stringify({ version: 1, revision: 1, next_id: 5, referrals }));
   const globals = { process: Object.assign(Object.create(process), { env: environment }) };
   const access = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-access.ts", globals);
   assert.equal((await access.requireMutableReferralAccess(vince, 1)).ok, true);
-  assert.equal((await access.requireMutableReferralAccess(vince, 2)).response.status, 404);
-  assert.equal((await access.requireMutableReferralAccess(sandeep, 1)).response.status, 403);
-  assert.equal((await access.requireMutableReferralAccess(andrew, 1)).response.status, 403);
+  assert.equal((await access.requireMutableReferralAccess(vince, 2)).ok, true);
+  assert.equal((await access.requireMutableReferralAccess(sandeep, 1)).ok, true);
+  assert.equal((await access.requireMutableReferralAccess(andrew, 1)).ok, true);
   assert.equal((await access.requireMutableReferralAccess(administrator, 1)).ok, true);
-  assert.equal((await access.requireMutablePacketAccess(sandeep, "owner-fixture-1", "files")).response.status, 403);
+  assert.equal((await access.requireMutablePacketAccess(sandeep, "owner-fixture-1", "files")).ok, true);
   assert.equal((await access.requireMutablePacketAccess(vince, "owner-fixture-1", "files")).ok, true);
+  assert.equal((await access.requireMutableReferralAccess(outsider, 1)).response.status, 404);
+  assert.equal((await access.requireMutablePacketAccess(outsider, "owner-fixture-1", "files")).response.status, 404);
+  assert.equal((await access.requireMutableReferralAccess(noteLabUser, 1)).response.status, 404);
+  assert.equal((await access.requireMutableReferralAccess(vince, 4)).response.status, 422);
+  assert.equal((await access.requireMutablePacketAccess(vince, "owner-fixture-4", "files")).response.status, 422);
 
   const operations = loadTypeScriptModule(process.cwd(), "lib/pipeline/operations-snapshot.ts", globals);
   await expectBoard(operations, vince, [1]);
   await expectBoard(operations, andrew, [3]);
-  await expectBoard(operations, sandeep, [1, 2, 3]);
-  await expectBoard(operations, administrator, [1, 2, 3]);
-  console.log(JSON.stringify({ ok: true, checks: "owner and foreign referral/packet mutation guards; assessor, coordinator, Sandeep and admin board scoping" }));
+  await expectBoard(operations, sandeep, [2]);
+  await expectBoard(operations, administrator, []);
+  console.log(JSON.stringify({ ok: true, checks: "approved shared referral/packet editing, outsider and historical guards, personal board scoping" }));
 } finally {
   await rm(directory, { recursive: true, force: true });
 }
@@ -61,6 +73,8 @@ function fixtureReferral(id, owner) {
 async function expectBoard(operations, user, expectedIds) {
   const summary = await operations.getHomeWorkflowSummary(user);
   const ids = Array.from(summary.board_items, (item) => item.referral_id).sort((a, b) => a - b);
-  assert.deepEqual(ids, expectedIds, `${user.name} board must contain only the authorized referrals`);
+  assert.deepEqual(ids, expectedIds, `${user.name} board must contain only owned referrals`);
   assert.equal(summary.active_total, expectedIds.length, "Board counts must follow the same scoping");
+  const allIds = Array.from(summary.all_board_items, (item) => item.referral_id).sort((a, b) => a - b);
+  assert.deepEqual(allIds, [1, 2, 3], "Approved users may find all active workspaces outside their personal board");
 }
