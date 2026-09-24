@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9e343b52d52c0a18",
-  "fingerprint": "9e343b52d52c0a18239ad829a70663b8fd4d20c610e7f17132c324016232a4da",
+  "generatedAt": "source-fingerprint:0c7597e0d3d181d2",
+  "fingerprint": "0c7597e0d3d181d2970617f8033884041559e985722cebb549ce737f50fc55d2",
   "totals": {
-    "files": 1412,
-    "lines": 369715,
-    "coveredFiles": 1412
+    "files": 1420,
+    "lines": 373666,
+    "coveredFiles": 1420
   },
   "entries": [
     {
@@ -110,7 +110,7 @@
       "kind": "documentation",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 33,
+      "lines": 42,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -1819,6 +1819,18 @@
       ]
     },
     {
+      "path": "app/design-tokens.css",
+      "subsystem": "App Router",
+      "kind": "repository-file",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 126,
+      "moduleIds": [
+        "developer-toolchain",
+        "system-map"
+      ]
+    },
+    {
       "path": "app/desktop-manifest.webmanifest/route.ts",
       "subsystem": "App Router",
       "kind": "route-handler",
@@ -1872,7 +1884,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 411,
+      "lines": 421,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1884,7 +1896,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 61,
+      "lines": 76,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1908,7 +1920,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 407,
+      "lines": 707,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -1984,6 +1996,18 @@
       "moduleIds": [
         "authorization-phi",
         "entra-session"
+      ]
+    },
+    {
+      "path": "components/design/DesignSwitch.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 18,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
       ]
     },
     {
@@ -2196,7 +2220,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 81,
+      "lines": 172,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2220,7 +2244,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 189,
+      "lines": 388,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2280,7 +2304,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 404,
+      "lines": 848,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2292,7 +2316,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 259,
+      "lines": 269,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2400,7 +2424,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 449,
+      "lines": 907,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2424,7 +2448,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 157,
+      "lines": 167,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2688,7 +2712,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 204,
+      "lines": 399,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2748,7 +2772,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 212,
+      "lines": 434,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -3072,7 +3096,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 445,
+      "lines": 447,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -3192,7 +3216,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 123,
+      "lines": 254,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3312,7 +3336,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4216,
+      "lines": 4230,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3348,7 +3372,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 450,
+      "lines": 452,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3360,7 +3384,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 262,
+      "lines": 436,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3372,7 +3396,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 240,
+      "lines": 293,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3396,7 +3420,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 358,
+      "lines": 724,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3816,7 +3840,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 403,
+      "lines": 405,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5450,6 +5474,66 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 125,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/design/DECISIONS.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 95,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/design/hardcoded-style-baseline.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 410,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/design/PRINCIPLES.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 52,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/design/reference/board-handoff.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 107,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/design/reference/referral-board.html",
+      "subsystem": "Documentation",
+      "kind": "repository-file",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 357,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -11146,7 +11230,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 254,
+      "lines": 256,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -13121,6 +13205,18 @@
       ]
     },
     {
+      "path": "scripts/design-token-ratchet.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 70,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/desktop-readiness.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -13906,7 +14002,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 60,
+      "lines": 62,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -14050,7 +14146,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 350,
+      "lines": 355,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
