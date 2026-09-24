@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:0c7597e0d3d181d2",
-  "fingerprint": "0c7597e0d3d181d2970617f8033884041559e985722cebb549ce737f50fc55d2",
+  "generatedAt": "source-fingerprint:76c670dfa615ea47",
+  "fingerprint": "76c670dfa615ea47d87c01509242499c3df6908cf3d72d9280350057590b392d",
   "totals": {
     "files": 1420,
-    "lines": 373666,
+    "lines": 373697,
     "coveredFiles": 1420
   },
   "entries": [
@@ -3012,7 +3012,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 142,
+      "lines": 163,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3420,7 +3420,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 724,
+      "lines": 726,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5485,7 +5485,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 95,
+      "lines": 103,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
