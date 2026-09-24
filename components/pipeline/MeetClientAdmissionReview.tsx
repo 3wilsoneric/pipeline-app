@@ -34,6 +34,7 @@ export default function MeetClientAdmissionReview({ referral, editable, demo, on
     setSaving(true);
     onSavingChange(true);
     setError("");
+    let dateSaved = false;
     try {
       let saved = referral;
       if (date !== getPlannedAdmissionDate(referral)) {
@@ -46,10 +47,13 @@ export default function MeetClientAdmissionReview({ referral, editable, demo, on
         });
         saved = result.referral;
       }
+      dateSaved = true;
       await onConfirm(saved);
     } catch (failure) {
       setConflict(failure instanceof PipelineApiError && failure.status === 409);
-      setError(failure instanceof Error ? failure.message : "The admit date could not be saved. Try again.");
+      setError(dateSaved
+        ? `The admit date was saved, but the handoff could not advance. ${failure instanceof Error ? failure.message : "Try again."}`
+        : failure instanceof Error ? failure.message : "The admit date could not be saved. Try again.");
     } finally {
       inFlight.current = false;
       setSaving(false);

@@ -154,6 +154,8 @@ type FieldKey = ReferralCanvasFieldKey;
 
 type PacketField = ReferralCanvasPacketField;
 
+const fileChartRefreshWarning = "The file change was saved. Reload to update the chart if it does not refresh.";
+
 type PacketFieldReviewResult = ReviewFieldResponse & {
   packet_fields?: PacketFieldsResponse;
   referral?: Referral;
@@ -579,18 +581,23 @@ export default function ReferralPacketCanvas({
 
   useEffect(() => {
     const refreshDocuments = (event: Event) => {
-      if ((event as CustomEvent).detail?.referralId !== loadedReferralRef.current?.id) return;
+      const detail = (event as CustomEvent<{ referralId: number; refreshChart?: boolean }>).detail;
+      if (detail?.referralId !== loadedReferralRef.current?.id) return;
       const id = loadedReferralRef.current!.id;
       setWorkspaceFilesRevision((revision) => revision + 1);
+      if (detail.refreshChart === false) return;
       void fetchPipelineJson<{ referral: Referral }>(`/api/referrals/${id}/canvas`, { cache: "no-store" }).then((result) => {
-        if (loadedReferralRef.current?.id !== id) return;
-        loadedReferralRef.current = result.referral;
-        setLoadedReferral(result.referral);
-        const next = mergePendingDocumentNames(documentsFromReferral(result.referral), pendingDocumentsRef.current);
+        const current = loadedReferralRef.current;
+        if (current?.id !== id) return;
+        const latest = (current.version ?? 1) > (result.referral.version ?? 1) ? current : result.referral;
+        loadedReferralRef.current = latest;
+        setLoadedReferral(latest);
+        const next = mergePendingDocumentNames(documentsFromReferral(latest), pendingDocumentsRef.current);
         documentsRef.current = next;
         setDocuments(next);
+        setSaveAlert((alert) => alert === fileChartRefreshWarning ? "" : alert);
       }).catch(() => {
-        if (loadedReferralRef.current?.id === id) setSaveError("The file changed, but the refreshed chart could not load. Reload to see it.");
+        if (loadedReferralRef.current?.id === id) setSaveAlert(fileChartRefreshWarning);
       });
     };
     window.addEventListener("pipeline:documents-changed", refreshDocuments);
@@ -1334,16 +1341,25 @@ export default function ReferralPacketCanvas({
       const remaining = additionalFilesRef.current.filter((queued) => queued !== entry);
       additionalFilesRef.current = remaining;
       setAdditionalFiles(remaining);
-      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id } }));
+      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id, refreshChart: false } }));
     }
-    const refreshed = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" });
-    if (!refreshed.referral) throw new Error("Files were stored, but their checklist could not be refreshed. Retry Save.");
-    loadedReferralRef.current = refreshed.referral;
-    setLoadedReferral(refreshed.referral);
-    const nextDocuments = mergePendingDocumentNames(documentsFromReferral(refreshed.referral), pendingDocumentsRef.current);
-    documentsRef.current = nextDocuments;
-    setDocuments(nextDocuments);
-    return refreshed.referral;
+    try {
+      const refreshed = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" });
+      if (!refreshed.referral) throw new Error("The chart refresh returned no referral.");
+      const current = loadedReferralRef.current;
+      const latest = current?.id === referral.id && (current.version ?? 1) > (refreshed.referral.version ?? 1)
+        ? current : refreshed.referral;
+      loadedReferralRef.current = latest;
+      setLoadedReferral(latest);
+      const nextDocuments = mergePendingDocumentNames(documentsFromReferral(latest), pendingDocumentsRef.current);
+      documentsRef.current = nextDocuments;
+      setDocuments(nextDocuments);
+      setSaveAlert((alert) => alert === fileChartRefreshWarning ? "" : alert);
+      return latest;
+    } catch {
+      setSaveAlert(fileChartRefreshWarning);
+      return loadedReferralRef.current?.id === referral.id ? loadedReferralRef.current : referral;
+    }
   };
 
   const retainQueuedAdditionalFileDraft = () => {
@@ -1525,8 +1541,6 @@ export default function ReferralPacketCanvas({
   const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
-    try { await handoff.flush(); }
-    catch { return; } // The handoff owns its save error and retry controls.
     try {
       await assessmentNavigationRef.current?.();
       if (activePage === 1 && loadedReferralRef.current) {
