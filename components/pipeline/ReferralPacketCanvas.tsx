@@ -1543,9 +1543,8 @@ export default function ReferralPacketCanvas({
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.();
-      if (activePage === 1 && loadedReferralRef.current) {
+      if (activePage === 1) {
         await preservePendingIntake();
-        await intakeSaveQueueRef.current;
       }
       if (assessmentMode === undefined && (activePage === 1 || activePage === 3) && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
         await openQuestionnaireFromIntake();
@@ -2732,7 +2731,7 @@ export default function ReferralPacketCanvas({
 
               <aside aria-label="Intake progress" className="border-t border-[#bfcac5] bg-[#f7faf8]">
                 {loadedReferral && chartPage === 3 ? <div className="flex justify-end px-4 py-3">
-                  <button type="button" onClick={() => void navigatePage(3)} disabled={isSaving} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">Done</button>
+                  <button type="button" onClick={() => void navigatePage(3)} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white">Done</button>
                 </div> : <ChartCompletionRail
                   fieldCount={fieldCount}
                   fieldTotal={visibleChartFieldKeys.length}

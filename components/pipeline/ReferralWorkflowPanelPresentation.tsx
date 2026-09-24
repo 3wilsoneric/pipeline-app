@@ -250,10 +250,13 @@ export function DecisionCard({ workflow, busy, recommendation, onRecommendationC
   const underReview = recommendation.outcome === "needs_more_information";
   const savedUnderReview = isSavedUnderReview(workflow, recommendation);
   const action = decisionActionState(workflow, recommendation, Boolean(busy));
+  // A checklist save must not freeze a decision the assessor is still drafting.
+  // Submission remains guarded by action.disabled until that save finishes.
+  const draftLocked = Boolean(busy) && !busy.startsWith("requirement:");
   return (
     <section className={styles.decisionCard}>
       <RecommendationOnFile workflow={workflow} selected={recommendation.outcome} selectedNote={recommendation.reasonNote} />
-      <fieldset disabled={!workflow.capabilities.can_decide || Boolean(busy)}>
+      <fieldset disabled={!workflow.capabilities.can_decide || draftLocked}>
         <legend className={styles.legend}>Final decision</legend>
         <div className={styles.options}>
           {([{ value: "accept", label: "Accept", detail: "Proceed with placement", Icon: Check }, { value: "decline", label: "Deny", detail: "Close this referral", Icon: Minus }, { value: "needs_more_information", label: "Under review", detail: "Keep open for follow-up", Icon: Clock3 }] as const).map(({ Icon, ...option }) => (
@@ -264,7 +267,7 @@ export function DecisionCard({ workflow, busy, recommendation, onRecommendationC
           ))}
         </div>
       </fieldset>
-      <WorkflowTextArea label={underReview ? "What needs review?" : "Reason (optional)"} value={recommendation.reasonNote} disabled={!workflow.capabilities.can_decide || Boolean(busy)} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
+      <WorkflowTextArea label={underReview ? "What needs review?" : "Reason (optional)"} value={recommendation.reasonNote} disabled={!workflow.capabilities.can_decide || draftLocked} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
       <div className={styles.decisionActions}>
         <p id="decision-action-hint" data-blocked={!savedUnderReview && action.disabled && !busy ? "true" : undefined}>{savedUnderReview ? "Under review saved. Edit the note to save an update." : action.hint}</p>
         {!savedUnderReview ? <PrimaryButton busy={Boolean(busy)} disabled={action.disabled} describedBy="decision-action-hint" onClick={onSubmitDecision}>{underReview ? "Save under review" : "Record decision"}<ArrowRight size={18} aria-hidden="true" /></PrimaryButton> : null}
