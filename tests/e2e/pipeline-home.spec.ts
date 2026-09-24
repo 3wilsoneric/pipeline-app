@@ -493,11 +493,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("img", { name: "First-page thumbnail for Sanitized referral packet.pdf" })).toBeVisible();
     const sourceDocumentLink = page.getByRole("link", { name: "Open Sanitized referral packet.pdf" });
     await expect(sourceDocumentLink).toHaveAttribute("href", /\/source-documents\/doc-sanitized-100\/preview$/);
-    const sourceDocumentWindow = page.waitForEvent("popup");
-    await sourceDocumentLink.click();
-    const openedSourceDocument = await sourceDocumentWindow;
-    await expect(openedSourceDocument.locator("body")).toBeVisible();
-    await openedSourceDocument.close();
+    await expect(sourceDocumentLink).not.toHaveAttribute("target", "_blank");
     await page.getByRole("heading", { name: "Client files", exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath("client-profile-folder-files.png") });
     await expect(page.getByText("Stay history", { exact: true })).toBeVisible();
@@ -535,6 +531,12 @@ test.describe("Pipeline home", () => {
     await profileMain.evaluate((element) => element.scrollTo({ top: 0 }));
     await page.getByRole("button", { name: "Back to profiles", exact: true }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
+    await page.getByRole("button", { name: /Avery Example/ }).click();
+    await Promise.all([
+      page.waitForURL(/\/source-documents\/doc-sanitized-100\/preview$/),
+      page.getByRole("link", { name: "Open Sanitized referral packet.pdf" }).click(),
+    ]);
+    await expect(page.locator("body")).toBeVisible();
   });
 
   test("recovers a client profile after a temporary server failure", async ({ page }) => {
