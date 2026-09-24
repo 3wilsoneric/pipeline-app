@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8ece0b4c4535a368",
-  "fingerprint": "8ece0b4c4535a36866a274074c03ed6e3dbd907ac3c21c23815690d3c79ee555",
+  "generatedAt": "source-fingerprint:0b2ed47af2e049f9",
+  "fingerprint": "0b2ed47af2e049f989d91ea6c68e6e142f087bc69320932820d1f49bea6ff06a",
   "totals": {
-    "files": 1402,
-    "lines": 368463,
-    "coveredFiles": 1402
+    "files": 1403,
+    "lines": 368609,
+    "coveredFiles": 1403
   },
   "entries": [
     {
@@ -1255,7 +1255,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 173,
+      "lines": 175,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1447,7 +1447,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 476,
+      "lines": 479,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2112,7 +2112,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 625,
+      "lines": 639,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -2676,7 +2676,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 209,
+      "lines": 212,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -3084,7 +3084,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 36,
+      "lines": 35,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3240,7 +3240,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4214,
+      "lines": 4216,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3264,7 +3264,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 421,
+      "lines": 417,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -8250,7 +8250,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 343,
+      "lines": 344,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -9187,6 +9187,18 @@
       "runtime": "shared",
       "risk": "standard",
       "lines": 94,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
+      ]
+    },
+    {
+      "path": "lib/notifications/meet-client-identity.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 15,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -12826,7 +12838,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 310,
+      "lines": 314,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13618,7 +13630,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 350,
+      "lines": 373,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -14338,7 +14350,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 67,
+      "lines": 81,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14374,7 +14386,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 79,
+      "lines": 84,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14951,7 +14963,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 97,
+      "lines": 98,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15071,7 +15083,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 72,
+      "lines": 75,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15623,7 +15635,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 525,
+      "lines": 555,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15899,7 +15911,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 74,
+      "lines": 96,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15911,7 +15923,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 212,
+      "lines": 210,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15995,7 +16007,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 79,
+      "lines": 89,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16019,7 +16031,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 285,
+      "lines": 286,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
