@@ -50,6 +50,7 @@ import { ClientAssessmentRecords } from "@/components/pipeline/ClientAssessmentR
 import folderStyles from "./ClientFolder.module.css";
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
 import { clientChartRecord, clientChartAssessments, clientReferralSections, clientSourceSections, referralChartEditFields, type ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 export default function ClientProfileView({
   residentKey,
@@ -343,9 +344,11 @@ function ResidentProfile({
 function ClientRecordedInformation({ profile, sourceReferralId, editActions, intakeReferral }: { profile: UnifiedClientProfileResponse; sourceReferralId?: number; editActions?: ChartEditActions; intakeReferral?: Referral }) {
   const client = profile.client;
   const referralSections = clientReferralSections(profile, intakeReferral);
+  // The redesign's Chart already names the referral in its header; don't repeat it here.
+  const quiet = useDesignV2() && Boolean(intakeReferral);
   return <>
-    {referralSections.length > 0 ? <ProfileSection title="Referral information" detail={intakeReferral ? "Other recorded referral details" : undefined}>
-      <CuratedClientRecord sections={referralSections} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} />
+    {referralSections.length > 0 ? <ProfileSection title="Referral information" detail={intakeReferral && !quiet ? "Other recorded referral details" : undefined}>
+      <CuratedClientRecord sections={referralSections} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} hideSingleLabel={quiet} />
     </ProfileSection> : null}
     <ClientSourceNotes sections={clientSourceSections(profile)} />
     {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
@@ -440,7 +443,7 @@ const UNAVAILABLE_CLIENT_HISTORY: ClientHistoryProjection = {
   episodes: [],
 };
 
-function CuratedClientRecord({ sections, editActions, editableSectionKey }: { sections: ClientProfileSection[]; editActions?: ChartEditActions; editableSectionKey?: string }) {
+function CuratedClientRecord({ sections, editActions, editableSectionKey, hideSingleLabel }: { sections: ClientProfileSection[]; editActions?: ChartEditActions; editableSectionKey?: string; hideSingleLabel?: boolean }) {
   if (sections.length === 0) {
     return <EmptyChartMessage>No additional client information is available in the current clinical record.</EmptyChartMessage>;
   }
@@ -449,7 +452,7 @@ function CuratedClientRecord({ sections, editActions, editableSectionKey }: { se
     <div className="border-y border-[#d9dfdc]">
       {sections.map((section) => (
         <section key={section.key} className="border-b border-[#d9dfdc] last:border-b-0">
-          <h3 className="bg-[#f5f7f6] px-4 py-3 text-[16px] font-bold text-[#244b41] lg:px-5">
+          <h3 className={hideSingleLabel && sections.length === 1 ? "sr-only" : "bg-[#f5f7f6] px-4 py-3 text-[16px] font-bold text-[#244b41] lg:px-5"}>
             {section.label}
           </h3>
           <ChartFacts facts={section.facts} className="px-4 py-4 lg:px-6" editActions={!editableSectionKey || section.key === editableSectionKey ? editActions : undefined} editHint="Edit in intake" />

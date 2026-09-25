@@ -8,7 +8,6 @@ import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import {
   admissionRequirementSummary,
   requirementGroups,
-  requirementStatusDetail,
   resolvedRequirementCount,
   type WorkflowResponse,
 } from "@/components/pipeline/referral-workflow-panel-model";
@@ -51,10 +50,7 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
             const complete = isRequirementComplete(item.status);
             return <li key={item.id} data-complete={complete}>
               <span aria-hidden="true" className={styles.mark}>{complete ? <Check size={13} strokeWidth={3} /> : <Circle size={10} />}</span>
-              <span className={styles.item}>
-                <strong>{item.label}</strong>
-                <span>{requirementStatusDetail(item)}</span>
-              </span>
+              <span className={styles.item}><strong>{item.label}</strong></span>
             </li>;
           })}
         </ul>

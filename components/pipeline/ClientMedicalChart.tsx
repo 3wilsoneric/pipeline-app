@@ -21,7 +21,7 @@ function ChartFieldLabel({ label, onEdit, editHint = "Edit" }: { label: string; 
 // Redesign: the edit hint sits under the value, small and muted (the label stays the keyboard control).
 function ChartEditHint({ onEdit, editHint = "Edit" }: { onEdit?: () => void; editHint?: string }) {
   // Inline size: the global button reset (font: inherit) outranks utility classes.
-  return onEdit ? <button type="button" tabIndex={-1} aria-hidden="true" onClick={onEdit} style={{ fontSize: 11, lineHeight: "16px", fontWeight: 500 }}
+  return onEdit ? <button type="button" data-chart-edit-hint tabIndex={-1} aria-hidden="true" onClick={onEdit} style={{ fontSize: 11, lineHeight: "16px", fontWeight: 500 }}
     className="mt-1 inline-flex items-center gap-1 text-ink-muted hover:text-link hover:underline underline-offset-2">
     <Pencil size={10} className="shrink-0" />{editHint}
   </button> : null;

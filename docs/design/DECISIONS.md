@@ -97,6 +97,15 @@ Home uses the card system from the "Referrals" board image in place of manila fo
 - This referral's full assessment answers leave the Chart; they live in the Assessment tab. The "n of 84 recorded" strip stays as the at-a-glance assessment status. Assessments from earlier referrals stay on the Chart as history.
 - Follow-up if staff ask: editing checklist items directly on the Chart.
 
+## Copy pass (owner, 2026-09-24: "a lot of words, a lot of shit competing for attention")
+
+Cuts only; no new wording. Redesign switch only. Explanations that carry a rule move to a tooltip or hover rather than being deleted.
+
+- Chart: the "Client files" card leaves (Files is in the rail). "Edit in intake" and the assessment's "From referral records" show on hover or focus of their field. The upload area drops its size hint and duplicate "Choose files". The assessment strip keeps the count and drops its reassurance sentence. The Chart checklist shows markers and names; instructions stay on Decision. The Referral information card drops its repeated subtitle and workspace line.
+- Decision: drops the page subtitle, the "What happens next" box (a declined referral keeps "Referral closed"), and the checklist group descriptions. "Where this referral stands" keeps titles and markers; each explanation becomes the row's tooltip. "To complete" shows only on items still open.
+- Assessment interview: drops the intro sentence under All questions / Interview.
+- One green action per page: Chart links (Edit referral details, Review unanswered, Open decision) are ink, and the rail's Next pill hides on the Chart when the page's own button leads to the Assessment.
+
 ## Sidebar (owner, 2026-09-24)
 
 - The rail is warm paper with a thin edge.

@@ -775,6 +775,13 @@
     .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section { overflow: visible; padding: 16px; border: 1px solid var(--stage-line, var(--color-card-border)); border-radius: var(--radius-sheet); background: var(--stage-wash, var(--color-column)); }
     .verticalFlow .connectedFolder { margin: 0; }
     .verticalFlow .connectedFolder > div { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    /* Copy pass: fewer words and one green action per page. Files live in the rail, so the Chart drops its
+       "Client files" card; the upload area keeps its heading; the rail's Next pill steps aside on the Chart
+       when the page's own button already leads to the next step. */
+    .verticalFlow [data-testid="profile-workspace"] section[aria-labelledby="client-files-heading"] { display: none; }
+    .verticalFlow [data-guide-target="initial-packet-upload"] > span:nth-child(2) > span, .verticalFlow [data-guide-target="initial-packet-upload"] > span:last-child { display: none; }
+    .verticalFlow:has([data-step-home="true"][aria-current="page"]):has([data-assessment-primary-action] button) .nextStepBar { display: none; }
+    .verticalFlow article[aria-label="Referral chart"] > header button { color: var(--color-ink-2); }
     /* Single-sheet steps (Decision, Finish & send): the page is one white card. */
     .verticalFlow .connectedFolder > div > div { border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
     /* Chart: each part is its own card on the wash. */

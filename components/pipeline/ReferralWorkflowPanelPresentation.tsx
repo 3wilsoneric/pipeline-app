@@ -180,6 +180,8 @@ type WorkflowView = ReturnType<typeof deriveWorkflowPanelView>;
 function DecisionContext({ workflow, busy, recommendation, onOpenAssessment }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onOpenAssessment">) {
   const outcome = workflow.decision?.outcome ?? recommendation.outcome;
   const next = decisionNextStep(outcome);
+  const designV2 = useDesignV2();
+  const declined = workflow.decision?.outcome === "declined";
   return <aside className={styles.context} aria-label="Decision context">
     <div className={styles.client}><span>Client</span><h4>{workflow.referral.name || "Name not provided"}</h4><p>{workflow.referral.community || "Community not selected"}</p></div>
     <div className={styles.assessmentState}>
@@ -187,7 +189,7 @@ function DecisionContext({ workflow, busy, recommendation, onOpenAssessment }: P
       <ol className={styles.progress} aria-labelledby="decision-progress-heading">{decisionProgressSteps(workflow).map((step) => <ProgressStep key={step.key} step={step} />)}</ol>
       <button type="button" disabled={Boolean(busy)} onClick={onOpenAssessment}>{decisionAssessmentAction(workflow)}<ArrowRight size={16} aria-hidden="true" /></button>
     </div>
-    <div className={styles.consequence}><h4>{workflow.decision?.outcome === "declined" ? "Referral closed" : "What happens next"}</h4><p>{workflow.decision?.outcome === "declined" ? "The decision is in the activity history. No client handoff is needed." : next}</p></div>
+    {designV2 && !declined ? null : <div className={styles.consequence}><h4>{declined ? "Referral closed" : "What happens next"}</h4><p>{declined ? "The decision is in the activity history. No client handoff is needed." : next}</p></div>}
   </aside>;
 }
 
@@ -292,8 +294,10 @@ function RecommendationOnFile({ workflow, selected, selectedNote, compact = fals
 }
 
 function ProgressStep({ step }: { step: DecisionProgressStep }) {
+  const designV2 = useDesignV2();
   const Icon = step.state === "done" ? CheckCircle2 : step.state === "not_needed" ? Minus : Circle;
-  return <li data-state={step.state}><Icon size={17} aria-hidden="true" /><span><strong>{step.label}</strong><span>{step.detail}</span></span></li>;
+  // The redesign keeps each status's title and marker; its explanation moves to a tooltip.
+  return <li data-state={step.state} title={designV2 ? step.detail : undefined}><Icon size={17} aria-hidden="true" /><span><strong>{step.label}</strong>{designV2 ? null : <span>{step.detail}</span>}</span></li>;
 }
 
 function WorkflowSecondaryColumn({ workflow, view, busy, onUpdateRequirement, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure, onOpenProfile }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "onUpdateRequirement" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure" | "onOpenProfile"> & { view: WorkflowView }) {
@@ -362,17 +366,18 @@ function WorkflowDetailDialog({ pending, onConfirm, onClose }: { pending: Pendin
 }
 
 function RequirementGroup({ group, disabled, onChange }: { group: RequirementGroupPresentation; disabled: boolean; onChange: (item: AdmissionRequirement, status: RequirementStatus) => void }) {
+  const designV2 = useDesignV2();
   return (
     <section aria-label={`${group.label} requirements`}>
       <div className="mb-2 flex items-end justify-between gap-3">
-        <div><h4 className="text-[14px] font-bold uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4><p className="mt-0.5 text-[14px] text-[#737c77]">{group.detail}</p></div>
+        <div><h4 className="text-[14px] font-bold uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4>{designV2 ? null : <p className="mt-0.5 text-[14px] text-[#737c77]">{group.detail}</p>}</div>
         <span className="shrink-0 text-[14px] font-semibold text-[#68716c]">{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
       </div>
       <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
         {group.items.map((item) => (
           <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[14px] font-semibold uppercase text-[#68716c]">To complete</span> : null}</div>
+              <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker && !(designV2 && isRequirementComplete(item.status)) ? <span className="text-[14px] font-semibold uppercase text-[#68716c]">To complete</span> : null}</div>
               <div className="mt-1 text-[14px] leading-5 text-[#737373]">{requirementStatusDetail(item)}</div>
             </div>
             <select aria-label={`${item.label} status`} value={item.status} disabled={disabled} onChange={(event) => onChange(item, event.target.value as RequirementStatus)} className="h-11 w-full border border-[#c9ceca] bg-white px-2 text-[14px] font-semibold outline-none focus:border-[#0f8b73]">{requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}</select>
@@ -432,9 +437,10 @@ function recordedDecisionAttributes(workflow: WorkflowResponse) {
 }
 
 function DecisionPageHeading({ workflow }: { workflow: WorkflowResponse }) {
+  const designV2 = useDesignV2();
   return (
       <header className={styles.pageHeading}>
-        <div><h3>Placement decision</h3><p>{workflow.decision ? "Saved in the referral's activity history." : "Review the recommendation and context, then record the final outcome."}</p></div>
+        <div><h3>Placement decision</h3>{designV2 && !workflow.decision ? null : <p>{workflow.decision ? "Saved in the referral's activity history." : "Review the recommendation and context, then record the final outcome."}</p>}</div>
         {!workflow.decision ? <span className={styles.recordState}>{decisionRecordState(workflow)}</span> : null}
       </header>
   );

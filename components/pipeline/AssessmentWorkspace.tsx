@@ -2085,7 +2085,7 @@ export default function AssessmentWorkspace({
     if (!remaining) return null;
     return <div className={workingStyles.chartReviewNotice} data-chart-unanswered>
       {onReviewAssessment ? <button type="button" onClick={() => void reviewChart()} disabled={isBusy || isClosing}>Review unanswered assessment items<ChevronRight size={15} aria-hidden="true" /></button> : null}
-      <p>Assessment answers: {questions - remaining} of {questions} recorded. The rest are unanswered or unverified and do not prevent continuing.</p>
+      <p>Assessment answers: {questions - remaining} of {questions} recorded.<span data-chart-unanswered-note> The rest are unanswered or unverified and do not prevent continuing.</span></p>
     </div>;
   };
 

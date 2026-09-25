@@ -506,6 +506,11 @@
   .referenceGroup + .referenceGroup { margin-top: 0; padding-top: 0; border-top: 1px solid var(--color-paper-rule); }
   :is(.reference, .referenceSheet) .answer { position: relative; display: block; width: 100%; min-height: 48px; padding: 18px 0; border: 0; border-radius: 2px; text-align: left; }
   .answerSource, :is(.reference, .referenceSheet) .answerSource { display: block; margin-top: 7px; color: var(--color-ink-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+  /* Where an answer came from shows on hover or focus, so it stays reachable without repeating under every field. */
+  @media (hover: hover) and (pointer: fine) {
+    .reference .answerSource { opacity: 0; transition: opacity var(--duration-fade) ease; }
+    .reference .answer:is(:hover, :focus-visible, :focus-within) .answerSource { opacity: 1; }
+  }
   .answerUpdate { position: absolute; inset: 0 -8px; border-radius: 5px; pointer-events: none; }
   :is(.reference, .referenceSheet) .answer + .answer { border-top: 1px solid var(--color-paper-rule); }
   :is(.reference, .referenceSheet) .answerLabel { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 0; color: var(--color-ink-muted); font-size: 14px; font-weight: 600; line-height: 1.45; letter-spacing: .01em; }
@@ -654,7 +659,8 @@
     .reviewDocument [data-chart-fact] dd { font-size: 17px; }
   }
   .chartReviewNotice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 8px 20px; color: var(--color-ink-muted); font-size: 14px; }
-  .chartReviewNotice > button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; border-radius: 4px; color: #08735e; font-weight: 600; text-underline-offset: 4px; }
+  .chartReviewNotice > button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; border-radius: 4px; color: var(--color-ink-2); font-weight: 600; text-underline-offset: 4px; }
+  .chartReviewNotice [data-chart-unanswered-note] { display: none; }
   .chartReviewNotice > button:not(:disabled):hover { text-decoration: underline; }
   .chartReviewNotice > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   .chartReviewNotice > button:disabled { opacity: .5; cursor: not-allowed; }
