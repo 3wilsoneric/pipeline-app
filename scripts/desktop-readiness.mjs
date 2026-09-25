@@ -56,6 +56,10 @@ check("development or disabled desktop mode removes the runtime and returns befo
     && runtime.indexOf("serviceWorker.register") > runtime.indexOf("!isPipelineDesktopEnabled()"));
 check("worker scope follows the Pipeline application base path", runtime.includes("PIPELINE_SERVICE_WORKER_SCOPE") && config.includes('toPipelinePath("/")'));
 check("disabled runtime unregisters Pipeline worker", runtime.includes("registration.unregister()") && runtime.includes("PIPELINE_DESKTOP_CACHE_PREFIX"));
+check("disabled runtime stops installed and pending Pipeline workers",
+  runtime.includes("[registration.active, registration.waiting, registration.installing]")
+    && worker.includes("if (desktopCacheDisabled) {")
+    && worker.includes("await caches.delete(CACHE_NAME);"));
 check(
   "worker has a versioned Pipeline-only cache",
   /CACHE_NAME = `\$\{CACHE_PREFIX\}v\d+`/.test(worker)
@@ -66,6 +70,11 @@ check("worker caches only explicit assets and scoped hashed Next assets", worker
 check("worker never caches navigations", worker.includes('request.mode === "navigate"') && worker.includes("fetch(request).catch"));
 check("worker has no API caching branch", !/cacheStaticAsset\([^)]*\/api/.test(worker) && !worker.includes('pathname.startsWith("/api/")'));
 check("worker reads only its named cache", !worker.includes("caches.match("));
+check("disabled worker blocks late cache recreation",
+  worker.includes("desktopCacheDisabled = true")
+    && worker.includes('if (desktopCacheDisabled || request.method !== "GET") return;')
+    && worker.includes("if (desktopCacheDisabled) await caches.delete(CACHE_NAME);")
+    && browserTests.includes("lateStaticFetch"));
 check("worker script is never HTTP cached", nextConfig.includes('source: "/sw.js"') && nextConfig.includes('no-cache, no-store, must-revalidate'));
 check("offline page contains no runtime script", !/<script/i.test(offline));
 check("offline page explains encrypted active-assessment recovery", offline.includes("encrypted working set on this device"));

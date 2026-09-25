@@ -52,11 +52,12 @@ async function removePipelineDesktopRuntime() {
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.all(
       registrations
-        .filter((registration) => (
-          registration.active ?? registration.waiting ?? registration.installing
-        )?.scriptURL.endsWith(PIPELINE_SERVICE_WORKER_PATH))
+        .filter((registration) => [registration.active, registration.waiting, registration.installing]
+          .some((worker) => worker?.scriptURL.endsWith(PIPELINE_SERVICE_WORKER_PATH)))
         .map(async (registration) => {
-          registration.active?.postMessage({ type: "PIPELINE_DISABLE_DESKTOP_CACHE" });
+          for (const worker of [registration.active, registration.waiting, registration.installing]) {
+            worker?.postMessage({ type: "PIPELINE_DISABLE_DESKTOP_CACHE" });
+          }
           await registration.unregister();
         }),
     );

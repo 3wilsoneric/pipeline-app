@@ -82,6 +82,7 @@ test.describe("desktop feature enabled", () => {
   test("replaces old Pipeline caches and honors the desktop kill switch", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(async () => navigator.serviceWorker.ready);
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBeTruthy();
     await page.evaluate(async () => {
       const oldPipeline = await caches.open("pipeline-static-v0");
       await oldPipeline.put("/old-pipeline-asset", new Response("old"));
@@ -109,6 +110,14 @@ test.describe("desktop feature enabled", () => {
       registration: Boolean(await navigator.serviceWorker.getRegistration("/")),
       unrelated: (await caches.keys()).includes("unrelated-application-cache"),
     }))).toEqual({ pipelineCaches: [], registration: false, unrelated: true });
+
+    // An already controlled tab remains open after unregister. Its later fetches
+    // must not recreate the cache that the kill switch just removed.
+    const lateStaticFetch = await page.evaluate(async () => (await fetch("/offline-assessment.js")).status);
+    expect(lateStaticFetch).toBe(200);
+    await expect.poll(() => page.evaluate(async () =>
+      (await caches.keys()).filter((name) => name.startsWith("pipeline-static-"))
+    )).toEqual([]);
   });
 
   test("stores recents and versioned recovery drafts per signed-in user", async ({ page }) => {
