@@ -1,6 +1,6 @@
 # Non-blocking referral workspace: implementation plan
 
-Status: corrected against `origin/main` at `24f14ae0` (2026-09-24). Intake → Chart navigation, Decision drafting and independent paperwork updates during a checklist save, Decision and Assessment draft ownership across workspace tabs, and local Assessment Previous/Next section movement are implemented locally on this branch; the other work below remains planned. Nothing in this branch has been deployed.
+Status: implementation record from 2026-09-24, corrected against `origin/main` at `24f14ae0`. Intake → Chart navigation, Decision drafting and independent paperwork updates during a checklist save, Decision and Assessment draft ownership across workspace tabs, and local Assessment Previous/Next section movement were implemented in the recovery branch. The other work below remains planned; release history is the source of truth for deployment status.
 
 ## Outcome and safety rule
 
