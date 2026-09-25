@@ -52,3 +52,45 @@ test("an older assessment save cannot retire a newer failed edit after a tab rou
     releaseFirst();
   }
 });
+
+test("two browser tabs retain disjoint answers when their saves arrive out of order", async ({ page, context }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Example Two Tabs ${randomUUID()}`, owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, assessment);
+  const second = await context.newPage();
+  let release!: () => void;
+  let entered!: () => void;
+  const delayed = new Promise<void>((resolve) => { release = resolve; });
+  const requested = new Promise<void>((resolve) => { entered = resolve; });
+  let firstPatches = 0;
+  await page.route(`**/api/assessments/${assessment.assessment_id}`, async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    firstPatches += 1;
+    if (firstPatches === 1) { entered(); await delayed; }
+    return route.continue();
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
+    await second.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+    await page.locator("#assessment-current_symptoms").fill("Synthetic first-tab symptoms");
+    await page.locator("#assessment-current_symptoms").blur();
+    await requested;
+    await second.locator("#assessment-prior_placements").fill("Synthetic second-tab history");
+    await second.locator("#assessment-prior_placements").blur();
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements).toBe("Synthetic second-tab history");
+    release();
+    await expect.poll(async () => {
+      const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+      return [saved.current_symptoms, saved.prior_placements];
+    }).toEqual(["Synthetic first-tab symptoms", "Synthetic second-tab history"]);
+    await page.reload();
+    await second.reload();
+    await expect(page.locator("#assessment-current_symptoms")).toHaveValue("Synthetic first-tab symptoms");
+    await expect(second.locator("#assessment-prior_placements")).toHaveValue("Synthetic second-tab history");
+  } finally {
+    release();
+    await second.close();
+  }
+});

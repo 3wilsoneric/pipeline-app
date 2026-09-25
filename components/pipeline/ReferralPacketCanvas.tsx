@@ -447,6 +447,7 @@ export default function ReferralPacketCanvas({
   const emailSendingRef = useRef(false);
   const assessmentNavigationRef = useRef<((destination?: "email") => Promise<void>) | null>(null);
   const decisionExitRef = useRef<(() => Promise<void>) | null>(null);
+  const preserveIntakeBeforeNavigationRef = useRef<() => Promise<void>>(async () => undefined);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
@@ -460,6 +461,7 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     const waitForDelivery = async () => {
       if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
+      await preserveIntakeBeforeNavigationRef.current();
       await flushHandoff();
       await assessmentNavigationRef.current?.();
       await decisionExitRef.current?.();
@@ -765,6 +767,25 @@ export default function ReferralPacketCanvas({
     } catch (localError) {
       if (!allowServerFallback || recovery.initialPacket || Object.keys(recovery.pendingDocuments).length || recovery.additionalFiles.length) throw localError;
       await saveServerReferralDraft(reference, draft);
+    }
+  };
+
+  preserveIntakeBeforeNavigationRef.current = async () => {
+    if (!captureRecoveryDraft() || trainingIntakeMode) return;
+    const canonical = intakeSaveQueueRef.current.then(() => {
+      if (workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) {
+        throw new Error("Intake changes are still pending.");
+      }
+    });
+    try {
+      // A confirmed canonical save or an encrypted recovery copy is enough to
+      // leave; a failed network request alone never traps the assessor.
+      await Promise.any([preservePendingIntake(), canonical]);
+    } catch {
+      const message = "Your latest intake changes could not be saved to Pipeline or this device. Keep this workspace open and try again.";
+      setSavedAt("Unsaved changes");
+      setSaveError(message);
+      throw new Error(message);
     }
   };
 
