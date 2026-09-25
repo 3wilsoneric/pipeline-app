@@ -224,7 +224,11 @@ export default function ReferralWorkflowPanel({
     successMessage: string,
     queueRequirement = false,
   ) => {
-    if (mutationInFlight.current) return null;
+    if (!queueRequirement && (mutationInFlight.current || pendingRequirementIds.current.size > 0)) {
+      setError("Another change is still saving. Try again when it finishes.");
+      return null;
+    }
+    const perform = async (): Promise<T | null> => {
     mutationInFlight.current = true;
     const mutationKey = JSON.stringify([key, url, method, body]);
     const clientMutationId = mutationIds.current.get(mutationKey) ?? createMutationId();
@@ -296,72 +300,6 @@ export default function ReferralWorkflowPanel({
       setBusy("");
       onSavingChange?.(compactRecommendation && recommendationDirty.current, compactRecommendation && recommendationDirty.current);
     }
-    const perform = async (): Promise<T | null> => {
-      mutationInFlight.current = true;
-      const mutationKey = JSON.stringify([key, url, method, body]);
-      const clientMutationId = mutationIds.current.get(mutationKey) ?? createMutationId();
-      mutationIds.current.set(mutationKey, clientMutationId);
-      setBusy(key);
-      onSavingChange?.(true);
-      setError("");
-      setMessage("");
-      try {
-        let payload: T;
-        try {
-          payload = await fetchPipelineJson<T>(url, {
-            method,
-            body: JSON.stringify({ ...body, client_mutation_id: clientMutationId }),
-          });
-        } catch (mutationError) {
-          if (key.startsWith("decision:")) {
-            try {
-              const latest = await loadWorkflow();
-              onReferralChange(latest.referral);
-              if (latest.decision) {
-                confirmedDecision.current = { referral: latest.referral, decision: latest.decision };
-                mutationIds.current.delete(mutationKey);
-                clearSavedDraftState(key);
-                setMessage(latest.decision.outcome === body.outcome
-                  ? `${latest.decision.outcome === "accepted" ? "Acceptance" : "Denial"} is already recorded. Review the saved decision before continuing.`
-                  : "A different decision is recorded. Review it before continuing.");
-                return null;
-              }
-            } catch { /* Preserve the original save error when the decision cannot be read back. */ }
-          } else if (mutationError instanceof PipelineApiError && mutationError.status === 409) {
-            const latest = referralFromConflictPayload(mutationError.payload);
-            if (latest) onReferralChange(latest);
-            await loadWorkflow().catch(() => undefined);
-          }
-          const uncertainDecision = key.startsWith("decision:")
-            && (!(mutationError instanceof PipelineApiError) || mutationError.status === 0 || mutationError.status === 499 || mutationError.status >= 500);
-          setError(uncertainDecision
-            ? "Could not confirm whether the decision was saved. Reload the workspace to check before trying again."
-            : mutationError instanceof Error ? mutationError.message : "The workflow change could not be saved.");
-          return null;
-        }
-        mutationIds.current.delete(mutationKey);
-        if (key.startsWith("decision:") && payload.decision && payload.referral) {
-          confirmedDecision.current = { referral: payload.referral, decision: payload.decision };
-          setWorkflow((current) => current ? {
-            ...current,
-            referral: payload.referral ?? current.referral,
-            decision: payload.decision ?? current.decision,
-          } : current);
-        }
-        if (payload.referral) onReferralChange(payload.referral);
-        clearSavedDraftState(key);
-        setMessage(successMessage);
-        try {
-          await loadWorkflow();
-        } catch {
-          setMessage(`${successMessage}. The latest details could not refresh; reload the page to check them.`);
-        }
-        return payload;
-      } finally {
-        mutationInFlight.current = false;
-        setBusy("");
-        onSavingChange?.(false);
-      }
     };
     const result = queueRequirement ? mutationTail.current.then(perform) : perform();
     mutationTail.current = result.then(() => undefined, () => undefined);

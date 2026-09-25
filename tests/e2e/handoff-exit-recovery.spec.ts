@@ -75,7 +75,7 @@ test("retry recognizes a handoff draft saved before its response was lost", asyn
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("saved-despite-reply@example.invalid");
   await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
   await expect(dialog.getByRole("alert")).toContainText("Synthetic handoff response lost");
-  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.cc[0].email)
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft?.cc?.[0]?.email)
     .toBe("saved-despite-reply@example.invalid");
   await page.unroute(endpoint);
   await dialog.getByRole("button", { name: "Retry saving", exact: true }).click();
@@ -109,6 +109,47 @@ for (const exit of ["Workspace files", "Change packet files"]) test(`a failed ha
   await recoveredDialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await chooseWorkspaceView(page, "Files");
   await expect(page).toHaveURL(/workspaceView=files/);
+});
+
+test("a failed handoff save does not trap app navigation or disable further recipient edits", async ({ page }) => {
+  const { referral, dialog, endpoint } = await openHandoff(page);
+  await page.route(endpoint, route => route.request().method() === "PUT"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic recipient outage" } }) : route.continue());
+  await dialog.getByRole("combobox", { name: /^Cc/ }).fill("unsaved@example.invalid");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("Synthetic recipient outage");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).fill("second@example.invalid");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
+  await expect(dialog.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("second@example.invalid");
+  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
+  await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+  await expect(page).toHaveURL(/screen=calendar/);
+  await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));
+  const restored = await openRecipients(page);
+  await expect(restored.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("unsaved@example.invalid");
+  await expect(restored.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("second@example.invalid");
+  await page.unroute(endpoint);
+  await restored.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.cc.length).toBe(2);
+});
+
+test("a failed handoff draft syncs automatically after leaving when the server recovers", async ({ page }) => {
+  const { referral, dialog, endpoint } = await openHandoff(page);
+  await page.route(endpoint, route => route.request().method() === "PUT"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic recipient outage" } }) : route.continue());
+  await dialog.getByRole("combobox", { name: /^Cc/ }).fill("auto-sync@example.invalid");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("Synthetic recipient outage");
+  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
+  await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+  await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
+  await page.unroute(endpoint);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft?.cc?.[0]?.email)
+    .toBe("auto-sync@example.invalid");
+  await expect(page.getByText("Some edits are only in this open tab.")).toHaveCount(0);
 });
 
 test("unfinished recipient text survives closing review and cannot be skipped in Preview", async ({ page }) => {

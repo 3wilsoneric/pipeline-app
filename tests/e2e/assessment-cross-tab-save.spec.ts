@@ -94,3 +94,96 @@ test("two browser tabs retain disjoint answers when their saves arrive out of or
     await second.close();
   }
 });
+
+test("assessment navigation preserves an answer changed during its first recovery write", async ({ page }) => {
+  test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires server-backed assessment recovery; covered by desktop E2E.");
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Example Assessment Exit ${randomUUID()}`, owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, assessment);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await expect(page.locator("#assessment-prior_placements")).toBeVisible();
+  await page.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic canonical save outage" } }) : route.continue());
+  await page.evaluate(() => {
+    Object.defineProperty(indexedDB, "open", { configurable: true, value: () => { throw new Error("Synthetic device storage outage"); } });
+  });
+  let releaseFirst!: () => void;
+  let firstEntered!: () => void;
+  const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+  const entered = new Promise<void>((resolve) => { firstEntered = resolve; });
+  let draftWrites = 0;
+  await page.route(`**/api/me/assessment-drafts/${assessment.assessment_id}`, async (route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    draftWrites += 1;
+    if (draftWrites === 1) { firstEntered(); await firstGate; }
+    return route.continue();
+  });
+  try {
+    const answer = page.locator("#assessment-prior_placements");
+    await answer.fill("First history");
+    const leaving = page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    await entered;
+    await answer.fill("Second history");
+    releaseFirst();
+    await leaving;
+    await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+    await expect.poll(() => draftWrites).toBeGreaterThanOrEqual(2);
+    const saved = await (await page.request.get(`/api/me/assessment-drafts/${assessment.assessment_id}`)).json();
+    expect(saved.draft.data.prior_placements).toBe("Second history");
+  } finally {
+    releaseFirst();
+  }
+});
+
+test("a dual-failed assessment save does not block other pages and restores in the same tab", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Example Assessment Continuity ${randomUUID()}`, owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, assessment);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  const answer = page.locator("#assessment-prior_placements");
+  await expect(answer).toBeVisible();
+  await page.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic canonical save outage" } }) : route.continue());
+  await page.route(`**/api/me/assessment-drafts/${assessment.assessment_id}`, (route) => route.request().method() === "PUT"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic draft save outage" } }) : route.continue());
+  await page.evaluate(() => {
+    Object.defineProperty(indexedDB, "open", { configurable: true, value: () => { throw new Error("Synthetic device storage outage"); } });
+  });
+  await answer.fill("Synthetic interview continuity");
+  await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+  await expect(page).toHaveURL(/screen=calendar/);
+  await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
+  await expect(answer).toHaveValue("Synthetic interview continuity");
+});
+
+test("a queued assessment answer syncs after leaving the workspace", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Example Background Sync ${randomUUID()}`, owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, assessment);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  const answer = page.locator("#assessment-prior_placements");
+  await expect(answer).toBeVisible();
+  await page.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic temporary save outage" } }) : route.continue());
+  await answer.fill("Synthetic background answer");
+  await answer.blur();
+  await expect(page.getByText("1 change waiting to sync")).toBeVisible();
+  await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+  await expect(page).toHaveURL(/screen=calendar/);
+  await page.unroute(`**/api/assessments/${assessment.assessment_id}`);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements).toBe("Synthetic background answer");
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
+  await expect(answer).toHaveValue("Synthetic background answer");
+});

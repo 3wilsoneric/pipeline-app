@@ -178,7 +178,11 @@ async function resolveOwnerPatch(input: OwnerPatchInput): Promise<
   | { ok: true; patch: ReferralPatch; ownerChanged: boolean; handoffReason: string }
   | { ok: false; response: Response }
 > {
-  await touchWorkspaceMember(input.user);
+  // Ordinary field edits do not change membership. The signed-in session
+  // refreshes it separately; only an owner assignment needs it for this save.
+  if (input.requestedPatch.owner !== undefined || input.assigneeId !== undefined) {
+    await touchWorkspaceMember(input.user);
+  }
   const assignment = assignedOwnerForPatch(input.user, input.current, input.requestedPatch.owner);
   const selectedOwnerResult = await resolveSelectedOwner(input.assigneeId);
   if (!selectedOwnerResult.ok) return selectedOwnerResult;
