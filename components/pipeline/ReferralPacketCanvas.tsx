@@ -445,7 +445,7 @@ export default function ReferralPacketCanvas({
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
-  const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
+  const assessmentNavigationRef = useRef<((destination?: "email") => Promise<void>) | null>(null);
   const decisionExitRef = useRef<(() => Promise<void>) | null>(null);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
@@ -1550,7 +1550,7 @@ export default function ReferralPacketCanvas({
     entryResolvedRef.current = true;
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
     try {
-      await assessmentNavigationRef.current?.();
+      await assessmentNavigationRef.current?.(page === "email" ? "email" : undefined);
       if (activePage === 1) {
         await preservePendingIntake();
       }
@@ -2872,7 +2872,7 @@ export default function ReferralPacketCanvas({
                   onOpenIntake={() => void navigatePage(1)}
                   onOpenAssessment={() => void navigatePage(2)}
                   onOpenFiles={() => void navigatePage("files")}
-                  onOpenEmail={() => openPage("email")}
+                  onOpenEmail={() => void navigatePage("email")}
                   onOpenProfile={onOpenProfile}
                 />
               </WorkspaceChartFolder>

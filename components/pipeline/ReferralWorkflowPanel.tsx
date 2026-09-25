@@ -41,7 +41,7 @@ type ReferralWorkflowPanelProps = {
   compactRecommendation?: boolean;
   recommendationAssessmentId?: string;
   onSavingChange?: (saving: boolean) => void;
-  beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
+  beforeWorkspaceNavigationRef?: RefObject<((destination?: "email") => Promise<void>) | null>;
   beforeWorkspaceExitRef?: RefObject<(() => Promise<void>) | null>;
   onRequirementStateChange?: (state: { pending: number; failed: number }) => void;
 };
@@ -93,9 +93,12 @@ export default function ReferralWorkflowPanel({
   const failedRequirementIds = useRef(new Set<string>());
   const mutationTail = useRef<Promise<void>>(Promise.resolve());
 
-  const guardInternalNavigation = useEffectEvent(async () => {
+  const guardInternalNavigation = useEffectEvent(async (destination?: "email") => {
     if (emailSending || (mutationInFlight.current && pendingRequirementIds.current.size === 0)) {
       throw new Error("Wait for this decision action to finish before leaving.");
+    }
+    if (destination === "email" && admissionDateDirty.current && !await saveAdmissionDate(false)) {
+      throw new Error("The admission date could not be saved. Stay here and retry.");
     }
   });
   const guardWorkspaceExit = useEffectEvent(async () => {
@@ -119,7 +122,7 @@ export default function ReferralWorkflowPanel({
   });
   useEffect(() => {
     if (compactRecommendation || !workspaceActive || !beforeWorkspaceNavigationRef) return;
-    const guard = () => guardInternalNavigation();
+    const guard = (destination?: "email") => guardInternalNavigation(destination);
     beforeWorkspaceNavigationRef.current = guard;
     return () => { if (beforeWorkspaceNavigationRef.current === guard) beforeWorkspaceNavigationRef.current = null; };
   }, [beforeWorkspaceNavigationRef, compactRecommendation, workspaceActive]);

@@ -76,6 +76,7 @@ export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttempt
 }
 
 export type WorkingSectionProps = WorkingData & {
+  workspaceActive?: boolean;
   preparing?: boolean;
   referenceQuestions?: readonly AssessmentInterviewQuestion[];
   section: AssessmentToolSection;
@@ -136,6 +137,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
     setEditing(null);
   };
   useLayoutEffect(() => {
+    if (props.workspaceActive === false) return;
     if (editor.current) editor.current.scrollTop = 0;
     if (props.preparing) editor.current?.closest("main")?.scrollTo({ top: 0, behavior: "instant" });
     editor.current?.closest('[data-guide-target="packet-workspace"]')?.scrollTo({ top: 0, behavior: "instant" });
@@ -146,15 +148,15 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
       else (editor.current?.querySelector<HTMLElement>('[data-working-field] :is(input, textarea, select, button):not(:disabled)') ?? editor.current)?.focus({ preventScroll: true });
     }
     previousSection.current = props.section;
-  }, [props.section, props.preparing]);
+  }, [props.section, props.preparing, props.workspaceActive]);
   useLayoutEffect(() => {
-    if (!localTarget) return;
+    if (!localTarget || props.workspaceActive === false) return;
     const field = editor.current?.querySelector<HTMLElement>("#assessment-" + localTarget.field);
     if (!field) return;
     field.closest("[data-working-field]")?.scrollIntoView({ block: "nearest" });
     const control = field.matches("input, textarea, select") ? field : field.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled)");
     control?.focus({ preventScroll: true });
-  }, [localTarget]);
+  }, [localTarget, props.workspaceActive]);
 
   const renderReference = () => <>
     {props.questionNavigation?.(props.preparing ? <CapturedAssessmentAnswers {...props} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} /> : undefined)}
