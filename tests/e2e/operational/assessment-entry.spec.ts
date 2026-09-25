@@ -116,11 +116,18 @@ test.describe("assessment editing entry and return paths", () => {
       } });
       expect(started.status()).toBe(200);
       expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeTruthy();
-      // Keep the target in the displayed Pacific week, including Sunday just after midnight.
-      await page.clock.setFixedTime(new Date(assessment.scheduled_start_at!));
       await page.goto("/?screen=calendar");
-      await page.getByRole("region", { name: "Timed assessment week", exact: true })
-        .getByRole("button", { name: new RegExp(referral.name!) }).click();
+      await expect(page.locator('main[data-performance-ready="calendar"]')).toBeVisible();
+      // Move the client calendar after hydration so its Pacific date matches the appointment.
+      await page.clock.setFixedTime(new Date(assessment.scheduled_start_at!));
+      await page.getByRole("button", { name: "Today", exact: true }).click();
+      const timedAppointment = page.getByRole("region", { name: "Timed assessment week", exact: true })
+        .getByRole("button", { name: new RegExp(referral.name!) });
+      const otherAppointment = page.getByRole("region", { name: "Other appointment times", exact: true })
+        .getByRole("button", { name: referral.name!, exact: true });
+      const appointment = timedAppointment.or(otherAppointment);
+      await expect(appointment).toHaveCount(1);
+      await appointment.click();
       await page.getByRole("dialog", { name: "Calendar item", exact: true }).getByRole("button", { name: "Continue assessment", exact: true }).click();
       await expect(page.locator("[data-assessment-view]")).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));

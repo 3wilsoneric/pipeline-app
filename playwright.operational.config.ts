@@ -25,6 +25,7 @@ process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH ??= `${storeRoot}/documents`;
 process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH ??= `${storeRoot}/desktop-state.json`;
 process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH ??= `${storeRoot}/note-lab.json`;
 process.env.PIPELINE_E2E_CONTACT_STORE_PATH ??= `${storeRoot}/contacts.json`;
+process.env.PIPELINE_E2E_COMMUNITY_RECIPIENT_LIST_PATH ??= `${storeRoot}/community-recipient-lists.json`;
 
 export default defineConfig({
   testDir: "./tests/e2e/operational",
@@ -70,6 +71,7 @@ export default defineConfig({
       PIPELINE_RESIDENT_LINK_STORE_PATH: process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH,
       PIPELINE_NOTE_LAB_STORE_PATH: process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH,
       PIPELINE_CONTACT_STORE_PATH: process.env.PIPELINE_E2E_CONTACT_STORE_PATH,
+      PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH: process.env.PIPELINE_E2E_COMMUNITY_RECIPIENT_LIST_PATH,
       PIPELINE_LOCAL_DOCUMENT_ROOT: process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH,
       NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: "true",
       PIPELINE_DESKTOP_STATE_ENABLED: "true",

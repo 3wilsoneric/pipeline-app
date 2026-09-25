@@ -5,7 +5,7 @@ import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import { useHandoffRecipients } from "./useHandoffRecipients";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
 import {
   ArrowRight,
   CalendarClock,
@@ -82,12 +82,13 @@ import {
   type PipelineReferralDraft,
 } from "@/lib/pipeline/user-workspace-state-types";
 import {
-  clearLocalReferralRecovery,
   loadLocalReferralRecovery,
   referralRecoveryPrincipal,
   saveLocalReferralRecovery,
   type ReferralLocalRecovery,
 } from "@/lib/pipeline/referral-local-recovery";
+import { forgetVolatileReferralRecovery, registerReferralEditor, rememberVolatileReferralRecovery, volatileReferralRecovery } from "@/lib/pipeline/volatile-recovery";
+import { isActiveOtherRecoverySession } from "@/lib/offline/offline-assessment-store";
 import { createDefaultAdmissionRequirements } from "@/lib/pipeline/workflow-records";
 import type { ReferralChangeSnapshot, ReferralPresenceView } from "@/lib/pipeline/collaboration-types";
 import { getReferralPatchSections, normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
@@ -421,6 +422,10 @@ export default function ReferralPacketCanvas({
     ? { ...routedWorkspaceLocation, assessmentMode: routedWorkspaceLocation.assessmentMode === "review" ? undefined : routedWorkspaceLocation.assessmentMode }
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
+  const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
+  const [decisionVisitedReferral, setDecisionVisitedReferral] = useState<number | undefined>();
+  const [decisionSaveState, setDecisionSaveState] = useState<{ referralId?: number; pending: number; failed: number }>({ pending: 0, failed: 0 });
+  const [assessmentSaveState, setAssessmentSaveState] = useState<{ referralId?: number; assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }>({ dirty: false, error: false, pendingOfflineSaves: 0, appointmentDraft: false, appointmentSaving: false });
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -441,17 +446,32 @@ export default function ReferralPacketCanvas({
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
-  const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
+  const assessmentNavigationRef = useRef<((destination?: "email") => Promise<void>) | null>(null);
+  const decisionExitRef = useRef<(() => Promise<void>) | null>(null);
+  const preserveIntakeBeforeNavigationRef = useRef<() => Promise<void>>(async () => undefined);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
-  const flushHandoff = handoff.flush;
+  const leaveHandoff = handoff.leave;
   const { beforeNavigationRef, assessmentFocused, setAssessmentFocused } = usePipelineShell();
   // Keep the shell stable for the whole folder, not just while its assessment is mounted.
   useLayoutEffect(() => {
     setAssessmentFocused(true);
     return () => setAssessmentFocused(false);
   }, [setAssessmentFocused]);
+  useEffect(() => {
+    const waitForDelivery = async () => {
+      if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
+      await preserveIntakeBeforeNavigationRef.current();
+      await leaveHandoff();
+      await assessmentNavigationRef.current?.();
+      await decisionExitRef.current?.();
+    };
+    beforeNavigationRef.current = waitForDelivery;
+    return () => {
+      if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = null;
+    };
+  }, [beforeNavigationRef, emailSending, leaveHandoff]);
   const extraction = usePacketExtraction(extractionPacketId(loadedReferral));
   const intakeExtraction = useIntakeFileExtraction();
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<FieldKey>>(() => new Set());
@@ -512,6 +532,11 @@ export default function ReferralPacketCanvas({
   const dirtyKeysRef = useRef(dirtyKeys);
   const isSavingRef = useRef(isSaving);
   const draftRevisionRef = useRef(0);
+  const confirmedRecoveryRef = useRef<{ reference: ReferralRecoveryDraftKey; revision: number } | null>(null);
+  const localRecoveryAttemptRef = useRef<{ reference: ReferralRecoveryDraftKey; revision: number; promise: Promise<void> } | null>(null);
+  const recoveryPrincipalRef = useRef("");
+  const retryCanonicalIntakeRef = useRef(false);
+  const retryCanonicalIntakeRunningRef = useRef(false);
   const creationMutationIdRef = useRef(newReferralCreationMutationId(newDraftKey));
   const patchMutationIdsRef = useRef(new Map<string, string>());
   const deleteMutationIdRef = useRef(createMutationId());
@@ -528,10 +553,10 @@ export default function ReferralPacketCanvas({
   const draftBaseVersionRef = useRef<number | undefined>(undefined);
   const draftBaseValuesRef = useRef<Partial<Record<DirtyDraftKey, string>>>({});
   const recoveryDraftReferenceRef = useRef<ReferralRecoveryDraftKey>(referralRecoveryDraftReference(referral?.id, newDraftKey));
+  useEffect(() => registerReferralEditor(loadedReferral?.id ?? referral?.id ?? newDraftKey), [loadedReferral?.id, newDraftKey, referral?.id]);
   const initialPacketCategoryRef = useRef(initialPacketCategory);
   const persistRecoveryDraftRef = useRef<() => void>(() => undefined);
   const persistRecoveryDraftWithStatusRef = useRef<() => void>(() => undefined);
-  const preserveIntakeBeforeNavigationRef = useRef<() => Promise<void>>(async () => undefined);
   const intakeSaveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const fileUploadQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const deletedFileIdsRef = useRef(new Set<string>());
@@ -756,49 +781,77 @@ export default function ReferralPacketCanvas({
     const draft = captureRecoveryDraft();
     if (!draft || trainingIntakeMode) return;
     const reference = recoveryDraftReferenceRef.current;
+    const revision = draftRevisionRef.current;
+    if (confirmedRecoveryRef.current?.reference === reference && confirmedRecoveryRef.current?.revision === revision) return;
     const recovery: ReferralLocalRecovery = {
       draft, ownerPrincipalId: ownerPrincipalIdRef.current,
       initialPacket: initialPacketRef.current,
       pendingDocuments: { ...pendingDocumentsRef.current }, additionalFiles: [...additionalFilesRef.current],
     };
     const principal = viewer?.id ?? await referralRecoveryPrincipal();
+    recoveryPrincipalRef.current = principal;
+    const attempt = localRecoveryAttemptRef.current;
+    const local = attempt && attempt.reference === reference && attempt.revision === revision
+      ? attempt.promise
+      : (async () => {
+        await saveLocalReferralRecovery(principal, reference, recovery);
+      })();
+    if (local !== attempt?.promise) {
+      localRecoveryAttemptRef.current = { reference, revision, promise: local };
+      void local.catch(() => {
+        if (localRecoveryAttemptRef.current?.promise === local) localRecoveryAttemptRef.current = null;
+      });
+    }
+    let savedOnDevice = false;
     try {
-      await saveLocalReferralRecovery(principal, reference, recovery);
+      await local;
+      savedOnDevice = true;
     } catch (localError) {
-      if (!allowServerFallback || recovery.initialPacket || Object.keys(recovery.pendingDocuments).length || recovery.additionalFiles.length) throw localError;
-      await saveServerReferralDraft(reference, draft);
-    }
-  };
-
-  const preserveIntakeBeforeNavigation = async () => {
-    try {
-      if (!serverDraftsEnabled) {
-        const draft = captureRecoveryDraft();
-        if (draft) window.sessionStorage.setItem(canvasDraftStorageKey(recoveryDraftReferenceRef.current), JSON.stringify(draft));
+      try {
+        if (!allowServerFallback || recovery.initialPacket || Object.keys(recovery.pendingDocuments).length || recovery.additionalFiles.length) throw localError;
+        await saveServerReferralDraft(reference, draft);
+      } catch (error) {
+        if (recoveryDraftReferenceRef.current === reference && draftRevisionRef.current === revision
+          && workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) {
+          rememberVolatileReferralRecovery(principal, reference, recovery);
+        }
+        throw error;
       }
-      const hasPendingFiles = Boolean(initialPacketRef.current || Object.keys(pendingDocumentsRef.current).length || additionalFilesRef.current.length);
-      if (serverDraftsEnabled || hasPendingFiles) await preservePendingIntake();
-      await intakeSaveQueueRef.current;
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Your intake could not be saved. Try again before leaving.");
-      setSavedAt("Unsaved changes");
-      throw error;
+    }
+    const volatile = volatileReferralRecovery(principal, reference);
+    if (volatile && recoveryDraftReferenceRef.current === reference && draftRevisionRef.current === revision
+      && Date.parse(volatile.draft.savedAt) <= Date.parse(draft.savedAt)) forgetVolatileReferralRecovery(reference);
+    if (savedOnDevice && recoveryDraftReferenceRef.current === reference && draftRevisionRef.current === revision) {
+      confirmedRecoveryRef.current = { reference, revision };
     }
   };
-  preserveIntakeBeforeNavigationRef.current = preserveIntakeBeforeNavigation;
 
-  useEffect(() => {
-    const waitForDelivery = async () => {
-      if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
-      await flushHandoff();
-      await assessmentNavigationRef.current?.();
-      await preserveIntakeBeforeNavigationRef.current();
-    };
-    beforeNavigationRef.current = waitForDelivery;
-    return () => {
-      if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = null;
-    };
-  }, [beforeNavigationRef, emailSending, flushHandoff]);
+  preserveIntakeBeforeNavigationRef.current = async () => {
+    while (captureRecoveryDraft() && !trainingIntakeMode) {
+      const reference = recoveryDraftReferenceRef.current;
+      const revision = draftRevisionRef.current;
+      const canonical = intakeSaveQueueRef.current.then(() => {
+        if (workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) {
+          throw new Error("Intake changes are still pending.");
+        }
+      });
+      try {
+        // A confirmed canonical save or encrypted recovery copy is enough to
+        // leave, but it must cover the latest edit, not an earlier snapshot.
+        await Promise.any([preservePendingIntake(), canonical]);
+      } catch {
+        if (reference !== recoveryDraftReferenceRef.current || revision !== draftRevisionRef.current) continue;
+        if (!recoveryPrincipalRef.current || !volatileReferralRecovery(recoveryPrincipalRef.current, reference)) {
+          throw new Error("Your account could not be confirmed for this recovery copy. Keep the workspace open and try again.");
+        }
+        const message = "Your latest intake changes are only in this open tab. Keep it open while saving retries.";
+        setSavedAt("Only in this open tab");
+        setSaveError(message);
+        return;
+      }
+      if (reference === recoveryDraftReferenceRef.current && revision === draftRevisionRef.current) return;
+    }
+  };
 
   const restoreLocalFiles = useCallback((recovery: ReferralLocalRecovery) => {
     initialPacketRef.current = recovery.initialPacket;
@@ -807,8 +860,10 @@ export default function ReferralPacketCanvas({
     setPendingDocuments(recovery.pendingDocuments);
     additionalFilesRef.current = recovery.additionalFiles;
     setAdditionalFiles(recovery.additionalFiles);
-    ownerPrincipalIdRef.current = recovery.ownerPrincipalId;
-    setOwnerPrincipalId(recovery.ownerPrincipalId);
+    if (dirtyKeysRef.current.has("owner")) {
+      ownerPrincipalIdRef.current = recovery.ownerPrincipalId;
+      setOwnerPrincipalId(recovery.ownerPrincipalId);
+    }
     if (recovery.initialPacket) {
       dirtyKeysRef.current.add("initialPacket");
       setDirtyKeys(new Set(dirtyKeysRef.current));
@@ -820,12 +875,19 @@ export default function ReferralPacketCanvas({
   }, [startIntakeExtraction]);
 
   const loadIntakeRecovery = async (reference: ReferralRecoveryDraftKey) => {
-    const [server, local] = await Promise.allSettled([
-      loadServerReferralDraft(reference), loadLocalReferralRecovery(reference),
+    const [server, local, principal] = await Promise.allSettled([
+      loadServerReferralDraft(reference), loadLocalReferralRecovery(reference), referralRecoveryPrincipal(),
     ]);
     const localRecovery = local.status === "fulfilled" ? local.value : null;
-    const serverDraft = server.status === "fulfilled" ? server.value : null;
-    if (localRecovery && (!serverDraft || localRecovery.initialPacket || localRecovery.additionalFiles.length > 0 || Object.keys(localRecovery.pendingDocuments).length > 0 || Date.parse(localRecovery.draft.savedAt) >= Date.parse(serverDraft.savedAt))) {
+    const candidateServerDraft = server.status === "fulfilled" ? server.value : null;
+    const serverDraft = candidateServerDraft && !await isActiveOtherRecoverySession(candidateServerDraft.recoverySessionId)
+      ? candidateServerDraft : null;
+    const volatile = principal.status === "fulfilled" ? volatileReferralRecovery(principal.value, reference) : null;
+    if (volatile && (!localRecovery || Date.parse(volatile.draft.savedAt) >= Date.parse(localRecovery.draft.savedAt))
+      && (!serverDraft || Date.parse(volatile.draft.savedAt) >= Date.parse(serverDraft.savedAt))) {
+      return { draft: volatile.draft, local: volatile };
+    }
+    if (localRecovery && (!serverDraft || localRecovery.draft.dirtyKeys.length > 0 || localRecovery.initialPacket || localRecovery.additionalFiles.length > 0 || Object.keys(localRecovery.pendingDocuments).length > 0 || Date.parse(localRecovery.draft.savedAt) >= Date.parse(serverDraft.savedAt))) {
       return { draft: localRecovery.draft, local: localRecovery };
     }
     return { draft: serverDraft, local: localRecovery };
@@ -990,6 +1052,7 @@ export default function ReferralPacketCanvas({
           const recovered = draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null;
           if (local) restoreLocalFiles(local);
           if (recovered || dirtyKeysRef.current.size === 0) setSavedAt(recovered ? "Restored edits · not yet saved" : "Draft");
+          if (recovered) retryCanonicalIntakeRef.current = true;
         }).catch(() => {
           if (!cancelled) setSaveError("Could not check for a recovery draft.");
         }).finally(() => {
@@ -1075,15 +1138,20 @@ export default function ReferralPacketCanvas({
               conflicts: recoveredConflicts,
             });
           }
-          if (recovered) setSavedAt("Restored edits · not yet saved");
+          if (recovered) {
+            setSavedAt("Restored edits · not yet saved");
+            retryCanonicalIntakeRef.current = true;
+          }
         };
         if (serverDraftsEnabled) {
           setDraftRecoveryLoading(true);
           void loadIntakeRecovery(record.id)
             .then(({ draft, local }) => {
               if (cancelled) return;
-              finishRecovery(draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null);
-              if (local) restoreLocalFiles(local);
+              const pending = draft ? unreconciledReferralRecovery(draft, record, local) : null;
+              finishRecovery(pending ? restoreDraftTracking(applyRecoveryDraft(pending, setters)) : null);
+              if (pending && local) restoreLocalFiles(local);
+              if (draft && !pending) void clearSessionDraft(record.id);
             })
             .catch(() => {
               if (!cancelled) setSaveError("Could not check for a recovery draft.");
@@ -1093,7 +1161,10 @@ export default function ReferralPacketCanvas({
             });
         } else {
           setDraftRecoveryLoading(false);
-          finishRecovery(restoreDraftTracking(restoreSessionDraft(record.id, setters)));
+          const draft = readSessionDraft(record.id);
+          const pending = draft ? unreconciledReferralRecovery(draft, record, null) : null;
+          finishRecovery(pending ? restoreDraftTracking(applyRecoveryDraft(pending, setters)) : null);
+          if (draft && !pending) void clearSessionDraft(record.id);
         }
       } else {
         setDraftRecoveryLoading(false);
@@ -1236,6 +1307,8 @@ export default function ReferralPacketCanvas({
   };
 
   const applyConfirmedWorkflowReferral = (latest: Referral) => {
+    const current = loadedReferralRef.current;
+    if (current && (latest.version ?? 1) <= (current.version ?? 1)) return;
     loadedReferralRef.current = latest;
     setLoadedReferral(latest);
     setRemoteChange(null);
@@ -1580,8 +1653,8 @@ export default function ReferralPacketCanvas({
     entryResolvedRef.current = true;
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
     try {
-      await assessmentNavigationRef.current?.();
-      if (activePage === 1 && loadedReferralRef.current) await preserveIntakeBeforeNavigation();
+      await assessmentNavigationRef.current?.(page === "email" ? "email" : undefined);
+      if (activePage === 1) await preserveIntakeBeforeNavigationRef.current();
       if (assessmentMode === undefined && (activePage === 1 || activePage === 3) && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
         await openQuestionnaireFromIntake();
       } else {
@@ -1711,6 +1784,7 @@ export default function ReferralPacketCanvas({
       }
       setSaveError(error instanceof Error ? error.message : "Could not save this field.");
       setSavedAt("Unsaved changes");
+      retryCanonicalIntakeRef.current = true;
       void preservePendingIntake(false).catch(() => undefined);
     });
   };
@@ -1881,7 +1955,12 @@ export default function ReferralPacketCanvas({
     setDirtyKeys(remainingDirtyKeys);
     setFields((current) => mergeRemoteReferralFields(current, savedReferral, remainingDirtyKeys));
     rebaseDraftTracking(savedReferral, remainingDirtyKeys, snapshot.dirtyKeys);
-    if (remainingDirtyKeys.size === 0) await clearSessionDraft(savedReferral.id);
+    if (remainingDirtyKeys.size === 0) {
+      retryCanonicalIntakeRef.current = false;
+      forgetVolatileReferralRecovery(savedReferral.id);
+      forgetVolatileReferralRecovery(newDraftKey);
+      await clearSessionDraft(savedReferral.id);
+    }
     setRecoveredDraftAt("");
     setRecoveredPacketName("");
     if (!preserveConflicts) setRemoteChange(null);
@@ -1983,6 +2062,7 @@ export default function ReferralPacketCanvas({
       setSaveError(error instanceof Error ? error.message : "Could not save this referral workspace.");
       void preservePendingIntake().catch(() => undefined);
       setSavedAt(intakeSaveFailureStatus(error));
+      retryCanonicalIntakeRef.current = true;
       return null;
     } finally {
       isSavingRef.current = false;
@@ -1999,12 +2079,28 @@ export default function ReferralPacketCanvas({
     setSavedAt("Practice changes saved in this tab");
     return null;
   });
+  const retryIntakeSave = useEffectEvent(() => saveWorkspaceDraft());
+
+  useEffect(() => {
+    if (!loadedReferral?.id || trainingIntakeMode) return;
+    const retry = () => {
+      if (!retryCanonicalIntakeRef.current || retryCanonicalIntakeRunningRef.current || isSavingRef.current
+        || !window.navigator.onLine || remoteChange?.conflicts.length
+        || !workspaceHasQueuedChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current, additionalFilesRef.current)) return;
+      if (document.activeElement?.closest("[data-workspace-field]")) return;
+      retryCanonicalIntakeRunningRef.current = true;
+      void retryIntakeSave().finally(() => { retryCanonicalIntakeRunningRef.current = false; });
+    };
+    const timer = window.setInterval(retry, 10_000);
+    window.addEventListener("online", retry);
+    return () => { window.clearInterval(timer); window.removeEventListener("online", retry); };
+  }, [loadedReferral?.id, remoteChange, trainingIntakeMode]);
 
   const openAssignedWork = async () => {
     if (!onOpenAssignedWork || emailSendingRef.current) return;
-    await handoff.flush();
+    await handoff.leave();
     await assessmentNavigationRef.current?.();
-    await preserveIntakeBeforeNavigation();
+    await preserveIntakeBeforeNavigationRef.current();
     onOpenAssignedWork();
   };
 
@@ -2029,7 +2125,7 @@ export default function ReferralPacketCanvas({
   const openQuestionnaireFromIntake = async () => {
     const id = activeReferralId(loadedReferralRef.current, referral);
     if (!id) return;
-    await preservePendingIntake();
+    await preserveIntakeBeforeNavigationRef.current();
     await intakeSaveQueueRef.current;
     setPreparingReferralId(id);
     openPage(2);
@@ -2347,6 +2443,13 @@ export default function ReferralPacketCanvas({
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
+  const readingDecision = displayedPage === "workflow" && Boolean(loadedReferral);
+  useEffect(() => {
+    if (readingAssessment) setAssessmentVisitedReferral(referralWorkspaceId);
+  }, [readingAssessment, referralWorkspaceId]);
+  useEffect(() => {
+    if (readingDecision) setDecisionVisitedReferral(referralWorkspaceId);
+  }, [readingDecision, referralWorkspaceId]);
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
@@ -2359,6 +2462,10 @@ export default function ReferralPacketCanvas({
   const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
   const queuedFileCount = Object.keys(pendingDocuments).length + Number(Boolean(initialPacket)) + additionalFiles.length;
   const saveStatus = referralDraftSaveStatus(savedAt, hasReferral, queuedFileCount);
+  const decisionSaveForCurrent = decisionSaveState.referralId === referralWorkspaceId ? decisionSaveState : null;
+  const decisionSaveNotice = Boolean(decisionSaveForCurrent && (decisionSaveForCurrent.pending > 0 || decisionSaveForCurrent.failed > 0));
+  const assessmentSaveForCurrent = assessmentSaveState.referralId === referralWorkspaceId && assessmentSaveState.assessmentId ? assessmentSaveState : null;
+  const assessmentSaveNotice = Boolean(!readingAssessment && assessmentSaveForCurrent && (assessmentSaveForCurrent.dirty || assessmentSaveForCurrent.error || assessmentSaveForCurrent.pendingOfflineSaves > 0 || assessmentSaveForCurrent.appointmentDraft || assessmentSaveForCurrent.appointmentSaving));
 
   const moveWorkspaceToTrash = async () => {
     const current = loadedReferralRef.current;
@@ -2478,7 +2585,7 @@ export default function ReferralPacketCanvas({
                 inFolder
                 beforeStart={async () => {
                   if (emailSendingRef.current) throw new Error("Wait for the email delivery result before starting an intake.");
-                  await handoff.flush();
+                  await handoff.leave();
                   await assessmentNavigationRef.current?.();
                   await preservePendingIntake();
                   await intakeSaveQueueRef.current;
@@ -2548,7 +2655,7 @@ export default function ReferralPacketCanvas({
 
             {renderWorkspaceActions()}
           </div>
-          {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
+          {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
             <WorkspaceSaveStatus
               status={saveStatus}
               error={saveError}
@@ -2780,7 +2887,7 @@ export default function ReferralPacketCanvas({
 
               <aside aria-label="Intake progress" className="border-t border-[#bfcac5] bg-[#f7faf8]">
                 {loadedReferral && chartPage === 3 ? <div className="flex justify-end px-4 py-3">
-                  <button type="button" onClick={() => void navigatePage(3)} disabled={isSaving} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white disabled:opacity-50">Done</button>
+                  <button type="button" onClick={() => void navigatePage(3)} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white">Done</button>
                 </div> : <ChartCompletionRail
                   fieldCount={fieldCount}
                   fieldTotal={visibleChartFieldKeys.length}
@@ -2820,6 +2927,17 @@ export default function ReferralPacketCanvas({
           {accessError} <button type="button" onClick={() => { setAccessChecking(true); setAccessRetry((retry) => retry + 1); }} disabled={accessChecking} className="font-bold underline underline-offset-2 disabled:opacity-50">{accessChecking ? "Checking access..." : "Retry access check"}</button>
         </div> : null}
 
+        {decisionSaveForCurrent && decisionSaveNotice ? <div role={decisionSaveForCurrent.failed > 0 ? "alert" : "status"} className="mb-3 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
+          {decisionSaveForCurrent.failed > 0
+            ? `${decisionSaveForCurrent.failed} paperwork change${decisionSaveForCurrent.failed === 1 ? "" : "s"} not saved. Open Decision to retry.`
+            : `${decisionSaveForCurrent.pending} paperwork change${decisionSaveForCurrent.pending === 1 ? "" : "s"} saving or queued…`}
+        </div> : null}
+
+        {assessmentSaveForCurrent && assessmentSaveNotice ? <div role={assessmentSaveForCurrent.error ? "alert" : "status"} className="mb-3 flex flex-wrap items-center justify-between gap-2 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
+          <span>{assessmentSaveForCurrent.error ? "Assessment needs attention. Check its save status." : assessmentSaveForCurrent.pendingOfflineSaves > 0 ? `${assessmentSaveForCurrent.pendingOfflineSaves} assessment change${assessmentSaveForCurrent.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessmentSaveForCurrent.appointmentSaving ? "Assessment appointment saving…" : assessmentSaveForCurrent.appointmentDraft ? "Assessment appointment draft is not booked." : "Assessment changes not yet saved."}</span>
+          <button type="button" onClick={() => void navigatePage(2)} className="min-h-11 font-semibold text-[#08735e] underline underline-offset-2 focus-visible:outline-2">Open Assessment</button>
+        </div> : null}
+
         {renderRestoredEdits()}
 
         {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
@@ -2839,7 +2957,7 @@ export default function ReferralPacketCanvas({
 
         {renderExtractionConflict()}
 
-        <div key={readingAssessment ? "assessment-chart" : displayedPage} className={readingAssessment ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}>
+        {!readingAssessment && !readingDecision ? <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart" flush>
               <WorkspaceChartFolder>
@@ -2851,22 +2969,6 @@ export default function ReferralPacketCanvas({
           ) : displayedPage === "files" ? (
             <PacketPage id="packet-files" title={workspacePresentation.filesLabel}>
               <div className="max-sm:px-3">{renderDocumentUpload(false)}</div>
-            </PacketPage>
-          ) : displayedPage === "workflow" && loadedReferral ? (
-            <PacketPage id="admission-workflow" title="Decision" flush>
-              <WorkspaceChartFolder>
-              <ReferralWorkflowPanel
-                referral={loadedReferral}
-                beforeWorkspaceNavigationRef={assessmentNavigationRef}
-                onDone={onOpenAssignedWork ? openAssignedWork : undefined}
-                onReferralChange={applyConfirmedWorkflowReferral}
-                onOpenIntake={() => void navigatePage(1)}
-                onOpenAssessment={() => void navigatePage(2)}
-                onOpenFiles={() => void navigatePage("files")}
-                onOpenEmail={() => openPage("email")}
-                onOpenProfile={openClientProfile}
-              />
-              </WorkspaceChartFolder>
             </PacketPage>
           ) : displayedPage === "email" ? (
             <PacketPage id="packet-email" title="Finish & send" flush>
@@ -2884,9 +2986,45 @@ export default function ReferralPacketCanvas({
                 }} className="min-h-12 rounded-md bg-[#087d66] px-6 text-[16px] font-semibold text-white hover:bg-[#06634f] focus-visible:outline-2 disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null} />
               </WorkspaceChartFolder>
             </PacketPage>
-          ) : readingAssessment ? (
+          ) : displayedPage === 3 ? (
+            <PacketPage id="packet-charts" title="Chart" flush>
+              <WorkspaceChartFolder>
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} />
+              </WorkspaceChartFolder>
+            </PacketPage>
+          ) : (
+            <PacketPage id="packet-activity" title="Activity">
+              <ReferralActivityPanel referralId={referralWorkspaceId} version={loadedReferral?.version} />
+            </PacketPage>
+          )}
+        </div> : null}
+        {loadedReferral && (readingDecision || decisionVisitedReferral === referralWorkspaceId) ? (
+          <div key={`decision-${referralWorkspaceId}`} className="pipeline-step-enter" style={{ display: readingDecision ? undefined : "none" }} aria-hidden={!readingDecision} inert={!readingDecision}>
+            <PacketPage id="admission-workflow" title="Decision" flush>
+              <WorkspaceChartFolder>
+                <ReferralWorkflowPanel
+                  referral={loadedReferral}
+                  workspaceActive={readingDecision}
+                  beforeWorkspaceNavigationRef={assessmentNavigationRef}
+                  beforeWorkspaceExitRef={decisionExitRef}
+                  onRequirementStateChange={({ pending, failed }) => setDecisionSaveState({ referralId: loadedReferral.id, pending, failed })}
+                  onDone={onOpenAssignedWork ? openAssignedWork : undefined}
+                  onReferralChange={applyConfirmedWorkflowReferral}
+                  onOpenIntake={() => void navigatePage(1)}
+                  onOpenAssessment={() => void navigatePage(2)}
+                  onOpenFiles={() => void navigatePage("files")}
+                  onOpenEmail={() => void navigatePage("email")}
+                  onOpenProfile={openClientProfile}
+                />
+              </WorkspaceChartFolder>
+            </PacketPage>
+          </div>
+        ) : null}
+        {(readingAssessment || (assessmentVisitedReferral !== undefined && assessmentVisitedReferral === referralWorkspaceId)) ? (
+          <div key={`assessment-${referralWorkspaceId ?? "training"}`} className={workspaceFolderStyles.readingPages} style={{ display: readingAssessment ? undefined : "none" }} aria-hidden={!readingAssessment} inert={!readingAssessment}>
             <PacketPage id="packet-page-2" title={displayedPage === 3 ? "Chart" : "Assessment"} flush>
                 <AssessmentWorkspace
+                  workspaceActive={readingAssessment}
                   readOnly={permissionReadOnly}
                   workbookImport={workbookImport}
                   onWorkbookImportRead={() => setWorkbookImport(null)}
@@ -2909,6 +3047,7 @@ export default function ReferralPacketCanvas({
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
+                  onSaveStateChange={(state) => setAssessmentSaveState({ referralId: referralWorkspaceId, ...state })}
                   onContinueToWorkflow={() => openPage("workflow")}
                   onOpenWorkspace={() => openPage(3)}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
@@ -2938,18 +3077,8 @@ export default function ReferralPacketCanvas({
                   }}
                 />
             </PacketPage>
-          ) : displayedPage === 3 ? (
-            <PacketPage id="packet-charts" title="Chart" flush>
-              <WorkspaceChartFolder>
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} />
-              </WorkspaceChartFolder>
-            </PacketPage>
-          ) : (
-            <PacketPage id="packet-activity" title="Activity">
-              <ReferralActivityPanel referralId={referralWorkspaceId} version={loadedReferral?.version} />
-            </PacketPage>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
       {renderCreationHandoff()}
       {deleteDialogOpen && loadedReferral ? (
@@ -3974,6 +4103,11 @@ type DraftRestoreSetters = {
 };
 
 function restoreSessionDraft(draftReference: ReferralRecoveryDraftKey, setters: DraftRestoreSetters) {
+  const draft = readSessionDraft(draftReference);
+  return draft ? applyRecoveryDraft(draft, setters) : null;
+}
+
+function readSessionDraft(draftReference: ReferralRecoveryDraftKey) {
   let draft: CanvasSessionDraft | null = null;
   try {
     const raw = window.sessionStorage.getItem(canvasDraftStorageKey(draftReference));
@@ -3985,7 +4119,7 @@ function restoreSessionDraft(draftReference: ReferralRecoveryDraftKey, setters: 
     return null;
   }
 
-  return applyRecoveryDraft(draft, setters);
+  return draft;
 }
 
 function applyRecoveryDraft(draft: CanvasSessionDraft, setters: DraftRestoreSetters) {
@@ -4022,13 +4156,7 @@ function buildRecoveredDraftConflicts(draft: CanvasSessionDraft, latest: Referra
     const baseValue = draft.baseValues?.[key];
     if (baseValue === undefined) continue;
     const remoteComparison = referralBaseDraftValue(latest, key);
-    const localComparison = isPersistedFieldKey(key)
-      ? JSON.stringify([draft.fields[key]?.value ?? "", draft.fields[key]?.sourceFile ?? ""])
-      : key === "conserved"
-        ? draft.conserved
-        : key === "tags"
-          ? normalizeTags(draft.tagsInput).join("\n")
-          : JSON.stringify(Object.entries(draft.documents).sort(([left], [right]) => left.localeCompare(right)));
+    const localComparison = recoveredReferralValue(draft, key);
     if (baseValue === remoteComparison || localComparison === remoteComparison) continue;
     conflicts.push({
       key,
@@ -4038,6 +4166,24 @@ function buildRecoveredDraftConflicts(draft: CanvasSessionDraft, latest: Referra
     });
   }
   return conflicts;
+}
+
+function unreconciledReferralRecovery(draft: CanvasSessionDraft, latest: Referral, local: ReferralLocalRecovery | null) {
+  const pendingFiles = Boolean(local?.initialPacket || Object.keys(local?.pendingDocuments ?? {}).length || local?.additionalFiles.length);
+  const dirtyKeys = draft.dirtyKeys.filter((key) => {
+    if (key === "initialPacket") return Boolean(local?.initialPacket);
+    if (key === "documents" && Object.keys(local?.pendingDocuments ?? {}).length) return true;
+    if (key === "owner" && local && local.ownerPrincipalId !== (latest.ownerId ?? "")) return true;
+    return recoveredReferralValue(draft, key) !== referralBaseDraftValue(latest, key);
+  });
+  return dirtyKeys.length || pendingFiles ? { ...draft, dirtyKeys } : null;
+}
+
+function recoveredReferralValue(draft: CanvasSessionDraft, key: DirtyDraftKey) {
+  if (isPersistedFieldKey(key)) return JSON.stringify([draft.fields[key]?.value ?? "", draft.fields[key]?.sourceFile ?? ""]);
+  if (key === "conserved") return draft.conserved;
+  if (key === "tags") return normalizeTags(draft.tagsInput).join("\n");
+  return JSON.stringify(Object.entries(draft.documents).sort(([left], [right]) => left.localeCompare(right)));
 }
 
 function draftDisplayValue(draft: CanvasSessionDraft, key: DirtyDraftKey) {
@@ -4078,7 +4224,7 @@ function newReferralCreationMutationId(draftReference?: `new-${string}`) {
 
 async function clearSessionDraft(draftReference?: ReferralRecoveryDraftKey) {
   if (usesServerReferralDrafts()) {
-    await clearLocalReferralRecovery(draftReference).catch(() => undefined);
+    // The versioned server clear also retires the local recovery copy.
     await clearServerReferralDraft(draftReference).catch(() => undefined);
     return;
   }

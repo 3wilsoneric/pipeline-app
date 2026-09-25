@@ -64,6 +64,8 @@ type ReferralWorkflowPanelPresentationProps = {
   admissionDate: string;
   manualIntakeReason: string;
   pendingDetail: PendingWorkflowDetail | null;
+  pendingRequirements: Record<string, RequirementStatus>;
+  requirementErrors: Record<string, string>;
   onRecommendationChange: (patch: Partial<RecommendationDraft>) => void;
   onAdmissionDateChange: (value: string) => void;
   onSaveAdmissionDate: () => void;
@@ -94,6 +96,8 @@ export function ReferralWorkflowPanelPresentation({
   admissionDate,
   manualIntakeReason,
   pendingDetail,
+  pendingRequirements,
+  requirementErrors,
   onRecommendationChange,
   onAdmissionDateChange,
   onSaveAdmissionDate,
@@ -150,6 +154,8 @@ export function ReferralWorkflowPanelPresentation({
             workflow={workflow}
             view={view}
             busy={busy}
+            pendingRequirements={pendingRequirements}
+            requirementErrors={requirementErrors}
             onUpdateRequirement={onUpdateRequirement}
             onUpdateHandoff={onUpdateHandoff}
             onRecordHandoffSent={onRecordHandoffSent}
@@ -250,10 +256,13 @@ export function DecisionCard({ workflow, busy, recommendation, onRecommendationC
   const underReview = recommendation.outcome === "needs_more_information";
   const savedUnderReview = isSavedUnderReview(workflow, recommendation);
   const action = decisionActionState(workflow, recommendation, Boolean(busy));
+  // A checklist save must not freeze a decision the assessor is still drafting.
+  // Submission remains guarded by action.disabled until that save finishes.
+  const draftLocked = Boolean(busy) && !busy.startsWith("requirement:");
   return (
     <section className={styles.decisionCard}>
       <RecommendationOnFile workflow={workflow} selected={recommendation.outcome} selectedNote={recommendation.reasonNote} />
-      <fieldset disabled={!workflow.capabilities.can_decide || Boolean(busy)}>
+      <fieldset disabled={!workflow.capabilities.can_decide || draftLocked}>
         <legend className={styles.legend}>Final decision</legend>
         <div className={styles.options}>
           {([{ value: "accept", label: "Accept", detail: "Proceed with placement", Icon: Check }, { value: "decline", label: "Deny", detail: "Close this referral", Icon: Minus }, { value: "needs_more_information", label: "Under review", detail: "Keep open for follow-up", Icon: Clock3 }] as const).map(({ Icon, ...option }) => (
@@ -264,7 +273,7 @@ export function DecisionCard({ workflow, busy, recommendation, onRecommendationC
           ))}
         </div>
       </fieldset>
-      <WorkflowTextArea label={underReview ? "What needs review?" : "Reason (optional)"} value={recommendation.reasonNote} disabled={!workflow.capabilities.can_decide || Boolean(busy)} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
+      <WorkflowTextArea label={underReview ? "What needs review?" : "Reason (optional)"} value={recommendation.reasonNote} disabled={!workflow.capabilities.can_decide || draftLocked} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
       <div className={styles.decisionActions}>
         <p id="decision-action-hint" data-blocked={!savedUnderReview && action.disabled && !busy ? "true" : undefined}>{savedUnderReview ? "Under review saved. Edit the note to save an update." : action.hint}</p>
         {!savedUnderReview ? <PrimaryButton busy={Boolean(busy)} disabled={action.disabled} describedBy="decision-action-hint" onClick={onSubmitDecision}>{underReview ? "Save under review" : "Record decision"}<ArrowRight size={18} aria-hidden="true" /></PrimaryButton> : null}
@@ -295,10 +304,10 @@ function ProgressStep({ step }: { step: DecisionProgressStep }) {
   return <li data-state={step.state}><Icon size={17} aria-hidden="true" /><span><strong>{step.label}</strong><span>{step.detail}</span></span></li>;
 }
 
-function WorkflowSecondaryColumn({ workflow, view, busy, onUpdateRequirement, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure, onOpenProfile }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "onUpdateRequirement" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure" | "onOpenProfile"> & { view: WorkflowView }) {
+function WorkflowSecondaryColumn({ workflow, view, busy, pendingRequirements, requirementErrors, onUpdateRequirement, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure, onOpenProfile }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "pendingRequirements" | "requirementErrors" | "onUpdateRequirement" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure" | "onOpenProfile"> & { view: WorkflowView }) {
   return (
     <div className="space-y-5">
-      <WorkflowCard title="Admission requirements" detail={admissionRequirementSummary(workflow.work_items)}><div className="space-y-5">{requirementGroups(workflow.work_items).map((group) => <RequirementGroup key={group.label} group={group} disabled={!workflow.capabilities.can_update || Boolean(busy)} onChange={onUpdateRequirement} />)}</div></WorkflowCard>
+      <WorkflowCard title="Admission requirements" detail={admissionRequirementSummary(workflow.work_items)}><div className="space-y-5">{requirementGroups(workflow.work_items).map((group) => <RequirementGroup key={group.label} group={group} disabled={!workflow.capabilities.can_update || Boolean(busy && !busy.startsWith("requirement:"))} busy={busy} pendingRequirements={pendingRequirements} requirementErrors={requirementErrors} onChange={onUpdateRequirement} />)}</div></WorkflowCard>
       <EhrHandoffDisclosure workflow={workflow} view={view} busy={busy} onUpdateHandoff={onUpdateHandoff} onRecordHandoffSent={onRecordHandoffSent} onOpenHandoffFailure={onOpenHandoffFailure} />
       {view.currentReferral.stage === "Accepted / Admitted" ? <ReferralClientActivationPanel referralId={view.currentReferral.id} canReconcile={workflow.capabilities.can_reconcile_identity} canReview={workflow.capabilities.can_review_identity} onOpenProfile={onOpenProfile} /> : null}
     </div>
@@ -360,7 +369,7 @@ function WorkflowDetailDialog({ pending, onConfirm, onClose }: { pending: Pendin
   return <ActionDetailDialog {...requirementDetailPresentation(pending.item, pending.status)} onConfirm={onConfirm} onClose={onClose} />;
 }
 
-function RequirementGroup({ group, disabled, onChange }: { group: RequirementGroupPresentation; disabled: boolean; onChange: (item: AdmissionRequirement, status: RequirementStatus) => void }) {
+function RequirementGroup({ group, disabled, busy, pendingRequirements, requirementErrors, onChange }: { group: RequirementGroupPresentation; disabled: boolean; busy: string; pendingRequirements: Record<string, RequirementStatus>; requirementErrors: Record<string, string>; onChange: (item: AdmissionRequirement, status: RequirementStatus) => void }) {
   return (
     <section aria-label={`${group.label} requirements`}>
       <div className="mb-2 flex items-end justify-between gap-3">
@@ -373,8 +382,9 @@ function RequirementGroup({ group, disabled, onChange }: { group: RequirementGro
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[14px] font-semibold uppercase text-[#68716c]">To complete</span> : null}</div>
               <div className="mt-1 text-[14px] leading-5 text-[#737373]">{requirementStatusDetail(item)}</div>
+              {pendingRequirements[item.id] ? <div role="status" className="mt-1 text-[12px] font-semibold text-[#59665f]">{busy.startsWith(`requirement:${item.id}:`) ? "Saving status…" : "Status queued…"}</div> : requirementErrors[item.id] ? <div role="alert" className="mt-1 text-[12px] font-semibold text-[#9b3c2d]">{requirementErrors[item.id]}</div> : null}
             </div>
-            <select aria-label={`${item.label} status`} value={item.status} disabled={disabled} onChange={(event) => onChange(item, event.target.value as RequirementStatus)} className="h-11 w-full border border-[#c9ceca] bg-white px-2 text-[14px] font-semibold outline-none focus:border-[#0f8b73]">{requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}</select>
+            <select aria-label={`${item.label} status`} value={pendingRequirements[item.id] ?? item.status} disabled={disabled || Boolean(pendingRequirements[item.id])} onChange={(event) => onChange(item, event.target.value as RequirementStatus)} className="h-11 w-full border border-[#c9ceca] bg-white px-2 text-[14px] font-semibold outline-none focus:border-[#0f8b73]">{requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}</select>
           </div>
         ))}
       </div>

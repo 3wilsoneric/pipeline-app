@@ -27,9 +27,25 @@ const env = read(".env.example");
 const docs = read("docs/DESKTOP_DISTRIBUTION.md");
 const nextConfig = read("next.config.ts");
 const browserTests = read("tests/e2e/desktop-readiness.spec.ts");
+const deployment = read(".github/workflows/deploy-azure.yml");
+const fastDeployment = read(".github/workflows/deploy-azure-fast.yml");
+const azureRuntime = read("infra/azure/runtime.bicep");
+const dockerfile = read("Dockerfile");
 
 check("desktop public flag defaults off", env.includes("NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=false"));
 check("desktop server-state flag defaults off", env.includes("PIPELINE_DESKTOP_STATE_ENABLED=false"));
+check("desktop deployment activation controls the image and both runtime flags",
+  deployment.includes("desktop_activation:")
+    && deployment.includes("default: preserve")
+    && deployment.includes("NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=${{ steps.desktop.outputs.enabled }}")
+    && deployment.match(/enableDesktop='\$\{\{ steps\.desktop\.outputs\.enabled \}\}'/g)?.length === 2
+    && azureRuntime.includes("param enableDesktop bool = false")
+    && azureRuntime.includes("'PIPELINE_DESKTOP_STATE_ENABLED', value: enableDesktop ? 'true' : 'false'")
+    && azureRuntime.includes("'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: enableDesktop ? 'true' : 'false'")
+    && dockerfile.includes("ARG NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=false"));
+check("fast lane cannot undo the desktop off switch with an enabled image",
+  fastDeployment.includes('"$desktop_public" == "true" && "$desktop_server" == "true"')
+    && fastDeployment.includes("Use the full Azure deployment."));
 check("desktop flag has one browser-safe source of truth", config.includes('NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED === "true"'));
 check(
   "manifest is linked only behind the public flag and respects the application base path",
@@ -40,6 +56,10 @@ check("development or disabled desktop mode removes the runtime and returns befo
     && runtime.indexOf("serviceWorker.register") > runtime.indexOf("!isPipelineDesktopEnabled()"));
 check("worker scope follows the Pipeline application base path", runtime.includes("PIPELINE_SERVICE_WORKER_SCOPE") && config.includes('toPipelinePath("/")'));
 check("disabled runtime unregisters Pipeline worker", runtime.includes("registration.unregister()") && runtime.includes("PIPELINE_DESKTOP_CACHE_PREFIX"));
+check("disabled runtime stops installed and pending Pipeline workers",
+  runtime.includes("[registration.active, registration.waiting, registration.installing]")
+    && worker.includes("if (desktopCacheDisabled) {")
+    && worker.includes("await caches.delete(CACHE_NAME);"));
 check(
   "worker has a versioned Pipeline-only cache",
   /CACHE_NAME = `\$\{CACHE_PREFIX\}v\d+`/.test(worker)
@@ -50,6 +70,11 @@ check("worker caches only explicit assets and scoped hashed Next assets", worker
 check("worker never caches navigations", worker.includes('request.mode === "navigate"') && worker.includes("fetch(request).catch"));
 check("worker has no API caching branch", !/cacheStaticAsset\([^)]*\/api/.test(worker) && !worker.includes('pathname.startsWith("/api/")'));
 check("worker reads only its named cache", !worker.includes("caches.match("));
+check("disabled worker blocks late cache recreation",
+  worker.includes("desktopCacheDisabled = true")
+    && worker.includes('if (desktopCacheDisabled || request.method !== "GET") return;')
+    && worker.includes("if (desktopCacheDisabled) await caches.delete(CACHE_NAME);")
+    && browserTests.includes("lateStaticFetch"));
 check("worker script is never HTTP cached", nextConfig.includes('source: "/sw.js"') && nextConfig.includes('no-cache, no-store, must-revalidate'));
 check("offline page contains no runtime script", !/<script/i.test(offline));
 check("offline page explains encrypted active-assessment recovery", offline.includes("encrypted working set on this device"));
@@ -119,7 +144,7 @@ check("drafts and recents have explicit expiration", draftsRoute.includes("ttlDa
 check("local desktop state is prohibited in production", workspaceStore.includes('process.env.NODE_ENV !== "production"'));
 check("desktop runbook documents MSIX, Intune, rollback, and cache audit", ["MSIX packaging", "Intune", "Rollback and kill switch", "Cache Storage"].every((term) => docs.includes(term)));
 check("browser tests exercise generic offline fallback", browserTests.includes("falls back to a generic PHI-free offline screen") && browserTests.includes("setOffline(true)"));
-check("browser tests exercise encrypted cold-start editing and reconnect", browserTests.includes("Saved on this device · syncs after reconnect") && browserTests.includes("Return to Pipeline and sync"));
+check("browser tests exercise encrypted cold-start editing and explicit reconnect", browserTests.includes("Saved on this device · reconnect, then choose Return to Pipeline and sync") && browserTests.includes('getByRole("button", { name: "Return to Pipeline and sync" })'));
 check("browser tests exercise cache upgrade and kill switch", browserTests.includes("pipeline-static-v0") && browserTests.includes("PIPELINE_DISABLE_DESKTOP_CACHE") && browserTests.includes("unrelated-application-cache"));
 
 const failed = checks.filter((item) => !item.ok);

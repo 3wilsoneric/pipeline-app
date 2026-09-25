@@ -78,6 +78,94 @@ test("a lost sign response replays one signature with the same mutation ID", asy
   expect(saved.audit_events.filter((event: { action: string }) => event.action === "assessment_signed")).toHaveLength(1);
 });
 
+for (const width of [1440, 390]) test(`a slow appointment save does not trap the assessor at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: "Synthetic schedule navigation", owner: "", tags: [],
+  });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  let release!: () => void;
+  let entered!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const requested = new Promise<void>((resolve) => { entered = resolve; });
+  let requests = 0;
+  await page.route(`**/api/assessments/${assessment.assessment_id}/schedule`, async (route) => {
+    requests += 1;
+    entered();
+    await pending;
+    await route.continue();
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+    await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-12T10:30");
+    await dialog.getByLabel("Assessment method", { exact: true }).selectOption("record_review");
+    await dialog.getByRole("button", { name: "Schedule record review", exact: true }).click();
+    await requested;
+    await expect(dialog.getByRole("button", { name: "Back to assessment", exact: true })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Back to assessment", exact: true }).click();
+    if (width < 640) {
+      await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption("files");
+    } else {
+      await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    }
+    await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+    await expect(page.getByText("Assessment appointment saving…")).toBeVisible();
+    release();
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.scheduled_start_at).toBeTruthy();
+    await expect(page.getByText("Assessment appointment saving…")).toHaveCount(0);
+    expect(requests).toBe(1);
+  } finally {
+    release();
+  }
+});
+
+test("a failed appointment save stays visible and retryable after visiting Files", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: "Synthetic schedule retry", owner: "", tags: [],
+  });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  let release!: () => void;
+  let entered!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const requested = new Promise<void>((resolve) => { entered = resolve; });
+  let fail = true;
+  let requests = 0;
+  await page.route(`**/api/assessments/${assessment.assessment_id}/schedule`, async (route) => {
+    requests += 1;
+    if (!fail) return route.continue();
+    entered();
+    await pending;
+    return route.fulfill({ status: 503, json: { error: "Synthetic appointment save interruption" } });
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+    await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-13T11:30");
+    await dialog.getByLabel("Assessment method", { exact: true }).selectOption("record_review");
+    await dialog.getByRole("button", { name: "Schedule record review", exact: true }).click();
+    await requested;
+    await dialog.getByRole("button", { name: "Back to assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    release();
+    await expect(page.getByText("Assessment needs attention. Check its save status.")).toBeVisible();
+    expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.scheduled_start_at).toBeFalsy();
+    fail = false;
+    await page.getByRole("button", { name: "Open Assessment", exact: true }).click();
+    await expect(page.getByTestId("assessment-client-folder").getByRole("alert")).toContainText("Synthetic appointment save interruption");
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await expect(dialog.getByLabel("Assessment date and time", { exact: true })).toHaveValue("2026-10-13T11:30");
+    await dialog.getByRole("button", { name: "Schedule record review", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.scheduled_start_at).toBeTruthy();
+    expect(requests).toBe(2);
+  } finally {
+    release();
+  }
+});
+
 test("a failed referral refresh after signing does not reopen the signature or block Decision", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signed refresh failure", owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
@@ -106,7 +194,7 @@ test("a failed referral refresh after signing does not reopen the signature or b
   expect(saved.audit_events.filter((event: { action: string }) => event.action === "assessment_signed")).toHaveLength(1);
 });
 
-test("leaving Decision saves the admission date", async ({ page }) => {
+test("Finish & send saves the admission date before moving forward", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic decision transition", owner: "", tags: [] });
   await signOperationalAssessment(page.request, await createOperationalAssessment(page.request, referral.id));
   const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
@@ -116,10 +204,15 @@ test("leaving Decision saves the admission date", async ({ page }) => {
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   await decision.getByLabel("Planned admission date", { exact: true }).fill("2026-11-12");
   const saveRoute = `**/api/referrals/${referral.id}`;
-  await page.route(saveRoute, (route) => route.request().method() === "PATCH"
-    ? route.fulfill({ status: 503, json: { error: "Synthetic date save interruption" } }) : route.continue());
+  let attemptedSaves = 0;
+  await page.route(saveRoute, (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    attemptedSaves += 1;
+    return route.fulfill({ status: 503, json: { error: "Synthetic date save interruption" } });
+  });
   await stages.getByRole("button", { name: "Finish & send", exact: true }).click();
-  await expect(decision.getByRole("alert")).toContainText("could not be saved");
+  await expect(decision.getByRole("alert")).toContainText("Synthetic date save interruption");
+  expect(attemptedSaves).toBe(1);
   await expect(decision.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-11-12");
   await expect(stages.getByRole("button", { name: "Decision", exact: true })).toHaveAttribute("aria-current", "page");
   await page.unroute(saveRoute);
@@ -139,14 +232,16 @@ test("unrecorded decisions stay open unless their changes are explicitly discard
   await decision.getByRole("radio", { name: "Deny", exact: true }).check();
   await decision.getByLabel("Reason (optional)").fill("Synthetic unrecorded decision note");
   await stages.getByRole("button", { name: "Assessment", exact: true }).click();
-  await page.getByRole("alertdialog", { name: "Leave without recording these changes?", exact: true }).getByRole("button", { name: "Keep editing", exact: true }).click();
+  await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+  await stages.getByRole("button", { name: "Decision", exact: true }).click();
   await expect(decision.getByLabel("Reason (optional)")).toHaveValue("Synthetic unrecorded decision note");
-  await expect(decision.getByRole("alert")).toContainText("Record");
   await page.getByRole("button", { name: "Open calendar", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Leave without recording these changes?", exact: true }).getByRole("button", { name: "Keep editing", exact: true }).click();
   await expect(decision).toBeVisible();
   await decision.getByRole("button", { name: "View assessment", exact: true }).click();
-  await page.getByRole("alertdialog", { name: "Leave without recording these changes?", exact: true }).getByRole("button", { name: "Discard changes", exact: true }).click();
   await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+  await page.getByRole("alertdialog", { name: "Leave without recording these changes?", exact: true }).getByRole("button", { name: "Discard changes", exact: true }).click();
+  await expect(page).toHaveURL(/screen=calendar/);
   expect((await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json()).decision).toBeNull();
 });

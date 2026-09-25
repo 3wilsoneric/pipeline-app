@@ -134,7 +134,9 @@ test.describe("field exit saves and single uploads", () => {
       await page.waitForTimeout(900);
       expect(writes).toHaveLength(2);
       await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspace files", exact: true }).click();
-      await expect(editor).toHaveCount(0);
+      await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+      await expect(editor).toBeHidden();
+      await expect(editor.locator("xpath=ancestor::*[@inert][1]")).toHaveAttribute("inert", "");
       await expect.poll(async () => (await read()).im_injections).toBe("unable_to_assess");
       await expect.poll(async () => (await read()).unable_to_assess_reasons.im_injections).toBe("Synthetic source unavailable");
       await page.reload();

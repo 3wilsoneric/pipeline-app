@@ -40,6 +40,7 @@ function fixture(result = { completed: 1, conflicts: 0, remaining: 0 }) {
     flushOfflineAssessmentMutations: async () => result,
     fetchPipelineJson: async () => { started.resolve(); await response.promise; return { assessment: { assessment_id: "assessment-a" } }; },
     receiveRemoteAssessment: (record) => received.push(record.assessment_id),
+    forgetVolatileAssessmentRecovery: () => {},
     removeOfflineAssessmentDraft: async (...args) => removed.push(args),
     setPendingOfflineSaves: () => {}, setMessage: (message) => messages.push(message),
   };
@@ -127,7 +128,9 @@ test("save acknowledgments refresh only the currently active offline assessment"
   const fn = file.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "saveOfflineAssessmentWorkingSet");
   assert.ok(fn);
   const code = ts.transpileModule(fn.getText(file).replace(/^export /, ""), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  for (const activeId of ["principal-a:assessment-a", "principal-a:assessment-b", "principal-b:assessment-a", null]) {
+  const sessionId = "session-a";
+  const currentRecordId = `principal-a:assessment-a:${sessionId}`;
+  for (const activeId of [currentRecordId, "principal-a:assessment-b:session-b", "principal-b:assessment-a:session-b", null]) {
     const writes = [];
     const activated = [];
     const activeRequest = { result: activeId ? { recordId: activeId } : undefined };
@@ -141,6 +144,7 @@ test("save acknowledgments refresh only the currently active offline assessment"
       hashValue: async (value) => value,
       enforceActivePrincipal: async (_database, principal) => activated.push(principal),
       getOrCreateKey: async () => ({}), recordId: async (principal, _kind, id) => `${principal}:${id}`,
+      currentOfflineRecoverySessionId: async () => sessionId,
       createWorkingSet: (draft) => ({ draft }), encryptPayload: async () => ({ ciphertext: "synthetic" }),
       recordsStore: "records", activeStore: "active", activeAssessmentKey: "current-assessment", expiryMs: 1000,
       transactionDone: async () => activeRequest.onsuccess(),
@@ -148,11 +152,11 @@ test("save acknowledgments refresh only the currently active offline assessment"
     const save = new Function(...Object.keys(context), `${code}; return saveOfflineAssessmentWorkingSet;`)(...Object.values(context));
     await save("principal-a", { assessmentId: "assessment-a" }, "/assessment", { editable: true, activate: false });
     assert.deepEqual(activated, [], "An acknowledgment must not switch the signed-in principal");
-    assert.equal(writes.length, activeId === "principal-a:assessment-a" ? 2 : 0);
+    assert.equal(writes.length, activeId === currentRecordId ? 2 : 0);
     assert.ok(writes.every(([, record]) => record !== "delete"));
     writes.length = 0;
     await save("principal-a", { assessmentId: "assessment-a" }, "/assessment", { editable: true });
     assert.deepEqual(activated, ["principal-a"], "Deliberately opening an assessment still activates it");
-    assert.equal(writes.at(-1)[1].recordId, "principal-a:assessment-a");
+    assert.equal(writes.at(-1)[1].recordId, currentRecordId);
   }
 });

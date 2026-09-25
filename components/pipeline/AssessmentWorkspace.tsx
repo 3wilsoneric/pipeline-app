@@ -57,9 +57,12 @@ import { normalizeAssessmentSectionVersions } from "@/lib/assessment/assessment-
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
 import type { AssessmentDraftWorkbookSources, PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
 import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
+import { forgetVolatileAssessmentRecovery, registerAssessmentEditor, rememberVolatileAssessmentRecovery, volatileAssessmentRecovery } from "@/lib/pipeline/volatile-recovery";
 import {
+  currentOfflineRecoverySessionId,
   flushOfflineAssessmentMutations,
   initializeOfflineAssessmentStore,
+  isActiveOtherRecoverySession,
   loadOfflineAssessmentDraft,
   loadOfflineAssessmentWorkingSet,
   pendingOfflineAssessmentMutations,
@@ -121,6 +124,7 @@ import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
 type AssessmentWorkspaceProps = {
+  workspaceActive?: boolean;
   workbookImport?: File | null;
   onWorkbookImportRead?: () => void;
   readOnly?: boolean;
@@ -149,7 +153,7 @@ type AssessmentWorkspaceProps = {
   onOpenChart?: () => void;
   onReviewAssessment?: () => void;
   onOpenAssessment?: () => void;
-  beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
+  beforeWorkspaceNavigationRef?: RefObject<((destination?: "email") => Promise<void>) | null>;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
     captured: number;
@@ -161,6 +165,7 @@ type AssessmentWorkspaceProps = {
     startedAt?: string | null;
     signedAt?: string | null;
   }) => void;
+  onSaveStateChange?: (state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord, referral?: Referral) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
   onOpenWorkspace?: () => void;
@@ -311,6 +316,7 @@ function assessmentWorkspacePermissions(
 }
 
 export default function AssessmentWorkspace({
+  workspaceActive = true,
   workbookImport,
   onWorkbookImportRead,
   readOnly = false,
@@ -342,6 +348,7 @@ export default function AssessmentWorkspace({
   beforeWorkspaceNavigationRef,
   packetEvidenceVersion,
   onSummaryChange,
+  onSaveStateChange,
   onAssessmentSaved,
   onContinueToWorkflow,
   onOpenWorkspace,
@@ -367,6 +374,7 @@ export default function AssessmentWorkspace({
   const [resolvedPositionFor, setResolvedPositionFor] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(referralId));
   const [isBusy, setIsBusy] = useState(false);
+  const appointmentSavingRef = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
   const [dirtySections, setDirtySections] = useState<Set<AssessmentToolSection>>(new Set());
   const [remoteChange, setRemoteChange] = useState<AssessmentRemoteChange | null>(null);
@@ -434,6 +442,8 @@ export default function AssessmentWorkspace({
   const recoveryQueueRef = useRef<Promise<void>>(Promise.resolve());
   const localRecoveryQueueRef = useRef<Promise<void>>(Promise.resolve());
   const offlineSyncRef = useRef(false);
+  const retryCanonicalAssessmentRef = useRef(false);
+  const retryCanonicalAssessmentRunningRef = useRef(false);
   const closingRef = useRef(false);
   const initializedAssessmentIdRef = useRef<{ id: string; principal: string } | null>(null);
   const touchedFieldsRef = useRef(new Set<AssessmentToolFieldKey>());
@@ -447,6 +457,8 @@ export default function AssessmentWorkspace({
   const createMutationRef = useRef<{ referralId: number; id: string } | null>(null);
   const dirty = dirtySections.size > 0;
   const offlinePrincipal = assessmentOfflinePrincipal(trainingAssessmentMode, viewer);
+
+  useEffect(() => registerAssessmentEditor(), []);
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : initialLocation?.assessmentMode === "prepare" ? "prepare" : initialLocation?.assessmentMode === "interview" ? "assessment" : null;
@@ -619,6 +631,7 @@ export default function AssessmentWorkspace({
       const recoveredDirty = dirtyAssessmentSections(merged, currentData);
       dirtySectionsRef.current = recoveredDirty;
       setDirtySections(recoveredDirty);
+      if (recoveredDirty.size > 0) retryCanonicalAssessmentRef.current = true;
       const change = conflicts.length > 0 ? { assessment, conflicts } : null;
       remoteChangeRef.current = change;
       setRemoteChange(change);
@@ -683,11 +696,13 @@ export default function AssessmentWorkspace({
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (trainingAssessmentMode) return;
     if (dirtySectionsRef.current.size === 0 && !pendingScheduleRef.current) return;
+    const recoverySessionId = await currentOfflineRecoverySessionId();
     const recovery: PipelineAssessmentDraft = {
       schema: 1,
       assessmentId: assessment.assessment_id,
       ...(referralId ? { referralId } : {}),
       savedAt: new Date().toISOString(),
+      recoverySessionId,
       baseVersion: assessment.version,
       sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
       dirtySections: [...dirtySectionsRef.current],
@@ -698,6 +713,8 @@ export default function AssessmentWorkspace({
       baseData: pickAssessmentToolData(baseDataRef.current),
       workbookSources: structuredClone(workbookSourcesRef.current),
     };
+    const capturedData = draftRef.current;
+    const capturedScheduleRevision = scheduleRevisionRef.current;
     const local = localRecoveryQueueRef.current.catch(() => undefined).then(async () => {
       if (!offlinePrincipal) throw new Error("Encrypted draft storage is unavailable.");
       await saveOfflineAssessmentDraft(offlinePrincipal, assessment.assessment_id, recovery);
@@ -715,7 +732,18 @@ export default function AssessmentWorkspace({
     recoveryQueueRef.current = server.catch(() => undefined);
     // One confirmed durable copy is sufficient for navigation. Never report
     // success when both persistence paths fail.
-    await Promise.any([local, server]);
+    try {
+      await Promise.any([local, server]);
+      const volatile = offlinePrincipal ? volatileAssessmentRecovery(offlinePrincipal, assessment.assessment_id) : null;
+      if (volatile && capturedData === draftRef.current && capturedScheduleRevision === scheduleRevisionRef.current
+        && Date.parse(volatile.savedAt) <= Date.parse(recovery.savedAt)) forgetVolatileAssessmentRecovery(assessment.assessment_id);
+    } catch (error) {
+      if (offlinePrincipal && capturedData === draftRef.current && capturedScheduleRevision === scheduleRevisionRef.current
+        && (dirtySectionsRef.current.size > 0 || pendingScheduleRef.current)) {
+        rememberVolatileAssessmentRecovery(offlinePrincipal, assessment.assessment_id, recovery);
+      }
+      throw error;
+    }
   }, [activeSection, offlinePrincipal, referralId, trainingAssessmentMode]);
 
   const clearRecoveryDraft = useCallback((assessmentId: string) => {
@@ -954,7 +982,7 @@ export default function AssessmentWorkspace({
   }, [selected, viewer, trainingAssessmentMode, canEditClinical]);
 
   useEffect(() => {
-    if (!isFocused || (embeddedFolder && !showScheduleDialog)) return;
+    if (!workspaceActive || !isFocused || (embeddedFolder && !showScheduleDialog)) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => handleAssessmentEscape(event, {
       showScheduleDialog,
@@ -967,7 +995,7 @@ export default function AssessmentWorkspace({
       if (!embeddedFolder) document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isFocused, embeddedFolder, showScheduleDialog]);
+  }, [workspaceActive, isFocused, embeddedFolder, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -981,6 +1009,11 @@ export default function AssessmentWorkspace({
       signedAt: selected?.signed_at,
     });
   }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.schedule_status, selected?.signed_at, selected?.started_at, selected?.status]);
+
+  const reportSaveState = useEffectEvent((state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }) => onSaveStateChange?.(state));
+  useEffect(() => {
+    reportSaveState({ assessmentId: selected?.assessment_id, dirty, error: Boolean(error), pendingOfflineSaves, appointmentDraft: Boolean(pendingScheduleRef.current), appointmentSaving: appointmentSavingRef.current });
+  }, [selected?.assessment_id, dirty, error, pendingOfflineSaves, scheduleDraftStatus, isBusy]);
 
   const createAssessmentDraft = async () => {
     if (!referralId) return;
@@ -1251,15 +1284,20 @@ export default function AssessmentWorkspace({
       const nextDirty = dirtyAssessmentSections(nextDraft, savedData);
       dirtySectionsRef.current = nextDirty;
       setDirtySections(nextDirty);
+      if (nextDirty.size === 0) retryCanonicalAssessmentRef.current = false;
       setMessage(nextDirty.size > 0 ? "Unsaved changes" : trainingAssessmentMode ? "Practice changes saved locally" : "All changes saved");
       setError("");
-      if (nextDirty.size === 0 && !trainingAssessmentMode) void clearRecoveryDraft(saved.assessment_id);
+      if (nextDirty.size === 0 && !trainingAssessmentMode) {
+        forgetVolatileAssessmentRecovery(saved.assessment_id);
+        void clearRecoveryDraft(saved.assessment_id);
+      }
       if (trainingAssessmentMode) onTrainingAssessmentChange?.(saved);
       if (payload.referral) void Promise.resolve(onAssessmentSaved?.(saved, payload.referral)).catch(() => undefined);
     };
     try {
       acceptSavedSection(await persistSectionAnswers());
     } catch (saveError) {
+      retryCanonicalAssessmentRef.current = true;
       if (isOfflineAssessmentSave(saveError, offlinePrincipal)) {
         await queueOfflineAssessmentMutation(offlinePrincipal, {
           dedupeKey: `${current.assessment_id}:${section}${captured ? `:${Object.keys(captured).sort().join(",")}` : ""}`,
@@ -1343,7 +1381,10 @@ export default function AssessmentWorkspace({
           setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
         } else {
           setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : dirtySectionsRef.current.size > 0 ? "Changes saved on this device; waiting to sync" : "Offline changes synced");
-          if (result.remaining + dirtySectionsRef.current.size === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+          if (result.remaining + dirtySectionsRef.current.size === 0) {
+            forgetVolatileAssessmentRecovery(current.assessment_id);
+            await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+          }
         }
       };
       const reconcileOfflineResult = async () => {
@@ -1420,6 +1461,23 @@ export default function AssessmentWorkspace({
   }, [queueSectionSave]);
 
   useEffect(() => {
+    if (!selected?.assessment_id || trainingAssessmentMode) return;
+    const retry = () => {
+      const current = selectedRef.current;
+      if (!current || current.assessment_id !== selected.assessment_id || isAssessmentFinalized(current)
+        || !retryCanonicalAssessmentRef.current || retryCanonicalAssessmentRunningRef.current
+        || dirtySectionsRef.current.size === 0 || pendingOfflineSaves > 0 || remoteChangeRef.current?.conflicts.length
+        || !window.navigator.onLine) return;
+      if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement || document.activeElement instanceof HTMLSelectElement) return;
+      retryCanonicalAssessmentRunningRef.current = true;
+      void flushDirtySections(current.assessment_id).catch(() => undefined).finally(() => { retryCanonicalAssessmentRunningRef.current = false; });
+    };
+    const timer = window.setInterval(retry, 10_000);
+    window.addEventListener("online", retry);
+    return () => { window.clearInterval(timer); window.removeEventListener("online", retry); };
+  }, [flushDirtySections, pendingOfflineSaves, selected?.assessment_id, trainingAssessmentMode]);
+
+  useEffect(() => {
     if (!offlineReturnToSync || selectedRef.current?.assessment_id !== offlineReturnToSync) return;
     setOfflineReturnToSync(null);
     // Only the offline screen's explicit Return and sync action commits recovery.
@@ -1465,18 +1523,32 @@ export default function AssessmentWorkspace({
       return;
     }
     if (!current) return;
-    if (pendingScheduleRef.current) await persistRecoveryDraft(current);
-    if (dirtySectionsRef.current.size === 0) return;
-    const canonical = flushDirtySections().then(() => {
-      if (dirtySectionsRef.current.size > 0) throw new Error("Answers are still pending.");
-    });
-    // A confirmed recovery copy or canonical save releases navigation; a failed
-    // request never becomes a saved or signed record.
-    try {
-      await Promise.any([persistRecoveryDraft(current), canonical]);
-    } catch (cause) {
-      throw new Error("Your last changes could not be saved. Keep this assessment open and try again.", { cause });
+    while (selectedRef.current?.assessment_id === current.assessment_id) {
+      const latest = selectedRef.current;
+      if (!latest) break;
+      const data = draftRef.current;
+      const scheduleRevision = scheduleRevisionRef.current;
+      try {
+        if (pendingScheduleRef.current) await persistRecoveryDraft(latest);
+        if (dirtySectionsRef.current.size > 0) {
+          const canonical = flushDirtySections().then(() => {
+            if (dirtySectionsRef.current.size > 0) throw new Error("Answers are still pending.");
+          });
+          // A confirmed recovery copy or canonical save releases navigation;
+          // neither an old snapshot nor a failed request does.
+          await Promise.any([persistRecoveryDraft(latest), canonical]);
+        }
+      } catch (cause) {
+        if (data !== draftRef.current || scheduleRevision !== scheduleRevisionRef.current) continue;
+        if (!offlinePrincipal || !volatileAssessmentRecovery(offlinePrincipal, latest.assessment_id)) {
+          throw new Error("Your account could not be confirmed for this recovery copy. Keep the assessment open and try again.", { cause });
+        }
+        setMessage("Edits are only in this open tab · retrying automatically");
+        return;
+      }
+      if (data === draftRef.current && scheduleRevision === scheduleRevisionRef.current) return;
     }
+    throw new Error("The open assessment changed before its last edits were saved.");
   };
 
   usePersonaSwitchSave(async () => {
@@ -1522,7 +1594,7 @@ export default function AssessmentWorkspace({
     if (!embeddedFolder) return saveAndCloseAssessment();
     try {
       if (recommendationPendingRef.current) throw new Error(recommendationPendingMessage);
-      if (isBusy) throw new Error("Wait for the assessment action to finish before leaving.");
+      if (isBusy && !appointmentSavingRef.current) throw new Error("Wait for the assessment action to finish before leaving.");
       await saveBeforeExit();
       retainWorkingQuestion();
     } catch (saveError) {
@@ -1532,7 +1604,7 @@ export default function AssessmentWorkspace({
   });
 
   useEffect(() => {
-    if (!isFocused) return;
+    if (!workspaceActive || !isFocused) return;
     if (!embeddedFolder) setAssessmentFocused(true);
     const content = contentRef.current;
     const restoreIsolation = isolateAssessmentContent(content, embeddedFolder);
@@ -1545,7 +1617,7 @@ export default function AssessmentWorkspace({
       if (beforeNavigationRef.current === save) beforeNavigationRef.current = null;
       if (beforeWorkspaceNavigationRef?.current === save) beforeWorkspaceNavigationRef.current = null;
     };
-  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused]);
+  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused, workspaceActive]);
 
   const saveOnUnmount = useEffectEvent(() => {
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
@@ -1691,6 +1763,7 @@ export default function AssessmentWorkspace({
       setError("Choose a valid assessment date and time in Pacific Time.");
       return;
     }
+    appointmentSavingRef.current = true;
     setIsBusy(true);
     setError("");
     setMessage("Saving schedule...");
@@ -1748,6 +1821,7 @@ export default function AssessmentWorkspace({
       setError(messageFor(scheduleError, "The assessment schedule could not be saved."));
       setMessage("");
     } finally {
+      appointmentSavingRef.current = false;
       setIsBusy(false);
     }
   };
@@ -1886,7 +1960,7 @@ export default function AssessmentWorkspace({
   useEffect(() => {
     if (trainingAssessmentMode) return;
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (dirtySectionsRef.current.size === 0 && !recommendationPendingRef.current) return;
+      if (dirtySectionsRef.current.size === 0 && !recommendationPendingRef.current && !appointmentSavingRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -1895,7 +1969,7 @@ export default function AssessmentWorkspace({
   }, [trainingAssessmentMode]);
 
   useEffect(() => {
-    if (trainingAssessmentMode || !selected?.assessment_id) return;
+    if (!workspaceActive || trainingAssessmentMode || !selected?.assessment_id) return;
     let cancelled = false;
     let checking = false;
     const checkForChanges = async () => {
@@ -1921,10 +1995,10 @@ export default function AssessmentWorkspace({
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [receiveRemoteAssessment, selected?.assessment_id, trainingAssessmentMode]);
+  }, [receiveRemoteAssessment, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
   useEffect(() => {
-    if (trainingAssessmentMode || !referralId || !selected?.assessment_id) return;
+    if (!workspaceActive || trainingAssessmentMode || !referralId || !selected?.assessment_id) return;
     const leaseId = crypto.randomUUID();
     let cancelled = false;
     const heartbeat = async () => {
@@ -1952,7 +2026,7 @@ export default function AssessmentWorkspace({
         body: JSON.stringify({ lease_id: leaseId }),
       }).catch(() => undefined);
     };
-  }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode]);
+  }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
     return (
@@ -2225,9 +2299,9 @@ export default function AssessmentWorkspace({
       </HomeDialog> : null);
 
   const sectionSteps = <nav aria-label="Assessment section steps" className={`${workingStyles.sectionSteps} ${phoneLayout ? workingStyles.phonePreparationSteps : ""}`}>
-    <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isBusy || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
+    <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
     <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
-    <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
+    <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isClosing || (!nextSection && isBusy) || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
   </nav>;
 
   return (
@@ -2309,6 +2383,7 @@ export default function AssessmentWorkspace({
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <QuestionPage
               key={`${selected.assessment_id}-${preparing}`}
+              workspaceActive={workspaceActive}
               preparing={preparing}
               onQuestionChange={rememberPhoneQuestion}
               onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }}
@@ -2386,16 +2461,21 @@ function newestRecoveryDraft(current: PipelineAssessmentDraft | null, candidate:
   return candidate && (!current || Date.parse(candidate.savedAt) >= Date.parse(current.savedAt)) ? candidate : current;
 }
 
+function hasPendingRecovery(draft: PipelineAssessmentDraft | null) {
+  return Boolean(draft && (draft.dirtySections.length > 0 || draft.scheduleDraft));
+}
+
 async function readBrowserAssessmentRecovery(assessmentId: string, principal: string | null) {
   let recovered: PipelineAssessmentDraft | null = null;
   if (principal) {
     try {
       recovered = await loadOfflineAssessmentDraft(principal, assessmentId);
       const workingSet = await loadOfflineAssessmentWorkingSet(principal, assessmentId);
-      recovered = newestRecoveryDraft(recovered, workingSet?.draft);
+      if (!hasPendingRecovery(recovered)) recovered = newestRecoveryDraft(recovered, workingSet?.draft);
     } catch {
       // Server recovery remains available when encrypted browser storage is unavailable.
     }
+    recovered = newestRecoveryDraft(recovered, volatileAssessmentRecovery(principal, assessmentId));
   }
   return recovered;
 }
@@ -2408,7 +2488,9 @@ async function readAssessmentRecovery(assessmentId: string, principal: string | 
       const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
         `/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, { cache: "no-store" },
       );
-      recovered = newestRecoveryDraft(recovered, payload.draft);
+      if (!hasPendingRecovery(recovered) && !await isActiveOtherRecoverySession(payload.draft?.recoverySessionId)) {
+        recovered = newestRecoveryDraft(recovered, payload.draft);
+      }
       recoveredVersion = payload.version;
     } catch {
       // Browser recovery remains available during a transient server-state outage.

@@ -1,7 +1,7 @@
 import { openRecipients, confirmRecipients } from "./support/handoff-review";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { mockOutlookSignInError } from "./support/outlook-auth";
+import type { CommunicationView } from "../../lib/notifications/communication-contract";
 import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
@@ -188,7 +188,7 @@ for (const width of [1440, 834, 390]) {
   });
 }
 
-test("reviewed handoffs require Outlook connection and never offer app-side sending", async ({ page }) => {
+test("reviewed handoffs prepare an exact email preview without sending automatically", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await signOperationalAssessment(page.request, assessment);
@@ -203,27 +203,43 @@ test("reviewed handoffs require Outlook connection and never offer app-side send
     payload.email = { ...payload.email, example_only: false, configured: true, eligible: true, can_send: true, ready: true, blockers: [] };
     await route.fulfill({ response, json: payload });
   });
-  await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: {
-    draft: null, occupied: false, demo: false, outlook_client_id: "00000000-0000-4000-8000-000000000001", account_email: "assessor@example.invalid",
-  } }));
-  await mockOutlookSignInError(page);
-  let writes = 0;
-  page.on("request", request => { if (request.method() === "POST" && /\/(outlook-draft|meet-client-email)$/.test(new URL(request.url()).pathname)) writes++; });
+  let previews = 0;
+  let sends = 0;
+  await page.route(`**/api/referrals/${referral.id}/meet-client-email**`, route => {
+    const delivery = new URL(route.request().url()).searchParams.get("delivery");
+    const request = route.request().postDataJSON();
+    if (delivery !== "direct" || request.snapshot_id) {
+      sends++;
+      return route.fulfill({ status: 503, json: { error: "Synthetic send blocked" } });
+    }
+    previews++;
+    const communication: CommunicationView = {
+      id: randomUUID(), referralId: referral.id, clientName: current.name, community: current.community,
+      admissionDate: "2026-10-01", createdAt: new Date().toISOString(), status: "ready",
+      from: "admissions@example.invalid", to: request.recipients, cc: ["assessor@example.invalid"],
+      replyTo: "assessor@example.invalid", assessorName: "Synthetic Assessor", preparedBy: "Synthetic Assessor",
+      assessmentVersion: assessment.version, subject: "Meet the Client | Synthetic handoff",
+      html: "<h1>Meet the Client</h1><p>Exact synthetic email preview.</p>",
+      files: [{ id: "sheet", name: "Client data sheet.pdf", contentType: "application/pdf", byteSize: 1024 }],
+    };
+    return route.fulfill({ json: { communication } });
+  });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   await openRecipients(page);
   await page.getByRole("combobox", { name: /^To/ }).fill("Example recipient <example@example.invalid>");
   await page.getByRole("combobox", { name: /^To/ }).press("Enter");
   await confirmRecipients(page);
-  const outlook = page.getByRole("region", { name: "Outlook handoff" });
-  await expect(outlook.getByRole("button", { name: "Connect Outlook", exact: true })).toBeEnabled();
-  await expect(outlook).toContainText("never sends email or reads unrelated messages");
-  await expect(outlook.getByRole("button", { name: "Save to Outlook Drafts", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Send email & packet", exact: true })).toHaveCount(0);
+  const preview = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
+  await expect(preview.getByRole("button", { name: "Send email & packet", exact: true })).toBeEnabled();
+  await expect(page.frameLocator('iframe[title="Exact email preview"]').getByRole("heading", { name: "Meet the Client" })).toBeVisible();
+  await expect(preview).toContainText("example@example.invalid");
+  expect(previews).toBe(1);
+  expect(sends).toBe(0);
   await page.getByRole("button", { name: "Close email preview", exact: true }).click();
   await page.reload();
   await openRecipients(page);
   await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("example@example.invalid");
-  expect(writes).toBe(0);
+  expect(sends).toBe(0);
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.meet_client_sent_at).toBeFalsy();
 });
@@ -259,9 +275,10 @@ test("a failed signature or decision stays in place; retry advances only after s
   await page.route(decisionRoute, (route) => route.fulfill({ status: 503, json: { error: "Synthetic decision unavailable" } }));
   await decision.getByRole("button", { name: "Record decision", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
-  await expect(decision.getByRole("alert")).toContainText("Synthetic decision unavailable");
+  await expect(decision.getByRole("alert")).toContainText("Could not confirm whether the decision was saved");
   await expect(decision.getByLabel("Reason (optional)")).toHaveValue("Synthetic retained decision note");
   await expect(decision.getByRole("button", { name: "Review email & packet" })).toHaveCount(0);
+  expect((await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json()).decision).toBeNull();
   await page.unroute(decisionRoute);
   await decision.getByRole("button", { name: "Record decision", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();

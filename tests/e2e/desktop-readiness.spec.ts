@@ -82,6 +82,7 @@ test.describe("desktop feature enabled", () => {
   test("replaces old Pipeline caches and honors the desktop kill switch", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(async () => navigator.serviceWorker.ready);
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBeTruthy();
     await page.evaluate(async () => {
       const oldPipeline = await caches.open("pipeline-static-v0");
       await oldPipeline.put("/old-pipeline-asset", new Response("old"));
@@ -109,6 +110,14 @@ test.describe("desktop feature enabled", () => {
       registration: Boolean(await navigator.serviceWorker.getRegistration("/")),
       unrelated: (await caches.keys()).includes("unrelated-application-cache"),
     }))).toEqual({ pipelineCaches: [], registration: false, unrelated: true });
+
+    // An already controlled tab remains open after unregister. Its later fetches
+    // must not recreate the cache that the kill switch just removed.
+    const lateStaticFetch = await page.evaluate(async () => (await fetch("/offline-assessment.js")).status);
+    expect(lateStaticFetch).toBe(200);
+    await expect.poll(() => page.evaluate(async () =>
+      (await caches.keys()).filter((name) => name.startsWith("pipeline-static-"))
+    )).toEqual([]);
   });
 
   test("stores recents and versioned recovery drafts per signed-in user", async ({ page }) => {
@@ -215,6 +224,8 @@ test.describe("desktop feature enabled", () => {
         documentStatus: "Missing",
       },
     });
+    await page.getByRole("dialog", { name: "Workspace created", exact: true })
+      .getByRole("button", { name: "Close workspace created" }).click();
     await page.getByRole("button", { name: "Edit referral details" }).click();
     await page.getByTestId("referral-documents-input").setInputFiles({
       name: "desktop-recovery-face-sheet.pdf",
@@ -563,7 +574,7 @@ test.describe("desktop feature enabled", () => {
       await expect(page.getByRole("textbox", { name: "Current location *", exact: true })).toHaveValue(localCollisionValue);
       const duration = page.getByRole("textbox", { name: "Time at current location" });
       await duration.fill(coldStartValue);
-      await expect(page.getByText("Saved on this device · syncs after reconnect", { exact: true })).toBeVisible();
+      await expect(page.getByText("Saved on this device · reconnect, then choose Return to Pipeline and sync", { exact: true })).toBeVisible();
       const encryptedWorkingSet = await page.evaluate(async (plaintext) => {
         const database = await new Promise<IDBDatabase>((resolve, reject) => {
           const request = indexedDB.open("pipeline-offline-v1");
@@ -583,6 +594,7 @@ test.describe("desktop feature enabled", () => {
       await context.setOffline(false);
     }
 
+    await expect(page.getByText("Saved on this device · choose Return to Pipeline and sync", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Return to Pipeline and sync" }).click();
     await expect(assessmentWorkspace).toBeVisible({ timeout: 15_000 });
     await expect.poll(async () => {

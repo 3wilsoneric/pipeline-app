@@ -71,6 +71,7 @@ test("actual canvas save completion does not delete recovery while another file 
       fieldsRef: { current: draft.fields }, conservedRef: { current: "" }, tagsInputRef: { current: "" },
       documentsRef: { current: {} }, initialPacketRef: { current: null }, pendingDocumentsRef: { current: {} },
       additionalFilesRef: { current: queued ? [new File(["queued"], "queued.pdf")] : [] },
+      retryCanonicalIntakeRef: { current: false }, forgetVolatileReferralRecovery: () => {}, newDraftKey: "new-fixture",
       setDirtyKeys: () => {}, setFields: () => {}, mergeRemoteReferralFields: () => {}, rebaseDraftTracking: () => {},
       clearSessionDraft: async (id) => { removed.push(id); }, setRecoveredDraftAt: () => {}, setRecoveredPacketName: () => {},
       setRemoteChange: () => {}, setSavedAt: () => {},
@@ -80,4 +81,44 @@ test("actual canvas save completion does not delete recovery while another file 
     assert.deepEqual(removed, queued ? [] : [42]);
     assert.equal(context.dirtyKeysRef.current.has("documents"), queued);
   }
+});
+
+test("confirmed intake cleanup retires the recovery draft only once", async () => {
+  const source = ts.createSourceFile("canvas.tsx", readFileSync("components/pipeline/ReferralPacketCanvas.tsx", "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const declaration = source.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "clearSessionDraft");
+  assert.ok(declaration);
+  const compiled = ts.transpileModule(declaration.getText(source), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  const cleared = [];
+  const clear = new Function("usesServerReferralDrafts", "clearServerReferralDraft", `${compiled}; return clearSessionDraft;`)(
+    () => true, async (reference) => { cleared.push(reference); },
+  );
+  await clear(42);
+  assert.deepEqual(cleared, [42]);
+});
+
+test("reopen ignores acknowledged recovery values but retains pending answers, owner changes and files", () => {
+  const source = ts.createSourceFile("canvas.tsx", readFileSync("components/pipeline/ReferralPacketCanvas.tsx", "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const names = new Set(["unreconciledReferralRecovery", "recoveredReferralValue"]);
+  const declarations = source.statements.filter((node) => ts.isFunctionDeclaration(node) && names.has(node.name?.text));
+  assert.equal(declarations.length, 2);
+  const compiled = ts.transpileModule(declarations.map((node) => node.getText(source)).join("\n"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  const reconcile = new Function("isPersistedFieldKey", "referralBaseDraftValue", "normalizeTags", `${compiled}; return unreconciledReferralRecovery;`)(
+    (key) => ["referent", "phone", "owner"].includes(key),
+    (latest, key) => latest.signatures[key],
+    state.normalizeTags,
+  );
+  const draft = {
+    dirtyKeys: ["referent", "phone"],
+    fields: { referent: { value: "Saved source" }, phone: { value: "New number" }, owner: { value: "Assessor" } },
+    conserved: "", tagsInput: "", documents: {},
+  };
+  const latest = { ownerId: "assessor-a", signatures: {
+    referent: JSON.stringify(["Saved source", ""]), phone: JSON.stringify(["Old number", ""]),
+    owner: JSON.stringify(["Assessor", ""]), documents: "[]",
+  } };
+  assert.equal(reconcile({ ...draft, dirtyKeys: ["referent"] }, latest, null), null);
+  assert.deepEqual(Array.from(reconcile(draft, latest, null).dirtyKeys), ["phone"]);
+  assert.deepEqual(Array.from(reconcile({ ...draft, dirtyKeys: ["owner"] }, latest, { ownerPrincipalId: "assessor-b", pendingDocuments: {}, additionalFiles: [] }).dirtyKeys), ["owner"]);
+  assert.deepEqual(Array.from(reconcile({ ...draft, dirtyKeys: ["documents"] }, latest, { ownerPrincipalId: "assessor-a", pendingDocuments: { face: new File(["pending"], "face.pdf") }, additionalFiles: [] }).dirtyKeys), ["documents"]);
+  assert.ok(reconcile({ ...draft, dirtyKeys: [] }, latest, { ownerPrincipalId: "assessor-a", pendingDocuments: {}, additionalFiles: [{ file: new File(["pending"], "extra.pdf") }] }));
 });
