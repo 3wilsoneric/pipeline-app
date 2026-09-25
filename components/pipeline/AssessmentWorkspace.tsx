@@ -121,6 +121,7 @@ import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
 type AssessmentWorkspaceProps = {
+  workspaceActive?: boolean;
   workbookImport?: File | null;
   onWorkbookImportRead?: () => void;
   readOnly?: boolean;
@@ -149,7 +150,7 @@ type AssessmentWorkspaceProps = {
   onOpenChart?: () => void;
   onReviewAssessment?: () => void;
   onOpenAssessment?: () => void;
-  beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
+  beforeWorkspaceNavigationRef?: RefObject<((destination?: "email") => Promise<void>) | null>;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
     captured: number;
@@ -161,6 +162,7 @@ type AssessmentWorkspaceProps = {
     startedAt?: string | null;
     signedAt?: string | null;
   }) => void;
+  onSaveStateChange?: (state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord, referral?: Referral) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
   onOpenWorkspace?: () => void;
@@ -311,6 +313,7 @@ function assessmentWorkspacePermissions(
 }
 
 export default function AssessmentWorkspace({
+  workspaceActive = true,
   workbookImport,
   onWorkbookImportRead,
   readOnly = false,
@@ -342,6 +345,7 @@ export default function AssessmentWorkspace({
   beforeWorkspaceNavigationRef,
   packetEvidenceVersion,
   onSummaryChange,
+  onSaveStateChange,
   onAssessmentSaved,
   onContinueToWorkflow,
   onOpenWorkspace,
@@ -367,6 +371,7 @@ export default function AssessmentWorkspace({
   const [resolvedPositionFor, setResolvedPositionFor] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(referralId));
   const [isBusy, setIsBusy] = useState(false);
+  const appointmentSavingRef = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
   const [dirtySections, setDirtySections] = useState<Set<AssessmentToolSection>>(new Set());
   const [remoteChange, setRemoteChange] = useState<AssessmentRemoteChange | null>(null);
@@ -954,7 +959,7 @@ export default function AssessmentWorkspace({
   }, [selected, viewer, trainingAssessmentMode, canEditClinical]);
 
   useEffect(() => {
-    if (!isFocused || (embeddedFolder && !showScheduleDialog)) return;
+    if (!workspaceActive || !isFocused || (embeddedFolder && !showScheduleDialog)) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => handleAssessmentEscape(event, {
       showScheduleDialog,
@@ -967,7 +972,7 @@ export default function AssessmentWorkspace({
       if (!embeddedFolder) document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isFocused, embeddedFolder, showScheduleDialog]);
+  }, [workspaceActive, isFocused, embeddedFolder, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -981,6 +986,11 @@ export default function AssessmentWorkspace({
       signedAt: selected?.signed_at,
     });
   }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.schedule_status, selected?.signed_at, selected?.started_at, selected?.status]);
+
+  const reportSaveState = useEffectEvent((state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }) => onSaveStateChange?.(state));
+  useEffect(() => {
+    reportSaveState({ assessmentId: selected?.assessment_id, dirty, error: Boolean(error), pendingOfflineSaves, appointmentDraft: Boolean(pendingScheduleRef.current), appointmentSaving: appointmentSavingRef.current });
+  }, [selected?.assessment_id, dirty, error, pendingOfflineSaves, scheduleDraftStatus, isBusy]);
 
   const createAssessmentDraft = async () => {
     if (!referralId) return;
@@ -1522,7 +1532,7 @@ export default function AssessmentWorkspace({
     if (!embeddedFolder) return saveAndCloseAssessment();
     try {
       if (recommendationPendingRef.current) throw new Error(recommendationPendingMessage);
-      if (isBusy) throw new Error("Wait for the assessment action to finish before leaving.");
+      if (isBusy && !appointmentSavingRef.current) throw new Error("Wait for the assessment action to finish before leaving.");
       await saveBeforeExit();
       retainWorkingQuestion();
     } catch (saveError) {
@@ -1532,7 +1542,7 @@ export default function AssessmentWorkspace({
   });
 
   useEffect(() => {
-    if (!isFocused) return;
+    if (!workspaceActive || !isFocused) return;
     if (!embeddedFolder) setAssessmentFocused(true);
     const content = contentRef.current;
     const restoreIsolation = isolateAssessmentContent(content, embeddedFolder);
@@ -1545,7 +1555,7 @@ export default function AssessmentWorkspace({
       if (beforeNavigationRef.current === save) beforeNavigationRef.current = null;
       if (beforeWorkspaceNavigationRef?.current === save) beforeWorkspaceNavigationRef.current = null;
     };
-  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused]);
+  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused, workspaceActive]);
 
   const saveOnUnmount = useEffectEvent(() => {
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
@@ -1691,6 +1701,7 @@ export default function AssessmentWorkspace({
       setError("Choose a valid assessment date and time in Pacific Time.");
       return;
     }
+    appointmentSavingRef.current = true;
     setIsBusy(true);
     setError("");
     setMessage("Saving schedule...");
@@ -1748,6 +1759,7 @@ export default function AssessmentWorkspace({
       setError(messageFor(scheduleError, "The assessment schedule could not be saved."));
       setMessage("");
     } finally {
+      appointmentSavingRef.current = false;
       setIsBusy(false);
     }
   };
@@ -1886,7 +1898,7 @@ export default function AssessmentWorkspace({
   useEffect(() => {
     if (trainingAssessmentMode) return;
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (dirtySectionsRef.current.size === 0 && !recommendationPendingRef.current) return;
+      if (dirtySectionsRef.current.size === 0 && !recommendationPendingRef.current && !appointmentSavingRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -1895,7 +1907,7 @@ export default function AssessmentWorkspace({
   }, [trainingAssessmentMode]);
 
   useEffect(() => {
-    if (trainingAssessmentMode || !selected?.assessment_id) return;
+    if (!workspaceActive || trainingAssessmentMode || !selected?.assessment_id) return;
     let cancelled = false;
     let checking = false;
     const checkForChanges = async () => {
@@ -1921,10 +1933,10 @@ export default function AssessmentWorkspace({
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [receiveRemoteAssessment, selected?.assessment_id, trainingAssessmentMode]);
+  }, [receiveRemoteAssessment, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
   useEffect(() => {
-    if (trainingAssessmentMode || !referralId || !selected?.assessment_id) return;
+    if (!workspaceActive || trainingAssessmentMode || !referralId || !selected?.assessment_id) return;
     const leaseId = crypto.randomUUID();
     let cancelled = false;
     const heartbeat = async () => {
@@ -1952,7 +1964,7 @@ export default function AssessmentWorkspace({
         body: JSON.stringify({ lease_id: leaseId }),
       }).catch(() => undefined);
     };
-  }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode]);
+  }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
     return (
@@ -2225,9 +2237,9 @@ export default function AssessmentWorkspace({
       </HomeDialog> : null);
 
   const sectionSteps = <nav aria-label="Assessment section steps" className={`${workingStyles.sectionSteps} ${phoneLayout ? workingStyles.phonePreparationSteps : ""}`}>
-    <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isBusy || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
+    <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
     <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
-    <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isBusy || isClosing || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
+    <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isClosing || (!nextSection && isBusy) || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
   </nav>;
 
   return (
@@ -2309,6 +2321,7 @@ export default function AssessmentWorkspace({
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <QuestionPage
               key={`${selected.assessment_id}-${preparing}`}
+              workspaceActive={workspaceActive}
               preparing={preparing}
               onQuestionChange={rememberPhoneQuestion}
               onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }}

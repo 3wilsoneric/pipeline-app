@@ -89,10 +89,11 @@ export default function AssessmentPhoneInterview(props: Props) {
     dialog.current?.showModal();
   };
   useLayoutEffect(() => {
+    if (props.workspaceActive === false) return;
     if (questionField) onQuestionChange(questionField);
     if (scroller.current) scroller.current.scrollTop = 0;
     heading.current?.focus({ preventScroll: true });
-  }, [questionField, target, onQuestionChange]);
+  }, [questionField, target, onQuestionChange, props.workspaceActive]);
 
   const renderSectionChoices = () => (
 <>
