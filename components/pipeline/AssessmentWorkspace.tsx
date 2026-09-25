@@ -126,7 +126,7 @@ type AssessmentWorkspaceProps = {
   readOnly?: boolean;
   referralId?: number;
   referral?: Referral;
-  recommendationControl?: (assessmentId: string, onSavingChange: (saving: boolean) => void) => ReactNode;
+  recommendationControl?: (assessmentId: string, onSavingChange: (pending: boolean, failed?: boolean) => void) => ReactNode;
   trainingAssessmentMode?: TrainingAssessmentMode;
   initialTrainingAssessment?: PipelineAssessmentRecord;
   onTrainingAssessmentChange?: (assessment: PipelineAssessmentRecord, action?: "scheduled") => void;
@@ -171,6 +171,7 @@ type AssessmentWorkspaceProps = {
 const sectionLabels = Object.fromEntries(
   assessmentInterviewSections.map((section) => [section.key, section.label]),
 ) as Record<AssessmentToolSection, string>;
+const recommendationPendingMessage = "Finish saving the working decision in Review assessment before leaving.";
 
 const assessmentSectionGuideTargets: Readonly<Record<AssessmentToolSection, string>> = {
   identity: "assessment-section-identity",
@@ -379,7 +380,15 @@ export default function AssessmentWorkspace({
   const [workingTarget, setWorkingTarget] = useState<{ field: AssessmentToolFieldKey } | null>(initialLocation?.assessmentQuestion ? { field: initialLocation.assessmentQuestion } : null);
   const [notebookPage, setNotebookPage] = useState<{ assessmentId: string; view: "prepare" | "assessment" | "chart" } | null>(null);
   const [unrecordedStartId, setUnrecordedStartId] = useState<string | null>(null);
-  const [isRecommendationSaving, setIsRecommendationSaving] = useState(false);
+  const [isRecommendationPending, setIsRecommendationPending] = useState(false);
+  const [recommendationSaveFailed, setRecommendationSaveFailed] = useState(false);
+  const recommendationPendingRef = useRef(false);
+  const onRecommendationSavingChange = (pending: boolean, failed = false) => {
+    recommendationPendingRef.current = pending;
+    setIsRecommendationPending(pending);
+    setRecommendationSaveFailed(failed);
+    if (!pending) setError((current) => current === recommendationPendingMessage ? "" : current);
+  };
   const [phoneQuestion, setPhoneQuestion] = useState<AssessmentToolFieldKey | null>(() => initialQuestion ?? initialLocation?.assessmentQuestion ?? null);
   const phoneQuestionRef = useRef(phoneQuestion);
   const interviewReturnRef = useRef<{ assessmentId: string; section: AssessmentToolSection; field: AssessmentToolFieldKey | null } | null>(null);
@@ -408,6 +417,8 @@ export default function AssessmentWorkspace({
   const [showAddendum, setShowAddendum] = useState(false);
   const [addendumReason, setAddendumReason] = useState("");
   const [addendumNote, setAddendumNote] = useState("");
+  const signMutationRef = useRef<{ assessmentId: string; version: number; id: string } | null>(null);
+  const addendumMutationRef = useRef<{ assessmentId: string; version: number; reason: string; note: string; id: string } | null>(null);
   const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
   const [networkOnline, setNetworkOnline] = useState(true);
   const [pendingOfflineSaves, setPendingOfflineSaves] = useState(0);
@@ -1429,6 +1440,7 @@ export default function AssessmentWorkspace({
   };
 
   usePersonaSwitchSave(async () => {
+    if (recommendationPendingRef.current) throw new Error(recommendationPendingMessage);
     if (isBusy || closingRef.current) throw new Error("Wait for the assessment to finish saving before switching.");
     const current = selectedRef.current;
     if (current) await persistRecoveryDraft(current);
@@ -1438,6 +1450,10 @@ export default function AssessmentWorkspace({
   });
 
   const saveAndCloseAssessment = async (onClosed?: () => void | Promise<void>) => {
+    if (recommendationPendingRef.current) {
+      setError(recommendationPendingMessage);
+      throw new Error(recommendationPendingMessage);
+    }
     if (isBusy) throw new Error("Wait for the assessment action to finish before leaving.");
     if (closingRef.current) throw new Error("Assessment navigation is already in progress.");
     closingRef.current = true;
@@ -1465,6 +1481,7 @@ export default function AssessmentWorkspace({
   const saveForHeaderNavigation = useEffectEvent(async () => {
     if (!embeddedFolder) return saveAndCloseAssessment();
     try {
+      if (recommendationPendingRef.current) throw new Error(recommendationPendingMessage);
       if (isBusy) throw new Error("Wait for the assessment action to finish before leaving.");
       await saveBeforeExit();
       retainWorkingQuestion();
@@ -1498,6 +1515,12 @@ export default function AssessmentWorkspace({
     initializedAssessmentIdRef.current = null;
     saveOnUnmount();
   }, []);
+
+  const canLeaveRecommendationReview = () => {
+    if (!recommendationPendingRef.current) return true;
+    setError(recommendationPendingMessage);
+    return false;
+  };
 
   const reviewExtractedField = async (
     field: AssessmentToolFieldKey,
@@ -1539,7 +1562,7 @@ export default function AssessmentWorkspace({
     }
   };
 
-  const canSignSelectedAssessment = (assessmentId: string) => reviewingChart && !isRecommendationSaving && !isBusy && !isClosing && canEditClinical && assessmentId === selectedRef.current?.assessment_id;
+  const canSignSelectedAssessment = (assessmentId: string) => reviewingChart && !recommendationPendingRef.current && !isBusy && !isClosing && canEditClinical && assessmentId === selectedRef.current?.assessment_id;
   const signAssessment = async (assessmentId: string) => {
     if (!canSignSelectedAssessment(assessmentId)) return;
     const initialization = initializedAssessmentIdRef.current;
@@ -1566,17 +1589,16 @@ export default function AssessmentWorkspace({
         onContinueToWorkflow?.();
         return;
       }
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+      const pending = signMutationRef.current;
+      const signMutation = pending?.assessmentId === current.assessment_id && pending.version === current.version
+        ? pending : { assessmentId: current.assessment_id, version: current.version, id: mutationId("assessment-sign") };
+      signMutationRef.current = signMutation;
+      const payload = await postAssessmentLifecycleWithReplay(
         `/api/assessments/${encodeURIComponent(current.assessment_id)}/sign`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            if_match: current.version,
-            client_mutation_id: mutationId("assessment-sign"),
-          }),
-        },
+        { if_match: signMutation.version, client_mutation_id: signMutation.id },
       );
       if (!isCurrent()) return;
+      signMutationRef.current = null;
       upsertAssessment(payload.assessment, true);
       let referralRefreshed = true;
       try {
@@ -1590,6 +1612,11 @@ export default function AssessmentWorkspace({
       setMessage(referralRefreshed ? "Assessment signed" : "Assessment signed. Referral details could not refresh; reload to check them.");
       onContinueToWorkflow?.();
     } catch (signError) {
+      if (signError instanceof PipelineApiError && signError.status === 409) {
+        signMutationRef.current = null;
+        const latest = assessmentFromConflict(signError.payload);
+        if (latest) receiveRemoteAssessment(latest, false);
+      }
       setError(messageFor(signError, "The assessment could not be signed."));
       setMessage("");
     } finally {
@@ -1598,6 +1625,7 @@ export default function AssessmentWorkspace({
   };
 
   const reviewChart = async () => {
+    if (!canLeaveRecommendationReview()) return;
     try {
       await saveBeforeExit();
       retainWorkingQuestion();
@@ -1701,21 +1729,21 @@ export default function AssessmentWorkspace({
   const addAddendum = async () => {
     const current = selectedRef.current;
     if (!isAssessmentFinalized(current) || !current || !addendumReason.trim() || !addendumNote.trim()) return;
+    const reason = addendumReason.trim();
+    const note = addendumNote.trim();
+    const pending = addendumMutationRef.current;
+    const addendumMutation = pending?.assessmentId === current.assessment_id && pending.reason === reason && pending.note === note
+      ? pending : { assessmentId: current.assessment_id, version: current.version, reason, note, id: mutationId("assessment-addendum") };
+    addendumMutationRef.current = addendumMutation;
     setIsBusy(true);
     setError("");
     setMessage("Saving note...");
     try {
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+      const payload = await postAssessmentLifecycleWithReplay(
         `/api/assessments/${encodeURIComponent(current.assessment_id)}/addenda`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            if_match: current.version,
-            reason_code: addendumReason.trim(),
-            note: addendumNote.trim(),
-          }),
-        },
+        { if_match: addendumMutation.version, reason_code: reason, note, client_mutation_id: addendumMutation.id },
       );
+      addendumMutationRef.current = null;
       upsertAssessment(payload.assessment, true);
       setAddendumReason("");
       setAddendumNote("");
@@ -1727,6 +1755,13 @@ export default function AssessmentWorkspace({
         setMessage("Note added. Referral details could not refresh; reload to check them.");
       }
     } catch (addendumError) {
+      if (addendumError instanceof PipelineApiError && addendumError.status >= 400 && addendumError.status < 500) {
+        addendumMutationRef.current = null;
+        if (addendumError.status === 409) {
+          const latest = assessmentFromConflict(addendumError.payload);
+          if (latest) receiveRemoteAssessment(latest, false);
+        }
+      }
       setError(messageFor(addendumError, "The note could not be saved."));
       setMessage("");
     } finally {
@@ -1811,7 +1846,7 @@ export default function AssessmentWorkspace({
   useEffect(() => {
     if (trainingAssessmentMode) return;
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (dirtySectionsRef.current.size === 0) return;
+      if (dirtySectionsRef.current.size === 0 && !recommendationPendingRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -1947,7 +1982,7 @@ export default function AssessmentWorkspace({
   // during the interview. Render exactly one instance of the existing control.
   const renderPhoneQuestionHeading = () => phoneInterview ? <div className="sr-only"><h3>{preparing ? preparationGroup.label : sectionDefinition.label}</h3></div> : null;
   const workingSectionLabel = () => pageSections[pageIndex]?.label ?? sectionDefinition.label;
-  const renderRecommendation = () => recommendationControl && assessmentReview ? recommendationControl(selected.assessment_id, setIsRecommendationSaving) : null;
+  const renderRecommendation = () => recommendationControl && assessmentReview ? recommendationControl(selected.assessment_id, onRecommendationSavingChange) : null;
   const recommendationNode = renderRecommendation();
   const requestInterviewStart = () => {
     if (!canEditClinical || isBusy || isClosing) return;
@@ -2006,8 +2041,8 @@ export default function AssessmentWorkspace({
         </div>
   );
 
-  const renderSignedAction = () => (onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing}>{isAssessmentFinalized(selected) ? "View admission" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>);
-  const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={async (event) => { event.currentTarget.focus({ preventScroll: true }); if (await confirm({ title: "Sign this assessment?", message: "You can still edit it until Meet the Client is sent. Changes are logged.", confirmLabel: "Sign assessment" })) void signAssessment(selected.assessment_id); }} disabled={isBusy || isClosing || isRecommendationSaving}>{isRecommendationSaving ? "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
+  const renderSignedAction = () => (onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={continueToWorkflow} disabled={isBusy || isClosing || isRecommendationPending}>{isAssessmentFinalized(selected) ? "View admission" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>);
+  const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={async (event) => { event.currentTarget.focus({ preventScroll: true }); if (await confirm({ title: "Sign this assessment?", message: "You can still edit it until Meet the Client is sent. Changes are logged.", confirmLabel: "Sign assessment" })) void signAssessment(selected.assessment_id); }} disabled={isBusy || isClosing || isRecommendationPending}>{isRecommendationPending ? recommendationSaveFailed ? "Working decision not saved" : "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
 
   const renderScheduleAction = () => (
     <button type="button" aria-label={hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : undefined} data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); openScheduleDialog(); }} disabled={isBusy || isClosing}>{hasActiveAssessmentSchedule(selected) ? "Edit" : <><CalendarClock size={15} aria-hidden="true" />Schedule interview</>}</button>
@@ -2063,19 +2098,20 @@ export default function AssessmentWorkspace({
 
   const renderChartReviewToolbar = () => (assessmentReview ? <div className={workingStyles.chartReviewToolbar}>
               <div className={workingStyles.reviewHeading}><h3>Review assessment</h3><p>Check the record below. Next: admission decision, then the client handoff.</p></div>
-              <button type="button" onClick={() => { setNotebookView("assessment"); onOpenAssessment?.(); }}><ChevronLeft size={16} aria-hidden="true" />Back to questions</button>
+              <button type="button" disabled={isRecommendationPending} onClick={() => { if (!canLeaveRecommendationReview()) return; setNotebookView("assessment"); onOpenAssessment?.(); }}><ChevronLeft size={16} aria-hidden="true" />Back to questions</button>
             </div> : !embeddedFolder ? <div className={workingStyles.chartReviewToolbar}>
               {phoneInterview ? <button type="button" onClick={() => setNotebookView("assessment")}><ChevronLeft size={16} />Return to questions</button> : null}
               <span>{selected.signed_at && dirtySections.size === 0 ? "Assessment signed" : "Chart in progress"}</span>
             </div> : null);
 
   const openSectionForReview = (section: AssessmentToolSection, field?: AssessmentToolFieldKey) => {
+    if (!canLeaveRecommendationReview()) return;
     setActiveSection(section);
     setWorkingTarget(field ? { field } : null);
     setNotebookView("prepare");
     onOpenAssessment?.();
   };
-  const reviewEditDisabled = isBusy || isClosing || !canEditClinical || isAssessmentFinalized(selected);
+  const reviewEditDisabled = isBusy || isClosing || isRecommendationPending || !canEditClinical || isAssessmentFinalized(selected);
   const remainingReviewItems = reviewSections.reduce((count, section) => count + section.remaining.length, 0);
 
   const renderReviewRecommendation = () => (recommendationNode ? <section className={workingStyles.reviewRecommendation} aria-label="Placement recommendation">
@@ -2128,7 +2164,8 @@ export default function AssessmentWorkspace({
             {assessmentReview ? renderReviewOverview() : renderUnansweredEntry()}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>
             <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} contactActions={renderChartScheduling()} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
-              onEditAssessmentField={!isBusy && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
+              onEditAssessmentField={!isBusy && !isRecommendationPending && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
+                if (!canLeaveRecommendationReview()) return;
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }
                 setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
                 setWorkingTarget({ field });
@@ -2161,8 +2198,8 @@ export default function AssessmentWorkspace({
         details={assessmentDetails} detailsRef={secondaryActionsRef}
         returnLabel={!preparing && !trainingAssessmentMode && onOpenAssignedWork ? "Workspaces" : onOpenWorkspace ? "Back to referral" : "Back to workspace"}
         onClose={() => void closeAssessment(!preparing && !trainingAssessmentMode && onOpenAssignedWork ? onOpenAssignedWork : onOpenWorkspace)}
-        pages={<AssessmentFileNavigation hidden={phoneInterview} disabled={isClosing} preparing={preparing} reviewingChart={reviewingChart}
-          onAssessment={() => { if (!reviewingChart) setWorkingTarget(null); setNotebookView("assessment"); }}
+        pages={<AssessmentFileNavigation hidden={phoneInterview} disabled={isClosing || isRecommendationPending} preparing={preparing} reviewingChart={reviewingChart}
+          onAssessment={() => { if (!canLeaveRecommendationReview()) return; if (!reviewingChart) setWorkingTarget(null); setNotebookView("assessment"); }}
           onChart={() => void reviewChart()}
         />}
       />}
@@ -2446,6 +2483,21 @@ function mutationId(prefix: string) {
   }
   mutationSequence += 1;
   return `${prefix}-${Date.now()}-${mutationSequence.toString(36)}`;
+}
+
+async function postAssessmentLifecycleWithReplay(input: string, body: Record<string, string | number>) {
+  const request = () => fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(input, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  try {
+    return await request();
+  } catch (error) {
+    // The server may have committed a write before its response was lost.
+    // Replaying the same mutation ID reads that result without writing twice.
+    if (error instanceof PipelineApiError && (error.status === 0 || error.status >= 500)) return await request();
+    throw error;
+  }
 }
 
 function messageFor(error: unknown, fallback: string) {

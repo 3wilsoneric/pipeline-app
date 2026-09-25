@@ -36,12 +36,13 @@ test("signed answers remain editable and saved; Add note appears only after the 
 
   // Presentation fixture only: the real local + PostgreSQL delivery/write boundary
   // is exercised by assessment-final-send-fixtures.test.mjs without sending mail.
+  const finalized = { ...saved, meet_client_sent_at: "2026-09-17T20:00:00.000Z", meet_client_sent_version: saved.version };
   await page.route(`**/api/referrals/${referral.id}/assessments*`, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     const response = await route.fetch();
     const body = await response.json();
     body.assessments = body.assessments.map((item: { assessment_id: string }) => item.assessment_id === saved.assessment_id
-      ? { ...saved, meet_client_sent_at: "2026-09-17T20:00:00.000Z", meet_client_sent_version: saved.version }
+      ? finalized
       : item);
     await route.fulfill({ response, json: body });
   });
@@ -52,4 +53,35 @@ test("signed answers remain editable and saved; Add note appears only after the 
   await surface.getByRole("button", { name: "Add note", exact: true }).click();
   await expect(surface.getByRole("textbox", { name: "Note", exact: true })).toBeEditable();
   await expect(surface.getByRole("button", { name: "Addendum", exact: true })).toHaveCount(0);
+  const mutations: { id: string; version: number }[] = [];
+  await page.route(`**/api/assessments/${assessment.assessment_id}/addenda`, async (route) => {
+    const command = route.request().postDataJSON() as { client_mutation_id: string; if_match: number };
+    mutations.push({ id: command.client_mutation_id, version: command.if_match });
+    if (mutations.length === 1) return route.fulfill({ status: 409, json: {
+      error: "This assessment changed before the note could be recorded.", conflict: true,
+      assessment: { ...finalized, version: saved.version + 1 },
+    } });
+    if (mutations.length === 2) return route.abort("failed");
+    return route.fulfill({ status: 201, json: { ok: true, assessment: {
+      ...finalized,
+      version: saved.version + 2,
+      addenda: [...(saved.addenda ?? []), {
+        addendum_id: randomUUID(), assessment_id: assessment.assessment_id, version: 1,
+        note: "Synthetic post-send correction", reason_code: "Correction",
+        authored_by: "synthetic", authored_by_name: "Synthetic assessor", created_at: new Date().toISOString(),
+      }],
+    } } });
+  });
+  await surface.getByRole("textbox", { name: "Reason", exact: true }).fill("Correction");
+  await surface.getByRole("textbox", { name: "Note", exact: true }).fill("Synthetic post-send correction");
+  await surface.getByRole("button", { name: "Add", exact: true }).click();
+  await expect.poll(() => mutations.length).toBe(1);
+  await expect(surface.getByRole("alert")).toContainText("changed before the note");
+  await surface.getByRole("button", { name: "Add", exact: true }).click();
+  await expect.poll(() => mutations.length).toBe(3);
+  expect(mutations[0].version).toBe(saved.version);
+  expect(mutations[1].version).toBe(saved.version + 1);
+  expect(mutations[1].id).not.toBe(mutations[0].id);
+  expect(mutations[2]).toEqual(mutations[1]);
+  await expect(surface.getByRole("textbox", { name: "Note", exact: true })).toHaveCount(0);
 });

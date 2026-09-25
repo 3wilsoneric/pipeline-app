@@ -36,6 +36,10 @@ import {
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
 import { loadPipelineWorkspaceResumeLocation, recordLastPipelineWorkspace } from "@/lib/pipeline/work-continuity-client";
+import { canvasDraftStorageKey } from "@/components/pipeline/referral-canvas-save-state";
+import { clearLocalReferralRecovery, loadLocalReferralRecovery, referralRecoveryPrincipal, saveLocalReferralRecovery } from "@/lib/pipeline/referral-local-recovery";
+import { clearServerReferralDraft, loadServerReferralDraft, saveServerReferralDraft, usesServerReferralDrafts } from "@/lib/pipeline/referral-draft-recovery";
+import { parsePipelineReferralDraft } from "@/lib/pipeline/user-workspace-state-types";
 import {
   applyPipelineWorkspaceLocation,
   pipelineWorkspaceLocationFromSearchParams,
@@ -165,6 +169,10 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [teamAccess, setTeamAccess] = useState<boolean | undefined>(() => initialUser ? canAccessSupervisorOperations(initialUser.roles) : undefined);
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
+  const [directDraftError, setDirectDraftError] = useState("");
+  const [directDraftRetry, setDirectDraftRetry] = useState(0);
+  const directDraftIdRef = useRef<string | null>(null);
+  const directDraftPreparationRef = useRef<{ id: string; promise: Promise<() => Promise<void>> } | null>(null);
   // Header links and browser history also leave Home without calling navigate.
   // The server seed is only for entry, never for a later return to Home.
   useEffect(() => {
@@ -181,6 +189,38 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   }, [setEntryBriefing]);
   const deferredWorkSurfaces = useDeferredWorkSurfaces(screen);
   const selectedReferral = selectedWorkspaceReferral(routeReferral, referralDetails);
+
+  useEffect(() => {
+    if (screen !== "packet" || routeReferral || newReferralDraftKey) return;
+    // Direct packet links can omit draftId. Give them the same durable key as
+    // in-app creation before mounting the canvas so a lost create response can
+    // be replayed after a reload with the original mutation ID.
+    const params = new URLSearchParams(window.location.search);
+    if (getScreenFromParams(params) !== "packet" || getReferralFromParams(params) || getNewReferralDraftKey(params)) return;
+    let cancelled = false;
+    if (!directDraftPreparationRef.current) {
+      const id = directDraftIdRef.current ?? crypto.randomUUID();
+      directDraftIdRef.current = id;
+      directDraftPreparationRef.current = { id, promise: migrateLegacyNewReferralDraft(`new-${id}`) };
+    }
+    const preparation = directDraftPreparationRef.current;
+    void preparation.promise.then((clearLegacy) => {
+      if (cancelled) return;
+      const current = new URLSearchParams(window.location.search);
+      if (getScreenFromParams(current) !== "packet" || getReferralFromParams(current) || getNewReferralDraftKey(current)) return;
+      current.set("draftId", preparation.id);
+      replacePipelineHistory(`/?${current.toString()}`);
+      setDirectDraftError("");
+      directDraftPreparationRef.current = null;
+      directDraftIdRef.current = null;
+      void clearLegacy().catch(() => undefined);
+    }).catch(() => {
+      if (cancelled) return;
+      directDraftPreparationRef.current = null;
+      setDirectDraftError("Could not prepare your saved intake. Try again.");
+    });
+    return () => { cancelled = true; };
+  }, [screen, routeReferral, newReferralDraftKey, directDraftRetry]);
 
   useEffect(() => {
     if (activeSearchParams.get("browse") !== "workspaces" && !activeSearchParams.has("fromBrowser")) return;
@@ -321,6 +361,12 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
   const isDemoWorkspace = [activeSearchParams.get("demo") === "1", Boolean(trainingAssessmentMode), trainingIntakeMode].some(Boolean);
   const renderPacketWorkspace = () => {
+    if (!selectedReferral && !newReferralDraftKey) return directDraftError ? (
+      <main className="h-full bg-white px-6 py-5">
+        <p role="alert">{directDraftError}</p>
+        <button type="button" onClick={() => { setDirectDraftError(""); setDirectDraftRetry((retry) => retry + 1); }}>Try again</button>
+      </main>
+    ) : <DeferredScreenLoading />;
     const workspaceKey = referralWorkspaceKey(selectedReferral, createdWorkspace, newReferralDraftKey);
     const stillViewingWorkspace = () => {
       const current = new URLSearchParams(window.location.search);
@@ -523,6 +569,50 @@ function getNewReferralDraftKey(params: URLSearchParams): `new-${string}` | unde
   return draftId && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(draftId)
     ? `new-${draftId}`
     : undefined;
+}
+
+async function migrateLegacyNewReferralDraft(nextKey: `new-${string}`): Promise<() => Promise<void>> {
+  const legacySessionKey = canvasDraftStorageKey();
+  const sessionDraft = (() => {
+    try {
+      const raw = window.sessionStorage.getItem(legacySessionKey);
+      const draft = raw ? parsePipelineReferralDraft(JSON.parse(raw)) : null;
+      return raw && draft ? { raw, draft } : null;
+    } catch {
+      return null;
+    }
+  })();
+  if (!usesServerReferralDrafts()) {
+    if (sessionDraft) window.sessionStorage.setItem(canvasDraftStorageKey(nextKey), sessionDraft.raw);
+    return async () => { if (sessionDraft) window.sessionStorage.removeItem(legacySessionKey); };
+  }
+
+  const [server, local] = await Promise.allSettled([
+    loadServerReferralDraft(), loadLocalReferralRecovery(undefined),
+  ]);
+  if (server.status === "rejected") throw server.reason;
+  if (local.status === "rejected") throw local.reason;
+  const serverDraft = server.value;
+  const localDraft = local.value;
+  if (serverDraft) {
+    await loadServerReferralDraft(nextKey);
+    await saveServerReferralDraft(nextKey, serverDraft);
+  }
+  if (localDraft || sessionDraft) {
+    const principal = await referralRecoveryPrincipal();
+    const recovery = localDraft ?? {
+      draft: sessionDraft!.draft, ownerPrincipalId: "",
+      initialPacket: null, pendingDocuments: {}, additionalFiles: [],
+    };
+    await saveLocalReferralRecovery(principal, nextKey, recovery);
+  }
+  return async () => {
+    await Promise.all([
+      ...(serverDraft ? [clearServerReferralDraft()] : []),
+      ...(localDraft ? [clearLocalReferralRecovery(undefined)] : []),
+    ]);
+    if (sessionDraft) window.sessionStorage.removeItem(legacySessionKey);
+  };
 }
 
 function recordNavigation(

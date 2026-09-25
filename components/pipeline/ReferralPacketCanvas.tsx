@@ -452,17 +452,6 @@ export default function ReferralPacketCanvas({
     setAssessmentFocused(true);
     return () => setAssessmentFocused(false);
   }, [setAssessmentFocused]);
-  useEffect(() => {
-    const waitForDelivery = async () => {
-      if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
-      await flushHandoff();
-      await assessmentNavigationRef.current?.();
-    };
-    beforeNavigationRef.current = waitForDelivery;
-    return () => {
-      if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = null;
-    };
-  }, [beforeNavigationRef, emailSending, flushHandoff]);
   const extraction = usePacketExtraction(extractionPacketId(loadedReferral));
   const intakeExtraction = useIntakeFileExtraction();
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<FieldKey>>(() => new Set());
@@ -536,8 +525,10 @@ export default function ReferralPacketCanvas({
   const initialPacketCategoryRef = useRef(initialPacketCategory);
   const persistRecoveryDraftRef = useRef<() => void>(() => undefined);
   const persistRecoveryDraftWithStatusRef = useRef<() => void>(() => undefined);
+  const preserveIntakeBeforeNavigationRef = useRef<() => Promise<void>>(async () => undefined);
   const intakeSaveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const fileUploadQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const deletedFileIdsRef = useRef(new Set<string>());
   const focusedCellRef = useRef<{ key: DirtyDraftKey; signature: string } | null>(null);
 
   useEffect(() => {
@@ -571,9 +562,11 @@ export default function ReferralPacketCanvas({
     setWorkspaceFilesLoading(true);
     setWorkspaceFilesError("");
     loadWorkspaceFileInventory(referralId, controller.signal)
-      .then((files) => { if (!controller.signal.aborted) setWorkspaceFiles(files); })
+      .then((files) => { if (!controller.signal.aborted) setWorkspaceFiles(files.filter((file) => !deletedFileIdsRef.current.has(file.id))); })
       .catch(() => {
-        if (!controller.signal.aborted) setWorkspaceFilesError("The file list could not be loaded. Your saved documents have not been removed.");
+        if (!controller.signal.aborted) setWorkspaceFilesError(deletedFileIdsRef.current.size > 0
+          ? "The file was deleted, but the file list could not be refreshed."
+          : "The file list could not be loaded.");
       })
       .finally(() => { if (!controller.signal.aborted) setWorkspaceFilesLoading(false); });
     return () => controller.abort();
@@ -581,9 +574,13 @@ export default function ReferralPacketCanvas({
 
   useEffect(() => {
     const refreshDocuments = (event: Event) => {
-      const detail = (event as CustomEvent<{ referralId: number; refreshChart?: boolean }>).detail;
+      const detail = (event as CustomEvent<{ referralId: number; refreshChart?: boolean; deletedFileId?: string }>).detail;
       if (detail?.referralId !== loadedReferralRef.current?.id) return;
       const id = loadedReferralRef.current!.id;
+      if (detail.deletedFileId) {
+        deletedFileIdsRef.current.add(detail.deletedFileId);
+        setWorkspaceFiles((files) => files.filter((file) => file.id !== detail.deletedFileId));
+      } else deletedFileIdsRef.current.clear();
       setWorkspaceFilesRevision((revision) => revision + 1);
       if (detail.refreshChart === false) return;
       void fetchPipelineJson<{ referral: Referral }>(`/api/referrals/${id}/canvas`, { cache: "no-store" }).then((result) => {
@@ -761,6 +758,36 @@ export default function ReferralPacketCanvas({
       await saveServerReferralDraft(reference, draft);
     }
   };
+
+  const preserveIntakeBeforeNavigation = async () => {
+    try {
+      if (!serverDraftsEnabled) {
+        const draft = captureRecoveryDraft();
+        if (draft) window.sessionStorage.setItem(canvasDraftStorageKey(recoveryDraftReferenceRef.current), JSON.stringify(draft));
+      }
+      const hasPendingFiles = Boolean(initialPacketRef.current || Object.keys(pendingDocumentsRef.current).length || additionalFilesRef.current.length);
+      if (serverDraftsEnabled || hasPendingFiles) await preservePendingIntake();
+      await intakeSaveQueueRef.current;
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Your intake could not be saved. Try again before leaving.");
+      setSavedAt("Unsaved changes");
+      throw error;
+    }
+  };
+  preserveIntakeBeforeNavigationRef.current = preserveIntakeBeforeNavigation;
+
+  useEffect(() => {
+    const waitForDelivery = async () => {
+      if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
+      await flushHandoff();
+      await assessmentNavigationRef.current?.();
+      await preserveIntakeBeforeNavigationRef.current();
+    };
+    beforeNavigationRef.current = waitForDelivery;
+    return () => {
+      if (beforeNavigationRef.current === waitForDelivery) beforeNavigationRef.current = null;
+    };
+  }, [beforeNavigationRef, emailSending, flushHandoff]);
 
   const restoreLocalFiles = useCallback((recovery: ReferralLocalRecovery) => {
     initialPacketRef.current = recovery.initialPacket;
@@ -1543,10 +1570,7 @@ export default function ReferralPacketCanvas({
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.();
-      if (activePage === 1 && loadedReferralRef.current) {
-        await preservePendingIntake();
-        await intakeSaveQueueRef.current;
-      }
+      if (activePage === 1 && loadedReferralRef.current) await preserveIntakeBeforeNavigation();
       if (assessmentMode === undefined && (activePage === 1 || activePage === 3) && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
         await openQuestionnaireFromIntake();
       } else {
@@ -1969,7 +1993,7 @@ export default function ReferralPacketCanvas({
     if (!onOpenAssignedWork || emailSendingRef.current) return;
     await handoff.flush();
     await assessmentNavigationRef.current?.();
-    await preservePendingIntake();
+    await preserveIntakeBeforeNavigation();
     onOpenAssignedWork();
   };
 

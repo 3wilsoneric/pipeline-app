@@ -41,6 +41,10 @@ test("failed message saves remain visible and can be retried from the email prev
   await message.blur();
   await expect(preview.getByRole("alert")).toContainText("Synthetic message save interrupted");
   await expect(message).toHaveValue("Synthetic message must survive a failed save.");
+  await message.fill("Corrected while the save was unavailable.");
+  await message.blur();
+  await expect(message).toHaveValue("Corrected while the save was unavailable.");
+  await expect(preview.getByRole("status").filter({ hasText: "Changes not saved. Retry saving." })).toBeVisible();
   await expect(preview.getByRole("button", { name: "Finish demo review", exact: true })).toBeDisabled();
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
@@ -53,9 +57,9 @@ test("failed message saves remain visible and can be retried from the email prev
   await preview.getByRole("button", { name: "Retry saving", exact: true }).click();
   await expect(preview.getByRole("alert")).toHaveCount(0);
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.message.body)
-    .toBe("Synthetic message must survive a failed save.");
+    .toBe("Corrected while the save was unavailable.");
   await preview.getByRole("button", { name: "Back to email preview", exact: true }).click();
-  await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("Synthetic message must survive a failed save.");
+  await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("Corrected while the save was unavailable.");
 });
 
 test("retry recognizes a handoff draft saved before its response was lost", async ({ page }) => {

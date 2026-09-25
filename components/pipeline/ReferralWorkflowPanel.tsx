@@ -39,7 +39,7 @@ type ReferralWorkflowPanelProps = {
   onDone?: () => Promise<void>;
   compactRecommendation?: boolean;
   recommendationAssessmentId?: string;
-  onSavingChange?: (saving: boolean) => void;
+  onSavingChange?: (pending: boolean, failed?: boolean) => void;
   beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
 };
 
@@ -78,6 +78,7 @@ export default function ReferralWorkflowPanel({
   const [emailError, setEmailError] = useState("");
   const mutationIds = useRef(new Map<string, string>());
   const confirmedDecision = useRef<{ referral: Referral; decision: AdmissionDecision } | null>(null);
+  const confirmedRecommendation = useRef<{ referral: Referral; recommendation: AssessmentRecommendation } | null>(null);
   const recommendationDirty = useRef(false);
   const admissionDateDirty = useRef(false);
   const mutationInFlight = useRef(false);
@@ -117,6 +118,7 @@ export default function ReferralWorkflowPanel({
 
   const loadWorkflow = useCallback(async (signal?: AbortSignal) => {
     if (confirmedDecision.current?.referral.id !== referral.id) confirmedDecision.current = null;
+    if (confirmedRecommendation.current?.referral.id !== referral.id) confirmedRecommendation.current = null;
     const payload = await fetchPipelineJson<WorkflowResponse>(`/api/referrals/${referral.id}/workflow`, {
       cache: "no-store",
       signal,
@@ -132,18 +134,31 @@ export default function ReferralWorkflowPanel({
     } else if (confirmed) {
       confirmedDecision.current = { ...confirmed, referral: payload.referral };
     }
-    setWorkflow(payload);
+    const savedRecommendation = confirmedRecommendation.current;
+    const staleRecommendation = savedRecommendation && (
+      payload.recommendation?.recommendationId !== savedRecommendation.recommendation.recommendationId
+      || payload.recommendation?.version !== savedRecommendation.recommendation.version
+    );
+    const latest = staleRecommendation && (payload.referral.version ?? 0) <= (savedRecommendation.referral.version ?? 0)
+      ? { ...payload, referral: savedRecommendation.referral, recommendation: savedRecommendation.recommendation }
+      : payload;
+    if (savedRecommendation && !staleRecommendation) {
+      confirmedRecommendation.current = { referral: payload.referral, recommendation: savedRecommendation.recommendation };
+    } else if (staleRecommendation && latest === payload) {
+      confirmedRecommendation.current = null;
+    }
+    setWorkflow(latest);
     setError("");
     if (!recommendationDirty.current) {
       setRecommendationDraft({
-        outcome: payload.decision ? (payload.decision.outcome === "accepted" ? "accept" : "decline") : payload.recommendation?.outcome ?? "",
-        reasonCode: payload.recommendation?.reasonCode ?? "",
-        reasonNote: payload.recommendation?.reasonNote ?? "",
+        outcome: latest.decision ? (latest.decision.outcome === "accepted" ? "accept" : "decline") : latest.recommendation?.outcome ?? "",
+        reasonCode: latest.recommendation?.reasonCode ?? "",
+        reasonNote: latest.recommendation?.reasonNote ?? "",
       });
     }
-    if (!admissionDateDirty.current) setAdmissionDateDraft(getPlannedAdmissionDate(payload.referral));
+    if (!admissionDateDirty.current) setAdmissionDateDraft(getPlannedAdmissionDate(latest.referral));
     setLoading(false);
-    return payload;
+    return latest;
   }, [referral.id]);
 
   useEffect(() => {
@@ -153,6 +168,9 @@ export default function ReferralWorkflowPanel({
       if (!controller.signal.aborted) {
         if (confirmedDecision.current?.referral.id === referral.id) {
           setMessage("Decision recorded. The latest details could not refresh; reload the page to check them.");
+          setError("");
+        } else if (!recommendationDirty.current && confirmedRecommendation.current?.referral.id === referral.id) {
+          setMessage("Working decision saved. The latest details could not refresh; reload the page to check them.");
           setError("");
         } else {
           setError(loadError instanceof Error ? loadError.message : "Workflow could not be loaded.");
@@ -181,8 +199,9 @@ export default function ReferralWorkflowPanel({
     const mutationKey = JSON.stringify([key, url, method, body]);
     const clientMutationId = mutationIds.current.get(mutationKey) ?? createMutationId();
     mutationIds.current.set(mutationKey, clientMutationId);
+    if (key.startsWith("recommendation:")) confirmedRecommendation.current = null;
     setBusy(key);
-    onSavingChange?.(true);
+    onSavingChange?.(true, false);
     setError("");
     setMessage("");
     try {
@@ -222,12 +241,17 @@ export default function ReferralWorkflowPanel({
       mutationIds.current.delete(mutationKey);
       if (key.startsWith("decision:") && payload.decision && payload.referral) {
         confirmedDecision.current = { referral: payload.referral, decision: payload.decision };
-        setWorkflow((current) => current ? {
-          ...current,
-          referral: payload.referral ?? current.referral,
-          decision: payload.decision ?? current.decision,
-        } : current);
       }
+      if (key.startsWith("recommendation:") && payload.referral && "recommendation" in payload && payload.recommendation) {
+        confirmedRecommendation.current = { referral: payload.referral, recommendation: payload.recommendation as AssessmentRecommendation };
+      }
+      setWorkflow((current) => current ? {
+        ...current,
+        referral: payload.referral ?? current.referral,
+        decision: payload.decision ?? current.decision,
+        ...(key.startsWith("recommendation:") && "recommendation" in payload
+          ? { recommendation: payload.recommendation as AssessmentRecommendation } : {}),
+      } : current);
       if (payload.referral) onReferralChange(payload.referral);
       clearSavedDraftState(key);
       setMessage(successMessage);
@@ -240,7 +264,7 @@ export default function ReferralWorkflowPanel({
     } finally {
       mutationInFlight.current = false;
       setBusy("");
-      onSavingChange?.(false);
+      onSavingChange?.(compactRecommendation && recommendationDirty.current, compactRecommendation && recommendationDirty.current);
     }
   };
 
@@ -407,8 +431,10 @@ export default function ReferralWorkflowPanel({
   };
 
   if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return null;
-  if (compactRecommendation) return <><div data-quick-recommendation data-outcome={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>
-    <label><span>{workflow.decision ? "Recorded decision" : "Working decision"}</span><select aria-label={workflow.decision ? "Recorded decision" : "Working decision"} title={workflow.decision || workflow.context.assessmentSigned ? "Review this choice in Decision." : "Guides the next steps. Does not sign, send, or record final admission."} value={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
+  const compactOutcome = workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline")
+    : recommendationDirty.current ? recommendationDraft.outcome : workflow.recommendation?.outcome ?? "";
+  if (compactRecommendation) return <><div data-quick-recommendation data-outcome={compactOutcome} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>
+    <label><span>{workflow.decision ? "Recorded decision" : "Working decision"}</span><select aria-label={workflow.decision ? "Recorded decision" : "Working decision"} title={workflow.decision || workflow.context.assessmentSigned ? "Review this choice in Decision." : "Guides the next steps. Does not sign, send, or record final admission."} value={compactOutcome} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
       const next = { ...recommendationDraft, outcome: event.target.value as AssessmentRecommendation["outcome"] };
       recommendationDirty.current = true;
       setRecommendationDraft(next);
@@ -419,7 +445,7 @@ export default function ReferralWorkflowPanel({
       <option value="decline">Deny</option>
       <option value="needs_more_information">Under review</option>
     </select></label>
-    {error ? <span role="alert">Not saved. {error}</span> : <span className="sr-only" role="status">{busy ? "Saving working decision..." : workflow.decision ? "Decision recorded" : message ? "Working decision saved" : "Not a final admission decision"}</span>}
+    {error ? <><span role="alert">Not saved. {error}</span>{recommendationDirty.current ? <button type="button" className={assessmentStyles.recoveryButton} disabled={Boolean(busy)} onClick={() => saveRecommendation(recommendationDraft)}>Retry working decision</button> : null}</> : <span className="sr-only" role="status">{busy ? "Saving working decision..." : workflow.decision ? "Decision recorded" : message ? "Working decision saved" : "Not a final admission decision"}</span>}
   </div>{emailDialog}</>;
 
   return (

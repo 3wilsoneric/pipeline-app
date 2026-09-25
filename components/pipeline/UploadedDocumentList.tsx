@@ -25,7 +25,7 @@ export default function UploadedDocumentList({ files, readOnly = false, updating
       await fetchPipelineJson(`/api/files/${deleting.id}`, {
         method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }),
       });
-      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: deleting.referralId } }));
+      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: deleting.referralId, deletedFileId: deleting.id } }));
       setDeleting(null);
     } catch (failure) { setError(failure instanceof Error ? failure.message : "The file could not be deleted. Try again."); }
     finally { setBusy(false); }
