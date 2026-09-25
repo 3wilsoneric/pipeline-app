@@ -248,9 +248,9 @@ function isWorkspacePermissionReadOnly(referral: Referral | null, viewer: Pipeli
   return !viewer?.id || !canModifyReferral(referral, { ...viewer, id: viewer.id });
 }
 
-function IntakeEditScope({ readOnly, children }: { readOnly: boolean; children: React.ReactNode }) {
+function IntakeEditScope({ readOnly, accessError, accessChecking, children }: { readOnly: boolean; accessError: string; accessChecking: boolean; children: React.ReactNode }) {
   return <>
-    {readOnly ? <p role="status" className="mb-4 text-sm font-bold text-[#595959]">Sign in with an approved Pipeline account to make changes.</p> : null}
+    {!accessError && !accessChecking && readOnly ? <p role="status" className="mb-4 text-sm font-bold text-[#595959]">Sign in with an approved Pipeline account to make changes.</p> : null}
     <fieldset disabled={readOnly} className="min-w-0" onDropCapture={readOnly ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined}>
       {children}
     </fieldset>
@@ -483,15 +483,21 @@ export default function ReferralPacketCanvas({
   const [extractionConflict, setExtractionConflict] = useState<ExtractionReviewConflict | null>(null);
   const [presence, setPresence] = useState<ReferralPresenceView[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [membersError, setMembersError] = useState("");
+  const [membersRetry, setMembersRetry] = useState(0);
   const [canSupervise, setCanSupervise] = useState(false);
   const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
+  const [accessError, setAccessError] = useState("");
+  const [accessChecking, setAccessChecking] = useState(true);
+  const [accessRetry, setAccessRetry] = useState(0);
   const [ownerPrincipalId, setOwnerPrincipalId] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [duplicateReview, setDuplicateReview] = useState<ReferralDuplicateReview | null>(null);
   const [saveAlert, setSaveAlert] = useState("");
   const [pendingOwnerChange, setPendingOwnerChange] = useState<{ principalId: string; displayName: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const permissionReadOnly = Boolean(referral?.id && loadedReferral?.id !== referral.id)
+  const permissionReadOnly = Boolean(!trainingAssessmentMode && (accessError || accessChecking))
+    || Boolean(referral?.id && loadedReferral?.id !== referral.id)
     || isWorkspacePermissionReadOnly(loadedReferral, viewer, trainingAssessmentMode);
   const editableReferralId = mutableReferralId(loadedReferral, referral?.id, permissionReadOnly);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -677,6 +683,7 @@ export default function ReferralPacketCanvas({
     fetchPipelineJson<{ members: WorkspaceMember[]; current_principal_id: string }>("/api/members?scope=assessors", { cache: "no-store" }, { cacheTtlMs: 30_000 })
       .then((payload) => {
         if (cancelled) return;
+        setMembersError("");
         setMembers(payload.members);
         const current = payload.members.find((member) => member.principal_id === payload.current_principal_id);
         defaultOwnerRef.current = current
@@ -690,32 +697,36 @@ export default function ReferralPacketCanvas({
         }
       })
       .catch(() => {
-        if (!cancelled) setSaveError("The owner list could not be loaded. Existing work remains available.");
+        if (!cancelled) setMembersError("The assessor list could not be loaded.");
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [membersRetry]);
 
   useEffect(() => {
     let cancelled = false;
     fetchCurrentPipelineUser()
       .then(({ user }) => {
         if (!cancelled) {
+          setAccessError("");
           setViewer(user ?? null);
           setCanSupervise(canEditWorkspace(user));
+          setAccessChecking(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setViewer(null);
           setCanSupervise(false);
+          setAccessError("Pipeline could not verify your access.");
+          setAccessChecking(false);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [accessRetry]);
 
   const captureRecoveryDraft = (): CanvasSessionDraft | null => {
     const activeDirtyKeys = dirtyKeysRef.current;
@@ -1997,6 +2008,17 @@ export default function ReferralPacketCanvas({
     onOpenAssignedWork();
   };
 
+  const openClientProfile = (clientId: string) => {
+    void (async () => {
+      try {
+        await beforeNavigationRef.current?.();
+        onOpenProfile(clientId);
+      } catch {
+        // The active editor keeps its working copy open and explains the failure.
+      }
+    })();
+  };
+
   usePersonaSwitchSave(async () => {
     if (emailSendingRef.current) throw new Error("Wait for the email delivery result before switching.");
     if (isSavingRef.current || uploadingDocumentIds.size > 0) throw new Error("Wait for the workspace and files to finish saving before switching.");
@@ -2616,7 +2638,7 @@ export default function ReferralPacketCanvas({
 
   const renderIntakePage = () => (
     <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
-            <IntakeEditScope readOnly={permissionReadOnly || draftRecoveryLoading}>
+            <IntakeEditScope readOnly={permissionReadOnly || draftRecoveryLoading} accessError={accessError} accessChecking={accessChecking}>
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
               <div className={folderStyles.body}>
                 <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
@@ -2659,6 +2681,8 @@ export default function ReferralPacketCanvas({
                           fieldKey={key}
                           field={{ ...fields.owner, label: "Assessor", placeholder: "Assign assessor" }}
                           members={members}
+                          membersError={membersError}
+                          onRetryMembers={() => { setMembersError(""); setMembersRetry((retry) => retry + 1); }}
                           ownerPrincipalId={ownerPrincipalId}
                           confirmedOwnerId={loadedReferral?.ownerId ?? ""}
                           onChange={(principalId) => {
@@ -2792,6 +2816,10 @@ export default function ReferralPacketCanvas({
       >
         {renderWorkspaceHeader()}
 
+        {accessError ? <div role="alert" className="mb-3 border border-[#e2c592] bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold text-[#7a4c0d]">
+          {accessError} <button type="button" onClick={() => { setAccessChecking(true); setAccessRetry((retry) => retry + 1); }} disabled={accessChecking} className="font-bold underline underline-offset-2 disabled:opacity-50">{accessChecking ? "Checking access..." : "Retry access check"}</button>
+        </div> : null}
+
         {renderRestoredEdits()}
 
         {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
@@ -2836,7 +2864,7 @@ export default function ReferralPacketCanvas({
                 onOpenAssessment={() => void navigatePage(2)}
                 onOpenFiles={() => void navigatePage("files")}
                 onOpenEmail={() => openPage("email")}
-                onOpenProfile={onOpenProfile}
+                onOpenProfile={openClientProfile}
               />
               </WorkspaceChartFolder>
             </PacketPage>
@@ -2864,7 +2892,7 @@ export default function ReferralPacketCanvas({
                   onWorkbookImportRead={() => setWorkbookImport(null)}
                   referralId={referralWorkspaceId}
                   referral={loadedReferral ?? undefined}
-                  recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenEmail={() => openPage("email")} onOpenProfile={onOpenProfile} /> : undefined}
+                  recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenEmail={() => openPage("email")} onOpenProfile={openClientProfile} /> : undefined}
                   trainingAssessmentMode={trainingAssessmentMode}
                   trainingAssessmentSection={trainingAssessmentSection}
                   initialSection={routedWorkspaceLocation.assessmentSection ?? lastAssessmentSectionRef.current}
@@ -3366,6 +3394,8 @@ function OwnerPacketField({
   fieldKey,
   field,
   members,
+  membersError,
+  onRetryMembers,
   ownerPrincipalId,
   confirmedOwnerId,
   onChange,
@@ -3374,6 +3404,8 @@ function OwnerPacketField({
   fieldKey: FieldKey;
   field: PacketField;
   members: WorkspaceMember[];
+  membersError: string;
+  onRetryMembers: () => void;
   ownerPrincipalId: string;
   confirmedOwnerId: string;
   onChange: (principalId: string) => void;
@@ -3400,7 +3432,8 @@ function OwnerPacketField({
           </option>
         ))}
       </select>
-      {members.length === 0 ? <div className="mt-1 text-[10px] text-[#8a5a10]">No active members loaded</div> : null}
+      {membersError ? <div role="alert" className="mt-1 text-[10px] text-[#8a5a10]">{membersError} <button type="button" onClick={onRetryMembers} className="font-bold underline underline-offset-2">Retry</button></div>
+        : members.length === 0 ? <div className="mt-1 text-[10px] text-[#8a5a10]">No active members loaded</div> : null}
     </div>
   );
 }

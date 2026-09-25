@@ -418,6 +418,7 @@ export default function AssessmentWorkspace({
   const [addendumReason, setAddendumReason] = useState("");
   const [addendumNote, setAddendumNote] = useState("");
   const signMutationRef = useRef<{ assessmentId: string; version: number; id: string } | null>(null);
+  const startMutationRef = useRef<{ assessmentId: string; version: number; id: string } | null>(null);
   const addendumMutationRef = useRef<{ assessmentId: string; version: number; reason: string; note: string; id: string } | null>(null);
   const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
   const [networkOnline, setNetworkOnline] = useState(true);
@@ -1069,24 +1070,63 @@ export default function AssessmentWorkspace({
         setMessage("Interview start recorded locally");
         return;
       }
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-        `/api/assessments/${encodeURIComponent(current.assessment_id)}/start`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            if_match: current.version,
-            client_mutation_id: mutationId("assessment-start"),
-          }),
-        },
-      );
+      const pending = startMutationRef.current;
+      let startMutation = pending?.assessmentId === current.assessment_id
+        ? pending : { assessmentId: current.assessment_id, version: current.version, id: mutationId("assessment-start") };
+      startMutationRef.current = startMutation;
+      const startUrl = `/api/assessments/${encodeURIComponent(current.assessment_id)}/start`;
+      const postStart = (command: typeof startMutation) => postAssessmentLifecycleWithReplay(startUrl, {
+        if_match: command.version,
+        client_mutation_id: command.id,
+      });
+      let payload: { assessment: PipelineAssessmentRecord };
+      try {
+        payload = await postStart(startMutation);
+      } catch (startError) {
+        const latest = startError instanceof PipelineApiError && startError.status === 409
+          ? assessmentFromConflict(startError.payload) : null;
+        if (!latest || latest.assessment_id !== current.assessment_id) throw startError;
+        receiveRemoteAssessment(latest, false);
+        if (latest.started_at) payload = { assessment: latest };
+        else if (assessmentReadyToBegin(latest)) {
+          startMutation = { assessmentId: latest.assessment_id, version: latest.version, id: mutationId("assessment-start") };
+          startMutationRef.current = startMutation;
+          payload = await postStart(startMutation);
+        } else throw startError;
+      }
+      startMutationRef.current = null;
       // Merge the lifecycle response without replacing locally queued answers.
       receiveRemoteAssessment(payload.assessment, false);
+      setUnrecordedStartId(null);
       enterInterview();
       await onAssessmentSaved?.(payload.assessment);
       setMessage("Interview start recorded");
     } catch (startError) {
       // A failed timestamp/save request must not prevent an in-person interview.
       // Do not invent a persisted start; expose a retry until the server confirms it.
+      const ambiguous = !(startError instanceof PipelineApiError)
+        || startError.status === 0 || startError.status === 408 || startError.status === 499 || startError.status >= 500;
+      let latest = startError instanceof PipelineApiError && startError.status === 409
+        ? assessmentFromConflict(startError.payload) : null;
+      if (!latest && ambiguous && startMutationRef.current) {
+        try {
+          const current = selectedRef.current;
+          if (current) latest = (await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+            `/api/assessments/${encodeURIComponent(current.assessment_id)}`, { cache: "no-store" },
+          )).assessment;
+        } catch { /* Keep the same mutation ID for the next retry if readback is unavailable. */ }
+      }
+      if (latest && latest.assessment_id === selectedRef.current?.assessment_id) {
+        receiveRemoteAssessment(latest, false);
+        if (latest.started_at) {
+          startMutationRef.current = null;
+          setUnrecordedStartId(null);
+          enterInterview();
+          setMessage("Interview start recorded");
+          return;
+        }
+      }
+      if (startError instanceof PipelineApiError && startError.status === 409) startMutationRef.current = null;
       if (assessmentReadyToBegin(selectedRef.current)) {
         setUnrecordedStartId(selectedRef.current!.assessment_id);
         enterInterview();

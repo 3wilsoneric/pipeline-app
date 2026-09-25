@@ -284,8 +284,10 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     if (nextScreen === "operations" && reportAccess !== true) return;
     const requestId = ++navigationRequestRef.current;
     const sourceLocation = `${window.location.pathname}${window.location.search}`;
-    // A requested missing field is a deliberate target; saved positions only fill in when none is named.
-    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume && !location?.intakeField;
+    // Board actions and other explicit destinations must not be replaced by the
+    // last visited tab. Assessment entry actions still resume their saved question.
+    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume
+      && (!location || (location.view === "assessment" && assessmentAction !== undefined && assessmentAction !== "review"));
     const savedLocation = shouldResume
       ? await loadPipelineWorkspaceResumeLocation(referral!.id).catch(() => undefined)
       : undefined;

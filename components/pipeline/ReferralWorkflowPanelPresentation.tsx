@@ -134,7 +134,7 @@ export function ReferralWorkflowPanelPresentation({
       <div className={styles.layout}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
           <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} />
-          {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} /> : null}
+          {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSubmitTransition={onSubmitTransition} /> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
               <p>{workflow.decision ? "No client handoff is needed." : "The referral stays open. Return when you have more information."}</p>
@@ -190,7 +190,7 @@ function DecisionContext({ workflow, busy, recommendation, onOpenAssessment }: P
   </aside>;
 }
 
-function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange, onSaveAdmissionDate }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate">) {
+function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange, onSaveAdmissionDate, onSubmitTransition }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate" | "onSubmitTransition">) {
   return <section className={styles.handoff} aria-label="Prepare client handoff">
     <h4>{workflow.context.packetSentAt ? "Client handoff sent" : "Prepare the client handoff"}</h4>
     <ol aria-label="Handoff progress" className="my-3 flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-semibold text-[#365b4d]">
@@ -199,7 +199,7 @@ function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange
       <li aria-current={workflow.context.assessmentSigned && !workflow.context.packetSentAt ? "step" : undefined}>3. {workflow.context.packetSentAt ? "Packet sent" : "Review & send"}</li>
     </ol>
     <p>{workflow.context.packetSentAt ? "The handoff is recorded. You can return to the email and packet to review what was sent." : workflow.context.assessmentSigned ? "Review the recipients, client summary and chart files before sending." : "You can preview the packet now. Sign the assessment before sending."}</p>
-    <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} />
+    <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onMarkAdmitted={(actualDate) => onSubmitTransition("Accepted / Admitted", actualDate)} />
   </section>;
 }
 

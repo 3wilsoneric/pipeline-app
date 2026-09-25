@@ -266,12 +266,12 @@ for (const { width, count } of [{ width: 1440, count: 5 }, { width: 1440, count:
     if (width >= 1024) {
       expect(collapsed).toBeLessThan(350 + count * 110);
       await folders.first().locator("[data-folder-name]").hover();
-      await expect(folders.first()).toHaveCSS("margin-bottom", "-130px");
+      await expect(folders.first()).toHaveCSS("height", "174px");
       await expect.poll(async () => (await received.boundingBox())!.height).toBeGreaterThan(collapsed + 70);
       await page.screenshot({ path: info.outputPath(`stack-${count}-${width}.png`), animations: "disabled" });
       await page.getByRole("tab", { name: "Board", exact: true }).hover();
       await folders.first().focus();
-      await expect(folders.first()).toHaveCSS("margin-bottom", "-130px");
+      await expect(folders.first()).toHaveCSS("height", "174px");
     }
     for (const key of width >= 1024 ? ["received", "in_progress", "decision"] : ["received"]) {
       const last = board.locator(`[data-board-stage="${key}"] [data-board-card]`).last();
@@ -421,6 +421,23 @@ test("decision tabs use distinct colors and admitted files await email without a
   const colors = await dialog.locator("[data-board-status]").evaluateAll(tabs => tabs.map(tab => getComputedStyle(tab).backgroundColor));
   expect(new Set(colors).size).toBe(3);
   await dialog.screenshot({ path: info.outputPath("decision-tabs.png"), animations: "disabled" });
+});
+
+test("Board action opens its named file tab even when the last visit was Chart", async ({ page }) => {
+  await homeFixture(page, undefined, 0, true);
+  await page.route("**/api/me/work-continuity", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({ json: { state: {
+      schema: 1,
+      acknowledgedAssignmentIds: [],
+      recentWorkspaces: [{ referralId: 930001, location: { view: "chart" }, visitedAt: new Date().toISOString() }],
+    } } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Accepted Client", exact: true }).click();
+  await expect(page).toHaveURL(/referralId=930001/);
+  await expect(page).toHaveURL(/workspaceView=files/);
+  await expect(page).not.toHaveURL(/workspaceEntry=resume/);
 });
 
 test("folder expansion respects reduced motion and empty stages", async ({ page }) => {
