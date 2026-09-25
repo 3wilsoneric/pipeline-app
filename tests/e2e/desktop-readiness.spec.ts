@@ -215,6 +215,8 @@ test.describe("desktop feature enabled", () => {
         documentStatus: "Missing",
       },
     });
+    await page.getByRole("dialog", { name: "Workspace created", exact: true })
+      .getByRole("button", { name: "Close workspace created" }).click();
     await page.getByRole("button", { name: "Edit referral details" }).click();
     await page.getByTestId("referral-documents-input").setInputFiles({
       name: "desktop-recovery-face-sheet.pdf",
@@ -563,7 +565,7 @@ test.describe("desktop feature enabled", () => {
       await expect(page.getByRole("textbox", { name: "Current location *", exact: true })).toHaveValue(localCollisionValue);
       const duration = page.getByRole("textbox", { name: "Time at current location" });
       await duration.fill(coldStartValue);
-      await expect(page.getByText("Saved on this device · syncs after reconnect", { exact: true })).toBeVisible();
+      await expect(page.getByText("Saved on this device · reconnect, then choose Return to Pipeline and sync", { exact: true })).toBeVisible();
       const encryptedWorkingSet = await page.evaluate(async (plaintext) => {
         const database = await new Promise<IDBDatabase>((resolve, reject) => {
           const request = indexedDB.open("pipeline-offline-v1");
@@ -583,6 +585,7 @@ test.describe("desktop feature enabled", () => {
       await context.setOffline(false);
     }
 
+    await expect(page.getByText("Saved on this device · choose Return to Pipeline and sync", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Return to Pipeline and sync" }).click();
     await expect(assessmentWorkspace).toBeVisible({ timeout: 15_000 });
     await expect.poll(async () => {
