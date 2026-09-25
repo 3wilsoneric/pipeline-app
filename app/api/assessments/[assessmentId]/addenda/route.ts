@@ -33,6 +33,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
       command.value.reason_code,
       pipelineAccountableActor(auth.user),
       command.value.if_match,
+      command.value.client_mutation_id,
     );
     if (!result) return jsonError("Assessment not found.", 404);
     if (!result.ok && "conflict" in result) {

@@ -57,6 +57,27 @@ test("signing finishes before workspace navigation can change the active step", 
   expect(saved.audit_events.filter((event: { action: string }) => event.action === "assessment_signed")).toHaveLength(1);
 });
 
+test("a lost sign response replays one signature with the same mutation ID", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signature replay", owner: "", tags: [] });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const mutationIds: string[] = [];
+  await page.route(`**/api/assessments/${assessment.assessment_id}/sign`, async (route) => {
+    mutationIds.push((route.request().postDataJSON() as { client_mutation_id: string }).client_mutation_id);
+    const response = await route.fetch();
+    expect(response.ok()).toBe(true);
+    if (mutationIds.length === 1) await route.abort("failed");
+    else await route.fulfill({ response });
+  });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
+  await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+  await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Decision", exact: true })).toHaveAttribute("aria-current", "page");
+  expect(mutationIds).toHaveLength(2);
+  expect(mutationIds[1]).toBe(mutationIds[0]);
+  const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect(saved.audit_events.filter((event: { action: string }) => event.action === "assessment_signed")).toHaveLength(1);
+});
+
 test("a failed referral refresh after signing does not reopen the signature or block Decision", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signed refresh failure", owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);

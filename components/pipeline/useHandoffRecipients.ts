@@ -71,20 +71,20 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
   }, [community, endpoint]);
   const change = (next: RecipientFields) => {
     const current = session.current;
-    if (!current || !endpoint || loading || current.error) return;
-    current.fields = { ...next, message: current.fields.message }; setFields(current.fields); setMessage("Saving handoff draft...");
+    if (!current || !endpoint || loading || !current.saved) return;
+    current.fields = { ...next, message: current.fields.message }; setFields(current.fields); setMessage(current.error ? "Changes not saved. Retry saving." : "Saving handoff draft...");
     save();
   };
   const changeMessage = (next: MeetClientMessage) => {
     const current = session.current;
-    if (!current || !endpoint || loading || current.error) return;
-    current.fields = { ...current.fields, message: next }; setFields(current.fields); setMessage("Saving handoff draft...");
+    if (!current || !endpoint || loading || !current.saved) return;
+    current.fields = { ...current.fields, message: next }; setFields(current.fields); setMessage(current.error ? "Changes not saved. Retry saving." : "Saving handoff draft...");
     if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
     messageSaveTimer.current = setTimeout(() => { messageSaveTimer.current = null; save(); }, 400);
   };
   const changeRecipientInput = (lane: keyof RecipientFields, input: string) => {
     const current = session.current;
-    if (!current || loading || current.error) return;
+    if (!current || loading || !current.saved) return;
     current.input = { ...current.input, [lane]: input };
     setRecipientInput(current.input); setInputError("");
   };
@@ -169,7 +169,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
   }, []);
-  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
+  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && Boolean(session.current?.saved) };
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;

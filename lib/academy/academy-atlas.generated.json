@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:03e2d927e0af0c33",
-  "fingerprint": "03e2d927e0af0c339383668d097c3f8f31ab8aa6ec19ce312550883af8d56073",
+  "generatedAt": "source-fingerprint:f84893e2dae2ef98",
+  "fingerprint": "f84893e2dae2ef980bdead21d85771fa12df47ab1d1741320914602c073f6af3",
   "totals": {
-    "files": 1415,
-    "lines": 370524,
-    "coveredFiles": 1415
+    "files": 1420,
+    "lines": 371398,
+    "coveredFiles": 1420
   },
   "entries": [
     {
@@ -398,7 +398,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 49,
+      "lines": 50,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2304,7 +2304,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2474,
+      "lines": 2526,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -3012,7 +3012,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 601,
+      "lines": 691,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -3180,7 +3180,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 544,
+      "lines": 579,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3312,7 +3312,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4219,
+      "lines": 4243,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3336,7 +3336,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 469,
+      "lines": 495,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -8310,7 +8310,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2552,
+      "lines": 2585,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -12082,7 +12082,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 210,
+      "lines": 215,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15131,7 +15131,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 56,
+      "lines": 88,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15227,7 +15227,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 145,
+      "lines": 150,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15239,7 +15239,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 132,
+      "lines": 153,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15324,6 +15324,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 76,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "tests/e2e/assessment-recommendation-exit.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 93,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15666,6 +15678,18 @@
       ]
     },
     {
+      "path": "tests/e2e/contact-create-link-busy.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 188,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/cross-browser-smoke.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -15726,6 +15750,18 @@
       ]
     },
     {
+      "path": "tests/e2e/direct-link-referral-create-recovery.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 116,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
       "path": "tests/e2e/document-preview-rendering.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -15771,6 +15807,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/file-delete-refresh-recovery.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 57,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
       ]
     },
     {
@@ -15827,7 +15875,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 240,
+      "lines": 244,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -15900,6 +15948,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 648,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/intake-exit-guard.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 88,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -17064,7 +17124,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 81,
+      "lines": 85,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
