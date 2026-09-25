@@ -1,7 +1,7 @@
 "use client";
 
 import { fetchCurrentPipelineUser } from "@/lib/auth/authenticated-fetch";
-import { currentOfflineRecoverySessionId, loadOfflineReferralDrafts, removeOfflineReferralDraft, saveOfflineReferralDraft } from "@/lib/offline/offline-assessment-store";
+import { currentOfflineRecoverySessionId, isActiveOtherRecoverySession, loadOfflineReferralDrafts, removeOfflineReferralDraft, saveOfflineReferralDraft } from "@/lib/offline/offline-assessment-store";
 import { parsePipelineReferralDraft, type PipelineReferralDraft } from "@/lib/pipeline/user-workspace-state-types";
 import type { ReferralRecoveryDraftKey } from "@/lib/pipeline/referral-draft-recovery";
 import { isReferralDocumentCategory, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
@@ -86,7 +86,12 @@ export async function loadLocalReferralRecovery(reference: ReferralRecoveryDraft
   const drafts = await listLocalReferralRecoveries();
   const matching = drafts.filter((draft) => draft.reference === String(reference ?? "new"));
   const sessionId = await currentOfflineRecoverySessionId();
-  return matching.find((draft) => draft.sessionId === sessionId) ?? matching[0] ?? null;
+  const own = matching.find((draft) => draft.sessionId === sessionId);
+  if (own) return own;
+  for (const draft of matching) {
+    if (!await isActiveOtherRecoverySession(draft.sessionId)) return draft;
+  }
+  return null;
 }
 
 export async function clearLocalReferralRecovery(reference: ReferralRecoveryDraftKey) {

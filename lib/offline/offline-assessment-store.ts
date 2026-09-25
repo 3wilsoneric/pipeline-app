@@ -29,6 +29,23 @@ export function currentOfflineRecoverySessionId() {
   return recoverySessionPromise ??= acquireRecoverySession();
 }
 
+// A foreign draft is safe to resume automatically only after its tab has
+// released the lifetime lock. Without Web Locks we cannot prove that it did.
+export async function isActiveOtherRecoverySession(sessionId: string | undefined) {
+  if (!sessionId || sessionId === await currentOfflineRecoverySessionId()) return false;
+  if (!window.navigator.locks?.request) return true;
+  try {
+    const available = await window.navigator.locks.request(
+      `pipeline-recovery:${sessionId}`,
+      { ifAvailable: true },
+      (lock) => Boolean(lock),
+    );
+    return !available;
+  } catch {
+    return true;
+  }
+}
+
 async function acquireRecoverySession() {
   let previous = "";
   try { previous = window.sessionStorage.getItem(recoverySessionStorageKey) ?? ""; } catch { /* Storage may be disabled. */ }
@@ -106,6 +123,7 @@ export type OfflineAssessmentMutation = {
 type StoredMutation = EncryptedPayload & {
   id: string;
   principal: string;
+  sessionId?: string;
   updatedAt: number;
   expiresAt: number;
 };
@@ -174,6 +192,7 @@ export async function loadOfflineAssessmentDraft(principalId: string, assessment
         continue;
       }
       if (draft.assessmentId !== assessmentId) continue;
+      if (await isActiveOtherRecoverySession(record.sessionId)) continue;
       if (draft.dirtySections.length > 0 || draft.scheduleDraft) {
         if (record.sessionId === sessionId) return draft;
         otherPending ??= draft;
@@ -206,7 +225,8 @@ export async function saveOfflineAssessmentWorkingSet(
   const principal = await hashValue(principalId);
   if (options.activate !== false) await enforceActivePrincipal(database, principal);
   const key = await getOrCreateKey(database, principal);
-  const id = await recordId(principal, "assessment-working-set", draft.assessmentId);
+  const sessionId = await currentOfflineRecoverySessionId();
+  const id = await recordId(principal, "assessment-working-set", `${draft.assessmentId}:${sessionId}`);
   const workingSet = createWorkingSet(draft, returnPath, options.editable);
   const encrypted = await encryptPayload(key, principal, id, workingSet);
   const now = Date.now();
@@ -217,13 +237,13 @@ export async function saveOfflineAssessmentWorkingSet(
     // A late save acknowledgment can refresh the active offline copy, but must
     // never reactivate an old assessment or remove the one now being worked on.
     if (options.activate === false && previousActive?.recordId !== id) return;
-    if (previousActive?.recordId && previousActive.recordId !== id) {
-      transaction.objectStore(recordsStore).delete(previousActive.recordId);
-    }
+    // Another live tab may still need its encrypted working set. Old slots
+    // expire with the store instead of being replaced by this tab's snapshot.
     transaction.objectStore(recordsStore).put({
       id,
       principal,
       kind: "assessment-working-set",
+      sessionId,
       updatedAt: now,
       expiresAt: now + expiryMs,
       ...encrypted,
@@ -242,25 +262,33 @@ export async function saveOfflineAssessmentWorkingSet(
 
 export async function loadOfflineAssessmentWorkingSet(principalId: string, assessmentId: string) {
   const database = await openDatabase();
-  const principal = await hashValue(principalId);
-  const id = await recordId(principal, "assessment-working-set", assessmentId);
-  const stored = await request<StoredRecord | undefined>(database.transaction(recordsStore).objectStore(recordsStore).get(id));
-  if (!stored || stored.expiresAt <= Date.now()) {
-    if (stored) await deleteWorkingSet(database, id);
-    database.close();
+  try {
+    const principal = await hashValue(principalId);
+    const sessionId = await currentOfflineRecoverySessionId();
+    const records = (await recordsForPrincipal<StoredRecord>(database, recordsStore, principal))
+      .filter((record) => record.kind === "assessment-working-set" && record.expiresAt > Date.now())
+      .sort((left, right) => Number(right.sessionId === sessionId) - Number(left.sessionId === sessionId) || right.updatedAt - left.updatedAt);
+    if (!records.length) return null;
+    const key = await getOrCreateKey(database, principal);
+    for (const stored of records) {
+      if (await isActiveOtherRecoverySession(stored.sessionId)) continue;
+      const workingSet = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, stored.id, stored);
+      if (workingSet.draft.assessmentId === assessmentId) return workingSet;
+    }
     return null;
+  } finally {
+    database.close();
   }
-  const key = await getOrCreateKey(database, principal);
-  const value = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, id, stored);
-  database.close();
-  return value;
 }
 
 export async function removeOfflineAssessmentWorkingSet(principalId: string, assessmentId: string) {
   const database = await openDatabase();
   const principal = await hashValue(principalId);
-  const id = await recordId(principal, "assessment-working-set", assessmentId);
+  const id = await recordId(principal, "assessment-working-set", `${assessmentId}:${await currentOfflineRecoverySessionId()}`);
   await deleteWorkingSet(database, id);
+  // Retire the pre-session slot too, so an older snapshot cannot resurface
+  // after this tab has confirmed its newer working set is no longer needed.
+  await deleteWorkingSet(database, await recordId(principal, "assessment-working-set", assessmentId));
   database.close();
 }
 
@@ -268,13 +296,15 @@ export async function queueOfflineAssessmentMutation(principalId: string, mutati
   const database = await openDatabase();
   const principal = await hashValue(principalId);
   const key = await getOrCreateKey(database, principal);
-  const id = await recordId(principal, "assessment-mutation", mutation.dedupeKey);
+  const sessionId = await currentOfflineRecoverySessionId();
+  const id = await recordId(principal, "assessment-mutation", `${mutation.dedupeKey}:${sessionId}`);
   const encrypted = await encryptPayload(key, principal, id, mutation);
   const now = Date.now();
   const transaction = database.transaction(mutationsStore, "readwrite");
   transaction.objectStore(mutationsStore).put({
     id,
     principal,
+    sessionId,
     updatedAt: now,
     expiresAt: now + expiryMs,
     ...encrypted,
@@ -306,6 +336,7 @@ export async function flushOfflineAssessmentMutations(
   let completed = 0;
   let conflicts = 0;
   for (const stored of records) {
+    if (await isActiveOtherRecoverySession(stored.sessionId)) continue;
     const mutation = await decryptPayload<OfflineAssessmentMutation>(key, principal, stored.id, stored);
     try {
       await sender(mutation);

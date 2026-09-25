@@ -88,6 +88,7 @@ import {
   type ReferralLocalRecovery,
 } from "@/lib/pipeline/referral-local-recovery";
 import { forgetVolatileReferralRecovery, registerReferralEditor, rememberVolatileReferralRecovery, volatileReferralRecovery } from "@/lib/pipeline/volatile-recovery";
+import { isActiveOtherRecoverySession } from "@/lib/offline/offline-assessment-store";
 import { createDefaultAdmissionRequirements } from "@/lib/pipeline/workflow-records";
 import type { ReferralChangeSnapshot, ReferralPresenceView } from "@/lib/pipeline/collaboration-types";
 import { getReferralPatchSections, normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
@@ -878,7 +879,9 @@ export default function ReferralPacketCanvas({
       loadServerReferralDraft(reference), loadLocalReferralRecovery(reference), referralRecoveryPrincipal(),
     ]);
     const localRecovery = local.status === "fulfilled" ? local.value : null;
-    const serverDraft = server.status === "fulfilled" ? server.value : null;
+    const candidateServerDraft = server.status === "fulfilled" ? server.value : null;
+    const serverDraft = candidateServerDraft && !await isActiveOtherRecoverySession(candidateServerDraft.recoverySessionId)
+      ? candidateServerDraft : null;
     const volatile = principal.status === "fulfilled" ? volatileReferralRecovery(principal.value, reference) : null;
     if (volatile && (!localRecovery || Date.parse(volatile.draft.savedAt) >= Date.parse(localRecovery.draft.savedAt))
       && (!serverDraft || Date.parse(volatile.draft.savedAt) >= Date.parse(serverDraft.savedAt))) {

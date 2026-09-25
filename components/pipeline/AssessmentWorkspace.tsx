@@ -59,8 +59,10 @@ import type { AssessmentDraftWorkbookSources, PipelineAssessmentDraft } from "@/
 import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
 import { forgetVolatileAssessmentRecovery, registerAssessmentEditor, rememberVolatileAssessmentRecovery, volatileAssessmentRecovery } from "@/lib/pipeline/volatile-recovery";
 import {
+  currentOfflineRecoverySessionId,
   flushOfflineAssessmentMutations,
   initializeOfflineAssessmentStore,
+  isActiveOtherRecoverySession,
   loadOfflineAssessmentDraft,
   loadOfflineAssessmentWorkingSet,
   pendingOfflineAssessmentMutations,
@@ -694,11 +696,13 @@ export default function AssessmentWorkspace({
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (trainingAssessmentMode) return;
     if (dirtySectionsRef.current.size === 0 && !pendingScheduleRef.current) return;
+    const recoverySessionId = await currentOfflineRecoverySessionId();
     const recovery: PipelineAssessmentDraft = {
       schema: 1,
       assessmentId: assessment.assessment_id,
       ...(referralId ? { referralId } : {}),
       savedAt: new Date().toISOString(),
+      recoverySessionId,
       baseVersion: assessment.version,
       sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
       dirtySections: [...dirtySectionsRef.current],
@@ -2484,7 +2488,9 @@ async function readAssessmentRecovery(assessmentId: string, principal: string | 
       const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
         `/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, { cache: "no-store" },
       );
-      if (!hasPendingRecovery(recovered)) recovered = newestRecoveryDraft(recovered, payload.draft);
+      if (!hasPendingRecovery(recovered) && !await isActiveOtherRecoverySession(payload.draft?.recoverySessionId)) {
+        recovered = newestRecoveryDraft(recovered, payload.draft);
+      }
       recoveredVersion = payload.version;
     } catch {
       // Browser recovery remains available during a transient server-state outage.
