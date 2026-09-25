@@ -30,6 +30,7 @@ import UnderReviewEmailDialog, { defaultUnderReviewMessage } from "./UnderReview
 
 type ReferralWorkflowPanelProps = {
   referral: Referral;
+  workspaceActive?: boolean;
   onReferralChange: (referral: Referral) => void;
   onOpenIntake: () => void;
   onOpenAssessment: () => void;
@@ -41,6 +42,8 @@ type ReferralWorkflowPanelProps = {
   recommendationAssessmentId?: string;
   onSavingChange?: (saving: boolean) => void;
   beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
+  beforeWorkspaceExitRef?: RefObject<(() => Promise<void>) | null>;
+  onRequirementStateChange?: (state: { pending: number; failed: number }) => void;
 };
 
 type RecommendationDraft = {
@@ -51,6 +54,7 @@ type RecommendationDraft = {
 
 export default function ReferralWorkflowPanel({
   referral,
+  workspaceActive = true,
   onReferralChange,
   onOpenIntake,
   onOpenAssessment,
@@ -62,6 +66,8 @@ export default function ReferralWorkflowPanel({
   recommendationAssessmentId,
   onSavingChange,
   beforeWorkspaceNavigationRef,
+  beforeWorkspaceExitRef,
+  onRequirementStateChange,
 }: ReferralWorkflowPanelProps) {
   const { confirm, confirmationDialog } = useConfirmationDialog();
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
@@ -84,11 +90,21 @@ export default function ReferralWorkflowPanel({
   const admissionDateDirty = useRef(false);
   const mutationInFlight = useRef(false);
   const pendingRequirementIds = useRef(new Set<string>());
+  const failedRequirementIds = useRef(new Set<string>());
   const mutationTail = useRef<Promise<void>>(Promise.resolve());
 
-  const guardNavigation = useEffectEvent(async () => {
+  const guardInternalNavigation = useEffectEvent(async () => {
+    if (emailSending || (mutationInFlight.current && pendingRequirementIds.current.size === 0)) {
+      throw new Error("Wait for this decision action to finish before leaving.");
+    }
+  });
+  const guardWorkspaceExit = useEffectEvent(async () => {
     try {
+      if (emailSending) throw new Error("Wait for the email delivery result before leaving.");
       if (mutationInFlight.current || pendingRequirementIds.current.size > 0) throw new Error("Wait for the decision changes to finish saving before leaving.");
+      if (failedRequirementIds.current.size > 0 && !await confirm({ title: "Leave with unsaved paperwork changes?", message: "Some paperwork changes did not save. Stay to retry them, or leave without those changes.", confirmLabel: "Leave without changes", cancelLabel: "Stay and retry", destructive: true })) {
+        throw new Error("The paperwork changes are still unsaved. Retry them before leaving.");
+      }
       if (recommendationDirty.current) {
         if (!await confirm({ title: "Leave without recording these changes?", message: "Your changes to the admission decision have not been recorded. Stay to finish them, or discard these changes and leave.", confirmLabel: "Discard changes", cancelLabel: "Keep editing" })) {
           throw new Error("Your decision changes are still open. Record them when you are ready.");
@@ -102,21 +118,27 @@ export default function ReferralWorkflowPanel({
     }
   });
   useEffect(() => {
-    if (compactRecommendation || !beforeWorkspaceNavigationRef) return;
-    const guard = () => guardNavigation();
+    if (compactRecommendation || !workspaceActive || !beforeWorkspaceNavigationRef) return;
+    const guard = () => guardInternalNavigation();
     beforeWorkspaceNavigationRef.current = guard;
     return () => { if (beforeWorkspaceNavigationRef.current === guard) beforeWorkspaceNavigationRef.current = null; };
-  }, [beforeWorkspaceNavigationRef, compactRecommendation]);
+  }, [beforeWorkspaceNavigationRef, compactRecommendation, workspaceActive]);
+  useEffect(() => {
+    if (compactRecommendation || !beforeWorkspaceExitRef) return;
+    const guard = () => guardWorkspaceExit();
+    beforeWorkspaceExitRef.current = guard;
+    return () => { if (beforeWorkspaceExitRef.current === guard) beforeWorkspaceExitRef.current = null; };
+  }, [beforeWorkspaceExitRef, compactRecommendation]);
   useEffect(() => {
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!mutationInFlight.current && pendingRequirementIds.current.size === 0 && !recommendationDirty.current && !admissionDateDirty.current) return;
+      if (!emailSending && !mutationInFlight.current && pendingRequirementIds.current.size === 0 && failedRequirementIds.current.size === 0 && !recommendationDirty.current && !admissionDateDirty.current) return;
       event.preventDefault(); event.returnValue = "";
     };
     window.addEventListener("beforeunload", warnBeforeUnload);
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, []);
+  }, [emailSending]);
   usePersonaSwitchSave(async () => {
-    if (mutationInFlight.current || pendingRequirementIds.current.size > 0 || recommendationDirty.current || admissionDateDirty.current) throw new Error("Finish saving the decision changes before switching accounts.");
+    if (emailSending || mutationInFlight.current || pendingRequirementIds.current.size > 0 || failedRequirementIds.current.size > 0 || recommendationDirty.current || admissionDateDirty.current) throw new Error("Finish saving the decision changes before switching accounts.");
   });
 
   const loadWorkflow = useCallback(async (signal?: AbortSignal) => {
@@ -266,6 +288,8 @@ export default function ReferralWorkflowPanel({
   const saveRequirement = async (item: AdmissionRequirement, status: RequirementStatus, detail = "") => {
     if (pendingRequirementIds.current.has(item.id)) return;
     pendingRequirementIds.current.add(item.id);
+    failedRequirementIds.current.delete(item.id);
+    onRequirementStateChange?.({ pending: pendingRequirementIds.current.size, failed: failedRequirementIds.current.size });
     setPendingRequirements((current) => ({ ...current, [item.id]: status }));
     setRequirementErrors((current) => { const next = { ...current }; delete next[item.id]; return next; });
     const patch: Record<string, unknown> = { status };
@@ -289,11 +313,16 @@ export default function ReferralWorkflowPanel({
         referral: saved.referral && (saved.referral.version ?? 0) >= (current.referral.version ?? 0) ? saved.referral : current.referral,
         work_items: current.work_items.map((entry) => entry.id === item.id && (entry.version ?? 1) <= (saved.work_item.version ?? 1) ? saved.work_item : entry),
       } : current);
-      else setRequirementErrors((current) => ({ ...current, [item.id]: "Status not saved. Choose a status to retry." }));
+      else {
+        failedRequirementIds.current.add(item.id);
+        setRequirementErrors((current) => ({ ...current, [item.id]: "Status not saved. Choose a status to retry." }));
+      }
     } catch {
+      failedRequirementIds.current.add(item.id);
       setRequirementErrors((current) => ({ ...current, [item.id]: "Status not saved. Choose a status to retry." }));
     } finally {
       pendingRequirementIds.current.delete(item.id);
+      onRequirementStateChange?.({ pending: pendingRequirementIds.current.size, failed: failedRequirementIds.current.size });
       setPendingRequirements((current) => { const next = { ...current }; delete next[item.id]; return next; });
     }
   };

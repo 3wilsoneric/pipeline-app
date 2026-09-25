@@ -422,6 +422,8 @@ export default function ReferralPacketCanvas({
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
+  const [decisionVisitedReferral, setDecisionVisitedReferral] = useState<number | undefined>();
+  const [decisionSaveState, setDecisionSaveState] = useState<{ referralId?: number; pending: number; failed: number }>({ pending: 0, failed: 0 });
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -443,6 +445,7 @@ export default function ReferralPacketCanvas({
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
   const assessmentNavigationRef = useRef<(() => Promise<void>) | null>(null);
+  const decisionExitRef = useRef<(() => Promise<void>) | null>(null);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const handoff = useHandoffRecipients(activeReferralId(loadedReferral, referral), fields.community.value);
@@ -458,6 +461,7 @@ export default function ReferralPacketCanvas({
       if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
       await flushHandoff();
       await assessmentNavigationRef.current?.();
+      await decisionExitRef.current?.();
     };
     beforeNavigationRef.current = waitForDelivery;
     return () => {
@@ -1199,6 +1203,8 @@ export default function ReferralPacketCanvas({
   };
 
   const applyConfirmedWorkflowReferral = (latest: Referral) => {
+    const current = loadedReferralRef.current;
+    if (current && (latest.version ?? 1) <= (current.version ?? 1)) return;
     loadedReferralRef.current = latest;
     setLoadedReferral(latest);
     setRemoteChange(null);
@@ -2301,9 +2307,13 @@ export default function ReferralPacketCanvas({
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
+  const readingDecision = displayedPage === "workflow" && Boolean(loadedReferral);
   useEffect(() => {
     if (readingAssessment) setAssessmentVisitedReferral(referralWorkspaceId);
   }, [readingAssessment, referralWorkspaceId]);
+  useEffect(() => {
+    if (readingDecision) setDecisionVisitedReferral(referralWorkspaceId);
+  }, [readingDecision, referralWorkspaceId]);
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
@@ -2316,6 +2326,8 @@ export default function ReferralPacketCanvas({
   const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
   const queuedFileCount = Object.keys(pendingDocuments).length + Number(Boolean(initialPacket)) + additionalFiles.length;
   const saveStatus = referralDraftSaveStatus(savedAt, hasReferral, queuedFileCount);
+  const decisionSaveForCurrent = decisionSaveState.referralId === referralWorkspaceId ? decisionSaveState : null;
+  const decisionSaveNotice = Boolean(decisionSaveForCurrent && (decisionSaveForCurrent.pending > 0 || decisionSaveForCurrent.failed > 0));
 
   const moveWorkspaceToTrash = async () => {
     const current = loadedReferralRef.current;
@@ -2505,7 +2517,7 @@ export default function ReferralPacketCanvas({
 
             {renderWorkspaceActions()}
           </div>
-          {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
+          {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!decisionSaveNotice || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
             <WorkspaceSaveStatus
               status={saveStatus}
               error={saveError}
@@ -2771,6 +2783,12 @@ export default function ReferralPacketCanvas({
       >
         {renderWorkspaceHeader()}
 
+        {decisionSaveForCurrent && decisionSaveNotice ? <div role={decisionSaveForCurrent.failed > 0 ? "alert" : "status"} className="mb-3 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
+          {decisionSaveForCurrent.failed > 0
+            ? `${decisionSaveForCurrent.failed} paperwork change${decisionSaveForCurrent.failed === 1 ? "" : "s"} not saved. Open Decision to retry.`
+            : `${decisionSaveForCurrent.pending} paperwork change${decisionSaveForCurrent.pending === 1 ? "" : "s"} saving or queued…`}
+        </div> : null}
+
         {renderRestoredEdits()}
 
         {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
@@ -2790,7 +2808,7 @@ export default function ReferralPacketCanvas({
 
         {renderExtractionConflict()}
 
-        {!readingAssessment ? <div key={displayedPage} className="pipeline-step-enter">
+        {!readingAssessment && !readingDecision ? <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart" flush>
               <WorkspaceChartFolder>
@@ -2802,22 +2820,6 @@ export default function ReferralPacketCanvas({
           ) : displayedPage === "files" ? (
             <PacketPage id="packet-files" title={workspacePresentation.filesLabel}>
               <div className="max-sm:px-3">{renderDocumentUpload(false)}</div>
-            </PacketPage>
-          ) : displayedPage === "workflow" && loadedReferral ? (
-            <PacketPage id="admission-workflow" title="Decision" flush>
-              <WorkspaceChartFolder>
-              <ReferralWorkflowPanel
-                referral={loadedReferral}
-                beforeWorkspaceNavigationRef={assessmentNavigationRef}
-                onDone={onOpenAssignedWork ? openAssignedWork : undefined}
-                onReferralChange={applyConfirmedWorkflowReferral}
-                onOpenIntake={() => void navigatePage(1)}
-                onOpenAssessment={() => void navigatePage(2)}
-                onOpenFiles={() => void navigatePage("files")}
-                onOpenEmail={() => openPage("email")}
-                onOpenProfile={onOpenProfile}
-              />
-              </WorkspaceChartFolder>
             </PacketPage>
           ) : displayedPage === "email" ? (
             <PacketPage id="packet-email" title="Finish & send" flush>
@@ -2847,6 +2849,28 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           )}
         </div> : null}
+        {loadedReferral && (readingDecision || decisionVisitedReferral === referralWorkspaceId) ? (
+          <div key={`decision-${referralWorkspaceId}`} className="pipeline-step-enter" style={{ display: readingDecision ? undefined : "none" }} aria-hidden={!readingDecision} inert={!readingDecision}>
+            <PacketPage id="admission-workflow" title="Decision" flush>
+              <WorkspaceChartFolder>
+                <ReferralWorkflowPanel
+                  referral={loadedReferral}
+                  workspaceActive={readingDecision}
+                  beforeWorkspaceNavigationRef={assessmentNavigationRef}
+                  beforeWorkspaceExitRef={decisionExitRef}
+                  onRequirementStateChange={({ pending, failed }) => setDecisionSaveState({ referralId: loadedReferral.id, pending, failed })}
+                  onDone={onOpenAssignedWork ? openAssignedWork : undefined}
+                  onReferralChange={applyConfirmedWorkflowReferral}
+                  onOpenIntake={() => void navigatePage(1)}
+                  onOpenAssessment={() => void navigatePage(2)}
+                  onOpenFiles={() => void navigatePage("files")}
+                  onOpenEmail={() => openPage("email")}
+                  onOpenProfile={onOpenProfile}
+                />
+              </WorkspaceChartFolder>
+            </PacketPage>
+          </div>
+        ) : null}
         {(readingAssessment || (assessmentVisitedReferral !== undefined && assessmentVisitedReferral === referralWorkspaceId)) ? (
           <div key={`assessment-${referralWorkspaceId ?? "training"}`} className={workspaceFolderStyles.readingPages} style={{ display: readingAssessment ? undefined : "none" }} aria-hidden={!readingAssessment} inert={!readingAssessment}>
             <PacketPage id="packet-page-2" title={displayedPage === 3 ? "Chart" : "Assessment"} flush>
