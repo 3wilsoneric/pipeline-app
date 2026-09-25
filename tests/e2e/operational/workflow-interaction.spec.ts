@@ -92,12 +92,14 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(panel).not.toContainText("could not be checked");
       const referrals: Referral[] = [];
       for (let index = 0; index < 8; index += 1) referrals.push(await createReferral(coordinator, uniqueName(), pipelineActors.assessorA.id));
-      const refreshed = page.waitForResponse((response) => response.url().endsWith("/api/operations/home") && response.ok());
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-      const snapshot = await (await refreshed).json();
+      await expect(panel.getByRole("button", { name: new RegExp(referrals.at(-1)!.name!) })).toBeVisible();
+      await expect(panel.getByRole("button", { name: /Show \d+ more assignments/ })).toBeVisible();
+      const refreshed = await assessor.get("/api/operations/home");
+      expect(refreshed.status()).toBe(200);
+      const snapshot = await refreshed.json();
       const ids = new Set(referrals.map((referral) => referral.id));
       expect(snapshot.continuity.new_assignments.filter((item: { workspace: { referral_id: number } }) => ids.has(item.workspace.referral_id))).toHaveLength(8);
-      await expect(panel.getByRole("button", { name: /Show \d+ more assignments/ })).toBeVisible();
       await page.getByRole("tab", { name: "Board", exact: true }).click();
       const currentWork = page.getByRole("region", { name: "Current work", exact: true });
       await expect(currentWork.getByRole("button", { name: "Open current work" })).toBeVisible();
