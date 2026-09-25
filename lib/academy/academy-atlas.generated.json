@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f2d3f499bde21b7d",
-  "fingerprint": "f2d3f499bde21b7d1a445a4add754be15b460b697c34e4bfda61546385b7d5f3",
+  "generatedAt": "source-fingerprint:f50d4209d6763494",
+  "fingerprint": "f50d4209d676349445b41b8975ac72cfdcdd05564f1f892deda8935177d46c57",
   "totals": {
-    "files": 1420,
-    "lines": 371453,
-    "coveredFiles": 1420
+    "files": 1421,
+    "lines": 371791,
+    "coveredFiles": 1421
   },
   "entries": [
     {
@@ -2304,7 +2304,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2526,
+      "lines": 2566,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -3012,7 +3012,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 691,
+      "lines": 693,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -3156,7 +3156,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 35,
+      "lines": 53,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3312,7 +3312,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4243,
+      "lines": 4276,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3360,7 +3360,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 264,
+      "lines": 266,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3432,7 +3432,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 92,
+      "lines": 161,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -15095,7 +15095,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 269,
+      "lines": 290,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15563,7 +15563,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 318,
+      "lines": 397,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15923,7 +15923,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 525,
+      "lines": 542,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16488,7 +16488,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2894,
+      "lines": 2912,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -17056,6 +17056,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/workspace-navigation-recovery.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 39,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
       ]
     },
     {

@@ -235,23 +235,25 @@ dialog.expandedFolder > div:first-child > button:focus-visible { outline: 2px so
 .detailValue { display: -webkit-box; margin-top: 3px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: #25382e; font-size: 13px; font-weight: 650; line-height: 18px; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 639px), (min-width: 1024px) and (hover: hover) and (pointer: fine) {
-  .folder:not(:last-child) { margin-bottom: -218px; }
-  .folder { transition: margin-bottom 160ms ease-out; }
+  /* The clickable area must match the exposed card, or a covered card can
+     intercept clicks meant for the file in front of it. */
+  .stack > .folder:not(:last-child) { height: 86px; margin-bottom: 0; }
+  .stack > .folder { transition: height 160ms ease-out; }
 
   /* Keep names and status tabs exposed; tapping a phone folder opens it directly. */
-  .folder:not(:last-child) .paper > * { opacity: 0; }
-  .folder:not(:last-child):focus-visible { margin-bottom: -130px; }
-  .folder:not(:last-child):focus-visible :is(.fileIndex, .nextStep) { opacity: 1; }
+  .stack > .folder:not(:last-child) .paper > * { opacity: 0; }
+  .stack > .folder:not(:last-child):focus-visible { height: 174px; }
+  .stack > .folder:not(:last-child):focus-visible :is(.fileIndex, .nextStep) { opacity: 1; }
 }
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
   .body { height: 250px; }
-  .folder:not(:last-child):is(:hover, :focus-within) { margin-bottom: -130px; }
-  .folder:not(:last-child):is(:hover, :focus-within) :is(.fileIndex, .nextStep) { opacity: 1; }
+  .stack > .folder:not(:last-child):is(:hover, :focus-within) { height: 174px; }
+  .stack > .folder:not(:last-child):is(:hover, :focus-within) :is(.fileIndex, .nextStep) { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .folder, .docket { transition: none; }
+  .folder, .stack > .folder, .docket { transition: none; }
   .docket:hover:not(:has(dialog[open])) { transform: none; }
   .expandedGrid .folder, .expandedGrid .folder:not(:last-child), .expandedGrid .folder:not(:last-child):is(:hover, :focus-within) { transition: none; transform: none; filter: none; }
 }
