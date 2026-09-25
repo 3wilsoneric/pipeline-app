@@ -513,66 +513,71 @@
 
   .pipeline-surfaces [aria-label="Current work board"] > label select { border-radius: var(--radius-input); border-color: var(--color-control-border); font-weight: 500; }
 
-  /* Directory tools, browsing, and records are distinct surfaces, not extra cards. */
-  .pipeline-surfaces [data-guide-target="workspace-directory"] {
-    background: linear-gradient(125deg, var(--pipeline-surface), var(--pipeline-canvas) 48%, #e4eae7);
-    color: var(--surface-ink);
-  }
-  .pipeline-surfaces [data-guide-target="workspace-directory"] > div:first-child { padding-top: 8px; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+  /* Workspaces (docs/design/DECISIONS.md, "Workspaces"): the Home board's layers. Warm page, white cards
+     (tools, browsing, results), a quiet table: sentence-case headers, readable detail, one link-green cue. */
+  .pipeline-surfaces [data-guide-target="workspace-directory"] { background: var(--color-page); color: var(--color-ink); }
+  .pipeline-surfaces [data-guide-target="workspace-directory"] > div:first-child { padding-top: 16px; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
   .pipeline-surfaces [aria-label="Workspace directory sections"] { gap: 4px; }
-  .pipeline-surfaces [aria-label="Workspace directory sections"] button {
-    min-height: 44px;
-    padding-inline: 14px;
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: none;
-    letter-spacing: 0;
+  .pipeline-surfaces [aria-label="Workspace directory sections"] button { min-height: 44px; padding-inline: 14px; font-size: var(--text-label); font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .pipeline-surfaces [aria-label="Workspace directory sections"] button[aria-selected="true"] { background: var(--color-primary-soft); color: var(--color-link); }
+  .pipeline-surfaces [aria-label="Workspace directory sections"] button > span { font-size: var(--text-meta); font-weight: 500; }
+  .pipeline-surfaces :is([aria-label="Workspace scope"], [aria-label="Workspace layout"]) { border-color: var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); }
+  .pipeline-surfaces :is([aria-label="Workspace scope"], [aria-label="Workspace layout"]) button { border-radius: var(--radius-chip); font-size: var(--text-label); font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .pipeline-surfaces [aria-label="Workspace layout"] button[aria-pressed="true"] { background: var(--color-segment); color: var(--color-ink); }
+
+  /* Tools card: search and the three filters read as one set of controls. */
+  .pipeline-surfaces [data-guide-target="workspace-directory"] > div > div:has(> [data-guide-target="workspace-search"]) { margin-bottom: 16px; padding: 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .pipeline-surfaces [data-guide-target="workspace-search"] { height: 44px; padding-inline: 14px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-sheet); }
+  .pipeline-surfaces [data-guide-target="workspace-search"]:focus-within { border-color: var(--color-link); outline: 2px solid var(--color-primary-soft); }
+  .pipeline-surfaces [data-guide-target="workspace-search"] svg { color: var(--color-ink-muted); }
+  .pipeline-surfaces [data-guide-target="workspace-search"] input { font-size: var(--text-value); color: var(--color-ink); }
+  .pipeline-surfaces [data-guide-target="workspace-search"] input::placeholder { color: var(--color-ink-muted); }
+  .pipeline-surfaces [data-guide-target="workspace-search"] > span { color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 500; }
+  .pipeline-surfaces [data-guide-target="workspace-directory"] :is(select, [aria-haspopup="listbox"], details > summary) { height: 40px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background-color: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 500; }
+  .pipeline-surfaces [data-guide-target="workspace-directory"] select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+  /* Native selects take the same chevron as the custom filters. */
+  @supports (appearance: base-select) and selector(select::picker(select)) {
+    .pipeline-surfaces [data-guide-target="workspace-directory"] select:not([multiple]):not([size]) { padding-right: 36px; background-image: linear-gradient(45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%); background-position: calc(100% - 20px) 50%, calc(100% - 16px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+    .pipeline-surfaces [data-guide-target="workspace-directory"] select:not([multiple]):not([size])::picker-icon { display: none; }
   }
-  .pipeline-surfaces [aria-label="Workspace directory sections"] button[aria-selected="true"] { background: linear-gradient(0deg, #d6ede2, transparent); }
-  .pipeline-surfaces [aria-label="Workspace directory sections"] button:last-child { color: #386c96; }
-  .pipeline-surfaces [aria-label="Workspace directory sections"] button:last-child[aria-selected="true"] { border-color: #457fad; background: linear-gradient(0deg, #dcebf7, transparent); }
-  .pipeline-surfaces [aria-label="Workspace directory sections"] button > span { font-size: 11px; font-weight: 500; }
-  .pipeline-surfaces :is([aria-label="Workspace scope"], [aria-label="Workspace layout"]) { border-color: #cbd6de; border-radius: 6px; background: rgb(255 255 255 / 80%); }
-  .pipeline-surfaces :is([aria-label="Workspace scope"], [aria-label="Workspace layout"]) button { border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; }
-  .pipeline-surfaces [aria-label="Workspace layout"] button[aria-pressed="true"] { background: #e4eef8; color: #315f83; }
+  .pipeline-surfaces [aria-label="Browse workspaces by month and community"] { border-color: var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); }
+  .pipeline-surfaces [aria-label="Browse workspaces by month and community"] span { font-weight: 600; }
+  .pipeline-surfaces [aria-label="Browse workspaces by month and community"] svg { color: var(--color-ink-muted); }
 
-  .pipeline-surfaces [data-guide-target="workspace-directory"] > div > div:has(> [data-guide-target="workspace-search"]) {
-    margin-bottom: 14px;
-    padding: 10px;
-    border: 1px solid #cdd9df;
-    border-radius: 7px;
-    background: rgb(255 255 255 / 86%);
-    box-shadow: 0 1px 0 #fff inset, 0 3px 6px rgb(32 45 60 / 3%);
-  }
-  .pipeline-surfaces [data-guide-target="workspace-search"] { height: 44px; padding-inline: 12px; border: 1px solid #cdd8df; border-radius: 5px; background: #f6f9fb; }
-  .pipeline-surfaces [data-guide-target="workspace-search"]:focus-within { border-color: #0f8b73; outline: 2px solid #c1e5d9; }
-  .pipeline-surfaces [data-guide-target="workspace-search"] input { font-size: 15px; }
-  .pipeline-surfaces [data-guide-target="workspace-search"] > span { font-size: 11px; font-weight: 500; }
-  .pipeline-surfaces [data-guide-target="workspace-directory"] select { border: 1px solid #cdd8df; border-radius: 5px; background-color: #fff; color: #3d4b59; font-size: 13px; font-weight: 500; }
-  .pipeline-surfaces [data-guide-target="workspace-directory"] select:focus-visible { outline: 2px solid #007e60; outline-offset: 1px; }
+  /* Browsing card. */
+  .pipeline-surfaces [aria-label="Workspace navigation"] { padding: 8px; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .pipeline-surfaces [aria-label="Workspace navigation"] button { border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 500; }
+  .pipeline-surfaces [aria-label="Workspace navigation"] button:hover { border-color: transparent; background: var(--color-segment); color: var(--color-ink); }
+  .pipeline-surfaces [aria-label="Workspace views"] button { font-weight: 600; }
+  .pipeline-surfaces [aria-label="Workspace navigation"] button[aria-current] { border-color: transparent; background: var(--color-primary-soft); color: var(--color-link); box-shadow: none; }
+  .pipeline-surfaces [aria-label="Workspace navigation"] button svg { color: inherit; }
+  .pipeline-surfaces [aria-label="Workspace navigation"] [aria-expanded] > span:first-of-type { color: var(--color-ink); font-size: var(--text-label); font-weight: 600; }
+  .pipeline-surfaces [aria-label="Workspace navigation"] button > span:last-child { color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 500; }
 
-  .pipeline-surfaces [aria-label="Workspace navigation"] { padding: 8px; border: 1px solid #e0e6e3; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgb(27 39 35 / 2%), 0 12px 24px -20px rgb(27 39 35 / 18%); }
-  .pipeline-surfaces [aria-label="Workspace navigation"] button { border-radius: 7px; font-size: 13px; font-weight: 500; }
-  .pipeline-surfaces [aria-label="Workspace views"] button { font-weight: 600; color: #59645e; }
-  .pipeline-surfaces [aria-label="Workspace views"] button:hover { border-color: transparent; background: #f5f7f6; color: #25382e; }
-  .pipeline-surfaces [aria-label="Workspace views"] button[aria-current="page"] { background: #eef6f2; border-color: transparent; color: #0c705f; box-shadow: inset 3px 0 #0f8b73; }
-  .pipeline-surfaces [aria-label="Workspace navigation"] [aria-expanded] > span:first-of-type { font-size: 12px; font-weight: 600; }
-  .pipeline-surfaces [aria-label="Workspace navigation"] button > span:last-child { font-weight: 500; }
-
-  .pipeline-surfaces [data-testid="workspace-content-grid"] > section { overflow: hidden; border: 1px solid #cdd8df; border-radius: 7px; box-shadow: 0 2px 4px rgb(32 45 60 / 3%), 0 8px 16px -12px rgb(32 45 60 / 25%); }
-  .pipeline-surfaces [aria-label="Referral worklist"] > div > div > div:first-child { border-top: 0; border-color: #d8e1e8; background: #edf3f8; font-size: 11px; font-weight: 600; color: #55677a; }
-  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] { transition: background-color 120ms; }
-  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"]:hover { background: #f1f8f5; }
-  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] span[title] { font-size: 15px; font-weight: 600; color: #252f3b; }
-  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] span[title] + span { font-size: 11px; color: #65717e; }
-  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] > span:nth-last-child(2),
-  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] > span:nth-last-child(3) { font-size: 12px; }
-  .pipeline-surfaces [data-testid="workspace-chart-thumbnail"] { border-radius: 5px; border-color: #bdd5cb; background: #e3f1e9; }
+  /* Results card and table. */
+  .pipeline-surfaces [data-testid="workspace-content-grid"] > section { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .pipeline-surfaces [aria-label="Referral worklist"] > div > div > div:first-child { border-top: 0; border-color: var(--color-paper-rule); background: var(--color-sheet); color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .pipeline-surfaces [aria-label="Referral worklist"] :is(.divide-y, [class*="divide-"]) > * { border-color: var(--color-paper-rule); }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] { transition: background-color var(--duration-fade) ease; }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"]:hover { background: var(--color-sheet); }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-workspace-name] { color: var(--color-ink); font-size: var(--text-value); font-weight: 600; }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-workspace-name] + span { color: var(--color-ink-muted); font-size: var(--text-meta); }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] > span:nth-child(2) > span:first-child { color: var(--color-ink-muted); font-size: var(--text-meta); }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] > span:nth-child(2) > span:first-child > span:first-child { color: var(--color-ink); font-weight: 600; }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] > span:nth-child(2) > span:nth-child(2) { height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: var(--color-track); }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-workspace-progress] { border-radius: inherit; background: var(--color-status-done); }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] > span:nth-last-child(3) { color: var(--color-ink-2); font-size: var(--text-label); font-weight: 500; }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"] > span:nth-last-child(2) { color: var(--color-ink-muted); font-size: var(--text-label); }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-workspace-open] { border-radius: var(--radius-pill); color: var(--color-ink-muted); transition: background-color var(--duration-fade) ease, color var(--duration-fade) ease; }
+  .pipeline-surfaces [aria-label="Referral worklist"] [data-guide-target="workspace-results"]:hover [data-workspace-open] { background: var(--color-primary-soft); color: var(--color-link); }
+  /* The chart thumbnail is a quiet paper, not a green tile. */
+  .pipeline-surfaces [data-testid="workspace-chart-thumbnail"] { border-color: var(--color-card-border); border-radius: var(--radius-chip); background: var(--color-sheet); box-shadow: none; }
   .pipeline-surfaces [data-testid="workspace-content-grid"] > section:has([aria-label="Workspace gallery"]) { overflow: visible; border: 0; background: transparent; box-shadow: none; }
-  .pipeline-surfaces [aria-label="Workspace gallery"] > button { border-radius: 7px; border-color: #cdd8df; box-shadow: var(--surface-shadow); }
-  .pipeline-surfaces [aria-label="Workspace gallery"] > button > span:first-child { background: linear-gradient(120deg, #f5fbf6, #dff0e7 55%, #e3edf8); }
+  .pipeline-surfaces [aria-label="Workspace gallery"] > button { border-color: var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .pipeline-surfaces [aria-label="Workspace gallery"] > button:hover { box-shadow: var(--shadow-card-hover); }
+  .pipeline-surfaces [aria-label="Workspace gallery"] > button > span:first-child { background: var(--color-sheet); }
   .pipeline-surfaces [aria-label="Workspace gallery"] strong { font-weight: 600; }
-  .pipeline-surfaces [aria-label="Workspace gallery"] strong[title] { font-size: 15px; }
+  .pipeline-surfaces [aria-label="Workspace gallery"] strong[title] { font-size: var(--text-value); }
 
   /* Keep the color in the frame and wayfinding, not behind clinical answers. */
   .pipeline-surfaces #packet-page-2:has([data-assessment-view="preparation"]) { overflow: clip; }

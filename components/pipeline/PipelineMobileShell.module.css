@@ -160,3 +160,16 @@
 :where(html[data-design="v2"]) .expandButton::before { border-color: var(--color-sheet-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); }
 :where(html[data-design="v2"]) .expandButton:hover::before { border-color: var(--color-control-border); background: var(--color-segment); }
 :where(html[data-design="v2"]) .shell .utilities > button > span:not([aria-hidden]), :where(html[data-design="v2"]) .shell .utilities > div > button > span:not([aria-hidden]) { font-size: var(--text-value); font-weight: 500; }
+/* Sidebar pass (docs/design/DECISIONS.md, "Sidebar"): the Alamo logo sits on the rail without its white box;
+   the account switch reads like the other utilities; the phone menu uses the same neutral items and green
+   active tint as the desktop rail instead of one color per destination. */
+:where(html[data-design="v2"]) .brandAlamoImage { mix-blend-mode: multiply; }
+:where(html[data-design="v2"]) .shell .utilities > div > button { border: 0; background: transparent; box-shadow: none; }
+:where(html[data-design="v2"]) .shell .utilities > div > button:hover { background-color: var(--color-segment); color: var(--color-ink); }
+:where(html[data-design="v2"]) .phoneMenu { border-color: var(--color-sheet-border); background: var(--color-sheet); color: var(--color-ink); box-shadow: var(--shadow-popover); }
+:where(html[data-design="v2"]) .phoneMenu :global(.pipeline-command.pipeline-command) { border: 0; background: transparent; box-shadow: none; color: var(--color-ink-2); }
+:where(html[data-design="v2"]) .phoneMenu :global(.pipeline-command.pipeline-command):hover { background: var(--color-segment); color: var(--color-ink); }
+:where(html[data-design="v2"]) .phoneMenu :global(.pipeline-command.pipeline-command)[data-active="true"] { background: var(--color-primary-soft); color: var(--color-link); }
+:where(html[data-design="v2"]) .phoneMenu [data-guide-target="primary-new-referral"]:global(.pipeline-command.pipeline-command) { color: var(--color-link); }
+:where(html[data-design="v2"]) .phoneMenu .utilities { border-top-color: var(--color-sheet-border); }
+:where(html[data-design="v2"]) .phoneMenu .utilities :is(button, a) { color: var(--color-ink-2); }

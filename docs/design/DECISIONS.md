@@ -114,6 +114,15 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Icons are muted by default. The active destination takes the soft green tint with green icon and text.
 - The new-referral "+" uses the link green.
 - The P logo, the order, and the labels are unchanged.
+- Pass 2 (owner, 2026-09-25): the Alamo logo sits on the rail without its white box; the account switch reads like the other utilities (no box); the phone "More" menu uses the rail's neutral items and green active tint instead of one color per destination, with New Intake in the link green.
+
+## Workspaces (owner, 2026-09-25)
+
+- The Home board's layers: warm page, white cards for the tools, the browsing list, and the results.
+- Search and all three filters share one control style and the same chevron.
+- The results table: sentence-case headers (no uppercase tracking), readable names and detail lines, rounded progress bars in the done color, muted owner and date, and a quiet open arrow that takes the link green on hover.
+- The chart thumbnail sits on paper instead of a green tile. The browsing list's active item uses the rail's green tint.
+- No wording changes.
 
 ## Out of scope (owner, 2026-09-24)
 
