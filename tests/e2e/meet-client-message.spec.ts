@@ -16,8 +16,20 @@ async function messageCase(page: Page) {
 
 async function openMessage(page: Page, referralId: number) {
   await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceView=email`);
+  await page.getByRole("button", { name: "Review handoff", exact: true }).click();
+  await page.getByRole("dialog", { name: "Confirm admit date" }).getByRole("button", { name: "Confirm admit date" }).click();
+  await page.getByRole("button", { name: "Confirm summary", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
+  const authorized = page.getByRole("checkbox", { name: "I verified that each recipient is authorized to receive this summary and the packet files." });
+  if (await authorized.isDisabled()) {
+    const to = page.getByRole("combobox", { name: /^To/ });
+    await to.fill("Care team <care@example.invalid>");
+    await to.press("Enter");
+  }
+  await authorized.check();
   await page.getByRole("button", { name: "Preview email", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toBeEditable();
+  await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toBeVisible();
 }
 
 for (const width of [1440, 390]) test(`message saves, retains recipients and tracks the admission date at ${width}`, async ({ page }, info) => {
@@ -26,22 +38,18 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   let sends = 0;
   page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
   await openMessage(page, referral.id);
-  await expect(page.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toBeVisible();
-  await page.getByRole("textbox", { name: "Subject", exact: true }).fill("Arrival arrangements");
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
+  await page.getByRole("textbox", { name: "Subject", exact: true }).fill("Arrival arrangements");
   const body = page.getByRole("textbox", { name: "Meet the Client message" });
   await expect(body).toHaveValue(/Hello team/);
   const text = "Hello team,\nPlease call before arrival. <script>text only</script>";
   await body.fill(text);
-  const to = page.getByRole("combobox", { name: /^To/ });
-  await to.fill("Care team <care@example.invalid>");
-  await to.press("Enter");
   await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
   const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
   const saved = await (await page.request.get(endpoint)).json();
   expect(saved.draft.message).toEqual({ subject: "Arrival arrangements", body: text });
   expect(saved.draft.to[0].email).toBe("care@example.invalid");
-  await page.getByRole("button", { name: "Preview message", exact: true }).click();
+  await page.getByRole("button", { name: "Back to email preview", exact: true }).click();
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
   await expect(preview.locator("script")).toHaveCount(0);
