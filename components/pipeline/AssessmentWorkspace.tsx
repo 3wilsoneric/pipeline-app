@@ -162,6 +162,7 @@ type AssessmentWorkspaceProps = {
     startedAt?: string | null;
     signedAt?: string | null;
   }) => void;
+  onSaveStateChange?: (state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord, referral?: Referral) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
   onOpenWorkspace?: () => void;
@@ -343,6 +344,7 @@ export default function AssessmentWorkspace({
   beforeWorkspaceNavigationRef,
   packetEvidenceVersion,
   onSummaryChange,
+  onSaveStateChange,
   onAssessmentSaved,
   onContinueToWorkflow,
   onOpenWorkspace,
@@ -971,6 +973,11 @@ export default function AssessmentWorkspace({
       signedAt: selected?.signed_at,
     });
   }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.schedule_status, selected?.signed_at, selected?.started_at, selected?.status]);
+
+  const reportSaveState = useEffectEvent((state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean }) => onSaveStateChange?.(state));
+  useEffect(() => {
+    reportSaveState({ assessmentId: selected?.assessment_id, dirty, error: Boolean(error), pendingOfflineSaves, appointmentDraft: Boolean(pendingScheduleRef.current) });
+  }, [selected?.assessment_id, dirty, error, pendingOfflineSaves, scheduleDraftStatus]);
 
   const createAssessmentDraft = async () => {
     if (!referralId) return;

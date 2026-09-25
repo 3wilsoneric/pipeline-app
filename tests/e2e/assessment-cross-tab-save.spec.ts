@@ -27,9 +27,11 @@ test("an older assessment save cannot retire a newer failed edit after a tab rou
     await page.getByRole("button", { name: "Workspace files", exact: true }).click();
     await expect.poll(() => patches).toBe(1);
     await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+    await expect(page.getByText("Assessment changes not yet saved.")).toBeVisible();
+    await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
     await expect(page.locator("[data-assessment-working-section]")).toBeHidden();
     await expect(page.locator("[data-assessment-working-section]").locator("xpath=ancestor::*[@inert][1]")).toHaveAttribute("inert", "");
-    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Open Assessment", exact: true }).click();
     await expect(answer).toHaveValue("Synthetic older answer");
     await answer.fill("Synthetic newer answer");
     await answer.blur();
@@ -39,6 +41,7 @@ test("an older assessment save cannot retire a newer failed edit after a tab rou
     await expect(page.getByText("1 change waiting to sync")).toBeVisible();
     await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
     await expect(answer).toBeHidden();
+    await expect(page.getByText("1 assessment change waiting to sync.")).toBeVisible();
     await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
     await expect(answer).toHaveValue("Synthetic newer answer");
     // The encrypted working copy is debounced independently of the server PATCH.

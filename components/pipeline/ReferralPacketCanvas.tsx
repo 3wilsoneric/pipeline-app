@@ -424,6 +424,7 @@ export default function ReferralPacketCanvas({
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
   const [decisionVisitedReferral, setDecisionVisitedReferral] = useState<number | undefined>();
   const [decisionSaveState, setDecisionSaveState] = useState<{ referralId?: number; pending: number; failed: number }>({ pending: 0, failed: 0 });
+  const [assessmentSaveState, setAssessmentSaveState] = useState<{ referralId?: number; assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean }>({ dirty: false, error: false, pendingOfflineSaves: 0, appointmentDraft: false });
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -2328,6 +2329,8 @@ export default function ReferralPacketCanvas({
   const saveStatus = referralDraftSaveStatus(savedAt, hasReferral, queuedFileCount);
   const decisionSaveForCurrent = decisionSaveState.referralId === referralWorkspaceId ? decisionSaveState : null;
   const decisionSaveNotice = Boolean(decisionSaveForCurrent && (decisionSaveForCurrent.pending > 0 || decisionSaveForCurrent.failed > 0));
+  const assessmentSaveForCurrent = assessmentSaveState.referralId === referralWorkspaceId && assessmentSaveState.assessmentId ? assessmentSaveState : null;
+  const assessmentSaveNotice = Boolean(!readingAssessment && assessmentSaveForCurrent && (assessmentSaveForCurrent.dirty || assessmentSaveForCurrent.error || assessmentSaveForCurrent.pendingOfflineSaves > 0 || assessmentSaveForCurrent.appointmentDraft));
 
   const moveWorkspaceToTrash = async () => {
     const current = loadedReferralRef.current;
@@ -2517,7 +2520,7 @@ export default function ReferralPacketCanvas({
 
             {renderWorkspaceActions()}
           </div>
-          {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!decisionSaveNotice || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
+          {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
             <WorkspaceSaveStatus
               status={saveStatus}
               error={saveError}
@@ -2789,6 +2792,11 @@ export default function ReferralPacketCanvas({
             : `${decisionSaveForCurrent.pending} paperwork change${decisionSaveForCurrent.pending === 1 ? "" : "s"} saving or queued…`}
         </div> : null}
 
+        {assessmentSaveForCurrent && assessmentSaveNotice ? <div role={assessmentSaveForCurrent.error ? "alert" : "status"} className="mb-3 flex flex-wrap items-center justify-between gap-2 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
+          <span>{assessmentSaveForCurrent.error ? "Assessment needs attention. Check its save status." : assessmentSaveForCurrent.pendingOfflineSaves > 0 ? `${assessmentSaveForCurrent.pendingOfflineSaves} assessment change${assessmentSaveForCurrent.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessmentSaveForCurrent.appointmentDraft ? "Assessment appointment draft is not booked." : "Assessment changes not yet saved."}</span>
+          <button type="button" onClick={() => void navigatePage(2)} className="min-h-11 font-semibold text-[#08735e] underline underline-offset-2 focus-visible:outline-2">Open Assessment</button>
+        </div> : null}
+
         {renderRestoredEdits()}
 
         {saveAlert ? <div role="status" className="mb-3 bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold leading-5 text-[#7a4c0d]">{saveAlert}</div> : null}
@@ -2898,6 +2906,7 @@ export default function ReferralPacketCanvas({
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
+                  onSaveStateChange={(state) => setAssessmentSaveState({ referralId: referralWorkspaceId, ...state })}
                   onContinueToWorkflow={() => openPage("workflow")}
                   onOpenWorkspace={() => openPage(3)}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
