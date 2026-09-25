@@ -121,6 +121,7 @@ import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
 type AssessmentWorkspaceProps = {
+  workspaceActive?: boolean;
   workbookImport?: File | null;
   onWorkbookImportRead?: () => void;
   readOnly?: boolean;
@@ -310,6 +311,7 @@ function assessmentWorkspacePermissions(
 }
 
 export default function AssessmentWorkspace({
+  workspaceActive = true,
   workbookImport,
   onWorkbookImportRead,
   readOnly = false,
@@ -942,7 +944,7 @@ export default function AssessmentWorkspace({
   }, [selected, viewer, trainingAssessmentMode, canEditClinical]);
 
   useEffect(() => {
-    if (!isFocused || (embeddedFolder && !showScheduleDialog)) return;
+    if (!workspaceActive || !isFocused || (embeddedFolder && !showScheduleDialog)) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => handleAssessmentEscape(event, {
       showScheduleDialog,
@@ -955,7 +957,7 @@ export default function AssessmentWorkspace({
       if (!embeddedFolder) document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isFocused, embeddedFolder, showScheduleDialog]);
+  }, [workspaceActive, isFocused, embeddedFolder, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -1475,7 +1477,7 @@ export default function AssessmentWorkspace({
   });
 
   useEffect(() => {
-    if (!isFocused) return;
+    if (!workspaceActive || !isFocused) return;
     if (!embeddedFolder) setAssessmentFocused(true);
     const content = contentRef.current;
     const restoreIsolation = isolateAssessmentContent(content, embeddedFolder);
@@ -1488,7 +1490,7 @@ export default function AssessmentWorkspace({
       if (beforeNavigationRef.current === save) beforeNavigationRef.current = null;
       if (beforeWorkspaceNavigationRef?.current === save) beforeWorkspaceNavigationRef.current = null;
     };
-  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused]);
+  }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused, workspaceActive]);
 
   const saveOnUnmount = useEffectEvent(() => {
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
@@ -1820,7 +1822,7 @@ export default function AssessmentWorkspace({
   }, [trainingAssessmentMode]);
 
   useEffect(() => {
-    if (trainingAssessmentMode || !selected?.assessment_id) return;
+    if (!workspaceActive || trainingAssessmentMode || !selected?.assessment_id) return;
     let cancelled = false;
     let checking = false;
     const checkForChanges = async () => {
@@ -1846,10 +1848,10 @@ export default function AssessmentWorkspace({
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [receiveRemoteAssessment, selected?.assessment_id, trainingAssessmentMode]);
+  }, [receiveRemoteAssessment, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
   useEffect(() => {
-    if (trainingAssessmentMode || !referralId || !selected?.assessment_id) return;
+    if (!workspaceActive || trainingAssessmentMode || !referralId || !selected?.assessment_id) return;
     const leaseId = crypto.randomUUID();
     let cancelled = false;
     const heartbeat = async () => {
@@ -1877,7 +1879,7 @@ export default function AssessmentWorkspace({
         body: JSON.stringify({ lease_id: leaseId }),
       }).catch(() => undefined);
     };
-  }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode]);
+  }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
     return (

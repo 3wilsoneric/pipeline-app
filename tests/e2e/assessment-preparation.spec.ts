@@ -135,7 +135,7 @@ for (const width of [1440, 768]) {
       await page.locator("#assessment-current_location").fill(value);
       if (destination === "Chart") await openPage(page, destination);
       else await page.getByRole("button", { name: `Workspace ${destination.toLowerCase()}`, exact: true }).click();
-      await expect(page.locator("[data-assessment-working-section]")).toHaveCount(0);
+      await expect(page.locator("[data-assessment-working-section]")).toBeHidden();
       await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessments[0].assessment_id}`)).json()).assessment.current_location).toBe(value);
       await openPage(page, "Assessment");
     }

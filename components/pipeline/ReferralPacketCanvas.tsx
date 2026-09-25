@@ -421,6 +421,7 @@ export default function ReferralPacketCanvas({
     ? { ...routedWorkspaceLocation, assessmentMode: routedWorkspaceLocation.assessmentMode === "review" ? undefined : routedWorkspaceLocation.assessmentMode }
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
+  const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -2300,6 +2301,9 @@ export default function ReferralPacketCanvas({
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
+  useEffect(() => {
+    if (readingAssessment) setAssessmentVisitedReferral(referralWorkspaceId);
+  }, [readingAssessment, referralWorkspaceId]);
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
@@ -2786,7 +2790,7 @@ export default function ReferralPacketCanvas({
 
         {renderExtractionConflict()}
 
-        <div key={readingAssessment ? "assessment-chart" : displayedPage} className={readingAssessment ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}>
+        {!readingAssessment ? <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart" flush>
               <WorkspaceChartFolder>
@@ -2831,9 +2835,23 @@ export default function ReferralPacketCanvas({
                 }} className="min-h-12 rounded-md bg-[#087d66] px-6 text-[16px] font-semibold text-white hover:bg-[#06634f] focus-visible:outline-2 disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null} />
               </WorkspaceChartFolder>
             </PacketPage>
-          ) : readingAssessment ? (
+          ) : displayedPage === 3 ? (
+            <PacketPage id="packet-charts" title="Chart" flush>
+              <WorkspaceChartFolder>
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} />
+              </WorkspaceChartFolder>
+            </PacketPage>
+          ) : (
+            <PacketPage id="packet-activity" title="Activity">
+              <ReferralActivityPanel referralId={referralWorkspaceId} version={loadedReferral?.version} />
+            </PacketPage>
+          )}
+        </div> : null}
+        {(readingAssessment || (assessmentVisitedReferral !== undefined && assessmentVisitedReferral === referralWorkspaceId)) ? (
+          <div key={`assessment-${referralWorkspaceId ?? "training"}`} className={workspaceFolderStyles.readingPages} style={{ display: readingAssessment ? undefined : "none" }} aria-hidden={!readingAssessment} inert={!readingAssessment}>
             <PacketPage id="packet-page-2" title={displayedPage === 3 ? "Chart" : "Assessment"} flush>
                 <AssessmentWorkspace
+                  workspaceActive={readingAssessment}
                   readOnly={permissionReadOnly}
                   workbookImport={workbookImport}
                   onWorkbookImportRead={() => setWorkbookImport(null)}
@@ -2885,18 +2903,8 @@ export default function ReferralPacketCanvas({
                   }}
                 />
             </PacketPage>
-          ) : displayedPage === 3 ? (
-            <PacketPage id="packet-charts" title="Chart" flush>
-              <WorkspaceChartFolder>
-              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} />
-              </WorkspaceChartFolder>
-            </PacketPage>
-          ) : (
-            <PacketPage id="packet-activity" title="Activity">
-              <ReferralActivityPanel referralId={referralWorkspaceId} version={loadedReferral?.version} />
-            </PacketPage>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
       {renderCreationHandoff()}
       {deleteDialogOpen && loadedReferral ? (
