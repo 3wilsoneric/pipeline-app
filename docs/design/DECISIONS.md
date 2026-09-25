@@ -96,7 +96,7 @@ Home uses the card system from the "Referrals" board image in place of manila fo
 - The Chart leads with the admission checklist as a read-only "at a glance" panel. It shows the Decision tab's "Admission requirements": the same data from the same endpoint, grouped, with each item's status line. "Open decision" goes to the one place that edits them.
 - This referral's full assessment answers leave the Chart; they live in the Assessment tab. The "n of 84 recorded" strip stays as the at-a-glance assessment status. Assessments from earlier referrals stay on the Chart as history.
 - Follow-up if staff ask: editing checklist items directly on the Chart.
-- The referral's summary paragraph ("Referral summary", the referral's note) sits right under the identity card, not at the bottom in Referral information, and isn't repeated there (owner, 2026-09-24, from JC Wallace staff). It shows only when a summary is recorded; it's entered in Intake.
+- The referral's summary paragraph ("Referral summary", the referral's note) sits right under the identity card, not at the bottom in Referral information, and isn't repeated there (owner, 2026-09-24, from JC Wallace staff). It shows only when a summary is recorded. Intake has a plain "Referral summary" box to paste it into (redesign only; the live app's box was removed on 2026-09-15 in PR #89).
 
 ## Copy pass (owner, 2026-09-24: "a lot of words, a lot of shit competing for attention")
 

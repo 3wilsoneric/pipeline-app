@@ -2753,6 +2753,20 @@ export default function ReferralPacketCanvas({
                   /></div>
                 </ChartSection>
 
+                {/* Redesign: a plain box so the summary paragraph that comes with a referral can be pasted as-is.
+                    It saves to the referral's note, which the Chart shows as "Referral summary". */}
+                {designV2 ? <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>
+                  <div className="px-5 py-4 sm:px-6" data-workspace-field="summary" onFocusCapture={() => focusWorkspaceField("summary")}>
+                    <textarea
+                      aria-label={fields.summary.label}
+                      value={fields.summary.value}
+                      placeholder={fields.summary.placeholder}
+                      onChange={(event) => updateField("summary", event.target.value)}
+                      className="min-h-[150px] w-full resize-y rounded-input border border-control-border bg-paper p-3 text-value text-ink outline-none placeholder:text-ink-muted focus:border-link"
+                    />
+                  </div>
+                </ChartSection> : null}
+
                 <ChartSection title="Medication profile" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
                   <div className="px-5 py-4 sm:px-6" data-workspace-field="currentMedications" onFocusCapture={() => focusWorkspaceField("currentMedications")}>
                     <MedicationProfileField
