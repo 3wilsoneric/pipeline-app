@@ -57,6 +57,94 @@ test("signing finishes before workspace navigation can change the active step", 
   expect(saved.audit_events.filter((event: { action: string }) => event.action === "assessment_signed")).toHaveLength(1);
 });
 
+for (const width of [1440, 390]) test(`a slow appointment save does not trap the assessor at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: "Synthetic schedule navigation", owner: "", tags: [],
+  });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  let release!: () => void;
+  let entered!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const requested = new Promise<void>((resolve) => { entered = resolve; });
+  let requests = 0;
+  await page.route(`**/api/assessments/${assessment.assessment_id}/schedule`, async (route) => {
+    requests += 1;
+    entered();
+    await pending;
+    await route.continue();
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+    await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-12T10:30");
+    await dialog.getByLabel("Assessment method", { exact: true }).selectOption("record_review");
+    await dialog.getByRole("button", { name: "Schedule record review", exact: true }).click();
+    await requested;
+    await expect(dialog.getByRole("button", { name: "Back to assessment", exact: true })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Back to assessment", exact: true }).click();
+    if (width < 640) {
+      await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption("files");
+    } else {
+      await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    }
+    await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+    await expect(page.getByText("Assessment appointment saving…")).toBeVisible();
+    release();
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.scheduled_start_at).toBeTruthy();
+    await expect(page.getByText("Assessment appointment saving…")).toHaveCount(0);
+    expect(requests).toBe(1);
+  } finally {
+    release();
+  }
+});
+
+test("a failed appointment save stays visible and retryable after visiting Files", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: "Synthetic schedule retry", owner: "", tags: [],
+  });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  let release!: () => void;
+  let entered!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const requested = new Promise<void>((resolve) => { entered = resolve; });
+  let fail = true;
+  let requests = 0;
+  await page.route(`**/api/assessments/${assessment.assessment_id}/schedule`, async (route) => {
+    requests += 1;
+    if (!fail) return route.continue();
+    entered();
+    await pending;
+    return route.fulfill({ status: 503, json: { error: "Synthetic appointment save interruption" } });
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+    await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-13T11:30");
+    await dialog.getByLabel("Assessment method", { exact: true }).selectOption("record_review");
+    await dialog.getByRole("button", { name: "Schedule record review", exact: true }).click();
+    await requested;
+    await dialog.getByRole("button", { name: "Back to assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    release();
+    await expect(page.getByText("Assessment needs attention. Check its save status.")).toBeVisible();
+    expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.scheduled_start_at).toBeFalsy();
+    fail = false;
+    await page.getByRole("button", { name: "Open Assessment", exact: true }).click();
+    await expect(page.getByTestId("assessment-client-folder").getByRole("alert")).toContainText("Synthetic appointment save interruption");
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await expect(dialog.getByLabel("Assessment date and time", { exact: true })).toHaveValue("2026-10-13T11:30");
+    await dialog.getByRole("button", { name: "Schedule record review", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.scheduled_start_at).toBeTruthy();
+    expect(requests).toBe(2);
+  } finally {
+    release();
+  }
+});
+
 test("a failed referral refresh after signing does not reopen the signature or block Decision", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signed refresh failure", owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);

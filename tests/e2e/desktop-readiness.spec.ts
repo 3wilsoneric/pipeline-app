@@ -215,6 +215,7 @@ test.describe("desktop feature enabled", () => {
         documentStatus: "Missing",
       },
     });
+    await page.getByRole("dialog", { name: "Workspace created" }).getByRole("button", { name: "Close workspace created" }).click();
     await page.getByRole("button", { name: "Edit referral details" }).click();
     await page.getByTestId("referral-documents-input").setInputFiles({
       name: "desktop-recovery-face-sheet.pdf",

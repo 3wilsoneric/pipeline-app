@@ -162,7 +162,7 @@ type AssessmentWorkspaceProps = {
     startedAt?: string | null;
     signedAt?: string | null;
   }) => void;
-  onSaveStateChange?: (state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean }) => void;
+  onSaveStateChange?: (state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord, referral?: Referral) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
   onOpenWorkspace?: () => void;
@@ -370,6 +370,7 @@ export default function AssessmentWorkspace({
   const [resolvedPositionFor, setResolvedPositionFor] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(referralId));
   const [isBusy, setIsBusy] = useState(false);
+  const appointmentSavingRef = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
   const [dirtySections, setDirtySections] = useState<Set<AssessmentToolSection>>(new Set());
   const [remoteChange, setRemoteChange] = useState<AssessmentRemoteChange | null>(null);
@@ -974,10 +975,10 @@ export default function AssessmentWorkspace({
     });
   }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.schedule_status, selected?.signed_at, selected?.started_at, selected?.status]);
 
-  const reportSaveState = useEffectEvent((state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean }) => onSaveStateChange?.(state));
+  const reportSaveState = useEffectEvent((state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }) => onSaveStateChange?.(state));
   useEffect(() => {
-    reportSaveState({ assessmentId: selected?.assessment_id, dirty, error: Boolean(error), pendingOfflineSaves, appointmentDraft: Boolean(pendingScheduleRef.current) });
-  }, [selected?.assessment_id, dirty, error, pendingOfflineSaves, scheduleDraftStatus]);
+    reportSaveState({ assessmentId: selected?.assessment_id, dirty, error: Boolean(error), pendingOfflineSaves, appointmentDraft: Boolean(pendingScheduleRef.current), appointmentSaving: appointmentSavingRef.current });
+  }, [selected?.assessment_id, dirty, error, pendingOfflineSaves, scheduleDraftStatus, isBusy]);
 
   const createAssessmentDraft = async () => {
     if (!referralId) return;
@@ -1474,7 +1475,7 @@ export default function AssessmentWorkspace({
   const saveForHeaderNavigation = useEffectEvent(async () => {
     if (!embeddedFolder) return saveAndCloseAssessment();
     try {
-      if (isBusy) throw new Error("Wait for the assessment action to finish before leaving.");
+      if (isBusy && !appointmentSavingRef.current) throw new Error("Wait for the assessment action to finish before leaving.");
       await saveBeforeExit();
       retainWorkingQuestion();
     } catch (saveError) {
@@ -1632,6 +1633,7 @@ export default function AssessmentWorkspace({
       setError("Choose a valid assessment date and time in Pacific Time.");
       return;
     }
+    appointmentSavingRef.current = true;
     setIsBusy(true);
     setError("");
     setMessage("Saving schedule...");
@@ -1689,6 +1691,7 @@ export default function AssessmentWorkspace({
       setError(messageFor(scheduleError, "The assessment schedule could not be saved."));
       setMessage("");
     } finally {
+      appointmentSavingRef.current = false;
       setIsBusy(false);
     }
   };
@@ -1820,7 +1823,7 @@ export default function AssessmentWorkspace({
   useEffect(() => {
     if (trainingAssessmentMode) return;
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (dirtySectionsRef.current.size === 0) return;
+      if (dirtySectionsRef.current.size === 0 && !appointmentSavingRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };

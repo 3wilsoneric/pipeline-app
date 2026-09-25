@@ -424,7 +424,7 @@ export default function ReferralPacketCanvas({
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
   const [decisionVisitedReferral, setDecisionVisitedReferral] = useState<number | undefined>();
   const [decisionSaveState, setDecisionSaveState] = useState<{ referralId?: number; pending: number; failed: number }>({ pending: 0, failed: 0 });
-  const [assessmentSaveState, setAssessmentSaveState] = useState<{ referralId?: number; assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean }>({ dirty: false, error: false, pendingOfflineSaves: 0, appointmentDraft: false });
+  const [assessmentSaveState, setAssessmentSaveState] = useState<{ referralId?: number; assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }>({ dirty: false, error: false, pendingOfflineSaves: 0, appointmentDraft: false, appointmentSaving: false });
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -2330,7 +2330,7 @@ export default function ReferralPacketCanvas({
   const decisionSaveForCurrent = decisionSaveState.referralId === referralWorkspaceId ? decisionSaveState : null;
   const decisionSaveNotice = Boolean(decisionSaveForCurrent && (decisionSaveForCurrent.pending > 0 || decisionSaveForCurrent.failed > 0));
   const assessmentSaveForCurrent = assessmentSaveState.referralId === referralWorkspaceId && assessmentSaveState.assessmentId ? assessmentSaveState : null;
-  const assessmentSaveNotice = Boolean(!readingAssessment && assessmentSaveForCurrent && (assessmentSaveForCurrent.dirty || assessmentSaveForCurrent.error || assessmentSaveForCurrent.pendingOfflineSaves > 0 || assessmentSaveForCurrent.appointmentDraft));
+  const assessmentSaveNotice = Boolean(!readingAssessment && assessmentSaveForCurrent && (assessmentSaveForCurrent.dirty || assessmentSaveForCurrent.error || assessmentSaveForCurrent.pendingOfflineSaves > 0 || assessmentSaveForCurrent.appointmentDraft || assessmentSaveForCurrent.appointmentSaving));
 
   const moveWorkspaceToTrash = async () => {
     const current = loadedReferralRef.current;
@@ -2793,7 +2793,7 @@ export default function ReferralPacketCanvas({
         </div> : null}
 
         {assessmentSaveForCurrent && assessmentSaveNotice ? <div role={assessmentSaveForCurrent.error ? "alert" : "status"} className="mb-3 flex flex-wrap items-center justify-between gap-2 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
-          <span>{assessmentSaveForCurrent.error ? "Assessment needs attention. Check its save status." : assessmentSaveForCurrent.pendingOfflineSaves > 0 ? `${assessmentSaveForCurrent.pendingOfflineSaves} assessment change${assessmentSaveForCurrent.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessmentSaveForCurrent.appointmentDraft ? "Assessment appointment draft is not booked." : "Assessment changes not yet saved."}</span>
+          <span>{assessmentSaveForCurrent.error ? "Assessment needs attention. Check its save status." : assessmentSaveForCurrent.pendingOfflineSaves > 0 ? `${assessmentSaveForCurrent.pendingOfflineSaves} assessment change${assessmentSaveForCurrent.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessmentSaveForCurrent.appointmentSaving ? "Assessment appointment saving…" : assessmentSaveForCurrent.appointmentDraft ? "Assessment appointment draft is not booked." : "Assessment changes not yet saved."}</span>
           <button type="button" onClick={() => void navigatePage(2)} className="min-h-11 font-semibold text-[#08735e] underline underline-offset-2 focus-visible:outline-2">Open Assessment</button>
         </div> : null}
 
