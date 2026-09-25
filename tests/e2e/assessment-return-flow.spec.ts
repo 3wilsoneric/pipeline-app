@@ -168,7 +168,8 @@ for (const width of [1440, 834]) test(`assessment keeps its section and question
 
   for (const away of ["Workspace files", "Workspace activity"]) {
     await page.getByRole("button", { name: away, exact: true }).click();
-    await expect(page.getByLabel("Assessment section", { exact: true })).toHaveCount(0);
+    await expect(page.locator("[data-assessment-working-section]")).toBeHidden();
+    await expect(page.locator("[data-assessment-working-section]").locator("xpath=ancestor::*[@inert][1]")).toHaveAttribute("inert", "");
     // Visiting another page must not discard the assessment position.
     await expect.poll(async () => (await savedPosition())?.assessmentSection).toBe("social_support");
   }

@@ -40,6 +40,7 @@ function fixture(result = { completed: 1, conflicts: 0, remaining: 0 }) {
     flushOfflineAssessmentMutations: async () => result,
     fetchPipelineJson: async () => { started.resolve(); await response.promise; return { assessment: { assessment_id: "assessment-a" } }; },
     receiveRemoteAssessment: (record) => received.push(record.assessment_id),
+    forgetVolatileAssessmentRecovery: () => {},
     removeOfflineAssessmentDraft: async (...args) => removed.push(args),
     setPendingOfflineSaves: () => {}, setMessage: (message) => messages.push(message),
   };

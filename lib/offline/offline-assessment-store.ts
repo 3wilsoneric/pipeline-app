@@ -20,6 +20,34 @@ const mutationsStore = "mutations";
 const activeStore = "active";
 const activeAssessmentKey = "current-assessment";
 const expiryMs = 7 * 24 * 60 * 60 * 1_000;
+// A Web Lock distinguishes a reload from a duplicated tab (which may inherit
+// sessionStorage). Without locks, use a new slot rather than risk deleting an
+// unsynced copy held by another tab; old slots expire with the store.
+const recoverySessionStorageKey = "pipeline-recovery-session-v1";
+let recoverySessionPromise: Promise<string> | undefined;
+export function currentOfflineRecoverySessionId() {
+  return recoverySessionPromise ??= acquireRecoverySession();
+}
+
+async function acquireRecoverySession() {
+  let previous = "";
+  try { previous = window.sessionStorage.getItem(recoverySessionStorageKey) ?? ""; } catch { /* Storage may be disabled. */ }
+  const candidate = /^[0-9a-f-]{36}$/i.test(previous) ? previous : window.crypto.randomUUID();
+  const sessionId = await claimRecoverySession(candidate) ? candidate : window.crypto.randomUUID();
+  if (sessionId !== candidate) await claimRecoverySession(sessionId);
+  try { window.sessionStorage.setItem(recoverySessionStorageKey, sessionId); } catch { /* The tab still has a unique in-memory slot. */ }
+  return sessionId;
+}
+
+async function claimRecoverySession(id: string) {
+  if (!window.navigator.locks?.request) return false;
+  return new Promise<boolean>((resolve) => {
+    void window.navigator.locks.request(`pipeline-recovery:${id}`, { ifAvailable: true }, async (lock) => {
+      resolve(Boolean(lock));
+      if (lock) await new Promise<void>(() => undefined); // Held for this document's lifetime.
+    }).catch(() => resolve(false));
+  });
+}
 
 type EncryptedPayload = {
   iv: ArrayBuffer;
@@ -31,6 +59,7 @@ type StoredRecord = EncryptedPayload & {
   id: string;
   principal: string;
   kind: "assessment-draft" | "assessment-working-set" | "referral-draft";
+  sessionId?: string;
   updatedAt: number;
   expiresAt: number;
 };
@@ -105,7 +134,8 @@ export async function saveOfflineAssessmentDraft(
   const database = await openDatabase();
   const principal = await hashValue(principalId);
   const key = await getOrCreateKey(database, principal);
-  const id = await recordId(principal, "assessment-draft", assessmentId);
+  const sessionId = await currentOfflineRecoverySessionId();
+  const id = await recordId(principal, "assessment-draft", `${assessmentId}:${sessionId}`);
   const encrypted = await encryptPayload(key, principal, id, draft);
   const now = Date.now();
   const transaction = database.transaction(recordsStore, "readwrite");
@@ -113,6 +143,7 @@ export async function saveOfflineAssessmentDraft(
     id,
     principal,
     kind: "assessment-draft",
+    sessionId,
     updatedAt: now,
     expiresAt: now + expiryMs,
     ...encrypted,
@@ -123,24 +154,44 @@ export async function saveOfflineAssessmentDraft(
 
 export async function loadOfflineAssessmentDraft(principalId: string, assessmentId: string) {
   const database = await openDatabase();
-  const principal = await hashValue(principalId);
-  const id = await recordId(principal, "assessment-draft", assessmentId);
-  const stored = await request<StoredRecord | undefined>(database.transaction(recordsStore).objectStore(recordsStore).get(id));
-  if (!stored || stored.expiresAt <= Date.now()) {
-    if (stored) await request(database.transaction(recordsStore, "readwrite").objectStore(recordsStore).delete(id));
+  try {
+    const principal = await hashValue(principalId);
+    const sessionId = await currentOfflineRecoverySessionId();
+    const records = (await recordsForPrincipal<StoredRecord>(database, recordsStore, principal))
+      .filter((record) => record.kind === "assessment-draft" && record.expiresAt > Date.now())
+      .sort((left, right) => Number(right.sessionId === sessionId) - Number(left.sessionId === sessionId) || right.updatedAt - left.updatedAt);
+    if (!records.length) return null;
+    const key = await getOrCreateKey(database, principal);
+    let otherPending: PipelineAssessmentDraft | null = null;
+    let clean: PipelineAssessmentDraft | null = null;
+    let unreadable: unknown;
+    for (const record of records) {
+      let draft: PipelineAssessmentDraft;
+      try {
+        draft = await decryptPayload<PipelineAssessmentDraft>(key, principal, record.id, record);
+      } catch (error) {
+        unreadable ??= error;
+        continue;
+      }
+      if (draft.assessmentId !== assessmentId) continue;
+      if (draft.dirtySections.length > 0 || draft.scheduleDraft) {
+        if (record.sessionId === sessionId) return draft;
+        otherPending ??= draft;
+      } else {
+        clean ??= draft;
+      }
+    }
+    if (!otherPending && !clean && unreadable) throw unreadable;
+    return otherPending ?? clean;
+  } finally {
     database.close();
-    return null;
   }
-  const key = await getOrCreateKey(database, principal);
-  const value = await decryptPayload<PipelineAssessmentDraft>(key, principal, id, stored);
-  database.close();
-  return value;
 }
 
 export async function removeOfflineAssessmentDraft(principalId: string, assessmentId: string) {
   const database = await openDatabase();
   const principal = await hashValue(principalId);
-  const id = await recordId(principal, "assessment-draft", assessmentId);
+  const id = await recordId(principal, "assessment-draft", `${assessmentId}:${await currentOfflineRecoverySessionId()}`);
   await request(database.transaction(recordsStore, "readwrite").objectStore(recordsStore).delete(id));
   database.close();
 }
@@ -244,6 +295,7 @@ export async function pendingOfflineAssessmentMutations(principalId: string) {
 export async function flushOfflineAssessmentMutations(
   principalId: string,
   sender: (mutation: OfflineAssessmentMutation) => Promise<void>,
+  options: { retainConflicts?: boolean } = {},
 ): Promise<OfflineSyncResult> {
   const database = await openDatabase();
   const principal = await hashValue(principalId);
@@ -264,7 +316,7 @@ export async function flushOfflineAssessmentMutations(
         // A stale write cannot become valid by replaying the same payload. The
         // editor keeps the local draft and reconciles it against the latest
         // server version before issuing a fresh mutation.
-        await removeFlushedMutation(database, stored);
+        if (!options.retainConflicts) await removeFlushedMutation(database, stored);
         conflicts += 1;
       }
       if (statusFor(error) === 0 || statusFor(error) >= 500) break;
@@ -398,12 +450,13 @@ export async function saveOfflineReferralDraft(principalId: string, draftKey: st
   try {
     const principal = await hashValue(principalId);
     const key = await getOrCreateKey(database, principal);
-    const id = await recordId(principal, "referral-draft", draftKey);
+    const sessionId = await currentOfflineRecoverySessionId();
+    const id = await recordId(principal, "referral-draft", `${draftKey}:${sessionId}`);
     const encrypted = await encryptBytes(key, principal, id, await payload.arrayBuffer());
     const now = Date.now();
     const transaction = database.transaction(recordsStore, "readwrite");
     transaction.objectStore(recordsStore).put({
-      id, principal, kind: "referral-draft", updatedAt: now, expiresAt: now + expiryMs, ...encrypted,
+      id, principal, kind: "referral-draft", sessionId, updatedAt: now, expiresAt: now + expiryMs, ...encrypted,
     } satisfies StoredRecord);
     await transactionDone(transaction);
   } finally {
@@ -417,9 +470,19 @@ export async function loadOfflineReferralDrafts(principalId: string) {
     const principal = await hashValue(principalId);
     const key = await getOrCreateKey(database, principal);
     const records = await recordsForPrincipal<StoredRecord>(database, recordsStore, principal);
-    return await Promise.all(records
+    const decoded = await Promise.allSettled(records
       .filter((record) => record.kind === "referral-draft" && record.expiresAt > Date.now())
-      .map((record) => decryptBytes(key, principal, record.id, record)));
+      .map(async (record) => ({
+        bytes: await decryptBytes(key, principal, record.id, record),
+        updatedAt: record.updatedAt,
+      })));
+    const readable = decoded.filter((result): result is PromiseFulfilledResult<{ bytes: ArrayBuffer; updatedAt: number }> => result.status === "fulfilled")
+      .map((result) => result.value);
+    if (!readable.length) {
+      const failure = decoded.find((result): result is PromiseRejectedResult => result.status === "rejected");
+      if (failure) throw failure.reason;
+    }
+    return readable.sort((left, right) => right.updatedAt - left.updatedAt).map((record) => record.bytes);
   } finally {
     database.close();
   }
@@ -429,7 +492,7 @@ export async function removeOfflineReferralDraft(principalId: string, draftKey: 
   const database = await openDatabase();
   try {
     const principal = await hashValue(principalId);
-    const id = await recordId(principal, "referral-draft", draftKey);
+    const id = await recordId(principal, "referral-draft", `${draftKey}:${await currentOfflineRecoverySessionId()}`);
     const transaction = database.transaction(recordsStore, "readwrite");
     transaction.objectStore(recordsStore).delete(id);
     await transactionDone(transaction);

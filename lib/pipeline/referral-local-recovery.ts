@@ -1,7 +1,7 @@
 "use client";
 
 import { fetchCurrentPipelineUser } from "@/lib/auth/authenticated-fetch";
-import { loadOfflineReferralDrafts, removeOfflineReferralDraft, saveOfflineReferralDraft } from "@/lib/offline/offline-assessment-store";
+import { currentOfflineRecoverySessionId, loadOfflineReferralDrafts, removeOfflineReferralDraft, saveOfflineReferralDraft } from "@/lib/offline/offline-assessment-store";
 import { parsePipelineReferralDraft, type PipelineReferralDraft } from "@/lib/pipeline/user-workspace-state-types";
 import type { ReferralRecoveryDraftKey } from "@/lib/pipeline/referral-draft-recovery";
 import { isReferralDocumentCategory, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
@@ -15,16 +15,16 @@ export type ReferralLocalRecovery = {
 };
 
 type FileDescription = { key: string; name: string; type: string; size: number; lastModified: number; category?: LabeledReferralFile["category"] };
-type RecoveryHeader = { reference: string; draft: PipelineReferralDraft; ownerPrincipalId: string; files: FileDescription[] };
+type RecoveryHeader = { reference: string; sessionId?: string; draft: PipelineReferralDraft; ownerPrincipalId: string; files: FileDescription[] };
 
 // File bytes and their identifying metadata share the encrypted, expiring record.
 // Blob framing avoids base64 copies of large intake packets.
-export function encodeReferralRecovery(reference: ReferralRecoveryDraftKey, recovery: ReferralLocalRecovery) {
+export function encodeReferralRecovery(reference: ReferralRecoveryDraftKey, recovery: ReferralLocalRecovery, sessionId?: string) {
   const entries: Array<[string, File]> = Object.entries(recovery.pendingDocuments).map(([key, file]) => [`document:${key}`, file]);
   if (recovery.initialPacket) entries.push(["packet", recovery.initialPacket]);
   recovery.additionalFiles.forEach(({ file }, index) => entries.push([`additional:${index}`, file]));
   const header: RecoveryHeader = {
-    reference: String(reference ?? "new"), draft: recovery.draft, ownerPrincipalId: recovery.ownerPrincipalId,
+    reference: String(reference ?? "new"), ...(sessionId ? { sessionId } : {}), draft: recovery.draft, ownerPrincipalId: recovery.ownerPrincipalId,
     files: entries.map(([key, file]) => ({ key, name: file.name, type: file.type, size: file.size, lastModified: file.lastModified,
       ...(key.startsWith("additional:") ? { category: recovery.additionalFiles[Number(key.slice(11))].category } : {}),
     })),
@@ -32,15 +32,15 @@ export function encodeReferralRecovery(reference: ReferralRecoveryDraftKey, reco
   return new Blob([JSON.stringify(header), "\n", ...entries.map(([, file]) => file)]);
 }
 
-export function decodeReferralRecovery(buffer: ArrayBuffer): ReferralLocalRecovery & { reference: string } {
+export function decodeReferralRecovery(buffer: ArrayBuffer): ReferralLocalRecovery & { reference: string; sessionId?: string } {
   const bytes = new Uint8Array(buffer);
   const boundary = bytes.indexOf(10);
   if (boundary < 0) throw new Error("The pending intake copy is incomplete.");
   const header = JSON.parse(new TextDecoder().decode(bytes.subarray(0, boundary))) as RecoveryHeader;
   const draft = parsePipelineReferralDraft(header.draft);
   if (!draft) throw new Error("The pending intake copy is invalid.");
-  const result: ReferralLocalRecovery & { reference: string } = {
-    reference: header.reference, draft, ownerPrincipalId: header.ownerPrincipalId,
+  const result: ReferralLocalRecovery & { reference: string; sessionId?: string } = {
+    reference: header.reference, sessionId: header.sessionId, draft, ownerPrincipalId: header.ownerPrincipalId,
     initialPacket: null, pendingDocuments: {}, additionalFiles: [],
   };
   let offset = boundary + 1;
@@ -70,9 +70,8 @@ const queues = new Map<string, Promise<void>>();
 export function saveLocalReferralRecovery(principal: string, reference: ReferralRecoveryDraftKey, recovery: ReferralLocalRecovery) {
   if (!principal) return Promise.reject(new Error("Your account is still loading."));
   const key = `${principal}:${reference ?? "new"}`;
-  const payload = encodeReferralRecovery(reference, recovery);
   const next = (queues.get(key) ?? Promise.resolve()).catch(() => undefined)
-    .then(() => saveOfflineReferralDraft(principal, String(reference ?? "new"), payload));
+    .then(async () => saveOfflineReferralDraft(principal, String(reference ?? "new"), encodeReferralRecovery(reference, recovery, await currentOfflineRecoverySessionId())));
   queues.set(key, next.catch(() => undefined));
   return next;
 }
@@ -85,7 +84,9 @@ export async function listLocalReferralRecoveries() {
 
 export async function loadLocalReferralRecovery(reference: ReferralRecoveryDraftKey) {
   const drafts = await listLocalReferralRecoveries();
-  return drafts.find((draft) => draft.reference === String(reference ?? "new")) ?? null;
+  const matching = drafts.filter((draft) => draft.reference === String(reference ?? "new"));
+  const sessionId = await currentOfflineRecoverySessionId();
+  return matching.find((draft) => draft.sessionId === sessionId) ?? matching[0] ?? null;
 }
 
 export async function clearLocalReferralRecovery(reference: ReferralRecoveryDraftKey) {

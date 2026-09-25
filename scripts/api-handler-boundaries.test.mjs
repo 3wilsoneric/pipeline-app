@@ -8,7 +8,7 @@ const user = { id: "fixture-assessor", name: "Synthetic Assessor", roles: ["revi
 const error = (message, status = 400) => Response.json({ error: message }, { status });
 
 function boundary({ outcome, denied = false, missing = false, conflict = false } = {}) {
-  const calls = { lists: [], patches: [], access: [], logs: [] };
+  const calls = { lists: [], patches: [], access: [], logs: [], memberTouches: 0 };
   const referral = { id: 42, owner: user.name, ownerId: user.id, version: 7, requirements: [], admissionDecision: outcome ? { outcome } : undefined };
   const access = async (_user, id) => {
     calls.access.push(id);
@@ -32,7 +32,7 @@ function boundary({ outcome, denied = false, missing = false, conflict = false }
       assignedOwnerForPatch: () => ({ ok: true, owner: user.name, ownerId: user.id }),
       isAssessorUser: () => true,
     },
-    "@/lib/pipeline/workspace-members": { touchWorkspaceMember: async () => undefined },
+    "@/lib/pipeline/workspace-members": { touchWorkspaceMember: async () => { calls.memberTouches += 1; } },
     "@/lib/pipeline/known-users": { resolveKnownPipelineUser: async () => null },
     "@/lib/pipeline/referral-store": {
       requireReferralStore: () => ({ ok: true }),
@@ -61,7 +61,7 @@ test("file date bounds retain defaults, trimming, inclusive dates and scoped inv
     assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0");
     assert.deepEqual(await response.json(), { files: [{ id: "local-fixture-file" }], total: 1 });
     assert.deepEqual(fixture.calls.access, [42]);
-    assert.deepEqual(fixture.calls.lists, [{ scope: "mine", query: "", limit: 100, sourceSystem: "pipeline", referralId: 42, ownerId: user.id, ...(after ? { uploadedAfter: after } : {}), ...(before ? { uploadedBefore: before } : {}) }]);
+    assert.deepEqual(fixture.calls.lists, [{ scope: "mine", query: "", limit: 100, communities: [], owners: [], sourceSystem: "pipeline", referralId: 42, ownerId: user.id, ...(after ? { uploadedAfter: after } : {}), ...(before ? { uploadedBefore: before } : {}) }]);
   }
 });
 
@@ -109,6 +109,14 @@ test("date of admit can be edited independently while retaining date validation"
     }
     assert.equal(fixture.calls.patches.length, 0);
   }
+});
+
+test("ordinary field saves skip staff-directory writes, while owner changes still refresh membership", async () => {
+  const fixture = boundary();
+  assert.equal((await fixture.patch({ if_match: 7, patch: { admissionDate: "2026-09-01" } })).status, 200);
+  assert.equal(fixture.calls.memberTouches, 0);
+  assert.equal((await fixture.patch({ if_match: 7, patch: { owner: user.name } })).status, 200);
+  assert.equal(fixture.calls.memberTouches, 1);
 });
 
 test("accepted date changes and blank clearing retain version, mutation and actor arguments", async () => {
