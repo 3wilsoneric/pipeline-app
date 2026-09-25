@@ -119,7 +119,7 @@ test("conflicts preserve the saved audience and cross-origin or wrong-community 
   expect((await saved.json()).version).toBe(1);
 });
 
-test("failed autosave keeps visible edits and prevents silently abandoning them", async ({ page }) => {
+test("failed autosave keeps visible edits until retry confirms persistence", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "", community: "San Pablo" });
   await openHandoff(page, referral.id);
   await page.route(`**/api/referrals/${referral.id}/handoff-recipients`, async (route) => {
@@ -129,8 +129,18 @@ test("failed autosave keeps visible edits and prevents silently abandoning them"
   await page.getByRole("button", { name: "Remove Care team from To", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Synthetic storage unavailable" })).toBeVisible();
   await expect(page.getByRole("list", { name: "To recipients", exact: true })).not.toContainText("Care team");
-  await expect(page.getByRole("combobox", { name: /^To/ })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: /^To/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Retry saving" })).toBeVisible();
   const stored = await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json();
   expect(stored.version).toBe(0);
   expect(stored.draft).toBeNull();
+  await page.unroute(`**/api/referrals/${referral.id}/handoff-recipients`);
+  await page.getByRole("button", { name: "Retry saving" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
+  const recovered = await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json();
+  expect(recovered.version).toBe(1);
+  expect(recovered.draft.to.map((item: { email: string }) => item.email)).toEqual(["meds@example.invalid"]);
+  await page.reload();
+  await openRecipients(page);
+  await expect(page.getByRole("list", { name: "To recipients", exact: true })).not.toContainText("Care team");
 });
