@@ -7,11 +7,11 @@ export type ChartEditActions = Partial<Record<string, () => void>>;
 // The edit control stays visible (not hover-revealed) and names where it goes,
 // because every chart edit opens a canonical editor rather than editing inline.
 function ChartFieldLabel({ label, onEdit, editHint = "Edit" }: { label: string; onEdit?: () => void; editHint?: string }) {
-  return onEdit ? <button type="button" aria-label={`Edit ${label}`} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
-    className="group -my-3 inline-flex min-h-11 max-w-full flex-wrap items-center gap-x-2.5 gap-y-1 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
-    <span>{label}</span>
-    <span aria-hidden="true" className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold leading-4 text-[#0a6a58] underline-offset-2 group-hover:underline">
-      <Pencil size={12} className="shrink-0" />{editHint}
+  return onEdit ? <button type="button" aria-label={`Edit ${label}`} aria-description={editHint === "Edit in intake" ? "Opens this field in intake" : undefined} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
+    className="group -my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
+    <span className="min-w-0 group-hover:underline group-focus-visible:underline">{label}</span>
+    <span aria-hidden="true" className="inline-flex shrink-0 items-center text-[#0a6a58]">
+      <Pencil size={15} />
     </span>
   </button> : label;
 }

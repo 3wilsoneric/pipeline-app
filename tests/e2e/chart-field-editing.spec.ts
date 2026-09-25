@@ -20,8 +20,10 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         for (const field of ["Client", "Date of birth", "Gender", "Community", "Medications on record", "Conserved status"]) {
           const edit = chart.getByRole("button", { name: `Edit ${field}`, exact: true });
           await expect(edit.locator("svg")).toBeVisible();
-          // The affordance is visible without hover and names the editor it opens.
-          await expect(edit).toContainText("Edit in intake");
+          // The pencil stays visible without repeating the editor hint on every field.
+          await expect(edit).not.toContainText("Edit in intake");
+          await expect(edit).toHaveAttribute("title", `Edit in intake: ${field}`);
+          await expect(edit).toHaveAttribute("aria-description", "Opens this field in intake");
           expect((await edit.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         }
         for (const field of ["Resident number", "Unit", "Admission date", "Length of stay", "Allergies"]) {
