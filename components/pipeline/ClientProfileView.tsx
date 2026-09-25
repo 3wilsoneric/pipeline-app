@@ -343,9 +343,9 @@ function ResidentProfile({
 
 function ClientRecordedInformation({ profile, sourceReferralId, editActions, intakeReferral }: { profile: UnifiedClientProfileResponse; sourceReferralId?: number; editActions?: ChartEditActions; intakeReferral?: Referral }) {
   const client = profile.client;
-  const referralSections = clientReferralSections(profile, intakeReferral);
-  // The redesign's Chart already names the referral in its header; don't repeat it here.
+  // The redesign's Chart already names the referral and shows its summary near the top; don't repeat them here.
   const quiet = useDesignV2() && Boolean(intakeReferral);
+  const referralSections = clientReferralSections(profile, intakeReferral, quiet ? ["summary"] : []);
   return <>
     {referralSections.length > 0 ? <ProfileSection title="Referral information" detail={intakeReferral && !quiet ? "Other recorded referral details" : undefined}>
       <CuratedClientRecord sections={referralSections} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} hideSingleLabel={quiet} />
