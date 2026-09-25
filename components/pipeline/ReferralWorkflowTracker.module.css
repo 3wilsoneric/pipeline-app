@@ -226,9 +226,11 @@ dialog.expandedFolder > div:first-child > button:focus-visible { outline: 2px so
 .nextStep { display: flex; align-items: flex-start; gap: 8px; min-height: 64px; padding: 9px 11px 12px; color: #26372e; }
 .nextStep svg { flex: none; margin-top: 2px; color: #768079; }
 .actionText { display: -webkit-box; flex: 1; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; font-weight: 650; line-height: 21px; }
+.folder[data-board-outcome="accepted"] .actionText { -webkit-line-clamp: 3; }
 .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; border-top: 1px solid #dde3de; background: #dde3de; }
 .detail { min-width: 0; padding: 8px 11px; background: #fff; }
 .detail:first-child:nth-last-child(3) { grid-column: 1 / -1; }
+.detail:only-child { grid-column: 1 / -1; }
 .detailLabel { display: block; color: #536157; font-size: 10px; font-weight: 700; line-height: 14px; }
 .detailValue { display: -webkit-box; margin-top: 3px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: #25382e; font-size: 13px; font-weight: 650; line-height: 18px; font-variant-numeric: tabular-nums; }
 

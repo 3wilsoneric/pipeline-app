@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f84893e2dae2ef98",
-  "fingerprint": "f84893e2dae2ef980bdead21d85771fa12df47ab1d1741320914602c073f6af3",
+  "generatedAt": "source-fingerprint:f2d3f499bde21b7d",
+  "fingerprint": "f2d3f499bde21b7d1a445a4add754be15b460b697c34e4bfda61546385b7d5f3",
   "totals": {
     "files": 1420,
-    "lines": 371398,
+    "lines": 371453,
     "coveredFiles": 1420
   },
   "entries": [
@@ -3360,7 +3360,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 262,
+      "lines": 264,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3372,7 +3372,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 240,
+      "lines": 239,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3384,7 +3384,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 240,
+      "lines": 218,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -10338,7 +10338,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 133,
+      "lines": 139,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -15791,7 +15791,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 356,
+      "lines": 360,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15923,7 +15923,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 469,
+      "lines": 525,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16992,7 +16992,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 134,
+      "lines": 148,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -17124,7 +17124,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 85,
+      "lines": 81,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

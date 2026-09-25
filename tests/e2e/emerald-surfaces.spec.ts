@@ -16,6 +16,9 @@ async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
       assessment_state: index === 2 ? "scheduled" : "in_progress", outcome_state: index === 5 ? "accepted" : "pending",
       assignment_state: "assigned", document_state: "partial", profile_state: "partial", assessment_is_reassessment: false,
       owner: "Example Assessor", priority: "standard", categories: [], primary_category: "follow_up", next_action: actions[index],
+      board: { stage: index === 5 ? null : index < 2 ? "received" : index < 4 ? "in_progress" : "decision",
+        detail: index < 2 ? "Referral created" : index < 4 ? "Assessment underway" : "Under review",
+        next_action: actions[index], location: { view: index < 2 ? "intake" : "assessment" } },
       blockers: [], missing_data: [], urgency: "normal", due_at: null, last_activity_at: "2026-09-17T15:00:00Z", received_at: "2026-09-17T15:00:00Z",
       age_hours: 1, completion_pct: 40, missing_document_count: index === 0 ? 2 : 0, location: { view: index < 2 ? "intake" : "assessment" },
     }));
@@ -26,6 +29,7 @@ async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
     payload.workflow.active_total = 5;
     payload.workflow.active_items = items.slice(0, 5);
     payload.workflow.board_items = items;
+    payload.workflow.all_board_items = items;
     payload.upcoming = [{ id: "preview-event", referralId: 910103, clientName: "Morgan Chen", community: "San Pablo",
       ownerId: payload.viewer.id, owner: "Example Assessor", date: "2026-09-17", startsAt: "2026-09-17T17:00:00Z",
       durationMinutes: 60, method: "in_person", kind: "assessment", status: "scheduled", title: "Assessment", scheduleStatus: "scheduled" }];
@@ -178,8 +182,8 @@ for (const width of [1440, 390]) {
       await expect(last.locator("[data-folder-name]")).toHaveCSS("font-weight", "700");
       await expect(last.locator("[data-board-status]")).toHaveCSS("font-weight", "700");
       await expect(last.locator("[data-folder-details]")).toContainText("CommunitySan Pablo");
-      await expect(last.locator("[data-folder-details]")).toContainText("File progress40% complete");
-      await expect(last.locator("[data-folder-details]")).toContainText("Documents needed0");
+      await expect(last.locator("[data-folder-details]")).not.toContainText("File progress");
+      await expect(last.locator("[data-folder-details]")).not.toContainText("Documents needed");
       await expect(last.getByText("Assessor", { exact: true })).toHaveCount(1);
       await expect(last).toContainText("Example Assessor");
       await last.scrollIntoViewIfNeeded();

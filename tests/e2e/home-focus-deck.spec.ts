@@ -1,5 +1,58 @@
 import { expect, test, webkit, type Page } from "@playwright/test";
 import type { AxeResults } from "axe-core";
+import { getReferralBoardState } from "@/lib/pipeline/referral-flow";
+import type { Referral } from "@/lib/pipeline/referral-types";
+import type { WorkspaceStateProjection } from "@/lib/pipeline/workspace-state";
+
+test("accepted board cards show the highest-priority open admission items", () => {
+  const requirement = {
+    id: "tb-result",
+    type: "tb_test",
+    requiredFor: "move_in",
+    status: "needed",
+    label: "TB test result",
+    blocker: true,
+    dueAt: "2026-09-28T00:00:00Z",
+    nextStep: "Request a current TB result and verify its date.",
+  } as NonNullable<Referral["requirements"]>[number];
+  const referral = {
+    stage: "Assessment",
+    workflowStatus: "approved_for_placement",
+    requirements: [
+      { ...requirement, id: "optional", type: "conservatorship_document", label: "Conservatorship evidence", blocker: false, dueAt: "2026-09-25T00:00:00Z" },
+      requirement,
+      { ...requirement, id: "medications", type: "medication_list", label: "Signed medication list", requiredFor: "admission_decision", dueAt: "2026-09-28T00:00:00Z" },
+      { ...requirement, id: "agreement", type: "signed_admission_agreement", label: "Signed admission agreement", dueAt: "2026-09-29T00:00:00Z" },
+    ],
+  } as Referral;
+  const state = {
+    lifecycle: "active",
+    outcome: "accepted",
+    assessment: "signed",
+    assessment_is_reassessment: false,
+  } as WorkspaceStateProjection;
+
+  expect(getReferralBoardState(referral, {}, state)).toMatchObject({
+    stage: "decision",
+    detail: "Accept",
+    next_action: "Signed medication list, TB test result, Signed admission agreement",
+    location: { view: "files" },
+  });
+  expect(getReferralBoardState({ ...referral, requirements: [{ ...requirement, status: "reviewed" }] }, {}, state)).toMatchObject({
+    detail: "Awaiting admit",
+    next_action: "Record admission",
+  });
+});
+
+test("board folders show document work without an overall completion percentage", async ({ page }, testInfo) => {
+  await homeFixture(page);
+  await page.goto("/");
+  const card = page.locator("[data-board-card]").first();
+  await expect(card).toContainText(/Documents needed\s*1/);
+  await expect(card).not.toContainText("File progress");
+  await expect(card).not.toContainText(/\d+% complete/);
+  await card.screenshot({ path: testInfo.outputPath("board-card.png"), animations: "disabled" });
+});
 
 async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only") {
   const acknowledgments: unknown[] = [];
@@ -44,7 +97,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
     payload.workflow = { ...payload.workflow, active_items: boardItems, board_items: boardItems, active_total: boardItems.length };
     if (withFinished) {
       payload.workflow.board_items = [...boardItems,
-        { ...item, referral_id: 930001, client_name: "Accepted Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete_chart", board: { stage: "decision", detail: "Accept", next_action: "Review and sign the assessment", location: { view: "assessment" } } },
+        { ...item, referral_id: 930001, client_name: "Accepted Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete_chart", board: { stage: "decision", detail: "Accept", next_action: "Signed medication list, TB test result, Signed admission agreement", location: { view: "files" } } },
         { ...item, referral_id: 930002, client_name: "Denied Client", workflow_status: "declined", outcome_state: "declined", flow_state: "complete", board: { stage: "decision", detail: "Denied", next_action: "Review decision", location: { view: "workflow" } } },
         { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", board: { stage: "decision", detail: "Email not sent", next_action: "Send Meet the Client", location: { view: "email" } } },
         { ...item, referral_id: 930004, client_name: "Awaiting Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete", board: { stage: "decision", detail: "Awaiting admit", next_action: "Record admission", location: { view: "workflow" } } },
@@ -352,7 +405,10 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
 test("decision tabs use distinct colors and admitted files await email without a Finished folder", async ({ page }, info) => {
   await homeFixture(page, undefined, 1, true);
   await page.goto("/");
-  await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Accepted Client", exact: true })).toBeVisible();
+  const accepted = page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Accepted Client", exact: true });
+  await expect(accepted).toContainText("Signed medication list, TB test result, Signed admission agreement");
+  const action = accepted.getByText("Signed medication list, TB test result, Signed admission agreement");
+  expect(await action.evaluate((element) => element.scrollHeight <= element.clientHeight + 1)).toBe(true);
   await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Denied Client", exact: true })).toBeVisible();
   await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Admitted Client", exact: true })).toContainText("Email not sent");
   await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Awaiting Client", exact: true })).toContainText("Awaiting admit");
