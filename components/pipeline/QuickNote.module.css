@@ -30,6 +30,11 @@
 .compact { padding: 3px 6px; }
 .compact .lineText { -webkit-line-clamp: 2; }
 
+/* Folder-tab variant on the stacked Home board: same shape as the status tab beside it, one line. */
+.tab { flex: 1 1 0; align-items: center; min-width: 0; max-width: none; padding: 5px 8px 6px; border: 1px solid var(--color-stage-amber-border); border-bottom: 0; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 600; line-height: 14px; }
+.tab .icon { margin-top: 0; }
+.tab .lineText { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Floating button at the bottom right of the record, above the page's action bar; the panel opens upward from it. */

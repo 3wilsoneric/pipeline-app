@@ -14,7 +14,7 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import folderStyles from "./ClientFolder.module.css";
 import boardStyles from "./ReferralWorkflowTracker.module.css";
-import { useDesignV2 } from "@/components/design/DesignSwitch";
+import { useDesignV2, useRedesignFeatures } from "@/components/design/DesignSwitch";
 
 export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons" }: {
   briefing: HomeBriefingSnapshot;
@@ -157,6 +157,7 @@ function LifecycleCard({ item, showOwner, onOpenPacket }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const designV2 = useDesignV2();
+  const quickNotes = useRedesignFeatures();
   const descriptionId = useId();
   const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   if (designV2) return <LifecycleCardV2 item={item} name={name} descriptionId={descriptionId} showOwner={showOwner} onOpenPacket={onOpenPacket} />;
@@ -167,10 +168,11 @@ function LifecycleCard({ item, showOwner, onOpenPacket }: {
     ...(showOwner ? [{ label: "Assessor", value: item.owner || "Unassigned" }] : []),
     ...(item.missing_document_count > 0 ? [{ label: "Documents needed", value: String(item.missing_document_count) }] : []),
   ];
-  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
+  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status${quickNotes ? ` ${descriptionId}-note` : ""} ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={`${folderStyles.folder} ${boardStyles.folder}`}>
     <span className={boardStyles.tabs}>
       <strong data-folder-name className={`${folderStyles.tab} ${boardStyles.nameTab}`}><span className={folderStyles.tabLabel}>{name}</span></strong>
       <span id={`${descriptionId}-status`} data-board-status className={boardStyles.statusTab}>{status}</span>
+      {quickNotes ? <QuickNoteLine referralId={item.referral_id} id={`${descriptionId}-note`} tab /> : null}
     </span>
     <span data-folder-body className={`${folderStyles.body} ${boardStyles.body}`}>
       <span className={`${folderStyles.paper} ${boardStyles.paper}`}>

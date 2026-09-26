@@ -153,7 +153,7 @@ import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import ContactDirectorySuggestion from "@/components/pipeline/ContactDirectorySuggestion";
 import { ageFromCalendarDate, calendarToday, normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
 import { stringLimits } from "@/lib/pipeline/referral-validation";
-import { useDesignV2 } from "@/components/design/DesignSwitch";
+import { useDesignV2, useRedesignFeatures } from "@/components/design/DesignSwitch";
 
 type FieldKey = ReferralCanvasFieldKey;
 
@@ -401,6 +401,7 @@ export default function ReferralPacketCanvas({
   onOpenAssignedWork,
 }: ReferralPacketCanvasProps = {}) {
   const designV2 = useDesignV2();
+  const redesignFeatures = useRedesignFeatures();
   const phone = usePhoneAssessment();
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
@@ -2671,7 +2672,7 @@ export default function ReferralPacketCanvas({
                 <span aria-hidden="true" className={workspaceFolderStyles.railProgress}><span style={{ width: `${Math.round(railDone / 3 * 100)}%` }} /></span>
               </div>
             ) : null}
-            {verticalFlow && loadedReferral ? <QuickNoteEditor key={loadedReferral.id} referralId={loadedReferral.id} /> : null}
+            {redesignFeatures && !phone && loadedReferral ? <QuickNoteEditor key={loadedReferral.id} referralId={loadedReferral.id} /> : null}
             <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>
@@ -2907,7 +2908,7 @@ export default function ReferralPacketCanvas({
 
                 {/* Redesign: a plain box so the summary paragraph that comes with a referral can be pasted as-is.
                     It saves to the referral's note, which the Chart shows as "Referral summary". */}
-                {designV2 ? <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>
+                {redesignFeatures ? <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>
                   <div className="px-5 py-4 sm:px-6" data-workspace-field="summary" onFocusCapture={() => focusWorkspaceField("summary")}>
                     <textarea
                       aria-label={fields.summary.label}

@@ -7,7 +7,7 @@ import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { presentClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { ClientChartFact } from "@/lib/pipeline/client-medical-chart";
 import { referralChartEditFields, type ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
-import { useDesignV2 } from "@/components/design/DesignSwitch";
+import { useRedesignFeatures } from "@/components/design/DesignSwitch";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand, ChartGrid, ChartCell } from "./ClientMedicalChart";
 
 // Reuse the client chart's presentation, not its resident/census data model.
@@ -24,7 +24,7 @@ export default function ReferralIntakeSummary({ referral, assessment, headerActi
     return { label, value: (key === "name" ? presentClientName(value, referral.id) : key === "dob" || key === "referralReceived" ? formatProfileDate(value) : value)?.trim() || "Not documented", ...(wide ? { span: "wide" } : {}) };
   };
   // Redesign: the referral's summary paragraph sits near the top of the Chart, the client's home page.
-  const summary = useDesignV2() ? referralCanvasValue(referral, "summary")?.trim() : "";
+  const summary = useRedesignFeatures() ? referralCanvasValue(referral, "summary")?.trim() : "";
   const cell = (value: ClientChartFact) => {
     const field = referralChartEditFields[value.label as keyof typeof referralChartEditFields];
     return <ChartCell key={value.label} fact={value} onEdit={onEditField && field ? () => onEditField(field) : undefined} editHint="Edit in intake" multiline />;

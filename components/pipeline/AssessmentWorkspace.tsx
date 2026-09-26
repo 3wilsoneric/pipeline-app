@@ -120,7 +120,7 @@ import AssessmentExcelBackup from "@/components/pipeline/AssessmentExcelBackup";
 import { validateAssessmentPatchRequest } from "@/lib/assessment/assessment-validation";
 import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
 import phoneStyles from "@/components/pipeline/AssessmentPhoneInterview.module.css";
-import { useDesignV2 } from "@/components/design/DesignSwitch";
+import { useRedesignFeatures } from "@/components/design/DesignSwitch";
 import type { PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
 import InterviewContext from "@/components/pipeline/InterviewContext";
 import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
@@ -467,7 +467,7 @@ export default function AssessmentWorkspace({
 
   // Redesign: a returning client's last signed assessment, offered question by question.
   // Chosen answers remember their source until saved; the server re-checks them before crediting it.
-  const designV2 = useDesignV2();
+  const designV2 = useRedesignFeatures();
   const [priorAnswers, setPriorAnswers] = useState<{ assessmentId: string; prior: PriorAnswers } | null>(null);
   const priorChoicesRef = useRef(new Map<AssessmentToolFieldKey, { assessment_id: string; value: AssessmentToolData[AssessmentToolFieldKey] }>());
   useEffect(() => {

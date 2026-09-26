@@ -17,7 +17,7 @@ import { prefetchPipelineWorkspace } from "@/lib/pipeline/client-navigation";
 import { getWorkspaceCounty, getWorkspaceWorkflowLabel, isClientChartWorkspace, isEarlierWorkspaceMonth, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
 import { workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
 import styles from "./WorkspaceDirectory.module.css";
-import { useDesignV2 } from "@/components/design/DesignSwitch";
+import { useRedesignFeatures } from "@/components/design/DesignSwitch";
 import { QuickNoteLine } from "@/components/pipeline/QuickNote";
 
 export default function ReferralWorklist({
@@ -29,7 +29,7 @@ export default function ReferralWorklist({
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   progressByReferral?: Record<number, ReferralProgress>;
 }) {
-  const designV2 = useDesignV2();
+  const designV2 = useRedesignFeatures();
   const rows = referrals.map((referral) => {
     const progress = progressByReferral[referral.id] ?? getReferralProgress(referral);
     return {
@@ -120,7 +120,7 @@ function CompactReferralRow({
   county: string;
   onOpen: () => void;
 }) {
-  const designV2 = useDesignV2();
+  const designV2 = useRedesignFeatures();
   return (
     <button
       type="button"

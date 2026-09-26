@@ -1,5 +1,7 @@
 /*
  * Design tokens. Single source for color, radius, shadow, type, and motion.
+ * Since the return to the original design (2026-09-26), these hold the original palette so the
+ * features built during the redesign (Chart cards, quick note, interview context) match it.
  * Rules: docs/design/PRINCIPLES.md; owner decisions: docs/design/DECISIONS.md.
  *
  * @theme values generate Tailwind utilities (bg-stage-blue-tile, rounded-paper,
@@ -9,34 +11,34 @@
 
 @theme static {
   /* Text */
-  --color-ink: #0f1115;
-  --color-ink-2: #353a43;
-  --color-ink-muted: #5d6470;
+  --color-ink: #202522;
+  --color-ink-2: #44504b;
+  --color-ink-muted: #59675f;
 
   /* Surfaces: page ground, sheet, paper (principle 3). Neutral since the modern pass (DECISIONS.md). */
-  --color-sheet: #fbfbfc;
-  --color-sheet-border: #e6e8ec;
-  --color-control-border: #d9dce2;
+  --color-sheet: #f5f7f6;
+  --color-sheet-border: #d4dcd8;
+  --color-control-border: #c3cec9;
   --color-paper: #ffffff;
-  --color-paper-rule: #eceef1;
+  --color-paper-rule: #e0e5e2;
   --color-track: #eceef1;
   --color-folder-edge: #d3d7de;
   --color-folder: #f0f2f5;
-  --color-column: #f1f3f6;
-  --color-page: #f4f5f7;
-  --color-segment: #eceef2;
+  --color-column: #f3f5f4;
+  --color-page: #f3f5f4;
+  --color-segment: #edf2ef;
   --color-segment-count: #dde0e6;
-  --color-card-border: #e4e7eb;
+  --color-card-border: #d4dcd8;
   --color-count: #ffffff;
 
   /* Brand and primary action: the one filled button per screen, and focus rings */
-  --color-primary: #0f7d62;
-  --color-primary-hover: #0b664f;
-  --color-primary-soft: #ecf7f2;
-  --color-focus: #2563eb;
-  --color-link: #0f6e56;
+  --color-primary: #0f8b73;
+  --color-primary-hover: #0c705f;
+  --color-primary-soft: #effaf5;
+  --color-focus: #0f8b73;
+  --color-link: #0f705a;
   /* Filled action buttons and the text on them. */
-  --color-action: #1d5241;
+  --color-action: #0f8b73;
   --color-on-fill: #ffffff;
 
   /* Stage families (principle 1). Mapping to tabs: DECISIONS.md.
@@ -59,35 +61,35 @@
   --color-stage-amber-border: #f1dcb3;
 
   /* Status icon set (principle 6): non-interactive, same everywhere */
-  --color-status-done: #17714f;
-  --color-status-done-soft: #e8f4ee;
+  --color-status-done: #12765f;
+  --color-status-done-soft: #e3f0e8;
   --color-status-pending: #616874;
   --color-status-in-progress: #2f54c8;
   --color-status-blocked: #b3372b;
 
   /* Missing or unverified information: amber text, never an error */
-  --color-warning: #8f5a06;
-  --color-warning-soft: #fff8e8;
+  --color-warning: #865e20;
+  --color-warning-soft: #fff9ec;
 
   /* Destructive actions and errors only */
   --color-danger: #b3372b;
   --color-danger-soft: #fef4f2;
 
   /* Radius steps down as surfaces nest (principle 9) */
-  --radius-sheet: 12px;
-  --radius-folder: 10px;
-  --radius-paper: 8px;
-  --radius-input: 6px;
-  --radius-chip: 4px;
+  --radius-sheet: 6px;
+  --radius-folder: 6px;
+  --radius-paper: 4px;
+  --radius-input: 4px;
+  --radius-chip: 3px;
   --radius-pill: 999px;
 
   /* Shadows only on things that sit above other things */
   --shadow-sheet: none;
-  --shadow-card: 0 1px 1px rgb(16 24 40 / 0.04);
-  --shadow-card-hover: 0 2px 8px rgb(16 24 40 / 0.08);
+  --shadow-card: 0 1px 2px rgb(32 37 34 / 0.05);
+  --shadow-card-hover: 0 3px 10px rgb(32 37 34 / 0.1);
   --shadow-folder: 0 1px 2px rgb(16 24 40 / 0.06);
   --shadow-folder-lift: 0 10px 24px rgb(16 24 40 / 0.14);
-  --shadow-popover: 0 10px 30px rgb(16 24 40 / 0.14), 0 0 0 1px rgb(16 24 40 / 0.04);
+  --shadow-popover: 0 12px 32px rgb(32 37 34 / 0.18);
 
   /* Five type roles (principle 5). Entered values: font-bold; empty: font-normal text-ink-muted. */
   --text-title: 22px;
