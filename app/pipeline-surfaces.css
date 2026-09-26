@@ -513,6 +513,38 @@
 
   .pipeline-surfaces [aria-label="Current work board"] > label select { border-radius: var(--radius-input); border-color: var(--color-control-border); font-weight: 500; }
 
+  /* App-wide carry-overs (docs/design/DECISIONS.md, "Consistency pass"): the redesign has no uppercase,
+     letter-spaced labels, and the older black buttons take the one filled action style. */
+  .pipeline-surfaces .uppercase { text-transform: none; letter-spacing: 0; }
+  .pipeline-surfaces button.bg-\[\23 111111\] { border-color: var(--color-action); border-radius: var(--radius-input); background-color: var(--color-action); color: var(--color-on-fill); font-weight: 600; }
+  .pipeline-surfaces button.bg-\[\23 111111\]:hover:not(:disabled) { border-color: var(--color-primary-hover); background-color: var(--color-primary-hover); }
+  .pipeline-surfaces button.bg-\[\23 111111\]:disabled { border-color: var(--color-control-border); background-color: var(--color-segment); color: var(--color-ink-muted); }
+
+  /* Saved contacts: a card like the rest of the record. */
+  .pipeline-surfaces section[aria-label="Contact and coordination"] { overflow: hidden; border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .pipeline-surfaces section[aria-label="Contact and coordination"] > div:first-child { border-color: var(--color-paper-rule); background: var(--color-sheet); }
+  .pipeline-surfaces section[aria-label="Contact and coordination"] h3 { color: var(--color-ink); font-size: var(--text-label); font-weight: 700; }
+  .pipeline-surfaces section[aria-label="Contact and coordination"] :is(p, span) { font-size: var(--text-meta); }
+  .pipeline-surfaces section[aria-label="Contact and coordination"] button { border-radius: var(--radius-input); }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] section[aria-label="Contact and coordination"] { margin: 12px; }
+
+  /* Intake form (docs/design/DECISIONS.md, "Intake"): the Chart's tiles and titles, so entering and
+     reading a referral look like the same record. Sentence-case labels over bold values. */
+  .pipeline-surfaces article[aria-label="Referral intake chart"] section[aria-label$=" chart section"] > section > h2 { border-top: 0; padding-top: 20px; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] div:has(> [data-workspace-field]) { gap: 8px; padding: 12px; background: var(--color-page); }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] { min-height: 0; padding: 12px 14px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field]:focus-within { border-color: var(--color-link); outline: 2px solid var(--color-primary-soft); outline-offset: 0; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(label, h3) { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(input:not([type="checkbox"]), select, textarea) { color: var(--color-ink); font-size: var(--text-value); font-weight: 600; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(input, textarea)::placeholder { color: var(--color-ink-muted); font-weight: 400; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] > section { padding: 0; border: 0; background: transparent; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] textarea { border-color: var(--color-control-border); border-radius: var(--radius-input); background: var(--color-sheet); }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] textarea { font-weight: 400; line-height: 22px; }
+  /* Two labels are stored in capitals ("NAME", "GENDER"); show them in sentence case like the rest. */
+  .pipeline-surfaces article[aria-label="Referral intake chart"] :is([data-workspace-field="name"], [data-workspace-field="gender"]) > div:first-of-type > :first-child { text-transform: lowercase; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] :is([data-workspace-field="name"], [data-workspace-field="gender"]) > div:first-of-type > :first-child::first-letter { text-transform: uppercase; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(.uppercase, [class*="tracking-"]) { color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; }
+
   /* Workspaces (docs/design/DECISIONS.md, "Workspaces"): the Home board's layers. Warm page, white cards
      (tools, browsing, results), a quiet table: sentence-case headers, readable detail, one link-green cue. */
   .pipeline-surfaces [data-guide-target="workspace-directory"] { background: var(--color-page); color: var(--color-ink); }
@@ -537,8 +569,8 @@
   .pipeline-surfaces [data-guide-target="workspace-directory"] select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
   /* Native selects take the same chevron as the custom filters. */
   @supports (appearance: base-select) and selector(select::picker(select)) {
-    .pipeline-surfaces [data-guide-target="workspace-directory"] select:not([multiple]):not([size]) { padding-right: 36px; background-image: linear-gradient(45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%); background-position: calc(100% - 20px) 50%, calc(100% - 16px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
-    .pipeline-surfaces [data-guide-target="workspace-directory"] select:not([multiple]):not([size])::picker-icon { display: none; }
+    .pipeline-surfaces :is([data-guide-target="workspace-directory"], article[aria-label="Referral intake chart"]) select:not([multiple]):not([size]) { padding-right: 36px; background-image: linear-gradient(45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%); background-position: calc(100% - 20px) 50%, calc(100% - 16px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+    .pipeline-surfaces :is([data-guide-target="workspace-directory"], article[aria-label="Referral intake chart"]) select:not([multiple]):not([size])::picker-icon { display: none; }
   }
   .pipeline-surfaces [aria-label="Browse workspaces by month and community"] { border-color: var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); }
   .pipeline-surfaces [aria-label="Browse workspaces by month and community"] span { font-weight: 600; }

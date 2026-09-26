@@ -35,6 +35,9 @@
   --color-primary-soft: #effaf5;
   --color-focus: #0f8b73;
   --color-link: #2e6a4c;
+  /* Filled action buttons and the text on them. */
+  --color-action: #2e6a4c;
+  --color-on-fill: #fffdf8;
 
   /* Stage families (principle 1). Mapping to tabs: DECISIONS.md.
      green = Referral received; blue = In progress, Chart, Assessment;

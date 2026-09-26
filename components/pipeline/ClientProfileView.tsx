@@ -362,6 +362,18 @@ function ClientRecordedInformation({ profile, sourceReferralId, editActions, int
 }
 
 function ClientChartContainer({ embedded, title, onBack, children }: { embedded: boolean; title: string; onBack: () => void; children: ReactNode }) {
+  const designV2 = useDesignV2();
+  // Redesign: the client's chart reads like an open record: name as the page title, the Chart's
+  // blue wash, and white cards on it, instead of a manila folder (docs/design/DECISIONS.md, "Client profile").
+  if (!embedded && designV2) return <main aria-label={`Client profile for ${title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-page text-ink [scrollbar-gutter:stable]">
+    <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1640px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 lg:px-8">
+      <BackButton onClick={onBack} />
+      <h1 className="mt-2 mb-4 text-title text-ink">{title}</h1>
+      <div data-testid="client-profile-folder" data-client-profile-sheet className="rounded-sheet border border-stage-blue-border bg-(image:--stage-blue-column) p-3 sm:p-4">
+        <div className="flex flex-col gap-4">{children}</div>
+      </div>
+    </div>
+  </main>;
   if (embedded) return <div data-testid="profile-workspace" data-performance-ready="profile" className={`${folderStyles.embeddedRecord} bg-white pb-6 text-[#111111]`}>{children}</div>;
   return <main aria-label={`Client profile for ${title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain pipeline-page-surface text-[#111111] [scrollbar-gutter:stable]">
     <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1800px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">
@@ -1270,8 +1282,9 @@ function BackButton({ onClick }: { onClick: () => void }) {
 }
 
 function ProfileSection({ title, detail, children }: { title: string; detail?: string; children: React.ReactNode }) {
+  const designV2 = useDesignV2();
   return (
-    <section className="border border-[#cfd7d2] bg-white px-5 py-5 md:px-6">
+    <section className={designV2 ? "rounded-paper border border-card-border bg-paper px-5 py-5 shadow-card md:px-6" : "border border-[#cfd7d2] bg-white px-5 py-5 md:px-6"}>
       <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#d9dfdc] pb-3">
         <h2 className="text-[19px] font-bold tracking-[-0.01em]">{title}</h2>
         {detail ? <span className="text-[13px] text-[#59675f]">{detail}</span> : null}

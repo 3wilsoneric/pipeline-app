@@ -2448,7 +2448,7 @@ export default function ReferralPacketCanvas({
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
   // Redesign vertical flow (docs/design/DECISIONS.md, "Record layout").
-  const verticalFlow = designV2 && Boolean(loadedReferral) && !phone;
+  const verticalFlow = designV2 && !phone;
   const railActivePage = displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage;
   const railStepIndex = navigableWorkspaceSteps.findIndex((step) => step.page === railActivePage);
   const nextWorkspaceStep = railStepIndex >= 0 ? navigableWorkspaceSteps[railStepIndex + 1] : undefined;
