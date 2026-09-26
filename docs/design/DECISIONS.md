@@ -128,6 +128,8 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Document suggestions ("Suggested from <file>", Use / Reject) already exist wherever packet extraction runs; automatic filling from documents stays off.
 - Follow-ups: autocomplete for doctors, pharmacies, and contacts from the saved contacts list; suggestions on phones.
 
+- Intake answers too (owner, 2026-09-26): intake data added or changed after the assessment started is offered where the assessment is still empty, as "Suggested from referral records" with Use, ahead of the last assessment. The server credits it to the intake (the same provenance a seeded answer gets) only when the saved value equals the referral's current value; anything else saves as entered by the person. The assessor is never offered.
+
 ## Sidebar (owner, 2026-09-24)
 
 - The rail is warm paper with a thin edge.

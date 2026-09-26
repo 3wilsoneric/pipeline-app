@@ -5,6 +5,8 @@ import { priorAnswersFrom, priorAnswerFields, samePriorAnswerValue, type PriorAn
 import type { AssessmentToolData, AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
 import { canAccessReferral } from "@/lib/pipeline/referral-access";
 import { getReferral, listReferralsByClient } from "@/lib/pipeline/referral-store";
+import { referralIntakeAnswers } from "@/lib/assessment/assessment-seed";
+import type { AssessmentFieldProvenance } from "@/lib/assessment/assessment-tool-schema";
 
 // A returning client's earlier signed assessments: same Pipeline client (shared across their
 // referrals) or same linked clinical client, on another referral, and only where this person
@@ -53,6 +55,33 @@ export async function verifyPriorAnswers(
     if (!prior?.signed_at || !priorAnswerFields.has(request.field) || !Object.hasOwn(data, request.field)) continue;
     if (!samePriorAnswerValue(data[request.field], prior[request.field as keyof PipelineAssessmentRecord])) continue;
     sources[request.field] = { assessment_id: prior.assessment_id, signed_at: prior.signed_at, referral_id: prior.referral_id };
+  }
+  return sources;
+}
+
+// The referral intake's current answers, offered where the assessment is still empty (intake data that
+// arrived after the assessment started). The assessor is never offered.
+export async function currentIntakeAnswers(current: PipelineAssessmentRecord): Promise<Partial<AssessmentToolData>> {
+  const referral = await getReferral(current.referral_id);
+  if (!referral) return {};
+  return Object.fromEntries([...referralIntakeAnswers(referral)].map(([field, answer]) => [field, answer.value])) as Partial<AssessmentToolData>;
+}
+
+// Re-checks intake answers the person chose: credited to the intake only when the saved value equals
+// the referral's current value. Anything else still saves, recorded as entered by the person.
+export async function verifyIntakeAnswers(
+  current: PipelineAssessmentRecord,
+  fields: readonly AssessmentToolFieldKey[],
+  data: Partial<AssessmentToolData> | undefined,
+): Promise<Partial<Record<AssessmentToolFieldKey, AssessmentFieldProvenance>>> {
+  const sources: Partial<Record<AssessmentToolFieldKey, AssessmentFieldProvenance>> = {};
+  if (!fields.length || !data) return sources;
+  const referral = await getReferral(current.referral_id);
+  if (!referral) return sources;
+  const answers = referralIntakeAnswers(referral);
+  for (const field of fields) {
+    const answer = answers.get(field);
+    if (answer && Object.hasOwn(data, field) && samePriorAnswerValue(data[field], answer.value)) sources[field] = answer.provenance;
   }
   return sources;
 }

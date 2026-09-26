@@ -70,6 +70,20 @@ test.describe("assessment prior answers", () => {
       expect((await save({ data: {}, prior_answers: [{ field: "substances", assessment_id: earlier.assessment_id }] })).status).toBe(400);
       expect((await save({ data: { substances: ["x"] }, prior_answer_sources: { substances: { assessment_id: earlier.assessment_id, signed_at: earlier.signed_at, referral_id: first.id } } })).status).toBe(400);
 
+      // The referral intake's current answers are offered too, and credited to the intake only when unchanged.
+      expect(prior).toBeTruthy();
+      const intake = (await (await assessor.get(`/api/assessments/${current.assessment_id}/prior-answers`)).json()).intake as Record<string, unknown>;
+      expect(intake.resident_name).toBeTruthy();
+      expect(intake).not.toHaveProperty("assessor");
+      const fromIntake = await save({ data: { resident_name: intake.resident_name }, referral_answers: ["resident_name"] });
+      expect(fromIntake.status).toBe(200);
+      expect(latestSource(fromIntake.body, "resident_name")?.source_field_key).toBe("referral.name");
+      const notIntake = await save({ data: { resident_name: "Synthetic Different Name" }, referral_answers: ["resident_name"] });
+      expect(notIntake.status).toBe(200);
+      expect(latestSource(notIntake.body, "resident_name")?.source_field_key).toBe("manual.resident_name");
+      expect((await save({ data: {}, referral_answers: ["county"] })).status).toBe(400);
+      expect((await save({ data: { county: "x" }, referral_answer_sources: { county: {} } })).status).toBe(400);
+
       // Someone who cannot open the referral gets nothing.
       expect([403, 404]).toContain((await outsider.get(`/api/assessments/${current.assessment_id}/prior-answers`)).status());
     } finally {

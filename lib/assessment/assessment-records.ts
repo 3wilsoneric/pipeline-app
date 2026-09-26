@@ -143,6 +143,10 @@ export type AssessmentPatchInput = {
   prior_answers?: Array<{ field: AssessmentToolFieldKey; assessment_id: string }>;
   /** Server-resolved only: verified sources for prior_answers. Browser payload validation rejects it. */
   prior_answer_sources?: Partial<Record<AssessmentToolFieldKey, { assessment_id: string; signed_at: string; referral_id: number }>>;
+  /** Answers the person took from the referral intake ("Suggested from referral records"). */
+  referral_answers?: AssessmentToolFieldKey[];
+  /** Server-resolved only: intake provenance for referral_answers the server verified. Browser payload validation rejects it. */
+  referral_answer_sources?: Partial<Record<AssessmentToolFieldKey, AssessmentFieldProvenance>>;
   /** Server-only lifecycle commands. Browser payload validation rejects these fields. */
   schedule?: AssessmentScheduleUpdate;
   mark_started?: boolean;

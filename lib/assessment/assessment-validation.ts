@@ -115,7 +115,7 @@ function validatePatchVersion(
 }
 
 function validatePatchEnvelope(patch: Record<string, unknown>): AssessmentValidationResult<true> {
-  const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction", "workbook_restore", "prior_answers"]);
+  const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction", "workbook_restore", "prior_answers", "referral_answers"]);
   for (const key of Object.keys(patch)) {
     if (!allowed.has(key)) return invalid(`Unknown assessment patch field: ${key}.`);
   }
@@ -183,6 +183,13 @@ function validatePatchFields(patch: Record<string, unknown>): AssessmentValidati
       }
       if (seen.has(answer.field as string)) return invalid("prior_answers contains a duplicate field.");
       seen.add(answer.field as string);
+    }
+  }
+  if (patch.referral_answers !== undefined) {
+    if (!Array.isArray(patch.referral_answers) || patch.referral_answers.length > 20
+      || new Set(patch.referral_answers).size !== patch.referral_answers.length
+      || patch.referral_answers.some((field) => typeof field !== "string" || !isRecord(patch.data) || !Object.hasOwn(patch.data, field))) {
+      return invalid("referral_answers must name distinct answers that this patch saves.");
     }
   }
   return { ok: true, value: true };

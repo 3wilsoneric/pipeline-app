@@ -1,6 +1,6 @@
 "use client";
 
-import type { PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
+import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
 import {
@@ -100,6 +100,8 @@ export type WorkingSectionProps = WorkingData & {
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
   /** Redesign: the client's last signed assessment, offered per question while it is empty. */
   priorAnswers?: PriorAnswers;
+  /** The referral intake's current answers, offered where this assessment is still empty. */
+  intakeAnswers?: Partial<AssessmentToolData>;
   /** Redesign: referral summary and documents shown at the top of Current information. */
   interviewContext?: React.ReactNode;
   onUsePriorAnswer?: (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey], assessmentId: string) => void;
@@ -201,10 +203,16 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   </div>;
 }
 
-export function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur, onAnswerBlur, priorAnswers, onUsePriorAnswer }: WorkingSectionProps & { question: AssessmentInterviewQuestion; onAnswerBlur?: (field: AssessmentToolFieldKey) => void }) {
+export function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur, onAnswerBlur, priorAnswers, intakeAnswers, onUsePriorAnswer }: WorkingSectionProps & { question: AssessmentInterviewQuestion; onAnswerBlur?: (field: AssessmentToolFieldKey) => void }) {
   const definition = assessmentToolFieldDefinitions.find((definition) => definition.key === question.field)!;
   const priorValue = priorAnswers?.answers[question.field];
-  const priorSuggestion = priorAnswers && onUsePriorAnswer && priorValue !== undefined ? {
+  const intakeValue = intakeAnswers?.[question.field];
+  // Intake first: it is this referral's own information; the last assessment is older.
+  const priorSuggestion = onUsePriorAnswer && intakeValue !== undefined ? {
+    text: priorAnswerText(question, data, intakeValue),
+    source: "referral records",
+    onUse: () => onUsePriorAnswer(question.field, intakeValue, intakeAnswerSource),
+  } : priorAnswers && onUsePriorAnswer && priorValue !== undefined ? {
     text: priorAnswerText(question, data, priorValue),
     source: `last assessment (${formatPriorDate(priorAnswers.source.signed_at)})`,
     onUse: () => onUsePriorAnswer(question.field, priorValue, priorAnswers.source.assessment_id),

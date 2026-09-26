@@ -26,6 +26,9 @@ export const priorAnswerFields: ReadonlySet<AssessmentToolFieldKey> = new Set<As
   "family_involvement", "housing_history", "prior_living_situation", "benefits_income_status",
 ]);
 
+// Marks a suggestion chosen from the referral intake rather than an earlier assessment.
+export const intakeAnswerSource = "referral-intake";
+
 export type PriorAnswerSource = { assessment_id: string; signed_at: string; referral_id: number };
 export type PriorAnswers = { source: PriorAnswerSource; answers: Partial<AssessmentToolData> } | null;
 export type PriorAnswerRequest = { field: AssessmentToolFieldKey; assessment_id: string };
