@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { StickyNote, X } from "lucide-react";
 
 import { quickNoteMaxLength } from "@/lib/pipeline/referral-quick-notes";
@@ -22,7 +23,8 @@ export function QuickNoteLine({ referralId, id, compact = false }: { referralId:
 const saveDelayMs = 800;
 
 // Render with key={referralId}: an instance only ever saves to its own referral.
-// Closed, the rail shows a short preview; clicking it opens a larger writing panel over the page.
+// A floating button at the bottom right of the record opens the writing panel upward from it
+// (owner, 2026-09-26). Rendered client-side only, after the referral loads, so it portals to <body>.
 export function QuickNoteEditor({ referralId }: { referralId: number }) {
   const note = useQuickNote(referralId);
   const saved = note?.text ?? "";
@@ -72,39 +74,39 @@ export function QuickNoteEditor({ referralId }: { referralId: number }) {
     if (returnFocus) requestAnimationFrame(() => preview.current?.focus());
   };
 
-  return <div className={styles.editor} data-quick-note-editor>
-    <label className={styles.label} htmlFor={open ? fieldId : undefined} id={`${fieldId}-label`}><StickyNote size={13} aria-hidden="true" />Quick note</label>
-    <div className={styles.fieldWrap}>
-      <button ref={preview} type="button" aria-labelledby={`${fieldId}-label ${fieldId}-preview`} aria-expanded={open} onClick={() => setOpen(true)} className={styles.preview} data-empty={!value || undefined}>
-        <span id={`${fieldId}-preview`} className={styles.previewText}>{value || "Add quick note"}</span>
-      </button>
-      {open ? <div ref={panel} className={styles.panel} onBlur={(event) => { if (!panel.current?.contains(event.relatedTarget as Node | null)) close(false); }}>
-        <div className={styles.panelHead}>
-          <span className={styles.panelTitle}><StickyNote size={15} aria-hidden="true" />Quick note</span>
-          {note?.updatedAt ? <time dateTime={note.updatedAt} className={styles.panelMeta}>{formatNoteTime(note.updatedAt)}</time> : null}
-          <button type="button" aria-label="Close" onClick={() => close(true)} className={styles.panelClose}><X size={16} aria-hidden="true" /></button>
-        </div>
-        <textarea
-          ref={field}
-          id={fieldId}
-          maxLength={quickNoteMaxLength}
-          value={value}
-          placeholder="Add quick note"
-          className={styles.field}
-          onChange={(event) => {
-            const text = event.target.value;
-            setDraft(text);
-            pending.current = text;
-            clearTimeout(timer.current);
-            timer.current = setTimeout(() => void save(text), saveDelayMs);
-          }}
-          onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(true); } }}
-        />
-        <div className={styles.panelFoot} aria-hidden="true">{value.length.toLocaleString()} / {quickNoteMaxLength.toLocaleString()}</div>
-      </div> : null}
-    </div>
+  return createPortal(<div className={styles.floating} data-quick-note-editor>
+    {open ? <div ref={panel} role="dialog" aria-labelledby={`${fieldId}-title`} className={styles.panel} onBlur={(event) => { if (!panel.current?.contains(event.relatedTarget as Node | null)) close(false); }}>
+      <div className={styles.panelHead}>
+        <span id={`${fieldId}-title`} className={styles.panelTitle}><StickyNote size={15} aria-hidden="true" />Quick note</span>
+        {note?.updatedAt ? <time dateTime={note.updatedAt} className={styles.panelMeta}>{formatNoteTime(note.updatedAt)}</time> : null}
+        <button type="button" aria-label="Close" onClick={() => close(true)} className={styles.panelClose}><X size={16} aria-hidden="true" /></button>
+      </div>
+      <textarea
+        ref={field}
+        id={fieldId}
+        aria-labelledby={`${fieldId}-title`}
+        maxLength={quickNoteMaxLength}
+        value={value}
+        placeholder="Add quick note"
+        className={styles.field}
+        onChange={(event) => {
+          const text = event.target.value;
+          setDraft(text);
+          pending.current = text;
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => void save(text), saveDelayMs);
+        }}
+        onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(true); } }}
+      />
+      <div className={styles.panelFoot} aria-hidden="true">{value.length.toLocaleString()} / {quickNoteMaxLength.toLocaleString()}</div>
+    </div> : null}
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-  </div>;
+    <button ref={preview} type="button" aria-label="Quick note" aria-describedby={value ? `${fieldId}-preview` : undefined} aria-expanded={open} title={value || undefined}
+      onClick={() => (open ? close(true) : setOpen(true))} className={styles.fab} data-has-note={value ? true : undefined}>
+      <StickyNote size={20} aria-hidden="true" />
+      {value ? <span id={`${fieldId}-preview`} className={styles.srOnly}>{value}</span> : null}
+    </button>
+  </div>, document.body);
 }
 
 function formatNoteTime(value: string) {

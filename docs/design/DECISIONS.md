@@ -114,10 +114,10 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 ## Quick note (owner, 2026-09-26, from staff feedback)
 
 - Each person keeps a short private reminder per referral ("where we are"), so they don't have to click through 10 to 20 profiles to remember progress. Owner decisions: private to each person; called "Quick note" (placeholder "Add quick note").
-- Written in the record rail under the referral line. The rail shows a four-line preview; clicking it opens a larger writing panel over the page (owner: "more substantial"). It saves as you type (about a second after the last keystroke) and when the panel closes (click away or Escape). Clearing it deletes the note.
+- Written from a round floating button at the bottom right of the record, above the page's action bar (owner, 2026-09-26; it was a preview in the rail before). The button is tinted amber when a note exists, and hovering shows the note. Clicking it opens the writing panel upward from the button (owner: "more substantial"). It saves as you type (about a second after the last keystroke) and when the panel closes (click away, the button, or Escape). Clearing it deletes the note.
 - Read at a glance on the Home board cards (up to three lines) and under each client on Workspaces (up to two), in a warm sticky-note tint.
 - Stored in the per-person workspace-state store (`referral_quick_note`, migration 0046, additive with a guarded rollback), up to 2,000 characters of plain text, kept a year from the last edit. It needs read access to the referral, never changes the referral, and is not part of its Activity. Notes clear from memory on sign-out or account switch.
-- Redesign only, and wide screens only for writing (the rail). Phones: follow-up if staff ask.
+- Redesign only, and wide screens only for writing. Phones: follow-up if staff ask.
 
 ## Interview context (owner, 2026-09-26: "surface information without having to navigate away")
 

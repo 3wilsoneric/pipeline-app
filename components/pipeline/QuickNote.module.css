@@ -32,63 +32,42 @@
 
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.editor { display: flex; flex-direction: column; gap: 4px; }
-
-.label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-meta);
-  line-height: var(--text-meta--line-height);
-  font-weight: 600;
-}
-
-.label svg { color: var(--color-warning); }
-
-/* The preview holds the rail's place; the writing panel opens over the page from the same corner. */
-.fieldWrap { position: relative; }
-
-.preview {
-  display: block;
-  width: 100%;
-  min-height: 40px;
-  padding: 8px 10px 8px 12px;
-  border: 1px solid var(--color-stage-amber-border);
-  border-left: 3px solid var(--color-warning);
-  border-radius: var(--radius-input);
-  background: var(--color-warning-soft);
-  box-shadow: var(--shadow-card);
-  color: var(--color-ink);
-  font-size: var(--text-label);
-  line-height: var(--text-label--line-height);
-  text-align: left;
-  cursor: text;
-}
-.preview[data-empty] { color: var(--color-ink-muted); }
-.preview:hover { border-color: var(--color-warning); box-shadow: var(--shadow-card-hover); }
-.preview:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
-
-.previewText {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow-wrap: anywhere;
-  white-space: pre-line;
-}
-
-/* The writing panel: a sticky note that opens over the page from the rail. */
-.panel {
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  z-index: 40;
+/* Floating button at the bottom right of the record, above the page's action bar; the panel opens upward from it. */
+.floating {
+  position: fixed;
+  right: 24px;
+  bottom: 88px;
+  z-index: 60;
   display: flex;
   flex-direction: column;
-  width: min(460px, calc(100vw - 280px));
-  height: min(360px, calc(100dvh - 160px));
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.fab {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-popover);
+  color: var(--color-ink-2);
+  transition: box-shadow var(--duration-fade) ease, transform var(--duration-fade) var(--ease-open);
+}
+.fab:hover { box-shadow: var(--shadow-folder-lift); transform: translateY(-1px); color: var(--color-ink); }
+.fab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* A saved note tints the button so it is findable without adding text. */
+.fab[data-has-note] { border-color: var(--color-stage-amber-border); background: var(--color-warning-soft); color: var(--color-warning); }
+.fab[aria-expanded="true"] { background: var(--color-segment); color: var(--color-ink); }
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 48px));
+  height: min(380px, calc(100dvh - 200px));
   overflow: hidden;
   border: 1px solid var(--color-stage-amber-border);
   border-radius: var(--radius-paper);
@@ -135,12 +114,13 @@
 
 .panelFoot { padding: 6px 14px 8px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); text-align: right; font-variant-numeric: tabular-nums; }
 
-@keyframes quick-note-open { from { opacity: 0; transform: scale(0.98); transform-origin: 0 0; } }
+@keyframes quick-note-open { from { opacity: 0; transform: translateY(8px) scale(0.98); transform-origin: 100% 100%; } }
 
-.error { margin: 0; padding: 0 4px; color: var(--color-danger); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.error { max-width: 320px; margin: 0; padding: 6px 10px; border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-danger); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
 
-@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .panel { animation: none; } .fab { transition: none; } }
+@media print { .floating { display: none; } }
 
 @media (forced-colors: active) {
-  .line, .preview, .panel { border: 1px solid CanvasText; background: Canvas; }
+  .line, .fab, .panel { border: 1px solid CanvasText; background: Canvas; }
 }
