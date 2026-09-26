@@ -61,7 +61,7 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
   </nav>;
 }
 
-export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttemptFailed, onChange, onBegin, scheduleAction, appointment }: { preparing: boolean; disabled: boolean; canBegin: boolean; startAttemptFailed: boolean; onChange: (prepare: boolean) => void; onBegin: () => void; scheduleAction?: React.ReactNode; appointment?: string }) {
+export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttemptFailed, onChange, onBegin, scheduleAction, appointment, chartAction }: { preparing: boolean; disabled: boolean; canBegin: boolean; startAttemptFailed: boolean; onChange: (prepare: boolean) => void; onBegin: () => void; scheduleAction?: React.ReactNode; appointment?: string; chartAction?: React.ReactNode }) {
   const designV2 = useDesignV2();
   const renderPhaseSteps = () => (<div className={styles.phaseSummary}>
       <ol className={styles.phaseSteps} aria-label="Preparation and interview">
@@ -73,8 +73,9 @@ export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttempt
   const renderAppointment = () => (preparing && appointment ? <div className={styles.appointment} aria-label="Assessment appointment"><span>Scheduled</span><strong>{appointment}</strong>{scheduleAction ? <div className={styles.editAppointment}>{scheduleAction}</div> : null}</div> : scheduleAction ? <div className={styles.scheduleAction}>{scheduleAction}</div> : null);
   return <section className={styles.workMode} aria-label="Assessment progress" data-phase={preparing ? "preparation" : "interview"}>
     {renderPhaseSteps()}
-    {preparing || canBegin || scheduleAction ? <div className={styles.prepActions}>
+    {preparing || canBegin || scheduleAction || chartAction ? <div className={styles.prepActions}>
       {renderAppointment()}
+      {chartAction}
       {canBegin ? <button type="button" data-guide-target="assessment-begin" className={styles.beginAssessment} disabled={disabled} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); onBegin(); }}><Play size={16} aria-hidden="true" />{startAttemptFailed ? "Retry start time" : "Begin interview"}</button> : null}
     </div> : null}
     {startAttemptFailed && canBegin ? <p role="status" className={styles.startPending}>Start time not saved. You can keep answering.</p> : null}

@@ -128,6 +128,7 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Document suggestions ("Suggested from <file>", Use / Reject) already exist wherever packet extraction runs; automatic filling from documents stays off.
 - Follow-ups: autocomplete for doctors, pharmacies, and contacts from the saved contacts list; suggestions on phones.
 
+- Chart drawer (owner, 2026-09-26): a Chart button beside the interview's actions, and Alt+C anywhere in the interview, slides the whole Chart in from the right, read-only. Escape, the close button, or a click outside closes it and returns to the same question with the cursor where it was; nothing is saved or lost. It is a native modal dialog, so focus stays inside while it is open.
 - Intake answers too (owner, 2026-09-26): intake data added or changed after the assessment started is offered where the assessment is still empty, as "Suggested from referral records" with Use, ahead of the last assessment. The server credits it to the intake (the same provenance a seeded answer gets) only when the saved value equals the referral's current value; anything else saves as entered by the person. The assessor is never offered.
 
 ## Sidebar (owner, 2026-09-24)
