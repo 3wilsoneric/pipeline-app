@@ -780,10 +780,11 @@
     .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
     .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tab-ink); }
     .verticalFlow .assessmentTools { margin: 0; }
-    /* Trash is a small, quiet icon button at the end of the rail; its accessible name stays on the button. */
-    .verticalFlow .actions > .trashTab { align-self: flex-end; width: 32px; min-width: 32px; min-height: 32px; margin-top: 4px; padding: 0; justify-content: center; border-radius: var(--radius-input); color: var(--color-ink-muted); }
-    .verticalFlow .actions > .trashTab span { display: none; }
+    /* Trash is a row like Files and Activity, in red (owner, 2026-09-26). */
+    .verticalFlow .actions > .trashTab { color: var(--color-danger); }
     .verticalFlow .actions > .trashTab:hover:not(:disabled) { background: var(--color-danger-soft); color: var(--color-danger); }
+    /* The merged-changes check has no visible mark in the rail (owner: "don't need that"); screen readers still hear it. */
+    .verticalFlow .actions > .syncStatus { position: absolute; width: 1px; min-height: 0; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -8px; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
     .railProgress { display: block; height: 4px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
     .railProgress > span { display: block; height: 100%; border-radius: inherit; background: var(--color-status-done); }
