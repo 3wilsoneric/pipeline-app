@@ -726,9 +726,10 @@
   /* Vertical flow (docs/design/DECISIONS.md, "Record layout"): a progress rail on the left,
      the step's page on the right. Chart is the record's home at the top of the rail. */
   @media (min-width: 1024px) {
-    .verticalFlow { display: grid; grid-template-columns: 208px minmax(0, 1fr); column-gap: 28px; align-items: start; padding-top: 20px; }
+    /* The rail sits directly on the page (no card, owner 2026-09-26) and gives its width to the work area. */
+    .verticalFlow { display: grid; grid-template-columns: 188px minmax(0, 1fr); column-gap: 20px; align-items: start; max-width: 1640px; padding-top: 20px; }
     .verticalFlow > * { grid-column: 2; min-width: 0; }
-    .verticalFlow > .header { grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 20px; z-index: 20; padding: 12px 8px 10px; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: rgb(255 253 248 / 88%); box-shadow: var(--shadow-card-hover); backdrop-filter: blur(6px); }
+    .verticalFlow > .header { grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 20px; z-index: 20; padding: 4px 0 10px; border: 0; background: transparent; box-shadow: none; }
     .verticalFlow .tabRow { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 0; border: 0; }
     .verticalFlow .identity { flex: none; width: 100%; max-width: none; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; background: transparent; }
     .verticalFlow .nameLabel { width: 100%; padding: 2px 8px 0; border: 0; background: transparent; box-shadow: none; font-size: 16px; line-height: 22px; white-space: normal; overflow-wrap: anywhere; }
@@ -759,8 +760,6 @@
     .verticalFlow .actions > .trashTab { align-self: flex-end; width: 32px; min-width: 32px; min-height: 32px; margin-top: 4px; padding: 0; justify-content: center; border-radius: var(--radius-input); color: var(--color-ink-muted); }
     .verticalFlow .actions > .trashTab span { display: none; }
     .verticalFlow .actions > .trashTab:hover:not(:disabled) { background: var(--color-danger-soft); color: var(--color-danger); }
-    /* The rail carries the active step's color on its top edge, like the page's paper. */
-    .verticalFlow > .header { border-top: 4px solid var(--stage-edge, var(--color-sheet-border)); }
     .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -8px; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
     .railProgress { display: block; height: 4px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
     .railProgress > span { display: block; height: 100%; border-radius: inherit; background: var(--color-status-done); }

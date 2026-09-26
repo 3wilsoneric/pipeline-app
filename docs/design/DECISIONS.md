@@ -88,7 +88,7 @@ Home uses the card system from the "Referrals" board image in place of manila fo
 - New-referral drafts and phones keep the tab layout.
 - Moving between steps works both ways (owner): click a step in the rail, or use the small "Next: <step>" pill under the steps in the rail. "Next:" is owner-approved wording. The page's own action stays the primary button.
 - Records still open on the last step the person was on. Chart stays one click away at the top of the sticky rail.
-- The rail is low profile: 208px wide, compact rows, and floating on the page with a soft shadow (owner). The rail card takes the active step's color as its top edge. Under the name it shows "Referral #id · community" (the board's wording) and a thin bar for completed steps.
+- The rail is low profile: compact rows sitting directly on the page, with no card around it (owner, 2026-09-26; earlier a floating card). It is 188px wide and the work area gets the rest, up to 1640px. Under the name it shows "Referral #id · community" (the board's wording) and a thin bar for completed steps.
 - The manila folder around the page is retired in the vertical flow (owner). The page has three layers, like the Home board: the warm page, a wash in the active step's color (Chart blue, Assessment rose, Decision amber, Finish & send green), and white cards on the wash. Decision and Finish & send are one card. The Chart is split into cards: identity first, then each section's title on the wash above its card, then the checklist and the client record. Phones and narrow windows keep the folder until this is approved.
 
 ## Chart as home (owner, 2026-09-24, from staff feedback)
