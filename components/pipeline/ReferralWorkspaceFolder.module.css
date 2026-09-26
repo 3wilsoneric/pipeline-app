@@ -838,39 +838,58 @@
       --folder-rim: color-mix(in srgb, var(--folder-ink) 45%, var(--color-paper));
       position: relative;
       overflow: visible;
-      margin-top: 34px;
+      margin-top: 50px;
       padding: 24px 18px 18px;
       border: 1px solid var(--folder-rim);
       border-radius: 0 var(--radius-folder) var(--radius-folder) var(--radius-folder);
       background: linear-gradient(to bottom, var(--folder-back) 0 8px, var(--folder-rim) 8px 9px, var(--folder-front) 9px);
       box-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 14px 28px -18px color-mix(in srgb, var(--folder-ink) 45%, transparent);
     }
-    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before {
+    /* The tab is part of the folder (the back panel's color, rounded top), with a white label stuck on it that
+       carries the step's name. The tab repeats the label text invisibly so it is always the label's width plus its rim. */
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before,
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::after {
       content: attr(aria-label);
       position: absolute;
-      bottom: calc(100% - 1px);
-      left: -1px;
       display: flex;
       align-items: center;
-      min-width: 176px;
-      height: 34px;
-      padding: 0 20px 0 16px;
+      font-size: var(--text-section);
+      font-weight: 650;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before {
+      bottom: calc(100% - 1px);
+      left: -1px;
+      min-width: 212px;
+      height: 48px;
+      padding: 0 36px 0 30px;
       border: 1px solid var(--folder-rim);
       border-bottom: 0;
-      border-radius: var(--radius-input) var(--radius-input) 0 0;
+      border-radius: var(--radius-folder) var(--radius-folder) 0 0;
+      background: linear-gradient(to bottom, color-mix(in srgb, var(--folder-back) 70%, var(--color-paper)), var(--folder-back) 18px);
+      box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-paper) 60%, transparent), 0 -1px 3px -1px rgb(15 23 42 / 0.08);
+      color: transparent;
+    }
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::after {
+      bottom: calc(100% + 5px);
+      left: 9px;
+      z-index: 1;
+      min-width: 194px;
+      height: 36px;
+      padding: 1px 26px 0 20px;
+      border: 1px solid color-mix(in srgb, var(--folder-ink) 30%, var(--color-card-border));
+      border-radius: var(--radius-input);
       background: var(--color-paper);
-      box-shadow: inset 0 3px 0 var(--folder-ink);
+      box-shadow: inset 0 3px 0 var(--folder-ink), 0 1px 1px rgb(15 23 42 / 0.1);
       color: var(--color-ink);
-      font-size: var(--text-value);
-      font-weight: 600;
-      line-height: 1;
-      pointer-events: none;
     }
     /* Create referral at the end of the intake, bottom right, like the other steps' main action. */
     .intakeFooter { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; margin: 16px -18px -18px; padding: 12px 18px; border-top: 1px solid var(--folder-rim); border-radius: 0 0 var(--radius-folder) var(--radius-folder); background: color-mix(in srgb, var(--color-paper) 92%, transparent); backdrop-filter: blur(6px); }
     .verticalFlow .intakeFooter .createTab.createTab { width: auto; min-height: 44px; margin: 0; padding: 0 20px; justify-content: center; font-size: var(--text-value); }
     @media (forced-colors: active) {
-      .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section, .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before { border-color: CanvasText; background: Canvas; color: CanvasText; }
+      .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section, .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before, .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::after { border-color: CanvasText; background: Canvas; color: CanvasText; }
     }
     .verticalFlow .connectedFolder { margin: 0; }
     .verticalFlow .connectedFolder > div { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
