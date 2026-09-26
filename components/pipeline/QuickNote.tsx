@@ -22,15 +22,19 @@ export function QuickNoteLine({ referralId, id, compact = false }: { referralId:
 const saveDelayMs = 800;
 
 // Render with key={referralId}: an instance only ever saves to its own referral.
+// Closed, the rail shows a short preview; clicking it opens a larger writing panel over the page.
 export function QuickNoteEditor({ referralId }: { referralId: number }) {
   const saved = useQuickNote(referralId)?.text ?? "";
   // null: showing the saved note. A string: the person's unsaved typing, kept until it saves.
   const [draft, setDraft] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pending = useRef<string | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
+  const preview = useRef<HTMLButtonElement>(null);
   const value = draft ?? saved;
+  const fieldId = `quick-note-${referralId}`;
 
   const save = async (text: string) => {
     clearTimeout(timer.current);
@@ -53,34 +57,43 @@ export function QuickNoteEditor({ referralId }: { referralId: number }) {
   }, [referralId]);
 
   useEffect(() => {
+    if (!open || !field.current) return;
     const element = field.current;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${element.scrollHeight}px`;
-  }, [value]);
+    element.focus();
+    element.setSelectionRange(element.value.length, element.value.length);
+  }, [open]);
+
+  const close = (returnFocus: boolean) => {
+    setOpen(false);
+    if (pending.current !== null) void save(pending.current);
+    else if (!error) setDraft(null);
+    if (returnFocus) requestAnimationFrame(() => preview.current?.focus());
+  };
 
   return <div className={styles.editor} data-quick-note-editor>
-    <label className={styles.label} htmlFor={`quick-note-${referralId}`}><StickyNote size={13} aria-hidden="true" />Quick note</label>
-    <textarea
-      ref={field}
-      id={`quick-note-${referralId}`}
-      rows={2}
-      maxLength={quickNoteMaxLength}
-      value={value}
-      placeholder="Add quick note"
-      className={styles.field}
-      onChange={(event) => {
-        const text = event.target.value;
-        setDraft(text);
-        pending.current = text;
-        clearTimeout(timer.current);
-        timer.current = setTimeout(() => void save(text), saveDelayMs);
-      }}
-      onBlur={() => {
-        if (pending.current !== null) void save(pending.current);
-        else if (!error) setDraft(null);
-      }}
-    />
+    <label className={styles.label} htmlFor={open ? fieldId : undefined} id={`${fieldId}-label`}><StickyNote size={13} aria-hidden="true" />Quick note</label>
+    <div className={styles.fieldWrap}>
+      <button ref={preview} type="button" aria-labelledby={`${fieldId}-label ${fieldId}-preview`} aria-expanded={open} onClick={() => setOpen(true)} className={styles.preview} data-empty={!value || undefined}>
+        <span id={`${fieldId}-preview`} className={styles.previewText}>{value || "Add quick note"}</span>
+      </button>
+      {open ? <textarea
+        ref={field}
+        id={fieldId}
+        maxLength={quickNoteMaxLength}
+        value={value}
+        placeholder="Add quick note"
+        className={styles.field}
+        onChange={(event) => {
+          const text = event.target.value;
+          setDraft(text);
+          pending.current = text;
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => void save(text), saveDelayMs);
+        }}
+        onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(true); } }}
+        onBlur={() => close(false)}
+      /> : null}
+    </div>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
   </div>;
 }

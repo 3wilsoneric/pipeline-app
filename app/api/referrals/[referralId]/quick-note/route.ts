@@ -23,7 +23,7 @@ export async function PUT(request: Request, context: Context) {
     const access = await requireReferralAccess(auth.user, Number(referralId));
     if (!access.ok) return access.response;
     if (!getUserWorkspaceStateReadiness().ready) return jsonError("Quick notes are unavailable right now.", 503);
-    const body = await readJsonBody<{ text?: unknown }>(request, 8_000);
+    const body = await readJsonBody<{ text?: unknown }>(request, 16_000);
     if (!body.ok) return jsonError(body.message, body.status);
     const text = parseQuickNoteText(body.value?.text);
     if (text === null) return jsonError(`Keep a quick note to ${quickNoteMaxLength} characters of plain text.`);

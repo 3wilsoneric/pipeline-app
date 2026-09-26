@@ -40,7 +40,7 @@ test.describe("referral quick notes", () => {
       const activity = await (await coordinator.get(`/api/referrals/${referralId}/activity`)).json();
       expect(JSON.stringify(activity)).not.toContain("Waiting on TB result");
 
-      expect((await coordinator.put(path, { data: { text: "x".repeat(501) } })).status()).toBe(400);
+      expect((await coordinator.put(path, { data: { text: "x".repeat(2_001) } })).status()).toBe(400);
       expect((await coordinator.put(path, { data: { text: "bell\u0007" } })).status()).toBe(400);
       expect((await coordinator.put(path, { data: { text: 42 } })).status()).toBe(400);
       // Someone without access to the referral is refused (not a Pipeline user: 403; no access to this referral: 404).
