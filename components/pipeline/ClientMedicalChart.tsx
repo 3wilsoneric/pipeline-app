@@ -9,10 +9,11 @@ export type ChartEditActions = Partial<Record<string, () => void>>;
 // because every chart edit opens a canonical editor rather than editing inline.
 function ChartFieldLabel({ label, onEdit, editHint = "Edit" }: { label: string; onEdit?: () => void; editHint?: string }) {
   const designV2 = useDesignV2();
-  // Redesign: the label names the field; the "Edit in intake" hint sits under the value (ChartEditHint).
+  // Redesign: the original label with its always-visible pencil, in the redesign's colors.
   if (designV2) return onEdit ? <button type="button" aria-label={`Edit ${label}`} aria-description={editHint === "Edit in intake" ? "Opens this field in intake" : undefined} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
     className="group -my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
     <span className="min-w-0 group-hover:underline group-focus-visible:underline">{label}</span>
+    <span aria-hidden="true" className="inline-flex shrink-0 items-center text-link"><Pencil size={14} /></span>
   </button> : label;
   return onEdit ? <button type="button" aria-label={`Edit ${label}`} aria-description={editHint === "Edit in intake" ? "Opens this field in intake" : undefined} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
     className="group -my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
@@ -21,15 +22,6 @@ function ChartFieldLabel({ label, onEdit, editHint = "Edit" }: { label: string; 
       <Pencil size={15} />
     </span>
   </button> : label;
-}
-
-// Redesign: the edit hint sits under the value, small and muted (the label stays the keyboard control).
-function ChartEditHint({ onEdit, editHint = "Edit" }: { onEdit?: () => void; editHint?: string }) {
-  // Inline size: the global button reset (font: inherit) outranks utility classes.
-  return onEdit ? <button type="button" data-chart-edit-hint tabIndex={-1} aria-hidden="true" onClick={onEdit} style={{ fontSize: 11, lineHeight: "16px", fontWeight: 500 }}
-    className="mt-1 inline-flex items-center gap-1 text-ink-muted hover:text-link hover:underline underline-offset-2">
-    <Pencil size={10} className="shrink-0" />{editHint}
-  </button> : null;
 }
 
 export default function ClientMedicalChart({
@@ -134,7 +126,7 @@ export function ChartGrid({
       : "sm:grid-cols-2 lg:grid-cols-3";
   // The redesign's record rail takes ~240px, so the chart widens to six columns only on wide screens.
   const railLayout = columns === "identity" ? "grid-cols-2 xl:grid-cols-6" : columns === "care" ? "sm:grid-cols-2 xl:grid-cols-3" : layout;
-  return <dl aria-label={ariaLabel} className={designV2 ? `grid gap-2 bg-page p-3 sm:p-4 ${railLayout}` : `grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
+  return <dl aria-label={ariaLabel} className={designV2 ? `grid gap-px bg-paper-rule ${railLayout}` : `grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
 function chartCellSpan(fact: ClientChartFact, multiline: boolean) {
@@ -147,28 +139,24 @@ export function ChartCell({ fact, multiline = false, onEdit, editHint }: { fact:
   const missing = fact.value === "Not documented";
   const span = chartCellSpan(fact, multiline);
   return (
-    <div data-chart-field={fact.label} className={designV2 ? `relative min-w-0 rounded-paper border px-4 py-3 shadow-card ${span} ${missing && fact.required ? "border-warning/40 bg-warning-soft" : "border-card-border bg-paper"}` : `min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
-      <dt className={designV2 ? "text-meta font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}><ChartFieldLabel label={fact.label} onEdit={onEdit} editHint={editHint} /></dt>
-      <dd className={designV2
-        ? `mt-1 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] ${fact.label === "Client" ? "text-title text-ink" : `text-value leading-6 ${missing ? `font-normal ${fact.required ? "text-warning" : "text-ink-muted"}` : fact.value.length > 80 ? "font-normal text-ink" : "font-semibold text-ink"}`}`
-        : `mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? fact.required ? "text-[#865e20]" : "text-[#68716d]" : "text-[#18211d]"}`}>
+    <div data-chart-field={fact.label} className={designV2 ? `min-h-[82px] min-w-0 px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-warning-soft" : "bg-paper"}` : `min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
+      <dt className={designV2 ? "text-label font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}><ChartFieldLabel label={fact.label} onEdit={onEdit} editHint={editHint} /></dt>
+      <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? fact.required ? (designV2 ? "text-warning" : "text-[#865e20]") : (designV2 ? "text-ink-muted" : "text-[#68716d]") : (designV2 ? "text-ink" : "text-[#18211d]")}`}>
         {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}
       </dd>
-      {designV2 ? <ChartEditHint onEdit={onEdit} editHint={editHint} /> : null}
     </div>
   );
 }
 
 export function ChartFacts({ facts, className = "", editActions, editHint }: { facts: { label: string; value: string | number | null; onEdit?: () => void }[]; className?: string; editActions?: ChartEditActions; editHint?: string }) {
   const designV2 = useDesignV2();
-  return <dl className={designV2 ? `grid grid-cols-1 gap-2 bg-page p-3 sm:grid-cols-2 sm:p-4 ${className}` : `grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 ${className}`}>
+  return <dl className={`grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 ${className}`}>
     {facts.map((fact, index) => {
       const value = String(fact.value ?? "").trim();
       const narrative = value.length > 160 || value.includes("\n");
-      return <div key={`${index}:${fact.label}`} data-chart-fact={fact.label} className={`min-w-0 ${narrative ? "sm:col-span-2" : ""} ${designV2 ? "relative rounded-paper border border-card-border bg-paper px-4 py-3 shadow-card" : ""}`}>
-        <dt className={designV2 ? "text-meta font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}><ChartFieldLabel label={fact.label} onEdit={fact.onEdit ?? editActions?.[fact.label]} editHint={editHint} /></dt>
-        <dd className={designV2 ? `mt-1 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-value leading-6 ${value ? (value.length > 80 ? "font-normal text-ink" : "font-semibold text-ink") : "font-normal text-ink-muted"}` : `mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? "text-[#18211d]" : "text-[#68716d]"}`}><ReadableChartText value={value || "Not reported"} /></dd>
-        {designV2 ? <ChartEditHint onEdit={fact.onEdit ?? editActions?.[fact.label]} editHint={editHint} /> : null}
+      return <div key={`${index}:${fact.label}`} data-chart-fact={fact.label} className={`min-w-0 ${narrative ? "sm:col-span-2" : ""}`}>
+        <dt className={designV2 ? "text-label font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}><ChartFieldLabel label={fact.label} onEdit={fact.onEdit ?? editActions?.[fact.label]} editHint={editHint} /></dt>
+        <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? (designV2 ? "text-ink" : "text-[#18211d]") : (designV2 ? "text-ink-muted" : "text-[#68716d]")}`}><ReadableChartText value={value || "Not reported"} /></dd>
       </div>;
     })}
   </dl>;

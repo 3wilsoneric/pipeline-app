@@ -153,6 +153,10 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Board cards wrap cleanly when narrow: separators never start a line, names truncate instead of breaking mid-word.
 - Two labels stored in capitals ("NAME", "GENDER") display in sentence case without changing their text.
 
+## Chart field formatting (owner, 2026-09-26: "make the chart more like original with the actual field formatting")
+
+- Chart and intake fields keep the original formatting: one grid per section with hairline dividers, the label with its always-visible pencil, and the original value sizes, in the redesign's colors and type. This supersedes the field tiles and the hover-only edit hint from the copy pass.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.

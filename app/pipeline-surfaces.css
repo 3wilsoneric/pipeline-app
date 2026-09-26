@@ -556,12 +556,12 @@
   .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div.divide-y { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
   .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div.divide-y > * { border-color: var(--color-paper-rule); padding-inline: 16px; }
 
-  /* Intake form (docs/design/DECISIONS.md, "Intake"): the Chart's tiles and titles, so entering and
-     reading a referral look like the same record. Sentence-case labels over bold values. */
+  /* Intake form (docs/design/DECISIONS.md, "Intake"): the Chart's original field grid with hairline
+     dividers, so entering and reading a referral look like the same record. Sentence-case labels. */
   .pipeline-surfaces article[aria-label="Referral intake chart"] section[aria-label$=" chart section"] > section > h2 { border-top: 0; padding-top: 20px; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] div:has(> [data-workspace-field]) { gap: 8px; padding: 12px; background: var(--color-page); }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] { min-height: 0; padding: 12px 14px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field]:focus-within { border-color: var(--color-link); outline: 2px solid var(--color-primary-soft); outline-offset: 0; }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] div:has(> [data-workspace-field]) { gap: 1px; padding: 0; background: var(--color-paper-rule); }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] { background: var(--color-paper); }
+  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field]:focus-within { outline: 2px solid var(--color-focus); outline-offset: -2px; }
   .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(label, h3) { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; }
   .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(input:not([type="checkbox"]), select, textarea) { color: var(--color-ink); font-size: var(--text-value); font-weight: 600; }
   .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(input, textarea)::placeholder { color: var(--color-ink-muted); font-weight: 400; }
@@ -762,14 +762,6 @@
     }
   }
 
-
-  /* Chart edit hints show on the field being pointed at, not under every field (docs/design/DECISIONS.md, "Copy pass"). */
-  @media (hover: hover) and (pointer: fine) {
-    .pipeline-surfaces [data-chart-edit-hint] { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; margin: 0; border-radius: var(--radius-input); font-size: 0 !important; opacity: 0; transition: opacity var(--duration-fade) ease; }
-    .pipeline-surfaces [data-chart-edit-hint] svg { width: 14px; height: 14px; }
-    .pipeline-surfaces [data-chart-edit-hint]:hover { background: var(--color-segment); }
-    .pipeline-surfaces :is([data-chart-field], [data-chart-fact]):is(:hover, :focus-within) [data-chart-edit-hint] { opacity: 1; }
-  }
 
   /* The open record carries the active stage's color: the paper's top edge, and on wide screens the page's wash (docs/design/DECISIONS.md). */
   .pipeline-surfaces [data-testid="packet-workspace"]:has([data-folder-stage="1"][aria-current="page"], [data-folder-stage="3"][aria-current="page"]) { --stage-edge: var(--color-stage-blue); --stage-wash: var(--stage-blue-column); --stage-line: var(--color-stage-blue-border); }
