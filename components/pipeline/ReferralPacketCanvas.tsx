@@ -42,6 +42,7 @@ import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspac
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import folderStyles from "./ClientFolder.module.css";
+import { chartPeekEvent, type ChartPeekDetail } from "./ChartPeek";
 import { usePhoneAssessment } from "./use-phone-layout";
 import { ClientNotesButton } from "@/components/pipeline/ClientNotes";
 import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
@@ -3385,7 +3386,12 @@ function WorkspaceStageButton({ page, label, selected, onOpen, progress }: {
   // Redesign rail: Chart is the record's home; the other stages show progress as icon-only markers.
   const home = label === "Chart";
   return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : label === "Chart" ? "chart-stage" : page === "email" ? "chart-meet-client-tab" : undefined}
-    onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
+    onClick={() => {
+      // Redesign: during the assessment, Chart slides out as a mini folder instead of leaving the page;
+      // its "Open chart" button still goes to the full Chart.
+      if (designV2 && home && !selected && !window.dispatchEvent(new CustomEvent<ChartPeekDetail>(chartPeekEvent, { cancelable: true, detail: { openChart: () => onOpen(page) } }))) return;
+      onOpen(page);
+    }} aria-current={selected ? "page" : undefined}
     data-folder-stage={page}
     data-step-home={designV2 && home ? "true" : undefined}
     data-step-state={designV2 && !home ? progress ?? "todo" : undefined}

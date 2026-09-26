@@ -581,9 +581,10 @@
   .navigation[data-with-work-mode] .prepActions :is(button, [role="button"]) { min-height: 36px; padding-inline: 10px; font-size: var(--text-label); }
   .navigation[data-with-work-mode] .prepActions svg { width: 15px; height: 15px; }
   .navigation[data-with-work-mode] .sectionProgress { order: 2; min-width: 0; max-width: none; margin-left: auto; white-space: nowrap; }
-  .navigation[data-with-work-mode] .prepActions { order: 3; }
-  /* The count already says it; the ring gives its room to the row. */
-  .navigation[data-with-work-mode] .progressTrack { display: none; }
+  .navigation[data-with-work-mode] .prepActions { order: 3; margin-left: auto; }
+  /* No fractions or step numbers in the row (owner, 2026-09-26); screen readers still hear the position and count. */
+  .navigation[data-with-work-mode] :is(.sectionPosition, .sectionProgress, .progressTrack) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .navigation[data-with-work-mode] .phaseSteps li > span { display: none; }
   .navigation[data-with-work-mode] .startPending { order: 4; flex-basis: 100%; }
   /* In the tabs, Current information is the same plain card as the notes: the tab names it, so no folder tab
      above it; Expand stays in a quiet bar; short answers sit under their label in the narrow column. */

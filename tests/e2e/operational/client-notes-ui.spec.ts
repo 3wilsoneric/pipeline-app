@@ -50,8 +50,13 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await expect(page.locator("[data-client-notes]")).toHaveCount(0);
   await page.getByRole("button", { name: "Notes", exact: true }).click();
   await expect(page.locator("[data-client-notes]")).toBeVisible();
-  // On other steps the same notes open from the floating button.
+  // During the assessment, Chart slides out as a mini folder; "Open chart" goes to the full Chart.
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
+  const chartFolder = page.getByRole("dialog", { name: "Chart" });
+  await expect(chartFolder).toBeVisible();
+  await chartFolder.getByRole("button", { name: "Open chart", exact: true }).click();
+  await expect(chartFolder).toBeHidden();
+  // On other steps the same notes open from the floating button.
   await page.locator('button[aria-label="Notes"][aria-expanded]').click();
   await expect(page.getByRole("dialog", { name: "Notes" }).locator(`[data-note-heading="${firstKey}"]`)).toContainText("Client prefers");
   await page.keyboard.press("Escape");
