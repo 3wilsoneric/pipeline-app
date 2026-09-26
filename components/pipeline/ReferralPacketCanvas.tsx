@@ -2614,7 +2614,8 @@ export default function ReferralPacketCanvas({
                   await intakeSaveQueueRef.current;
                 }}
               />
-              {!readingAssessment ? <WorkspaceAssignedWorkControl
+              {/* Redesign rail: no Workspaces link (owner, 2026-09-26); the sidebar already has it. */}
+              {!readingAssessment && !verticalFlow ? <WorkspaceAssignedWorkControl
                 referral={loadedReferral}
                 available={onOpenAssignedWork}
                 onOpen={openAssignedWork}

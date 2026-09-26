@@ -20,6 +20,8 @@
   --color-paper: #ffffff;
   --color-paper-rule: #eceef1;
   --color-track: #eceef1;
+  /* Manila: the folder color for record pages with no step color. */
+  --color-manila: #a8864a;
   --color-folder-edge: #d3d7de;
   --color-folder: #f0f2f5;
   --color-column: #f1f3f6;

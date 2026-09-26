@@ -800,7 +800,8 @@
        A white label tab carries the step's own name (owner: "white like a label"); the back panel shows as a darker band above the front flap;
        the step's pages sit inside as white cards. Colors mix from the step color, so every step matches. */
     .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section {
-      --folder-ink: var(--stage-edge, var(--color-ink-muted));
+      /* Pages without a step color (Files, Activity) are manila, never gray (owner: "go with manila when in doubt"). */
+      --folder-ink: var(--stage-edge, var(--color-manila));
       --folder-front: color-mix(in srgb, var(--folder-ink) 15%, var(--color-paper));
       --folder-back: color-mix(in srgb, var(--folder-ink) 28%, var(--color-paper));
       --folder-rim: color-mix(in srgb, var(--folder-ink) 45%, var(--color-paper));
