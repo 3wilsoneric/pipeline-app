@@ -2472,6 +2472,17 @@ export default function ReferralPacketCanvas({
   const packetEvidenceVersion = referralPacketEvidenceVersion(loadedReferral);
   const hasPendingWorkspaceChanges = workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket) || additionalFiles.length > 0;
   const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
+  // Redesign: a new referral's Create referral sits at the bottom right of the intake, where the form ends,
+  // like Next section and Review assessment on the other steps (owner, 2026-09-26).
+  const intakeFooterSave = verticalFlow && !hasReferral;
+  const renderSaveControl = () => <WorkspaceSaveControl
+    saving={isSaving}
+    hasReferral={hasReferral}
+    hasChanges={hasPendingWorkspaceChanges}
+    blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
+    onSave={saveWorkspaceDraft}
+    retry={false}
+  />;
   const queuedFileCount = Object.keys(pendingDocuments).length + Number(Boolean(initialPacket)) + additionalFiles.length;
   const saveStatus = referralDraftSaveStatus(savedAt, hasReferral, queuedFileCount);
   const decisionSaveForCurrent = decisionSaveState.referralId === referralWorkspaceId ? decisionSaveState : null;
@@ -2609,16 +2620,7 @@ export default function ReferralPacketCanvas({
                 onOpen={openAssignedWork}
                 disabled={draftRecoveryLoading || emailSending}
               /> : null}
-              {editingControlsVisible ? (
-                <WorkspaceSaveControl
-                  saving={isSaving}
-                  hasReferral={hasReferral}
-                  hasChanges={hasPendingWorkspaceChanges}
-                  blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
-                  onSave={saveWorkspaceDraft}
-                  retry={false}
-                />
-              ) : null}
+              {editingControlsVisible && !intakeFooterSave ? renderSaveControl() : null}
               <button
                 type="button"
                 onClick={() => void navigatePage("files")}
@@ -2944,6 +2946,7 @@ export default function ReferralPacketCanvas({
                 </div>
               </div>
             </div>
+            {intakeFooterSave && editingControlsVisible ? <div className={workspaceFolderStyles.intakeFooter}>{renderSaveControl()}</div> : null}
             </IntakeEditScope>
           </PacketPage>
   );

@@ -186,7 +186,9 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 
 ## Step folders (owner, 2026-09-26: "bring back the folder effect for the intake through decision")
 
-- Each record step (Intake, Chart, Assessment, Decision, Finish & send) is a folder in its step color instead of a flat wash: a tab at the top left with the step's name, the back panel showing as a darker band above the front flap, and the step's pages inside as white cards. This supersedes the flat wash from "Record layout" (three layers) but keeps its color mapping.
+- Each record step (Intake, Chart, Assessment, Decision, Finish & send) is a folder in its step color instead of a flat wash: a white label tab at the top left with the step's name and a thin step-colored edge (owner: "white like a label"), the back panel showing as a darker band above the front flap, and the step's pages inside as white cards. This supersedes the flat wash from "Record layout" (three layers) but keeps its color mapping.
+- A new referral's Create referral sits at the bottom right of the intake in a bar that stays visible while scrolling, like Next section and Review assessment on the other steps (owner: "why is create intake over there to the left? how is that good flow?"). Same control, same checks.
+- In the record rail, Files, Activity, and Workspaces are secondary: smaller, muted, below the steps. On a new referral, Intake shows as the step in progress.
 - The folder colors mix from the step color (front 15%, back 28%, rim 45% into paper), so every step matches without new tokens. The tab label is the section's existing name. Wide screens only; phones keep their layout.
 
 ## Out of scope (owner, 2026-09-24)

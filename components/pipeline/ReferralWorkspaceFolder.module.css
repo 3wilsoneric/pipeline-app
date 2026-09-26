@@ -770,6 +770,15 @@
     .verticalFlow .actions > * { width: 100%; min-height: 40px; justify-content: flex-start; padding-inline: 8px; font-size: var(--text-label); text-align: left; }
     .verticalFlow .utilityTab { width: 100%; justify-content: flex-start; gap: 10px; padding: 0 12px; border: 0; }
     .verticalFlow .utilityTab span { display: inline; }
+    /* Files, Activity, Workspaces are secondary: smaller, muted, tighter than the steps above them. */
+    .verticalFlow .actions > .utilityTab { min-height: 32px; gap: 8px; padding: 0 8px; border-radius: var(--radius-input); background: transparent; box-shadow: none; color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 500; }
+    .verticalFlow .actions > .utilityTab svg { width: 14px; height: 14px; }
+    .verticalFlow .actions > .utilityTab:hover:not(:disabled) { background: var(--color-segment); color: var(--color-ink); }
+    .verticalFlow .actions > .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-ink); font-weight: 600; }
+    .verticalFlow .actions > .createTab.createTab { margin: 4px 0 10px; }
+    /* A new referral's only step is Intake, and it is the one in progress. */
+    .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
+    .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tab-ink); }
     .verticalFlow .assessmentTools { margin: 0; }
     /* Trash is a small, quiet icon button at the end of the rail; its accessible name stays on the button. */
     .verticalFlow .actions > .trashTab { align-self: flex-end; width: 32px; min-width: 32px; min-height: 32px; margin-top: 4px; padding: 0; justify-content: center; border-radius: var(--radius-input); color: var(--color-ink-muted); }
@@ -787,7 +796,7 @@
     /* Three layers, like the Home board: warm page, the step's color wash, white cards on the wash.
        The wash replaces the manila folder now that the tabs live in the rail. */
     /* Folder (owner, 2026-09-26: "bring back the folder effect"): each step is a folder in its step color.
-       The tab carries the step's own name; the back panel shows as a darker band above the front flap;
+       A white label tab carries the step's own name (owner: "white like a label"); the back panel shows as a darker band above the front flap;
        the step's pages sit inside as white cards. Colors mix from the step color, so every step matches. */
     .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section {
       --folder-ink: var(--stage-edge, var(--color-ink-muted));
@@ -796,7 +805,7 @@
       --folder-rim: color-mix(in srgb, var(--folder-ink) 45%, var(--color-paper));
       position: relative;
       overflow: visible;
-      margin-top: 36px;
+      margin-top: 34px;
       padding: 24px 18px 18px;
       border: 1px solid var(--folder-rim);
       border-radius: 0 var(--radius-folder) var(--radius-folder) var(--radius-folder);
@@ -810,20 +819,23 @@
       left: -1px;
       display: flex;
       align-items: center;
-      min-width: 190px;
-      height: 36px;
-      padding: 0 32px 0 16px;
+      min-width: 176px;
+      height: 34px;
+      padding: 0 20px 0 16px;
       border: 1px solid var(--folder-rim);
       border-bottom: 0;
-      border-radius: var(--radius-folder) calc(var(--radius-folder) + 6px) 0 0;
-      background: var(--folder-back);
-      color: color-mix(in srgb, var(--folder-ink) 85%, black);
+      border-radius: var(--radius-input) var(--radius-input) 0 0;
+      background: var(--color-paper);
+      box-shadow: inset 0 3px 0 var(--folder-ink);
+      color: var(--color-ink);
       font-size: var(--text-value);
-      font-weight: 650;
+      font-weight: 600;
       line-height: 1;
-      letter-spacing: -0.005em;
       pointer-events: none;
     }
+    /* Create referral at the end of the intake, bottom right, like the other steps' main action. */
+    .intakeFooter { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; margin: 16px -18px -18px; padding: 12px 18px; border-top: 1px solid var(--folder-rim); border-radius: 0 0 var(--radius-folder) var(--radius-folder); background: color-mix(in srgb, var(--color-paper) 92%, transparent); backdrop-filter: blur(6px); }
+    .verticalFlow .intakeFooter .createTab.createTab { width: auto; min-height: 44px; margin: 0; padding: 0 20px; justify-content: center; font-size: var(--text-value); }
     @media (forced-colors: active) {
       .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section, .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before { border-color: CanvasText; background: Canvas; color: CanvasText; }
     }
