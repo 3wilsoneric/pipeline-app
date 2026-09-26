@@ -2,7 +2,7 @@
 
 import { QuickNoteLine } from "@/components/pipeline/QuickNote";
 import { useId, useState } from "react";
-import { ArrowRight, ChevronDown, FolderOpen, Maximize2 } from "lucide-react";
+import { ArrowRight, ChevronDown, FileText, FolderOpen, Maximize2 } from "lucide-react";
 
 import HomeDialog, { type HomeDialogOrigin } from "@/components/pipeline/HomeDialog";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
@@ -203,35 +203,66 @@ function LifecycleCardV2({ item, name, descriptionId, showOwner, onOpenPacket }:
 }) {
   const status = item.board.detail;
   const planned = plannedAdmissionDetail(item)[0];
-  const owner = showOwner ? item.owner || "Unassigned" : null;
-  const completion = Math.round(item.completion_pct);
+  // Progress is the referral's real milestones, not a percentage (owner, 2026-09-26).
+  const milestones = boardMilestones(item);
+  const done = milestones.filter((milestone) => milestone.state === "done").length;
+  const documents = item.missing_document_count;
   return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-note ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={boardStyles.card}>
-    <span className={boardStyles.identity}>
-      <strong data-folder-name className={boardStyles.name}>{name}</strong>
-      <span className={boardStyles.fileIndex}>
-        <span>{item.packet_sent_at ? `Packet sent ${formatProfileDate(item.packet_sent_at)}` : `Referral #${item.referral_id}`}</span>
-        <span className={boardStyles.detail}><span className={boardStyles.hiddenLabel}>Community</span><span title={item.community}>{item.community}</span></span>
-        {item.received_at ? <span>Received {formatProfileDate(item.received_at)}</span> : null}
-        {planned ? <span className={boardStyles.detail}>{planned.label} {planned.value}</span> : null}
+    <span className={boardStyles.cardHead}>
+      <span className={boardStyles.identity}>
+        <strong data-folder-name className={boardStyles.name}>{name}</strong>
+        <span className={boardStyles.fileIndex}>
+          <span>{item.packet_sent_at ? `Packet sent ${formatProfileDate(item.packet_sent_at)}` : `Referral #${item.referral_id}`}</span>
+          <span className={boardStyles.detail}><span className={boardStyles.hiddenLabel}>Community</span><span title={item.community}>{item.community}</span></span>
+        </span>
       </span>
+      <span id={`${descriptionId}-status`} data-board-status className={boardStyles.status}>{status}</span>
     </span>
-    <span><span id={`${descriptionId}-status`} data-board-status className={boardStyles.status}>{status}</span></span>
+    {item.received_at || planned ? <span className={boardStyles.meta}>
+      {item.received_at ? <span>Received {formatProfileDate(item.received_at)}</span> : null}
+      {planned ? <span>{planned.label} {planned.value}</span> : null}
+    </span> : null}
     <QuickNoteLine referralId={item.referral_id} id={`${descriptionId}-note`} />
     <span data-folder-body data-folder-details className={boardStyles.progress}>
-      <span className={boardStyles.progressRow}>
-        <span className={boardStyles.detail}><span className={boardStyles.hiddenLabel}>File progress</span><strong>{completion}% complete</strong></span>
-        <span className={boardStyles.docsNeeded}><span>Documents needed</span><strong>{item.missing_document_count}</strong></span>
+      <span className={boardStyles.milestones} role="img" aria-label={`${done} of ${milestones.length} steps done`}>
+        {milestones.map((milestone) => <span key={milestone.label} data-state={milestone.state} title={milestone.label} />)}
       </span>
-      <span className={boardStyles.track} aria-hidden="true"><span style={{ width: `${Math.min(100, Math.max(0, completion))}%` }} /></span>
+      {documents > 0 ? <span className={boardStyles.docsNeeded}><FileText size={13} aria-hidden="true" />{documents} {documents === 1 ? "document" : "documents"} needed</span> : null}
     </span>
     <span className={boardStyles.footer}>
-      {owner ? <span className={boardStyles.owner}><span className={boardStyles.avatar} aria-hidden="true">{ownerInitials(owner)}</span><span className={boardStyles.hiddenLabel}>Assessor</span><span className={boardStyles.ownerName}>{owner}</span></span> : null}
+      {showOwner ? <span className={boardStyles.owner} data-unassigned={item.owner ? undefined : true}>
+        <span className={boardStyles.avatar} aria-hidden="true">{item.owner ? ownerInitials(item.owner) : null}</span>
+        <span className={boardStyles.hiddenLabel}>Assessor</span><span className={boardStyles.ownerName}>{item.owner || "Unassigned"}</span>
+      </span> : null}
       <span className={boardStyles.nextStep}>
         <span id={`${descriptionId}-action`} className={boardStyles.actionText}>{item.board.next_action}</span>
-        <ArrowRight size={16} aria-hidden="true" />
+        <ArrowRight size={15} aria-hidden="true" />
       </span>
     </span>
   </button>;
+}
+
+// The board's milestone bar: done, the one underway, and the rest, from the referral's workflow status.
+const milestoneRank: Record<ReferralWorklistItem["workflow_status"], number> = {
+  intake_unassigned: 0, intake_documents_needed: 0, profile_incomplete: 0, ready_to_schedule: 1,
+  assessment_scheduled: 2, assessment_in_progress: 3, waiting_for_information: 3, assessment_ready_to_sign: 4,
+  assessment_signed: 5, recommendation_submitted: 5, changes_requested: 5, decision_pending: 5,
+  approved_for_placement: 6, accepted: 6, admitted: 6, declined: 6, closed: 6,
+};
+const boardMilestoneSteps = [
+  { label: "Intake", reached: 1 }, { label: "Assessment scheduled", reached: 2 }, { label: "Interview", reached: 4 },
+  { label: "Assessment signed", reached: 5 }, { label: "Decision", reached: 6 },
+] as const;
+
+function boardMilestones(item: ReferralWorklistItem): { label: string; state: "done" | "current" | "todo" }[] {
+  const rank = milestoneRank[item.workflow_status] ?? 0;
+  const ended = item.workflow_status === "declined" || item.workflow_status === "closed";
+  const steps = [
+    ...boardMilestoneSteps.map((step) => ({ label: step.label, done: rank >= step.reached })),
+    { label: "Meet the Client packet sent", done: Boolean(item.packet_sent_at) },
+  ];
+  const current = ended ? -1 : steps.findIndex((step) => !step.done);
+  return steps.map((step, index) => ({ label: step.label, state: step.done ? "done" : index === current ? "current" : "todo" }));
 }
 
 function ownerInitials(owner: string) {

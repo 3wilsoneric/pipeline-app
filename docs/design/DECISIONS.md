@@ -218,6 +218,13 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Saves are quick (owner: "make it save quick, we can't have issues"): assessment answers and intake fields save about a second after the person pauses typing, as well as when they leave the field; the saved snapshot advances so nothing is sent twice.
 - Saving has one deliberate place: a panel in the rail for the whole record. One short line when all is well ("All changes saved", "Saving…", "Waiting to sync", "Not saved"); a compact row per affected part (Referral details, Assessment, Decision paperwork) with a short state and its fix (Retry, Open) when not. The full existing messages show on hover and are read by screen readers. It replaces the separate save notices above each step.
 
+## Home board cards (owner, 2026-09-26: "take the design, color etc and give it ours, and take away percentage")
+
+- From the owner's reference: the client's name with the status pill beside it; "Referral #n · community"; the received and planned dates; the quick note; a milestone bar; documents needed in orange with a file icon; then the assessor with initials and the next action as a filled button that stays on one line.
+- No percentage. The bar has one segment per milestone (Intake, Assessment scheduled, Interview, Assessment signed, Decision, Meet the Client packet sent) from the referral's workflow status and packet date: done in the column's color, the one underway at half strength, the rest gray. Declined and closed referrals show no step underway. Each segment names its milestone on hover; the bar reads "n of 6 steps done".
+- The assessor appears once, in the footer; with none it reads "Unassigned" in orange with an empty dashed avatar.
+- Columns take stronger tints (green, lavender, peach) and a dot in their color before the name.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.
