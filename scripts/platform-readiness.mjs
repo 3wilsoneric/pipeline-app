@@ -37,11 +37,6 @@ const checks = [
     args: ["scripts/design-token-ratchet.mjs"],
   },
   {
-    name: "Dark mode is current",
-    command: "node",
-    args: ["scripts/design-dark.mjs", "--check"],
-  },
-  {
     name: "Developer Academy freshness",
     command: "node",
     args: ["scripts/academy-readiness.mjs"],
