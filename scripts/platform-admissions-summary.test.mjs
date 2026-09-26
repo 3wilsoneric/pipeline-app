@@ -8,6 +8,7 @@ const now = new Date("2026-09-26T15:00:00.000Z");
 let nextId = 1;
 const referral = (overrides) => ({
   referralId: nextId++,
+  clientName: "Jordan Lee",
   community: "San Pablo",
   owner: "Andrew",
   priority: "standard",
@@ -32,9 +33,9 @@ function summarize(referrals) {
   return JSON.parse(JSON.stringify(buildPlatformAdmissionsSummary({ now, referrals })));
 }
 
-test("snapshots the live board by column and status with drill-down rows and no client identity", () => {
+test("snapshots the live board by column and status with client identity and drill-down rows", () => {
   const summary = summarize([
-    referral({ boardColumn: "received", boardStatus: "Referral received", stale: true, unassigned: true, receivedDate: "2026-09-20", name: "Leaked Client" }),
+    referral({ clientName: "Alex Morgan", boardColumn: "received", boardStatus: "Referral received", stale: true, unassigned: true, receivedDate: "2026-09-20" }),
     referral({}),
     referral({ community: "Turlock", boardColumn: "decision", boardStatus: "Accept", decisionOutcome: "accepted", receivedDate: "2026-09-01", decidedAt: "2026-09-05T10:00:00Z", plannedAdmissionDate: "2026-09-30" }),
     referral({ boardColumn: "decision", boardStatus: "Awaiting admit", decisionOutcome: "accepted", receivedDate: "2026-09-03", decidedAt: "2026-09-08T10:00:00Z", plannedAdmissionDate: "2026-09-20" }),
@@ -52,6 +53,7 @@ test("snapshots the live board by column and status with drill-down rows and no 
     { status: "Declined", count: 1 },
   ]);
   const newest = summary.board.cards.find((card) => card.column === "received");
+  assert.equal(newest.client_name, "Alex Morgan");
   assert.deepEqual(newest.flags, { stale: true, unassigned: true, move_in_overdue: false });
   assert.equal(newest.owner, "Unassigned");
   assert.equal(newest.days_open, 6);
@@ -66,7 +68,12 @@ test("snapshots the live board by column and status with drill-down rows and no 
   assert.deepEqual(summary.history.month_outcomes, { month: "2026-09", received: 5, accepted: 2, declined: 1, admitted: 1 });
   assert.equal(summary.history.decision_timing.decisions_counted, 4);
   assert.equal(summary.history.decision_timing.median_days_to_decision, 4.5);
-  assert.ok(!JSON.stringify(summary).includes("Leaked"), "only documented fields leave Pipeline");
+  assert.equal(summary.contract_version, "2.1");
+});
+
+test("uses an explicit fallback when the referral has no recorded name", () => {
+  const summary = summarize([referral({ clientName: "  " })]);
+  assert.equal(summary.board.cards[0].client_name, "Name not recorded");
 });
 
 test("platform summary route requires its own secret and never a browser session", async () => {

@@ -1,10 +1,10 @@
-// Live snapshot of the referral board for Alamo Platform leadership. Rows
-// carry process facts only (column, status, community, owner, ages, flags,
-// and a link back into Pipeline); no client names, dates of birth, sources,
-// or free text leave Pipeline through this contract. Platform documents the
-// consumer side in alamo-platform-app/docs/platform/admissions-zone.md.
+// Live snapshot of the referral board for the authenticated Alamo Platform.
+// Rows include the client name needed to identify and work the referral,
+// alongside column, status, community, owner, ages, flags, and a link back
+// into Pipeline. Platform documents the consumer side in
+// alamo-platform-app/docs/platform/admissions-zone.md.
 
-export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "2.0";
+export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "2.1";
 
 const DAY_MS = 86_400_000;
 const TREND_MONTHS = 6;
@@ -31,6 +31,7 @@ const leadershipStatus: Record<string, string> = {
 
 export type PlatformSummaryReferral = {
   referralId: number;
+  clientName: string;
   community: string;
   owner: string;
   priority: string;
@@ -123,6 +124,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       const awaiting = awaitingArrival(referral, today);
       return {
         referral_id: referral.referralId,
+        client_name: referral.clientName.trim() || "Name not recorded",
         column: referral.boardColumn as PlatformBoardColumn,
         status: leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
         next_action: referral.nextAction,

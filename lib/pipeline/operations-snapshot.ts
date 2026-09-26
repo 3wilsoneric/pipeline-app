@@ -84,6 +84,7 @@ export async function getPlatformAdmissionsSummary() {
       if (work) applyPipelineWorkspaceLocation(params, work.board.location);
       return {
         referralId: referral.id,
+        clientName: referral.name,
         community: referral.community,
         owner: work?.owner ?? normalizeOwnerName(referral.owner),
         priority: referral.priority,
