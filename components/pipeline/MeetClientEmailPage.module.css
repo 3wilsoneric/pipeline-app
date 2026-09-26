@@ -236,8 +236,8 @@
   .messageEditor textarea { width: 100%; min-height: 360px; resize: vertical; border: 1px solid #bdcdc4; border-radius: 4px; padding: 16px; font: 16px/1.6 Arial, sans-serif; color: var(--color-ink); background: #fff; }
   .messageEditor textarea:focus-visible { outline: 2px solid var(--color-link); outline-offset: 2px; }
   .toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 24px; border-top: 1px solid #d9e1dd; background: var(--color-sheet); }
-  .sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: 6px; background: var(--color-link); color: #fff; font-size: 16px; font-weight: 650; }
-  .sendButton:hover:enabled { background: #06634f; }
+  .sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: 6px; background: var(--color-action); color: #fff; font-size: 16px; font-weight: 650; }
+  .sendButton:hover:enabled { background: color-mix(in srgb, var(--color-action) 85%, black); }
   .sendButton:disabled { background: var(--color-paper-rule); color: var(--color-ink-muted); cursor: not-allowed; }
   .addressRow { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: start; gap: 16px; margin: 0 28px; padding: 12px 0; border-bottom: 1px solid var(--color-paper-rule); font-size: 16px; line-height: 26px; }
   .addressRow > :first-child { color: var(--color-ink-muted); white-space: nowrap; }

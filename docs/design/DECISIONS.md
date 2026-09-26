@@ -179,7 +179,8 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 ## Sharper pass (owner, 2026-09-26: "less coffee house, sharper, better colors")
 
 - Crisper: white sheets and cards defined by borders, with shadows only on things that float (quick note, menus, dragged cards). Corners tighter again (sheet 12, folder 10, paper 8, input 6, chip 4).
-- Cleaner colors: near-black ink; emerald action green; the step hues as clear blue, emerald, orange, rose, and amber; step washes nearly white so only a hint of the step color remains. Every text color keeps at least 4.5:1 contrast on its background.
+- Colors: the component colors from the modern pass stay (step columns, washes, tiles, chips). Only the ink is darker (near-black). A later attempt that whitened the washes, and one with a dark sidebar and black buttons, were both rejected by the owner (2026-09-26: "i just wanted the component colors to be there, and sharper font and edges").
+- Filled buttons (Create referral, Begin interview, Next section, Send, the begin dialog) share one deep bottle-green action color, flat, with even corners. The emerald folder-tab Create referral button from the current design is gone in the redesign.
 - Headings tracked slightly tighter, with Inter's clearer letterforms (single-story a, open digits).
 - Tokens and one type rule only; markup and copy unchanged.
 

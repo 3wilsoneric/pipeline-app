@@ -750,6 +750,12 @@
     .stageTab[data-step-state]:not(:last-child) .stepMarker::after { content: ""; position: absolute; top: calc(100% + 2px); left: calc(50% - 1px); width: 2px; height: 22px; background: var(--color-folder-edge); }
     .stageTab[data-step-state="done"]:not(:last-child) .stepMarker::after { background: var(--tab-ink); }
     .verticalFlow .presence { margin-left: 0; flex-direction: column; align-items: stretch; }
+    /* Create referral: a plain filled button, not the current design's green folder tab. */
+    .verticalFlow .createTab.createTab { width: 100%; min-width: 0; min-height: 40px; justify-content: flex-start; gap: 8px; padding: 0 12px; border: 1px solid var(--color-action); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-fill); font-size: var(--text-label); font-weight: 600; box-shadow: var(--shadow-card); }
+    .verticalFlow .createTab svg { width: 16px; height: 16px; }
+    .verticalFlow .createTab:hover:not(:disabled) { background: color-mix(in srgb, var(--color-action) 85%, black); }
+    .verticalFlow .createTab:active:not(:disabled) { box-shadow: none; }
+    .verticalFlow .tabRow .createTab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
     /* Steps hang under Chart: smaller markers on one line down from the Chart icon, no divider between. */
     .verticalFlow .stageTab[data-step-home="true"] { margin-bottom: 0; }
     .verticalFlow .stageTab[data-step-home="true"]::before { display: none; }

@@ -431,8 +431,8 @@
   .phaseSteps li > span { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1px solid #d3dfd9; border-radius: 50%; font-size: 12px; }
   .phaseSteps li[aria-current="step"] > span { border-color: #146c54; background: #146c54; color: #fff; }
   .workMode p { max-width: 72ch; margin: 0; color: var(--color-ink-muted); font-size: 13px; line-height: 1.45; }
-  .beginAssessment { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 8px; min-height: 44px; padding: 10px 18px; border: 1px solid var(--color-primary-hover); border-radius: var(--radius-input); background: var(--color-link); color: var(--color-paper); font-size: 15px; font-weight: 600; }
-  .beginAssessment:hover { background: var(--color-primary-hover); }
+  .beginAssessment { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 8px; min-height: 44px; padding: 10px 18px; border: 1px solid var(--color-primary-hover); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-paper); font-size: 15px; font-weight: 600; }
+  .beginAssessment:hover { background: color-mix(in srgb, var(--color-action) 85%, black); }
   .beginAssessment:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
   .beginAssessment:disabled { opacity: .6; }
   .scheduleAction button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-link); font-size: 15px; font-weight: 600; }
@@ -670,10 +670,10 @@
   .chartReview [data-assessment-record] > section > h3 { margin-bottom: 12px; }
   .chartReview [data-assessment-record] > section > dl { row-gap: 14px; }
   .chartReview [data-assessment-record] dd { margin-top: 3px; line-height: 1.6; }
-  .footer [data-assessment-primary-action] > button, .phonePreparationSteps [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; height: auto; padding: 10px 20px; border: 1px solid var(--color-primary-hover); border-radius: var(--radius-input); background: var(--color-link); color: var(--color-paper); font-size: 15px; font-weight: 600; }
+  .footer [data-assessment-primary-action] > button, .phonePreparationSteps [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; height: auto; padding: 10px 20px; border: 1px solid var(--color-primary-hover); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-paper); font-size: 15px; font-weight: 600; }
   .phonePreparationSteps { flex-shrink: 0; padding: 8px 12px; border-top: 1px solid var(--color-paper-rule); background: #fff; }
   .phonePreparationSteps :is(button, select):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  .footer [data-assessment-primary-action] > button:not(:disabled):hover { background: var(--color-primary-hover); }
+  .footer [data-assessment-primary-action] > button:not(:disabled):hover { background: color-mix(in srgb, var(--color-action) 85%, black); }
   .footer [data-assessment-primary-action] > button:disabled { opacity: .5; cursor: not-allowed; }
   .footer [data-guide-target="assessment-save-status"] { justify-content: flex-start; font-size: 13px; line-height: 1.4; }
   .footer [data-guide-target="assessment-save-status"] > span { overflow-wrap: anywhere; }

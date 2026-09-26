@@ -223,8 +223,8 @@
   .beginDialog footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
   .beginDialog button { min-height: 48px; padding: 10px 12px; border: 1px solid var(--color-control-border); border-radius: 5px; font-size: 14px; font-weight: 600; line-height: 1.5; cursor: pointer; }
   .beginDialog button:hover:not(:disabled) { background: #f0f4f2; }
-  .beginDialog button:last-child { border-color: var(--color-link); background: var(--color-link); color: #fff; }
-  .beginDialog button:last-child:hover:not(:disabled) { background: #066653; }
+  .beginDialog button:last-child { border-color: var(--color-action); background: var(--color-action); color: #fff; }
+  .beginDialog button:last-child:hover:not(:disabled) { background: color-mix(in srgb, var(--color-action) 85%, black); }
   .beginDialog button:disabled { opacity: .5; cursor: wait; }
   .beginDialog button:focus-visible { outline: 2px solid var(--color-link); outline-offset: 3px; }
   .scheduleOverlay {
