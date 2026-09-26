@@ -7,6 +7,7 @@ const atlas = JSON.parse(readFileSync("lib/academy/academy-atlas.generated.json"
 const academyUrl = process.env.PIPELINE_E2E_ACADEMY_URL ?? "/academy";
 
 test.describe("Private Developer Academy", () => {
+  test.skip(process.env.PIPELINE_ACADEMY_E2E !== "true", "Optional developer course checks run with npm run test:e2e:academy; tutorial checks remain in normal CI.");
   test.beforeEach(async ({ page, request }) => {
     if (process.env.PIPELINE_DESKTOP_E2E === "true") {
       const current = await request.get("/api/academy/progress");

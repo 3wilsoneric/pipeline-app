@@ -30,3 +30,15 @@ This policy supersedes conflicting TARS start, approval, and mandatory audit seq
 - Never rewrite applied migrations. Keep local and PostgreSQL adapters explicit, preserve transaction/audit atomicity and conflict handling, and verify parity where affected.
 - Deployment still requires authorization, the applicable passing release checks, a known candidate, and a usable rollback/recovery path. Do not ship known unresolved critical/high safety defects. Report blockers once with the concrete next action; do not repeatedly ask for permission already given.
 - Keep historical refactor records and their validators intact as evidence of that program; they do not authorize or veto unrelated current work. Do not claim the application is bug-free, perfect, or formally verified.
+
+## Tutorial checks — owner revision, 2026-09-26
+
+Normal releases verify the user-facing tutorials, their access boundaries, isolated
+practice, navigation, and saved progress. Developer Academy curriculum quotas,
+repository atlas freshness, and Academy/training registry fingerprints are optional
+content-maintenance checks, not release prerequisites. Do not refresh those files
+or run course certification for unrelated application changes. Use `npm run
+check:tutorials` and affected tutorial browser tests when tutorial behavior changes;
+retain private-route authorization and progress integrity checks. This policy
+supersedes older Academy/training maintenance instructions requiring every product
+change to regenerate learning artifacts. It does not waive other release checks.
