@@ -9,6 +9,7 @@ import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
+import { canAccessApplicationActivity } from "@/lib/pipeline/application-activity-access";
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -168,6 +169,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser) : undefined);
   const [teamAccess, setTeamAccess] = useState<boolean | undefined>(() => initialUser ? canAccessSupervisorOperations(initialUser.roles) : undefined);
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
+  const [activityAccess, setActivityAccess] = useState(() => canAccessApplicationActivity(initialUser));
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
   const [directDraftError, setDirectDraftError] = useState("");
   const [directDraftRetry, setDirectDraftRetry] = useState(0);
@@ -246,6 +248,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       .then(({ user }) => {
         if (cancelled) return;
         setViewerId(user.id);
+        setActivityAccess(canAccessApplicationActivity(user));
         setReportAccess(canAccessOperationsReports(user));
         setTeamAccess(canAccessSupervisorOperations(user.roles));
         // Warm the first workspace page and complete current census after authentication.
@@ -256,6 +259,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       .catch(() => {
         if (!cancelled) {
           setReportAccess(false);
+          setActivityAccess(false);
           setTeamAccess(false);
         }
       });
@@ -342,6 +346,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         viewerId={viewerId}
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
+        canViewApplicationActivity={activityAccess}
         onOpenPacket={(referral, location, action) => navigate("packet", referral, undefined, location, true, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}

@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { clearAssessorSessionCookie } from "@/lib/auth/assessor-session";
+import { recordPipelineSignIn } from "@/lib/auth/sign-in-activity";
 import {
   clearPipelineSessionCookie,
   createPipelineSessionCookie,
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
       const response = NextResponse.json({ ok: true }, { headers: noStoreHeaders });
       response.headers.append("Set-Cookie", cookie);
       response.headers.append("Set-Cookie", clearAssessorSessionCookie(request));
+      after(() => recordPipelineSignIn(request, auth.user));
       return response;
     } catch (error) {
       const message = error instanceof Error && error.message.includes("not configured")
