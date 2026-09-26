@@ -70,16 +70,18 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
       .catch(() => { if (!controller.signal.aborted) setError("The complete client chart could not be loaded."); });
     return () => controller.abort();
   }, [profilePath, retry, dataGeneration]);
+  // Redesign order (owner, 2026-09-26): who the client is first, then where it stands, the checklist, and the assessment.
   if (!profilePath || error || !profile) return <>
-    {standing}
-    {intakeChart}
+    {homeChart ? intakeChart : standing}
+    {homeChart ? standing : intakeChart}
+    {homeChart ? answers : null}
     {standing ? null : checklist}
     {!intakeReferral ? <ClientChartHeader title="Client chart" actions={headerActions}>{null}</ClientChartHeader> : null}
     {!profilePath ? <p role="alert">{intakeReferral ? "Supporting records need a client connection. Referral details remain available." : "This workspace needs its client identity connected before the chart can be loaded."}</p>
       : error ? <div role="alert" className="py-4 text-[13px] text-[#59645e]">{intakeReferral ? "Supporting records could not be loaded. Referral details remain available." : error} <button type="button" className="ml-3 underline" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>
       : <p role="status" className="py-4 text-[12px] text-[#68716d]">{intakeReferral ? "Loading supporting records..." : "Loading client chart..."}</p>}
-    {assessment && !designV2 ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : answers}
+    {assessment && !designV2 ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : homeChart ? null : answers}
   </>;
-  return <>{standing}{intakeChart}{standing ? null : checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
-    intakeReferral={intakeReferral} excludeReferralAssessments={designV2} />{answers}</>;
+  return <>{homeChart ? <>{intakeChart}{standing}{answers}</> : <>{standing}{intakeChart}</>}{standing ? null : checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
+    intakeReferral={intakeReferral} excludeReferralAssessments={designV2} />{homeChart ? null : answers}</>;
 }

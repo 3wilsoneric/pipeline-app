@@ -2133,7 +2133,7 @@ export default function AssessmentWorkspace({
 
   // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): before the editor's own chart
   // review exists, the Chart slot shows the plain chart, so the Chart is always on the page.
-  const plainStackedChart = chartSlot ? createPortal(<>{chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} /></>, chartSlot) : null;
+  const plainStackedChart = chartSlot ? createPortal(<>{designV2 ? null : chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} />{designV2 ? chartDocuments : null}</>, chartSlot) : null;
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
     return (<>{plainStackedChart}
       <AssessmentEmpty
@@ -2379,7 +2379,8 @@ export default function AssessmentWorkspace({
 
   const renderChartReview = () => (
     <section data-guide-target="assessment-review" aria-label="Assessment chart review" className={workingStyles.chartReview}>
-            {chartDocuments}
+            {/* Redesign: documents follow the chart, so the client reads first (owner, 2026-09-26). */}
+            {designV2 ? null : chartDocuments}
             {renderChartReviewToolbar()}
             {assessmentReview ? renderReviewOverview() : designV2 ? null : renderUnansweredEntry()}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>
@@ -2395,6 +2396,7 @@ export default function AssessmentWorkspace({
               assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)}
               onOpenDecision={onContinueToWorkflow && !trainingAssessmentMode ? continueToWorkflow : undefined} />
             </div>
+            {designV2 ? chartDocuments : null}
           </section>
   );
 

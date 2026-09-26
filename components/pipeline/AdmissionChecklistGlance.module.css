@@ -22,9 +22,11 @@ li[data-complete="true"] .mark { background: var(--color-status-done); color: va
 li[data-complete="true"] .item strong { color: var(--color-ink-2); font-weight: 500; }
 
 /* Where this referral stands and Assessment summary share the glance card. */
-.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-.steps li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); }
-.steps li[data-state="done"] { border-color: var(--color-stage-green-border); background: var(--color-status-done-soft); }
+/* One compact row of milestones, no boxes (owner, 2026-09-26): a filled check when done, an open ring when not. */
+.steps { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 0; padding: 0; list-style: none; }
+.steps li { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.steps li[data-state="done"] .mark { background: var(--color-status-done); color: var(--color-paper); }
+.steps li:not([data-state="done"]) .item strong { color: var(--color-ink-2); font-weight: 500; }
 .steps li[data-state="not_needed"] { opacity: 0.7; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin: 12px 0 0; }
 .facts > div { min-width: 0; padding: 10px 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); }

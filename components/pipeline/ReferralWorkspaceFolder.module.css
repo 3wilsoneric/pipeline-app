@@ -921,6 +921,15 @@
     .verticalFlow article[aria-label="Referral chart"] > section { margin-top: 20px; }
     .verticalFlow article[aria-label="Referral chart"] > section > h2 { padding-inline: 20px; padding-top: 0; border-top: 0; }
     .verticalFlow article[aria-label="Referral chart"] > section > dl { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper-rule); box-shadow: var(--shadow-card); }
+    /* Chart: the upload is a button in the Documents row, not a drop box above the page; the whole card still takes drops. */
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] { position: relative; margin: 16px 0 0; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] { position: absolute; top: 4px; right: 112px; z-index: 1; width: auto; min-height: 44px; gap: 8px; padding: 0 12px; border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-link); }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"]:hover { background: var(--color-primary-soft); }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] > span:first-child { width: auto; height: auto; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] svg { width: 18px; height: 18px; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] strong { font-size: var(--text-label); font-weight: 600; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > details > summary { min-height: 52px; border-top: 0; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"][data-file-drag-active] { outline: 2px dashed var(--color-link); outline-offset: 2px; }
     /* Readability pass (owner, 2026-09-26). Section titles lead each card with room above them. */
     .verticalFlow article[aria-label="Referral chart"] > section { margin-top: 28px; }
     .verticalFlow article[aria-label="Referral chart"] > section > h2 { padding-bottom: 8px; font-weight: 700; }
