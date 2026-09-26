@@ -566,7 +566,20 @@
   .navigation[data-with-work-mode] > .workMode { display: contents; }
   .navigation[data-with-work-mode] .phaseSummary { order: 0; flex: 0 0 auto; }
   .navigation[data-with-work-mode] .sectionTitle { order: 1; flex: 0 0 auto; padding-left: 20px; border-left: 1px solid var(--color-paper-rule); }
-  .navigation[data-with-work-mode] .sectionPicker select { font-size: var(--text-title); }
+  /* Calm one row: the section name reads as a title (no box until hover), everything else is small and quiet. */
+  .navigation[data-with-work-mode] { min-height: 56px; padding-block: 6px 10px; align-items: center; }
+  .navigation[data-with-work-mode] .phaseSteps { gap: 8px; }
+  .navigation[data-with-work-mode] .phaseSteps li { font-size: var(--text-label); }
+  .navigation[data-with-work-mode] .phaseSteps li > span { width: 18px; height: 18px; font-size: var(--text-meta); }
+  .navigation[data-with-work-mode] .sectionTitle { padding-left: 14px; }
+  .navigation[data-with-work-mode] .sectionPosition { padding: 1px 6px; background: transparent; color: var(--color-ink-muted); font-size: var(--text-label); }
+  .navigation[data-with-work-mode] .sectionPicker select.sectionPicker, .navigation[data-with-work-mode] .sectionPicker select { min-height: 36px; padding-block: 0; border-color: transparent; background: transparent; font-size: var(--text-section); line-height: var(--text-section--line-height); letter-spacing: 0; }
+  .navigation[data-with-work-mode] .sectionPicker select:hover { border-color: var(--color-control-border); }
+  .navigation[data-with-work-mode] .sectionProgress { font-size: var(--text-label); }
+  .navigation[data-with-work-mode] .sectionProgress strong { font-size: var(--text-label); }
+  .navigation[data-with-work-mode] .prepActions { gap: 6px; }
+  .navigation[data-with-work-mode] .prepActions :is(button, [role="button"]) { min-height: 36px; padding-inline: 10px; font-size: var(--text-label); }
+  .navigation[data-with-work-mode] .prepActions svg { width: 15px; height: 15px; }
   .navigation[data-with-work-mode] .sectionProgress { order: 2; min-width: 0; max-width: none; margin-left: auto; white-space: nowrap; }
   .navigation[data-with-work-mode] .prepActions { order: 3; }
   /* The count already says it; the ring gives its room to the row. */
