@@ -10,6 +10,11 @@ Latest refresh evidence and remaining failures: [September 26 results](TEST_REFR
 
 ## Commands
 
+- `npm run check:tutorials`: current tutorial permissions, navigation, and isolated
+  referral practice. This runs in the normal non-browser release gate.
+- `npm run test:e2e:tutorials`: the current Help/tutorial page and walkthroughs.
+- `npm run test:e2e:academy`: opt-in checks for the separate developer course.
+  Its curriculum and repository-atlas checks are not normal release prerequisites.
 - `npm run test:unit`: discovers every `scripts/*.test.mjs` native Node test.
 - `PORT=3187 npm run test:e2e`: all default Playwright cases, with an isolated
   local mock identity, synthetic clinical service and local stores.
@@ -30,6 +35,11 @@ Existing `check:*` contract commands still cover domain rules, adapter parity an
 fixtures. PostgreSQL/live integration and operational load tests have their own
 environment requirements; a skipped local test is not evidence they passed.
 Never aim synthetic writes or load generation at production by changing a URL.
+
+Do not regenerate Academy atlases or Academy/training registry fingerprints for
+an unrelated release. The `academy:*` and `training:*` curriculum commands remain
+available for explicitly requested content maintenance. Private learning-route
+access and progress integrity still run in the release gate.
 
 ## Current workflow conventions
 

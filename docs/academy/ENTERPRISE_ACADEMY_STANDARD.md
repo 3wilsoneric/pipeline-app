@@ -41,11 +41,18 @@ Completion records exposure to material. Mastery requires all of the following:
 
 ## Maintenance Protocol
 
-Run `npm run academy:atlas` after adding, moving, or deleting maintained files. Review the generated diff rather than accepting it blindly. Update module ownership rules when a file is misclassified.
+This is an opt-in course-maintenance protocol. It is not a prerequisite for normal
+application work or deployment; the September 26 policy in
+[AGENTS.md](../../AGENTS.md) supersedes the earlier release requirements.
+
+When explicitly maintaining the course, run `npm run academy:atlas` to update its
+repository index. Review the generated diff and correct misclassified files.
 
 Run `npm run academy:refresh` only after reviewing curriculum source changes and the regenerated atlas. This records new fingerprints; it does not prove the teaching content is correct.
 
-Run `npm run academy:certify` before merging Academy changes and as part of the weekly engineering-quality cycle. Certification checks the atlas, source fingerprints, curriculum graph, journey references, progress contracts, owner boundary, and TypeScript.
+Use `npm run academy:certify` for a requested course review. It checks the atlas,
+source fingerprints, curriculum graph, journey references, progress contracts,
+owner boundary, and TypeScript. It is not a recurring or application-release gate.
 
 Every production failure, confusing code review, unsafe change, or repeated developer question should result in one of the following:
 
