@@ -12,15 +12,16 @@ Review training when any of these change:
 - metric definitions, report filters, exports, retention, or privacy controls.
 - a guided-tour route, target, advance rule, or safety boundary.
 
-## Required Update
+## Updating the current tutorials
 
-1. Identify affected modules, scenarios, job aids, and capability-map nodes.
-2. Update behavior and safety language from the approved workflow, not from memory.
-3. Increment `OPERATOR_TRAINING_VERSION` for material learner-facing change.
-4. Run `npm run training:refresh` to review the current product-source fingerprint.
-5. Run `npm run training:certify`, typecheck, production build, and browser journeys.
-6. Decide whether existing users need the affected module reassigned.
-7. Communicate the change with effective date and operational owner.
+1. Identify the instructions or walkthrough steps affected by the product change.
+2. Update them from the actual workflow.
+3. Run `npm run check:tutorials` and the affected tutorial browser journeys.
+
+Normal releases do not require course-hour/module quotas, Academy atlas updates,
+or Academy/training registry refreshes. The old curriculum certification commands
+are optional tools for requested course maintenance. The September 26 policy in
+[AGENTS.md](../../AGENTS.md) supersedes earlier mandatory certification sequences.
 
 Guided targets are source-owned contracts. Rename or remove a `data-guide-target` only with
 the corresponding authored-action update. Auto-advance is limited to the registered safe
@@ -30,5 +31,7 @@ and handoff controls remain explicit human checkpoints and are never clicked by 
 
 ## Release Rule
 
-Passing automation proves structural alignment, not clinical or operational approval. A product
-and operations owner must review material workflow guidance before release.
+Tutorial checks must preserve access control, saved progress, safe navigation, and
+the separation between fictional practice and real client records. Review material
+workflow guidance when it changes; stale learning fingerprints do not block an
+unrelated application release.

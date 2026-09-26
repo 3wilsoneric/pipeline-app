@@ -42,14 +42,14 @@ const checks = [
     args: ["scripts/code-quality-readiness.mjs"],
   },
   {
-    name: "Developer Academy freshness",
-    command: "node",
-    args: ["scripts/academy-readiness.mjs"],
+    name: "Tutorial navigation, permissions, and isolated sample workflows",
+    command: "npm",
+    args: ["run", "check:tutorials"],
   },
   {
-    name: "Private Developer Academy route",
+    name: "Private learning route access and progress safety",
     command: "node",
-    args: ["scripts/academy-route-contracts.mjs"],
+    args: ["scripts/academy-route-contracts.mjs", "--runtime-only"],
   },
   {
     name: "Alamo Admissions zone contracts",
