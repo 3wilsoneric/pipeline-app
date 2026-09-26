@@ -54,10 +54,12 @@
   display: block;
   width: 100%;
   min-height: 40px;
-  padding: 8px 10px;
-  border: 1px solid transparent;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--color-stage-amber-border);
+  border-left: 3px solid var(--color-warning);
   border-radius: var(--radius-input);
   background: var(--color-warning-soft);
+  box-shadow: var(--shadow-card);
   color: var(--color-ink);
   font-size: var(--text-label);
   line-height: var(--text-label--line-height);
@@ -65,7 +67,7 @@
   cursor: text;
 }
 .preview[data-empty] { color: var(--color-ink-muted); }
-.preview:hover { border-color: var(--color-control-border); }
+.preview:hover { border-color: var(--color-warning); box-shadow: var(--shadow-card-hover); }
 .preview:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 
 .previewText {
@@ -77,35 +79,68 @@
   white-space: pre-line;
 }
 
-.field {
+/* The writing panel: a sticky note that opens over the page from the rail. */
+.panel {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: -6px;
+  left: -6px;
   z-index: 40;
-  width: min(440px, calc(100vw - 280px));
-  height: min(320px, calc(100dvh - 160px));
-  padding: 12px 14px;
-  resize: none;
-  overflow-y: auto;
-  border: 1px solid var(--color-warning);
-  border-radius: var(--radius-input);
-  background: var(--color-paper);
+  display: flex;
+  flex-direction: column;
+  width: min(460px, calc(100vw - 280px));
+  height: min(360px, calc(100dvh - 160px));
+  overflow: hidden;
+  border: 1px solid var(--color-stage-amber-border);
+  border-radius: var(--radius-paper);
+  background: var(--color-warning-soft);
   box-shadow: var(--shadow-popover);
-  color: var(--color-ink);
-  font-size: var(--text-value);
-  line-height: var(--text-value--line-height);
   animation: quick-note-open var(--duration-fade) var(--ease-open);
 }
 
+.panelHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 6px 0 14px;
+  border-bottom: 1px solid var(--color-stage-amber-border);
+  background: var(--color-stage-amber-tile);
+}
+
+.panelTitle { display: inline-flex; align-items: center; gap: 8px; color: var(--color-ink); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; }
+.panelTitle svg { color: var(--color-warning); }
+.panelMeta { margin-left: auto; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-variant-numeric: tabular-nums; }
+.panelClose { display: grid; place-items: center; width: 32px; height: 32px; margin-left: 2px; border-radius: var(--radius-input); color: var(--color-ink-muted); }
+.panelHead > .panelTitle + .panelClose { margin-left: auto; }
+.panelClose:hover { background: var(--color-stage-amber-border); color: var(--color-ink); }
+.panelClose:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+
+.field {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  padding: 14px 16px;
+  resize: none;
+  overflow-y: auto;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: var(--text-value);
+  line-height: 22px;
+}
+
 .field::placeholder { color: var(--color-ink-muted); }
-.field:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.field:focus-visible { outline: none; }
+.panel:focus-within { border-color: var(--color-warning); }
+
+.panelFoot { padding: 6px 14px 8px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); text-align: right; font-variant-numeric: tabular-nums; }
 
 @keyframes quick-note-open { from { opacity: 0; transform: scale(0.98); transform-origin: 0 0; } }
 
 .error { margin: 0; padding: 0 4px; color: var(--color-danger); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
 
-@media (prefers-reduced-motion: reduce) { .field { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
 
 @media (forced-colors: active) {
-  .line, .preview, .field { border: 1px solid CanvasText; background: Canvas; }
+  .line, .preview, .panel { border: 1px solid CanvasText; background: Canvas; }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { StickyNote } from "lucide-react";
+import { StickyNote, X } from "lucide-react";
 
 import { quickNoteMaxLength } from "@/lib/pipeline/referral-quick-notes";
 import { saveQuickNote, useQuickNote, useQuickNotes } from "@/components/pipeline/useQuickNotes";
@@ -24,7 +24,8 @@ const saveDelayMs = 800;
 // Render with key={referralId}: an instance only ever saves to its own referral.
 // Closed, the rail shows a short preview; clicking it opens a larger writing panel over the page.
 export function QuickNoteEditor({ referralId }: { referralId: number }) {
-  const saved = useQuickNote(referralId)?.text ?? "";
+  const note = useQuickNote(referralId);
+  const saved = note?.text ?? "";
   // null: showing the saved note. A string: the person's unsaved typing, kept until it saves.
   const [draft, setDraft] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -63,6 +64,7 @@ export function QuickNoteEditor({ referralId }: { referralId: number }) {
     element.setSelectionRange(element.value.length, element.value.length);
   }, [open]);
 
+  const panel = useRef<HTMLDivElement>(null);
   const close = (returnFocus: boolean) => {
     setOpen(false);
     if (pending.current !== null) void save(pending.current);
@@ -76,24 +78,36 @@ export function QuickNoteEditor({ referralId }: { referralId: number }) {
       <button ref={preview} type="button" aria-labelledby={`${fieldId}-label ${fieldId}-preview`} aria-expanded={open} onClick={() => setOpen(true)} className={styles.preview} data-empty={!value || undefined}>
         <span id={`${fieldId}-preview`} className={styles.previewText}>{value || "Add quick note"}</span>
       </button>
-      {open ? <textarea
-        ref={field}
-        id={fieldId}
-        maxLength={quickNoteMaxLength}
-        value={value}
-        placeholder="Add quick note"
-        className={styles.field}
-        onChange={(event) => {
-          const text = event.target.value;
-          setDraft(text);
-          pending.current = text;
-          clearTimeout(timer.current);
-          timer.current = setTimeout(() => void save(text), saveDelayMs);
-        }}
-        onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(true); } }}
-        onBlur={() => close(false)}
-      /> : null}
+      {open ? <div ref={panel} className={styles.panel} onBlur={(event) => { if (!panel.current?.contains(event.relatedTarget as Node | null)) close(false); }}>
+        <div className={styles.panelHead}>
+          <span className={styles.panelTitle}><StickyNote size={15} aria-hidden="true" />Quick note</span>
+          {note?.updatedAt ? <time dateTime={note.updatedAt} className={styles.panelMeta}>{formatNoteTime(note.updatedAt)}</time> : null}
+          <button type="button" aria-label="Close" onClick={() => close(true)} className={styles.panelClose}><X size={16} aria-hidden="true" /></button>
+        </div>
+        <textarea
+          ref={field}
+          id={fieldId}
+          maxLength={quickNoteMaxLength}
+          value={value}
+          placeholder="Add quick note"
+          className={styles.field}
+          onChange={(event) => {
+            const text = event.target.value;
+            setDraft(text);
+            pending.current = text;
+            clearTimeout(timer.current);
+            timer.current = setTimeout(() => void save(text), saveDelayMs);
+          }}
+          onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(true); } }}
+        />
+        <div className={styles.panelFoot} aria-hidden="true">{value.length.toLocaleString()} / {quickNoteMaxLength.toLocaleString()}</div>
+      </div> : null}
     </div>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
   </div>;
+}
+
+function formatNoteTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }

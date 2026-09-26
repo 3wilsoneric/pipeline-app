@@ -793,10 +793,10 @@
     /* The chart's own sections: identity is the first card; each later section is a title on the wash over its card. */
     .verticalFlow article[aria-label="Referral chart"] { overflow: visible; border: 0; background: transparent; box-shadow: none; }
     .verticalFlow article[aria-label="Referral chart"] > header { border: 1px solid var(--color-card-border); border-bottom-color: var(--color-paper-rule); border-radius: var(--radius-paper) var(--radius-paper) 0 0; }
-    .verticalFlow article[aria-label="Referral chart"] > dl { border: 1px solid var(--color-card-border); border-top: 0; border-radius: 0 0 var(--radius-paper) var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    .verticalFlow article[aria-label="Referral chart"] > dl { border: 1px solid var(--color-card-border); border-top: 0; border-radius: 0 0 var(--radius-paper) var(--radius-paper); background: var(--color-page); box-shadow: var(--shadow-card); }
     .verticalFlow article[aria-label="Referral chart"] > section { margin-top: 20px; }
     .verticalFlow article[aria-label="Referral chart"] > section > h2 { padding-inline: 20px; padding-top: 0; border-top: 0; }
-    .verticalFlow article[aria-label="Referral chart"] > section > dl { border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    .verticalFlow article[aria-label="Referral chart"] > section > dl { border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-page); box-shadow: var(--shadow-card); }
     /* The summary card's title already names it; its one cell drops the repeated label (the grid keeps its accessible name). */
     .verticalFlow dl[aria-label="Referral summary"] dt { display: none; }
     .verticalFlow [data-testid="profile-workspace"] { padding: 0; background: transparent; }

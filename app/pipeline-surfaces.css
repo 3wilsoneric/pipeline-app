@@ -705,7 +705,9 @@
 
   /* Chart edit hints show on the field being pointed at, not under every field (docs/design/DECISIONS.md, "Copy pass"). */
   @media (hover: hover) and (pointer: fine) {
-    .pipeline-surfaces [data-chart-edit-hint] { opacity: 0; transition: opacity var(--duration-fade) ease; }
+    .pipeline-surfaces [data-chart-edit-hint] { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; margin: 0; border-radius: var(--radius-input); font-size: 0 !important; opacity: 0; transition: opacity var(--duration-fade) ease; }
+    .pipeline-surfaces [data-chart-edit-hint] svg { width: 14px; height: 14px; }
+    .pipeline-surfaces [data-chart-edit-hint]:hover { background: var(--color-segment); }
     .pipeline-surfaces :is([data-chart-field], [data-chart-fact]):is(:hover, :focus-within) [data-chart-edit-hint] { opacity: 1; }
   }
 
