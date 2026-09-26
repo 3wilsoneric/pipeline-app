@@ -125,6 +125,11 @@ test("PostgreSQL activity preserves microsecond pagination, filtering, deleted w
     assert.equal(filtered.events.length, 1);
     assert.equal(filtered.events[0].action, "signed_in");
     assert.equal((await getApplicationActivity({ since, through, actor: "' or 1=1 --" })).events.length, 0);
+    await sql.unsafe(await readFile("database/rollbacks/0045_application_activity_index.sql", "utf8"));
+    assert.equal((await sql`select to_regclass('pipeline.audit_events_created_idx') as name`)[0].name, null);
+    assert.equal((await getApplicationActivity({ since, through, actor: "other" })).events.length, 1, "index rollback preserves the audit trail and read compatibility");
+    await sql.unsafe(await readFile("database/migrations/0045_application_activity_index.sql", "utf8"));
+    assert.ok((await sql`select to_regclass('pipeline.audit_events_created_idx') as name`)[0].name);
   } finally {
     await sql?.end();
     await admin.unsafe(`drop database if exists "${name}" with (force)`);

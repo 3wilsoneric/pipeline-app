@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:89d35bbff40e83a2",
-  "fingerprint": "89d35bbff40e83a20d13739c9027d25404c8616de192872ee372e1e5bc6cd16c",
+  "generatedAt": "source-fingerprint:0c0cb0004f416d1b",
+  "fingerprint": "0c0cb0004f416d1b59f1facec54d06f9bc490da805b30b8a5b4ea59c4ac5bd49",
   "totals": {
-    "files": 1438,
-    "lines": 374319,
-    "coveredFiles": 1438
+    "files": 1439,
+    "lines": 374332,
+    "coveredFiles": 1439
   },
   "entries": [
     {
@@ -3900,7 +3900,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 51,
+      "lines": 52,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4921,6 +4921,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 13,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0045_application_activity_index.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 7,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -12154,7 +12166,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 149,
+      "lines": 154,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
