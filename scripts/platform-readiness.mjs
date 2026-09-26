@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Platform admissions summary is aggregate-only behind its own secret",
+    command: "node",
+    args: ["--test", "scripts/platform-admissions-summary.test.mjs"],
+  },
+  {
     name: "Owner-only application activity and nonblocking sign-in audit",
     command: "node",
     args: ["--test", "scripts/application-activity.test.mjs"],
