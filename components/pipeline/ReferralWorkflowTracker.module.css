@@ -337,26 +337,31 @@
   .identity { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .name { min-width: 0; font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: var(--text-section--font-weight); overflow-wrap: anywhere; }
   .fileIndex { display: flex; flex-wrap: wrap; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); font-variant-numeric: tabular-nums; }
-  .fileIndex > * + *::before { content: "\00b7"; padding: 0 6px; }
+  /* Separators sit before each item and are clipped at the start of a wrapped line, so no line starts with a dot. */
+  .identity { overflow: hidden; }
+  .fileIndex { margin-left: -14px; }
+  .fileIndex > * { position: relative; padding-left: 14px; white-space: nowrap; }
+  .fileIndex > *::before { content: "\00b7"; position: absolute; left: 5px; }
   .status { display: inline-block; max-width: 100%; margin-top: -4px; padding: 3px 9px; border-radius: var(--radius-chip); background: var(--status-fill); color: var(--status-ink); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; overflow-wrap: anywhere; }
   .detail { position: relative; min-width: 0; overflow-wrap: anywhere; }
   /* Labels the layout makes visually obvious stay available to screen readers. */
   .hiddenLabel { position: absolute; top: 0; left: 0; max-width: 100%; overflow-wrap: anywhere; clip-path: inset(50%); pointer-events: none; }
   .progress { display: flex; flex-direction: column; gap: 8px; }
-  .progressRow { display: flex; justify-content: space-between; gap: 12px; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); font-variant-numeric: tabular-nums; }
+  .progressRow { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); font-variant-numeric: tabular-nums; }
   .progressRow strong { color: var(--color-ink); font-weight: 600; }
-  .docsNeeded { display: flex; gap: 4px; }
+  .docsNeeded { display: flex; gap: 4px; white-space: nowrap; }
+  .progressRow > * { white-space: nowrap; }
   .docsNeeded strong { color: var(--color-ink-muted); font-weight: 400; }
   .track { height: 6px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
   .track > span { display: block; height: 100%; border-radius: inherit; background: var(--stage-accent); }
 
   .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid var(--color-paper-rule); }
   .owner { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); }
-  .ownerName { min-width: 0; overflow-wrap: anywhere; }
+  .ownerName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .avatar { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: var(--color-stage-blue-tile); color: var(--color-stage-blue); font-size: 12px; font-weight: 700; }
   .nextStep { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--color-link); text-align: right; }
   .nextStep svg { flex: none; }
-  .actionText { font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; overflow-wrap: anywhere; }
+  .actionText { font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; overflow-wrap: normal; }
 
   /* "View all" dialog: the same folders, unstacked, on the stage column. */
   dialog.expandedFolder {

@@ -904,3 +904,13 @@
     }
   }
 }
+
+/* Consistency pass (docs/design/DECISIONS.md, "Clients"): the directory uses the shared tokens and cards. */
+:where(html[data-design="v2"]) {
+  .directoryShell { --cabinet-ink: var(--color-ink); --cabinet-muted: var(--color-ink-muted); --cabinet-edge: var(--color-card-border); --cabinet-paper: var(--color-paper); --cabinet-accent: var(--color-link); background: var(--color-page); }
+  .directoryEmpty { border-color: var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .directoryEmpty > svg { color: var(--color-ink-muted); }
+  .directoryEmpty h2 { color: var(--color-ink); font-size: var(--text-section); }
+  .directoryEmpty p { font-size: var(--text-value); }
+}
+

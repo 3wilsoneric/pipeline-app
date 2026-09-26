@@ -143,6 +143,16 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The chart thumbnail sits on paper instead of a green tile. The browsing list's active item uses the rail's green tint.
 - No wording changes.
 
+## Consistency pass (owner, 2026-09-26: "complete the full build on all pages, making it all make sense")
+
+- One language everywhere in the redesign: the warm page, step or section washes, white cards with the card border and shadow, sentence-case labels over bold values, one filled action per view.
+- Intake (new and editing) uses the Chart's tiles and titles. New referrals use the record rail too ("New Referral", Intake, Create referral, Files, Activity).
+- The client profile reads as an open record: the name as the page title, the Chart's blue wash with white cards, and "Create intake" as a normal button. No manila folder remains on desktop.
+- Calendar, Trash, the Clients directory, Reports, and the Files view use the shared cards, controls, and segmented style (the Home tabs). Every dropdown shares one rounded style and chevron; text fields and bordered buttons share the input radius.
+- App-wide in the redesign: no uppercase letter-spaced labels, and the older black buttons take the filled action style. The phone top bar is the rail's warm sheet, not a green gradient.
+- Board cards wrap cleanly when narrow: separators never start a line, names truncate instead of breaking mid-word.
+- Two labels stored in capitals ("NAME", "GENDER") display in sentence case without changing their text.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.

@@ -173,3 +173,6 @@
 :where(html[data-design="v2"]) .phoneMenu [data-guide-target="primary-new-referral"]:global(.pipeline-command.pipeline-command) { color: var(--color-link); }
 :where(html[data-design="v2"]) .phoneMenu .utilities { border-top-color: var(--color-sheet-border); }
 :where(html[data-design="v2"]) .phoneMenu .utilities :is(button, a) { color: var(--color-ink-2); }
+/* Phone top bar: the rail's warm sheet, not a green gradient; the notifications and menu read as neutral controls. */
+:where(html[data-design="v2"]) .phoneBar > button { color: var(--color-ink-2); }
+:where(html[data-design="v2"]) .phoneBar .phonePageButton { color: var(--color-ink-2); }

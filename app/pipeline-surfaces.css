@@ -424,10 +424,11 @@
     background: var(--surface-canvas);
   }
 
+  /* Header bars (phone top bar): the rail's warm sheet, no green gradient. */
   .pipeline-surfaces [data-pipeline-header] {
-    background: linear-gradient(105deg, #fff 35%, #f1faf7 75%, #e3f2ef);
-    border-bottom: 1px solid #c9d9d3;
-    box-shadow: 0 1px 0 #fff inset, 0 3px 8px rgb(24 55 49 / 5%);
+    background: var(--color-sheet);
+    border-bottom: 1px solid var(--color-sheet-border);
+    box-shadow: none;
   }
 
   .pipeline-surfaces [data-testid="primary-navigation"] .pipeline-command {
@@ -528,6 +529,33 @@
   .pipeline-surfaces section[aria-label="Contact and coordination"] button { border-radius: var(--radius-input); }
   .pipeline-surfaces article[aria-label="Referral intake chart"] section[aria-label="Contact and coordination"] { margin: 12px; }
 
+  /* Text fields and bordered buttons: the shared input radius everywhere. */
+  .pipeline-surfaces :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, button.border) { border-radius: var(--radius-input); }
+  .pipeline-surfaces :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea)[class*="border-[#"] { border-color: var(--color-control-border); }
+
+  /* Segmented controls (Reports and others): the Home tabs' look. */
+  .pipeline-surfaces .pipeline-segmented { gap: 2px; padding: 3px; border-radius: var(--radius-paper); background: var(--color-segment); }
+  .pipeline-surfaces .pipeline-segmented > button { border: 0; border-radius: var(--radius-input); color: var(--color-ink-2); font-weight: 600; }
+  .pipeline-surfaces .pipeline-segmented > button:is([aria-pressed="true"], [aria-selected="true"]) { background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-card); }
+
+  /* Every dropdown: rounded, the control border, the same chevron (the chevron itself is set above). */
+  .pipeline-surfaces select:not([multiple]):not([size]) { border-radius: var(--radius-input); border-color: var(--color-control-border); color: var(--color-ink); font-weight: 600; }
+  .pipeline-surfaces select:not([multiple]):not([size]):enabled:is(:hover, :focus-visible) { border-color: var(--color-ink-muted); }
+
+  /* Files view: the document checklist is a card, not a floating label. */
+  .pipeline-surfaces details[data-document-checklist-disclosure] { margin-top: 16px; padding: 4px 16px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .pipeline-surfaces details[data-document-checklist-disclosure] > summary { color: var(--color-ink); font-weight: 600; }
+  .pipeline-surfaces details[data-document-checklist-disclosure] li { border-color: var(--color-paper-rule); }
+
+  /* Trash: the Workspaces tools and a card list on the warm page. */
+  .pipeline-surfaces main:has(input[aria-label="Search trash"]) { background: var(--color-page); }
+  .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div:first-child { border-bottom: 0; }
+  .pipeline-surfaces input[aria-label="Search trash"] { border-color: var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); font-size: var(--text-value); }
+  .pipeline-surfaces input[aria-label="Search trash"]:focus { border-color: var(--color-link); outline: 2px solid var(--color-primary-soft); }
+  .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div.border-l-2 { border: 1px solid var(--color-stage-amber-border); border-radius: var(--radius-paper); background: var(--color-warning-soft); color: var(--color-warning); font-size: var(--text-meta); }
+  .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div.divide-y { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div.divide-y > * { border-color: var(--color-paper-rule); padding-inline: 16px; }
+
   /* Intake form (docs/design/DECISIONS.md, "Intake"): the Chart's tiles and titles, so entering and
      reading a referral look like the same record. Sentence-case labels over bold values. */
   .pipeline-surfaces article[aria-label="Referral intake chart"] section[aria-label$=" chart section"] > section > h2 { border-top: 0; padding-top: 20px; }
@@ -569,8 +597,8 @@
   .pipeline-surfaces [data-guide-target="workspace-directory"] select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
   /* Native selects take the same chevron as the custom filters. */
   @supports (appearance: base-select) and selector(select::picker(select)) {
-    .pipeline-surfaces :is([data-guide-target="workspace-directory"], article[aria-label="Referral intake chart"]) select:not([multiple]):not([size]) { padding-right: 36px; background-image: linear-gradient(45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%); background-position: calc(100% - 20px) 50%, calc(100% - 16px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
-    .pipeline-surfaces :is([data-guide-target="workspace-directory"], article[aria-label="Referral intake chart"]) select:not([multiple]):not([size])::picker-icon { display: none; }
+    .pipeline-surfaces select:not([multiple]):not([size]) { padding-right: 36px; background-image: linear-gradient(45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, var(--color-ink-muted) 44% 56%, transparent 56%); background-position: calc(100% - 20px) 50%, calc(100% - 16px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+    .pipeline-surfaces select:not([multiple]):not([size])::picker-icon { display: none; }
   }
   .pipeline-surfaces [aria-label="Browse workspaces by month and community"] { border-color: var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); }
   .pipeline-surfaces [aria-label="Browse workspaces by month and community"] span { font-weight: 600; }

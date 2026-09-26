@@ -2750,7 +2750,7 @@ export default function ReferralPacketCanvas({
     >
       {historicalReadOnly ? <p className="text-sm text-[#52655d]">Files in this imported chart can be opened and downloaded. Add new files to the current referral.</p> : null}
       {renderPacketReview()}
-      <details className="mt-4 border-t border-[#dce4df] pt-3">
+      <details data-document-checklist-disclosure className="mt-4 border-t border-[#dce4df] pt-3">
         <summary className="inline-flex min-h-11 cursor-pointer items-center text-[14px] font-semibold text-[#52655d]">Document checklist</summary>
         <ul className="mt-2 grid gap-x-6 sm:grid-cols-2">
           {[...requirements, ...attachments].map((item) => {

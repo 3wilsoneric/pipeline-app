@@ -560,7 +560,7 @@ function CalendarSkeleton() {
 }
 
 function EmptyCalendar({ title, detail, children }: { title: string; detail?: string; children?: ReactNode }) {
-  return <div className="mt-3 border border-[#d8dedb] px-4 py-10 text-center"><CalendarClock size={22} className="mx-auto text-[#8a918d]" /><div className="mt-3 text-[14px] font-extrabold text-[#343a36]">{title}</div>{detail ? <p className="mt-1 text-[14px] text-[#5d6661]">{detail}</p> : null}{children ? <div className="mt-4 flex flex-wrap justify-center gap-2">{children}</div> : null}</div>;
+  return <div data-calendar-empty className="mt-3 border border-[#d8dedb] px-4 py-10 text-center"><CalendarClock size={22} className="mx-auto text-[#8a918d]" /><div className="mt-3 text-[14px] font-extrabold text-[#343a36]">{title}</div>{detail ? <p className="mt-1 text-[14px] text-[#5d6661]">{detail}</p> : null}{children ? <div className="mt-4 flex flex-wrap justify-center gap-2">{children}</div> : null}</div>;
 }
 
 const emptyActionLabels = { view_team: "View team schedule", all_assessors: "Show all assessors", all_communities: "Show all communities" } as const;
