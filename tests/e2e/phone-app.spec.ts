@@ -16,25 +16,29 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       const phone = page.locator("[data-phone-header]");
       const pocket = page.locator("[data-phone-interview]");
       await expect(phone).toBeVisible();
+      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true }).tap();
       await expect(pocket).toBeVisible();
-      expect((await page.locator(".pipeline-surfaces > div > main").boundingBox())!.x).toBe(0);
+      expect((await page.locator(".pipeline-surfaces main").first().boundingBox())!.x).toBe(0);
       const choose = async (label: string) => {
         await pocket.getByRole("button", { name: "Choose questionnaire section" }).tap();
         const sheet = page.getByRole("dialog", { name: "Questionnaire sections" });
         await sheet.getByRole("searchbox", { name: "Find a question" }).fill(label);
         await sheet.getByRole("button", { name: new RegExp(`^${label}`) }).tap();
       };
-      await choose("Assessment date");
-      const date = pocket.getByLabel("Assessment date", { exact: true });
+      await page.locator('summary[aria-label="Assessment details"]').tap();
+      await page.getByRole("button", { name: /^Interview date/ }).tap();
+      const interviewDate = page.getByRole("dialog", { name: "Interview date", exact: true });
+      const date = interviewDate.getByLabel("Date assessment performed", { exact: true });
       await date.fill("2026-09-19");
       await date.blur();
+      await interviewDate.getByRole("button", { name: "Close interview date", exact: true }).tap();
       const read = async () => (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
       await expect.poll(async () => (await read())[0]?.assessment_date).toBe("2026-09-19");
-      await choose("Secondary diagnosis");
-      const answer = pocket.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+      await choose("Current symptoms");
+      const answer = pocket.getByRole("textbox", { name: "Current symptoms", exact: true });
       await answer.fill("Synthetic phone answer");
       await answer.blur();
-      await expect.poll(async () => (await read())[0]?.secondary_diagnoses).toEqual(["Synthetic phone answer"]);
+      await expect.poll(async () => (await read())[0]?.current_symptoms).toBe("Synthetic phone answer");
       // Allow the existing debounced encrypted working-set writer to finish.
       await expect.poll(async () => page.evaluate(async () => {
         const databases = await indexedDB.databases();
@@ -58,16 +62,20 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       await expect(notifications).toBeVisible();
       await notifications.getByRole("button", { name: "Close notifications" }).tap();
       await expect(answer).toHaveValue("Synthetic phone answer");
-      await page.locator('summary[aria-label="Assessment details"]').tap();
-      await page.getByRole("button", { name: "Schedule interview", exact: true }).tap();
+      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).tap();
       await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Close schedule", exact: true }).tap();
       await expect(answer).toHaveValue("Synthetic phone answer");
       await pocket.getByRole("button", { name: "Client info" }).tap();
       const reference = page.getByRole("dialog", { name: "Client information", exact: true });
       await reference.getByLabel("Reference information").selectOption("all");
-      await expect(reference.getByRole("button", { name: "Review Assessment date", exact: true })).toContainText("2026-09-19");
+      await expect(reference).toContainText("Synthetic phone answer");
       await reference.getByRole("button", { name: "Close information panel" }).tap();
+      // Encounter dates live in Details, not the clinical reference pane.
+      await page.locator('summary[aria-label="Assessment details"]').tap();
+      await page.getByRole("button", { name: /^Interview date/ }).tap();
+      await expect(interviewDate.getByLabel("Date assessment performed", { exact: true })).toHaveValue("2026-09-19");
+      await interviewDate.getByRole("button", { name: "Close interview date", exact: true }).tap();
       await page.screenshot({ path: info.outputPath(`phone-assessment-${name}.png`) });
       await page.context().setOffline(true);
       await answer.fill("Synthetic offline phone answer");
@@ -76,7 +84,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       await pocket.getByRole("button", { name: "Previous question", exact: true }).tap();
       await expect(answer).toHaveValue("Synthetic offline phone answer");
       await page.context().setOffline(false);
-      await expect.poll(async () => (await read())[0]?.secondary_diagnoses, { timeout: 15_000 }).toEqual(["Synthetic offline phone answer"]);
+      await expect.poll(async () => (await read())[0]?.current_symptoms, { timeout: 15_000 }).toBe("Synthetic offline phone answer");
       const questionBeforeSwipe = await pocket.locator("[data-working-field]").getAttribute("data-working-field");
       // Exercise our gesture handler, not a claim about OS edge gestures.
       await pocket.locator("[data-phone-question-scroll]").evaluate((element) => {

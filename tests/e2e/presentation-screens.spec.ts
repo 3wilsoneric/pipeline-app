@@ -22,9 +22,9 @@ for (const width of [320, 834, 1440]) {
     await page.goto("/?screen=calendar");
     if (width < 640) await page.getByRole("button", { name: /^Open page menu/ }).click();
     await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
-    const library = page.getByRole("dialog", { name: "Guided tutorial library", exact: true });
+    const library = page.getByRole("dialog", { name: "Tutorials", exact: true });
     await expect(library).toBeVisible();
-    for (const title of ["Check my work", "Schedule an assessment", "Finish an assessment", "Review a chart", "Create a referral", "Find a referral", "Run a report"]) {
+    for (const title of ["Walk through a referral", "Schedule an appointment", "Fill out the assessment", "Review & sign", "Create a referral", "Record a decision", "Prepare the admission packet", "View reports"]) {
       await expect(library.getByRole("button", { name: new RegExp("^" + title) })).toBeVisible();
     }
     const bounds = (await library.boundingBox())!;
@@ -32,9 +32,9 @@ for (const width of [320, 834, 1440]) {
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(900);
     await page.screenshot({ path: info.outputPath(`help-${width}.png`) });
-    await library.getByRole("button", { name: /^Find a referral/ }).click();
-    await expect(page.getByRole("dialog", { name: "Find a referral guided tutorial", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Open Workspaces", exact: true })).toBeVisible();
+    await library.getByRole("button", { name: /^Walk through a referral/ }).click();
+    await expect(page.getByRole("complementary", { name: "Tutorial steps", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Home board", exact: true })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Jump to slide" })).toHaveCount(0);
   });
 }

@@ -1,19 +1,20 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function openCalendar(page: Page, outsideHours = false) {
+  const { user } = await (await page.request.get("/api/auth/me")).json();
   await page.clock.setFixedTime(new Date("2026-09-18T18:00:00Z"));
   await page.route("**/api/calendar/events**", (route) => route.fulfill({ json: {
     events: Array.from({ length: 12 }, (_, index) => ({
       id: `layout-${index}`, assessmentId: `layout-${index}`, assessmentVersion: 1,
       referralId: 800 + index, clientName: `Sample ${["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo", "Lima"][index]}`, community: "San Pablo",
-      ownerId: "assessor-a", owner: "Annette Everhart", date: "2026-09-18",
+      ownerId: user.id, owner: user.name, date: "2026-09-18",
       startsAt: outsideHours && index < 2 ? ["2026-09-18T13:00:00Z", "2026-09-19T04:00:00Z"][index] : `2026-09-18T${String(15 + index % 7).padStart(2, "0")}:00:00Z`,
       durationMinutes: 60, method: "phone", location: "555-0100",
       scheduleStatus: "scheduled", kind: "assessment", status: "draft", title: "Assessment scheduled",
     })),
     continuing: [], unscheduled: [], unscheduledTotal: 0, unscheduledHasMore: false,
-    assessors: [{ id: "assessor-a", name: "Annette Everhart" }],
-    viewer: { id: "assessor-a", name: "Annette Everhart" }, scope: "team", timezone: "America/Los_Angeles",
+    assessors: [{ id: user.id, name: user.name }],
+    viewer: { id: user.id, name: user.name }, scope: "team", timezone: "America/Los_Angeles",
   } }));
   await page.goto("/?screen=calendar");
   await expect(page.getByRole("main", { name: "Calendar", exact: true })).toHaveAttribute("aria-busy", "false");
@@ -125,7 +126,7 @@ test("date details preserve Week and Month, keyboard return, and appointments ou
 test("Safari uses a readable weekly list and compact phone month instead of a wide grid", async ({ playwright, baseURL }, testInfo) => {
   const browser = await playwright.webkit.launch();
   try {
-    const page = await browser.newPage({ baseURL, viewport: { width: 437, height: 536 }, hasTouch: true });
+    const page = await browser.newPage({ serviceWorkers: "block", baseURL, viewport: { width: 437, height: 536 }, hasTouch: true });
     await openCalendar(page);
     await page.getByRole("button", { name: "Show calendar filters" }).click();
     await page.getByLabel("Filter calendar by community").selectOption("San Pablo");

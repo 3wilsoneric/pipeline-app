@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:0c0cb0004f416d1b",
-  "fingerprint": "0c0cb0004f416d1b59f1facec54d06f9bc490da805b30b8a5b4ea59c4ac5bd49",
+  "generatedAt": "source-fingerprint:c20f4d2a49399b92",
+  "fingerprint": "c20f4d2a49399b9222329089b0e1ddec39cf84d83f2f0fb324051cab8d76b44f",
   "totals": {
-    "files": 1439,
-    "lines": 374332,
-    "coveredFiles": 1439
+    "files": 1441,
+    "lines": 374857,
+    "coveredFiles": 1441
   },
   "entries": [
     {
@@ -3348,7 +3348,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4422,
+      "lines": 4453,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -5474,6 +5474,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 170,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/CURRENT_TESTING.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 70,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -7654,6 +7666,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "docs/TEST_REFRESH_2026-09-26.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 149,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
       ]
     },
     {
@@ -11290,7 +11314,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 254,
+      "lines": 255,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -11902,7 +11926,7 @@
       "kind": "documentation",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 58,
+      "lines": 64,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -12694,7 +12718,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 104,
+      "lines": 107,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -12982,7 +13006,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 154,
+      "lines": 156,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13594,7 +13618,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 211,
+      "lines": 215,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13762,7 +13786,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 239,
+      "lines": 252,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -13918,7 +13942,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 275,
+      "lines": 282,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -14626,7 +14650,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 64,
+      "lines": 66,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -14939,7 +14963,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 99,
+      "lines": 102,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15215,7 +15239,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 116,
+      "lines": 126,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15263,7 +15287,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 290,
+      "lines": 275,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15335,7 +15359,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 241,
+      "lines": 244,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15347,7 +15371,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 196,
+      "lines": 197,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15359,7 +15383,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 148,
+      "lines": 152,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15395,7 +15419,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 103,
+      "lines": 104,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15431,7 +15455,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 265,
+      "lines": 271,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15467,7 +15491,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 389,
+      "lines": 393,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15479,7 +15503,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 168,
+      "lines": 165,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15539,7 +15563,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 173,
+      "lines": 147,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15551,7 +15575,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 115,
+      "lines": 121,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15563,7 +15587,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 151,
+      "lines": 164,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15587,7 +15611,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 205,
+      "lines": 207,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -15623,7 +15647,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 102,
+      "lines": 109,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15635,7 +15659,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 167,
+      "lines": 168,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15731,7 +15755,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 238,
+      "lines": 308,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15803,7 +15827,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 424,
+      "lines": 433,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15911,7 +15935,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 113,
+      "lines": 116,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -15983,7 +16007,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 360,
+      "lines": 365,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16043,7 +16067,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 174,
+      "lines": 175,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16079,7 +16103,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 79,
+      "lines": 80,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16139,7 +16163,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 648,
+      "lines": 661,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16151,7 +16175,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 88,
+      "lines": 130,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16211,7 +16235,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 125,
+      "lines": 127,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16247,7 +16271,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 102,
+      "lines": 106,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -16295,7 +16319,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 178,
+      "lines": 180,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16620,7 +16644,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 333,
+      "lines": 297,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16632,7 +16656,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 142,
+      "lines": 135,
       "moduleIds": [
         "assessment-decision-handoff",
         "authorization-phi"
@@ -16656,7 +16680,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 160,
+      "lines": 168,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16692,7 +16716,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2912,
+      "lines": 2935,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16860,7 +16884,7 @@
       "kind": "typescript-module",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 44,
+      "lines": 68,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -17016,7 +17040,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 138,
+      "lines": 140,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -17040,7 +17064,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 103,
+      "lines": 133,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -17196,7 +17220,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 122,
+      "lines": 140,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -17208,7 +17232,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 148,
+      "lines": 152,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -17220,7 +17244,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 137,
+      "lines": 138,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -17292,7 +17316,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 292,
+      "lines": 293,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

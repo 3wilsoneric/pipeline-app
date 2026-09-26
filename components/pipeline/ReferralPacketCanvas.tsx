@@ -82,6 +82,7 @@ import {
   type PipelineReferralDraft,
 } from "@/lib/pipeline/user-workspace-state-types";
 import {
+  clearLocalReferralRecovery,
   loadLocalReferralRecovery,
   referralRecoveryPrincipal,
   saveLocalReferralRecovery,
@@ -874,9 +875,10 @@ export default function ReferralPacketCanvas({
     recovery.additionalFiles.forEach(({ file }) => startIntakeExtraction(file, `additional-${createMutationId()}`, loadedReferralRef.current?.id));
   }, [startIntakeExtraction]);
 
-  const loadIntakeRecovery = async (reference: ReferralRecoveryDraftKey) => {
+  const loadIntakeRecovery = useCallback(async (reference: ReferralRecoveryDraftKey) => {
     const [server, local, principal] = await Promise.allSettled([
-      loadServerReferralDraft(reference), loadLocalReferralRecovery(reference), referralRecoveryPrincipal(),
+      serverDraftsEnabled ? loadServerReferralDraft(reference) : Promise.resolve(readSessionDraft(reference)),
+      loadLocalReferralRecovery(reference), referralRecoveryPrincipal(),
     ]);
     const localRecovery = local.status === "fulfilled" ? local.value : null;
     const candidateServerDraft = server.status === "fulfilled" ? server.value : null;
@@ -887,11 +889,12 @@ export default function ReferralPacketCanvas({
       && (!serverDraft || Date.parse(volatile.draft.savedAt) >= Date.parse(serverDraft.savedAt))) {
       return { draft: volatile.draft, local: volatile };
     }
-    if (localRecovery && (!serverDraft || localRecovery.draft.dirtyKeys.length > 0 || localRecovery.initialPacket || localRecovery.additionalFiles.length > 0 || Object.keys(localRecovery.pendingDocuments).length > 0 || Date.parse(localRecovery.draft.savedAt) >= Date.parse(serverDraft.savedAt))) {
+    if (localRecovery && (!serverDraft || Date.parse(localRecovery.draft.savedAt) >= Date.parse(serverDraft.savedAt)
+      || serverDraftsEnabled && (localRecovery.draft.dirtyKeys.length > 0 || localRecovery.initialPacket || localRecovery.additionalFiles.length > 0 || Object.keys(localRecovery.pendingDocuments).length > 0))) {
       return { draft: localRecovery.draft, local: localRecovery };
     }
-    return { draft: serverDraft, local: localRecovery };
-  };
+    return { draft: serverDraft, local: serverDraftsEnabled ? localRecovery : null };
+  }, [serverDraftsEnabled]);
 
   const persistRecoveryDraft = (reportStatus: boolean) => {
     const draft = captureRecoveryDraft();
@@ -917,7 +920,11 @@ export default function ReferralPacketCanvas({
       window.sessionStorage.setItem(canvasDraftStorageKey(reference), JSON.stringify(draft));
       if (reportStatus && !loadedReferralRef.current && draftRevisionRef.current === revision) setSavedAt("Draft saved in this tab");
     } catch {
-      if (reportStatus) setSaveError("This browser could not keep a recovery draft. Your changes are still open in this tab.");
+      void preservePendingIntake(false).then(() => {
+        if (canReportRecovery()) setSavedAt(deviceOnlySaveStatus);
+      }).catch(() => {
+        if (canReportRecovery()) setSaveError("This browser could not keep a recovery draft. Your changes are still open in this tab.");
+      });
     }
   };
   persistRecoveryDraftRef.current = () => persistRecoveryDraft(false);
@@ -1045,7 +1052,7 @@ export default function ReferralPacketCanvas({
         setRecoveredDraftAt,
         setRecoveredPacketName,
       };
-      if (serverDraftsEnabled) {
+      if (!trainingIntakeMode) {
         setDraftRecoveryLoading(true);
         void loadIntakeRecovery(newDraftKey).then(({ draft, local }) => {
           if (cancelled) return;
@@ -1143,7 +1150,7 @@ export default function ReferralPacketCanvas({
             retryCanonicalIntakeRef.current = true;
           }
         };
-        if (serverDraftsEnabled) {
+        if (!trainingIntakeMode) {
           setDraftRecoveryLoading(true);
           void loadIntakeRecovery(record.id)
             .then(({ draft, local }) => {
@@ -1179,7 +1186,7 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
     };
-  }, [newDraftKey, referral?.id, serverDraftsEnabled, restoreLocalFiles]);
+  }, [newDraftKey, referral?.id, loadIntakeRecovery, trainingIntakeMode, restoreLocalFiles]);
 
   useEffect(() => {
     const packet = extraction?.packet;
@@ -1275,6 +1282,14 @@ export default function ReferralPacketCanvas({
     const base = loadedReferralRef.current;
     if (!base || (latest.version ?? 1) <= (base.version ?? 1) || (isSavingRef.current && !force)) return;
     const dirty = dirtyKeysRef.current;
+    // Queued additive uploads mark documents dirty without editing the existing
+    // evidence. A poll may see their commit even when the chart refresh failed.
+    if (dirty.has("documents") && Object.keys(pendingDocumentsRef.current).length === 0
+      && documentNames(documentsRef.current) === documentNames(documentsFromReferral(base))) {
+      documentsRef.current = documentsFromReferral(latest);
+      setDocuments(documentsRef.current);
+      draftBaseValuesRef.current.documents = referralBaseDraftValue(latest, "documents");
+    }
     const conflicts = buildRemoteFieldConflicts({
       base,
       latest,
@@ -1444,33 +1459,48 @@ export default function ReferralPacketCanvas({
 
   const uploadAdditionalFiles = async (referral: Referral, files: LabeledReferralFile[]) => {
     if (!files.length) return referral;
-    for (const entry of files) {
-      const { file, category } = entry;
-      setSavedAt(`Uploading ${file.name}...`);
-      const result = await uploadReferralSupportingDocument(referral, file, category);
-      if (!result.documents?.length) throw new Error(`${file.name} uploaded without a document record. Check the file list before retrying.`);
-      const remaining = additionalFilesRef.current.filter((queued) => queued !== entry);
-      additionalFilesRef.current = remaining;
-      setAdditionalFiles(remaining);
-      window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id, refreshChart: false } }));
-    }
+    let latest = referral;
     try {
-      const refreshed = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" });
-      if (!refreshed.referral) throw new Error("The chart refresh returned no referral.");
-      const current = loadedReferralRef.current;
-      const latest = current?.id === referral.id && (current.version ?? 1) > (refreshed.referral.version ?? 1)
-        ? current : refreshed.referral;
-      loadedReferralRef.current = latest;
-      setLoadedReferral(latest);
-      const nextDocuments = mergePendingDocumentNames(documentsFromReferral(latest), pendingDocumentsRef.current);
-      documentsRef.current = nextDocuments;
-      setDocuments(nextDocuments);
-      setSaveAlert((alert) => alert === fileChartRefreshWarning ? "" : alert);
-      return latest;
-    } catch {
-      setSaveAlert(fileChartRefreshWarning);
-      return loadedReferralRef.current?.id === referral.id ? loadedReferralRef.current : referral;
+      for (const entry of files) {
+        const { file, category } = entry;
+        setSavedAt(`Uploading ${file.name}...`);
+        const result = await uploadReferralSupportingDocument(referral, file, category);
+        if (!result.documents?.length) throw new Error(`${file.name} uploaded without a document record. Check the file list before retrying.`);
+        const remaining = additionalFilesRef.current.filter((queued) => queued !== entry);
+        additionalFilesRef.current = remaining;
+        setAdditionalFiles(remaining);
+        window.dispatchEvent(new CustomEvent("pipeline:documents-changed", { detail: { referralId: referral.id, refreshChart: false } }));
+      }
+    } finally {
+      // A later failure does not undo earlier commits. Reconcile even a partial
+      // batch so our own completed upload cannot block the remaining file retry.
+      try {
+        const refreshed = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" });
+        if (!refreshed.referral) throw new Error("The chart refresh returned no referral.");
+        latest = refreshed.referral;
+        const current = loadedReferralRef.current;
+        if (current?.id === referral.id) {
+          if ((current.version ?? 1) > (latest.version ?? 1)) latest = current;
+          const nextDocuments = mergePendingDocumentNames(documentsFromReferral(latest), pendingDocumentsRef.current);
+          documentsRef.current = nextDocuments;
+          setDocuments(nextDocuments);
+          receiveRemoteReferral(latest);
+          loadedReferralRef.current = latest;
+          setLoadedReferral(latest);
+          if (documentNames(nextDocuments) === documentNames(documentsFromReferral(latest))) {
+            draftBaseValuesRef.current.documents = referralBaseDraftValue(latest, "documents");
+            setRemoteChange((previous) => previous ? {
+              ...previous, conflicts: previous.conflicts.filter((conflict) => conflict.key !== "documents"),
+            } : null);
+          }
+          setSaveAlert((alert) => alert === fileChartRefreshWarning ? "" : alert);
+        }
+      } catch {
+        if (loadedReferralRef.current?.id === referral.id) setSaveAlert(fileChartRefreshWarning);
+        latest = loadedReferralRef.current?.id === referral.id ? loadedReferralRef.current : referral;
+      }
     }
+    return latest;
   };
 
   const retainQueuedAdditionalFileDraft = () => {
@@ -3257,8 +3287,8 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
     <span className={`shrink-0 ${presentation.textClassName}`}>{presentation.label}</span>
     {created ? <span className="sr-only">Workspace created</span> : null}
     {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
-    {error ? <span role="alert" className="min-w-0 max-w-[45ch] truncate text-[11px] font-medium text-[#8b4638]">{error}</span> : null}
-    {error && onRetry ? <button type="button" aria-label="Retry saving" onClick={onRetry} disabled={saving} className="shrink-0 text-[11px] font-bold text-[#0c705f] underline underline-offset-2">Retry</button> : null}
+    {error ? <span role="alert" className="min-w-0 max-w-[45ch] text-sm font-medium text-[#93382d]">{error}</span> : null}
+    {error && onRetry ? <button type="button" aria-label="Retry saving" onClick={onRetry} disabled={saving} className="shrink-0 text-sm font-bold text-[#0c705f] underline underline-offset-2">Retry</button> : null}
   </div>;
 }
 
@@ -4115,7 +4145,7 @@ function readSessionDraft(draftReference: ReferralRecoveryDraftKey) {
     draft = parsePipelineReferralDraft(JSON.parse(raw));
     if (!draft) return null;
   } catch {
-    void clearSessionDraft(draftReference);
+    // An unreadable tab copy must not erase a valid encrypted recovery copy.
     return null;
   }
 
@@ -4233,6 +4263,7 @@ async function clearSessionDraft(draftReference?: ReferralRecoveryDraftKey) {
   } catch {
     // Session recovery is best effort; canonical data remains server-side.
   }
+  await clearLocalReferralRecovery(draftReference).catch(() => undefined);
 }
 
 function getConflictReferral(payload: unknown) {

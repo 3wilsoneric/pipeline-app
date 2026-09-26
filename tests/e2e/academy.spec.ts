@@ -1,12 +1,22 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { emptyAcademyProgress } from "../../lib/academy/academy-progress-contract";
 
 const atlas = JSON.parse(readFileSync("lib/academy/academy-atlas.generated.json", "utf8"));
 
 const academyUrl = process.env.PIPELINE_E2E_ACADEMY_URL ?? "/academy";
 
 test.describe("Private Developer Academy", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, request }) => {
+    if (process.env.PIPELINE_DESKTOP_E2E === "true") {
+      const current = await request.get("/api/academy/progress");
+      expect(current.ok()).toBeTruthy();
+      const { revision } = await current.json();
+      const reset = await request.put("/api/academy/progress", {
+        data: { expectedRevision: revision, progress: emptyAcademyProgress() },
+      });
+      expect(reset.ok()).toBeTruthy();
+    }
     await page.addInitScript(() => {
       if (window.sessionStorage.getItem("academy-e2e-initialized") === "true") return;
       for (const key of Object.keys(window.localStorage)) {

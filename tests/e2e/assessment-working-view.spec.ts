@@ -30,6 +30,8 @@ test("prepares answers before an appointment and finishes the same questionnaire
   await expect(assessment.locator("[data-assessment-question-editor]")).toContainText("Recorded");
   await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
   await expect(field).toHaveValue(answer);
+  await page.getByRole("region", { name: "Assessment progress" }).getByRole("button", { name: "Interview", exact: true }).click();
+  await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("diagnosis_clinical");
   await expect(assessment.getByRole("complementary", { name: "Current information" })).toContainText(answer);
   expect(errors).toEqual([]);
 });
@@ -129,7 +131,7 @@ test("captured answers sit beside the unfinished questions with compact section 
     await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCount(0);
   }
   await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("identity");
-  await expect(assessment.getByRole("heading", { name: "Client & referral", exact: true })).toBeAttached();
+  await expect(assessment.getByRole("combobox", { name: "Assessment section", exact: true }).locator("option:checked")).toHaveText("Confirm the basics");
 });
 
 test("app navigation reveals on hover and keyboard focus without moving the form", async ({ page }) => {
@@ -182,7 +184,7 @@ test("profile navigation leaves through the save path and practice help stays in
   assessment = await openWorkingAssessment(page);
   await expect(page.locator("[data-pipeline-demo-banner]")).toContainText("Practice workspace · synthetic data only");
   await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Guided tutorial library", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Tutorials", exact: true })).toBeVisible();
   await expect(assessment).toBeVisible();
 });
 

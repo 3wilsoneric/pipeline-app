@@ -1,3 +1,4 @@
+import { editPreparedAnswer } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import type { AxeResults } from "axe-core";
 import { randomUUID } from "node:crypto";
@@ -90,17 +91,18 @@ for (const width of [1440, 1024, 437, 390]) {
     await expect(firstCard.locator('button, a, input, select')).toHaveCount(0);
     const longName = page.getByRole('button', { name: 'Open Christopher Montgomery-Worthington', exact: true }).locator('[data-folder-name]');
     expect(await longName.evaluate((element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true);
-    expect(await longName.locator(":scope > span").evaluate((element) => {
-      const style = getComputedStyle(element);
-      return (element.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)) / parseFloat(style.lineHeight);
-    })).toBeLessThanOrEqual(3);
+    // Names may wrap in the narrower current docket; none may be clipped.
+    expect(await longName.locator(":scope > span").evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true);
     if (width >= 1024) {
       const columns = await page.locator('[data-current-work-board]').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
-      expect(columns).toBe(width < 1280 ? 2 : 3);
+      expect(columns).toBe(3);
     }
     const stageHeader = page.locator('[data-board-stage="received"] > div:first-child');
     await expect(stageHeader).toHaveCSS("background-image", "none");
-    expect((await stageHeader.boundingBox())!.height).toBeLessThanOrEqual(48);
+    const openFolder = stageHeader.getByRole("button");
+    await expect(openFolder).toBeInViewport();
+    expect((await openFolder.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect((await stageHeader.boundingBox())!.y + (await stageHeader.boundingBox())!.height).toBeLessThanOrEqual((await firstCard.boundingBox())!.y);
     await expect(page.locator("[data-home-surface]").first()).toHaveCSS("backdrop-filter", "none");
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const contrast = await page.evaluate(async () => {
@@ -122,13 +124,13 @@ for (const width of [1440, 1024, 437, 390]) {
       }
     }
 
-    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1");
+    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1");
     const assessment = page.locator('[data-assessment-view="assessment"]');
     await expect(assessment).toBeVisible();
     const presentation = width < 640
-      ? { background: "rgb(247, 250, 244)", fontSize: "16px", button: "rgb(8, 119, 90)" }
+      ? { background: "rgb(255, 255, 255)", fontSize: "16px", button: "rgb(8, 119, 90)" }
       : { background: "rgb(255, 255, 255)", fontSize: "17px", button: "rgb(0, 126, 96)" };
-    await expect(assessment.locator("main")).toHaveCSS("background-color", presentation.background);
+    await expect(assessment.locator(width < 640 ? "[data-phone-interview]" : "main")).toHaveCSS("background-color", presentation.background);
     await expect(assessment).toHaveCSS("backdrop-filter", "none");
     const actions = assessment.locator('footer[aria-label="Assessment actions"]');
     const buttonHeights = await actions.locator("button").evaluateAll((buttons) => buttons.filter((button) => button.getBoundingClientRect().width > 0).map((button) => button.getBoundingClientRect().height));
@@ -137,10 +139,11 @@ for (const width of [1440, 1024, 437, 390]) {
     if (width < 640) {
       await assessment.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
       const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
-      await sections.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Secondary diagnosis");
-      await sections.getByRole("button", { name: /^Secondary diagnosis/ }).click();
+      await sections.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Current symptoms");
+      await sections.getByRole("button", { name: /^Current symptoms/ }).click();
     }
-    const secondary = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    await editPreparedAnswer(page, "Current symptoms");
+    const secondary = assessment.getByRole("textbox", { name: "Current symptoms", exact: true });
     await expect(secondary).toHaveCSS("font-size", presentation.fontSize);
     await secondary.fill("Synthetic referral history prepared for the interview.");
     await secondary.press("Tab");
@@ -217,7 +220,8 @@ test("board folders fan halfway on hover and keyboard focus without fetching or 
   await stack.scrollIntoViewIfNeeded();
   await page.mouse.move(page.viewportSize()!.width - 1, 1);
   const gap = async () => (await second.boundingBox())!.y - (await first.boundingBox())!.y;
-  const height = (await first.boundingBox())!.height;
+  // The hit target is now clipped to the exposed tab, not the full folder.
+  const height = (await first.locator('[data-folder-name]').boundingBox())!.height + (await first.locator('[data-folder-body]').boundingBox())!.height - 1;
   await expect.poll(gap).toBeLessThan(height * 0.35);
   const compactGap = await gap();
   const requests: string[] = [];
@@ -264,7 +268,9 @@ test("hovering a lower folder keeps the intended client under the pointer", asyn
   await page.locator('[data-board-stage="received"]').evaluate(async (element) => {
     await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
   });
-  await expect.poll(async () => (await tab.boundingBox())!.y).toBe(box.y);
+  // The whole docket lifts slightly on hover; the same client must stay under
+  // the pointer (asserted below), not remain at an obsolete exact pixel.
+  await expect(tab).toBeInViewport();
   await expect(folder.getByText("Complete the referral details", { exact: true }).locator("..")).toHaveCSS("opacity", "1");
   expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest("button")?.getAttribute("aria-label"), { x, y })).toBe("Open Christopher Montgomery-Worthington");
   await page.mouse.click(x, y);
@@ -351,9 +357,8 @@ for (const width of [1440, 390]) {
     else await questionnaire.click();
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
     await expect(page.locator("[data-assessment-view]")).toBeVisible();
-    if (width < 640) {
-      await page.getByRole("button", { name: "Client info", exact: true }).click();
-      await expect(page.getByRole("dialog", { name: "Client information" })).toContainText("1972");
-    } else await expect(page.getByRole("button", { name: "Edit Date of birth", exact: true })).toContainText("1972");
+    // Preparation opens all questions, so the copied date is directly editable
+    // rather than hidden behind the interview reference panel.
+    await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1972-05-08");
   });
 }

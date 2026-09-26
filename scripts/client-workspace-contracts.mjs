@@ -49,7 +49,10 @@ check("historical clients can be created only by explicit review", importRoute.i
 check("historical clients use a new stable Pipeline identity", importStore.includes("historical-${randomUUID()}") && importStore.includes("insert into pipeline.people"));
 check("file-only people appear in the unified directory", workspaceStore.includes("pipeline.documents access_document") && workspaceStore.includes("access_document.identity_status = 'linked'"));
 check("confirmed resident links use the physical person relationship", workspaceStore.includes("rl.person_id = p.person_id") && !workspaceStore.includes("rl.pipeline_client_id"));
-check("assessors cannot discover unassigned file-only workspaces", workspaceStore.includes("${ownerId}::text is null and exists") && profileStore.includes("isAssessorUser(user) && referrals.length === 0"));
+check("shared Pipeline access includes file-only workspaces; restricted users still require a visible referral",
+  workspaceStore.includes("const restricted = !canEditWorkspace(user)")
+    && workspaceStore.includes("${ownerId}::text is null and exists")
+    && profileStore.includes("!canEditWorkspace(user) && referrals.length === 0"));
 check("file-only profiles load from durable documents", profileStore.includes("referrals.length === 0 && documents.length === 0") && profileStore.includes("client workspace preserves reviewed files"));
 check("checklist evidence appears in the local client inventory", referralStore.includes("requirement.evidenceDocumentId") && referralStore.includes("requirementFileCategory"));
 check("initial document evidence is not duplicated in local profiles", referralStore.includes("initialDocumentRequirement") && referralStore.includes("includedIds.has(requirement.evidenceDocumentId)"));

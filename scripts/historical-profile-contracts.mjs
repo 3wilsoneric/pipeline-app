@@ -123,9 +123,11 @@ const sourceFacts = new Map(sourceCompleteProfile.facts.map((fact) => [fact.key,
 check("historical projection is explicitly read-only and never an assessment",
   profile.mode === "historical_profile" && profile.readOnly && !profile.assessmentCreated);
 check("mapped evidence uses canonical assessment fields",
-  fields.includes("cognition_orientation") && fields.includes("mobility"));
-check("unmatched historical prose is preserved instead of forced into a field",
-  profile.unmappedEvidence.length === 1 && profile.coverage.unmappedPassageCount === 1);
+  fields.includes("cognition_orientation") && !fields.includes("mobility"));
+check("structured mobility and unmatched prose are preserved for review instead of forced into narrative answers",
+  profile.unmappedEvidence.length === 2 && profile.coverage.unmappedPassageCount === 2
+    && profile.unmappedEvidence.some((item) => item.text.includes("uses a walker"))
+    && profile.unmappedEvidence.some((item) => item.text.includes("intentionally generic")));
 check("each mapped statement retains source provenance",
   profile.sections.every((section) => section.fields.every((field) => field.evidence.every((item) =>
     item.source.sourceCanvasId === source.sourceCanvasId && item.source.sourceLocator === source.sourceLocator))));
@@ -170,14 +172,15 @@ check("historical workflow reads advertise no mutation capabilities",
   workflowRoute.includes('access.referral.workspaceStatus !== "historical"')
     && workflowRoute.includes("can_update: canUpdate")
     && workflowRoute.includes("can_decide: mutable &&")
-    && workflowRoute.includes("can_authorize_manual_intake: mutable &&"));
+    && workflowRoute.includes("const canUpdate = mutable")
+    && workflowRoute.includes("can_authorize_manual_intake: canUpdate"));
 check("historical workspace mutation is blocked at both API and storage boundaries",
   referralAccess.includes("Historical workspaces are read-only. Create a new referral for current activity.")
     && referralAccess.includes("Historical workspaces are read-only and cannot be moved to trash.")
     && mutableReferralRoutes.every((source) => source.includes("requireMutableReferralAccess"))
     && mutablePacketRoutes.every((source) => source.includes("requireMutablePacketAccess"))
     && referralStore.includes("HistoricalWorkspaceReadOnlyError")
-    && referralStore.match(/assertMutableWorkspace\(current\)/g)?.length === 4);
+    && referralStore.match(/assertMutableWorkspace\(current\)/g)?.length === 6);
 check("historical workspaces cannot receive new files",
   referralAccess.includes("Historical workspaces are read-only and cannot receive new files.")
     && uploadRoutes.every((source) => /requireMutable(?:Referral|Packet)Access/.test(source)));
@@ -190,13 +193,14 @@ check("historical workspaces expose one read-only client Chart surface",
     && canvas.includes("historicalReadOnly"));
 check("historical workspaces hide mutation controls while preserving read-only files",
   canvas.includes("<WorkspaceSaveControl")
-    && canvas.includes("const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, historicalReadOnly);")
+    && canvas.includes("const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);")
     && canvas.includes("{editingControlsVisible ? (")
-    && canvas.includes("<WorkspaceFilesPage")
-    && canvas.includes("readOnly={presentation.readOnly}"));
+    && canvas.includes("<ReferralDocumentUpload")
+    && canvas.includes("readOnly={readOnly || draftRecoveryLoading}")
+    && canvas.includes("Files in this imported chart can be opened and downloaded."));
 check("imported profile UI preserves source content without a lower-status label",
-  historicalWorkspace.includes("Client information, notes, and documents carried into Pipeline")
-    && historicalWorkspace.includes("Source information keeps its original provenance")
+  historicalWorkspace.includes("Client chart")
+    && historicalWorkspace.includes("evidence.source.sourceCanvasName")
     && !historicalWorkspace.includes("CoverageFact")
     && historicalWorkspace.includes("Source notes needing structure")
     && historicalWorkspace.includes('title="Files"')

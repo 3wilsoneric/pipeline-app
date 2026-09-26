@@ -1,11 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { editPreparedAnswer } from "./support/assessment-navigation";
 
 test.describe("Assessment practice lab", () => {
   test("the real assessment renderer preserves typed spaces and newlines in secondary diagnoses", async ({ page }) => {
-    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical");
+    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=prior_history");
     const full = page.locator('[data-assessment-view="assessment"]');
     await expect(full).toBeVisible();
     const secondary = full.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    await editPreparedAnswer(page, "Secondary diagnosis");
     await secondary.fill("");
     await secondary.pressSequentially("Synthetic secondary ");
     await expect(secondary).toHaveValue("Synthetic secondary ");
@@ -18,9 +20,9 @@ test.describe("Assessment practice lab", () => {
     await secondary.press("Tab");
     await expect(secondary).toHaveValue(answer);
     const sections = full.getByRole("combobox", { name: "Assessment section", exact: true });
-    await sections.selectOption("functional_adl");
-    await sections.selectOption("diagnosis_clinical");
-    await full.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    await sections.selectOption("medication");
+    await sections.selectOption("prior_history");
+    await editPreparedAnswer(page, "Secondary diagnosis");
     await expect(full.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).toHaveValue(answer);
   });
 
