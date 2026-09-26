@@ -9,85 +9,85 @@
 
 @theme static {
   /* Text */
-  --color-ink: #14171c;
-  --color-ink-2: #3d434d;
-  --color-ink-muted: #616874;
+  --color-ink: #0f1115;
+  --color-ink-2: #353a43;
+  --color-ink-muted: #5d6470;
 
   /* Surfaces: page ground, sheet, paper (principle 3). Neutral since the modern pass (DECISIONS.md). */
-  --color-sheet: #fbfbfc;
-  --color-sheet-border: #e6e8ec;
-  --color-control-border: #d9dce2;
+  --color-sheet: #ffffff;
+  --color-sheet-border: #e2e4e8;
+  --color-control-border: #cfd3da;
   --color-paper: #ffffff;
-  --color-paper-rule: #eceef1;
-  --color-track: #eceef1;
-  --color-folder-edge: #d3d7de;
-  --color-folder: #f0f2f5;
-  --color-column: #f1f3f6;
-  --color-page: #f4f5f7;
-  --color-segment: #eceef2;
-  --color-segment-count: #dde0e6;
-  --color-card-border: #e4e7eb;
+  --color-paper-rule: #eaecef;
+  --color-track: #e8eaee;
+  --color-folder-edge: #cdd1d8;
+  --color-folder: #f1f2f4;
+  --color-column: #f3f4f6;
+  --color-page: #f3f4f6;
+  --color-segment: #eceef1;
+  --color-segment-count: #dcdfe4;
+  --color-card-border: #e2e4e8;
   --color-count: #ffffff;
 
   /* Brand and primary action: the one filled button per screen, and focus rings */
-  --color-primary: #0f7d62;
-  --color-primary-hover: #0b664f;
-  --color-primary-soft: #ecf7f2;
+  --color-primary: #047857;
+  --color-primary-hover: #065f46;
+  --color-primary-soft: #ecfdf5;
   --color-focus: #2563eb;
-  --color-link: #0f6e56;
+  --color-link: #047857;
   /* Filled action buttons and the text on them. */
-  --color-action: #0f6e56;
+  --color-action: #047857;
   --color-on-fill: #ffffff;
 
   /* Stage families (principle 1). Mapping to tabs: DECISIONS.md.
      green = Referral received; blue = In progress, Chart, Assessment;
      orange = Decision, Finish & send. No stage uses red. */
-  --color-stage-green: #17714f;
-  --color-stage-green-tile: #e8f4ee;
-  --color-stage-green-border: #cfe6da;
-  --color-stage-blue: #2f54c8;
-  --color-stage-blue-tile: #edf1fc;
-  --color-stage-blue-border: #d5defa;
-  --color-stage-orange: #b04a14;
-  --color-stage-orange-tile: #fcefe7;
-  --color-stage-orange-border: #f3d6c4;
-  --color-stage-rose: #b2304c;
-  --color-stage-rose-tile: #fbecef;
-  --color-stage-rose-border: #f1cdd5;
-  --color-stage-amber: #a15c07;
-  --color-stage-amber-tile: #fdf4e3;
-  --color-stage-amber-border: #f1dcb3;
+  --color-stage-green: #047857;
+  --color-stage-green-tile: #ecfdf5;
+  --color-stage-green-border: #c6ebd9;
+  --color-stage-blue: #2453d4;
+  --color-stage-blue-tile: #eef3ff;
+  --color-stage-blue-border: #d3dffd;
+  --color-stage-orange: #c2410c;
+  --color-stage-orange-tile: #fff4ed;
+  --color-stage-orange-border: #fdd8c3;
+  --color-stage-rose: #be123c;
+  --color-stage-rose-tile: #fff1f3;
+  --color-stage-rose-border: #fdcdd6;
+  --color-stage-amber: #b45309;
+  --color-stage-amber-tile: #fffbeb;
+  --color-stage-amber-border: #fbe0a8;
 
   /* Status icon set (principle 6): non-interactive, same everywhere */
-  --color-status-done: #17714f;
-  --color-status-done-soft: #e8f4ee;
-  --color-status-pending: #616874;
-  --color-status-in-progress: #2f54c8;
-  --color-status-blocked: #b3372b;
+  --color-status-done: #047857;
+  --color-status-done-soft: #ecfdf5;
+  --color-status-pending: #5d6470;
+  --color-status-in-progress: #2453d4;
+  --color-status-blocked: #c0262d;
 
   /* Missing or unverified information: amber text, never an error */
-  --color-warning: #8f5a06;
-  --color-warning-soft: #fff8e8;
+  --color-warning: #a35207;
+  --color-warning-soft: #fffbeb;
 
   /* Destructive actions and errors only */
-  --color-danger: #b3372b;
-  --color-danger-soft: #fef4f2;
+  --color-danger: #c0262d;
+  --color-danger-soft: #fef3f2;
 
   /* Radius steps down as surfaces nest (principle 9) */
-  --radius-sheet: 16px;
-  --radius-folder: 12px;
-  --radius-paper: 10px;
-  --radius-input: 8px;
-  --radius-chip: 6px;
+  --radius-sheet: 12px;
+  --radius-folder: 10px;
+  --radius-paper: 8px;
+  --radius-input: 6px;
+  --radius-chip: 4px;
   --radius-pill: 999px;
 
   /* Shadows only on things that sit above other things */
-  --shadow-sheet: 0 1px 3px rgb(16 24 40 / 0.04), 0 8px 24px rgb(16 24 40 / 0.04);
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.05);
-  --shadow-card-hover: 0 4px 12px rgb(16 24 40 / 0.08);
-  --shadow-folder: 0 1px 3px rgb(16 24 40 / 0.08);
-  --shadow-folder-lift: 0 12px 28px rgb(16 24 40 / 0.16);
-  --shadow-popover: 0 12px 32px rgb(16 24 40 / 0.16);
+  --shadow-sheet: none;
+  --shadow-card: 0 1px 1px rgb(16 24 40 / 0.04);
+  --shadow-card-hover: 0 2px 8px rgb(16 24 40 / 0.08);
+  --shadow-folder: 0 1px 2px rgb(16 24 40 / 0.06);
+  --shadow-folder-lift: 0 10px 24px rgb(16 24 40 / 0.14);
+  --shadow-popover: 0 10px 30px rgb(16 24 40 / 0.14), 0 0 0 1px rgb(16 24 40 / 0.04);
 
   /* Five type roles (principle 5). Entered values: font-bold; empty: font-normal text-ink-muted. */
   --text-title: 22px;
@@ -112,14 +112,14 @@
   --duration-move: 260ms;
   --duration-fade: 200ms;
 
-  --page-ground: #f4f5f7;
-  --folder-tab: #f0f2f5;
-  --folder-body: #eceef2;
-  --stage-green-column: #eef5f1;
-  --stage-blue-column: #eff2fa;
-  --stage-orange-column: #faf2ec;
-  --stage-rose-column: #faf0f2;
-  --stage-amber-column: #fbf5ea;
+  --page-ground: #f3f4f6;
+  --folder-tab: #f1f2f4;
+  --folder-body: #eceef1;
+  --stage-green-column: #f3f8f5;
+  --stage-blue-column: #f4f6fc;
+  --stage-orange-column: #fcf6f2;
+  --stage-rose-column: #fcf4f5;
+  --stage-amber-column: #fcf8ef;
 }
 
 @media (prefers-reduced-motion: reduce) {

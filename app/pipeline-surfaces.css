@@ -517,6 +517,9 @@
   /* App-wide carry-overs (docs/design/DECISIONS.md, "Consistency pass"): the redesign has no uppercase,
      letter-spaced labels, and the older black buttons take the one filled action style. */
   .pipeline-surfaces .uppercase { text-transform: none; letter-spacing: 0; }
+  /* Sharper type (DECISIONS.md, "Sharper pass"): Inter's tighter headings and its clearer letterforms. */
+  .pipeline-surfaces { font-feature-settings: "cv11", "ss03"; }
+  .pipeline-surfaces :is(h1, h2, h3) { letter-spacing: -0.011em; }
   .pipeline-surfaces button.bg-\[\23 111111\] { border-color: var(--color-action); border-radius: var(--radius-input); background-color: var(--color-action); color: var(--color-on-fill); font-weight: 600; }
   .pipeline-surfaces button.bg-\[\23 111111\]:hover:not(:disabled) { border-color: var(--color-primary-hover); background-color: var(--color-primary-hover); }
   .pipeline-surfaces button.bg-\[\23 111111\]:disabled { border-color: var(--color-control-border); background-color: var(--color-segment); color: var(--color-ink-muted); }

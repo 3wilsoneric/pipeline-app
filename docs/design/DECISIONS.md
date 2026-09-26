@@ -176,6 +176,13 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Chart status cards lose the amber top edge.
 - All through app/design-tokens.css; component markup and copy unchanged.
 
+## Sharper pass (owner, 2026-09-26: "less coffee house, sharper, better colors")
+
+- Crisper: white sheets and cards defined by borders, with shadows only on things that float (quick note, menus, dragged cards). Corners tighter again (sheet 12, folder 10, paper 8, input 6, chip 4).
+- Cleaner colors: near-black ink; emerald action green; the step hues as clear blue, emerald, orange, rose, and amber; step washes nearly white so only a hint of the step color remains. Every text color keeps at least 4.5:1 contrast on its background.
+- Headings tracked slightly tighter, with Inter's clearer letterforms (single-story a, open digits).
+- Tokens and one type rule only; markup and copy unchanged.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.
