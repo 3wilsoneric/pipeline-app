@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Owner-only application activity and nonblocking sign-in audit",
+    command: "node",
+    args: ["--test", "scripts/application-activity.test.mjs"],
+  },
+  {
     name: "Private server entry and bounded instant navigation",
     command: "node",
     args: ["scripts/instant-navigation-contracts.mjs"],

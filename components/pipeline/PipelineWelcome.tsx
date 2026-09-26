@@ -8,6 +8,7 @@ import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTrack
 import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import HomeDialog from "@/components/pipeline/HomeDialog";
+import ApplicationActivityCard from "@/components/pipeline/ApplicationActivityCard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -37,6 +38,7 @@ export default function PipelineWelcome({
   editHome = false,
   onFinishEditingHome,
   canAccessReports = false,
+  canViewApplicationActivity = false,
   initialBriefing,
   viewerId,
 }: {
@@ -51,6 +53,7 @@ export default function PipelineWelcome({
   editHome?: boolean;
   onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
+  canViewApplicationActivity?: boolean;
   initialBriefing?: HomeBriefingSnapshot | null;
   viewerId?: string;
 }) {
@@ -173,6 +176,7 @@ export default function PipelineWelcome({
       <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-[#f4f6f5] text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8">
           <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
+          {canViewApplicationActivity ? <ApplicationActivityCard /> : null}
 
           {error ? (
             <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
