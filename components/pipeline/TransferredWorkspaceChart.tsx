@@ -49,7 +49,8 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
   // this referral's assessment answers to the Assessment tab (docs/design/DECISIONS.md, "Chart as home").
   const checklist = designV2 && referral && !isClientChartWorkspace(referral) ? <AdmissionChecklistGlance referralId={referral.id} onOpenDecision={onOpenDecision} /> : null;
   // It opens with where the referral stands and, once signed, the assessment's key findings.
-  const standing = designV2 && referral && !isClientChartWorkspace(referral) ? <><ReferralStandingGlance referralId={referral.id} /><AssessmentSummaryGlance assessment={assessment} /></> : null;
+  // Order follows staff feedback: where it stands, then the admission checklist, then (once signed) the assessment summary.
+  const standing = designV2 && referral && !isClientChartWorkspace(referral) ? <><ReferralStandingGlance referralId={referral.id} />{checklist}<AssessmentSummaryGlance assessment={assessment} /></> : null;
   const [profile, setProfile] = useState<UnifiedClientProfileResponse | null>(() => readPipelineJsonCache<UnifiedClientProfileResponse>(profilePath) ?? null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -65,13 +66,13 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
   if (!profilePath || error || !profile) return <>
     {standing}
     {intakeChart}
-    {checklist}
+    {standing ? null : checklist}
     {!intakeReferral ? <ClientChartHeader title="Client chart" actions={headerActions}>{null}</ClientChartHeader> : null}
     {!profilePath ? <p role="alert">{intakeReferral ? "Supporting records need a client connection. Referral details remain available." : "This workspace needs its client identity connected before the chart can be loaded."}</p>
       : error ? <div role="alert" className="py-4 text-[13px] text-[#59645e]">{intakeReferral ? "Supporting records could not be loaded. Referral details remain available." : error} <button type="button" className="ml-3 underline" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>
       : <p role="status" className="py-4 text-[12px] text-[#68716d]">{intakeReferral ? "Loading supporting records..." : "Loading client chart..."}</p>}
     {assessment && !designV2 ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : null}
   </>;
-  return <>{standing}{intakeChart}{checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
+  return <>{standing}{intakeChart}{standing ? null : checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
     intakeReferral={intakeReferral} excludeReferralAssessments={designV2} /></>;
 }
