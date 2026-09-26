@@ -2,16 +2,6 @@
 
 Owner decisions for the redesign, 2026-09-23. They apply together with PRINCIPLES.md.
 
-
-## Back to the original design (owner, 2026-09-26: "our original is just so much better in a lot of ways")
-
-This supersedes every visual decision below it. The original design is the base again: its top folder tabs, Create referral at top right, Files and Activity as tabs, the manila Home board, and its field formatting.
-
-- `PIPELINE_DESIGN_V2` now turns on the features built during the redesign, in the original look: quick notes (floating button on a record; a one-line note tab on stacked Home cards; under each client on Workspaces), the Chart as home (where the referral stands, admission requirements, assessment summary, the full assessment closed at the bottom, no repeats), the referral summary box in intake and summary band on the Chart, interview context, and last assessment suggestions.
-- `useDesignV2()` always reports the original look; features read `useRedesignFeatures()`. `<html>` no longer gets `data-design="v2"`, so the v2 stylesheet blocks are inert. The design tokens hold the original palette so the feature components match.
-- Visual changes from here on happen one at a time, on the owner's request, with a before and after for approval.
-- Known ceiling: the dead v2 look (the `designV2` branches, v2 stylesheet blocks, Inter font) is still in the tree. Trigger to remove it: the owner confirms this direction, then one cleanup commit deletes it and rebuilds the color baseline.
-
 ## Precedence
 
 PRINCIPLES.md supersedes the conflicting parts of the root `design.md`: square corners, uppercase letter-spaced labels, flat white canvas as the only surface, and shadow restrictions. The parts of `design.md` that don't conflict still apply, such as density, focus visibility, working in grayscale, recomposing on mobile, and evidence at full width.

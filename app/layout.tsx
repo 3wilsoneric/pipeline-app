@@ -60,7 +60,7 @@ export default async function RootLayout({
   // Off unless explicitly enabled; production stays on the current design (docs/design/DECISIONS.md).
   const designV2 = process.env.PIPELINE_DESIGN_V2 === "true";
   return (
-    <html lang="en" className={`${pipelineSans.variable} ${designV2Sans.variable} h-full antialiased`}>
+    <html lang="en" data-design={designV2 ? "v2" : undefined} className={`${pipelineSans.variable} ${designV2Sans.variable} h-full antialiased`}>
       <body className="pipeline-interactions min-h-full">
         <DesignSwitchProvider v2={designV2}>
         <PipelineAuthProvider initialUser={initialUser}>

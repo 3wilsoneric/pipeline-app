@@ -75,8 +75,8 @@ const visibleFields = intakeCanvas.match(/const visibleChartFieldKeys[^=]*=\s*\[
 assert(visibleFields, "intake declares its visible progress fields");
 assert.doesNotMatch(visibleFields[1], /"summary"/, "hidden summary is not counted as intake work");
 // The current design keeps the summary editor removed. The redesign restores it behind the switch
-// (docs/design/DECISIONS.md, "Chart as home"), so only a `redesignFeatures ?`-gated editor is allowed.
-assert.doesNotMatch(intakeCanvas.replaceAll('{redesignFeatures ? <ChartSection title="Referral summary"', ""), /<ChartSection title="Referral summary"|<StructuredNarrativeField/, "intake does not render the removed summary editor");
+// (docs/design/DECISIONS.md, "Chart as home"), so only a `designV2 ?`-gated editor is allowed.
+assert.doesNotMatch(intakeCanvas.replaceAll('{designV2 ? <ChartSection title="Referral summary"', ""), /<ChartSection title="Referral summary"|<StructuredNarrativeField/, "intake does not render the removed summary editor");
 const persistence = load("lib/pipeline/referral-canvas-persistence.ts");
 const intakeFields = Object.fromEntries(persistence.persistedCanvasFieldKeys.map(key => [key, { value: persistence.referralCanvasValue(source, key) }]));
 assert.equal(intakeFields.summary.value, source.note, "saved summary remains available to charts and recovery");

@@ -11,11 +11,10 @@ import styles from "./QuickNote.module.css";
 // Quick note (docs/design/DECISIONS.md, "Quick note"): each person's own private reminder of where a
 // referral stands. Written in the record rail; read on the Home board and the workspace list.
 
-// `tab`: one line shaped as a folder tab, for the stacked Home board where only the tab row shows.
-export function QuickNoteLine({ referralId, id, compact = false, tab = false }: { referralId: number; id?: string; compact?: boolean; tab?: boolean }) {
+export function QuickNoteLine({ referralId, id, compact = false }: { referralId: number; id?: string; compact?: boolean }) {
   const note = useQuickNotes().get(referralId);
   if (!note) return null;
-  return <span id={id} data-quick-note className={`${styles.line}${compact ? ` ${styles.compact}` : ""}${tab ? ` ${styles.tab}` : ""}`} title={note.text}>
+  return <span id={id} data-quick-note className={compact ? `${styles.line} ${styles.compact}` : styles.line} title={note.text}>
     <StickyNote size={13} aria-hidden="true" className={styles.icon} />
     <span className={styles.lineText}><span className={styles.srOnly}>Quick note: </span>{note.text}</span>
   </span>;

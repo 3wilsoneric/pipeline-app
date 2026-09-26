@@ -14,7 +14,7 @@ import { isClientChartWorkspace } from "@/lib/pipeline/workspace-presentation";
 import ReferralIntakeSummary from "@/components/pipeline/ReferralIntakeSummary";
 import folderStyles from "./ClientFolder.module.css";
 import AdmissionChecklistGlance, { AssessmentSummaryGlance, ReferralStandingGlance } from "@/components/pipeline/AdmissionChecklistGlance";
-import { useRedesignFeatures } from "@/components/design/DesignSwitch";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 export default function WorkspaceClientChart({ referral, headerActions, contactActions, assessmentEntry, assessment, practice = false, assessmentOnly = false, onEditReferralField, onEditAssessmentField, onOpenDecision }: {
   referral: Referral | null;
@@ -43,7 +43,7 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
   onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
   onOpenDecision?: () => void;
 }) {
-  const designV2 = useRedesignFeatures();
+  const designV2 = useDesignV2();
   const profilePath = referral?.clientId ? `/api/profiles/${encodeURIComponent(`pipeline:${referral.clientId}`)}` : "";
   const intakeReferral = referral && !isClientChartWorkspace(referral) ? referral : undefined;
   // Keep the intake summary mounted while supporting records load or refresh.

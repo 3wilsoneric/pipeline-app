@@ -51,7 +51,7 @@ import { ClientAssessmentRecords } from "@/components/pipeline/ClientAssessmentR
 import folderStyles from "./ClientFolder.module.css";
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
 import { clientChartRecord, clientChartAssessments, clientReferralSections, clientSourceSections, referralChartEditFields, type ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
-import { useDesignV2, useRedesignFeatures } from "@/components/design/DesignSwitch";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 const ReferralFilePreviewDialog = dynamic(() => import("./ReferralFilePreviewDialog"), { ssr: false });
 
@@ -244,7 +244,7 @@ function ResidentProfile({
   );
   // Redesign Chart home: this referral's files and signed assessment already show above
   // (Documents, Assessment summary, Assessment), so only other episodes' records repeat here.
-  const homeChart = useRedesignFeatures() && Boolean(intakeReferral);
+  const homeChart = useDesignV2() && Boolean(intakeReferral);
   const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at && !(homeChart && assessment.referral_id === sourceReferralId));
   const otherDocuments = homeChart ? profile.pipeline.documents.filter((document) => document.referralId !== sourceReferralId) : profile.pipeline.documents;
   const referralEditActions: ChartEditActions | undefined = onEditReferralField
@@ -351,7 +351,7 @@ function ResidentProfile({
 function ClientRecordedInformation({ profile, sourceReferralId, editActions, intakeReferral }: { profile: UnifiedClientProfileResponse; sourceReferralId?: number; editActions?: ChartEditActions; intakeReferral?: Referral }) {
   const client = profile.client;
   // The redesign's Chart already names the referral and shows its summary near the top; don't repeat them here.
-  const quiet = useRedesignFeatures() && Boolean(intakeReferral);
+  const quiet = useDesignV2() && Boolean(intakeReferral);
   const referralSections = clientReferralSections(profile, intakeReferral, quiet ? ["summary", "decision"] : []);
   return <>
     {referralSections.length > 0 ? <ProfileSection title="Referral information" detail={intakeReferral && !quiet ? "Other recorded referral details" : undefined}>
