@@ -90,7 +90,7 @@ function ScheduleAssessmentDialog({ modal, assessment, isBusy, error, scheduleSt
     ? { title: "Change appointment", save: "Save new time" }
     : { title: "Schedule interview", save: scheduleMethod === "record_review" ? "Schedule record review" : "Schedule interview" };
   const renderScheduleActions = () => (<>
-        <button type="button" onClick={onClose} disabled={isBusy} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664] disabled:opacity-50">Back to assessment</button>
+        <button type="button" onClick={onClose} className="min-h-12 px-4 font-bold text-[#59635d] hover:bg-[#f1f4f2] hover:text-[#0f7664]">Back to assessment</button>
         <button type="button" data-guide-target="assessment-schedule-save" onClick={onSave} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="min-h-12 bg-[#08765e] px-6 font-bold text-white hover:bg-[#065c49] disabled:cursor-not-allowed disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : labels.save}</button>
       </>);
   return (

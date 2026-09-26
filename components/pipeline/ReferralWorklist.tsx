@@ -14,7 +14,7 @@ import {
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { prefetchPipelineWorkspace } from "@/lib/pipeline/client-navigation";
-import { getWorkspaceCounty, isClientChartWorkspace, isEarlierWorkspaceMonth, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
+import { getWorkspaceCounty, getWorkspaceWorkflowLabel, isClientChartWorkspace, isEarlierWorkspaceMonth, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
 import { workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
 import styles from "./WorkspaceDirectory.module.css";
 
@@ -29,13 +29,9 @@ export default function ReferralWorklist({
 }) {
   const rows = referrals.map((referral) => {
     const progress = progressByReferral[referral.id] ?? getReferralProgress(referral);
-    const extractedTotal = referral.packetFields?.length ?? 0;
-    const extractedReviewed = referral.packetFields?.filter((field) => ["accepted", "edited"].includes(field.review_status)).length ?? 0;
     return {
       referral,
       progress,
-      extractedTotal,
-      extractedReviewed,
       identityTitle: formatClientIdentityTitle(referral),
       county: getWorkspaceCounty(referral),
     };
@@ -44,13 +40,11 @@ export default function ReferralWorklist({
   return (
     <div role="region" aria-label="Referral worklist">
       <div className="divide-y divide-[#e2e2e2] lg:hidden">
-        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, county }) => (
+        {rows.map(({ referral, progress, identityTitle, county }) => (
           <CompactReferralRow
             key={referral.id}
             referral={referral}
             progress={progress}
-            extractedReviewed={extractedReviewed}
-            extractedTotal={extractedTotal}
             identityTitle={identityTitle}
             county={county}
             onOpen={() => onOpenPacket(referral)}
@@ -62,13 +56,13 @@ export default function ReferralWorklist({
         <div className="min-w-[820px]">
         <div className="grid grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#666666]">
           <span>Client</span>
-          <span>Contents</span>
+          <span>Status</span>
           <span>Owner</span>
           <span>Date</span>
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
-          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, county }) => (
+          {rows.map(({ referral, progress, identityTitle, county }) => (
             <button
               key={referral.id}
               type="button"
@@ -81,7 +75,7 @@ export default function ReferralWorklist({
               className={`${styles.row} grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]`}
             >
               <span className="flex min-w-0 items-start gap-3 pr-4">
-                <WorkspaceChartThumbnail referral={referral} progress={progress} />
+                <WorkspaceChartThumbnail referral={referral} />
                 <span className="min-w-0 pt-0.5">
                   <span data-workspace-name className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
                   {workspaceIdentityDetail(referral, county) ? (
@@ -94,18 +88,7 @@ export default function ReferralWorklist({
               </span>
 
               <span className="pr-5">
-                {isClientChartWorkspace(referral) ? <span className="text-[11px] text-[#737373]">{workspaceFileCount(referral)} files</span> : <>
-                <span className="flex items-center justify-between gap-2 text-[10px]">
-                  <span className="font-black text-[#111111]">{progress.overall.percent}%</span>
-                  <span className="text-[#737373]">{progress.overall.complete}/{progress.overall.total}</span>
-                </span>
-                <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
-                  <span data-workspace-progress className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
-                </span>
-                {extractedTotal > 0 ? (
-                  <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
-                ) : null}
-                </>}
+                <WorkspaceStatus referral={referral} progress={progress} />
               </span>
 
               <span className="truncate text-[11px] font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
@@ -123,16 +106,12 @@ export default function ReferralWorklist({
 function CompactReferralRow({
   referral,
   progress,
-  extractedReviewed,
-  extractedTotal,
   identityTitle,
   county,
   onOpen,
 }: {
   referral: Referral;
   progress: ReferralProgress;
-  extractedReviewed: number;
-  extractedTotal: number;
   identityTitle: string;
   county: string;
   onOpen: () => void;
@@ -150,7 +129,7 @@ function CompactReferralRow({
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="flex min-w-0 items-start gap-3">
-          <WorkspaceChartThumbnail referral={referral} progress={progress} />
+          <WorkspaceChartThumbnail referral={referral} />
           <span className="min-w-0 pt-0.5">
             <span data-workspace-name className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
             {workspaceIdentityDetail(referral, county) ? (
@@ -164,18 +143,7 @@ function CompactReferralRow({
       </span>
 
       <span className="mt-3 block">
-        {isClientChartWorkspace(referral) ? <span className="text-[11px] text-[#737373]">{workspaceFileCount(referral)} files</span> : <span>
-          <span className="flex items-center justify-between gap-3 text-[10px]">
-            <span className="font-black text-[#111111]">Data capture</span>
-            <span className="text-[#66716b]">{progress.overall.percent}% · {progress.overall.complete}/{progress.overall.total}</span>
-          </span>
-          <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
-            <span data-workspace-progress className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
-          </span>
-          {extractedTotal > 0 ? (
-            <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
-          ) : null}
-        </span>}
+        <WorkspaceStatus referral={referral} progress={progress} />
       </span>
 
       <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#ececec] pt-2.5 text-[10px]">
@@ -186,12 +154,23 @@ function CompactReferralRow({
   );
 }
 
-export function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; progress: ReferralProgress }) {
+function WorkspaceStatus({ referral, progress }: { referral: Referral; progress: ReferralProgress }) {
+  const openDocuments = progress.state.open_document_count;
+  const fileCount = isClientChartWorkspace(referral) ? workspaceFileCount(referral) : null;
+  const detail = fileCount !== null
+    ? `${fileCount} ${fileCount === 1 ? "file" : "files"}`
+    : openDocuments > 0 ? `${openDocuments} ${openDocuments === 1 ? "document" : "documents"} needed` : null;
+  return <span className="block min-w-0">
+    <span className="block truncate text-[11px] font-semibold text-[#25382e]">{getWorkspaceWorkflowLabel(referral)}</span>
+    {detail ? <span className="mt-1 block truncate text-[10px] text-[#66716b]">{detail}</span> : null}
+  </span>;
+}
+
+export function WorkspaceChartThumbnail({ referral }: { referral: Referral }) {
   const seed = Math.abs(referral.id) % 13;
   const firstLine = 15 + seed;
   const secondLine = 10 + ((seed * 3) % 17);
   const accent = !isClientChartWorkspace(referral) && (referral.priority === "urgent" || referral.priority === "high") ? "#c85b4d" : "#0f8b73";
-  const progressWidth = Math.max(3, Math.round(progress.overall.percent * 0.32));
   return (
     <span
       aria-hidden="true"
@@ -207,7 +186,6 @@ export function WorkspaceChartThumbnail({ referral, progress }: { referral: Refe
         <rect x="11" y="27" width="32" height="2" fill="#d5dfdb" />
         <rect x="11" y="32" width="26" height="2" fill="#d5dfdb" />
         <rect x="11" y="38" width="32" height="3" fill="#e1e8e5" />
-        {!isClientChartWorkspace(referral) ? <rect x="11" y="38" width={progressWidth} height="3" fill={accent} /> : null}
         <path d="M45 4h6v6z" fill="#e8efec" />
       </svg>
     </span>

@@ -15,6 +15,35 @@ async function createReferral(page: Page) {
   return (await response.json()).referral as { id: number };
 }
 
+test("a saved client can switch workspace tabs repeatedly without a page crash", async ({ page }) => {
+  const referral = await createReferral(page);
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.name));
+  await page.goto(workspaceUrl(referral.id, "intake"));
+  const stages = page.getByRole("navigation", { name: "Workspace stages" });
+  const decision = stages.getByRole("button", { name: "Decision", exact: true });
+  const assessment = stages.getByRole("button", { name: "Assessment", exact: true });
+  const chart = stages.getByRole("button", { name: "Chart", exact: true });
+  await expect(chart).toHaveAttribute("aria-current", "page");
+  // An already-open client must not need another JavaScript download when the
+  // assessor opens Decision after a deployment changes the serving revision.
+  await page.route("**/_next/static/**/*.js*", (route) => route.abort());
+  for (let pass = 0; pass < 2; pass += 1) {
+    await decision.click();
+    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Workspace files", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: "Workspace activity", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Referral ownership and activity" })).toBeVisible();
+    await assessment.click();
+    await expect(page.getByRole("region", { name: "Assessment", exact: true })).toBeVisible();
+    await chart.click();
+    await expect(chart).toHaveAttribute("aria-current", "page");
+  }
+  await expect(page.getByRole("heading", { name: "This page could not load." })).toHaveCount(0);
+  expect(pageErrors).toEqual([]);
+});
+
 function workspaceUrl(id: number, view: PipelineWorkspaceView) {
   const params = new URLSearchParams({ view: "referrals", screen: "packet", referralId: String(id) });
   applyPipelineWorkspaceLocation(params, { view });

@@ -85,6 +85,7 @@ for (const width of [1440, 390]) {
         primary_category: "follow_up", next_action: "Schedule the assessment", blockers: [], missing_data: [],
         urgency: "normal", due_at: null, last_activity_at: "2026-09-17T15:00:00Z", age_hours: 1,
         completion_pct: 40, missing_document_count: 1, location: { view: "intake" },
+        board: { stage: "received", detail: "Referral received", next_action: "Add referral information", location: { view: "intake" } },
       }] : [];
       payload.scope = "personal";
       payload.unavailable_sections = [];
@@ -96,7 +97,8 @@ for (const width of [1440, 390]) {
     });
     await page.goto("/");
     const work = page.getByRole("region", { name: "Current work", exact: true });
-    await expect(work).toContainText("No active referral work");
+    await expect(work.getByRole("button", { name: "Open referral received folder" })).toBeVisible();
+    await expect(work.getByText("No referrals here", { exact: true }).first()).toBeVisible();
     assigned = true;
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     const card = work.getByRole("button", { name: "Open Avery Assigned", exact: true });

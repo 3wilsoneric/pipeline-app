@@ -165,11 +165,16 @@ for (const mode of ["local_file", "postgres"]) {
       assert.equal(current.meet_client_sent_version, versionSent);
       assert.equal(current.current_symptoms, "Edited after failed send");
       assert.equal(providerCalls, 1);
-      const noted = await store.addAssessmentAddendum(id, "Later clarification", "Correction", actor, current.version);
+      const noted = await store.addAssessmentAddendum(id, "Later clarification", "Correction", actor, current.version, "addendum-after-send");
       assert.equal(noted.ok, true);
       assert.equal(noted.assessment.current_symptoms, current.current_symptoms);
       assert.equal(noted.assessment.addenda[0].authored_by, actor.id);
       assert.equal(noted.assessment.audit_events.at(-1).action, "assessment_addendum_added");
+      const replayed = await store.addAssessmentAddendum(id, "Later clarification", "Correction", actor, current.version, "addendum-after-send");
+      assert.equal(replayed.ok, true);
+      assert.equal(replayed.addendum.addendum_id, noted.addendum.addendum_id);
+      assert.equal(replayed.assessment.addenda.length, 1);
+      assert.equal(replayed.assessment.audit_events.filter((event) => event.action === "assessment_addendum_added").length, 1);
       assert.equal((await store.addAssessmentAddendum(id, "Stale", "test", actor, current.version)).conflict, true);
       await assert.rejects(store.importAssessmentExtraction({
         referralId: referral.id, assessmentId: id, expectedVersion: noted.assessment.version, actor,

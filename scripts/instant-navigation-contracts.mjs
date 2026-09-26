@@ -205,6 +205,7 @@ const rootStubs = {
     fetchPipelineJson: async (path) => { startupReads.push(path); },
   },
   "@/components/pipeline/ClientProfileDirectory": { default: () => null, preloadCurrentClientDirectory: async () => { startupReads.push("current-clients"); } },
+  "@/lib/pipeline/application-activity-access": load("lib/pipeline/application-activity-access.ts"),
   "@/components/pipeline/referral-home-directory-model": { buildReferralParams: () => "kind=all" },
   "@/lib/pipeline/report-access": {
     canAccessOperationsReports: (principal) => principal?.roles.includes("admin"),
@@ -229,12 +230,12 @@ assert.equal(rootNavigationEvents.size, 0);
 
 for (const seeded of [true, false]) {
   effectCalls.length = 0; startupReads.length = 0;
-  startupUser = seeded ? { id: "effective-fixture", roles: ["admin"] } : null;
+  startupUser = seeded ? { id: "effective-fixture", email: "fixture@pipeline.local", roles: ["admin"] } : null;
   Overview({ initialBriefing: entrySeed });
   const startupEffect = effectCalls.find(({ deps }) => deps?.length === 1 && deps[0] === startupUser);
   const stopStartup = startupEffect.run();
   assert.equal(startupReads.length, seeded ? 2 : 0, "only a server-validated user may begin directory GETs before the live user read finishes");
-  finishUserRead({ user: { id: "effective-fixture", roles: ["viewer"] } });
+  finishUserRead({ user: { id: "effective-fixture", email: "fixture@pipeline.local", roles: ["viewer"] } });
   await Promise.resolve(); await Promise.resolve();
   assert.equal(startupReads.length, 2, "live user refresh must not duplicate already-started seed warmups");
   stopStartup();

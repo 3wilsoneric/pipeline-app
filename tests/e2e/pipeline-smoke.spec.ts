@@ -12,6 +12,7 @@ import {
 import { assessmentInterviewQuestions, assessmentInterviewSections } from "../../lib/assessment/assessment-interview-schema";
 import type { PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
 import { referralDocumentAutofillEnabled } from "../../lib/extraction/contracts";
+import { calendarToday } from "../../lib/pipeline/calendar-date";
 import type { PacketFieldsResponse, ReviewFieldResponse } from "../../lib/extraction/contracts";
 import type { Referral } from "../../lib/pipeline/referral-types";
 import type { SupervisorExceptionSnapshot } from "../../lib/pipeline/operations-types";
@@ -2471,7 +2472,7 @@ test.describe("Referral home and packet canvas", () => {
     await recordDecision.click();
     await expect(page.getByRole("alertdialog")).toContainText("accepted");
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-    await expect(workflowPanel.getByRole("heading", { name: "Decision recorded", exact: true })).toBeVisible();
+    await expect(workflowPanel.getByRole("status").filter({ hasText: "Decision recorded" })).toBeVisible();
     const decisionReadback = await page.request.get(`/api/referrals/${referral.id}/decision`);
     expect(decisionReadback.ok()).toBe(true);
     expect((await decisionReadback.json()).decision).toMatchObject({ outcome: "accepted", reasonNote: "Synthetic acceptance decision for the EHR handoff journey." });
@@ -2488,6 +2489,7 @@ test.describe("Referral home and packet canvas", () => {
       await workflowPanel.getByLabel(`${label} status`).selectOption("received");
       await expect(workflowPanel.getByText(`${label} updated`, { exact: true })).toBeVisible();
     }
+    await workflowPanel.getByLabel("Actual admission date").fill(calendarToday());
     await workflowPanel.getByRole("button", { name: "Mark admitted" }).click();
     await expect(page.getByRole("alertdialog")).toContainText("Mark this referral admitted?");
     await page.getByRole("alertdialog").getByRole("button", { name: "Mark admitted", exact: true }).click();
@@ -2604,9 +2606,25 @@ test.describe("Referral home and packet canvas", () => {
       };
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
     });
+    const plannedDate = workflowPanel.getByLabel("Planned admission date");
+    await expect(plannedDate).toBeEnabled();
+    await plannedDate.fill("2026-10-06");
+    let blockDateSave = true;
+    await page.route(`**/api/referrals/${referral.id}`, (route) => {
+      if (route.request().method() === "PATCH" && blockDateSave) {
+        return route.fulfill({ status: 503, json: { error: "Synthetic planned date save interruption" } });
+      }
+      return route.continue();
+    });
+    await admittedProfile.getByRole("button", { name: "Open client profile" }).click();
+    await expect(workflowPanel.getByRole("alert")).toContainText("The admission date could not be saved. Stay here and retry.");
+    await expect(page).toHaveURL(/screen=packet/);
+    await expect(plannedDate).toHaveValue("2026-10-06");
+    blockDateSave = false;
     await admittedProfile.getByRole("button", { name: "Open client profile" }).click();
     await expect(page).toHaveURL(/screen=profile.*clientId=client-sanitized-100/);
     await expect(page.getByRole("main", { name: "Client profile for Avery Example" })).toBeVisible();
+    expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-06");
   });
 
   test("allows an optional decline reason and preserves an attributed decision when it is supplied", async ({ page }) => {

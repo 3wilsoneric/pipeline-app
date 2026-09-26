@@ -9,6 +9,7 @@ import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
+import { canAccessApplicationActivity } from "@/lib/pipeline/application-activity-access";
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -36,6 +37,10 @@ import {
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
 import { loadPipelineWorkspaceResumeLocation, recordLastPipelineWorkspace } from "@/lib/pipeline/work-continuity-client";
+import { canvasDraftStorageKey } from "@/components/pipeline/referral-canvas-save-state";
+import { clearLocalReferralRecovery, loadLocalReferralRecovery, referralRecoveryPrincipal, saveLocalReferralRecovery } from "@/lib/pipeline/referral-local-recovery";
+import { clearServerReferralDraft, loadServerReferralDraft, saveServerReferralDraft, usesServerReferralDrafts } from "@/lib/pipeline/referral-draft-recovery";
+import { parsePipelineReferralDraft } from "@/lib/pipeline/user-workspace-state-types";
 import {
   applyPipelineWorkspaceLocation,
   pipelineWorkspaceLocationFromSearchParams,
@@ -64,12 +69,14 @@ type ReferralSelection = { id: number; name?: string; gender?: string; community
 
 function useDeferredWorkSurfaces(screen: PipelineScreen) {
   const [surfaces, setSurfaces] = useState<DeferredWorkSurfaces | null>(null);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   useEffect(() => {
-    if (surfaces) return;
+    if (surfaces || loadError) return;
     let cancelled = false;
-    const load = () => void loadDeferredWorkSurfaces().then((loaded) => {
-      if (!cancelled) setSurfaces(loaded);
-    });
+    const load = () => void loadDeferredWorkSurfaces().then(
+      (loaded) => { if (!cancelled) setSurfaces(loaded); },
+      (error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error : new Error("Workspace code could not load.")); },
+    );
     // Deep links load immediately. Home's authenticated content/reads get the
     // first turn before the large work surfaces are prepared for navigation.
     const idle = screen === "home" && "requestIdleCallback" in window
@@ -81,7 +88,10 @@ function useDeferredWorkSurfaces(screen: PipelineScreen) {
       window.clearTimeout(timer);
       if (idle !== undefined) window.cancelIdleCallback(idle);
     };
-  }, [screen, surfaces]);
+  }, [screen, surfaces, loadError]);
+  // Prewarming must not take Home down, but an attempted workspace should not
+  // remain on a loading skeleton forever when its code belongs to an old build.
+  if (loadError && (screen === "packet" || screen === "profile")) throw loadError;
   return surfaces;
 }
 
@@ -159,7 +169,12 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser) : undefined);
   const [teamAccess, setTeamAccess] = useState<boolean | undefined>(() => initialUser ? canAccessSupervisorOperations(initialUser.roles) : undefined);
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
+  const [activityAccess, setActivityAccess] = useState(() => canAccessApplicationActivity(initialUser));
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
+  const [directDraftError, setDirectDraftError] = useState("");
+  const [directDraftRetry, setDirectDraftRetry] = useState(0);
+  const directDraftIdRef = useRef<string | null>(null);
+  const directDraftPreparationRef = useRef<{ id: string; promise: Promise<() => Promise<void>> } | null>(null);
   // Header links and browser history also leave Home without calling navigate.
   // The server seed is only for entry, never for a later return to Home.
   useEffect(() => {
@@ -176,6 +191,38 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   }, [setEntryBriefing]);
   const deferredWorkSurfaces = useDeferredWorkSurfaces(screen);
   const selectedReferral = selectedWorkspaceReferral(routeReferral, referralDetails);
+
+  useEffect(() => {
+    if (screen !== "packet" || routeReferral || newReferralDraftKey) return;
+    // Direct packet links can omit draftId. Give them the same durable key as
+    // in-app creation before mounting the canvas so a lost create response can
+    // be replayed after a reload with the original mutation ID.
+    const params = new URLSearchParams(window.location.search);
+    if (getScreenFromParams(params) !== "packet" || getReferralFromParams(params) || getNewReferralDraftKey(params)) return;
+    let cancelled = false;
+    if (!directDraftPreparationRef.current) {
+      const id = directDraftIdRef.current ?? crypto.randomUUID();
+      directDraftIdRef.current = id;
+      directDraftPreparationRef.current = { id, promise: migrateLegacyNewReferralDraft(`new-${id}`) };
+    }
+    const preparation = directDraftPreparationRef.current;
+    void preparation.promise.then((clearLegacy) => {
+      if (cancelled) return;
+      const current = new URLSearchParams(window.location.search);
+      if (getScreenFromParams(current) !== "packet" || getReferralFromParams(current) || getNewReferralDraftKey(current)) return;
+      current.set("draftId", preparation.id);
+      replacePipelineHistory(`/?${current.toString()}`);
+      setDirectDraftError("");
+      directDraftPreparationRef.current = null;
+      directDraftIdRef.current = null;
+      void clearLegacy().catch(() => undefined);
+    }).catch(() => {
+      if (cancelled) return;
+      directDraftPreparationRef.current = null;
+      setDirectDraftError("Could not prepare your saved intake. Try again.");
+    });
+    return () => { cancelled = true; };
+  }, [screen, routeReferral, newReferralDraftKey, directDraftRetry]);
 
   useEffect(() => {
     if (activeSearchParams.get("browse") !== "workspaces" && !activeSearchParams.has("fromBrowser")) return;
@@ -201,6 +248,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       .then(({ user }) => {
         if (cancelled) return;
         setViewerId(user.id);
+        setActivityAccess(canAccessApplicationActivity(user));
         setReportAccess(canAccessOperationsReports(user));
         setTeamAccess(canAccessSupervisorOperations(user.roles));
         // Warm the first workspace page and complete current census after authentication.
@@ -211,6 +259,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       .catch(() => {
         if (!cancelled) {
           setReportAccess(false);
+          setActivityAccess(false);
           setTeamAccess(false);
         }
       });
@@ -239,8 +288,10 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     if (nextScreen === "operations" && reportAccess !== true) return;
     const requestId = ++navigationRequestRef.current;
     const sourceLocation = `${window.location.pathname}${window.location.search}`;
-    // A requested missing field is a deliberate target; saved positions only fill in when none is named.
-    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume && !location?.intakeField;
+    // Board actions and other explicit destinations must not be replaced by the
+    // last visited tab. Assessment entry actions still resume their saved question.
+    const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume
+      && (!location || (location.view === "assessment" && assessmentAction !== undefined && assessmentAction !== "review"));
     const savedLocation = shouldResume
       ? await loadPipelineWorkspaceResumeLocation(referral!.id).catch(() => undefined)
       : undefined;
@@ -295,6 +346,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         viewerId={viewerId}
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
+        canViewApplicationActivity={activityAccess}
         onOpenPacket={(referral, location, action) => navigate("packet", referral, undefined, location, true, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
@@ -316,6 +368,12 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
   const isDemoWorkspace = [activeSearchParams.get("demo") === "1", Boolean(trainingAssessmentMode), trainingIntakeMode].some(Boolean);
   const renderPacketWorkspace = () => {
+    if (!selectedReferral && !newReferralDraftKey) return directDraftError ? (
+      <main className="h-full bg-white px-6 py-5">
+        <p role="alert">{directDraftError}</p>
+        <button type="button" onClick={() => { setDirectDraftError(""); setDirectDraftRetry((retry) => retry + 1); }}>Try again</button>
+      </main>
+    ) : <DeferredScreenLoading />;
     const workspaceKey = referralWorkspaceKey(selectedReferral, createdWorkspace, newReferralDraftKey);
     const stillViewingWorkspace = () => {
       const current = new URLSearchParams(window.location.search);
@@ -518,6 +576,50 @@ function getNewReferralDraftKey(params: URLSearchParams): `new-${string}` | unde
   return draftId && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(draftId)
     ? `new-${draftId}`
     : undefined;
+}
+
+async function migrateLegacyNewReferralDraft(nextKey: `new-${string}`): Promise<() => Promise<void>> {
+  const legacySessionKey = canvasDraftStorageKey();
+  const sessionDraft = (() => {
+    try {
+      const raw = window.sessionStorage.getItem(legacySessionKey);
+      const draft = raw ? parsePipelineReferralDraft(JSON.parse(raw)) : null;
+      return raw && draft ? { raw, draft } : null;
+    } catch {
+      return null;
+    }
+  })();
+  if (!usesServerReferralDrafts()) {
+    if (sessionDraft) window.sessionStorage.setItem(canvasDraftStorageKey(nextKey), sessionDraft.raw);
+    return async () => { if (sessionDraft) window.sessionStorage.removeItem(legacySessionKey); };
+  }
+
+  const [server, local] = await Promise.allSettled([
+    loadServerReferralDraft(), loadLocalReferralRecovery(undefined),
+  ]);
+  if (server.status === "rejected") throw server.reason;
+  if (local.status === "rejected") throw local.reason;
+  const serverDraft = server.value;
+  const localDraft = local.value;
+  if (serverDraft) {
+    await loadServerReferralDraft(nextKey);
+    await saveServerReferralDraft(nextKey, serverDraft);
+  }
+  if (localDraft || sessionDraft) {
+    const principal = await referralRecoveryPrincipal();
+    const recovery = localDraft ?? {
+      draft: sessionDraft!.draft, ownerPrincipalId: "",
+      initialPacket: null, pendingDocuments: {}, additionalFiles: [],
+    };
+    await saveLocalReferralRecovery(principal, nextKey, recovery);
+  }
+  return async () => {
+    await Promise.all([
+      ...(serverDraft ? [clearServerReferralDraft()] : []),
+      ...(localDraft ? [clearLocalReferralRecovery(undefined)] : []),
+    ]);
+    if (sessionDraft) window.sessionStorage.removeItem(legacySessionKey);
+  };
 }
 
 function recordNavigation(

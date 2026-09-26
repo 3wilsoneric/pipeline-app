@@ -163,6 +163,7 @@ export interface AssessmentStore {
     reasonCode: string,
     actor: AssessmentActor,
     expectedVersion: number,
+    mutationId?: string,
   ): Promise<AssessmentAddendumMutation | null>;
 }
 
@@ -404,8 +405,9 @@ export async function addAssessmentAddendum(
   reasonCode: string,
   actor: AssessmentActor,
   expectedVersion: number,
+  mutationId?: string,
 ) {
-  return getAssessmentStore().addAddendum(assessmentId, note, reasonCode, actor, expectedVersion);
+  return getAssessmentStore().addAddendum(assessmentId, note, reasonCode, actor, expectedVersion, mutationId);
 }
 
 export async function getAssessmentCompletionReport(month: string): Promise<AssessmentCompletionReport> {
@@ -874,12 +876,21 @@ async function addLocalAssessmentAddendum(
   reasonCode: string,
   actor: AssessmentActor,
   expectedVersion: number,
+  mutationId?: string,
 ): Promise<AssessmentAddendumMutation | null> {
   await ensureLoaded();
   return withMutation(async () => {
     const index = state.assessments.findIndex((assessment) => assessment.assessment_id === assessmentId);
     if (index < 0) return null;
     const current = state.assessments[index];
+    const mutationKey = mutationId ? `addendum:${mutationId}` : undefined;
+    const replayId = mutationKey ? state.createMutations.get(mutationKey) : undefined;
+    if (replayId) {
+      const addendum = current.addenda?.find((item) => item.addendum_id === replayId);
+      return addendum
+        ? { ok: true, assessment: current, addendum, revision: state.revision }
+        : { ok: false, conflict: true, assessment: current };
+    }
     if (current.version !== expectedVersion) return { ok: false, conflict: true, assessment: current };
     if (!isAssessmentFinalized(current)) {
       return {
@@ -912,6 +923,7 @@ async function addLocalAssessmentAddendum(
       ),
     });
     state.assessments[index] = assessment;
+    if (mutationKey) state.createMutations.set(mutationKey, addendum.addendum_id);
     state.revision += 1;
     await persist();
     return { ok: true, assessment, addendum, revision: state.revision };
@@ -1833,9 +1845,26 @@ async function addPostgresAssessmentAddendum(
   reasonCode: string,
   actor: AssessmentActor,
   expectedVersion: number,
+  mutationId?: string,
 ): Promise<AssessmentAddendumMutation | null> {
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
+    if (mutationId) {
+      await lockIdempotencyMutation(tx, "assessment_addendum", mutationId);
+      const rows = await tx<{ entity_id: string }[]>`
+        select entity_id from pipeline.idempotency_keys
+        where scope = 'assessment_addendum' and mutation_id = ${mutationId}
+        limit 1
+      `;
+      if (rows[0]) {
+        const assessment = await getAssessmentInTransaction(tx, assessmentId);
+        if (!assessment) return null;
+        const addendum = assessment.addenda?.find((item) => item.addendum_id === rows[0].entity_id);
+        return addendum
+          ? { ok: true, assessment, addendum, revision: await getAssessmentRevisionInTransaction(tx) }
+          : { ok: false, conflict: true, assessment };
+      }
+    }
     const current = await getAssessmentInTransaction(tx, assessmentId, true);
     if (!current) return null;
     if (current.version !== expectedVersion) return { ok: false, conflict: true, assessment: current };
@@ -1875,6 +1904,10 @@ async function addPostgresAssessmentAddendum(
         ${expectedVersion}, ${expectedVersion + 1}, ${[] as string[]},
         ${tx.json({ addendum_id: rows[0].addendum_id, reason_code: reasonCode })}
       )
+    `;
+    if (mutationId) await tx`
+      insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
+      values ('assessment_addendum', ${mutationId}, 'addendum', ${rows[0].addendum_id})
     `;
     const assessment = await getAssessmentInTransaction(tx, assessmentId);
     if (!assessment) throw new Error("The assessment could not be read after adding its addendum.");

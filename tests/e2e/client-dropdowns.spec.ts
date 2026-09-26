@@ -236,6 +236,40 @@ test("name search walks all result pages and opens the matching chart directly",
   await expect(file).toBeFocused();
 });
 
+test("client chart files open in the in-app preview without leaving the profile", async ({ page }) => {
+  const document = {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Example referral.pdf",
+    category: "Referral packet",
+    referralId: 1,
+    referralName: "Example referral",
+    community: "",
+    uploadedAt: "2026-09-24T12:00:00Z",
+    status: "Uploaded",
+    previewStatus: "ready",
+    previewUrl: "/api/files/11111111-1111-4111-8111-111111111111/preview",
+  };
+  await page.route("**/api/profiles/name-match**", (route) => route.fulfill({ json: {
+    ...unifiedProfileFixture,
+    pipeline: { ...unifiedProfileFixture.pipeline, documents: [document] },
+  } }));
+  await page.route("**/api/files/11111111-1111-4111-8111-111111111111?**", (route) => route.fulfill({ json: {
+    file: { content_type: "application/pdf", category: "referral_packet", byte_size: 100,
+      malware_scan_status: "clean", page_count: 1,
+      pages: [{ page_number: 1, byte_size: 100, preview_url: document.previewUrl,
+        thumbnail_url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" }],
+    },
+  } }));
+  await page.goto("/?screen=profile&clientId=name-match");
+  await expect(page.getByTestId("client-profile-folder")).toBeVisible();
+  await page.getByRole("button", { name: "Open Example referral.pdf" }).click();
+  await expect(page.getByRole("dialog", { name: "Preview Example referral.pdf" })).toBeVisible();
+  await expect(page).toHaveURL(/screen=profile&clientId=name-match/);
+  await page.getByRole("button", { name: "Close preview" }).click();
+  await page.getByRole("button", { name: "Open file" }).click();
+  await expect(page.getByRole("dialog", { name: "Preview Example referral.pdf" })).toBeVisible();
+});
+
 test("cabinet controls stay readable and reachable with long labels on small screens", async ({ page }, testInfo) => {
   await openClients(page);
   for (const width of [834, 390, 320]) {

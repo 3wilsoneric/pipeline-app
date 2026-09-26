@@ -1,5 +1,7 @@
 const CACHE_PREFIX = "pipeline-static-";
-const CACHE_NAME = `${CACHE_PREFIX}v15`;
+const CACHE_NAME = `${CACHE_PREFIX}v16`;
+// Unregistering does not stop fetches from a tab this worker already controls.
+let desktopCacheDisabled = false;
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 const scopedPath = (path) => `${SCOPE_PATH}${path}`;
 const OFFLINE_URL = scopedPath("/offline.html");
@@ -19,7 +21,13 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting()),
+      .then(async () => {
+        if (desktopCacheDisabled) {
+          await caches.delete(CACHE_NAME);
+          return;
+        }
+        await self.skipWaiting();
+      }),
   );
 });
 
@@ -36,6 +44,7 @@ self.addEventListener("message", (event) => {
     return;
   }
   if (event.data?.type !== "PIPELINE_DISABLE_DESKTOP_CACHE") return;
+  desktopCacheDisabled = true;
   event.waitUntil(
     caches.keys()
       .then((names) => Promise.all(
@@ -47,7 +56,7 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  if (request.method !== "GET") return;
+  if (desktopCacheDisabled || request.method !== "GET") return;
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
@@ -57,11 +66,13 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(async () => {
+      if (desktopCacheDisabled) return connectionRequiredResponse();
       const cache = await caches.open(CACHE_NAME);
-      return await cache.match(OFFLINE_ASSESSMENT_URL) ?? await cache.match(OFFLINE_URL) ?? new Response("A connection is required.", {
-        status: 503,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-      });
+      if (desktopCacheDisabled) {
+        await caches.delete(CACHE_NAME);
+        return connectionRequiredResponse();
+      }
+      return await cache.match(OFFLINE_ASSESSMENT_URL) ?? await cache.match(OFFLINE_URL) ?? connectionRequiredResponse();
     }));
     return;
   }
@@ -75,8 +86,20 @@ function isExplicitStaticAsset(pathname) {
   return STATIC_ASSETS.includes(pathname);
 }
 
+function connectionRequiredResponse() {
+  return new Response("A connection is required.", {
+    status: 503,
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
+
 async function cacheStaticAsset(request) {
+  if (desktopCacheDisabled) return fetch(request);
   const cache = await caches.open(CACHE_NAME);
+  if (desktopCacheDisabled) {
+    await caches.delete(CACHE_NAME);
+    return fetch(request);
+  }
   const cached = await cache.match(request);
   if (cached) return cached;
 
@@ -85,8 +108,11 @@ async function cacheStaticAsset(request) {
     response.ok
     && response.type === "basic"
     && !response.headers.has("set-cookie")
+    && !desktopCacheDisabled
   ) {
-    await cache.put(request, response.clone());
+    try { await cache.put(request, response.clone()); }
+    catch { /* Static caching is optional; return the fetched response. */ }
+    if (desktopCacheDisabled) await caches.delete(CACHE_NAME);
   }
   return response;
 }

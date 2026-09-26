@@ -60,7 +60,7 @@ try {
   await installStore();
   await page.evaluate(async (bytes) => {
     await window.fixtureStore.saveOfflineReferralDraft("principal-a", "draft-a", new Blob([new Uint8Array(bytes)]));
-    await window.fixtureStore.saveOfflineAssessmentDraft("principal-a", "assessment-a", { schema: 1, dirtySections: ["identity"], data: { first_name: "Synthetic pending answer" } });
+    await window.fixtureStore.saveOfflineAssessmentDraft("principal-a", "assessment-a", { schema: 1, assessmentId: "assessment-a", dirtySections: ["identity"], data: { first_name: "Synthetic pending answer" } });
   }, Array.from(new Uint8Array(encoded)));
   await page.reload();
   await installStore();

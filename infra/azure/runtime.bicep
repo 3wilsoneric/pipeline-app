@@ -80,6 +80,9 @@ param enableNoteLab bool = false
 @description('Expose the authenticated Demo Center without enabling synthetic writes to the production data store.')
 param enableDemoCenter bool = false
 
+@description('Enable the installed desktop experience and its per-user workspace state store together.')
+param enableDesktop bool = false
+
 @description('Create the privileged one-time database bootstrap job. Enable only for the first deployment, then remove it and its administrator secret.')
 param initialDatabaseBootstrap bool = false
 
@@ -187,8 +190,8 @@ var baseEnvironment = [
   { name: 'PIPELINE_REFERRAL_STORE_MODE', value: 'postgres' }
   { name: 'PIPELINE_ASSESSMENT_STORE_MODE', value: 'postgres' }
   { name: 'PIPELINE_RESIDENT_LINK_STORE_MODE', value: 'postgres' }
-  { name: 'PIPELINE_DESKTOP_STATE_ENABLED', value: 'true' }
-  { name: 'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: 'true' }
+  { name: 'PIPELINE_DESKTOP_STATE_ENABLED', value: enableDesktop ? 'true' : 'false' }
+  { name: 'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: enableDesktop ? 'true' : 'false' }
   { name: 'PIPELINE_NOTE_LAB_ENABLED', value: enableNoteLab ? 'true' : 'false' }
   { name: 'PIPELINE_DEMO_MODE', value: enableDemoCenter ? 'true' : 'false' }
   { name: 'PIPELINE_DEMO_DATA_ISOLATED', value: 'false' }

@@ -24,12 +24,13 @@ import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fe
 import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
 import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
 import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
-import type { AdmissionRequirement, AssessmentRecommendation, Referral, RequirementStatus } from "@/lib/pipeline/referral-types";
+import type { AdmissionDecision, AdmissionRequirement, AssessmentRecommendation, Referral, RequirementStatus } from "@/lib/pipeline/referral-types";
 import assessmentStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import UnderReviewEmailDialog, { defaultUnderReviewMessage } from "./UnderReviewEmailDialog";
 
 type ReferralWorkflowPanelProps = {
   referral: Referral;
+  workspaceActive?: boolean;
   onReferralChange: (referral: Referral) => void;
   onOpenIntake: () => void;
   onOpenAssessment: () => void;
@@ -39,8 +40,10 @@ type ReferralWorkflowPanelProps = {
   onDone?: () => Promise<void>;
   compactRecommendation?: boolean;
   recommendationAssessmentId?: string;
-  onSavingChange?: (saving: boolean) => void;
-  beforeWorkspaceNavigationRef?: RefObject<(() => Promise<void>) | null>;
+  onSavingChange?: (pending: boolean, failed?: boolean) => void;
+  beforeWorkspaceNavigationRef?: RefObject<((destination?: "email") => Promise<void>) | null>;
+  beforeWorkspaceExitRef?: RefObject<(() => Promise<void>) | null>;
+  onRequirementStateChange?: (state: { pending: number; failed: number }) => void;
 };
 
 type RecommendationDraft = {
@@ -51,6 +54,7 @@ type RecommendationDraft = {
 
 export default function ReferralWorkflowPanel({
   referral,
+  workspaceActive = true,
   onReferralChange,
   onOpenIntake,
   onOpenAssessment,
@@ -62,6 +66,8 @@ export default function ReferralWorkflowPanel({
   recommendationAssessmentId,
   onSavingChange,
   beforeWorkspaceNavigationRef,
+  beforeWorkspaceExitRef,
+  onRequirementStateChange,
 }: ReferralWorkflowPanelProps) {
   const { confirm, confirmationDialog } = useConfirmationDialog();
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
@@ -76,14 +82,33 @@ export default function ReferralWorkflowPanel({
   const [emailRecommendation, setEmailRecommendation] = useState<AssessmentRecommendation | null>(null);
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [pendingRequirements, setPendingRequirements] = useState<Record<string, RequirementStatus>>({});
+  const [requirementErrors, setRequirementErrors] = useState<Record<string, string>>({});
   const mutationIds = useRef(new Map<string, string>());
+  const confirmedDecision = useRef<{ referral: Referral; decision: AdmissionDecision } | null>(null);
+  const confirmedRecommendation = useRef<{ referral: Referral; recommendation: AssessmentRecommendation } | null>(null);
   const recommendationDirty = useRef(false);
   const admissionDateDirty = useRef(false);
   const mutationInFlight = useRef(false);
+  const pendingRequirementIds = useRef(new Set<string>());
+  const failedRequirementIds = useRef(new Set<string>());
+  const mutationTail = useRef<Promise<void>>(Promise.resolve());
 
-  const guardNavigation = useEffectEvent(async () => {
+  const guardInternalNavigation = useEffectEvent(async (destination?: "email") => {
+    if (emailSending || (mutationInFlight.current && pendingRequirementIds.current.size === 0)) {
+      throw new Error("Wait for this decision action to finish before leaving.");
+    }
+    if (destination === "email" && admissionDateDirty.current && !await saveAdmissionDate(false)) {
+      throw new Error("The admission date could not be saved. Stay here and retry.");
+    }
+  });
+  const guardWorkspaceExit = useEffectEvent(async () => {
     try {
-      if (mutationInFlight.current) throw new Error("Wait for the decision changes to finish saving before leaving.");
+      if (emailSending) throw new Error("Wait for the email delivery result before leaving.");
+      if (mutationInFlight.current || pendingRequirementIds.current.size > 0) throw new Error("Wait for the decision changes to finish saving before leaving.");
+      if (failedRequirementIds.current.size > 0 && !await confirm({ title: "Leave with unsaved paperwork changes?", message: "Some paperwork changes did not save. Stay to retry them, or leave without those changes.", confirmLabel: "Leave without changes", cancelLabel: "Stay and retry", destructive: true })) {
+        throw new Error("The paperwork changes are still unsaved. Retry them before leaving.");
+      }
       if (recommendationDirty.current) {
         if (!await confirm({ title: "Leave without recording these changes?", message: "Your changes to the admission decision have not been recorded. Stay to finish them, or discard these changes and leave.", confirmLabel: "Discard changes", cancelLabel: "Keep editing" })) {
           throw new Error("Your decision changes are still open. Record them when you are ready.");
@@ -97,39 +122,72 @@ export default function ReferralWorkflowPanel({
     }
   });
   useEffect(() => {
-    if (compactRecommendation || !beforeWorkspaceNavigationRef) return;
-    const guard = () => guardNavigation();
+    if (compactRecommendation || !workspaceActive || !beforeWorkspaceNavigationRef) return;
+    const guard = (destination?: "email") => guardInternalNavigation(destination);
     beforeWorkspaceNavigationRef.current = guard;
     return () => { if (beforeWorkspaceNavigationRef.current === guard) beforeWorkspaceNavigationRef.current = null; };
-  }, [beforeWorkspaceNavigationRef, compactRecommendation]);
+  }, [beforeWorkspaceNavigationRef, compactRecommendation, workspaceActive]);
+  useEffect(() => {
+    if (compactRecommendation || !beforeWorkspaceExitRef) return;
+    const guard = () => guardWorkspaceExit();
+    beforeWorkspaceExitRef.current = guard;
+    return () => { if (beforeWorkspaceExitRef.current === guard) beforeWorkspaceExitRef.current = null; };
+  }, [beforeWorkspaceExitRef, compactRecommendation]);
   useEffect(() => {
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!mutationInFlight.current && !recommendationDirty.current && !admissionDateDirty.current) return;
+      if (!emailSending && !mutationInFlight.current && pendingRequirementIds.current.size === 0 && failedRequirementIds.current.size === 0 && !recommendationDirty.current && !admissionDateDirty.current) return;
       event.preventDefault(); event.returnValue = "";
     };
     window.addEventListener("beforeunload", warnBeforeUnload);
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, []);
+  }, [emailSending]);
   usePersonaSwitchSave(async () => {
-    if (mutationInFlight.current || recommendationDirty.current || admissionDateDirty.current) throw new Error("Finish saving the decision changes before switching accounts.");
+    if (emailSending || mutationInFlight.current || pendingRequirementIds.current.size > 0 || failedRequirementIds.current.size > 0 || recommendationDirty.current || admissionDateDirty.current) throw new Error("Finish saving the decision changes before switching accounts.");
   });
 
   const loadWorkflow = useCallback(async (signal?: AbortSignal) => {
+    if (confirmedDecision.current?.referral.id !== referral.id) confirmedDecision.current = null;
+    if (confirmedRecommendation.current?.referral.id !== referral.id) confirmedRecommendation.current = null;
     const payload = await fetchPipelineJson<WorkflowResponse>(`/api/referrals/${referral.id}/workflow`, {
       cache: "no-store",
       signal,
     });
-    setWorkflow(payload);
+    const confirmed = confirmedDecision.current;
+    if (confirmed && payload.decision?.decisionId !== confirmed.decision.decisionId) {
+      if ((payload.referral.version ?? 0) <= (confirmed.referral.version ?? 0)) {
+        // An older read must not reopen the form after the server confirmed the decision.
+        setLoading(false);
+        return { ...payload, referral: confirmed.referral, decision: confirmed.decision };
+      }
+      confirmedDecision.current = null;
+    } else if (confirmed) {
+      confirmedDecision.current = { ...confirmed, referral: payload.referral };
+    }
+    const savedRecommendation = confirmedRecommendation.current;
+    const staleRecommendation = savedRecommendation && (
+      payload.recommendation?.recommendationId !== savedRecommendation.recommendation.recommendationId
+      || payload.recommendation?.version !== savedRecommendation.recommendation.version
+    );
+    const latest = staleRecommendation && (payload.referral.version ?? 0) <= (savedRecommendation.referral.version ?? 0)
+      ? { ...payload, referral: savedRecommendation.referral, recommendation: savedRecommendation.recommendation }
+      : payload;
+    if (savedRecommendation && !staleRecommendation) {
+      confirmedRecommendation.current = { referral: payload.referral, recommendation: savedRecommendation.recommendation };
+    } else if (staleRecommendation && latest === payload) {
+      confirmedRecommendation.current = null;
+    }
+    setWorkflow(latest);
     setError("");
     if (!recommendationDirty.current) {
       setRecommendationDraft({
-        outcome: payload.decision ? (payload.decision.outcome === "accepted" ? "accept" : "decline") : payload.recommendation?.outcome ?? "",
-        reasonCode: payload.recommendation?.reasonCode ?? "",
-        reasonNote: payload.recommendation?.reasonNote ?? "",
+        outcome: latest.decision ? (latest.decision.outcome === "accepted" ? "accept" : "decline") : latest.recommendation?.outcome ?? "",
+        reasonCode: latest.recommendation?.reasonCode ?? "",
+        reasonNote: latest.recommendation?.reasonNote ?? "",
       });
     }
-    if (!admissionDateDirty.current) setAdmissionDateDraft(getPlannedAdmissionDate(payload.referral));
+    if (!admissionDateDirty.current) setAdmissionDateDraft(getPlannedAdmissionDate(latest.referral));
     setLoading(false);
+    return latest;
   }, [referral.id]);
 
   useEffect(() => {
@@ -137,12 +195,20 @@ export default function ReferralWorkflowPanel({
     setLoading(true);
     loadWorkflow(controller.signal).catch((loadError) => {
       if (!controller.signal.aborted) {
-        setError(loadError instanceof Error ? loadError.message : "Workflow could not be loaded.");
+        if (confirmedDecision.current?.referral.id === referral.id) {
+          setMessage("Decision recorded. The latest details could not refresh; reload the page to check them.");
+          setError("");
+        } else if (!recommendationDirty.current && confirmedRecommendation.current?.referral.id === referral.id) {
+          setMessage("Working decision saved. The latest details could not refresh; reload the page to check them.");
+          setError("");
+        } else {
+          setError(loadError instanceof Error ? loadError.message : "Workflow could not be loaded.");
+        }
         setLoading(false);
       }
     });
     return () => controller.abort();
-  }, [loadWorkflow, referral.version]);
+  }, [loadWorkflow, referral.id, referral.version]);
 
   const clearSavedDraftState = (key: string) => {
     if (key.startsWith("recommendation:")) recommendationDirty.current = false;
@@ -150,46 +216,94 @@ export default function ReferralWorkflowPanel({
     if (key.startsWith("admit-date:")) admissionDateDirty.current = false;
   };
 
-  const runMutation = async <T extends { referral?: Referral }>(
+  const runMutation = async <T extends { referral?: Referral; decision?: AdmissionDecision }>(
     key: string,
     url: string,
     method: "PATCH" | "POST" | "PUT",
     body: Record<string, unknown>,
     successMessage: string,
+    queueRequirement = false,
   ) => {
-    if (mutationInFlight.current) return null;
+    if (!queueRequirement && (mutationInFlight.current || pendingRequirementIds.current.size > 0)) {
+      setError("Another change is still saving. Try again when it finishes.");
+      return null;
+    }
+    const perform = async (): Promise<T | null> => {
     mutationInFlight.current = true;
     const mutationKey = JSON.stringify([key, url, method, body]);
     const clientMutationId = mutationIds.current.get(mutationKey) ?? createMutationId();
     mutationIds.current.set(mutationKey, clientMutationId);
+    if (key.startsWith("recommendation:")) confirmedRecommendation.current = null;
     setBusy(key);
-    onSavingChange?.(true);
+    onSavingChange?.(true, false);
     setError("");
     setMessage("");
     try {
-      const payload = await fetchPipelineJson<T>(url, {
-        method,
-        body: JSON.stringify({ ...body, client_mutation_id: clientMutationId }),
-      });
+      let payload: T;
+      try {
+        payload = await fetchPipelineJson<T>(url, {
+          method,
+          body: JSON.stringify({ ...body, client_mutation_id: clientMutationId }),
+        });
+      } catch (mutationError) {
+        if (key.startsWith("decision:")) {
+          try {
+            const latest = await loadWorkflow();
+            onReferralChange(latest.referral);
+            if (latest.decision) {
+              confirmedDecision.current = { referral: latest.referral, decision: latest.decision };
+              mutationIds.current.delete(mutationKey);
+              clearSavedDraftState(key);
+              setMessage(latest.decision.outcome === body.outcome
+                ? `${latest.decision.outcome === "accepted" ? "Acceptance" : "Denial"} is already recorded. Review the saved decision before continuing.`
+                : "A different decision is recorded. Review it before continuing.");
+              return null;
+            }
+          } catch { /* Preserve the original save error when the decision cannot be read back. */ }
+        } else if (mutationError instanceof PipelineApiError && mutationError.status === 409) {
+          const latest = referralFromConflictPayload(mutationError.payload);
+          if (latest) onReferralChange(latest);
+          await loadWorkflow().catch(() => undefined);
+        }
+        const uncertainDecision = key.startsWith("decision:")
+          && (!(mutationError instanceof PipelineApiError) || mutationError.status === 0 || mutationError.status === 499 || mutationError.status >= 500);
+        setError(uncertainDecision
+          ? "Could not confirm whether the decision was saved. Reload the workspace to check before trying again."
+          : mutationError instanceof Error ? mutationError.message : "The workflow change could not be saved.");
+        return null;
+      }
       mutationIds.current.delete(mutationKey);
+      if (key.startsWith("decision:") && payload.decision && payload.referral) {
+        confirmedDecision.current = { referral: payload.referral, decision: payload.decision };
+      }
+      if (key.startsWith("recommendation:") && payload.referral && "recommendation" in payload && payload.recommendation) {
+        confirmedRecommendation.current = { referral: payload.referral, recommendation: payload.recommendation as AssessmentRecommendation };
+      }
+      setWorkflow((current) => current ? {
+        ...current,
+        referral: payload.referral ?? current.referral,
+        decision: payload.decision ?? current.decision,
+        ...(key.startsWith("recommendation:") && "recommendation" in payload
+          ? { recommendation: payload.recommendation as AssessmentRecommendation } : {}),
+      } : current);
       if (payload.referral) onReferralChange(payload.referral);
       clearSavedDraftState(key);
       setMessage(successMessage);
-      await loadWorkflow();
-      return payload;
-    } catch (mutationError) {
-      if (mutationError instanceof PipelineApiError && mutationError.status === 409) {
-        const latest = referralFromConflictPayload(mutationError.payload);
-        if (latest) onReferralChange(latest);
-        await loadWorkflow().catch(() => undefined);
+      try {
+        await loadWorkflow();
+      } catch {
+        setMessage(`${successMessage}. The latest details could not refresh; reload the page to check them.`);
       }
-      setError(mutationError instanceof Error ? mutationError.message : "The workflow change could not be saved.");
-      return null;
+      return payload;
     } finally {
       mutationInFlight.current = false;
       setBusy("");
-      onSavingChange?.(false);
+      onSavingChange?.(compactRecommendation && recommendationDirty.current, compactRecommendation && recommendationDirty.current);
     }
+    };
+    const result = queueRequirement ? mutationTail.current.then(perform) : perform();
+    mutationTail.current = result.then(() => undefined, () => undefined);
+    return result;
   };
 
   if (loading && !workflow) return compactRecommendation ? <span className={assessmentStyles.recoveryButton}>Loading decision...</span> : <ReferralWorkflowPanelLoading />;
@@ -199,6 +313,12 @@ export default function ReferralWorkflowPanel({
   const sections = normalizeReferralSectionVersions(currentReferral.sectionVersions);
 
   const saveRequirement = async (item: AdmissionRequirement, status: RequirementStatus, detail = "") => {
+    if (pendingRequirementIds.current.has(item.id)) return;
+    pendingRequirementIds.current.add(item.id);
+    failedRequirementIds.current.delete(item.id);
+    onRequirementStateChange?.({ pending: pendingRequirementIds.current.size, failed: failedRequirementIds.current.size });
+    setPendingRequirements((current) => ({ ...current, [item.id]: status }));
+    setRequirementErrors((current) => { const next = { ...current }; delete next[item.id]; return next; });
     const patch: Record<string, unknown> = { status };
     if (status === "requested") {
       patch.requestedFrom = detail;
@@ -206,13 +326,32 @@ export default function ReferralWorkflowPanel({
     }
     if (status === "waived") patch.waiverReason = detail;
     if (status === "unavailable" || status === "not_applicable") patch.unavailableReason = detail;
-    await runMutation(
-      `requirement:${item.id}:${item.version ?? 1}:${status}`,
-      `/api/referrals/${currentReferral.id}/work-items/${item.id}`,
-      "PATCH",
-      { if_match: item.version ?? 1, patch },
-      `${item.label} updated`,
-    );
+    try {
+      const saved = await runMutation<{ referral?: Referral; work_item: AdmissionRequirement }>(
+        `requirement:${item.id}:${item.version ?? 1}:${status}`,
+        `/api/referrals/${currentReferral.id}/work-items/${item.id}`,
+        "PATCH",
+        { if_match: item.version ?? 1, patch },
+        `${item.label} updated`,
+        true,
+      );
+      if (saved) setWorkflow((current) => current ? {
+        ...current,
+        referral: saved.referral && (saved.referral.version ?? 0) >= (current.referral.version ?? 0) ? saved.referral : current.referral,
+        work_items: current.work_items.map((entry) => entry.id === item.id && (entry.version ?? 1) <= (saved.work_item.version ?? 1) ? saved.work_item : entry),
+      } : current);
+      else {
+        failedRequirementIds.current.add(item.id);
+        setRequirementErrors((current) => ({ ...current, [item.id]: "Status not saved. Choose a status to retry." }));
+      }
+    } catch {
+      failedRequirementIds.current.add(item.id);
+      setRequirementErrors((current) => ({ ...current, [item.id]: "Status not saved. Choose a status to retry." }));
+    } finally {
+      pendingRequirementIds.current.delete(item.id);
+      onRequirementStateChange?.({ pending: pendingRequirementIds.current.size, failed: failedRequirementIds.current.size });
+      setPendingRequirements((current) => { const next = { ...current }; delete next[item.id]; return next; });
+    }
   };
 
   const updateRequirement = (item: AdmissionRequirement, status: RequirementStatus) => {
@@ -355,8 +494,10 @@ export default function ReferralWorkflowPanel({
   };
 
   if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return null;
-  if (compactRecommendation) return <><div data-quick-recommendation data-outcome={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>
-    <label><span>{workflow.decision ? "Recorded decision" : "Working decision"}</span><select aria-label={workflow.decision ? "Recorded decision" : "Working decision"} title={workflow.decision || workflow.context.assessmentSigned ? "Review this choice in Decision." : "Guides the next steps. Does not sign, send, or record final admission."} value={workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline") : workflow.recommendation?.outcome ?? ""} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
+  const compactOutcome = workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline")
+    : recommendationDirty.current ? recommendationDraft.outcome : workflow.recommendation?.outcome ?? "";
+  if (compactRecommendation) return <><div data-quick-recommendation data-outcome={compactOutcome} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>
+    <label><span>{workflow.decision ? "Recorded decision" : "Working decision"}</span><select aria-label={workflow.decision ? "Recorded decision" : "Working decision"} title={workflow.decision || workflow.context.assessmentSigned ? "Review this choice in Decision." : "Guides the next steps. Does not sign, send, or record final admission."} value={compactOutcome} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
       const next = { ...recommendationDraft, outcome: event.target.value as AssessmentRecommendation["outcome"] };
       recommendationDirty.current = true;
       setRecommendationDraft(next);
@@ -367,13 +508,13 @@ export default function ReferralWorkflowPanel({
       <option value="decline">Deny</option>
       <option value="needs_more_information">Under review</option>
     </select></label>
-    {error ? <span role="alert">Not saved. {error}</span> : <span className="sr-only" role="status">{busy ? "Saving working decision..." : workflow.decision ? "Decision recorded" : message ? "Working decision saved" : "Not a final admission decision"}</span>}
+    {error ? <><span role="alert">Not saved. {error}</span>{recommendationDirty.current ? <button type="button" className={assessmentStyles.recoveryButton} disabled={Boolean(busy)} onClick={() => saveRecommendation(recommendationDraft)}>Retry working decision</button> : null}</> : <span className="sr-only" role="status">{busy ? "Saving working decision..." : workflow.decision ? "Decision recorded" : message ? "Working decision saved" : "Not a final admission decision"}</span>}
   </div>{emailDialog}</>;
 
   return (
     <>{confirmationDialog}{emailDialog}<ReferralWorkflowPanelPresentation
       workflow={workflow}
-      busy={busy}
+      busy={busy || (Object.keys(pendingRequirements).length > 0 ? "requirement:queued" : "")}
       message={message}
       error={error}
       onDone={onDone && !recommendationDirty.current ? () => void finishWorkspace() : undefined}
@@ -381,6 +522,8 @@ export default function ReferralWorkflowPanel({
       admissionDate={admissionDateDraft}
       manualIntakeReason={manualIntakeReason}
       pendingDetail={pendingDetail}
+      pendingRequirements={pendingRequirements}
+      requirementErrors={requirementErrors}
       onRecommendationChange={(patch) => {
         recommendationDirty.current = true;
         setRecommendationDraft((current) => ({ ...current, ...patch }));

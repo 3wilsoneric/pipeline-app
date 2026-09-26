@@ -47,10 +47,16 @@ jobs:
           state="$(az containerapp show \
             --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
             --name "$web_name" \
-            --query '{image:properties.template.containers[0].image,mode:properties.configuration.activeRevisionsMode,latest:properties.latestRevisionName,ready:properties.latestReadyRevisionName,traffic:properties.configuration.ingress.traffic,fqdn:properties.configuration.ingress.fqdn}' \
+            --query '{image:properties.template.containers[0].image,environment:properties.template.containers[0].env,mode:properties.configuration.activeRevisionsMode,latest:properties.latestRevisionName,ready:properties.latestReadyRevisionName,traffic:properties.configuration.ingress.traffic,fqdn:properties.configuration.ingress.fqdn}' \
             --output json)"
           test "$(jq -r '.mode' <<<"$state")" = Single
           test "$(jq -r '.latest' <<<"$state")" = "$(jq -r '.ready' <<<"$state")"
+          desktop_public="$(jq -r '[.environment[]? | select(.name == "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED") | .value] | first // empty' <<<"$state")"
+          desktop_server="$(jq -r '[.environment[]? | select(.name == "PIPELINE_DESKTOP_STATE_ENABLED") | .value] | first // empty' <<<"$state")"
+          [[ "$desktop_public" == "true" && "$desktop_server" == "true" ]] || {
+            echo 'Fast-lane images include desktop support, but the current desktop flags are disabled or inconsistent. Use the full Azure deployment.' >&2
+            exit 1
+          }
           jq -e '(.traffic | length) == 1 and .traffic[0].latestRevision == true and .traffic[0].weight == 100' <<<"$state" > /dev/null
           previous_image="$(jq -r '.image' <<<"$state")"
           test "$(jq -r '.fqdn' <<<"$state")" != null
