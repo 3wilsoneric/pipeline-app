@@ -209,14 +209,14 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The interview is one scrolling page too (owner, 2026-09-26: "I want both"): all topics stack under their names, the picker follows and jumps, Current information stays beside the questions and follows the current topic, and the bottom bar keeps Review assessment.
 - Each record step ends with a "Next: <step>" button below its folder, the same action as the rail's, so a record reads from Chart to Finish & send without scrolling back up.
 
-## One-page record (owner, 2026-09-26: "I want both, nav buttons but one page, I just don't want blockers")
+## Kept-mounted steps (owner, 2026-09-26: "return it to the old way, I just want the SPA-like saving")
 
-- On wide screens with the redesign, a referral's Chart, Assessment, Decision, and Finish & send are one scrolling page, each in its own step-colored folder. They load once and stay mounted. The rail scrolls to a step and follows the scroll; every other "open this step" action (Next, Review assessment, chart links) scrolls the same way.
-- No blockers: moving between steps no longer waits for a step to finish saving, because nothing unmounts and every field and answer already saves as it is left. Leaving intake, which does unmount, keeps its save. A send in progress no longer blocks moving around.
-- The Chart and the Assessment are one editor: it draws the Chart into the Chart folder and the questions into the Assessment folder, so there is never a second copy of the assessment that could save over the first.
-- Files, Activity, and Edit referral details stay their own views; the record stays mounted underneath and comes back as it was. Imported, historical, and practice workspaces, and phones, keep the page-by-page layout.
-- A link to a step or an assessment section lands on it; opening the Chart never pulls the page down to a remembered section.
-- Saving has one deliberate place (owner: "if we need a save, or a collection area that will help, then let's make it deliberate"): a panel in the rail for the whole record. It reads "All changes saved" when all is well, "Saving..." while something is in flight, "Saved on this device · waiting to sync" when a change is kept in the browser and retried automatically, and "Not saved to Pipeline" when a save failed; under it, each affected part (referral details, assessment, decision paperwork) with its existing message and its fix (Retry, Open Assessment, Open decision). On the one-page record it replaces the separate save notices above each page.
+- A one-page record was tried and withdrawn at the owner's request. Steps show one at a time again, as before.
+- What stays: on wide screens with the redesign, a referral's Chart, Assessment, Decision, and Finish & send load once and stay mounted; switching shows another without unmounting. Moving between them (or to Files and Activity) never waits for a step to finish saving; leaving intake, which unmounts, keeps its save. A send in progress no longer blocks moving around.
+- The Chart and the Assessment are one editor: it draws the Chart step and the questions, so there is never a second copy of the assessment that could save over the first.
+- Imported, historical, and practice workspaces, and phones, keep the previous behavior.
+- Saves are quick (owner: "make it save quick, we can't have issues"): assessment answers and intake fields save about a second after the person pauses typing, as well as when they leave the field; the saved snapshot advances so nothing is sent twice.
+- Saving has one deliberate place: a panel in the rail for the whole record. One short line when all is well ("All changes saved", "Saving…", "Waiting to sync", "Not saved"); a compact row per affected part (Referral details, Assessment, Decision paperwork) with a short state and its fix (Retry, Open) when not. The full existing messages show on hover and are read by screen readers. It replaces the separate save notices above each step.
 
 ## Out of scope (owner, 2026-09-24)
 

@@ -154,9 +154,9 @@ type AssessmentWorkspaceProps = {
   assessmentReview?: boolean;
   chartActions?: ReactNode;
   chartDocuments?: ReactNode;
-  /** One-page record: the Chart is drawn into this element, above the Assessment, by this same editor. */
+  /** Kept-mounted steps: the Chart step is drawn into this element by this same editor. */
   chartSlot?: HTMLElement | null;
-  /** One-page record: false while another step (Chart, Decision) is the one opened, so sections don't pull the page. */
+  /** Kept-mounted steps: false while another step (Chart, Decision) is the one opened, so sections don't move it. */
   sectionJumps?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onOpenChart?: () => void;
@@ -462,6 +462,8 @@ export default function AssessmentWorkspace({
   const focusedAssessmentIdRef = useRef("");
   const preparationRequestedRef = useRef(false);
   const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string } | null>(null);
+  const idleSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(idleSaveTimerRef.current), []);
   const onActiveSectionChangeRef = useRef(onActiveSectionChange);
   const sectionRevisionRef = useRef(0);
   const packetSyncKeysRef = useRef(new Set<string>());
@@ -1964,6 +1966,21 @@ export default function AssessmentWorkspace({
     setDirtySections(dirtySectionsRef.current);
     setMessage("Unsaved changes");
     setError("");
+    // Redesign: save while typing too, a moment after the person pauses, not only when they leave the
+    // answer (owner, 2026-09-26: "make it save quick"). Leaving still saves at once; the snapshot is
+    // advanced here so the same value is never sent twice.
+    if (designV2 && !trainingAssessmentMode) {
+      clearTimeout(idleSaveTimerRef.current);
+      idleSaveTimerRef.current = setTimeout(() => {
+        const focus = focusedFieldRef.current;
+        if (!focus || focus.field !== key) return;
+        const current = JSON.stringify(draftRef.current[key]);
+        if (focus.value === current) return;
+        focus.value = current;
+        const section = assessmentToolFieldDefinitions.find((definition) => definition.key === key)!.section;
+        void queueSectionSave(section, { [key]: structuredClone(draftRef.current[key]) }).catch(() => undefined);
+      }, 900);
+    }
   };
 
   const applyPriorAnswer = (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey], assessmentId: string) => {
@@ -2105,7 +2122,7 @@ export default function AssessmentWorkspace({
     };
   }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
-  // One-page record (docs/design/DECISIONS.md, "One-page record"): before the editor's own chart
+  // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): before the editor's own chart
   // review exists, the Chart slot shows the plain chart, so the Chart is always on the page.
   const plainStackedChart = chartSlot ? createPortal(<>{chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} /></>, chartSlot) : null;
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
@@ -2387,8 +2404,8 @@ export default function AssessmentWorkspace({
     <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isClosing || (!nextSection && isBusy) || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
   </nav>;
 
-  // One-page record: this editor draws the Chart (with its appointment and unanswered-items entry)
-  // above the Assessment; in the signed review it draws the plain chart there instead.
+  // Kept-mounted steps: this editor draws the Chart step (with its appointment and unanswered-items
+  // entry); in the signed review it draws the plain chart there instead.
   const stackedChart = chartSlot ? (assessmentReview ? plainStackedChart : createPortal(renderChartReview(), chartSlot)) : null;
   return (<>{stackedChart}
     <AssessmentFileSurface

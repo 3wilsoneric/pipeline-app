@@ -779,20 +779,25 @@
     .verticalFlow .actions > .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-ink); font-weight: 600; }
     .verticalFlow .actions > .createTab.createTab { margin: 4px 0 10px; }
     /* Set well apart from the step above: a divider, then a large button (owner: "bigger, more separation"). */
-    /* The record's saving, in one place in the rail: a quiet line when saved; details and fixes when not. */
-    .verticalFlow .saveCenter { margin: 4px 0 2px; padding: 8px 10px; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); }
-    .verticalFlow .saveCenter[data-state="failed"] { border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-paper)); background: var(--color-danger-soft); }
-    .verticalFlow .saveCenterSummary { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; line-height: var(--text-label--line-height); }
+    /* The record's saving, in one place in the rail: one short line when saved; compact rows when not. */
+    .verticalFlow .saveCenter { margin: 4px 0 2px; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); overflow: hidden; }
+    .verticalFlow .saveCenter[data-state="waiting"] { border-color: var(--color-stage-amber-border); }
+    .verticalFlow .saveCenter[data-state="failed"] { border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-paper)); }
+    .verticalFlow .saveCenterSummary { display: flex; align-items: center; gap: 8px; min-height: 36px; margin: 0; padding: 0 10px; color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; line-height: 1.2; white-space: nowrap; }
+    .verticalFlow .saveCenterSummary svg { flex-shrink: 0; }
     .verticalFlow .saveCenter[data-state="saved"] .saveCenterSummary svg { color: var(--color-status-done); }
-    .verticalFlow .saveCenter[data-state="failed"] .saveCenterSummary { color: var(--color-danger); }
-    .verticalFlow .saveCenter ul { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--color-paper-rule); list-style: none; }
-    .verticalFlow .saveCenter li { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; color: var(--color-ink-2); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
-    .verticalFlow .saveCenter li[data-failed] { color: var(--color-danger); }
-    .verticalFlow .saveCenter li button { min-height: 28px; color: var(--color-link); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+    .verticalFlow .saveCenter[data-state="waiting"] .saveCenterSummary { background: var(--color-warning-soft); color: var(--color-warning); }
+    .verticalFlow .saveCenter[data-state="failed"] .saveCenterSummary { background: var(--color-danger-soft); color: var(--color-danger); }
+    .verticalFlow .saveCenter ul { margin: 0; padding: 0; list-style: none; }
+    .verticalFlow .saveCenter li { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 10px; border-top: 1px solid var(--color-paper-rule); }
+    .verticalFlow .saveCenterPart { display: flex; flex: 1; flex-direction: column; min-width: 0; font-size: var(--text-meta); line-height: 16px; }
+    .verticalFlow .saveCenterPart strong { overflow: hidden; color: var(--color-ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .verticalFlow .saveCenterPart span { color: var(--color-ink-muted); }
+    .verticalFlow .saveCenter li[data-failed] .saveCenterPart span { color: var(--color-danger); font-weight: 600; }
+    .verticalFlow .saveCenter li button { flex-shrink: 0; min-height: 28px; padding: 0 8px; border: 1px solid var(--color-card-border); border-radius: var(--radius-chip); background: var(--color-paper); color: var(--color-link); font-size: var(--text-meta); font-weight: 600; }
+    .verticalFlow .saveCenter li button:hover { border-color: var(--color-ink-muted); }
     .verticalFlow .saveCenter li button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-    /* One-page record: each stacked folder keeps its own step color, whichever step the rail shows. */
-    .verticalFlow > [data-record-step] { scroll-margin-top: 12px; }
-    .verticalFlow > [data-record-step] + [data-record-step] { margin-top: 28px; }
+    /* Kept-mounted steps: each step's folder keeps its own step color. */
     .verticalFlow > [data-record-step="3"] { --stage-edge: var(--color-stage-blue); }
     .verticalFlow > :is([data-record-step="2"], [data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-manila); }
     .verticalFlow[data-decision-outcome="accepted"] > :is([data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-stage-green); }

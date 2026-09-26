@@ -429,9 +429,9 @@ export default function ReferralPacketCanvas({
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
-  // One-page record: the element the assessment editor draws the Chart into, and the step in view.
+  // Kept-mounted steps: the element the assessment editor draws the Chart into.
   const [chartSlot, setChartSlot] = useState<HTMLElement | null>(null);
-  const [stepInView, setStepInView] = useState<WorkspaceView | null>(null);
+
   const [decisionVisitedReferral, setDecisionVisitedReferral] = useState<number | undefined>();
   const [decisionSaveState, setDecisionSaveState] = useState<{ referralId?: number; pending: number; failed: number }>({ pending: 0, failed: 0 });
   const [assessmentSaveState, setAssessmentSaveState] = useState<{ referralId?: number; assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }>({ dirty: false, error: false, pendingOfflineSaves: 0, appointmentDraft: false, appointmentSaving: false });
@@ -570,6 +570,8 @@ export default function ReferralPacketCanvas({
   const fileUploadQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const deletedFileIdsRef = useRef(new Set<string>());
   const focusedCellRef = useRef<{ key: DirtyDraftKey; signature: string } | null>(null);
+  const intakeIdleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(intakeIdleTimerRef.current), []);
 
   useEffect(() => {
     loadedReferralRef.current = loadedReferral;
@@ -1406,6 +1408,19 @@ export default function ReferralPacketCanvas({
     const next = { ...fieldsRef.current, [key]: { ...fieldsRef.current[key], value } };
     fieldsRef.current = next;
     setFields(next);
+    // Redesign: save while typing too, a moment after the person pauses (owner, 2026-09-26: "make it
+    // save quick"). Leaving the field still saves at once; the snapshot is advanced so nothing is sent twice.
+    if (designV2 && !trainingIntakeMode) {
+      clearTimeout(intakeIdleTimerRef.current);
+      intakeIdleTimerRef.current = setTimeout(() => {
+        const focus = focusedCellRef.current;
+        if (!focus || focus.key !== key) return;
+        const signature = draftKeySignature(focus.key, currentDraftValues(fieldsRef.current, conservedRef.current, tagsInputRef.current, documentsRef.current, null));
+        if (signature === focus.signature) return;
+        focus.signature = signature;
+        commitIntakeCell(focus.key);
+      }, 900);
+    }
   };
 
   const acceptIntakeSuggestion = (key: FieldKey, suggestion: IntakeFieldSuggestion) => {
@@ -1628,9 +1643,8 @@ export default function ReferralPacketCanvas({
 
   const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
-    // The one-page record keeps Finish & send mounted, so a send in progress never blocks moving around.
+    // Kept-mounted steps keep Finish & send mounted, so a send in progress never blocks moving around.
     if (emailSendingRef.current && !recordStack) return;
-    if (recordStack && recordStepPages.has(page)) setStepInView(page);
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
     chartEditTargetRef.current = editField ?? null;
@@ -1639,10 +1653,6 @@ export default function ReferralPacketCanvas({
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(locationForPage(page, editField, assessmentMode));
     requestAnimationFrame(() => {
-      if (recordStack && recordStepPages.has(page) && !returningToChart) {
-        canvasRef.current?.querySelector(`[data-record-step="${page}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
       if (!editField && !returningToChart) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
   };
@@ -1657,7 +1667,7 @@ export default function ReferralPacketCanvas({
     void navigatePage(1, field);
   };
 
-  // One-page record: the Chart has its own place above the Assessment, so only the signed review
+  // Kept-mounted steps: the Chart has its own step drawn by the same editor, so only the signed review
   // replaces the questions.
   const assessmentChartProps = (stacked = false) => ({
     chartReview: (!stacked && displayedPage === 3) || routedWorkspaceLocation.assessmentMode === "review",
@@ -1668,8 +1678,8 @@ export default function ReferralPacketCanvas({
 
   const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
-    // One-page record: every step stays mounted and saves as it goes, so moving between them (or to Files
-    // and Activity) needs no save-before-leaving. Only leaving intake, which unmounts, keeps its save.
+    // Kept-mounted steps: every step stays mounted and saves as it goes, so moving between them (or to
+    // Files and Activity) needs no save-before-leaving. Only leaving intake, which unmounts, keeps its save.
     if (recordStack && activePage !== 1 && page !== 1) {
       openPage(page, editField, assessmentMode);
       return;
@@ -2474,24 +2484,12 @@ export default function ReferralPacketCanvas({
   const railDone = railProgress ? Object.values(railProgress).filter((state) => state === "done").length : 0;
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const readingDecision = displayedPage === "workflow" && Boolean(loadedReferral);
-  // One-page record (docs/design/DECISIONS.md, "One-page record"): on wide screens with the redesign,
-  // Chart, Assessment, Decision, and Finish & send stay mounted on one scrolling page. Opening a step
-  // scrolls to it, so nothing unmounts and no step has to finish saving before another opens.
+  // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): on wide screens with the
+  // redesign, Chart, Assessment, Decision, and Finish & send load once and stay mounted; one shows at a
+  // time, as before. Switching shows another without unmounting, so no step has to finish saving first.
   const recordStack = verticalFlow && Boolean(loadedReferral) && !historicalReadOnly && !workspacePresentation.usesSourceProfile && !trainingAssessmentMode && !trainingIntakeMode;
   const stackVisible = recordStack && recordStepPages.has(displayedPage);
   const stackSteps = recordStack ? recordStepOrder.filter((page) => navigableWorkspaceSteps.some((step) => step.page === page)) : [];
-  // The rail follows the scroll: the step whose folder crosses the upper part of the screen.
-  useEffect(() => {
-    if (!stackVisible) return;
-    const steps = [...(canvasRef.current?.querySelectorAll<HTMLElement>("[data-record-step]") ?? [])];
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting).sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
-      const step = visible?.target.getAttribute("data-record-step");
-      if (step) setStepInView(recordStepOrder.find((page) => String(page) === step) ?? null);
-    }, { rootMargin: "-20% 0px -70% 0px" });
-    steps.forEach((step) => observer.observe(step));
-    return () => observer.disconnect();
-  }, [stackVisible, stackSteps.length]);
   useEffect(() => {
     if (readingAssessment) setAssessmentVisitedReferral(referralWorkspaceId);
   }, [readingAssessment, referralWorkspaceId]);
@@ -2709,7 +2707,7 @@ export default function ReferralPacketCanvas({
               </div>
             ) : null}
             {verticalFlow && loadedReferral ? <QuickNoteEditor key={`${loadedReferral.id}-${quickNoteStep(displayedPage)}`} referralId={loadedReferral.id} step={quickNoteStep(displayedPage)} /> : null}
-            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={stackVisible ? stepInView ?? displayedPage : displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
+            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>
                 <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
@@ -2913,26 +2911,36 @@ export default function ReferralPacketCanvas({
   const renderSaveCenter = () => {
     const assessment = assessmentSaveForCurrent;
     const decision = decisionSaveForCurrent;
-    const parts: { key: string; failed: boolean; text: string; action?: ReactNode }[] = [];
-    if (saveError || isSaving || hasPendingWorkspaceChanges) parts.push({ key: "referral", failed: Boolean(saveError), text: saveError || saveStatus,
+    // Each part: a short state for the narrow rail, the full existing message on hover and for screen readers.
+    const parts: { key: string; label: string; failed: boolean; state: string; detail: string; action?: ReactNode }[] = [];
+    if (saveError || isSaving || hasPendingWorkspaceChanges) parts.push({ key: "referral", label: "Referral details", failed: Boolean(saveError),
+      state: saveError ? "Not saved" : "Saving…", detail: saveError || saveStatus,
       action: saveError && hasReferral && hasPendingWorkspaceChanges ? <button type="button" onClick={() => void saveWorkspaceDraft()} disabled={isSaving}>Retry</button> : undefined });
-    if (assessment && (assessment.error || assessment.pendingOfflineSaves > 0 || assessment.appointmentSaving || assessment.appointmentDraft)) parts.push({ key: "assessment", failed: assessment.error,
-      text: assessment.error ? "Assessment needs attention. Check its save status." : assessment.pendingOfflineSaves > 0 ? `${assessment.pendingOfflineSaves} assessment change${assessment.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessment.appointmentSaving ? "Assessment appointment saving…" : "Assessment appointment draft is not booked.",
-      action: <button type="button" onClick={() => openPage(2)}>Open Assessment</button> });
-    if (decision && (decision.failed > 0 || decision.pending > 0)) parts.push({ key: "decision", failed: decision.failed > 0,
-      text: decision.failed > 0 ? `${decision.failed} paperwork change${decision.failed === 1 ? "" : "s"} not saved. Open Decision to retry.` : `${decision.pending} paperwork change${decision.pending === 1 ? "" : "s"} saving or queued…`,
-      action: decision.failed > 0 ? <button type="button" onClick={() => openPage("workflow")}>Open decision</button> : undefined });
+    if (assessment && (assessment.error || assessment.pendingOfflineSaves > 0 || assessment.appointmentSaving || assessment.appointmentDraft)) parts.push({ key: "assessment", label: "Assessment", failed: assessment.error,
+      state: assessment.error ? "Needs attention" : assessment.pendingOfflineSaves > 0 ? `${assessment.pendingOfflineSaves} to sync` : assessment.appointmentSaving ? "Appointment saving…" : "Appointment not booked",
+      detail: assessment.error ? "Assessment needs attention. Check its save status." : assessment.pendingOfflineSaves > 0 ? `${assessment.pendingOfflineSaves} assessment change${assessment.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessment.appointmentSaving ? "Assessment appointment saving…" : "Assessment appointment draft is not booked.",
+      action: displayedPage !== 2 ? <button type="button" onClick={() => void navigatePage(2)}>Open</button> : undefined });
+    if (decision && (decision.failed > 0 || decision.pending > 0)) parts.push({ key: "decision", label: "Decision paperwork", failed: decision.failed > 0,
+      state: decision.failed > 0 ? `${decision.failed} not saved` : `${decision.pending} saving…`,
+      detail: decision.failed > 0 ? `${decision.failed} paperwork change${decision.failed === 1 ? "" : "s"} not saved. Open Decision to retry.` : `${decision.pending} paperwork change${decision.pending === 1 ? "" : "s"} saving or queued…`,
+      action: decision.failed > 0 && displayedPage !== "workflow" ? <button type="button" onClick={() => void navigatePage("workflow")}>Open</button> : undefined });
     const failed = parts.some((part) => part.failed);
     // Kept safely in this browser and retried automatically: say so rather than spinning.
     const deviceOnly = !failed && (saveStatus === deviceOnlySaveStatus || (assessment?.pendingOfflineSaves ?? 0) > 0);
     const saving = !failed && !deviceOnly && (parts.length > 0 || Boolean(assessment?.dirty) || emailSending);
     const Icon = failed ? CircleAlert : saving ? LoaderCircle : deviceOnly ? UploadCloud : CheckCircle2;
+    const summary = failed ? "Not saved" : deviceOnly ? "Waiting to sync" : saving ? "Saving…" : "All changes saved";
+    const summaryDetail = failed ? "Not saved to Pipeline" : deviceOnly ? "Saved on this device · waiting to sync" : summary;
     return <section aria-label="Saving" data-save-center data-state={failed ? "failed" : deviceOnly ? "waiting" : saving ? "saving" : "saved"} className={workspaceFolderStyles.saveCenter}>
-      <p role={failed ? "alert" : "status"} aria-live="polite" className={workspaceFolderStyles.saveCenterSummary}>
+      <p role={failed ? "alert" : "status"} aria-live="polite" title={summaryDetail} className={workspaceFolderStyles.saveCenterSummary}>
         <Icon size={15} aria-hidden="true" className={saving ? "motion-safe:animate-spin" : undefined} />
-        {failed ? "Not saved to Pipeline" : deviceOnly ? "Saved on this device · waiting to sync" : saving ? "Saving..." : "All changes saved"}
+        <span aria-hidden="true">{summary}</span><span className="sr-only">{summaryDetail}</span>
       </p>
-      {parts.length ? <ul>{parts.map((part) => <li key={part.key} data-failed={part.failed || undefined}><span>{part.text}</span>{part.action}</li>)}</ul> : null}
+      {parts.length ? <ul>{parts.map((part) => <li key={part.key} data-failed={part.failed || undefined} title={part.detail}>
+        <span className={workspaceFolderStyles.saveCenterPart} aria-hidden="true"><strong>{part.label}</strong><span>{part.state}</span></span>
+        <span className="sr-only">{part.detail}</span>
+        {part.action}
+      </li>)}</ul> : null}
     </section>;
   };
   const renderChartDocuments = () => loadedReferral && displayedPage === 3 ? renderDocumentUpload(true) : undefined;
@@ -3169,10 +3177,10 @@ export default function ReferralPacketCanvas({
 
         {recordStack && loadedReferral ? stackSteps.map((page) => <div key={`record-step-${String(page)}`} data-record-step={String(page)}
           className={page === 2 ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}
-          style={{ display: stackVisible ? undefined : "none" }} aria-hidden={!stackVisible} inert={!stackVisible}>
+          style={{ display: page === displayedPage ? undefined : "none" }} aria-hidden={page !== displayedPage} inert={page !== displayedPage}>
           {page === 3 ? <PacketPage id="packet-charts" title="Chart" flush><div ref={setChartSlot} /></PacketPage>
-            : page === 2 ? renderAssessmentStep(stackVisible, "Assessment", chartSlot ?? undefined)
-            : page === "workflow" ? renderDecisionStep(stackVisible, loadedReferral)
+            : page === 2 ? renderAssessmentStep(readingAssessment, "Assessment", chartSlot ?? undefined)
+            : page === "workflow" ? renderDecisionStep(readingDecision, loadedReferral)
             : renderEmailStep()}
         </div>) : null}
         {(recordStack ? !stackVisible : !readingAssessment && !readingDecision) ? <div key={displayedPage} className="pipeline-step-enter">
@@ -3213,7 +3221,7 @@ export default function ReferralPacketCanvas({
           </div>
         ) : null}
         {/* Each step ends by leading into the next one, so the record reads top to bottom (owner, 2026-09-26). */}
-        {verticalFlow && !stackVisible && nextWorkspaceStep && displayedPage !== "files" && displayedPage !== "activity" ? <div className={workspaceFolderStyles.stepContinue}>
+        {verticalFlow && nextWorkspaceStep && displayedPage !== "files" && displayedPage !== "activity" ? <div className={workspaceFolderStyles.stepContinue}>
           <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
             Next: {nextWorkspaceStep.label}<ArrowRight size={17} aria-hidden="true" />
           </button>
@@ -3502,7 +3510,7 @@ function referralPacketEvidenceVersion(referral: Referral | null) {
     .join("|")}`;
 }
 
-// One-page record order. Intake, Files, and Activity stay their own views.
+// Kept-mounted step order. Intake, Files, and Activity stay their own views.
 const recordStepOrder: readonly WorkspaceView[] = [3, 2, "workflow", "email"];
 const recordStepPages: ReadonlySet<WorkspaceView> = new Set(recordStepOrder);
 
