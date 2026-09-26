@@ -44,6 +44,7 @@ const forbiddenClientPatterns = [
   /AZURE_STORAGE_CONNECTION_STRING/,
   /AZURE_STORAGE_ACCOUNT_KEY/,
   /PIPELINE_WORKER_SHARED_SECRET/,
+  /PIPELINE_PLATFORM_SUMMARY_SECRET/,
   /from ["']postgres["']/,
   /@\/lib\/database\/pipeline-database/,
   /@\/lib\/clinical\/clinical-data/,
@@ -192,7 +193,7 @@ check("Databricks adapter exchanges OAuth M2M credentials for bounded short-live
   && !databricksAdapter.includes('required("DATABRICKS_TOKEN")'));
 
 const envExample = read(path.join(root, ".env.example"));
-for (const secret of ["PIPELINE_DATABASE_URL", "PIPELINE_ALAMO_CLIENT_SECRET", "DATABRICKS_TOKEN", "DATABRICKS_CLIENT_SECRET", "DOCUMENT_INTELLIGENCE_KEY", "ANTHROPIC_API_KEY", "AZURE_STORAGE_ACCOUNT_KEY", "PIPELINE_WORKER_SHARED_SECRET"]) {
+for (const secret of ["PIPELINE_DATABASE_URL", "PIPELINE_ALAMO_CLIENT_SECRET", "DATABRICKS_TOKEN", "DATABRICKS_CLIENT_SECRET", "DOCUMENT_INTELLIGENCE_KEY", "ANTHROPIC_API_KEY", "AZURE_STORAGE_ACCOUNT_KEY", "PIPELINE_WORKER_SHARED_SECRET", "PIPELINE_PLATFORM_SUMMARY_SECRET"]) {
   check(`${secret} is not NEXT_PUBLIC`, !envExample.includes(`NEXT_PUBLIC_${secret}`));
 }
 

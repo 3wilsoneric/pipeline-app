@@ -29,5 +29,16 @@ referral side of it through one server-to-server endpoint:
 - **Verification:** `node --test scripts/platform-admissions-summary.test.mjs`
   and `node scripts/api-route-policy-audit.mjs`.
 
-Platform configuration: set `PIPELINE_ADMISSIONS_SUMMARY_URL` to this
-endpoint's full URL and `PIPELINE_ADMISSIONS_SUMMARY_TOKEN` to the same secret.
+## Turning it on
+
+1. Generate one random value (for example `openssl rand -base64 48`) and store
+   it in Pipeline's Key Vault as `pipeline-platform-summary-secret`.
+2. Set the repository variable `PIPELINE_PLATFORM_SUMMARY_ENABLED=true` and run
+   the Azure deploy workflow. `infra/azure/runtime.bicep` then maps the Key
+   Vault secret to `PIPELINE_PLATFORM_SUMMARY_SECRET` on the web app. With the
+   variable unset the endpoint stays off (503).
+3. In Alamo Platform, set `PIPELINE_ADMISSIONS_SUMMARY_URL` to
+   `https://<pipeline host>/api/integrations/platform/admissions-summary` and
+   `PIPELINE_ADMISSIONS_SUMMARY_TOKEN` to the same value.
+
+Rotate by updating both Key Vaults and restarting both apps.

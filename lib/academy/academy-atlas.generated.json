@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:abd5abfc0ef8be75",
-  "fingerprint": "abd5abfc0ef8be75762978488dcb23b0602071753fa0fc62e556dd95a3c5ee11",
+  "generatedAt": "source-fingerprint:6b6f0d16aaa0e533",
+  "fingerprint": "6b6f0d16aaa0e533d9e5516922932dc521bb10bfa5a9444c41949f952e038f4b",
   "totals": {
     "files": 1445,
-    "lines": 375274,
+    "lines": 375286,
     "coveredFiles": 1445
   },
   "entries": [
@@ -5845,7 +5845,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 34,
+      "lines": 45,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -14855,7 +14855,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "high",
-      "lines": 209,
+      "lines": 210,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
