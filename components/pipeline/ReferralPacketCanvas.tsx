@@ -44,6 +44,7 @@ import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from 
 import folderStyles from "./ClientFolder.module.css";
 import { usePhoneAssessment } from "./use-phone-layout";
 import { QuickNoteEditor } from "@/components/pipeline/QuickNote";
+import type { QuickNoteStep } from "@/lib/pipeline/referral-quick-notes";
 import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
@@ -2672,7 +2673,7 @@ export default function ReferralPacketCanvas({
                 <span aria-hidden="true" className={workspaceFolderStyles.railProgress}><span style={{ width: `${Math.round(railDone / 3 * 100)}%` }} /></span>
               </div>
             ) : null}
-            {verticalFlow && loadedReferral ? <QuickNoteEditor key={loadedReferral.id} referralId={loadedReferral.id} /> : null}
+            {verticalFlow && loadedReferral ? <QuickNoteEditor key={`${loadedReferral.id}-${quickNoteStep(displayedPage)}`} referralId={loadedReferral.id} step={quickNoteStep(displayedPage)} /> : null}
             <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>
@@ -3407,6 +3408,11 @@ function referralPacketEvidenceVersion(referral: Referral | null) {
   return `${referral.packetId}:${(referral.packetFields ?? [])
     .map((field) => `${field.field_key}:${field.version}`)
     .join("|")}`;
+}
+
+// The step a quick note entry is tagged with: the record page the person is on (none on Files or Activity).
+function quickNoteStep(page: WorkspaceView): QuickNoteStep | null {
+  return page === 1 ? "intake" : page === 3 ? "chart" : page === 2 ? "assessment" : page === "workflow" ? "decision" : page === "email" ? "send" : null;
 }
 
 function WorkspaceAssignedWorkControl({ referral, available, onOpen, disabled }: {

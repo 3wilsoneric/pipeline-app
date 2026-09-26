@@ -67,7 +67,7 @@
   display: flex;
   flex-direction: column;
   width: min(420px, calc(100vw - 48px));
-  height: min(380px, calc(100dvh - 200px));
+  height: min(460px, calc(100dvh - 200px));
   overflow: hidden;
   border: 1px solid var(--color-stage-amber-border);
   border-radius: var(--radius-paper);
@@ -113,6 +113,21 @@
 .panel:focus-within { border-color: var(--color-warning); }
 
 .panelFoot { padding: 6px 14px 8px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Entries (owner, 2026-09-26): each dated and tagged with its step, newest first under the one being written. */
+.entryMeta { display: flex; align-items: center; gap: 8px; padding: 10px 16px 0; }
+.entryDate { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 600; font-variant-numeric: tabular-nums; }
+.stepTag { padding: 1px 7px; border-radius: var(--radius-chip); background: var(--color-stage-blue-tile); color: var(--color-stage-blue); font-size: 11px; line-height: 16px; font-weight: 600; }
+.stepTag[data-step="assessment"] { background: var(--color-stage-rose-tile); color: var(--color-stage-rose); }
+.stepTag[data-step="decision"] { background: var(--color-stage-amber-tile); color: var(--color-stage-amber); }
+.stepTag[data-step="send"] { background: var(--color-stage-green-tile); color: var(--color-stage-green); }
+.entries { flex: 0 1 auto; max-height: 45%; margin: 0; padding: 0 0 8px; overflow-y: auto; border-top: 1px solid var(--color-stage-amber-border); list-style: none; }
+.entry + .entry { border-top: 1px dashed var(--color-stage-amber-border); }
+.entry .entryMeta { padding-top: 8px; }
+.entryDelete { display: grid; place-items: center; width: 28px; height: 28px; margin-left: auto; border-radius: var(--radius-input); color: var(--color-ink-muted); }
+.entryDelete:hover { background: var(--color-stage-amber-border); color: var(--color-ink); }
+.entryDelete:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.entryText { margin: 2px 0 0; padding: 0 16px 8px; color: var(--color-ink-2); font-size: var(--text-label); line-height: 20px; white-space: pre-line; overflow-wrap: anywhere; }
 
 @keyframes quick-note-open { from { opacity: 0; transform: translateY(8px) scale(0.98); transform-origin: 100% 100%; } }
 

@@ -3,7 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { fetchPipelineJson, onPipelineSessionCleared, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
-import type { ReferralQuickNote } from "@/lib/pipeline/referral-quick-notes";
+import type { QuickNoteEntryInput, ReferralQuickNote } from "@/lib/pipeline/referral-quick-notes";
 
 // One shared copy of the signed-in person's quick notes, so a note saved in a record shows on the
 // board and the workspace list without a reload. Notes are private: the server returns only the caller's own.
@@ -48,18 +48,23 @@ export function useQuickNote(referralId: number | undefined) {
   return referralId ? all.get(referralId) : undefined;
 }
 
-// Saves (or, when empty, clears) the caller's note. Shows the new text at once and restores the
-// previous note if the save fails, so the caller can keep the typed text and say it was not saved.
-export async function saveQuickNote(referralId: number, text: string) {
+// Saves the caller's entries for one referral (an empty list clears the note). Shows them at once and
+// restores the previous note if the save fails, so the caller can keep the typed text and say it was not saved.
+// The server dates new entries; until it answers, a new entry shows as written now.
+export async function saveQuickNote(referralId: number, input: readonly QuickNoteEntryInput[]) {
   const previous = notes.get(referralId);
   const optimistic = new Map(notes);
-  const trimmed = text.trim();
-  if (trimmed) optimistic.set(referralId, { referralId, text: trimmed, updatedAt: new Date().toISOString(), version: previous?.version ?? 0 });
-  else optimistic.delete(referralId);
+  const kept = input.filter((entry) => entry.text.trim());
+  if (kept.length) {
+    const dates = new Map(previous?.entries.map((entry) => [entry.id, entry.at]));
+    const now = new Date().toISOString();
+    const entries = kept.map((entry) => ({ ...entry, text: entry.text.trim(), at: dates.get(entry.id) ?? now })).sort((left, right) => right.at.localeCompare(left.at));
+    optimistic.set(referralId, { referralId, entries, updatedAt: now, version: previous?.version ?? 0 });
+  } else optimistic.delete(referralId);
   notes = optimistic;
   emit();
   try {
-    const payload = await fetchPipelineJson<{ note: ReferralQuickNote | null }>(`/api/referrals/${referralId}/quick-note`, { method: "PUT", body: JSON.stringify({ text: trimmed }) });
+    const payload = await fetchPipelineJson<{ note: ReferralQuickNote | null }>(`/api/referrals/${referralId}/quick-note`, { method: "PUT", body: JSON.stringify({ entries: kept.map(({ id, text, step }) => ({ id, text: text.trim(), step })) }) });
     const next = new Map(notes);
     if (payload.note) next.set(referralId, payload.note); else next.delete(referralId);
     notes = next;

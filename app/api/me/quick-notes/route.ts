@@ -1,7 +1,7 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { isQuickNotePayload, type QuickNotePayload, type ReferralQuickNote } from "@/lib/pipeline/referral-quick-notes";
+import { quickNoteEntriesFrom, type QuickNotePayload, type ReferralQuickNote } from "@/lib/pipeline/referral-quick-notes";
 import { getUserWorkspaceStateReadiness, listUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-store";
 
 export const runtime = "nodejs";
@@ -14,9 +14,10 @@ export async function GET(request: Request) {
     if (!auth.ok) return auth.response;
     if (!getUserWorkspaceStateReadiness().ready) return jsonError("Quick notes are unavailable right now.", 503);
     const records = await listUserWorkspaceState<QuickNotePayload>(auth.user.id, "referral_quick_note", 2_000);
-    const notes: ReferralQuickNote[] = records
-      .filter((record) => /^[1-9]\d*$/.test(record.state_key) && isQuickNotePayload(record.payload) && record.payload.text)
-      .map((record) => ({ referralId: Number(record.state_key), text: record.payload.text, updatedAt: record.updated_at, version: record.version }));
+    const notes: ReferralQuickNote[] = records.flatMap((record) => {
+      const entries = /^[1-9]\d*$/.test(record.state_key) ? quickNoteEntriesFrom(record.payload, record.updated_at) : null;
+      return entries ? [{ referralId: Number(record.state_key), entries, updatedAt: record.updated_at, version: record.version }] : [];
+    });
     return Response.json({ notes }, { headers });
   });
 }
