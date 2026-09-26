@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { StickyNote, X } from "lucide-react";
 
-import { quickNoteMaxLength, quickNoteStepLabels, type QuickNoteEntry, type QuickNoteEntryInput, type QuickNoteStep } from "@/lib/pipeline/referral-quick-notes";
+import { quickNoteMaxLength, quickNoteStepLabels, quickNoteSteps, type QuickNoteEntry, type QuickNoteEntryInput, type QuickNoteStep } from "@/lib/pipeline/referral-quick-notes";
 import { saveQuickNote, useQuickNote, useQuickNotes } from "@/components/pipeline/useQuickNotes";
 import styles from "./QuickNote.module.css";
 
@@ -37,6 +37,12 @@ export function QuickNoteEditor({ referralId, step }: { referralId: number; step
   const [freshId] = useState(newEntryId);
   const currentId = current?.id ?? freshId;
   const earlier = entries.filter((entry) => entry.id !== currentId);
+  // Every note is listed below the entry box, from all steps; chips narrow it to one step.
+  const [filter, setFilter] = useState<QuickNoteStep | "all">("all");
+  const stepCounts = quickNoteSteps.map((key) => [key, earlier.filter((entry) => entry.step === key).length] as const).filter(([, count]) => count > 0);
+  // A step whose last note was deleted falls back to All.
+  const activeFilter = filter !== "all" && !stepCounts.some(([key]) => key === filter) ? "all" : filter;
+  const shown = activeFilter === "all" ? earlier : earlier.filter((entry) => entry.step === activeFilter);
   // null: showing the saved entry. A string: the person's unsaved typing, kept until it saves.
   const [draft, setDraft] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -117,8 +123,12 @@ export function QuickNoteEditor({ referralId, step }: { referralId: number; step
         onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(true); } }}
       />
       <div className={styles.panelFoot} aria-hidden="true">{value.length.toLocaleString()} / {quickNoteMaxLength.toLocaleString()}</div>
+      {earlier.length ? <div className={styles.filters} role="group" aria-label="Show notes from">
+        <button type="button" aria-pressed={activeFilter === "all"} onClick={() => setFilter("all")} className={styles.filter}>All <span>{earlier.length}</span></button>
+        {stepCounts.map(([key, count]) => <button key={key} type="button" aria-pressed={activeFilter === key} onClick={() => setFilter(key)} className={styles.filter} data-step={key}>{quickNoteStepLabels[key]} <span>{count}</span></button>)}
+      </div> : null}
       {earlier.length ? <ol className={styles.entries}>
-        {earlier.map((entry) => <li key={entry.id} className={styles.entry}>
+        {shown.map((entry) => <li key={entry.id} className={styles.entry}>
           <div className={styles.entryMeta}>
             <EntryStamp at={entry.at} step={entry.step} />
             <button type="button" aria-label={`Delete note from ${formatNoteDate(entry.at)}`} onClick={() => remove(entry)} className={styles.entryDelete}><X size={14} aria-hidden="true" /></button>

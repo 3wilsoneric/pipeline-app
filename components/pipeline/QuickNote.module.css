@@ -67,7 +67,7 @@
   display: flex;
   flex-direction: column;
   width: min(420px, calc(100vw - 48px));
-  height: min(460px, calc(100dvh - 200px));
+  height: min(600px, calc(100dvh - 200px));
   overflow: hidden;
   border: 1px solid var(--color-stage-amber-border);
   border-radius: var(--radius-paper);
@@ -94,10 +94,11 @@
 .panelClose:hover { background: var(--color-stage-amber-border); color: var(--color-ink); }
 .panelClose:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 
+/* The entry box stays a fixed height; the list of all notes below takes the rest of the panel. */
 .field {
-  flex: 1;
+  flex: 0 0 auto;
   width: 100%;
-  min-height: 0;
+  height: 132px;
   padding: 14px 16px;
   resize: none;
   overflow-y: auto;
@@ -121,7 +122,14 @@
 .stepTag[data-step="assessment"] { background: var(--color-stage-rose-tile); color: var(--color-stage-rose); }
 .stepTag[data-step="decision"] { background: var(--color-stage-amber-tile); color: var(--color-stage-amber); }
 .stepTag[data-step="send"] { background: var(--color-stage-green-tile); color: var(--color-stage-green); }
-.entries { flex: 0 1 auto; max-height: 45%; margin: 0; padding: 0 0 8px; overflow-y: auto; border-top: 1px solid var(--color-stage-amber-border); list-style: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px; border-top: 1px solid var(--color-stage-amber-border); }
+.filter { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0 10px; border: 1px solid var(--color-stage-amber-border); border-radius: var(--radius-pill); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-meta); font-weight: 600; }
+.filter span { color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
+.filter:hover { border-color: var(--color-warning); }
+.filter[aria-pressed="true"] { border-color: var(--color-ink-2); background: var(--color-ink-2); color: var(--color-on-fill); }
+.filter[aria-pressed="true"] span { color: inherit; opacity: 0.8; }
+.filter:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.entries { flex: 1 1 auto; min-height: 0; margin: 0; padding: 0 0 8px; overflow-y: auto; list-style: none; }
 .entry + .entry { border-top: 1px dashed var(--color-stage-amber-border); }
 .entry .entryMeta { padding-top: 8px; }
 .entryDelete { display: grid; place-items: center; width: 28px; height: 28px; margin-left: auto; border-radius: var(--radius-input); color: var(--color-ink-muted); }
