@@ -1,5 +1,5 @@
 /* Chart home: the admission checklist at a glance (redesign only). Tokens: app/design-tokens.css. */
-.glance { margin: 16px 0; padding: 20px 24px 22px; border: 1px solid var(--color-paper-rule); border-top: 3px solid var(--color-stage-amber); border-radius: var(--radius-paper); background: var(--color-paper); }
+.glance { margin: 16px 0; padding: 20px 24px 22px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
 .header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
 .header h2 { margin: 0; color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; }
 .header p { margin: 2px 0 0; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); }

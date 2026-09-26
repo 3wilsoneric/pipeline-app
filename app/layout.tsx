@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { Figtree } from "next/font/google";
+import { Inter } from "next/font/google";
 import { DesignSwitchProvider } from "@/components/design/DesignSwitch";
 import PipelineAuthProvider from "@/components/auth/PipelineAuthProvider";
 import DesktopRuntime from "@/components/desktop/DesktopRuntime";
@@ -21,7 +21,7 @@ const pipelineSans = localFont({
 });
 
 // Redesign typeface; only downloaded by browsers when the design switch uses it.
-const designV2Sans = Figtree({
+const designV2Sans = Inter({
   subsets: ["latin"],
   variable: "--font-design-v2-sans",
   display: "swap",

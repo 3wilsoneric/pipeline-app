@@ -49,7 +49,7 @@ Home uses the card system from the "Referrals" board image in place of manila fo
 
 ## Detail frame and assessment (2026-09-24, owner, revised to match the mockups)
 
-- Typeface: Figtree, loaded through next/font/google and self-hosted at build. This replaces Geist.
+- Typeface: Inter, loaded through next/font/google and self-hosted at build (Figtree until the modern pass, 2026-09-26). This replaces Geist.
 - Stage tabs follow the "Assessment section, revised" mockup:
   - Chart: blue
   - Assessment: rose
@@ -167,6 +167,14 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 
 - The record rail has no "is editing" pills. Saves still refuse and explain conflicting edits. The current design keeps its presence notice.
 - Assessment, Decision, and Finish & send sit directly under Chart with smaller markers, joined by one line from the Chart icon and with no divider between, so they read as the steps that build the Chart.
+
+## Modern pass (owner, 2026-09-26: "the pastels and the font have just got a little too sterile and 2000s coffee house")
+
+- Typeface Inter instead of Figtree; titles and section headings at weight 600.
+- Neutral surfaces instead of beige: cool light-gray page, white paper and cards, gray rules and borders. The step colors keep their hues (principle 1), cleaner and lighter; column washes are flat instead of gradients.
+- Radii one step tighter (sheet 16, folder 12, paper 10, input 8). Shadows neutral and quieter. Focus ring blue.
+- Chart status cards lose the amber top edge.
+- All through app/design-tokens.css; component markup and copy unchanged.
 
 ## Out of scope (owner, 2026-09-24)
 
