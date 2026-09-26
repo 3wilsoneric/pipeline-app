@@ -489,23 +489,25 @@
   .stageTab + .stageTab { margin-left: 6px; }
 
   /* Stage families (docs/design/DECISIONS.md): Chart and Assessment blue; Decision and Finish & send orange. */
-  .stageTab[data-folder-stage="2"] {
-    --tab-ink: var(--color-stage-rose);
-    --tab-fill: var(--color-stage-rose-tile);
-    --tab-edge: var(--color-stage-rose-border);
-    --tab-active: var(--color-stage-rose-tile);
+  /* Assessment, Decision, and Finish & send are manila until a decision: then Decision and
+     Finish & send are green for Accept or red for Deny (owner, 2026-09-26). */
+  .stageTab:is([data-folder-stage="2"], [data-folder-stage="workflow"], [data-folder-stage="email"]) {
+    --tab-ink: color-mix(in srgb, var(--color-manila) 70%, black);
+    --tab-fill: color-mix(in srgb, var(--color-manila) 14%, var(--color-paper));
+    --tab-edge: color-mix(in srgb, var(--color-manila) 40%, var(--color-paper));
+    --tab-active: color-mix(in srgb, var(--color-manila) 14%, var(--color-paper));
   }
-  .stageTab[data-folder-stage="workflow"] {
-    --tab-ink: var(--color-stage-amber);
-    --tab-fill: var(--color-stage-amber-tile);
-    --tab-edge: var(--color-stage-amber-border);
-    --tab-active: var(--color-stage-amber-tile);
-  }
-  .stageTab[data-folder-stage="email"] {
+  [data-decision-outcome="accepted"] .stageTab:is([data-folder-stage="workflow"], [data-folder-stage="email"]) {
     --tab-ink: var(--color-stage-green);
     --tab-fill: var(--color-stage-green-tile);
     --tab-edge: var(--color-stage-green-border);
     --tab-active: var(--color-stage-green-tile);
+  }
+  [data-decision-outcome="declined"] .stageTab:is([data-folder-stage="workflow"], [data-folder-stage="email"]) {
+    --tab-ink: var(--color-danger);
+    --tab-fill: color-mix(in srgb, var(--color-danger) 10%, var(--color-paper));
+    --tab-edge: color-mix(in srgb, var(--color-danger) 35%, var(--color-paper));
+    --tab-active: color-mix(in srgb, var(--color-danger) 10%, var(--color-paper));
   }
 
   .stageTab[aria-current="page"] {

@@ -2964,6 +2964,7 @@ export default function ReferralPacketCanvas({
       ) : null}
       <div
         data-testid="packet-workspace"
+        data-decision-outcome={designV2 ? loadedReferral?.admissionDecision?.outcome ?? (loadedReferral?.workflowStatus === "accepted" || loadedReferral?.workflowStatus === "declined" ? loadedReferral.workflowStatus : undefined) : undefined}
         inert={draftRecoveryLoading}
         aria-busy={draftRecoveryLoading}
         className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${verticalFlow ? workspaceFolderStyles.verticalFlow : ""}`}

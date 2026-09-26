@@ -197,6 +197,11 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Trash is a row like Files and Activity, labeled and in red. The merged-changes check mark has no visible mark in the rail; screen readers still hear its message (owner, 2026-09-26).
 - The folder colors mix from the step color (front 15%, back 28%, rim 45% into paper), so every step matches without new tokens. The tab label is the section's existing name. Wide screens only; phones keep their layout.
 
+## Step colors by decision (owner, 2026-09-26)
+
+- Assessment is manila. Decision and Finish & send are manila until a decision is recorded, then green for Accept and red for Deny, in both the folder and the rail. Intake and Chart stay blue. This supersedes the rose Assessment, amber Decision, and green Finish & send from "Stage color families" for the record pages.
+- The record page carries `data-decision-outcome` from the referral's recorded decision (or its accepted or declined status).
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.
