@@ -58,6 +58,8 @@ import { getAssessmentCompletionReport } from "@/lib/assessment/assessment-store
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
 import { listWorkspaceMembers } from "@/lib/pipeline/workspace-members";
 import { isAssignableAssessorMember } from "@/lib/pipeline/workspace-member-eligibility";
+import { buildPlatformAdmissionsSummary } from "@/lib/pipeline/platform-admissions-summary";
+import { applyPipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type {
   SupervisorExceptionItem,
   SupervisorExceptionSnapshot,
@@ -66,6 +68,41 @@ import type {
 export async function getOperationsSnapshot(user?: PipelineUser): Promise<OperationsSnapshot> {
   const operational = await loadOperationalWork(user);
   return buildOperationsSnapshot(operational, null);
+}
+
+/** Portfolio-wide live board for Alamo Platform; null when storage is unavailable. */
+export async function getPlatformAdmissionsSummary() {
+  const operational = await loadOperationalWork();
+  if (operational.source !== "referral_store") return null;
+  const workByReferral = new Map(operational.work.map((item) => [item.referral_id, item]));
+  return buildPlatformAdmissionsSummary({
+    now: operational.now,
+    referrals: operational.referrals.map((referral) => {
+      const work = workByReferral.get(referral.id);
+      const decision = operational.workflowContexts.get(referral.id)?.decision ?? referral.admissionDecision;
+      const params = new URLSearchParams({ view: "referrals", screen: "packet", referralId: String(referral.id) });
+      if (work) applyPipelineWorkspaceLocation(params, work.board.location);
+      return {
+        referralId: referral.id,
+        community: referral.community,
+        owner: work?.owner ?? normalizeOwnerName(referral.owner),
+        priority: referral.priority,
+        receivedDate: referralReceivedDate(referral),
+        decisionOutcome: decision?.outcome ?? null,
+        decidedAt: decision?.decidedAt ?? null,
+        plannedAdmissionDate: getPlannedAdmissionDate(referral) || null,
+        actualAdmissionDate: referral.actualAdmissionDate ?? null,
+        currentWorkspace: (referral.workspaceStatus ?? "active") === "active",
+        boardColumn: work?.board.stage ?? null,
+        boardStatus: work?.board.detail ?? "",
+        nextAction: work?.board.next_action ?? "",
+        hoursSinceUpdate: work?.age_hours ?? 0,
+        stale: work?.stale ?? false,
+        unassigned: work?.workflow_status === "intake_unassigned",
+        pipelinePath: `/?${params.toString()}`,
+      };
+    }),
+  });
 }
 
 export async function getOperationsDashboardSnapshot(

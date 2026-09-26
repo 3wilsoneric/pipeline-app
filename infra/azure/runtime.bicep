@@ -49,6 +49,8 @@ param alamoApiScope string = ''
 
 @description('Enable Microsoft 365 Meet the Client delivery after Graph application permissions and the Key Vault client secret are configured.')
 param enableMeetClientMail bool = false
+@description('Expose the read-only referral board summary to Alamo Platform. Requires Key Vault secret pipeline-platform-summary-secret.')
+param enablePlatformSummary bool = false
 
 @secure()
 @description('Existing mail configuration and credential bindings, captured by deployment. Preserves the dedicated mail tenant and live-send hold across releases.')
@@ -175,6 +177,19 @@ var graphMailSecrets = !empty(preservedMail.secrets) ? preservedMail.secrets : e
     keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-graph-mail-client-secret'
     identity: keyVaultSecretIdentity
   }
+] : []
+
+// Alamo Platform's own secret for /api/integrations/platform/*, never the worker secret.
+var platformSummarySecrets = enablePlatformSummary ? [
+  {
+    name: 'platform-summary-secret'
+    keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-platform-summary-secret'
+    identity: keyVaultSecretIdentity
+  }
+] : []
+
+var platformSummaryEnvironment = enablePlatformSummary ? [
+  { name: 'PIPELINE_PLATFORM_SUMMARY_SECRET', secretRef: 'platform-summary-secret' }
 ] : []
 
 var baseEnvironment = [
@@ -305,7 +320,7 @@ resource web 'Microsoft.App/containerApps@2025-01-01' = {
           identity: runtimeIdentityResourceId
         }
       ]
-      secrets: concat(requiredSecrets, databricksSecrets, clinicalSecrets, graphMailSecrets)
+      secrets: concat(requiredSecrets, databricksSecrets, clinicalSecrets, graphMailSecrets, platformSummarySecrets)
     }
     template: {
       revisionSuffix: revisionSuffix
@@ -314,7 +329,7 @@ resource web 'Microsoft.App/containerApps@2025-01-01' = {
         {
           name: 'pipeline-web'
           image: containerImage
-          env: concat(baseEnvironment, databricksEnvironment, clinicalEnvironment, graphMailEnvironment)
+          env: concat(baseEnvironment, databricksEnvironment, clinicalEnvironment, graphMailEnvironment, platformSummaryEnvironment)
           resources: {
             cpu: json('1.0')
             memory: '2Gi'
