@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Check, Circle } from "lucide-react";
+import { ArrowRight, Check, Circle, Minus } from "lucide-react";
 
 import { fetchPipelineJson, readPipelineJsonCache, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
+import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { assessmentInterviewFieldLabel, assessmentInterviewOptionLabel } from "@/lib/assessment/assessment-interview-schema";
+import type { AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
+import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import {
   admissionRequirementSummary,
+  decisionProgressSteps,
+  handoffDescriptions,
   requirementGroups,
   resolvedRequirementCount,
   type WorkflowResponse,
@@ -16,7 +22,8 @@ import styles from "./AdmissionChecklistGlance.module.css";
 // Read-only admission checklist for the Chart home page (docs/design/DECISIONS.md, "Chart as home").
 // It shows the same requirements the Decision tab edits, from the same endpoint, so there is one
 // source of truth and one place to change them.
-export default function AdmissionChecklistGlance({ referralId, onOpenDecision }: { referralId: number; onOpenDecision?: () => void }) {
+// One workflow read shared by the Chart's status and checklist cards.
+function useReferralWorkflow(referralId: number) {
   const path = `/api/referrals/${referralId}/workflow`;
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(() => readPipelineJsonCache<WorkflowResponse>(path) ?? null);
   const dataGeneration = usePipelineDataGeneration();
@@ -28,7 +35,11 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
       .catch(() => undefined);
     return () => controller.abort();
   }, [path, dataGeneration]);
+  return workflow;
+}
 
+export default function AdmissionChecklistGlance({ referralId, onOpenDecision }: { referralId: number; onOpenDecision?: () => void }) {
+  const workflow = useReferralWorkflow(referralId);
   const groups = workflow ? requirementGroups(workflow.work_items) : [];
   if (!workflow || groups.length === 0) return null;
   return <section aria-label="Admission requirements" className={styles.glance}>
@@ -57,4 +68,68 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
       </section>)}
     </div>
   </section>;
+}
+
+// "Where this referral stands" (docs/design/DECISIONS.md, "Chart as home"): the Decision page's own
+// milestones, plus the recommendation, admission date, and EHR handoff, so the Chart ends as the whole story.
+export function ReferralStandingGlance({ referralId }: { referralId: number }) {
+  const workflow = useReferralWorkflow(referralId);
+  if (!workflow) return null;
+  const steps = decisionProgressSteps(workflow);
+  const { recommendation, decision, referral } = workflow;
+  const handoff = referral.ehrHandoff;
+  return <section aria-labelledby={`standing-${referralId}`} className={styles.glance} data-chart-standing>
+    <header className={styles.header}><div><h2 id={`standing-${referralId}`}>Where this referral stands</h2></div></header>
+    <ol className={styles.steps}>
+      {steps.map((step) => <li key={step.key} data-state={step.state}>
+        <span aria-hidden="true" className={styles.mark}>{step.state === "done" ? <Check size={13} strokeWidth={3} /> : step.state === "not_needed" ? <Minus size={12} /> : <Circle size={10} />}</span>
+        <span className={styles.item}>
+          <strong>{step.label}</strong>
+          {/* Dates and names only; the Decision page keeps the explanations. */}
+          {step.state === "done" && (step.key === "decision" || step.key === "packet") ? <span>{step.detail}</span> : null}
+        </span>
+      </li>)}
+    </ol>
+    {recommendation || referral.admissionDate || (decision?.outcome === "accepted" && handoff) ? <dl className={styles.facts}>
+      {recommendation ? <div><dt>Placement recommendation</dt><dd>{recommendation.outcome === "accept" ? "Accept" : recommendation.outcome === "decline" ? "Deny" : "Under review"}{recommendation.reasonNote ? <span>{recommendation.reasonNote}</span> : null}</dd></div> : null}
+      {decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{decision.reasonNote}</dd></div> : null}
+      {referral.admissionDate ? <div><dt>Admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
+      {decision?.outcome === "accepted" && handoff ? <div><dt>EHR handoff</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}
+    </dl> : null}
+  </section>;
+}
+
+// Key findings of the signed assessment. The full answers stay on the Assessment tab.
+const summaryFields: readonly AssessmentToolFieldKey[] = [
+  "primary_diagnosis", "secondary_diagnoses", "diagnosis_categories", "acuity_level",
+  "aggression_risk", "elopement_risk", "current_self_harm_ideation", "active_substance_use",
+  "medications_at_intake", "medication_adherence", "adl_needs", "mobility", "ambulatory",
+  "conservatorship_type", "special_diet", "family_involvement",
+];
+
+export function AssessmentSummaryGlance({ assessment }: { assessment?: PipelineAssessmentRecord }) {
+  if (!assessment?.signed_at) return null;
+  const facts = summaryFields
+    .map((field) => ({ field, text: summaryText(field, assessment[field as keyof PipelineAssessmentRecord]) }))
+    .filter((fact) => fact.text);
+  if (!facts.length) return null;
+  return <section aria-labelledby={`assessment-summary-${assessment.assessment_id}`} className={styles.glance} data-chart-assessment-summary>
+    <header className={styles.header}>
+      <div>
+        <h2 id={`assessment-summary-${assessment.assessment_id}`}>Assessment summary</h2>
+        <p>Assessment signed {formatProfileDate(assessment.signed_at) ?? ""}</p>
+      </div>
+    </header>
+    <dl className={`${styles.facts} ${styles.summaryFacts}`}>
+      {facts.map((fact) => <div key={fact.field}><dt>{assessmentInterviewFieldLabel(fact.field)}</dt><dd>{fact.text}</dd></div>)}
+    </dl>
+  </section>;
+}
+
+function summaryText(field: AssessmentToolFieldKey, value: unknown) {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map((item) => assessmentInterviewOptionLabel(field, String(item)) ?? String(item)).join(", ");
+  if (typeof value === "object") return "";
+  const text = String(value).trim();
+  return text ? assessmentInterviewOptionLabel(field, text) ?? text : "";
 }

@@ -2150,7 +2150,7 @@ export default function AssessmentWorkspace({
 
   const renderSignatureHistory = () => (
     selected.signed_at ? (
-        <div className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
+        <div data-signature-history className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
           Signed by <strong>{selected.signed_by?.name ?? selected.assessor ?? "Assigned assessor"}</strong> on {new Date(selected.signed_at).toLocaleString()}.
           {!isAssessmentFinalized(selected) ? " You can still edit until Meet the Client is sent." : " Meet the Client sent. Use Add note for later information."}
           {(selected.addenda ?? []).length > 0 ? (

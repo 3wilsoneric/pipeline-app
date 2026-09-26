@@ -787,6 +787,9 @@
     .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) { padding: 0; border: 0; background: transparent; box-shadow: none; }
     .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) > div { display: flex; flex-direction: column; gap: 16px; padding: 0; overflow: visible; }
     .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) > div > * { margin: 0; }
+    /* The signature line reads as one quiet line on the wash, not loose words. */
+    .verticalFlow .connectedFolder div[data-signature-history][data-signature-history] { display: block; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); color: var(--color-ink-muted); font-size: var(--text-meta); line-height: 18px; }
+    .verticalFlow .connectedFolder [data-signature-history] strong { color: var(--color-ink); font-weight: 600; }
     /* The chart review wraps the cards in its own full-bleed surfaces; let the wash show through them. */
     .verticalFlow .connectedFolder section[aria-label="Assessment chart review"], .verticalFlow .connectedFolder main:has(> section[aria-label="Assessment chart review"]) { background: transparent; }
     .verticalFlow :is(article[aria-label="Referral chart"], section[aria-label="Document checklist"], section[aria-label="Admission requirements"]) { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }

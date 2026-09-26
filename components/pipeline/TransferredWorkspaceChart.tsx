@@ -13,7 +13,7 @@ import type { AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-sc
 import { isClientChartWorkspace } from "@/lib/pipeline/workspace-presentation";
 import ReferralIntakeSummary from "@/components/pipeline/ReferralIntakeSummary";
 import folderStyles from "./ClientFolder.module.css";
-import AdmissionChecklistGlance from "@/components/pipeline/AdmissionChecklistGlance";
+import AdmissionChecklistGlance, { AssessmentSummaryGlance, ReferralStandingGlance } from "@/components/pipeline/AdmissionChecklistGlance";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 export default function WorkspaceClientChart({ referral, headerActions, contactActions, assessment, practice = false, assessmentOnly = false, onEditReferralField, onEditAssessmentField, onOpenDecision }: {
@@ -48,6 +48,8 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
   // Redesign: the Chart is the record's home, so it leads with the admission checklist and leaves
   // this referral's assessment answers to the Assessment tab (docs/design/DECISIONS.md, "Chart as home").
   const checklist = designV2 && referral && !isClientChartWorkspace(referral) ? <AdmissionChecklistGlance referralId={referral.id} onOpenDecision={onOpenDecision} /> : null;
+  // It opens with where the referral stands and, once signed, the assessment's key findings.
+  const standing = designV2 && referral && !isClientChartWorkspace(referral) ? <><ReferralStandingGlance referralId={referral.id} /><AssessmentSummaryGlance assessment={assessment} /></> : null;
   const [profile, setProfile] = useState<UnifiedClientProfileResponse | null>(() => readPipelineJsonCache<UnifiedClientProfileResponse>(profilePath) ?? null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -61,6 +63,7 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
     return () => controller.abort();
   }, [profilePath, retry, dataGeneration]);
   if (!profilePath || error || !profile) return <>
+    {standing}
     {intakeChart}
     {checklist}
     {!intakeReferral ? <ClientChartHeader title="Client chart" actions={headerActions}>{null}</ClientChartHeader> : null}
@@ -69,6 +72,6 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
       : <p role="status" className="py-4 text-[12px] text-[#68716d]">{intakeReferral ? "Loading supporting records..." : "Loading client chart..."}</p>}
     {assessment && !designV2 ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : null}
   </>;
-  return <>{intakeChart}{checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
+  return <>{standing}{intakeChart}{checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
     intakeReferral={intakeReferral} excludeReferralAssessments={designV2} /></>;
 }

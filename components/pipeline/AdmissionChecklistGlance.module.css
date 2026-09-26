@@ -20,3 +20,15 @@ li[data-complete="true"] .mark { background: var(--color-status-done); color: va
 .item strong { color: var(--color-ink); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; overflow-wrap: anywhere; }
 .item span { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); overflow-wrap: anywhere; }
 li[data-complete="true"] .item strong { color: var(--color-ink-2); font-weight: 500; }
+
+/* Where this referral stands and Assessment summary share the glance card. */
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.steps li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); }
+.steps li[data-state="done"] { border-color: var(--color-stage-green-border); background: var(--color-status-done-soft); }
+.steps li[data-state="not_needed"] { opacity: 0.7; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin: 12px 0 0; }
+.facts > div { min-width: 0; padding: 10px 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); }
+.facts dt { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 600; }
+.facts dd { margin: 4px 0 0; color: var(--color-ink); font-size: var(--text-value); line-height: 20px; font-weight: 600; overflow-wrap: anywhere; white-space: pre-line; }
+.facts dd > span { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 400; }
+.summaryFacts { margin-top: 0; }
