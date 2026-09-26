@@ -511,20 +511,23 @@ export default function AssessmentWorkspace({
   const sectionQuestions = conversationSections[activeSectionIndex].questions;
   const pageSections = preparing ? assessmentPreparationGroups : conversationSections;
   const pageIndex = preparing ? preparationIndex : activeSectionIndex;
-  // Redesign: Prepare shows every group on one scrolling page instead of five pages (owner, 2026-09-26:
-  // "less pagination"). Answers still save as each one is left, so nothing depends on changing pages.
-  const stackedPreparation = designV2 && preparing && !phoneLayout && !trainingAssessmentMode;
-  const [spyGroup, setSpyGroup] = useState<AssessmentToolSection>(assessmentPreparationGroups[0].key);
-  const nextSection = stackedPreparation ? undefined : pageSections[pageIndex + 1];
-  const previousSection = stackedPreparation ? undefined : pageSections[pageIndex - 1];
-  const stackedQuestions = useMemo(() => stackedPreparation ? assessmentPreparationGroups.flatMap((group) => preparationQuestions(group, draft)) : [], [stackedPreparation, draft]);
-  const stackedHeadings = useMemo(() => new Map(stackedPreparation ? assessmentPreparationGroups.flatMap((group) => {
-    const first = preparationQuestions(group, draft)[0];
-    return first ? [[first.field, { key: group.key, label: group.label }] as const] : [];
-  }) : []), [stackedPreparation, draft]);
+  // Redesign: Prepare and the interview each show every group on one scrolling page instead of pages
+  // (owner, 2026-09-26: "less pagination"). Answers still save as each one is left, so nothing depends
+  // on changing pages. Phones and practice keep the paged view.
+  const stackedQuestionsView = designV2 && !phoneLayout && !trainingAssessmentMode;
+  const stackedGroups = useMemo(() => !stackedQuestionsView ? []
+    : preparing ? assessmentPreparationGroups.map((group) => ({ key: group.key, label: group.label, questions: preparationQuestions(group, draft), referenceQuestions: undefined }))
+    : conversationSections.map((section) => ({ key: section.key, label: section.label, questions: section.questions, referenceQuestions: section.referenceQuestions })),
+  [stackedQuestionsView, preparing, draft, conversationSections]);
+  const [spyGroup, setSpyGroup] = useState<AssessmentToolSection | null>(null);
+  const spySection = stackedGroups.find((group) => group.key === spyGroup)?.key ?? stackedGroups[0]?.key ?? visibleSectionKey;
+  const nextSection = stackedQuestionsView ? undefined : pageSections[pageIndex + 1];
+  const previousSection = stackedQuestionsView ? undefined : pageSections[pageIndex - 1];
+  const stackedQuestions = useMemo(() => stackedGroups.flatMap((group) => group.questions), [stackedGroups]);
+  const stackedHeadings = useMemo(() => new Map(stackedGroups.flatMap((group) => group.questions.map((question) => [question.field, { key: group.key, label: group.label }] as const))), [stackedGroups]);
   // The section picker follows the scroll: the group whose heading most recently passed the top third.
   useEffect(() => {
-    if (!stackedPreparation) return;
+    if (!stackedQuestionsView) return;
     const headings = [...document.querySelectorAll<HTMLElement>("[data-assessment-group-heading]")];
     if (!headings.length) return;
     const observer = new IntersectionObserver((entries) => {
@@ -533,9 +536,9 @@ export default function AssessmentWorkspace({
     }, { rootMargin: "0px 0px -66% 0px" });
     headings.forEach((heading) => observer.observe(heading));
     return () => observer.disconnect();
-  }, [stackedPreparation, stackedHeadings]);
+  }, [stackedQuestionsView, stackedHeadings]);
   const jumpToGroup = (section: AssessmentToolSection) => {
-    const key = preparationGroupForSection(section).key;
+    const key = preparing ? preparationGroupForSection(section).key : section;
     setSpyGroup(key);
     document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -2354,7 +2357,7 @@ export default function AssessmentWorkspace({
       </HomeDialog> : null);
 
   const sectionSteps = <nav aria-label="Assessment section steps" className={`${workingStyles.sectionSteps} ${phoneLayout ? workingStyles.phonePreparationSteps : ""}`}>
-    {stackedPreparation ? null : <>
+    {stackedQuestionsView ? null : <>
     <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
     <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
     </>}
@@ -2448,25 +2451,25 @@ export default function AssessmentWorkspace({
                 if (preparing) continueFromPreparation();
                 else void reviewChart();
               }}
-              section={stackedPreparation ? assessmentPreparationGroups[0].key : visibleSectionKey}
-              sectionLabel={stackedPreparation ? undefined : workingSectionLabel()}
-              groupHeadings={stackedPreparation ? stackedHeadings : undefined}
+              section={stackedQuestionsView ? stackedGroups[0].key : visibleSectionKey}
+              sectionLabel={stackedQuestionsView ? undefined : workingSectionLabel()}
+              groupHeadings={stackedQuestionsView ? stackedHeadings : undefined}
               assessment={selected}
               data={draft}
               pending={pendingFields}
-              questions={stackedPreparation ? stackedQuestions : preparing ? preparationQuestions(preparationGroup, draft) : sectionQuestions}
-              referenceQuestions={conversationSections[activeSectionIndex].referenceQuestions}
+              questions={stackedQuestionsView ? stackedQuestions : preparing ? preparationQuestions(preparationGroup, draft) : sectionQuestions}
+              referenceQuestions={stackedQuestionsView && !preparing ? stackedGroups.find((group) => group.key === spySection)?.referenceQuestions : conversationSections[activeSectionIndex].referenceQuestions}
               onAllQuestions={() => changeWorkingMode(true)}
               required={requiredInterviewFields}
               target={workingTarget}
-              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedPreparation ? spyGroup : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedPreparation) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
+              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               onChange={updateField}
               onFieldFocus={(field) => {
                 focusAnswer(field);
                 rememberPhoneQuestion(field);
-                if (preparing && !stackedPreparation) setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
+                if (preparing && !stackedQuestionsView) setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
               }}
               onFieldBlur={commitAnswer}
               onReview={(field, action) => void reviewExtractedField(field, action)}

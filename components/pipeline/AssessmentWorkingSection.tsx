@@ -101,7 +101,7 @@ export type WorkingSectionProps = WorkingData & {
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
   /** Redesign: the client's last signed assessment, offered per question while it is empty. */
   priorAnswers?: PriorAnswers;
-  /** Prepare on one page: a group heading before the first question of each preparation group. */
+  /** One page of groups: each question's group (preparation group or interview topic), for headings. */
   groupHeadings?: ReadonlyMap<AssessmentToolFieldKey, { key: string; label: string }>;
   /** The referral intake's current answers, offered where this assessment is still empty. */
   intakeAnswers?: Partial<AssessmentToolData>;
@@ -186,8 +186,12 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
       <div ref={editor} tabIndex={-1} role="region" aria-label={`${props.sectionLabel ?? "Assessment"} questions`} className={styles.questionPage} data-assessment-question-page>
       {props.preparing && props.sectionLabel ? <h3 ref={sectionHeading} tabIndex={-1} data-assessment-section-heading className={styles.sectionHeading}>{props.sectionLabel}</h3> : null}
       {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Review this section in Current information." : "This section is complete. Review the reference, or continue to the next section."}</p> : null}
-      {groups.map((group) => <Fragment key={group.label}>
-      {props.groupHeadings?.get(group.questions[0].field) ? <h3 tabIndex={-1} data-assessment-group-heading={props.groupHeadings.get(group.questions[0].field)!.key} className={`${styles.sectionHeading} ${styles.groupHeading}`}>{props.groupHeadings.get(group.questions[0].field)!.label}</h3> : null}
+      {groups.map((group, position) => {
+        // One page of groups: a heading wherever the group (preparation group or interview topic) changes.
+        const heading = props.groupHeadings?.get(group.questions[0].field);
+        const showHeading = heading && heading.key !== (position > 0 ? props.groupHeadings?.get(groups[position - 1].questions[0].field)?.key : undefined);
+        return <Fragment key={group.label}>
+      {showHeading ? <h3 tabIndex={-1} data-assessment-group-heading={heading.key} className={`${styles.sectionHeading} ${styles.groupHeading}`}>{heading.label}</h3> : null}
       <section aria-label={group.label} className={styles.questionGroup}>
         <div className={styles.fields}>
           {group.questions.map((question) => {
@@ -203,7 +207,8 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
           })}
         </div>
       </section>
-      </Fragment>)}
+      </Fragment>;
+      })}
       </div>
     </div>
   </div>;
