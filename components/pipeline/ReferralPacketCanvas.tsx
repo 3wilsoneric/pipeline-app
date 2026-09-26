@@ -429,6 +429,9 @@ export default function ReferralPacketCanvas({
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
+  // One-page record: the element the assessment editor draws the Chart into, and the step in view.
+  const [chartSlot, setChartSlot] = useState<HTMLElement | null>(null);
+  const [stepInView, setStepInView] = useState<WorkspaceView | null>(null);
   const [decisionVisitedReferral, setDecisionVisitedReferral] = useState<number | undefined>();
   const [decisionSaveState, setDecisionSaveState] = useState<{ referralId?: number; pending: number; failed: number }>({ pending: 0, failed: 0 });
   const [assessmentSaveState, setAssessmentSaveState] = useState<{ referralId?: number; assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }>({ dirty: false, error: false, pendingOfflineSaves: 0, appointmentDraft: false, appointmentSaving: false });
@@ -1625,7 +1628,9 @@ export default function ReferralPacketCanvas({
 
   const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
-    if (emailSendingRef.current) return;
+    // The one-page record keeps Finish & send mounted, so a send in progress never blocks moving around.
+    if (emailSendingRef.current && !recordStack) return;
+    if (recordStack && recordStepPages.has(page)) setStepInView(page);
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
     chartEditTargetRef.current = editField ?? null;
@@ -1634,6 +1639,10 @@ export default function ReferralPacketCanvas({
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(locationForPage(page, editField, assessmentMode));
     requestAnimationFrame(() => {
+      if (recordStack && recordStepPages.has(page) && !returningToChart) {
+        canvasRef.current?.querySelector(`[data-record-step="${page}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
       if (!editField && !returningToChart) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
   };
@@ -1648,8 +1657,10 @@ export default function ReferralPacketCanvas({
     void navigatePage(1, field);
   };
 
-  const assessmentChartProps = () => ({
-    chartReview: displayedPage === 3 || routedWorkspaceLocation.assessmentMode === "review",
+  // One-page record: the Chart has its own place above the Assessment, so only the signed review
+  // replaces the questions.
+  const assessmentChartProps = (stacked = false) => ({
+    chartReview: (!stacked && displayedPage === 3) || routedWorkspaceLocation.assessmentMode === "review",
     assessmentReview: displayedPage === 2 && routedWorkspaceLocation.assessmentMode === "review",
     chartActions: !permissionReadOnly && loadedReferral ? <button type="button" onClick={() => void navigatePage(1)} className="min-h-11 px-3 text-[13px] font-semibold text-[#08735e] underline-offset-4 hover:underline focus-visible:outline-2">Edit referral details</button> : undefined,
     onEditReferralField: !permissionReadOnly && loadedReferral ? editReferralFieldFromChart : undefined,
@@ -1657,6 +1668,12 @@ export default function ReferralPacketCanvas({
 
   const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
+    // One-page record: every step stays mounted and saves as it goes, so moving between them (or to Files
+    // and Activity) needs no save-before-leaving. Only leaving intake, which unmounts, keeps its save.
+    if (recordStack && activePage !== 1 && page !== 1) {
+      openPage(page, editField, assessmentMode);
+      return;
+    }
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.(page === "email" ? "email" : undefined);
@@ -2457,6 +2474,24 @@ export default function ReferralPacketCanvas({
   const railDone = railProgress ? Object.values(railProgress).filter((state) => state === "done").length : 0;
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const readingDecision = displayedPage === "workflow" && Boolean(loadedReferral);
+  // One-page record (docs/design/DECISIONS.md, "One-page record"): on wide screens with the redesign,
+  // Chart, Assessment, Decision, and Finish & send stay mounted on one scrolling page. Opening a step
+  // scrolls to it, so nothing unmounts and no step has to finish saving before another opens.
+  const recordStack = verticalFlow && Boolean(loadedReferral) && !historicalReadOnly && !workspacePresentation.usesSourceProfile && !trainingAssessmentMode && !trainingIntakeMode;
+  const stackVisible = recordStack && recordStepPages.has(displayedPage);
+  const stackSteps = recordStack ? recordStepOrder.filter((page) => navigableWorkspaceSteps.some((step) => step.page === page)) : [];
+  // The rail follows the scroll: the step whose folder crosses the upper part of the screen.
+  useEffect(() => {
+    if (!stackVisible) return;
+    const steps = [...(canvasRef.current?.querySelectorAll<HTMLElement>("[data-record-step]") ?? [])];
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
+      const step = visible?.target.getAttribute("data-record-step");
+      if (step) setStepInView(recordStepOrder.find((page) => String(page) === step) ?? null);
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    steps.forEach((step) => observer.observe(step));
+    return () => observer.disconnect();
+  }, [stackVisible, stackSteps.length]);
   useEffect(() => {
     if (readingAssessment) setAssessmentVisitedReferral(referralWorkspaceId);
   }, [readingAssessment, referralWorkspaceId]);
@@ -2674,7 +2709,7 @@ export default function ReferralPacketCanvas({
               </div>
             ) : null}
             {verticalFlow && loadedReferral ? <QuickNoteEditor key={`${loadedReferral.id}-${quickNoteStep(displayedPage)}`} referralId={loadedReferral.id} step={quickNoteStep(displayedPage)} /> : null}
-            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
+            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={stackVisible ? stepInView ?? displayedPage : displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>
                 <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
@@ -2773,6 +2808,104 @@ export default function ReferralPacketCanvas({
         </div>
       </HomeDialog> : null);
 
+
+  // Step pages, shared by the one-page record and the page-by-page layout.
+  const renderEmailStep = () => (
+            <PacketPage id="packet-email" title="Finish & send" flush>
+              <WorkspaceChartFolder>
+              <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
+                onReferralChange={applyConfirmedWorkflowReferral}
+                onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
+                emailDraft={handoff}
+                onOpenIntake={() => void navigatePage(1)}
+                onOpenFiles={() => void navigatePage("files")} onOpenAssessment={() => void navigatePage(2, undefined, "review")}
+                onOpenDecision={() => void navigatePage("workflow")}
+                finishActions={onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
+                  setEmailFinishing(true);
+                  void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));
+                }} className="min-h-12 rounded-md bg-[#087d66] px-6 text-[16px] font-semibold text-white hover:bg-[#06634f] focus-visible:outline-2 disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null} />
+              </WorkspaceChartFolder>
+            </PacketPage>
+  );
+  const renderDecisionStep = (active: boolean, current: Referral) => (
+            <PacketPage id="admission-workflow" title="Decision" flush>
+              <WorkspaceChartFolder>
+                <ReferralWorkflowPanel
+                  referral={current}
+                  workspaceActive={active}
+                  beforeWorkspaceNavigationRef={assessmentNavigationRef}
+                  beforeWorkspaceExitRef={decisionExitRef}
+                  onRequirementStateChange={({ pending, failed }) => setDecisionSaveState({ referralId: current.id, pending, failed })}
+                  onDone={onOpenAssignedWork ? openAssignedWork : undefined}
+                  onReferralChange={applyConfirmedWorkflowReferral}
+                  onOpenIntake={() => void navigatePage(1)}
+                  onOpenAssessment={() => void navigatePage(2)}
+                  onOpenFiles={() => void navigatePage("files")}
+                  onOpenEmail={() => void navigatePage("email")}
+                  onOpenProfile={openClientProfile}
+                />
+              </WorkspaceChartFolder>
+            </PacketPage>
+  );
+  const renderAssessmentStep = (active: boolean, title: string, chartSlot?: HTMLElement | null) => (
+            <PacketPage id="packet-page-2" title={title} flush>
+                <AssessmentWorkspace
+                  workspaceActive={active}
+                  readOnly={permissionReadOnly}
+                  workbookImport={workbookImport}
+                  onWorkbookImportRead={() => setWorkbookImport(null)}
+                  referralId={referralWorkspaceId}
+                  referral={loadedReferral ?? undefined}
+                  recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenEmail={() => openPage("email")} onOpenProfile={openClientProfile} /> : undefined}
+                  trainingAssessmentMode={trainingAssessmentMode}
+                  trainingAssessmentSection={trainingAssessmentSection}
+                  initialSection={routedWorkspaceLocation.assessmentSection ?? lastAssessmentSectionRef.current}
+                  initialQuestion={routedWorkspaceLocation.assessmentQuestion ?? lastAssessmentQuestionRef.current}
+                  initialLocation={routedWorkspaceLocation}
+                  assignedAssessorId={loadedReferral?.ownerId}
+                  {...assessmentEntryProps()}
+                  workspaceTitle={workspaceTitle}
+                  {...assessmentChartProps(Boolean(chartSlot))}
+                  chartSlot={chartSlot}
+                  sectionJumps={!chartSlot || displayedPage === 2}
+                  chartDocuments={renderChartDocuments()}
+                  onOpenChart={() => openPage(3)}
+                  onReviewAssessment={() => openPage(2, undefined, "review")}
+                  onOpenAssessment={() => openPage(2, undefined, null)}
+                  beforeWorkspaceNavigationRef={assessmentNavigationRef}
+                  packetEvidenceVersion={packetEvidenceVersion}
+                  onSummaryChange={setAssessmentSummary}
+                  onSaveStateChange={(state) => setAssessmentSaveState({ referralId: referralWorkspaceId, ...state })}
+                  onContinueToWorkflow={() => openPage("workflow")}
+                  onOpenWorkspace={() => openPage(3)}
+                  onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
+                  onActiveSectionChange={(section, location) => {
+                    lastAssessmentSectionRef.current = section;
+                    lastAssessmentQuestionRef.current = location.assessmentQuestion;
+                    if (location.assessmentMode !== "review") lastAssessmentLocationRef.current = location;
+                    const previous = publishedAssessmentSectionRef.current;
+                    publishedAssessmentSectionRef.current = section;
+                    // Mount-time section publication is not a deliberate navigation choice.
+                    if (resumeWorkflowOnOpen && !entryResolvedRef.current && previous === undefined) return;
+                    if (previous !== undefined && previous !== section) entryResolvedRef.current = true;
+                    if (activePage === 2) onWorkspaceLocationChange?.(location);
+                  }}
+                  onAssessmentSaved={async (assessment, savedReferral) => {
+                    if (savedReferral) {
+                      receiveRemoteReferral(savedReferral, savedReferral.updatedBy?.name, true);
+                      return;
+                    }
+                    if (assessment.status !== "complete" || !assessment.signed_at) return;
+                    const current = loadedReferralRef.current;
+                    if (!current) return;
+                    const canvas = await fetchPipelineJson<{
+                      referral?: Referral;
+                    }>(`/api/referrals/${current.id}/canvas`, { cache: "no-store" });
+                    if (canvas.referral) receiveRemoteReferral(canvas.referral, canvas.referral.updatedBy?.name, true);
+                  }}
+                />
+            </PacketPage>
+  );
   const renderChartDocuments = () => loadedReferral && displayedPage === 3 ? renderDocumentUpload(true) : undefined;
 
   const renderIntakePage = () => (
@@ -3005,7 +3138,15 @@ export default function ReferralPacketCanvas({
 
         {renderExtractionConflict()}
 
-        {!readingAssessment && !readingDecision ? <div key={displayedPage} className="pipeline-step-enter">
+        {recordStack && loadedReferral ? stackSteps.map((page) => <div key={`record-step-${String(page)}`} data-record-step={String(page)}
+          className={page === 2 ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}
+          style={{ display: stackVisible ? undefined : "none" }} aria-hidden={!stackVisible} inert={!stackVisible}>
+          {page === 3 ? <PacketPage id="packet-charts" title="Chart" flush><div ref={setChartSlot} /></PacketPage>
+            : page === 2 ? renderAssessmentStep(stackVisible, "Assessment", chartSlot ?? undefined)
+            : page === "workflow" ? renderDecisionStep(stackVisible, loadedReferral)
+            : renderEmailStep()}
+        </div>) : null}
+        {(recordStack ? !stackVisible : !readingAssessment && !readingDecision) ? <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart" flush>
               <WorkspaceChartFolder>
@@ -3019,21 +3160,7 @@ export default function ReferralPacketCanvas({
               <div className="max-sm:px-3">{renderDocumentUpload(false)}</div>
             </PacketPage>
           ) : displayedPage === "email" ? (
-            <PacketPage id="packet-email" title="Finish & send" flush>
-              <WorkspaceChartFolder>
-              <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
-                onReferralChange={applyConfirmedWorkflowReferral}
-                onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
-                emailDraft={handoff}
-                onOpenIntake={() => void navigatePage(1)}
-                onOpenFiles={() => void navigatePage("files")} onOpenAssessment={() => void navigatePage(2, undefined, "review")}
-                onOpenDecision={() => void navigatePage("workflow")}
-                finishActions={onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
-                  setEmailFinishing(true);
-                  void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));
-                }} className="min-h-12 rounded-md bg-[#087d66] px-6 text-[16px] font-semibold text-white hover:bg-[#06634f] focus-visible:outline-2 disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null} />
-              </WorkspaceChartFolder>
-            </PacketPage>
+            renderEmailStep()
           ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart" flush>
               <WorkspaceChartFolder>
@@ -3046,89 +3173,18 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           )}
         </div> : null}
-        {loadedReferral && (readingDecision || decisionVisitedReferral === referralWorkspaceId) ? (
+        {!recordStack && loadedReferral && (readingDecision || decisionVisitedReferral === referralWorkspaceId) ? (
           <div key={`decision-${referralWorkspaceId}`} className="pipeline-step-enter" style={{ display: readingDecision ? undefined : "none" }} aria-hidden={!readingDecision} inert={!readingDecision}>
-            <PacketPage id="admission-workflow" title="Decision" flush>
-              <WorkspaceChartFolder>
-                <ReferralWorkflowPanel
-                  referral={loadedReferral}
-                  workspaceActive={readingDecision}
-                  beforeWorkspaceNavigationRef={assessmentNavigationRef}
-                  beforeWorkspaceExitRef={decisionExitRef}
-                  onRequirementStateChange={({ pending, failed }) => setDecisionSaveState({ referralId: loadedReferral.id, pending, failed })}
-                  onDone={onOpenAssignedWork ? openAssignedWork : undefined}
-                  onReferralChange={applyConfirmedWorkflowReferral}
-                  onOpenIntake={() => void navigatePage(1)}
-                  onOpenAssessment={() => void navigatePage(2)}
-                  onOpenFiles={() => void navigatePage("files")}
-                  onOpenEmail={() => void navigatePage("email")}
-                  onOpenProfile={openClientProfile}
-                />
-              </WorkspaceChartFolder>
-            </PacketPage>
+            {renderDecisionStep(readingDecision, loadedReferral)}
           </div>
         ) : null}
-        {(readingAssessment || (assessmentVisitedReferral !== undefined && assessmentVisitedReferral === referralWorkspaceId)) ? (
+        {!recordStack && (readingAssessment || (assessmentVisitedReferral !== undefined && assessmentVisitedReferral === referralWorkspaceId)) ? (
           <div key={`assessment-${referralWorkspaceId ?? "training"}`} className={workspaceFolderStyles.readingPages} style={{ display: readingAssessment ? undefined : "none" }} aria-hidden={!readingAssessment} inert={!readingAssessment}>
-            <PacketPage id="packet-page-2" title={displayedPage === 3 ? "Chart" : "Assessment"} flush>
-                <AssessmentWorkspace
-                  workspaceActive={readingAssessment}
-                  readOnly={permissionReadOnly}
-                  workbookImport={workbookImport}
-                  onWorkbookImportRead={() => setWorkbookImport(null)}
-                  referralId={referralWorkspaceId}
-                  referral={loadedReferral ?? undefined}
-                  recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenEmail={() => openPage("email")} onOpenProfile={openClientProfile} /> : undefined}
-                  trainingAssessmentMode={trainingAssessmentMode}
-                  trainingAssessmentSection={trainingAssessmentSection}
-                  initialSection={routedWorkspaceLocation.assessmentSection ?? lastAssessmentSectionRef.current}
-                  initialQuestion={routedWorkspaceLocation.assessmentQuestion ?? lastAssessmentQuestionRef.current}
-                  initialLocation={routedWorkspaceLocation}
-                  assignedAssessorId={loadedReferral?.ownerId}
-                  {...assessmentEntryProps()}
-                  workspaceTitle={workspaceTitle}
-                  {...assessmentChartProps()}
-                  chartDocuments={renderChartDocuments()}
-                  onOpenChart={() => openPage(3)}
-                  onReviewAssessment={() => openPage(2, undefined, "review")}
-                  onOpenAssessment={() => openPage(2, undefined, null)}
-                  beforeWorkspaceNavigationRef={assessmentNavigationRef}
-                  packetEvidenceVersion={packetEvidenceVersion}
-                  onSummaryChange={setAssessmentSummary}
-                  onSaveStateChange={(state) => setAssessmentSaveState({ referralId: referralWorkspaceId, ...state })}
-                  onContinueToWorkflow={() => openPage("workflow")}
-                  onOpenWorkspace={() => openPage(3)}
-                  onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
-                  onActiveSectionChange={(section, location) => {
-                    lastAssessmentSectionRef.current = section;
-                    lastAssessmentQuestionRef.current = location.assessmentQuestion;
-                    if (location.assessmentMode !== "review") lastAssessmentLocationRef.current = location;
-                    const previous = publishedAssessmentSectionRef.current;
-                    publishedAssessmentSectionRef.current = section;
-                    // Mount-time section publication is not a deliberate navigation choice.
-                    if (resumeWorkflowOnOpen && !entryResolvedRef.current && previous === undefined) return;
-                    if (previous !== undefined && previous !== section) entryResolvedRef.current = true;
-                    if (activePage === 2) onWorkspaceLocationChange?.(location);
-                  }}
-                  onAssessmentSaved={async (assessment, savedReferral) => {
-                    if (savedReferral) {
-                      receiveRemoteReferral(savedReferral, savedReferral.updatedBy?.name, true);
-                      return;
-                    }
-                    if (assessment.status !== "complete" || !assessment.signed_at) return;
-                    const current = loadedReferralRef.current;
-                    if (!current) return;
-                    const canvas = await fetchPipelineJson<{
-                      referral?: Referral;
-                    }>(`/api/referrals/${current.id}/canvas`, { cache: "no-store" });
-                    if (canvas.referral) receiveRemoteReferral(canvas.referral, canvas.referral.updatedBy?.name, true);
-                  }}
-                />
-            </PacketPage>
+            {renderAssessmentStep(readingAssessment, displayedPage === 3 ? "Chart" : "Assessment")}
           </div>
         ) : null}
         {/* Each step ends by leading into the next one, so the record reads top to bottom (owner, 2026-09-26). */}
-        {verticalFlow && nextWorkspaceStep && displayedPage !== "files" && displayedPage !== "activity" ? <div className={workspaceFolderStyles.stepContinue}>
+        {verticalFlow && !stackVisible && nextWorkspaceStep && displayedPage !== "files" && displayedPage !== "activity" ? <div className={workspaceFolderStyles.stepContinue}>
           <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
             Next: {nextWorkspaceStep.label}<ArrowRight size={17} aria-hidden="true" />
           </button>
@@ -3416,6 +3472,10 @@ function referralPacketEvidenceVersion(referral: Referral | null) {
     .map((field) => `${field.field_key}:${field.version}`)
     .join("|")}`;
 }
+
+// One-page record order. Intake, Files, and Activity stay their own views.
+const recordStepOrder: readonly WorkspaceView[] = [3, 2, "workflow", "email"];
+const recordStepPages: ReadonlySet<WorkspaceView> = new Set(recordStepOrder);
 
 // The step a quick note entry is tagged with: the record page the person is on (none on Files or Activity).
 function quickNoteStep(page: WorkspaceView): QuickNoteStep | null {

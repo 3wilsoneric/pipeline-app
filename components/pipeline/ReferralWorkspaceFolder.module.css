@@ -779,6 +779,13 @@
     .verticalFlow .actions > .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-ink); font-weight: 600; }
     .verticalFlow .actions > .createTab.createTab { margin: 4px 0 10px; }
     /* Set well apart from the step above: a divider, then a large button (owner: "bigger, more separation"). */
+    /* One-page record: each stacked folder keeps its own step color, whichever step the rail shows. */
+    .verticalFlow > [data-record-step] { scroll-margin-top: 12px; }
+    .verticalFlow > [data-record-step] + [data-record-step] { margin-top: 28px; }
+    .verticalFlow > [data-record-step="3"] { --stage-edge: var(--color-stage-blue); }
+    .verticalFlow > :is([data-record-step="2"], [data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-manila); }
+    .verticalFlow[data-decision-outcome="accepted"] > :is([data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-stage-green); }
+    .verticalFlow[data-decision-outcome="declined"] > :is([data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-danger); }
     .verticalFlow > .stepContinue { display: flex; justify-content: flex-end; margin-top: 40px; padding: 32px 0 24px; border-top: 1px solid var(--color-sheet-border); }
     .verticalFlow > .stepContinue > button { display: inline-flex; align-items: center; gap: 14px; min-height: 64px; padding: 0 32px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; }
     .verticalFlow > .stepContinue > button svg { width: 22px; height: 22px; color: var(--color-link); }

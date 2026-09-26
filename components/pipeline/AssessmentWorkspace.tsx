@@ -6,6 +6,7 @@ import { referralDocumentAutofillEnabled } from "@/lib/extraction/contracts";
 
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   AlertTriangle,
@@ -153,6 +154,10 @@ type AssessmentWorkspaceProps = {
   assessmentReview?: boolean;
   chartActions?: ReactNode;
   chartDocuments?: ReactNode;
+  /** One-page record: the Chart is drawn into this element, above the Assessment, by this same editor. */
+  chartSlot?: HTMLElement | null;
+  /** One-page record: false while another step (Chart, Decision) is the one opened, so sections don't pull the page. */
+  sectionJumps?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onOpenChart?: () => void;
   onReviewAssessment?: () => void;
@@ -345,6 +350,8 @@ export default function AssessmentWorkspace({
   assessmentReview = false,
   chartActions,
   chartDocuments,
+  chartSlot,
+  sectionJumps = true,
   onEditReferralField,
   onOpenChart,
   onReviewAssessment,
@@ -542,6 +549,19 @@ export default function AssessmentWorkspace({
     setSpyGroup(key);
     document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  // A link or action that names a section (a deep link, a chart edit, Review unanswered) lands on it.
+  useEffect(() => {
+    if (!stackedQuestionsView || !workspaceActive || !sectionJumps) return;
+    const key = preparing ? preparationGroupForSection(activeSection).key : activeSection;
+    if (key === stackedGroups[0]?.key) return;
+    const frame = window.requestAnimationFrame(() => {
+      setSpyGroup(key);
+      document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+    // Only a changed section moves the page; answers changing must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stackedQuestionsView, workspaceActive, sectionJumps, preparing, activeSection]);
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
   const practiceReview = useMemo(
     () => trainingAssessmentMode && !initialTrainingAssessment ? getAssessmentPracticeReview(draft) : null,
@@ -2085,36 +2105,39 @@ export default function AssessmentWorkspace({
     };
   }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
+  // One-page record (docs/design/DECISIONS.md, "One-page record"): before the editor's own chart
+  // review exists, the Chart slot shows the plain chart, so the Chart is always on the page.
+  const plainStackedChart = chartSlot ? createPortal(<>{chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} /></>, chartSlot) : null;
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
-    return (
+    return (<>{plainStackedChart}
       <AssessmentEmpty
         title="Save the referral to open its questionnaire"
         detail="The assessment needs a referral ID so its history, files, and edits stay attached to one intake episode."
       />
-    );
+    </>);
   }
 
   if (isLoading) {
-    return <div className="flex min-h-56 items-center justify-center gap-2 text-[12px] text-[#737373]"><LoaderCircle className="animate-spin" size={16} /> Loading assessment history...</div>;
+    return <>{plainStackedChart}<div className="flex min-h-56 items-center justify-center gap-2 text-[12px] text-[#737373]"><LoaderCircle className="animate-spin" size={16} /> Loading assessment history...</div></>;
   }
 
   if (!selected) {
     if (reviewingChart) return <AssessmentFileSurface title={workspaceTitle} container={contentRef.current} header={null} dialogs={null}>
       <div className="min-h-0 flex-1 overflow-y-auto">{chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview} /></div>
     </AssessmentFileSurface>;
-    return (
+    return (<>{plainStackedChart}
       <AssessmentEmpty
         title="Questionnaire"
         detail="Fill in what you know from the referral. Schedule and begin the interview when ready."
         action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-open" onClick={createAssessmentDraft} disabled={isBusy} className="min-h-11 rounded-md bg-[#0f8b73] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#0b6d5b] disabled:opacity-50">Prepare assessment</button> : null}
         error={error}
       />
-    );
+    </>);
   }
 
   if (!isFocused) {
     const openLabel = assessmentOpenLabel(selected);
-    return (
+    return (<>{plainStackedChart}
       <section aria-label="Assessment" className="flex flex-col gap-3 border border-[#d6ddd9] bg-[#f8faf9] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#cfe0da] bg-white text-[#0f8b73]" aria-hidden="true">
@@ -2127,7 +2150,7 @@ export default function AssessmentWorkspace({
         </div>
         <button type="button" data-guide-target={["assessment-open", "assessment-schedule-open"].join(" ")} onClick={openFocusedAssessment} className="flex h-9 w-full items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] sm:w-auto">{openLabel} <ChevronRight size={14} /></button>
       </section>
-    );
+    </>);
   }
 
   const openScheduleDialog = () => { setError(""); setShowBeginDialog(false); setShowScheduleDialog(true); };
@@ -2364,7 +2387,10 @@ export default function AssessmentWorkspace({
     <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isClosing || (!nextSection && isBusy) || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
   </nav>;
 
-  return (
+  // One-page record: this editor draws the Chart (with its appointment and unanswered-items entry)
+  // above the Assessment; in the signed review it draws the plain chart there instead.
+  const stackedChart = chartSlot ? (assessmentReview ? plainStackedChart : createPortal(renderChartReview(), chartSlot)) : null;
+  return (<>{stackedChart}
     <AssessmentFileSurface
       title={workspaceTitle}
       container={contentRef.current}
@@ -2515,7 +2541,7 @@ export default function AssessmentWorkspace({
       </footer>
 
     </AssessmentFileSurface>
-  );
+  </>);
 }
 
 function workbookReadOnly(assessment: PipelineAssessmentRecord, canEdit: boolean, busy: boolean, closing: boolean) {

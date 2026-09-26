@@ -209,6 +209,14 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The interview is one scrolling page too (owner, 2026-09-26: "I want both"): all topics stack under their names, the picker follows and jumps, Current information stays beside the questions and follows the current topic, and the bottom bar keeps Review assessment.
 - Each record step ends with a "Next: <step>" button below its folder, the same action as the rail's, so a record reads from Chart to Finish & send without scrolling back up.
 
+## One-page record (owner, 2026-09-26: "I want both, nav buttons but one page, I just don't want blockers")
+
+- On wide screens with the redesign, a referral's Chart, Assessment, Decision, and Finish & send are one scrolling page, each in its own step-colored folder. They load once and stay mounted. The rail scrolls to a step and follows the scroll; every other "open this step" action (Next, Review assessment, chart links) scrolls the same way.
+- No blockers: moving between steps no longer waits for a step to finish saving, because nothing unmounts and every field and answer already saves as it is left. Leaving intake, which does unmount, keeps its save. A send in progress no longer blocks moving around.
+- The Chart and the Assessment are one editor: it draws the Chart into the Chart folder and the questions into the Assessment folder, so there is never a second copy of the assessment that could save over the first.
+- Files, Activity, and Edit referral details stay their own views; the record stays mounted underneath and comes back as it was. Imported, historical, and practice workspaces, and phones, keep the page-by-page layout.
+- A link to a step or an assessment section lands on it; opening the Chart never pulls the page down to a remembered section.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.
