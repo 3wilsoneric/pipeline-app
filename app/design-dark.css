@@ -1,0 +1,109 @@
+/*
+ * Dark mode for the redesign (docs/design/DECISIONS.md, "Dark mode"). Follows the device setting.
+ * These are the hand-tuned dark values of app/design-tokens.css. Surfaces rise as they nest:
+ * the page is darkest, rails and columns sit a step up, cards and paper a step above that, and
+ * hover/selected tints above the card. Ink is warm off-white, never pure white. Stage colors keep
+ * their hue: tiles and washes go deep, their ink goes light. Colors hardcoded elsewhere get their
+ * dark counterparts from scripts/design-dark.mjs (app/design-dark.generated.css).
+ */
+@media (prefers-color-scheme: dark) {
+  html[data-design="v2"] {
+    color-scheme: dark;
+
+    /* Text */
+    --color-ink: #e9ece8;
+    --color-ink-2: #c3cac4;
+    --color-ink-muted: #969f98;
+
+    /* Surfaces */
+    --color-page: #131614;
+    --color-sheet: #181c19;
+    --color-column: #1a1e1b;
+    --color-paper: #232824;
+    --color-segment: #2e342f;
+    --color-segment-count: #353c36;
+    --color-count: #2e342f;
+    --color-sheet-border: #2c322d;
+    --color-card-border: #313833;
+    --color-control-border: #3c443e;
+    --color-paper-rule: #2a302b;
+    --color-track: #2d342e;
+    --color-folder: #2b281f;
+    --color-folder-edge: #4a4332;
+
+    /* Brand and primary action */
+    --color-primary: #13876f;
+    --color-primary-hover: #18a085;
+    --color-primary-soft: #15302a;
+    --color-focus: #43c9a6;
+    --color-link: #74d1a8;
+    --color-action: #23795c;
+    --color-on-fill: #f3f8f5;
+
+    /* Stage families */
+    --color-stage-green: #86d3a8;
+    --color-stage-green-tile: #1a2e23;
+    --color-stage-green-border: #2a4636;
+    --color-stage-blue: #a3b8f2;
+    --color-stage-blue-tile: #1d2438;
+    --color-stage-blue-border: #2e3a5c;
+    --color-stage-orange: #f0a680;
+    --color-stage-orange-tile: #33241b;
+    --color-stage-orange-border: #4f3627;
+    --color-stage-rose: #f0a4b0;
+    --color-stage-rose-tile: #331f24;
+    --color-stage-rose-border: #512f37;
+    --color-stage-amber: #e8c27c;
+    --color-stage-amber-tile: #2f2818;
+    --color-stage-amber-border: #4b3f24;
+
+    /* Status */
+    --color-status-done: #6fcf97;
+    --color-status-done-soft: #1a2e23;
+    --color-status-pending: #969f98;
+    --color-status-in-progress: #a3b8f2;
+    --color-status-blocked: #f28b7f;
+
+    --color-warning: #e8b96a;
+    --color-warning-soft: #2d2616;
+    --color-danger: #f28b7f;
+    --color-danger-soft: #35201c;
+
+    /* Shadows read as depth, not smudges */
+    --shadow-sheet: 0 8px 30px rgb(0 0 0 / 0.35);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(255 255 255 / 0.02);
+    --shadow-card-hover: 0 8px 20px rgb(0 0 0 / 0.45);
+    --shadow-folder: 0 2px 6px rgb(0 0 0 / 0.35);
+    --shadow-folder-lift: 0 14px 28px rgb(0 0 0 / 0.5);
+    --shadow-popover: 0 16px 40px rgb(0 0 0 / 0.55);
+
+    /* Washes */
+    --page-ground: linear-gradient(135deg, #131614 0%, #151816 55%, #171915 100%);
+    --folder-tab: linear-gradient(180deg, #2f2b21 0%, #2b281f 100%);
+    --folder-body: linear-gradient(180deg, #2b281f 0%, #26231b 100%);
+    --stage-green-column: linear-gradient(180deg, #1c3024 0%, #18241d 100%);
+    --stage-blue-column: linear-gradient(180deg, #1d263d 0%, #192030 100%);
+    --stage-orange-column: linear-gradient(180deg, #33251b 0%, #271e18 100%);
+    --stage-rose-column: linear-gradient(180deg, #352228 0%, #291c21 100%);
+    --stage-amber-column: linear-gradient(180deg, #342b19 0%, #282216 100%);
+
+    /* Legacy variables still read by shared classes */
+    --pipeline-green: #13876f;
+    --pipeline-green-hover: #18a085;
+    --pipeline-green-soft: #15302a;
+    --pipeline-ink: #e9ece8;
+    --pipeline-body: #c3cac4;
+    --pipeline-muted: #a7afa9;
+    --pipeline-subtle: #969f98;
+    --pipeline-rule: #2e3530;
+    --pipeline-rule-strong: #c3cac4;
+    --pipeline-canvas: var(--color-page);
+    --pipeline-surface: var(--color-sheet);
+    --pipeline-surface-edge: #3c443e;
+  }
+
+  html[data-design="v2"] body { background: var(--color-page); color: var(--color-ink); }
+  html[data-design="v2"] ::selection { background: #2c5a4c; color: var(--color-ink); }
+  /* Logos drawn for white paper sit on a soft light chip rather than being inverted. */
+  html[data-design="v2"] img[src$="alamo-health-management.png"] { mix-blend-mode: normal; border-radius: var(--radius-chip); background: #f3f1ea; }
+}

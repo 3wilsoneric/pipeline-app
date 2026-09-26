@@ -38,6 +38,7 @@
     "check:hygiene": "node scripts/code-hygiene-audit.mjs",
     "design:check": "node scripts/design-token-ratchet.mjs",
     "design:baseline": "node scripts/design-token-ratchet.mjs --write-baseline",
+    "design:dark": "node scripts/design-dark.mjs",
     "audit:repository": "node scripts/complete-repository-audit.mjs",
     "check:platform": "node scripts/platform-readiness.mjs",
     "check:platform:fast": "node scripts/platform-readiness.mjs --skip-build",

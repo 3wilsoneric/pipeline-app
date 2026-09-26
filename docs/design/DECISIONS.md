@@ -124,6 +124,15 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The chart thumbnail sits on paper instead of a green tile. The browsing list's active item uses the rail's green tint.
 - No wording changes.
 
+## Dark mode (owner, 2026-09-26)
+
+- Redesign only. It follows the device's appearance setting (prefers-color-scheme), so there is no toggle and no new wording.
+- Hand-tuned dark token values live in `app/design-dark.css`. Surfaces rise as they nest: the page is darkest, rails and step washes a step up, cards above that, and hover and selected tints above the card. Ink is warm off-white. Stage colors keep their hue: tiles and washes go deep, stage ink goes light.
+- Filled buttons use `--color-action` with `--color-on-fill` text, not the link color, so they stay a solid green with light text in the dark. In light mode these equal the old values.
+- Everything that still hardcodes a light color (component classes, stylesheet hex, SVG fills) gets a generated counterpart from `scripts/design-dark.mjs`, chosen by role (background, text, border, shadow) in OKLCH. Run `npm run design:dark` after changing styles; `check:platform:fast` fails when it is stale. The token ratchet counts neither the dark tokens nor the generated output.
+- The Alamo logo sits on a small light chip in the dark rather than being inverted.
+- Fix for both themes: inside the record layout the chart review's own wrappers are transparent, so the step wash shows between the Chart cards.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.
