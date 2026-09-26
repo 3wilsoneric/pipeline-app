@@ -33,7 +33,7 @@ test("the first editable assessment frame retains immediate input", async ({ pag
   await expect(page.getByRole("region", { name: "Recorded answers", exact: true })).toContainText("Synthetic immediate answer");
 });
 
-test("partial dropped batch retries without duplicating committed files and retains same-name revisions", async ({ page }, info) => {
+for (const refreshFails of [false, true]) test(`partial dropped batch retries without duplicates and retains same-name revisions${refreshFails ? " after a failed chart refresh" : ""}`, async ({ page }, info) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic upload interruption", owner: "", tags: [], documentName: "", documentStatus: "Missing" });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
   await page.getByRole("button", { name: "Workspace files", exact: true }).click();
@@ -41,7 +41,14 @@ test("partial dropped batch retries without duplicating committed files and reta
   const first = { name: "medication-list.txt", text: "Synthetic medication note, first revision." };
   const second = { name: "tb-results.txt", text: "Synthetic second document, original bytes." };
   let completions = 0;
+  let changePollCompleted = false;
+  page.on("response", (response) => {
+    if (completions >= 2 && new URL(response.url()).pathname === `/api/referrals/${referral.id}`
+      && response.request().method() === "GET" && response.ok()) changePollCompleted = true;
+  });
   const bodies: unknown[] = [];
+  if (refreshFails) await page.route(`**/api/referrals/${referral.id}/canvas`, (route) => completions > 2
+    ? route.fulfill({ status: 503, json: { error: "Synthetic chart refresh outage" } }) : route.continue());
   await page.route("**/api/uploads/complete", async (route) => {
     completions++;
     bodies.push(route.request().postDataJSON());
@@ -56,17 +63,28 @@ test("partial dropped batch retries without duplicating committed files and reta
   const retry = page.getByRole("button", { name: "Retry saving", exact: true });
   await expect(retry).toBeVisible();
   const notice = page.getByTestId("workspace-save-status").getByRole("alert");
-  await expect(notice).toHaveCSS("font-size", "14px");
-  await expect(notice).toHaveCSS("color", "rgb(147, 56, 45)");
+  // Keep readability failures visible without preventing the recovery assertions.
+  await expect.soft(notice).toHaveCSS("font-size", "14px");
+  await expect.soft(notice).toHaveCSS("color", "rgb(147, 56, 45)");
   expect(bodies[1]).toEqual(bodies[0]);
   expect((await inventory()).map((file) => file.name)).toEqual([first.name]);
   await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText(second.name);
   await expect(page.getByRole("list", { name: "Queued referral files" })).not.toContainText(first.name);
+  if (refreshFails) {
+    await expect(page.getByRole("status").filter({ hasText: "The file change was saved." })).toBeVisible();
+    // Exercise the change poll catching up with the completed file while a
+    // second file is still queued. It must not invent a conflicting local edit.
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect.poll(() => changePollCompleted).toBe(true);
+    await page.unroute(`**/api/referrals/${referral.id}/canvas`);
+  }
   await page.screenshot({ path: info.outputPath("partial-upload-retry.png") });
   await page.unroute("**/api/uploads/complete");
   await retry.click();
   await expect.poll(async () => (await inventory()).length).toBe(2);
   await expect(retry).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Queued referral files" })).toHaveCount(0);
+  await expect(page.getByText("Resolve the remote field changes before saving.", { exact: true })).toHaveCount(0);
   await page.reload();
   for (const expected of [first, second]) {
     const file = (await inventory()).find((file) => file.name === expected.name)!;

@@ -1,5 +1,6 @@
 import { chromium, expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
+import { editPreparedAnswer } from "./support/assessment-navigation";
 
 for (const [browserName, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
 test.describe(browserName, () => {
@@ -11,7 +12,7 @@ for (const width of [1440, 1024, 768, 640]) {
     const page = await browser.newPage({ baseURL });
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=prepare&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
+    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
     const bar = page.getByRole("navigation", { name: "Assessment sections", exact: true });
     const section = bar.getByRole("combobox", { name: "Assessment section", exact: true });
     const progress = bar.getByRole("status");
@@ -19,8 +20,8 @@ for (const width of [1440, 1024, 768, 640]) {
     const previous = paging.getByRole("button", { name: "Previous section", exact: true });
     const next = paging.getByRole("button", { name: "Next section", exact: true });
     const reference = page.getByRole("complementary", { name: "Current information", exact: true });
-    await expect(progress).toHaveText("1 unanswered");
-    await expect(bar).toContainText("Section 2 of 12");
+    await expect(progress).toHaveText("2 / 2 recorded");
+    await expect(bar.getByLabel("Section 2 of 12", { exact: true })).toBeVisible();
     await expect(section.locator("option:checked")).toHaveText("How things are now");
     await expect(bar.locator('input, summary')).toHaveCount(0);
     await expect(reference.getByRole("combobox")).toHaveCount(0);
@@ -29,10 +30,11 @@ for (const width of [1440, 1024, 768, 640]) {
     await page.screenshot({ path: info.outputPath(`section-bar-${width}.png`) });
 
     const order = await section.locator("option").evaluateAll((items) => items.map((item) => (item as HTMLOptionElement).value));
-    const answer = page.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    await editPreparedAnswer(page, "Current symptoms");
+    const answer = page.getByRole("textbox", { name: "Current symptoms", exact: true });
     await answer.fill("Synthetic documented answer");
     await answer.blur();
-    await expect(progress).toHaveText("Complete");
+    await expect(progress).toHaveText("2 / 2 recorded");
     expect(await section.locator("option").evaluateAll((items) => items.map((item) => (item as HTMLOptionElement).value))).toEqual(order);
 
     // Completed sections stay in place. Back and Next are exact inverses.
@@ -41,9 +43,9 @@ for (const width of [1440, 1024, 768, 640]) {
     await expect(previous).toBeDisabled();
     await next.click();
     await expect(section).toHaveValue("diagnosis_clinical");
-    await expect(progress).toHaveText("Complete");
+    await expect(progress).toHaveText("2 / 2 recorded");
     if (width < 960) await reference.getByRole("button", { name: "Current information", exact: true }).click();
-    const recorded = reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true });
+    const recorded = reference.getByRole("button", { name: "Edit Current symptoms", exact: true });
     await expect(recorded).toContainText("Synthetic documented answer");
     await recorded.click();
     await expect(answer).toBeFocused();
@@ -51,7 +53,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await next.click();
     await expect(section).toHaveValue("functional_adl");
     await expect(reference).not.toContainText("Synthetic documented answer");
-    await expect(bar).toContainText("Section 3 of 12");
+    await expect(bar.getByLabel("Section 3 of 12", { exact: true })).toBeVisible();
     await previous.click();
     await expect(section).toHaveValue("diagnosis_clinical");
     await section.selectOption("legal_conservatorship");
@@ -61,7 +63,7 @@ for (const width of [1440, 1024, 768, 640]) {
       expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
     await section.selectOption("provenance_qc");
-    await expect(bar).toContainText("Section 12 of 12");
+    await expect(bar.getByLabel("Section 12 of 12", { exact: true })).toBeVisible();
     await expect(paging.getByRole("button", { name: "Review assessment", exact: true })).toBeVisible();
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
@@ -79,31 +81,35 @@ for (const width of [390, 320]) {
     try {
     const page = await browser.newPage({ baseURL, hasTouch: true, isMobile: true });
     await page.setViewportSize({ width, height: 800 });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=prepare&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
+    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
     const interview = page.locator("[data-phone-interview]");
-    await expect(interview).toContainText("Section 2 of 12");
+    await expect(interview.getByRole("button", { name: "Choose questionnaire section" })).toHaveAttribute("title", /^Section 2 of 12:/);
+    await editPreparedAnswer(page, "Current symptoms");
     await expect(interview).toContainText("Question 1 of 1");
-    await interview.getByRole("textbox", { name: "Secondary diagnosis", exact: true }).fill("Synthetic mobile section note");
+    await interview.getByRole("textbox", { name: "Current symptoms", exact: true }).fill("Synthetic mobile section note");
     await interview.getByRole("button", { name: "Next section", exact: true }).click();
-    await expect(interview).toContainText("Section 3 of 12");
+    await expect(interview.getByRole("button", { name: "Choose questionnaire section" })).toHaveAttribute("title", /^Section 3 of 12:/);
     await interview.getByRole("button", { name: "Client info", exact: true }).click();
     const reference = page.getByRole("dialog", { name: "Client information", exact: true });
+    // The reference filter is remembered; explicitly choose this section after
+    // editing through the all-sections reference helper.
+    await reference.getByRole("combobox", { name: "Reference information", exact: true }).selectOption("section");
     await expect(reference).not.toContainText("Synthetic mobile section note");
     await expect(reference.getByRole("combobox", { name: "Reference information", exact: true })).toHaveValue("section");
     await page.keyboard.press("Escape");
     await expect(interview.getByRole("button", { name: "Client info", exact: true })).toBeFocused();
     await interview.getByRole("button", { name: "Previous question", exact: true }).click();
-    await expect(interview).toContainText("Section 2 of 12");
+    await expect(interview.getByRole("button", { name: "Choose questionnaire section" })).toHaveAttribute("title", /^Section 2 of 12:/);
     await interview.getByRole("button", { name: "Client info", exact: true }).click();
     await expect(reference).toContainText("Synthetic mobile section note");
-    await reference.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
-    await expect(interview.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).toHaveValue("Synthetic mobile section note");
+    await reference.getByRole("button", { name: "Review Current symptoms", exact: true }).click();
+    await expect(interview.getByRole("textbox", { name: "Current symptoms", exact: true })).toHaveValue("Synthetic mobile section note");
     await interview.getByRole("button", { name: "Choose questionnaire section" }).click();
     const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
     await expect(sections.getByRole("searchbox", { name: "Find a question", exact: true })).toBeVisible();
     await expect(sections.locator('[aria-current="step"]')).toContainText("2. How things are now");
     await sections.getByRole("button", { name: /^7\. Recent care and history/ }).click();
-    await expect(interview).toContainText("Section 7 of 12");
+    await expect(interview.getByRole("button", { name: "Choose questionnaire section" })).toHaveAttribute("title", /^Section 7 of 12:/);
     await expect(interview.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`phone-navigation-${width}.png`) });

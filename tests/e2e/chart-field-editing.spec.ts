@@ -74,6 +74,76 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
   }
 }
 
+for (const width of [1440, 390]) {
+  test(`keyboard chart edits can clear and refill intake values at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+      name: `Example Clear ${randomUUID()}`, dob: "1981-07-09", phone: "555-0101", email: "before@example.invalid", owner: "Annette Everhart",
+    }, { assigneeId: "provisional:allo:annette" });
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+    const chart = page.getByRole("article", { name: "Referral chart", exact: true });
+    const fields = [["Date of birth", "dob"], ["Phone", "phone"], ["Email", "email"]] as const;
+    for (const [label, key] of fields) {
+      const pencil = chart.getByRole("button", { name: `Edit ${label}`, exact: true });
+      await pencil.focus();
+      await pencil.press(key === "phone" ? "Space" : "Enter");
+      const input = page.locator(`[data-workspace-field="${key}"] input`);
+      await expect(input).toBeFocused();
+      await input.fill("");
+      await page.getByRole("button", { name: "Done", exact: true }).click();
+      await expect(chart.locator(`[data-chart-field="${label}"] dd`)).toHaveText("Not documented");
+      await expect(pencil).toBeFocused();
+    }
+    const read = async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+    await expect.poll(read).toMatchObject({ dob: "", phone: "", email: "" });
+    await page.reload();
+    for (const [label] of fields) {
+      await expect(chart.locator(`[data-chart-field="${label}"] dd`)).toHaveText("Not documented");
+    }
+    await chart.getByRole("button", { name: "Edit Phone", exact: true }).click();
+    await page.locator('[data-workspace-field="phone"] input').fill("555-0199");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(chart.locator('[data-chart-field="Phone"] dd')).toHaveText("555-0199");
+    await expect.poll(read).toMatchObject({ dob: "", phone: "555-0199", email: "" });
+  });
+}
+
+test("a failed pencil edit survives returning to the chart and retries the newest value", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Example Retry ${randomUUID()}`, phone: "555-0101", owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+  const chart = page.getByRole("article", { name: "Referral chart", exact: true });
+  const read = async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+  await page.route(`**/api/referrals/${referral.id}`, (route) => route.request().method() === "PATCH"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic pencil save unavailable" } }) : route.continue());
+  await chart.getByRole("button", { name: "Edit Phone", exact: true }).click();
+  const phone = page.locator('[data-workspace-field="phone"] input');
+  await phone.fill("555-0133");
+  await phone.blur();
+  await expect(page.getByTestId("workspace-save-status").getByRole("alert")).toContainText("Synthetic pencil save unavailable");
+  expect((await read()).phone).toBe("555-0101");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(chart).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toBeEnabled();
+  await chart.getByRole("button", { name: "Edit Phone", exact: true }).click();
+  await expect(phone).toHaveValue("555-0133");
+  const rejectedSave = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/referrals/${referral.id}` && response.request().method() === "PATCH");
+  await phone.fill("555-0144");
+  await phone.blur();
+  expect((await rejectedSave).status()).toBe(503);
+  await expect(page.getByTestId("workspace-save-status").getByRole("alert")).toContainText("Synthetic pencil save unavailable");
+  expect((await read()).phone).toBe("555-0101");
+  await page.unroute(`**/api/referrals/${referral.id}`);
+  await page.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect.poll(read).toMatchObject({ phone: "555-0144" });
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(chart.locator('[data-chart-field="Phone"] dd')).toHaveText("555-0144");
+  await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(chart.locator('[data-chart-field="Phone"] dd')).toHaveText("555-0144");
+});
+
 test("an assessment chart pencil resumes its exact answer and saves it back to the chart", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
   const assessment = await createOperationalAssessment(page.request, referral.id);

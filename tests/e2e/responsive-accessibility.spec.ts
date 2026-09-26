@@ -89,7 +89,7 @@ test.describe("Responsive and accessible application shell", () => {
     await page.getByRole("button", { name: "Create referral", exact: true }).click();
     await expect(page).toHaveURL(/referralId=\d+/);
     const createdDialog = page.getByRole("dialog", { name: "Workspace created" });
-    if (await createdDialog.isVisible()) await createdDialog.getByRole("button", { name: "Close workspace created" }).click();
+    await createdDialog.getByRole("button", { name: "Close workspace created" }).click();
     if (compactSteps) await stepSelect.selectOption({ label: "Assessment" });
     else await page.getByRole("button", { name: "Assessment", exact: true }).click();
     await expect(page.getByRole("region", { name: "Assessment", exact: true })).toBeVisible();

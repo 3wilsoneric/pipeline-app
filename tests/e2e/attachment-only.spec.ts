@@ -46,6 +46,7 @@ for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}:
     expect(saved.name).toBe(name);
     expect(saved.dob ?? "").toBe("");
     expect(saved.packetFields ?? []).toHaveLength(0);
+    await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).click();
     await page.reload();
     if (phone) await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Files" });
     else await page.getByRole("button", { name: "Workspace files", exact: true }).click();
@@ -69,6 +70,12 @@ for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}:
       if (filename.endsWith(".docx")) {
         await expect(preview.getByText("This file type opens in its original application.")).toBeVisible();
         await expect(preview.locator("iframe")).toHaveCount(0);
+      } else if (filename.endsWith(".png")) {
+        const image = preview.getByRole("img", { name: `Preview ${filename}`, exact: true });
+        await expect(image).toBeVisible();
+        await expect.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBe(160);
+        const src = await image.getAttribute("src");
+        expect((await page.request.get(src!)).ok()).toBeTruthy();
       } else {
         await expect(preview.locator("iframe")).toBeVisible();
         const src = await preview.locator("iframe").getAttribute("src");

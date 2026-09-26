@@ -71,13 +71,13 @@ test("saved Outlook connection survives a failed verification and renews an expi
   await expect(settings.getByRole("button", { name: "Connect Outlook", exact: true })).toHaveCount(0);
   const before = checks;
   await page.goto("/?view=referrals");
-  await expect.poll(() => checks).toBeGreaterThan(before);
+  await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
+  expect(checks).toBe(before); // New handoffs use Alamo Admissions, not a global Outlook prompt.
   await expect(page.getByRole("dialog", { name: "Connect your Outlook", exact: true })).toHaveCount(0);
   status = 200;
   await page.clock.setFixedTime(new Date(Date.now() + 70 * 60 * 1000));
-  await page.evaluate(() => window.dispatchEvent(new Event("online")));
-  await expect.poll(tokenRequests).toBeGreaterThan(firstTokens);
   await page.goto("/settings");
+  await expect.poll(tokenRequests).toBeGreaterThan(firstTokens);
   await expect(settings).toContainText("Outlook is connected");
   expect(popups).toBe(0);
 });
@@ -93,38 +93,31 @@ test("the static Outlook callback supports same-origin restoration while app pag
   expect(app.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
 });
 
-for (const width of [1440, 834, 390, 320]) test(`Outlook is offered before a handoff with a dismissible prompt at ${width}px`, async ({ page, context }, info) => {
+for (const width of [1440, 834, 390, 320]) test(`Outlook remains optional and available in settings at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 850 });
   await unconnectedOutlook(page);
   let popups = 0;
   page.on("popup", () => { popups++; });
   await page.goto("/?view=referrals");
-  const dialog = page.getByRole("dialog", { name: "Connect your Outlook", exact: true });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Connect Outlook", exact: true })).toBeEnabled();
-  await expect(dialog).toContainText(setup.account_email);
-  expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-  await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
-  const violations = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-    return (await axe.run('dialog[aria-label="Connect your Outlook"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
-  });
-  expect(violations).toEqual([]);
-  await page.screenshot({ path: info.outputPath(`outlook-prompt-${width}.png`), animations: "disabled" });
-  await dialog.getByRole("button", { name: "Connect later", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
-  await page.reload(); await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
-  await expect(dialog).toHaveCount(0);
-  expect(popups).toBe(0);
-  const nextVisit = await context.newPage();
-  await unconnectedOutlook(nextVisit);
-  await nextVisit.goto("/?view=referrals");
-  await expect(nextVisit.getByRole("dialog", { name: "Connect your Outlook", exact: true })).toBeVisible();
-  await nextVisit.close();
+  await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Connect your Outlook", exact: true })).toHaveCount(0);
   await page.goto("/settings");
   const settings = page.getByRole("region", { name: "Outlook connection", exact: true });
   await expect(settings.getByRole("button", { name: "Connect Outlook", exact: true })).toBeEnabled();
-  await expect(dialog).toHaveCount(0);
+  await expect(settings).toContainText(setup.account_email);
+  await expect(settings).toContainText("New handoffs send from Alamo Admissions");
+  expect(await settings.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+  const violations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+    return (await axe.run('[aria-label="Outlook connection"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
+  });
+  expect(violations).toEqual([]);
+  await page.screenshot({ path: info.outputPath(`outlook-settings-${width}.png`), animations: "disabled" });
+  await page.goto("/?view=referrals");
+  await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Connect your Outlook", exact: true })).toHaveCount(0);
+  expect(popups).toBe(0);
 });
 
 test("demo and delegated accounts do not receive a live connection prompt", async ({ page }) => {

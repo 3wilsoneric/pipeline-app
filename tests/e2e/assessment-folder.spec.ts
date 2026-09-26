@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
+import { editPreparedAnswer } from "./support/assessment-navigation";
 
 async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared diagnosis") {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
@@ -25,20 +26,15 @@ async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared d
 }
 
 async function editDiagnosis(page: Page, width: number) {
-  if (width < 640) {
-    await page.getByRole("button", { name: "Client info", exact: true }).click();
-    await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
-  } else {
-    if (width < 960) await page.getByRole("button", { name: /^Current information/ }).click();
-    await page.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
-  }
+  expect(page.viewportSize()!.width).toBe(width);
+  await editPreparedAnswer(page, "Secondary diagnosis");
   return page.locator("#assessment-secondary_diagnoses");
 }
 
 function workspaceReturn(page: Page) {
   return page.viewportSize()!.width < 640
     ? page.getByRole("button", { name: "Back to previous page", exact: true })
-    : page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true });
+    : page.getByRole("button", { name: "Open referrals", exact: true });
 }
 
 async function openStage(page: Page, label: string) {
@@ -116,6 +112,9 @@ for (const width of [1440, 1024, 768, 640]) {
     const questionPage = folder.locator("[data-assessment-question-page]");
     const reference = folder.getByRole("complementary", { name: "Current information" });
     if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
+    // Collapsing the reference can shorten the page below its previous scroll
+    // position. Start the second wheel probe at the top of the current layout.
+    await canvas.evaluate((el) => { el.scrollTop = 0; });
     const recorded = reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true });
     await expect(recorded).toContainText(longNote);
     expect(await recorded.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
@@ -128,6 +127,7 @@ for (const width of [1440, 1024, 768, 640]) {
     await page.mouse.wheel(0, 200);
     await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(100);
     if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
+    await canvas.evaluate((el) => { el.scrollTop = 0; });
     const afterLeft = await canvas.evaluate((el) => el.scrollTop);
     const right = (await questionPage.boundingBox())!;
     await page.mouse.move(right.x + right.width / 2, Math.max(220, right.y + 40));
@@ -160,7 +160,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     await expect(folder).toHaveCSS("background-image", "none");
     const titleBox = (await header.getByRole("heading").boundingBox())!;
     const backBox = (await back.boundingBox())!;
-    if (width >= 640) expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(backBox.x);
+    if (width >= 640) expect(backBox.x + backBox.width).toBeLessThanOrEqual(titleBox.x);
     else expect(backBox.y + backBox.height).toBeLessThanOrEqual(titleBox.y);
     expect(backBox.height).toBeGreaterThanOrEqual(44);
     expect(backBox.x + backBox.width).toBeLessThanOrEqual(width);
@@ -179,7 +179,10 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
       await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     }
     if (width < 640) {
-      await folder.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: "Next", exact: true }).click();
+      await folder.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+      const picker = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
+      await picker.getByRole("searchbox", { name: "Find a question" }).fill("Current symptoms");
+      await picker.getByRole("button", { name: /^Current symptoms/ }).click();
       await expect(folder.getByRole("textbox", { name: "Current symptoms", exact: true })).toBeVisible();
     }
     await header.evaluate((el) => el.setAttribute("data-continuity-check", "same-folder"));
@@ -209,7 +212,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
 }
 
 for (const width of [1440, 390]) {
-  test(`return stays in the folder on save failure and safely retries at ${width}px`, async ({ page }) => {
+  test(`return remains available when all saves fail and retains work in the open tab at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const { assessment, folder } = await openFolder(page);
     const field = await editDiagnosis(page, width);
@@ -218,23 +221,23 @@ for (const width of [1440, 390]) {
       ? route.fulfill({ status: 503, json: { error: "Synthetic save unavailable" } })
       : route.continue());
     await page.route(`**/api/me/assessment-drafts/${assessment.assessment_id}`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic recovery unavailable" } }));
-    // Refuse all three persistence paths, not just the canonical PATCH. A confirmed
-    // encrypted or server recovery copy normally permits navigation by design.
+    // Refuse all persistence paths: navigation must still work, but the UI must
+    // truthfully warn that the remaining recovery copy is only in this open tab.
     await page.evaluate(() => {
       IDBDatabase.prototype.transaction = () => { throw new DOMException("Synthetic storage unavailable", "QuotaExceededError"); };
     });
     await field.fill("Synthetic answer retained after failed save");
     const back = workspaceReturn(page);
     await back.click();
-    await expect(folder.getByRole("alert")).toBeVisible();
-    await expect(folder).toBeVisible();
-    await expect(field).toHaveValue("Synthetic answer retained after failed save");
-    await expect(back).toBeEnabled();
+    await expect(page).not.toHaveURL(/screen=packet/);
+    await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
+    await page.goBack();
+    await openStage(page, "Assessment");
+    await expect(await editDiagnosis(page, width)).toHaveValue("Synthetic answer retained after failed save");
     await page.unroute(endpoint);
     await back.click();
     await expect(folder).toHaveCount(0);
     await expect(page).not.toHaveURL(/screen=packet/);
-    const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
-    expect(saved.secondary_diagnoses).toEqual(["Synthetic answer retained after failed save"]);
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Synthetic answer retained after failed save"]);
   });
 }

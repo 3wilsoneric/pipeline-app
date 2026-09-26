@@ -80,8 +80,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
   } });
   expect(scheduled.status(), await scheduled.text()).toBe(200);
   await page.goto(`/?screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
-  await page.getByRole("button", { name: "Begin assessment", exact: true }).click();
-  await page.getByRole("dialog", { name: "Begin assessment", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).click();
+  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true }).click();
   const chart = page.locator('[data-assessment-view="assessment"]');
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   for (const width of [320, 390, 768, 1024, 1440]) {
@@ -95,11 +94,11 @@ test("assessment can return to Intake, add documents and resume the same saved i
     await page.screenshot({ path: testInfo.outputPath(`assessment-chart-header-${width}.png`) });
   }
   await chart.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-  const answer = chart.getByRole("textbox", { name: /Prior 5150/ });
+  const answer = chart.getByRole("textbox", { name: "Crisis / ER utilization" });
   await answer.fill("Synthetic answer kept while updating intake and adding a document.");
   await stages.getByRole("button", { name: "Chart", exact: true }).click();
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
-  await expect(chart).toHaveCount(0);
+  await expect(chart).toBeHidden();
   const intake = page.getByTestId("intake-client-folder");
   await expect(intake).toBeVisible();
   const phoneSaved = page.waitForResponse((response) => response.url().endsWith(`/api/referrals/${referral.id}`) && response.request().method() === "PATCH" && response.ok());
@@ -118,11 +117,11 @@ test("assessment can return to Intake, add documents and resume the same saved i
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.scheduled_start_at).toBe(scheduledStart);
   expect(new Date(saved.started_at).getTime()).toBeLessThan(new Date(scheduledStart).getTime());
-  expect(saved.prior_5150_5250_holds).toContain("Synthetic answer kept");
+  expect(saved.crisis_er_utilization).toContain("Synthetic answer kept");
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment/ }).click();
   await expect(chart).toBeVisible();
   await chart.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-  await chart.getByRole("button", { name: /Edit Prior 5150/ }).click();
+  await chart.getByRole("button", { name: "Edit Crisis / ER utilization" }).click();
   await expect(answer).toHaveValue("Synthetic answer kept while updating intake and adding a document.");
   await stages.getByRole("button", { name: "Chart", exact: true }).click();
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
@@ -131,7 +130,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
   expect(resumed.assessment_id).toBe(assessment.assessment_id);
   expect(resumed.started_at).toBe(saved.started_at);
   expect(resumed.scheduled_start_at).toBe(saved.scheduled_start_at);
-  expect(resumed.prior_5150_5250_holds).toBe(saved.prior_5150_5250_holds);
+  expect(resumed.crisis_er_utilization).toBe(saved.crisis_er_utilization);
   const assessments = (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
   expect(assessments).toHaveLength(1);
 });
@@ -149,6 +148,7 @@ for (const width of [390, 1440]) {
       await expect(hopper.getByRole("button", { name: `Open ${item.client_name}`, exact: true })).toBeVisible();
     }
     await expect(hopper.getByRole("button", { name: "Open Quinn Patel", exact: true })).toContainText("Documents needed2");
+    if (width < 1024) await hopper.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("in_progress");
     await expect(hopper.getByRole("button", { name: "Open Casey Brooks", exact: true })).toContainText("Update the medication details");
     expect(await page.locator("[data-home-module]").count()).toBe(1);
     expect(await hopper.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -194,7 +194,7 @@ for (const failure of [false, true]) {
     const second = await createReferral(page.request);
     await mockHopper(page, [first, second]);
     await page.goto(`/?screen=packet&referralId=${first.id}&workspaceStage=intake&workspaceField=name`);
-    const open = page.getByRole("button", { name: "Workspaces", exact: true });
+    const open = page.getByRole("button", { name: "Open referrals", exact: true });
     await expect(open).toBeVisible();
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -301,25 +301,25 @@ test("desktop and phone assessments keep answers and position after using the wo
   await expect(chart).toBeVisible();
   const section = chart.getByRole("combobox", { name: "Assessment section", exact: true });
   await section.selectOption("prior_history");
-  const answer = chart.getByRole("textbox", { name: /Prior 5150/ });
+  const answer = chart.getByRole("textbox", { name: "Crisis / ER utilization" });
   await answer.fill("Synthetic assessment answer preserved across the referral switcher.");
-  await page.getByRole("button", { name: "Workspaces", exact: true }).click();
+  await page.getByRole("button", { name: "Open referrals", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
-  expect(saved.prior_5150_5250_holds).toContain("Synthetic assessment answer preserved");
+  expect(saved.crisis_er_utilization).toContain("Synthetic assessment answer preserved");
   await page.goBack();
   await expect(chart).toBeVisible();
   await expect(section).toHaveValue("prior_history");
-  await chart.getByRole("button", { name: /Edit Prior 5150/ }).click();
+  await chart.getByRole("button", { name: "Edit Crisis / ER utilization" }).click();
   await expect(answer).toHaveValue("Synthetic assessment answer preserved across the referral switcher.");
   await page.setViewportSize({ width: 320, height: 900 });
   const phone = page.locator("[data-phone-interview]");
   await expect(phone).toBeVisible();
   await phone.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
-  await picker.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Prior 5150");
-  await picker.getByRole("button", { name: /Prior 5150/ }).click();
-  await expect(phone.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Synthetic assessment answer preserved across the referral switcher.");
+  await picker.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Crisis / ER utilization");
+  await picker.getByRole("button", { name: "Crisis / ER utilization" }).click();
+  await expect(phone.getByRole("textbox", { name: "Crisis / ER utilization" })).toHaveValue("Synthetic assessment answer preserved across the referral switcher.");
   expect(await phone.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("assessment-phone-resume.png") });
 

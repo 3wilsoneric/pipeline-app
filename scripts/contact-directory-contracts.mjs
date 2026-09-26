@@ -104,13 +104,14 @@ check("contact UI supports search, reuse, edit, primary selection, and unlink",
   && card.includes("Save contact")
   && card.includes("Remove ${contactDisplayName"));
 
-check("scheduling rejects incomplete Intake and unreachable contact state before mutation",
-  scheduleRoute.indexOf("assessmentSchedulingReadinessFailure") < scheduleRoute.indexOf("saveAssessmentSchedule")
-  && scheduleRoute.includes("schedulingBlockers")
+check("scheduling preserves incomplete Intake and unavailable contacts as warnings while saving the appointment",
+  scheduleRoute.includes("const warnings = await assessmentSchedulingAlerts")
+  && scheduleRoute.includes("return saveAssessmentSchedule(assessmentId, command, actor, canOverride, warnings)")
   && scheduleRoute.includes("getContactSchedulingReadiness")
-  && scheduleRoute.includes("assessment_not_ready_to_schedule")
-  && scheduleRoute.includes('blockers.join(" ")'));
-check("calendar projection labels contact blockers and routes them back to Intake",
+  && scheduleRoute.includes("The appointment can still be saved.")
+  && scheduleRoute.includes("{ ...result, warnings }")
+  && !scheduleRoute.includes("assessment_not_ready_to_schedule"));
+check("calendar projection labels contact gaps and keeps the chart reachable",
   calendar.includes('"complete_contact"')
   && calendar.includes("primary_for_scheduling")
   && calendar.includes("r.data->>'phone'")
@@ -118,7 +119,8 @@ check("calendar projection labels contact blockers and routes them back to Intak
   && !calendar.includes("r.phone")
   && !calendar.includes("r.email")
   && calendarPresentation.includes('return "Contact needed"')
-  && calendarPresentation.includes('"Open intake"'));
+  && calendarPresentation.includes('onClick={onOpenChart}')
+  && calendarPresentation.includes('Open chart'));
 check("contact changes join the existing referral activity timeline",
   activity.includes("listLocalContactAuditEvents")
   && store.includes('"referral_contact_attached"')

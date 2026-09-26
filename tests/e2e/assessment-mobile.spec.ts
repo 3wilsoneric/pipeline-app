@@ -2,6 +2,7 @@ import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createOperationalReferral } from "./support/operational-api";
+import { editPreparedAnswer } from "./support/assessment-navigation";
 
 const practice = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1";
 const surface = (page: Page) => page.locator("[data-assessment-view]");
@@ -44,8 +45,8 @@ test.describe("mobile assessment", () => {
     await expect(assessment).toBeVisible();
     for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
-      const phone = size.width < 640 || size.height < 500 && size.width < 760;
-      const back = page.getByRole("button", { name: phone ? "Back to previous page" : "Pipeline home", exact: true });
+      const phone = size.width < 640 || size.height <= 500 && size.width < 960;
+      const back = page.getByRole("button", { name: phone ? "Back to previous page" : "Open referrals", exact: true });
       await expect(back).toBeInViewport();
       if (phone) {
         await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeHidden();
@@ -60,7 +61,8 @@ test.describe("mobile assessment", () => {
         expect(box.height).toBeGreaterThanOrEqual(44);
         expect(box.width).toBeGreaterThanOrEqual(44);
       }
-      const field = assessment.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+      const field = assessment.getByRole("textbox", { name: "Current symptoms", exact: true });
+      await editPreparedAnswer(page, "Current symptoms");
       await expect(field).toHaveCSS("font-size", phone ? "16px" : "17px");
       if (size.width >= 960 && !phone) {
         const reference = assessment.getByRole("complementary", { name: "Current information" });
@@ -75,12 +77,13 @@ test.describe("mobile assessment", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Expand navigation" })).toHaveAttribute("aria-expanded", "false");
     const reference = assessment.getByRole("complementary", { name: "Current information" });
+    await reference.getByRole("button", { name: /^Current information/ }).tap();
     await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
-    await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toBeVisible();
     const answer = assessment.getByRole("textbox", { name: "Current symptoms", exact: false });
     await expect(answer).toBeFocused();
     await expect(answer).toBeInViewport();
     await assessment.getByLabel("Assessment section", { exact: true }).selectOption("medication");
+    await reference.getByRole("button", { name: /^Current information/ }).tap();
     await reference.getByRole("button", { name: "Edit IM injections", exact: true }).tap();
     const choice = assessment.getByRole("group", { name: "IM injections", exact: true });
     for (const button of await choice.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(48);
@@ -100,7 +103,8 @@ test.describe("mobile assessment", () => {
 
   test("visual viewport contraction keeps editing above the keyboard without disabling zoom", async ({ page }) => {
     await page.goto(practice);
-    const field = surface(page).getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    await editPreparedAnswer(page, "Current symptoms");
+    const field = surface(page).getByRole("textbox", { name: "Current symptoms", exact: true });
     await field.fill("Synthetic answer stays mounted across keyboard and orientation changes.");
     // Simulate browser viewport events, not a physical OS keyboard.
     await page.evaluate(() => {
@@ -135,7 +139,7 @@ test.describe("mobile assessment", () => {
     // A landscape tablet is wider than the compact layout breakpoint but still
     // needs visual-viewport sizing when using its on-screen keyboard.
     await page.setViewportSize({ width: 1024, height: 768 });
-    await surface(page).getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).tap();
+    await surface(page).getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
     await page.evaluate(() => {
       Object.defineProperty(window.visualViewport!, "height", { configurable: true, value: 450 });
       window.visualViewport!.dispatchEvent(new Event("resize"));
@@ -153,20 +157,20 @@ test.describe("mobile assessment", () => {
     expect(started.status()).toBe(200);
     const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
-    await findPhoneQuestion(page, "Secondary diagnosis");
-    const field = surface(page).getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    await findPhoneQuestion(page, "Current symptoms");
+    const field = surface(page).getByRole("textbox", { name: "Current symptoms", exact: true });
     const answer = "Synthetic mobile assessment note";
     await field.fill(answer);
     await page.waitForTimeout(1200);
-    expect((await read()).secondary_diagnoses ?? []).toEqual([]);
+    expect((await read()).current_symptoms).toBeNull();
     await surface(page).getByRole("button", { name: "Next", exact: true }).tap();
-    await expect.poll(async () => (await read()).secondary_diagnoses).toEqual([answer]);
+    await expect.poll(async () => (await read()).current_symptoms).toBe(answer);
     await findPhoneQuestion(page, "IM injections");
-    await expect.poll(async () => (await read()).secondary_diagnoses).toEqual([answer]);
+    await expect.poll(async () => (await read()).current_symptoms).toBe(answer);
     await page.reload();
     await surface(page).getByRole("button", { name: "Client info", exact: true }).tap();
     await page.getByRole("dialog", { name: "Client information", exact: true }).getByLabel("Reference information").selectOption("all");
-    await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Secondary diagnosis", exact: true }).tap();
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Current symptoms", exact: true }).tap();
     await expect(field).toHaveValue(answer);
     await expect(field).toBeInViewport();
     const list = await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json();
@@ -198,7 +202,7 @@ test.describe("mobile assessment", () => {
   });
 });
 
-test("WebKit iPad keeps the reading pane open while editing and rotating", async ({ baseURL }, info) => {
+test("WebKit iPad retains answers and reference access while editing and rotating", async ({ baseURL }, info) => {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true });
@@ -206,7 +210,7 @@ test("WebKit iPad keeps the reading pane open while editing and rotating", async
     const assessment = surface(page);
     const reference = assessment.getByRole("complementary", { name: "Current information" });
     const editor = assessment.locator("[data-assessment-question-editor]");
-    await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
+    await editPreparedAnswer(page, "Current symptoms");
     const field = editor.getByRole("textbox", { name: "Current symptoms", exact: true });
     await expect(field).toBeFocused();
     await field.fill("Synthetic tablet note, retained when rotating.");
@@ -214,10 +218,12 @@ test("WebKit iPad keeps the reading pane open while editing and rotating", async
     await expect(reference).toContainText("Synthetic tablet note, retained when rotating.");
     for (const size of [{ width: 768, height: 1024 }, { width: 1194, height: 834 }]) {
       await page.setViewportSize(size);
+      if (!await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).isVisible()) await reference.getByRole("button", { name: "Current information", exact: true }).click();
       await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toBeInViewport();
       const left = (await reference.boundingBox())!;
       const right = (await editor.boundingBox())!;
-      expect(left.x + left.width).toBeLessThan(right.x);
+      if (size.width >= 960) expect(left.x + left.width).toBeLessThan(right.x);
+      else expect(left.y + left.height).toBeLessThanOrEqual(right.y);
       expect(await reference.evaluate((element) => element.scrollTop)).toBe(0);
       expect(await editor.evaluate((element) => element.scrollTop)).toBe(0);
       await expect(field).toHaveValue("Synthetic tablet note, retained when rotating.");
@@ -244,7 +250,7 @@ test("WebKit touch editing can find, edit and return to the same answer", async 
     await field.fill("Synthetic medication A");
     await field.blur();
     await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
-    await findPhoneQuestion(page, "Secondary diagnosis");
+    await findPhoneQuestion(page, "Current symptoms");
     await assessment.getByRole("button", { name: "Client info", exact: true }).tap();
     await page.getByRole("dialog", { name: "Client information", exact: true }).getByLabel("Reference information").selectOption("all");
     await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Medication refused", exact: true }).tap();

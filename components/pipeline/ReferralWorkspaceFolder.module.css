@@ -325,7 +325,7 @@
 .phoneWorkspace .phoneStagePicker { display: inline-flex; width: 100%; min-height: 44px; padding: 8px; border: 1px solid #dce6e0; border-radius: 7px; background: #f5f8f6; color: #1f664d; font-size: 16px; font-weight: 600; }
 .phoneWorkspace .actions { grid-column: 3; grid-row: 1; gap: 0; }
 .phoneWorkspace .actions > .createTab { flex-direction: column; gap: 0; width: 44px; min-width: 44px; padding: 0; overflow: hidden; font-size: 0; }
-.phoneWorkspace .actions > .createTab::before { content: "+"; font-size: 23px; line-height: 1; }
+.phoneWorkspace .actions > .createTab > svg { width: 20px; height: 20px; }
 .phoneWorkspace .actions > .createTab::after { content: "Intake"; font-size: 10px; line-height: 1.1; }
 .phoneWorkspace .header[data-reading-assessment] .createTab { display: none; }
 .phoneWorkspace .assessmentTools { margin: 0; }
