@@ -125,6 +125,7 @@ import { useDesignV2 } from "@/components/design/DesignSwitch";
 import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
 import InterviewContext from "@/components/pipeline/InterviewContext";
 import ChartPeek from "@/components/pipeline/ChartPeek";
+import InterviewNotebook, { InterviewNotebookReopen } from "@/components/pipeline/InterviewNotebook";
 import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
@@ -463,6 +464,14 @@ export default function AssessmentWorkspace({
   const preparationRequestedRef = useRef(false);
   const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string } | null>(null);
   const idleSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Interview notebook beside the questions; hidden or shown per person on this device.
+  const [notebookOpen, setNotebookOpen] = useState(() => {
+    try { return typeof window === "undefined" || window.localStorage.getItem("pipeline:notebook-hidden") !== "1"; } catch { return true; }
+  });
+  const showNotebook = (open: boolean) => {
+    setNotebookOpen(open);
+    try { window.localStorage.setItem("pipeline:notebook-hidden", open ? "0" : "1"); } catch { /* Preference only. */ }
+  };
   useEffect(() => () => clearTimeout(idleSaveTimerRef.current), []);
   const onActiveSectionChangeRef = useRef(onActiveSectionChange);
   const sectionRevisionRef = useRef(0);
@@ -2396,6 +2405,18 @@ export default function AssessmentWorkspace({
         </div>
       </HomeDialog> : null);
 
+  // Interview notebook (docs/design/DECISIONS.md, "Interview notebook"): beside the questions on wide
+  // screens, following the topic in view. Phones and practice keep the questions alone for now.
+  const notebookAvailable = designV2 && !phoneLayout && !trainingAssessmentMode;
+  const notebookTopic = stackedQuestionsView ? spySection : activeSection;
+  // Preparing has no side column, so the notebook sits to the right; the interview puts it in a tab
+  // beside Current information so the questions keep their width.
+  const renderNotebook = (onCollapse?: () => void) => <InterviewNotebook key={selected.assessment_id} assessmentId={selected.assessment_id} locked={Boolean(selected.signed_at) || !canEditClinical}
+    currentTopics={preparing ? preparationGroupForSection(notebookTopic).sections : [notebookTopic]} onCollapse={onCollapse} />;
+  const withNotebook = (content: ReactNode) => notebookAvailable && preparing ? <div className={workingStyles.withNotebook} data-notebook-open={notebookOpen || undefined}>
+    {content}
+    {notebookOpen ? renderNotebook(() => showNotebook(false)) : <InterviewNotebookReopen onOpen={() => showNotebook(true)} />}
+  </div> : content;
   const sectionSteps = <nav aria-label="Assessment section steps" className={`${workingStyles.sectionSteps} ${phoneLayout ? workingStyles.phonePreparationSteps : ""}`}>
     {stackedQuestionsView ? null : <>
     <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
@@ -2481,7 +2502,7 @@ export default function AssessmentWorkspace({
 
           {renderRemoteChanges()}
 
-          {reviewingChart ? renderChartReview() : <div data-assessment-question-content className={!phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
+          {reviewingChart ? renderChartReview() : withNotebook(<div data-assessment-question-content className={!phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
             {renderPhoneQuestionHeading()}
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <QuestionPage
@@ -2519,6 +2540,7 @@ export default function AssessmentWorkspace({
               priorAnswers={currentPriorAnswers}
               intakeAnswers={currentIntakeAnswers}
               onUsePriorAnswer={applyPriorAnswer}
+              notebook={notebookAvailable && !preparing ? renderNotebook() : undefined}
               interviewContext={designV2 && referral ? <InterviewContext key={referral.id} referralId={referral.id} summary={referral.note} /> : undefined}
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
               onReferenceEdit={(field) => {
@@ -2543,7 +2565,7 @@ export default function AssessmentWorkspace({
           </div>
               </details>
             ) : null}
-          </div>}
+          </div>)}
         </main>
 
       </div>

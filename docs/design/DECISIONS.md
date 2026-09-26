@@ -225,6 +225,15 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The assessor appears once, in the footer; with none it reads "Unassigned" in orange with an empty dashed avatar.
 - Columns take stronger tints (green, lavender, peach) and a dot in their color before the name.
 
+## Interview notebook (owner, 2026-09-26: notes "for the pre-interview and interview part"; part of the record: "yes")
+
+- The assessor's preparation and interview notes are part of the assessment record: anyone who can open the referral reads them, edits follow the assessment's own edit rule, every save is audited with the assessment (block, versions, length; not the text), and signing locks them (later changes go through an addendum).
+- Headings: Before the interview, one per interview topic, then Collateral and calls. The topic in view opens and is marked by itself, so notes land in the right place without filing.
+- Placement: in the interview, notes and Current information are tabs in the column beside the questions (notes first), so the questions keep their width; while preparing, the notebook is a column on the right that can be hidden and brought back (remembered on this device). Phones and practice: not yet.
+- Saving never blocks: each heading saves on its own about 0.7 seconds after typing pauses and when it is left; one request at a time per heading; retried by itself when the connection drops; sent when the page hides. Each heading has its own version and never changes the assessment's version, so notes can never make an answer save conflict. A heading changed on another screen offers "Keep mine" or "Use theirs" instead of overwriting either.
+- Storage: pipeline.assessment_notebook_blocks (migration 0047, additive, guarded rollback), with a local-file adapter for development; verified against PostgreSQL.
+- Next: prep and interview tags and time stamps on lines, "Use as answer", custom headings and "/" shortcuts, then clearing the assessment's remaining blocking messages.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.

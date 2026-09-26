@@ -101,6 +101,8 @@ export type WorkingSectionProps = WorkingData & {
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
   /** Redesign: the client's last signed assessment, offered per question while it is empty. */
   priorAnswers?: PriorAnswers;
+  /** Interview: the interview notebook, shown as a tab beside Current information. */
+  notebook?: React.ReactNode;
   /** One page of groups: each question's group (preparation group or interview topic), for headings. */
   groupHeadings?: ReadonlyMap<AssessmentToolFieldKey, { key: string; label: string }>;
   /** The referral intake's current answers, offered where this assessment is still empty. */
@@ -177,7 +179,9 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
 
   const renderReference = () => <>
     {props.questionNavigation?.(props.preparing ? <CapturedAssessmentAnswers {...props} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} /> : undefined)}
-    {!props.preparing ? <CapturedAssessmentAnswers {...props} questions={props.referenceQuestions ?? questions} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} /> : null}
+    {!props.preparing ? (props.notebook
+      ? <ReferenceTabs notebook={props.notebook} information={<CapturedAssessmentAnswers {...props} questions={props.referenceQuestions ?? questions} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} />} />
+      : <CapturedAssessmentAnswers {...props} questions={props.referenceQuestions ?? questions} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} />) : null}
   </>;
 
   return <div data-assessment-working-section data-assessment-stacked={props.groupHeadings ? true : undefined} data-assessment-section={props.section} data-assessment-phase={props.preparing ? "preparation" : "interview"} className={`${styles.book} ${props.preparing ? styles.preparing : ""}`}>
@@ -306,4 +310,19 @@ export function AssessmentReferenceValue({ question, data }: { question: Assessm
 export function AssessmentAnswerSource({ assessment, data, field }: { assessment: PipelineAssessmentRecord; data: AssessmentToolData; field: AssessmentToolFieldKey }) {
   const source = assessmentAnswerOrigin(assessment, data, field);
   return source ? <span className={styles.answerSource}>{source}</span> : null;
+}
+
+// Interview: notes and Current information share the column beside the questions, one at a time, so the
+// questions keep their width (docs/design/DECISIONS.md, "Interview notebook"). Notes show first.
+function ReferenceTabs({ notebook, information }: { notebook: React.ReactNode; information: React.ReactNode }) {
+  const [tab, setTab] = useState<"notes" | "information">("notes");
+  const id = useId();
+  return <div className={styles.referenceTabs} data-reference-tab={tab}>
+    <div role="tablist" aria-label="Beside the questions" className={styles.referenceTabList}>
+      <button type="button" role="tab" id={`${id}-notes`} aria-selected={tab === "notes"} aria-controls={`${id}-notes-panel`} onClick={() => setTab("notes")}>Interview notes</button>
+      <button type="button" role="tab" id={`${id}-information`} aria-selected={tab === "information"} aria-controls={`${id}-information-panel`} onClick={() => setTab("information")}>Current information</button>
+    </div>
+    <div role="tabpanel" id={`${id}-notes-panel`} aria-labelledby={`${id}-notes`} hidden={tab !== "notes"}>{notebook}</div>
+    <div role="tabpanel" id={`${id}-information-panel`} aria-labelledby={`${id}-information`} hidden={tab !== "information"}>{information}</div>
+  </div>;
 }
