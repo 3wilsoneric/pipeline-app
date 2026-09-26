@@ -120,6 +120,9 @@ import AssessmentExcelBackup from "@/components/pipeline/AssessmentExcelBackup";
 import { validateAssessmentPatchRequest } from "@/lib/assessment/assessment-validation";
 import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
 import phoneStyles from "@/components/pipeline/AssessmentPhoneInterview.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
+import type { PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
+import InterviewContext from "@/components/pipeline/InterviewContext";
 import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
@@ -461,6 +464,22 @@ export default function AssessmentWorkspace({
   useEffect(() => registerAssessmentEditor(), []);
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
+
+  // Redesign: a returning client's last signed assessment, offered question by question.
+  // Chosen answers remember their source until saved; the server re-checks them before crediting it.
+  const designV2 = useDesignV2();
+  const [priorAnswers, setPriorAnswers] = useState<{ assessmentId: string; prior: PriorAnswers } | null>(null);
+  const priorChoicesRef = useRef(new Map<AssessmentToolFieldKey, { assessment_id: string; value: AssessmentToolData[AssessmentToolFieldKey] }>());
+  useEffect(() => {
+    if (!designV2 || trainingAssessmentMode || !selectedId) return;
+    const controller = new AbortController();
+    void fetchPipelineJson<{ prior: PriorAnswers }>(`/api/assessments/${encodeURIComponent(selectedId)}/prior-answers`, { signal: controller.signal }, { cacheTtlMs: 60_000 })
+      .then((payload) => { if (!controller.signal.aborted) setPriorAnswers({ assessmentId: selectedId, prior: payload.prior }); })
+      // Suggestions are optional; the interview works the same without them.
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [designV2, trainingAssessmentMode, selectedId]);
+  const currentPriorAnswers = priorAnswers?.assessmentId === selectedId ? priorAnswers.prior ?? undefined : undefined;
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : initialLocation?.assessmentMode === "prepare" ? "prepare" : initialLocation?.assessmentMode === "interview" ? "assessment" : null;
   const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
   const reviewingChart = chartReview ?? notebookView === "chart";
@@ -1232,7 +1251,7 @@ export default function AssessmentWorkspace({
             ? { if_match_referral_name: referral?.name ?? current.resident_name }
             : {}),
           client_mutation_id: mutationId(`assessment-${section}`),
-          patch: { data: sentData, ...(workbook ? { workbook_restore: workbook } : {}) },
+          patch: { data: sentData, ...(workbook ? { workbook_restore: workbook } : priorAnswerPatch(priorChoicesRef.current, sentData)) },
         });
     };
     const persistSectionAnswers = async () => {
@@ -1275,6 +1294,7 @@ export default function AssessmentWorkspace({
     };
     const acceptSavedSection = (payload: { assessment: PipelineAssessmentRecord; referral?: Referral }) => {
       const saved = payload.assessment;
+      for (const field of Object.keys(sentData)) priorChoicesRef.current.delete(field as AssessmentToolFieldKey);
       const { savedData, nextDraft, nextBase } = reconcileSavedAnswers(saved);
       selectedRef.current = saved;
       baseDataRef.current = nextBase;
@@ -1895,6 +1915,12 @@ export default function AssessmentWorkspace({
     setError("");
   };
 
+  const applyPriorAnswer = (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey], assessmentId: string) => {
+    priorChoicesRef.current.set(field, { assessment_id: assessmentId, value });
+    updateField(field, value);
+    commitAnswer(field);
+  };
+
   const resolveAssessmentConflict = (field: AssessmentToolFieldKey, useLatest: boolean) => {
     const change = remoteChangeRef.current;
     const conflict = change?.conflicts.find((item) => item.field === field);
@@ -2413,6 +2439,9 @@ export default function AssessmentWorkspace({
               }}
               onFieldBlur={commitAnswer}
               onReview={(field, action) => void reviewExtractedField(field, action)}
+              priorAnswers={currentPriorAnswers}
+              onUsePriorAnswer={applyPriorAnswer}
+              interviewContext={designV2 && referral ? <InterviewContext key={referral.id} referralId={referral.id} summary={referral.note} /> : undefined}
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
               onReferenceEdit={(field) => {
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }
@@ -2645,4 +2674,15 @@ function isolateAssessmentContent(content: HTMLElement | null, embeddedFolder: b
       if (content) content.style.isolation = previousIsolation;
       for (const { element, inert } of backgrounds) element.inert = inert;
     };
+}
+
+// Answers chosen from the last assessment that this save still carries unchanged.
+function priorAnswerPatch(
+  choices: ReadonlyMap<AssessmentToolFieldKey, { assessment_id: string; value: AssessmentToolData[AssessmentToolFieldKey] }>,
+  sentData: Partial<AssessmentToolData>,
+) {
+  const priorAnswers = [...choices]
+    .filter(([field, choice]) => Object.hasOwn(sentData, field) && sameAssessmentValue(sentData[field] ?? null, choice.value))
+    .map(([field, choice]) => ({ field, assessment_id: choice.assessment_id }));
+  return priorAnswers.length ? { prior_answers: priorAnswers } : {};
 }

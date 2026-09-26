@@ -139,6 +139,10 @@ export type AssessmentPatchInput = {
     field: AssessmentToolFieldKey;
     action: "accept" | "reject";
   }>;
+  /** Answers the person chose from the client's last signed assessment; the route verifies them. */
+  prior_answers?: Array<{ field: AssessmentToolFieldKey; assessment_id: string }>;
+  /** Server-resolved only: verified sources for prior_answers. Browser payload validation rejects it. */
+  prior_answer_sources?: Partial<Record<AssessmentToolFieldKey, { assessment_id: string; signed_at: string; referral_id: number }>>;
   /** Server-only lifecycle commands. Browser payload validation rejects these fields. */
   schedule?: AssessmentScheduleUpdate;
   mark_started?: boolean;

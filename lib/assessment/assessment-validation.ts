@@ -6,6 +6,7 @@ import {
   type AssessmentToolData,
   type AssessmentToolFieldKey,
 } from "./assessment-tool-schema";
+import { priorAnswerFields } from "@/lib/assessment/assessment-prior-answers";
 import { isAssessmentToolSection } from "./assessment-sections";
 import { assessmentYesNoQuestionFields } from "./assessment-interview-schema";
 import type { AssessmentToolSection } from "./assessment-tool-schema";
@@ -114,7 +115,7 @@ function validatePatchVersion(
 }
 
 function validatePatchEnvelope(patch: Record<string, unknown>): AssessmentValidationResult<true> {
-  const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction", "workbook_restore"]);
+  const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction", "workbook_restore", "prior_answers"]);
   for (const key of Object.keys(patch)) {
     if (!allowed.has(key)) return invalid(`Unknown assessment patch field: ${key}.`);
   }
@@ -169,6 +170,19 @@ function validatePatchFields(patch: Record<string, unknown>): AssessmentValidati
       }
       if (seen.has(review.field as string)) return invalid("review_extraction contains a duplicate field.");
       seen.add(review.field as string);
+    }
+  }
+  if (patch.prior_answers !== undefined) {
+    if (!Array.isArray(patch.prior_answers) || patch.prior_answers.length > 50) return invalid("prior_answers must contain at most 50 answers.");
+    const seen = new Set<string>();
+    for (const answer of patch.prior_answers) {
+      if (!isRecord(answer) || Object.keys(answer).some((key) => key !== "field" && key !== "assessment_id")
+        || !priorAnswerFields.has(answer.field as AssessmentToolFieldKey) || !isBoundedString(answer.assessment_id, 160, true)
+        || !isRecord(patch.data) || !Object.hasOwn(patch.data, answer.field as string)) {
+        return invalid("prior_answers must name a reusable answer that this patch saves.");
+      }
+      if (seen.has(answer.field as string)) return invalid("prior_answers contains a duplicate field.");
+      seen.add(answer.field as string);
     }
   }
   return { ok: true, value: true };

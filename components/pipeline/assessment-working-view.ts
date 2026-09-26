@@ -42,6 +42,7 @@ export function assessmentAnswerOrigin(assessment: PipelineAssessmentRecord, dat
   if (!source || source.review_status === "rejected") return "";
   if (source.source_field_key.startsWith("manual.")) return "Entered in Pipeline";
   if (source.source_field_key.startsWith("workbook.")) return "From Excel backup";
+  if (source.source_field_key.startsWith("prior_assessment.")) return `From last assessment${source.source_file?.startsWith("Assessment signed ") ? ` (${formatPriorDate(source.source_file.slice(18))})` : ""}`;
   if (!source.source_file) return "From referral records";
   return `Source: ${source.source_file}${source.source_page_no ? ` · page ${source.source_page_no}` : ""}`;
 }
@@ -92,4 +93,9 @@ export function capturedAssessmentAnswer(question: AssessmentInterviewQuestion, 
   if (typeof value === "string") return assessmentInterviewOptionLabel(question.field, value) ?? value;
   if (value === null) return "No confirmed answer";
   return String(value);
+}
+
+export function formatPriorDate(isoDate: string) {
+  const date = new Date(`${isoDate.slice(0, 10)}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? isoDate : date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }

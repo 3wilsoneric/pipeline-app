@@ -28,6 +28,8 @@ type AssessmentFieldProps = {
   onChange: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
   onReview: (action: "accept" | "reject") => void;
   onUnableReasonChange: (reason: string) => void;
+  /** Redesign: an answer from the client's last signed assessment, offered while this one is empty. */
+  priorSuggestion?: { text: string; source: string; onUse: () => void };
 };
 
 export function AssessmentField(props: AssessmentFieldProps) {
@@ -39,6 +41,7 @@ export function AssessmentField(props: AssessmentFieldProps) {
     <div data-feedback-reveal={Boolean(question.showWhen)} className={question.span === "full" ? "md:col-span-2" : ""}>
       <AssessmentFieldHeader id={id} definition={definition} value={value} required={required} pending={pending} />
       <PendingAssessmentSuggestion {...props} />
+      <PriorAnswerSuggestion {...props} />
       <AssessmentFieldControl {...props} id={id} readOnly={readOnly} />
       {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
     </div>
@@ -68,6 +71,20 @@ function PendingAssessmentSuggestion({ pending, pendingProvenance, reviewDisable
         <button type="button" disabled={reviewDisabled} onClick={() => onReview("reject")} className="h-8 border border-[#c9a978] bg-white px-3 text-[10px] font-black text-[#59645e] hover:border-[#59645e] disabled:opacity-50">Reject</button>
         {!disabled ? <span className="self-center text-[9px] text-[#8a6c43]">Or correct the answer below.</span> : null}
       </div>
+    </div>
+  );
+}
+
+// Same "Suggested from … / Use" pattern as document suggestions; nothing is filled in until Use.
+function PriorAnswerSuggestion({ priorSuggestion, pending, value, disabled }: AssessmentFieldProps) {
+  if (!priorSuggestion || pending || disabled || hasValue(value)) return null;
+  return (
+    <div data-prior-answer className="mb-2 flex items-start gap-3 rounded-input border border-stage-blue-border bg-stage-blue-tile px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <div className="text-meta text-ink-muted">Suggested from <strong className="font-semibold text-ink-2">{priorSuggestion.source}</strong></div>
+        <div className="mt-0.5 whitespace-pre-line text-value font-semibold text-ink [overflow-wrap:anywhere]">{priorSuggestion.text}</div>
+      </div>
+      <button type="button" onClick={priorSuggestion.onUse} className="h-8 shrink-0 rounded-input border border-stage-blue-border bg-paper px-3 text-label font-semibold text-stage-blue hover:bg-stage-blue-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">Use</button>
     </div>
   );
 }

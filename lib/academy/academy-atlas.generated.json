@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:193b6c78da8755ab",
-  "fingerprint": "193b6c78da8755ab78f087133aff93da11a12f217a2234f2b7e203b62fcfd323",
+  "generatedAt": "source-fingerprint:cb69c9c7676375c7",
+  "fingerprint": "cb69c9c7676375c7cdaf30b94f4166cd3e852bfa6a6a63e003397334c74ab900",
   "totals": {
-    "files": 1458,
-    "lines": 379117,
-    "coveredFiles": 1458
+    "files": 1464,
+    "lines": 379634,
+    "coveredFiles": 1464
   },
   "entries": [
     {
@@ -405,12 +405,24 @@
       ]
     },
     {
+      "path": "app/api/assessments/[assessmentId]/prior-answers/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 28,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "app/api/assessments/[assessmentId]/route.ts",
       "subsystem": "API routes",
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 127,
+      "lines": 130,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1957,7 +1969,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 718,
+      "lines": 720,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -2221,7 +2233,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 96,
+      "lines": 102,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2281,7 +2293,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 266,
+      "lines": 283,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2401,7 +2413,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 272,
+      "lines": 291,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2413,7 +2425,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2649,
+      "lines": 2689,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2533,7 +2545,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 185,
+      "lines": 187,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2834,6 +2846,30 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 43,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/InterviewContext.module.css",
+      "subsystem": "Pipeline UI",
+      "kind": "repository-file",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 17,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/InterviewContext.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 49,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3193,7 +3229,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 74,
+      "lines": 147,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3205,7 +3241,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 87,
+      "lines": 114,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3529,7 +3565,7 @@
       "kind": "repository-file",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 810,
+      "lines": 809,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5654,7 +5690,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 155,
+      "lines": 163,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8534,12 +8570,36 @@
       ]
     },
     {
+      "path": "lib/assessment/assessment-prior-answers-server.ts",
+      "subsystem": "Assessment domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 59,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "lib/assessment/assessment-prior-answers.ts",
+      "subsystem": "Assessment domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 66,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "lib/assessment/assessment-records.ts",
       "subsystem": "Assessment domain",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 182,
+      "lines": 186,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8587,7 +8647,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2585,
+      "lines": 2589,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8623,7 +8683,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 335,
+      "lines": 349,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -16585,6 +16645,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 150,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/assessment-prior-answers.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 80,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"

@@ -115,6 +115,14 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Stored in the per-person workspace-state store (`referral_quick_note`, migration 0046, additive with a guarded rollback), up to 2,000 characters of plain text, kept a year from the last edit. It needs read access to the referral, never changes the referral, and is not part of its Activity. Notes clear from memory on sign-out or account switch.
 - Redesign only, and wide screens only for writing (the rail). Phones: follow-up if staff ask.
 
+## Interview context (owner, 2026-09-26: "surface information without having to navigate away")
+
+- The interview's "Current information" panel starts with the referral summary and the referral's documents. A document opens as a side sheet over the interview and closes back to the same question. The quick note is already in the rail.
+- Returning clients: each history-type question that is still empty offers the answer from the client's last signed assessment on another referral ("Suggested from last assessment (Mon YYYY)" / "Use"), the same pattern as document suggestions. Only answers that rarely change are offered (history, diagnoses, legal, substance history, devices and diet, social history); current symptoms, recent incidents, and "last/most recent" dates are always asked fresh.
+- Nothing fills in until a person chooses Use. The browser names the earlier assessment it used; the server re-checks that it is this client's (same Pipeline client or linked clinical client), signed, openable by this person, and that the saved value matches. Then the answer's source reads "From last assessment". Anything that does not check out still saves, recorded as entered by the person, so a stale suggestion never blocks a save.
+- Document suggestions ("Suggested from <file>", Use / Reject) already exist wherever packet extraction runs; automatic filling from documents stays off.
+- Follow-ups: autocomplete for doctors, pharmacies, and contacts from the saved contacts list; suggestions on phones.
+
 ## Sidebar (owner, 2026-09-24)
 
 - The rail is warm paper with a thin edge.

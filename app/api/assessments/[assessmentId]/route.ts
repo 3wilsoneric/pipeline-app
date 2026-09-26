@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { verifyPriorAnswers } from "@/lib/assessment/assessment-prior-answers-server";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
@@ -68,7 +69,9 @@ export async function PATCH(
       if (!canWorkAssessment(auth.user, current.assessor_id)) {
         return jsonError("Only the assigned assessor or a supervisor can edit this assessment.", 403);
       }
-      const patch = await resolveExplicitIdentityPatch(request, current.referral_id, validated.value.patch);
+      const { prior_answers: priorAnswers = [], ...requested } = validated.value.patch;
+      const priorAnswerSources = await verifyPriorAnswers(auth.user, current, priorAnswers, requested.data);
+      const patch = await resolveExplicitIdentityPatch(request, current.referral_id, Object.keys(priorAnswerSources).length ? { ...requested, prior_answer_sources: priorAnswerSources } : requested);
       const result = await patchAssessment(
         assessmentId,
         patch,

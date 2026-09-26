@@ -1,5 +1,6 @@
 "use client";
 
+import type { PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
 import {
@@ -24,6 +25,7 @@ import {
   assessmentAnswerOrigin,
   assessmentWorkingCounts,
   capturedAssessmentAnswer,
+  formatPriorDate,
   groupWorkingQuestions,
 } from "@/components/pipeline/assessment-working-view";
 import styles from "@/components/pipeline/AssessmentWorkingSection.module.css";
@@ -96,6 +98,11 @@ export type WorkingSectionProps = WorkingData & {
   onFieldFocus: (field: AssessmentToolFieldKey) => void;
   onFieldBlur: (field: AssessmentToolFieldKey) => void;
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
+  /** Redesign: the client's last signed assessment, offered per question while it is empty. */
+  priorAnswers?: PriorAnswers;
+  /** Redesign: referral summary and documents shown at the top of Current information. */
+  interviewContext?: React.ReactNode;
+  onUsePriorAnswer?: (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey], assessmentId: string) => void;
   onUnableReasonChange: (field: AssessmentToolFieldKey, reason: string) => void;
   onReferenceEdit?: (field: AssessmentToolFieldKey) => void;
 };
@@ -194,17 +201,28 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   </div>;
 }
 
-export function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur, onAnswerBlur }: WorkingSectionProps & { question: AssessmentInterviewQuestion; onAnswerBlur?: (field: AssessmentToolFieldKey) => void }) {
+export function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur, onAnswerBlur, priorAnswers, onUsePriorAnswer }: WorkingSectionProps & { question: AssessmentInterviewQuestion; onAnswerBlur?: (field: AssessmentToolFieldKey) => void }) {
   const definition = assessmentToolFieldDefinitions.find((definition) => definition.key === question.field)!;
+  const priorValue = priorAnswers?.answers[question.field];
+  const priorSuggestion = priorAnswers && onUsePriorAnswer && priorValue !== undefined ? {
+    text: priorAnswerText(question, data, priorValue),
+    source: `last assessment (${formatPriorDate(priorAnswers.source.signed_at)})`,
+    onUse: () => onUsePriorAnswer(question.field, priorValue, priorAnswers.source.assessment_id),
+  } : undefined;
   return <div data-working-field={question.field} onFocusCapture={() => onFieldFocus(question.field)} onBlur={(event) => {
     onAnswerBlur?.(question.field);
     if (!event.currentTarget.contains(event.relatedTarget)) onFieldBlur(question.field);
   }} className={question.span === "full" ? "sm:col-span-2" : "min-w-0"}>
-    <AssessmentField definition={definition} question={question} value={data[question.field]} unableReason={getAssessmentUnableReason(data, question.field)} required={required.has(question.field)} pending={pending.includes(question.field)} pendingProvenance={latestPendingProvenance(assessment, question.field)} disabled={disabled} reviewDisabled={reviewDisabled} onChange={(value) => onChange(question.field, value)} onReview={(action) => onReview(question.field, action)} onUnableReasonChange={(reason) => onUnableReasonChange(question.field, reason)} />
+    <AssessmentField definition={definition} question={question} value={data[question.field]} unableReason={getAssessmentUnableReason(data, question.field)} required={required.has(question.field)} pending={pending.includes(question.field)} pendingProvenance={latestPendingProvenance(assessment, question.field)} disabled={disabled} reviewDisabled={reviewDisabled} onChange={(value) => onChange(question.field, value)} onReview={(action) => onReview(question.field, action)} onUnableReasonChange={(reason) => onUnableReasonChange(question.field, reason)} priorSuggestion={priorSuggestion} />
   </div>;
 }
 
-function CapturedAssessmentAnswers({ section, preparing, data, pending, questions, onEdit, assessment, recorded }: WorkingSectionProps & { recorded: { field: AssessmentToolFieldKey; revision: number } | null; onEdit: (field: AssessmentToolFieldKey) => void }) {
+function priorAnswerText(question: AssessmentInterviewQuestion, data: AssessmentToolData, value: AssessmentToolData[AssessmentToolFieldKey]) {
+  if (Array.isArray(value)) return value.map((item) => assessmentInterviewOptionLabel(question.field, item) ?? String(item)).join(", ");
+  return capturedAssessmentAnswer(question, { ...data, [question.field]: value }) || String(value);
+}
+
+function CapturedAssessmentAnswers({ section, preparing, data, pending, questions, onEdit, assessment, recorded, interviewContext }: WorkingSectionProps & { recorded: { field: AssessmentToolFieldKey; revision: number } | null; onEdit: (field: AssessmentToolFieldKey) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [wide, setWide] = useState(false);
   const readingPage = useRef<HTMLDivElement>(null);
@@ -236,6 +254,7 @@ function CapturedAssessmentAnswers({ section, preparing, data, pending, question
       <button type="button" className={styles.referenceWidth} aria-pressed={wide} onClick={() => setWide(!wide)}>{wide ? "Narrow" : "Expand"}</button>
       </header>
       <div key={section} ref={readingPage} className={styles.readingPage} data-assessment-reference-page>
+      {interviewContext}
       {!groups.length ? <p className={styles.empty}>No information recorded for this section yet.</p> : null}
       {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.referenceGroup}>
         {group.questions.map((question) => <CapturedAnswer key={question.field} question={question} data={data} pending={pending} assessment={assessment} recorded={recorded?.field === question.field ? recorded.revision : undefined} signed={isAssessmentFinalized(assessment)} onEdit={(field) => { setExpanded(false); onEdit(field); }} />)}
