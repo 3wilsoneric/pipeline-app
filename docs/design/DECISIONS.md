@@ -158,6 +158,10 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 
 - Chart and intake fields keep the original formatting: one grid per section with hairline dividers, the label with its always-visible pencil, and the original value sizes, in the redesign's colors and type. This supersedes the field tiles and the hover-only edit hint from the copy pass.
 
+## Chart assessment section (owner, 2026-09-26: "add the assessment section")
+
+- The Chart ends with this referral's full assessment: the original assessment record with its fields, sections, and edit pencils. It is closed by default under its "Assessment" header with the signed or in-progress status, so the checklist and summary still lead. The Assessment tab stays the place to fill it in.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.

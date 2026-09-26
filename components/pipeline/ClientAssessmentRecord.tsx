@@ -3,19 +3,23 @@ import { assessmentToolFieldDefinitions, type AssessmentToolFieldKey } from "@/l
 import { assessmentInterviewOptionLabel, assessmentInterviewSections, assessmentInterviewQuestions, isAssessmentQuestionVisible } from "@/lib/assessment/assessment-interview-schema";
 import { ChartFacts } from "@/components/pipeline/ClientMedicalChart";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
+import { ChevronDown } from "lucide-react";
 
 export function ClientAssessmentRecords({ assessments, editableAssessmentId, onEditField }: { assessments: PipelineAssessmentRecord[]; editableAssessmentId?: string; onEditField?: (field: AssessmentToolFieldKey) => void }) {
   return assessments.map((assessment) => <ClientAssessmentRecord key={assessment.assessment_id} assessment={assessment} onEditField={assessment.assessment_id === editableAssessmentId ? onEditField : undefined} />);
 }
 
-export default function ClientAssessmentRecord({ assessment, onEditField }: { assessment: PipelineAssessmentRecord; onEditField?: (field: AssessmentToolFieldKey) => void }) {
+// `collapsible` (redesign Chart home, docs/design/DECISIONS.md "Chart assessment section"): the same
+// record, closed by default under its own header, so the Chart holds every answer without leading with them.
+export default function ClientAssessmentRecord({ assessment, onEditField, collapsible = false }: { assessment: PipelineAssessmentRecord; onEditField?: (field: AssessmentToolFieldKey) => void; collapsible?: boolean }) {
   const signed = Boolean(assessment.signed_at);
   const editableFields = new Set(assessmentInterviewQuestions.filter((question) => isAssessmentQuestionVisible(question, assessment)).map((question) => question.field));
-  return <article aria-label="Assessment record" data-assessment-record={assessment.assessment_id} className="min-w-0 border border-[#d4dcd8] bg-white">
-    <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#d4dcd8] bg-[#f5f7f6] px-5 py-4 sm:px-7">
-      <h2 className="text-[19px] font-bold text-[#23362f]">Assessment{assessment.assessment_date ? ` · ${formatProfileDate(assessment.assessment_date)}` : ""}</h2>
-      <span className={`text-[13px] font-semibold ${signed ? "text-[#12765f]" : "text-[#865e20]"}`}>{signed ? "Signed" : "In progress, not signed"}</span>
-    </header>
+  const Heading = collapsible ? "summary" : "header";
+  const heading = <Heading className={`flex flex-wrap items-baseline justify-between gap-2 border-b border-[#d4dcd8] bg-[#f5f7f6] px-5 py-4 sm:px-7${collapsible ? " cursor-pointer list-none [&::-webkit-details-marker]:hidden focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus" : ""}`}>
+    <h2 className="text-[19px] font-bold text-[#23362f]">{collapsible ? <ChevronDown size={18} aria-hidden="true" className="mr-2 inline align-[-3px] text-ink-muted transition-transform [details:not([open])_&]:-rotate-90" /> : null}Assessment{assessment.assessment_date ? ` · ${formatProfileDate(assessment.assessment_date)}` : ""}</h2>
+    <span className={`text-[13px] font-semibold ${signed ? "text-[#12765f]" : "text-[#865e20]"}`}>{signed ? "Signed" : "In progress, not signed"}</span>
+  </Heading>;
+  const body = <>
     {assessmentInterviewSections.map((section) => {
       const facts = assessmentToolFieldDefinitions.filter((field) => field.section === section.key && field.key !== "resident_number").flatMap((field) => {
         const value = assessment[field.key];
@@ -42,6 +46,9 @@ export default function ClientAssessmentRecord({ assessment, onEditField }: { as
       </details>
       <span>{signed ? `Signed ${readableTimestamp(assessment.signed_at!)}${assessment.signed_by?.name ? ` by ${assessment.signed_by.name}` : ""}` : "Working answers. Not a signed clinical record."}</span>
     </footer>
+  </>;
+  return <article aria-label="Assessment record" data-assessment-record={assessment.assessment_id} data-assessment-collapsible={collapsible || undefined} className="min-w-0 border border-[#d4dcd8] bg-white">
+    {collapsible ? <details>{heading}{body}</details> : <>{heading}{body}</>}
   </article>;
 }
 
