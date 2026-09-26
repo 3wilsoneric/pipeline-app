@@ -34,8 +34,10 @@ import { useDesignV2 } from "@/components/design/DesignSwitch";
 type WorkingData = { data: AssessmentToolData; pending: readonly AssessmentToolFieldKey[] };
 type QuestionTarget = { field: AssessmentToolFieldKey };
 
-export function AssessmentWorkingNavigation({ data, pending, activeSection, guideTargets, onSectionChange, preparing = false, recordedAnswers }: WorkingData & {
+export function AssessmentWorkingNavigation({ data, pending, activeSection, guideTargets, onSectionChange, preparing = false, recordedAnswers, lead }: WorkingData & {
   recordedAnswers?: React.ReactNode;
+  /** Redesign interview: the All questions / Interview switch and its actions, placed in this row. */
+  lead?: React.ReactNode;
   preparing?: boolean;
   activeSection: AssessmentToolSection;
   guideTargets: Readonly<Record<AssessmentToolSection, string>>;
@@ -52,7 +54,8 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
         {sections.map((section) => <option key={section.key} value={section.key}>{section.label}</option>)}
       </select>
     </label>;
-  return <nav aria-label="Assessment sections" className={styles.navigation}>
+  return <nav aria-label="Assessment sections" className={styles.navigation} data-with-work-mode={lead ? true : undefined}>
+    {lead}
     {designV2 ? <div className={styles.sectionTitle}>{picker}<div className={styles.sectionRail} aria-hidden="true">{sections.map((section, position) => <span key={section.key} data-state={position < index ? "past" : position === index ? "current" : "upcoming"} />)}</div></div> : picker}
     <div className={styles.sectionProgress}>
       {recordedAnswers ?? <span role="status" aria-live="polite" aria-atomic="true"><strong>{counts.captured}</strong> / {total} recorded{counts.verify ? <small>{counts.verify} to verify</small> : null}{counts.reasons ? <small>{counts.reasons} {counts.reasons === 1 ? "needs" : "need"} a reason</small> : null}</span>}

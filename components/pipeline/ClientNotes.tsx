@@ -36,17 +36,21 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
   const headings = noteHeadings();
   const currentKeys = currentTopics.map((topic) => `topic:${topic}`);
   const [opened, setOpened] = useState<Record<string, boolean>>({});
+  // Beside the questions, only the topic in view shows, so the notes read as a page to write on, not another
+  // list to navigate (owner, 2026-09-26); "View all" opens every heading.
+  const [viewAll, setViewAll] = useState(false);
+  const focused = currentKeys.length > 0 && !viewAll;
   const list = useRef<HTMLDivElement>(null);
   const current = currentKeys[0];
 
   // Follow the interview: bring the current topic's heading into view inside the notes, not the page.
   useLayoutEffect(() => {
-    if (!current || !list.current) return;
+    if (!current || !list.current || focused) return;
     const heading = list.current.querySelector<HTMLElement>(`[data-note-heading="${current}"]`);
     if (!heading) return;
     const top = heading.getBoundingClientRect().top - list.current.getBoundingClientRect().top + list.current.scrollTop;
     list.current.scrollTo({ top: Math.max(0, top - 6), behavior: "smooth" });
-  }, [current]);
+  }, [current, focused]);
 
   const StatusIcon = notes.status === "failed" ? AlertTriangle : notes.status === "waiting" ? CloudUpload : notes.status === "saved" ? Check : LoaderCircle;
   return <section aria-labelledby={`notes-title-${referralId}`} className={styles.notes} data-client-notes data-status={notes.status}>
@@ -55,24 +59,26 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
       <span role="status" aria-live="polite" className={styles.status}>
         <StatusIcon size={14} aria-hidden="true" className={notes.status === "saving" || notes.status === "loading" ? "motion-safe:animate-spin" : undefined} />{statusText[notes.status]}
       </span>
+      {currentKeys.length ? <button type="button" aria-pressed={viewAll} onClick={() => setViewAll(!viewAll)} className={styles.viewAll}>View all</button> : null}
       {onCollapse ? <button type="button" aria-label="Hide notes" title="Hide notes" onClick={onCollapse} className={styles.iconButton}><PanelRightClose size={16} aria-hidden="true" /></button> : null}
       {onClose ? <button type="button" aria-label="Close notes" title="Close notes" onClick={onClose} className={styles.iconButton}><X size={16} aria-hidden="true" /></button> : null}
     </header>
     {notes.loadFailed ? <p role="alert" className={styles.notice}>Notes could not be loaded. Reload to try again.</p> : null}
-    <div ref={list} className={styles.blocks}>
-      {headings.map((heading) => {
+    <div ref={list} className={styles.blocks} data-focused={focused || undefined}>
+      {headings.filter((heading) => !focused || currentKeys.includes(heading.key)).map((heading) => {
         const body = notes.entries[heading.key]?.body ?? "";
         const isCurrent = currentKeys.includes(heading.key);
-        const open = opened[heading.key] ?? (isCurrent || (heading.key === "before" && !current));
+        const open = focused || (opened[heading.key] ?? (isCurrent || (heading.key === "before" && !current)));
         const conflict = notes.conflicts[heading.key];
         const error = notes.failed[heading.key];
         const fieldId = `notes-${referralId}-${heading.key}`;
         return <section key={heading.key} data-note-heading={heading.key} data-current={isCurrent || undefined} data-open={open || undefined} className={styles.block}>
-          <button type="button" aria-expanded={open} aria-controls={fieldId} onClick={() => setOpened((existing) => ({ ...existing, [heading.key]: !open }))} className={styles.blockHead}>
+          {focused ? <p className={styles.blockHead}><span className={styles.blockLabel}>{heading.label}</span></p>
+          : <button type="button" aria-expanded={open} aria-controls={fieldId} onClick={() => setOpened((existing) => ({ ...existing, [heading.key]: !open }))} className={styles.blockHead}>
             <ChevronDown size={14} aria-hidden="true" className={styles.chevron} />
             <span className={styles.blockLabel}>{heading.label}</span>
             {!open && body ? <span className={styles.preview}>{body.split("\n").find((line) => line.trim())}</span> : null}
-          </button>
+          </button>}
           {open ? <NoteField id={fieldId} label={heading.label} value={body} disabled={notes.readOnly || !notes.loaded}
             onChange={(value) => notes.change(heading.key, value)} onBlur={() => notes.flush(heading.key)} /> : null}
           {conflict ? <div role="alert" className={styles.conflict}>

@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FileSpreadsheet,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -2246,10 +2247,17 @@ export default function AssessmentWorkspace({
   const renderReturnToInterview = () => !reviewingChart && preparing && interviewReturnRef.current?.assessmentId === selectedId
     ? <button type="button" className={workingStyles.returnToInterview} disabled={isBusy || isClosing} onClick={() => changeWorkingMode(false)}>Return to interview</button>
     : null;
+  // Redesign interview: the All questions / Interview switch and its actions share the sticky section row, so the
+  // page has one in-page navigation row (owner, 2026-09-26: "four layers of nav").
+  const workModeInNavigation = designV2 && stackedQuestionsView && !preparing && !phoneInterview;
+  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={canEditClinical ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
+  const railSaveStatus = designV2 && embeddedFolder && !phoneLayout && !trainingAssessmentMode;
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
           <button type="button" className={workingStyles.saveRecovery} title="Excel workbook, backup & recovery" aria-haspopup="dialog" onClick={() => setRecoveryToolsAssessment(selected.assessment_id)}>
-          <span data-guide-target="assessment-save-status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
+          {/* Redesign record page: the rail's save panel is the one save status; this stays the way into Excel and recovery. */}
+          {railSaveStatus ? <FileSpreadsheet size={16} aria-hidden="true" /> : null}
+          <span data-guide-target="assessment-save-status" aria-live="polite" className={railSaveStatus ? "sr-only" : `flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
             {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
             <span>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
           </span>
@@ -2482,7 +2490,7 @@ export default function AssessmentWorkspace({
 
       <div className="flex min-h-0 flex-1">
         <main ref={chartScrollRef} className={`min-w-0 flex-1 ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : `${workingStyles.readingMain} ${preparing ? workingStyles.preparationMain : ""}`}`}>
-          {!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={canEditClinical ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null}
+          {workModeInNavigation ? null : renderWorkMode()}
           <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook}
             importFile={workbookImport} onImportFileRead={onWorkbookImportRead}
             toolsOpen={recoveryToolsAssessment === selected.assessment_id} onCloseTools={() => setRecoveryToolsAssessment(null)}
@@ -2528,7 +2536,7 @@ export default function AssessmentWorkspace({
               onAllQuestions={() => changeWorkingMode(true)}
               required={requiredInterviewFields}
               target={workingTarget}
-              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
+              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation lead={workModeInNavigation ? renderWorkMode() : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               onChange={updateField}

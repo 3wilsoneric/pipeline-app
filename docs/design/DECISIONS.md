@@ -228,6 +228,7 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Storage: pipeline.client_note_blocks (migration 0046, additive, guarded rollback), with a local-file adapter for development; verified against PostgreSQL. Phones and practice: not yet.
 - Next: prep and interview tags and time stamps on lines, "Use as answer", custom headings and "/" shortcuts.
 
+- Fewer navigation layers (owner, 2026-09-26, trial: "give it a shot but we may undo"): beside the questions, the notes show only the topic in view, as one box under its name; "View all" opens every heading. The floating Notes panel still lists every heading. In the interview, the All questions / Interview switch and its buttons join the sticky section row, which drops its progress ring (the count stays), so the page has one in-page navigation row. On the record page the bottom bar's save status becomes a spreadsheet icon (still the way into Excel and recovery; its status stays for screen readers), since the rail's save panel is the one save status.
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.
