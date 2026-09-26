@@ -151,7 +151,7 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 
 ## Chart field formatting (owner, 2026-09-26: "make the chart more like original with the actual field formatting")
 
-- Chart and intake fields keep the original formatting: one grid per section with hairline dividers, the label with its always-visible pencil, and the original value sizes, in the redesign's colors and type. This supersedes the field tiles and the hover-only edit hint from the copy pass.
+- Chart and intake fields keep the original formatting: one grid per section with hairline dividers, the label with its always-visible pencil, and the original value sizes, in the redesign's colors and type. This supersedes the field tiles and the hover-only edit hint from the copy pass. Readability pass (owner, 2026-09-26): the pencils stay visible but muted until their field is hovered or focused; empty fields are lighter than recorded ones; every section uses one even three-column grid (identity: the name plus three equal columns) with no gray filler cells; section titles are bolder with more room above; the record page keeps a right gutter so the floating Notes button never covers the page.
 
 ## Chart assessment section (owner, 2026-09-26: "add the assessment section")
 

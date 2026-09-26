@@ -730,6 +730,8 @@
   @media (min-width: 1024px) {
     /* The rail sits directly on the page (no card, owner 2026-09-26) and gives its width to the work area. */
     .verticalFlow { display: grid; grid-template-columns: 188px minmax(0, 1fr); column-gap: 20px; align-items: start; max-width: 1640px; padding-top: 20px; }
+    /* A gutter for the floating Notes button, so it never covers the page's right edge. */
+    .verticalFlow { padding-right: 84px; }
     .verticalFlow > * { grid-column: 2; min-width: 0; }
     .verticalFlow > .header { grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 20px; z-index: 20; padding: 4px 0 10px; border: 0; background: transparent; box-shadow: none; }
     .verticalFlow .tabRow { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 0; border: 0; }
@@ -919,6 +921,23 @@
     .verticalFlow article[aria-label="Referral chart"] > section { margin-top: 20px; }
     .verticalFlow article[aria-label="Referral chart"] > section > h2 { padding-inline: 20px; padding-top: 0; border-top: 0; }
     .verticalFlow article[aria-label="Referral chart"] > section > dl { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper-rule); box-shadow: var(--shadow-card); }
+    /* Readability pass (owner, 2026-09-26). Section titles lead each card with room above them. */
+    .verticalFlow article[aria-label="Referral chart"] > section { margin-top: 28px; }
+    .verticalFlow article[aria-label="Referral chart"] > section > h2 { padding-bottom: 8px; font-weight: 700; }
+    /* Hairlines drawn by each cell, so a short last row ends in white instead of a gray filler block. */
+    .verticalFlow article[aria-label="Referral chart"] dl { gap: 0; background: var(--color-paper); }
+    .verticalFlow article[aria-label="Referral chart"] dl > [data-chart-field] { box-shadow: 1px 0 0 var(--color-paper-rule), 0 1px 0 var(--color-paper-rule); }
+    /* One even grid: identity is the name plus three equal columns; contacts use three like the other sections. */
+    @media (min-width: 1280px) {
+      .verticalFlow dl[aria-label="Referral identity"] { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
+      .verticalFlow dl[aria-label="Referral identity"] > [data-chart-field] { grid-column: auto; }
+      .verticalFlow dl[aria-label="Contact information"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    /* Empty fields step back so what is known stands out; the wording is unchanged. */
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field][data-missing] dd { color: color-mix(in srgb, var(--color-ink-muted) 75%, var(--color-paper)); font-weight: 400; }
+    /* Pencils stay visible (owner decision) but quiet until the field is hovered or focused. */
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-edit] > span[aria-hidden="true"] { color: var(--color-ink-muted); opacity: 0.55; transition: opacity var(--duration-fade) ease; }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field]:is(:hover, :focus-within) [data-chart-edit] > span[aria-hidden="true"] { color: var(--color-link); opacity: 1; }
     /* The summary card's title already names it; its one cell drops the repeated label (the grid keeps its accessible name). */
     .verticalFlow dl[aria-label="Referral summary"] dt { display: none; }
     .verticalFlow [data-testid="profile-workspace"] { padding: 0; background: transparent; }

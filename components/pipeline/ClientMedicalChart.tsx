@@ -139,7 +139,7 @@ export function ChartCell({ fact, multiline = false, onEdit, editHint }: { fact:
   const missing = fact.value === "Not documented";
   const span = chartCellSpan(fact, multiline);
   return (
-    <div data-chart-field={fact.label} className={designV2 ? `min-h-[82px] min-w-0 px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-warning-soft" : "bg-paper"}` : `min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
+    <div data-chart-field={fact.label} data-missing={designV2 && missing ? true : undefined} className={designV2 ? `min-h-[82px] min-w-0 px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-warning-soft" : "bg-paper"}` : `min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
       <dt className={designV2 ? "text-label font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}><ChartFieldLabel label={fact.label} onEdit={onEdit} editHint={editHint} /></dt>
       <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? fact.required ? (designV2 ? "text-warning" : "text-[#865e20]") : (designV2 ? "text-ink-muted" : "text-[#68716d]") : (designV2 ? "text-ink" : "text-[#18211d]")}`}>
         {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}
