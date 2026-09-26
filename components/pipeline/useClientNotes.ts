@@ -3,21 +3,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
-import type { NotebookBlock } from "@/lib/assessment/assessment-notebook";
+import type { NoteBlock } from "@/lib/pipeline/client-notes";
+import { rememberLatestNote } from "@/components/pipeline/useLatestNotes";
 
-// Interview notebook state (docs/design/DECISIONS.md, "Interview notebook"). Each heading saves on its own:
+// Client notes state (docs/design/DECISIONS.md, "Notes"). Each heading saves on its own:
 // shortly after typing pauses and when it is left, one request at a time per heading, retried by itself
 // when the connection drops. Nothing here ever blocks the page; a heading edited elsewhere is surfaced as
 // a choice instead of being overwritten.
 
-export type NotebookStatus = "loading" | "saved" | "saving" | "waiting" | "failed";
+export type NotesStatus = "loading" | "saved" | "saving" | "waiting" | "failed";
 type Entry = { body: string; version: number; saved: string };
-type Conflict = { theirs: NotebookBlock };
+type Conflict = { theirs: NoteBlock };
 
 const saveDelayMs = 700;
 const retryDelaysMs = [2_000, 5_000, 10_000, 20_000, 30_000];
 
-export function useInterviewNotebook(assessmentId: string, locked: boolean) {
+export function useClientNotes(referralId: number, readOnly: boolean) {
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -25,7 +26,6 @@ export function useInterviewNotebook(assessmentId: string, locked: boolean) {
   const [waiting, setWaiting] = useState<Record<string, true>>({});
   const [failed, setFailed] = useState<Record<string, string>>({});
   const [conflicts, setConflicts] = useState<Record<string, Conflict>>({});
-  const [serverLocked, setServerLocked] = useState(false);
   const entriesRef = useRef(entries);
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const inFlight = useRef(new Map<string, Promise<void>>());
@@ -35,19 +35,18 @@ export function useInterviewNotebook(assessmentId: string, locked: boolean) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetchPipelineJson<{ blocks: NotebookBlock[]; locked: boolean }>(`/api/assessments/${encodeURIComponent(assessmentId)}/notebook`, { signal: controller.signal, cache: "no-store" })
+    void fetchPipelineJson<{ blocks: NoteBlock[] }>(`/api/referrals/${referralId}/notes`, { signal: controller.signal, cache: "no-store" })
       .then((payload) => {
         if (controller.signal.aborted) return;
         const next: Record<string, Entry> = {};
         for (const block of payload.blocks) next[block.block_key] = { body: block.body, version: block.version, saved: block.body };
         entriesRef.current = next;
         setEntries(next);
-        setServerLocked(payload.locked);
         setLoaded(true);
       })
       .catch(() => { if (!controller.signal.aborted) setLoadFailed(true); });
     return () => controller.abort();
-  }, [assessmentId]);
+  }, [referralId]);
 
   const clear = (setter: typeof setPending | typeof setWaiting, key: string) => setter((current) => {
     if (!(key in current)) return current;
@@ -64,11 +63,12 @@ export function useInterviewNotebook(assessmentId: string, locked: boolean) {
       if (!entry || entry.body === entry.saved) { clear(setPending, key); return; }
       const body = entry.body;
       try {
-        const payload = await fetchPipelineJson<{ block: NotebookBlock }>(`/api/assessments/${encodeURIComponent(assessmentId)}/notebook/${encodeURIComponent(key)}`, {
+        const payload = await fetchPipelineJson<{ block: NoteBlock }>(`/api/referrals/${referralId}/notes/${encodeURIComponent(key)}`, {
           method: "PUT",
           body: JSON.stringify({ body, if_match: entry.version }),
         });
         attempts.current.delete(key);
+        rememberLatestNote(referralId, payload.block.body, payload.block.updated_at);
         const next = { ...entriesRef.current, [key]: { body: entriesRef.current[key]?.body ?? body, version: payload.block.version, saved: payload.block.body } };
         entriesRef.current = next;
         setEntries(next);
@@ -77,7 +77,7 @@ export function useInterviewNotebook(assessmentId: string, locked: boolean) {
         if (next[key].body !== next[key].saved) void send(key); else clear(setPending, key);
       } catch (error) {
         if (error instanceof PipelineApiError && error.status === 409) {
-          const theirs = (error.payload as { block?: NotebookBlock | null } | undefined)?.block ?? null;
+          const theirs = (error.payload as { block?: NoteBlock | null } | undefined)?.block ?? null;
           const current = entriesRef.current[key];
           // Nothing of ours was lost if the other screen saved exactly what we last saw: continue from it.
           if (!theirs || theirs.body === current.saved) {
@@ -91,7 +91,6 @@ export function useInterviewNotebook(assessmentId: string, locked: boolean) {
           clear(setPending, key);
           return;
         }
-        if (error instanceof PipelineApiError && error.status === 423) { setServerLocked(true); clear(setPending, key); return; }
         if (error instanceof PipelineApiError && error.status >= 400 && error.status < 500) {
           setFailed((current) => ({ ...current, [key]: error.message }));
           clear(setPending, key);
@@ -107,7 +106,7 @@ export function useInterviewNotebook(assessmentId: string, locked: boolean) {
     });
     inFlight.current.set(key, run.catch(() => undefined));
     return run;
-  }, [assessmentId]);
+  }, [referralId]);
 
   const change = useCallback((key: string, body: string) => {
     const current = entriesRef.current[key] ?? { body: "", version: 0, saved: "" };
@@ -152,10 +151,10 @@ export function useInterviewNotebook(assessmentId: string, locked: boolean) {
     };
   }, [send]);
 
-  const status: NotebookStatus = !loaded ? "loading"
+  const status: NotesStatus = !loaded ? "loading"
     : Object.keys(failed).length || Object.keys(conflicts).length ? "failed"
     : Object.keys(waiting).length ? "waiting"
     : Object.keys(pending).length ? "saving" : "saved";
 
-  return { entries, loaded, loadFailed, status, failed, conflicts, locked: locked || serverLocked, change, flush, resolve };
+  return { entries, loaded, loadFailed, status, failed, conflicts, readOnly, change, flush, resolve };
 }

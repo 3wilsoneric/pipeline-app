@@ -47,7 +47,6 @@
     "0043_presence_physical_health.sql": "8cb4b423ede4a870c59ec2da299a923c711366ff8e4272ce3551aeb30077f067",
     "0044_under_review_email_notifications.sql": "2605ec3d9ab6668936c5de7afe6d455ef126f72fe10b6fc9220ef15e7694bbea",
     "0045_application_activity_index.sql": "a2c11579558693fc91c5f342e93ceae78ce91a7376f27df6ff8691e36bfacf9b",
-    "0046_referral_quick_notes.sql": "7359131ff29f06f3bdb8d515299dbef9fcb2c19eccd9e7959b259af251d14418",
-    "0047_assessment_notebook.sql": "2838f4c8cd23def0b2065cc004e36791547c47301fa0584fe099a69cdfb82c15"
+    "0046_client_notes.sql": "6f3b01c3a4325af8ea787042e65ff03e5848bb0995ac6afdea69a01019bf2d89"
   }
 }

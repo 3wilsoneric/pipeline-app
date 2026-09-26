@@ -538,7 +538,7 @@
   .questionPage > * { max-width: 780px; margin-inline: auto; }
   .sectionHeading { margin: 0 0 16px; color: #22362e; font-size: 20px; font-weight: 650; letter-spacing: -.01em; line-height: 1.35; }
   .sectionHeading:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; border-radius: 3px; }
-  /* Interview notebook beside the questions (docs/design/DECISIONS.md, "Interview notebook"). */
+  /* Client notes beside the questions (docs/design/DECISIONS.md, "Notes"). */
   .withNotebook { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: start; }
   .withNotebook[data-notebook-open] { grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); }
   .withNotebook > :first-child { min-width: 0; }
@@ -548,9 +548,9 @@
   .referenceTabList button { flex: 1; min-height: 34px; padding: 0 10px; border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; white-space: nowrap; }
   .referenceTabList button[aria-selected="true"] { background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink); }
   .referenceTabList button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
-  .referenceTabs [data-interview-notebook][data-interview-notebook] { position: static; max-height: calc(100dvh - 220px); }
+  .referenceTabs [data-client-notes][data-interview-notebook] { position: static; max-height: calc(100dvh - 220px); }
   /* The tab already names the notes; keep only the save status in the notebook header. */
-  .referenceTabs [data-interview-notebook] h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .referenceTabs [data-client-notes] h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .referenceTabs .reference.reference { position: relative; top: auto; margin-top: 42px; max-height: calc(100dvh - 260px); }
   /* Prepare on one page: each preparation group opens with its name; jumps land below the sticky header. */
   /* The section picker stays in view while the page scrolls, so "n / 5" follows along. */

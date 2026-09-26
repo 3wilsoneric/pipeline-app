@@ -101,10 +101,10 @@ function invalidatesPipelineData(input: string, init: RequestInit) {
     }
     return false;
   }
-  // A quick note is one person's private reminder, not shared referral data: refresh only the notes list.
-  if (method === "PUT" && /^\/api\/referrals\/\d+\/quick-note$/.test(input)) {
-    jsonResponseCache.delete("/api/me/quick-notes");
-    pendingJsonRequests.delete("/api/me/quick-notes");
+  // Notes save while someone types: refresh only the latest-notes summary, never the whole app.
+  if (method === "PUT" && /^\/api\/referrals\/\d+\/notes\/[a-z0-9_:%-]+$/i.test(input)) {
+    for (const key of [...jsonResponseCache.keys()]) if (key.startsWith("/api/client-notes/latest")) jsonResponseCache.delete(key);
+    for (const key of [...pendingJsonRequests.keys()]) if (key.startsWith("/api/client-notes/latest")) pendingJsonRequests.delete(key);
     return false;
   }
   return method !== "GET" && !isNavigationBookkeeping(input);
@@ -246,7 +246,7 @@ export function fetchCurrentPipelineUser() {
 }
 
 const sessionClearedListeners = new Set<() => void>();
-// Private per-person state held outside the JSON cache (quick notes) must drop on sign-out or account switch.
+// State held outside the JSON cache (the latest client notes) must drop on sign-out or account switch.
 export function onPipelineSessionCleared(listener: () => void) {
   sessionClearedListeners.add(listener);
   return () => { sessionClearedListeners.delete(listener); };

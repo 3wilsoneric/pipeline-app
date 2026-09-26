@@ -1,6 +1,7 @@
 "use client";
 
-import { QuickNoteLine } from "@/components/pipeline/QuickNote";
+import { ClientNoteLine } from "@/components/pipeline/ClientNotes";
+import { useLatestNote, useLatestNotes } from "@/components/pipeline/useLatestNotes";
 import { useId, useState } from "react";
 import { ArrowRight, ChevronDown, FileText, FolderOpen, Maximize2 } from "lucide-react";
 
@@ -68,6 +69,8 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   const [expanded, setExpanded] = useState<{ stage: ReferralBoardStage; origin: HomeDialogOrigin } | null>(null);
   const active = items.filter((item) => item.board.stage !== null);
   const allActive = allItems.filter((item) => item.board.stage !== null);
+  // Ask once for every card's latest client note; each card reads its own.
+  useLatestNotes(designV2 ? allActive.map((item) => item.referral_id) : []);
   const stages = referralBoardStages;
 
   function openFolder(stage: ReferralBoardStage, element: HTMLElement) {
@@ -207,7 +210,8 @@ function LifecycleCardV2({ item, name, descriptionId, showOwner, onOpenPacket }:
   const milestones = boardMilestones(item);
   const done = milestones.filter((milestone) => milestone.state === "done").length;
   const documents = item.missing_document_count;
-  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-note ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={boardStyles.card}>
+  const note = useLatestNote(item.referral_id);
+  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status${note ? ` ${descriptionId}-note` : ""} ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={boardStyles.card}>
     <span className={boardStyles.cardHead}>
       <span className={boardStyles.identity}>
         <strong data-folder-name className={boardStyles.name}>{name}</strong>
@@ -222,7 +226,7 @@ function LifecycleCardV2({ item, name, descriptionId, showOwner, onOpenPacket }:
       {item.received_at ? <span>Received {formatProfileDate(item.received_at)}</span> : null}
       {planned ? <span>{planned.label} {planned.value}</span> : null}
     </span> : null}
-    <QuickNoteLine referralId={item.referral_id} id={`${descriptionId}-note`} />
+    <ClientNoteLine note={note} id={`${descriptionId}-note`} />
     <span data-folder-body data-folder-details className={boardStyles.progress}>
       <span className={boardStyles.milestones} role="img" aria-label={`${done} of ${milestones.length} steps done`}>
         {milestones.map((milestone) => <span key={milestone.label} data-state={milestone.state} title={milestone.label} />)}

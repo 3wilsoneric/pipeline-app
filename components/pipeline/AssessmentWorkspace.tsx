@@ -125,7 +125,7 @@ import { useDesignV2 } from "@/components/design/DesignSwitch";
 import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
 import InterviewContext from "@/components/pipeline/InterviewContext";
 import ChartPeek from "@/components/pipeline/ChartPeek";
-import InterviewNotebook, { InterviewNotebookReopen } from "@/components/pipeline/InterviewNotebook";
+import ClientNotes, { ClientNotesReopen } from "@/components/pipeline/ClientNotes";
 import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
@@ -2407,15 +2407,15 @@ export default function AssessmentWorkspace({
 
   // Interview notebook (docs/design/DECISIONS.md, "Interview notebook"): beside the questions on wide
   // screens, following the topic in view. Phones and practice keep the questions alone for now.
-  const notebookAvailable = designV2 && !phoneLayout && !trainingAssessmentMode;
+  const notebookAvailable = designV2 && !phoneLayout && !trainingAssessmentMode && Boolean(referralId);
   const notebookTopic = stackedQuestionsView ? spySection : activeSection;
   // Preparing has no side column, so the notebook sits to the right; the interview puts it in a tab
   // beside Current information so the questions keep their width.
-  const renderNotebook = (onCollapse?: () => void) => <InterviewNotebook key={selected.assessment_id} assessmentId={selected.assessment_id} locked={Boolean(selected.signed_at) || !canEditClinical}
+  const renderNotebook = (onCollapse?: () => void) => <ClientNotes key={referralId} referralId={referralId!} readOnly={!canEditClinical}
     currentTopics={preparing ? preparationGroupForSection(notebookTopic).sections : [notebookTopic]} onCollapse={onCollapse} />;
   const withNotebook = (content: ReactNode) => notebookAvailable && preparing ? <div className={workingStyles.withNotebook} data-notebook-open={notebookOpen || undefined}>
     {content}
-    {notebookOpen ? renderNotebook(() => showNotebook(false)) : <InterviewNotebookReopen onOpen={() => showNotebook(true)} />}
+    {notebookOpen ? renderNotebook(() => showNotebook(false)) : <ClientNotesReopen onOpen={() => showNotebook(true)} />}
   </div> : content;
   const sectionSteps = <nav aria-label="Assessment section steps" className={`${workingStyles.sectionSteps} ${phoneLayout ? workingStyles.phonePreparationSteps : ""}`}>
     {stackedQuestionsView ? null : <>

@@ -111,18 +111,9 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Assessment interview: drops the intro sentence under All questions / Interview.
 - One green action per page: Chart links (Edit referral details, Review unanswered, Open decision) are ink, and the rail's Next pill hides on the Chart when the page's own button leads to the Assessment.
 
-## Quick note (owner, 2026-09-26, from staff feedback)
-
-- Each person keeps a short private reminder per referral ("where we are"), so they don't have to click through 10 to 20 profiles to remember progress. Owner decisions: private to each person; called "Quick note" (placeholder "Add quick note").
-- Written from a round floating button at the bottom right of the record, above the page's action bar (owner, 2026-09-26; it was a preview in the rail before). The button is tinted amber when a note exists, and hovering shows the note. Clicking it opens the writing panel upward from the button (owner: "more substantial"). It saves as you type (about a second after the last keystroke) and when the panel closes (click away, the button, or Escape). Clearing it deletes the note.
-- Notes structure themselves (owner, 2026-09-26: "do 1 and 2"): a note is a list of entries, newest first. Typing continues today's entry for the step you are on (Intake, Chart, Assessment, Decision, Finish & send), or starts a new one; the server dates each entry when first saved and never takes a date from the browser. Every earlier entry, from all steps, lists below the entry box and takes most of the panel, each with its date, a step tag in the step's color, and a delete control. Chips above the list (All, then each step that has notes, with counts) narrow it to one step; it opens on All (owner: "when I'm on assessment, I might not just want to see assessment"). Home and Workspaces show the newest entry. Notes saved as one text before this carry over as one undated-step entry. Up to 30 entries, 2,000 characters each, 12,000 in all.
-- Read at a glance on the Home board cards (up to three lines) and under each client on Workspaces (up to two), in a warm sticky-note tint.
-- Stored in the per-person workspace-state store (`referral_quick_note`, migration 0046, additive with a guarded rollback), up to 2,000 characters of plain text, kept a year from the last edit. It needs read access to the referral, never changes the referral, and is not part of its Activity. Notes clear from memory on sign-out or account switch.
-- Redesign only, and wide screens only for writing. Phones: follow-up if staff ask.
-
 ## Interview context (owner, 2026-09-26: "surface information without having to navigate away")
 
-- The interview's "Current information" panel starts with the referral summary and the referral's documents. A document opens as a side sheet over the interview and closes back to the same question. The quick note is already in the rail.
+- The interview's "Current information" panel starts with the referral summary and the referral's documents. A document opens as a side sheet over the interview and closes back to the same question. Notes sit beside the questions (see "Notes").
 - Returning clients: each history-type question that is still empty offers the answer from the client's last signed assessment on another referral ("Suggested from last assessment (Mon YYYY)" / "Use"), the same pattern as document suggestions. Only answers that rarely change are offered (history, diagnoses, legal, substance history, devices and diet, social history); current symptoms, recent incidents, and "last/most recent" dates are always asked fresh.
 - Nothing fills in until a person chooses Use. The browser names the earlier assessment it used; the server re-checks that it is this client's (same Pipeline client or linked clinical client), signed, openable by this person, and that the saved value matches. Then the answer's source reads "From last assessment". Anything that does not check out still saves, recorded as entered by the person, so a stale suggestion never blocks a save.
 - Document suggestions ("Suggested from <file>", Use / Reject) already exist wherever packet extraction runs; automatic filling from documents stays off.
@@ -182,7 +173,7 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 
 ## Sharper pass (owner, 2026-09-26: "less coffee house, sharper, better colors")
 
-- Crisper: white sheets and cards defined by borders, with shadows only on things that float (quick note, menus, dragged cards). Corners tighter again (sheet 12, folder 10, paper 8, input 6, chip 4).
+- Crisper: white sheets and cards defined by borders, with shadows only on things that float (the notes button, menus, dragged cards). Corners tighter again (sheet 12, folder 10, paper 8, input 6, chip 4).
 - Colors: the component colors from the modern pass stay (step columns, washes, tiles, chips). Only the ink is darker (near-black). A later attempt that whitened the washes, and one with a dark sidebar and black buttons, were both rejected by the owner (2026-09-26: "i just wanted the component colors to be there, and sharper font and edges").
 - Filled buttons (Create referral, Begin interview, Next section, Send, the begin dialog) share one deep bottle-green action color, flat, with even corners. The emerald folder-tab Create referral button from the current design is gone in the redesign.
 - Headings tracked slightly tighter, with Inter's clearer letterforms (single-story a, open digits).
@@ -220,19 +211,21 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 
 ## Home board cards (owner, 2026-09-26: "take the design, color etc and give it ours, and take away percentage")
 
-- From the owner's reference: the client's name with the status pill beside it; "Referral #n · community"; the received and planned dates; the quick note; a milestone bar; documents needed in orange with a file icon; then the assessor with initials and the next action as a filled button that stays on one line.
+- From the owner's reference: the client's name with the status pill beside it; "Referral #n · community"; the received and planned dates; the latest client note; a milestone bar; documents needed in orange with a file icon; then the assessor with initials and the next action as a filled button that stays on one line.
 - No percentage. The bar has one segment per milestone (Intake, Assessment scheduled, Interview, Assessment signed, Decision, Meet the Client packet sent) from the referral's workflow status and packet date: done in the column's color, the one underway at half strength, the rest gray. Declined and closed referrals show no step underway. Each segment names its milestone on hover; the bar reads "n of 6 steps done".
 - The assessor appears once, in the footer; with none it reads "Unassigned" in orange with an empty dashed avatar.
+- The card's note is the client's latest note (see "Notes").
 - Columns take stronger tints (green, lavender, peach) and a dot in their color before the name.
 
-## Interview notebook (owner, 2026-09-26: notes "for the pre-interview and interview part"; part of the record: "yes")
+## Notes (owner, 2026-09-26: "the quick note and interview notes have to be combined, this is all about the client"; "not private, just attached to the client")
 
-- The assessor's preparation and interview notes are part of the assessment record: anyone who can open the referral reads them, edits follow the assessment's own edit rule, every save is audited with the assessment (block, versions, length; not the text), and signing locks them (later changes go through an addendum).
+- One set of notes per referral, taken by the assessor while preparing for and doing the interview, attached to the client: anyone who can open the referral reads them, and edits follow the referral's own edit rule. They replace the private quick note and the assessment-only notebook tried earlier (neither was ever deployed).
 - Headings: Before the interview, one per interview topic, then Collateral and calls. The topic in view opens and is marked by itself, so notes land in the right place without filing.
-- Placement: in the interview, notes and Current information are tabs in the column beside the questions (notes first), so the questions keep their width; while preparing, the notebook is a column on the right that can be hidden and brought back (remembered on this device). Phones and practice: not yet.
-- Saving never blocks: each heading saves on its own about 0.7 seconds after typing pauses and when it is left; one request at a time per heading; retried by itself when the connection drops; sent when the page hides. Each heading has its own version and never changes the assessment's version, so notes can never make an answer save conflict. A heading changed on another screen offers "Keep mine" or "Use theirs" instead of overwriting either.
-- Storage: pipeline.assessment_notebook_blocks (migration 0047, additive, guarded rollback), with a local-file adapter for development; verified against PostgreSQL.
-- Next: prep and interview tags and time stamps on lines, "Use as answer", custom headings and "/" shortcuts, then clearing the assessment's remaining blocking messages.
+- Where: on the Assessment step, beside the questions (a "Notes | Current information" tab pair in the interview, so the questions keep their width; a column on the right while preparing, which can be hidden, remembered on this device). On every other record step, the same notes open from a round button at the bottom right. Home board cards and Workspaces rows show the latest note (first line of the most recently edited heading).
+- Saving never blocks: each heading saves about 0.7 seconds after typing pauses and when it is left; one request at a time per heading; retried by itself when the connection drops; sent when the page hides. Each heading has its own version and never changes the referral's version, so notes can never make a referral or assessment save conflict. A heading changed on another screen offers "Keep mine" or "Use theirs". A note save refreshes only the latest-notes summary, never the whole app's data.
+- Each heading records who last edited it and when. Notes add no audit rows, because they save as someone types and would flood the referral's Activity; they are not referral activity. They are not locked when the assessment is signed.
+- Storage: pipeline.client_note_blocks (migration 0046, additive, guarded rollback), with a local-file adapter for development; verified against PostgreSQL. Phones and practice: not yet.
+- Next: prep and interview tags and time stamps on lines, "Use as answer", custom headings and "/" shortcuts.
 
 ## Out of scope (owner, 2026-09-24)
 

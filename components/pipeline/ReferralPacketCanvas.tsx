@@ -43,8 +43,7 @@ import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import folderStyles from "./ClientFolder.module.css";
 import { usePhoneAssessment } from "./use-phone-layout";
-import { QuickNoteEditor } from "@/components/pipeline/QuickNote";
-import type { QuickNoteStep } from "@/lib/pipeline/referral-quick-notes";
+import { ClientNotesButton } from "@/components/pipeline/ClientNotes";
 import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
@@ -2706,7 +2705,8 @@ export default function ReferralPacketCanvas({
                 <span aria-hidden="true" className={workspaceFolderStyles.railProgress}><span style={{ width: `${Math.round(railDone / 3 * 100)}%` }} /></span>
               </div>
             ) : null}
-            {verticalFlow && loadedReferral ? <QuickNoteEditor key={`${loadedReferral.id}-${quickNoteStep(displayedPage)}`} referralId={loadedReferral.id} step={quickNoteStep(displayedPage)} /> : null}
+            {/* Client notes: beside the questions on the Assessment step; from this button everywhere else. */}
+            {verticalFlow && loadedReferral && displayedPage !== 2 ? <ClientNotesButton key={loadedReferral.id} referralId={loadedReferral.id} readOnly={permissionReadOnly} /> : null}
             <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>
@@ -3513,11 +3513,6 @@ function referralPacketEvidenceVersion(referral: Referral | null) {
 // Kept-mounted step order. Intake, Files, and Activity stay their own views.
 const recordStepOrder: readonly WorkspaceView[] = [3, 2, "workflow", "email"];
 const recordStepPages: ReadonlySet<WorkspaceView> = new Set(recordStepOrder);
-
-// The step a quick note entry is tagged with: the record page the person is on (none on Files or Activity).
-function quickNoteStep(page: WorkspaceView): QuickNoteStep | null {
-  return page === 1 ? "intake" : page === 3 ? "chart" : page === 2 ? "assessment" : page === "workflow" ? "decision" : page === "email" ? "send" : null;
-}
 
 function WorkspaceAssignedWorkControl({ referral, available, onOpen, disabled }: {
   referral: Referral | null;

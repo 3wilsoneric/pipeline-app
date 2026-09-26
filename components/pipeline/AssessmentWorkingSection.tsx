@@ -101,7 +101,7 @@ export type WorkingSectionProps = WorkingData & {
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
   /** Redesign: the client's last signed assessment, offered per question while it is empty. */
   priorAnswers?: PriorAnswers;
-  /** Interview: the interview notebook, shown as a tab beside Current information. */
+  /** Interview: the client's notes, shown as a tab beside Current information. */
   notebook?: React.ReactNode;
   /** One page of groups: each question's group (preparation group or interview topic), for headings. */
   groupHeadings?: ReadonlyMap<AssessmentToolFieldKey, { key: string; label: string }>;
@@ -319,7 +319,7 @@ function ReferenceTabs({ notebook, information }: { notebook: React.ReactNode; i
   const id = useId();
   return <div className={styles.referenceTabs} data-reference-tab={tab}>
     <div role="tablist" aria-label="Beside the questions" className={styles.referenceTabList}>
-      <button type="button" role="tab" id={`${id}-notes`} aria-selected={tab === "notes"} aria-controls={`${id}-notes-panel`} onClick={() => setTab("notes")}>Interview notes</button>
+      <button type="button" role="tab" id={`${id}-notes`} aria-selected={tab === "notes"} aria-controls={`${id}-notes-panel`} onClick={() => setTab("notes")}>Notes</button>
       <button type="button" role="tab" id={`${id}-information`} aria-selected={tab === "information"} aria-controls={`${id}-information-panel`} onClick={() => setTab("information")}>Current information</button>
     </div>
     <div role="tabpanel" id={`${id}-notes-panel`} aria-labelledby={`${id}-notes`} hidden={tab !== "notes"}>{notebook}</div>

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:e7f6398085e5155d",
-  "fingerprint": "e7f6398085e5155dd1250d18f9a177daef3aa2a3d4df86a02cdd6804e60999e6",
+  "generatedAt": "source-fingerprint:7c01a298fda72c4f",
+  "fingerprint": "7c01a298fda72c4f797ef7df1c0908691c13068d40b279edb6d59aee2607ec78",
   "totals": {
-    "files": 1477,
-    "lines": 381382,
-    "coveredFiles": 1477
+    "files": 1470,
+    "lines": 380850,
+    "coveredFiles": 1470
   },
   "entries": [
     {
@@ -405,30 +405,6 @@
       ]
     },
     {
-      "path": "app/api/assessments/[assessmentId]/notebook/[blockKey]/route.ts",
-      "subsystem": "API routes",
-      "kind": "route-handler",
-      "runtime": "next-server",
-      "risk": "high",
-      "lines": 46,
-      "moduleIds": [
-        "assessment-lifecycle",
-        "assessment-schema-ownership"
-      ]
-    },
-    {
-      "path": "app/api/assessments/[assessmentId]/notebook/route.ts",
-      "subsystem": "API routes",
-      "kind": "route-handler",
-      "runtime": "next-server",
-      "risk": "high",
-      "lines": 28,
-      "moduleIds": [
-        "assessment-lifecycle",
-        "assessment-schema-ownership"
-      ]
-    },
-    {
       "path": "app/api/assessments/[assessmentId]/prior-answers/route.ts",
       "subsystem": "API routes",
       "kind": "route-handler",
@@ -546,6 +522,18 @@
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
+      ]
+    },
+    {
+      "path": "app/api/client-notes/latest/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 28,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -986,18 +974,6 @@
       "runtime": "next-server",
       "risk": "high",
       "lines": 73,
-      "moduleIds": [
-        "route-handler-contract",
-        "validation-authorization"
-      ]
-    },
-    {
-      "path": "app/api/me/quick-notes/route.ts",
-      "subsystem": "API routes",
-      "kind": "route-handler",
-      "runtime": "next-server",
-      "risk": "high",
-      "lines": 24,
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
@@ -1551,6 +1527,32 @@
       ]
     },
     {
+      "path": "app/api/referrals/[referralId]/notes/[headingKey]/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 39,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/referrals/[referralId]/notes/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 22,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
       "path": "app/api/referrals/[referralId]/outlook-draft/route.ts",
       "subsystem": "API routes",
       "kind": "route-handler",
@@ -1595,19 +1597,6 @@
       "runtime": "next-server",
       "risk": "high",
       "lines": 35,
-      "moduleIds": [
-        "create-referral",
-        "route-handler-contract",
-        "validation-authorization"
-      ]
-    },
-    {
-      "path": "app/api/referrals/[referralId]/quick-note/route.ts",
-      "subsystem": "API routes",
-      "kind": "route-handler",
-      "runtime": "next-server",
-      "risk": "high",
-      "lines": 45,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -2600,6 +2589,30 @@
       ]
     },
     {
+      "path": "components/pipeline/ClientNotes.module.css",
+      "subsystem": "Pipeline UI",
+      "kind": "repository-file",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 74,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/ClientNotes.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 140,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/ClientProfileDirectory.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2918,30 +2931,6 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 49,
-      "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
-      ]
-    },
-    {
-      "path": "components/pipeline/InterviewNotebook.module.css",
-      "subsystem": "Pipeline UI",
-      "kind": "repository-file",
-      "runtime": "browser",
-      "risk": "standard",
-      "lines": 52,
-      "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
-      ]
-    },
-    {
-      "path": "components/pipeline/InterviewNotebook.tsx",
-      "subsystem": "Pipeline UI",
-      "kind": "react-component",
-      "runtime": "browser",
-      "risk": "standard",
-      "lines": 108,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3296,30 +3285,6 @@
       ]
     },
     {
-      "path": "components/pipeline/QuickNote.module.css",
-      "subsystem": "Pipeline UI",
-      "kind": "repository-file",
-      "runtime": "browser",
-      "risk": "standard",
-      "lines": 150,
-      "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
-      ]
-    },
-    {
-      "path": "components/pipeline/QuickNote.tsx",
-      "subsystem": "Pipeline UI",
-      "kind": "react-component",
-      "runtime": "browser",
-      "risk": "standard",
-      "lines": 160,
-      "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
-      ]
-    },
-    {
       "path": "components/pipeline/ReadableChartText.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -3553,7 +3518,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 4599,
+      "lines": 4594,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3613,7 +3578,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 325,
+      "lines": 329,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3625,7 +3590,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 224,
+      "lines": 231,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -4016,6 +3981,18 @@
       ]
     },
     {
+      "path": "components/pipeline/useClientNotes.ts",
+      "subsystem": "Pipeline UI",
+      "kind": "typescript-module",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 161,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/useConfirmationDialog.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -4040,24 +4017,12 @@
       ]
     },
     {
-      "path": "components/pipeline/useInterviewNotebook.ts",
+      "path": "components/pipeline/useLatestNotes.ts",
       "subsystem": "Pipeline UI",
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 162,
-      "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
-      ]
-    },
-    {
-      "path": "components/pipeline/useQuickNotes.ts",
-      "subsystem": "Pipeline UI",
-      "kind": "typescript-module",
-      "runtime": "browser",
-      "risk": "standard",
-      "lines": 80,
+      "lines": 53,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -4129,7 +4094,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 54,
+      "lines": 53,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4676,24 +4641,12 @@
       ]
     },
     {
-      "path": "database/migrations/0046_referral_quick_notes.sql",
+      "path": "database/migrations/0046_client_notes.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "migration",
       "runtime": "postgres",
       "risk": "critical",
-      "lines": 16,
-      "moduleIds": [
-        "database-foundations",
-        "schema-migrations"
-      ]
-    },
-    {
-      "path": "database/migrations/0047_assessment_notebook.sql",
-      "subsystem": "PostgreSQL schema",
-      "kind": "migration",
-      "runtime": "postgres",
-      "risk": "critical",
-      "lines": 21,
+      "lines": 22,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -5192,19 +5145,7 @@
       ]
     },
     {
-      "path": "database/rollbacks/0046_referral_quick_notes.sql",
-      "subsystem": "PostgreSQL schema",
-      "kind": "rollback",
-      "runtime": "postgres",
-      "risk": "standard",
-      "lines": 15,
-      "moduleIds": [
-        "database-foundations",
-        "schema-migrations"
-      ]
-    },
-    {
-      "path": "database/rollbacks/0047_assessment_notebook.sql",
+      "path": "database/rollbacks/0046_client_notes.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
       "runtime": "postgres",
@@ -5798,7 +5739,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 248,
+      "lines": 257,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8666,30 +8607,6 @@
       ]
     },
     {
-      "path": "lib/assessment/assessment-notebook-store.ts",
-      "subsystem": "Assessment domain",
-      "kind": "typescript-module",
-      "runtime": "shared",
-      "risk": "standard",
-      "lines": 140,
-      "moduleIds": [
-        "assessment-lifecycle",
-        "assessment-schema-ownership"
-      ]
-    },
-    {
-      "path": "lib/assessment/assessment-notebook.ts",
-      "subsystem": "Assessment domain",
-      "kind": "typescript-module",
-      "runtime": "shared",
-      "risk": "standard",
-      "lines": 38,
-      "moduleIds": [
-        "assessment-lifecycle",
-        "assessment-schema-ownership"
-      ]
-    },
-    {
       "path": "lib/assessment/assessment-preparation.ts",
       "subsystem": "Assessment domain",
       "kind": "typescript-module",
@@ -10226,6 +10143,30 @@
       ]
     },
     {
+      "path": "lib/pipeline/client-notes-store.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 124,
+      "moduleIds": [
+        "database-foundations",
+        "stores-transactions"
+      ]
+    },
+    {
+      "path": "lib/pipeline/client-notes.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 34,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/client-profile-presentation.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
@@ -10935,18 +10876,6 @@
       ]
     },
     {
-      "path": "lib/pipeline/referral-quick-notes.ts",
-      "subsystem": "Referral domain",
-      "kind": "typescript-module",
-      "runtime": "shared",
-      "risk": "standard",
-      "lines": 77,
-      "moduleIds": [
-        "system-map",
-        "types-and-boundaries"
-      ]
-    },
-    {
       "path": "lib/pipeline/referral-retention.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
@@ -11207,7 +11136,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 469,
+      "lines": 467,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -16759,30 +16688,6 @@
       ]
     },
     {
-      "path": "tests/e2e/operational/assessment-notebook-ui.spec.ts",
-      "subsystem": "Browser tests",
-      "kind": "browser-test",
-      "runtime": "tooling",
-      "risk": "standard",
-      "lines": 59,
-      "moduleIds": [
-        "assessment-lifecycle",
-        "assessment-schema-ownership"
-      ]
-    },
-    {
-      "path": "tests/e2e/operational/assessment-notebook.spec.ts",
-      "subsystem": "Browser tests",
-      "kind": "browser-test",
-      "runtime": "tooling",
-      "risk": "standard",
-      "lines": 80,
-      "moduleIds": [
-        "assessment-lifecycle",
-        "assessment-schema-ownership"
-      ]
-    },
-    {
       "path": "tests/e2e/operational/assessment-outcome-handoff.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -16849,6 +16754,30 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 160,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/client-notes-ui.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 65,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/client-notes.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 73,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -16957,18 +16886,6 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 81,
-      "moduleIds": [
-        "operations-recovery-release",
-        "test-assurance"
-      ]
-    },
-    {
-      "path": "tests/e2e/operational/referral-quick-notes.spec.ts",
-      "subsystem": "Browser tests",
-      "kind": "browser-test",
-      "runtime": "tooling",
-      "risk": "standard",
-      "lines": 78,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
