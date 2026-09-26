@@ -101,6 +101,12 @@ function invalidatesPipelineData(input: string, init: RequestInit) {
     }
     return false;
   }
+  // A quick note is one person's private reminder, not shared referral data: refresh only the notes list.
+  if (method === "PUT" && /^\/api\/referrals\/\d+\/quick-note$/.test(input)) {
+    jsonResponseCache.delete("/api/me/quick-notes");
+    pendingJsonRequests.delete("/api/me/quick-notes");
+    return false;
+  }
   return method !== "GET" && !isNavigationBookkeeping(input);
 }
 
@@ -239,9 +245,17 @@ export function fetchCurrentPipelineUser() {
   });
 }
 
+const sessionClearedListeners = new Set<() => void>();
+// Private per-person state held outside the JSON cache (quick notes) must drop on sign-out or account switch.
+export function onPipelineSessionCleared(listener: () => void) {
+  sessionClearedListeners.add(listener);
+  return () => { sessionClearedListeners.delete(listener); };
+}
+
 export function clearPipelineClientSessionCache() {
   clearPipelineBrowserSessionCache();
   invalidatePipelineDataCache(false);
+  sessionClearedListeners.forEach((listener) => listener());
 }
 
 function publishSavedDataChange(input: string, init: RequestInit) {

@@ -1,0 +1,73 @@
+/* Quick note (docs/design/DECISIONS.md, "Quick note"). Rendered only by the redesign, so there is no
+   current-design block. A warm sticky-note tint marks the person's own reminder apart from record data. */
+
+.line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-chip);
+  background: var(--color-warning-soft);
+  color: var(--color-ink-2);
+  font-size: var(--text-meta);
+  line-height: var(--text-meta--line-height);
+  text-align: left;
+}
+
+.icon { flex-shrink: 0; margin-top: 1px; color: var(--color-warning); }
+
+.lineText {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.compact { padding: 3px 6px; }
+.compact .lineText { -webkit-line-clamp: 1; }
+
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.editor { display: flex; flex-direction: column; gap: 4px; }
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-meta);
+  line-height: var(--text-meta--line-height);
+  font-weight: 600;
+}
+
+.label svg { color: var(--color-warning); }
+
+.field {
+  width: 100%;
+  min-height: 52px;
+  max-height: 180px;
+  padding: 8px 10px;
+  resize: none;
+  overflow-y: auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-input);
+  background: var(--color-warning-soft);
+  color: var(--color-ink);
+  font-size: var(--text-label);
+  line-height: var(--text-label--line-height);
+}
+
+.field::placeholder { color: var(--color-ink-muted); }
+.field:hover { border-color: var(--color-control-border); }
+.field:focus-visible { border-color: var(--color-warning); outline: 2px solid var(--color-focus); outline-offset: 1px; }
+
+.error { margin: 0; padding: 0 4px; color: var(--color-danger); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+
+@media (forced-colors: active) {
+  .line, .field { border: 1px solid CanvasText; background: Canvas; }
+}

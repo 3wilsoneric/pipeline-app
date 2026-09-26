@@ -43,6 +43,7 @@ import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import folderStyles from "./ClientFolder.module.css";
 import { usePhoneAssessment } from "./use-phone-layout";
+import { QuickNoteEditor } from "@/components/pipeline/QuickNote";
 import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
@@ -2668,6 +2669,7 @@ export default function ReferralPacketCanvas({
                 <span aria-hidden="true" className={workspaceFolderStyles.railProgress}><span style={{ width: `${Math.round(railDone / 3 * 100)}%` }} /></span>
               </div>
             ) : null}
+            {verticalFlow && loadedReferral ? <QuickNoteEditor key={loadedReferral.id} referralId={loadedReferral.id} /> : null}
             <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>

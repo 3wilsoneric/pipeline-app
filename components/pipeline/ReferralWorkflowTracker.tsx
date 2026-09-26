@@ -1,5 +1,6 @@
 "use client";
 
+import { QuickNoteLine } from "@/components/pipeline/QuickNote";
 import { useId, useState } from "react";
 import { ArrowRight, ChevronDown, FolderOpen, Maximize2 } from "lucide-react";
 
@@ -204,7 +205,7 @@ function LifecycleCardV2({ item, name, descriptionId, showOwner, onOpenPacket }:
   const planned = plannedAdmissionDetail(item)[0];
   const owner = showOwner ? item.owner || "Unassigned" : null;
   const completion = Math.round(item.completion_pct);
-  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={boardStyles.card}>
+  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={item.board.stage} data-board-outcome={item.outcome_state} aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-note ${descriptionId}-action`} onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={boardStyles.card}>
     <span className={boardStyles.identity}>
       <strong data-folder-name className={boardStyles.name}>{name}</strong>
       <span className={boardStyles.fileIndex}>
@@ -215,6 +216,7 @@ function LifecycleCardV2({ item, name, descriptionId, showOwner, onOpenPacket }:
       </span>
     </span>
     <span><span id={`${descriptionId}-status`} data-board-status className={boardStyles.status}>{status}</span></span>
+    <QuickNoteLine referralId={item.referral_id} id={`${descriptionId}-note`} />
     <span data-folder-body data-folder-details className={boardStyles.progress}>
       <span className={boardStyles.progressRow}>
         <span className={boardStyles.detail}><span className={boardStyles.hiddenLabel}>File progress</span><strong>{completion}% complete</strong></span>

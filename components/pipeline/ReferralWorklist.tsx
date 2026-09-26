@@ -17,6 +17,8 @@ import { prefetchPipelineWorkspace } from "@/lib/pipeline/client-navigation";
 import { getWorkspaceCounty, getWorkspaceWorkflowLabel, isClientChartWorkspace, isEarlierWorkspaceMonth, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
 import { workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
 import styles from "./WorkspaceDirectory.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
+import { QuickNoteLine } from "@/components/pipeline/QuickNote";
 
 export default function ReferralWorklist({
   referrals,
@@ -27,6 +29,7 @@ export default function ReferralWorklist({
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   progressByReferral?: Record<number, ReferralProgress>;
 }) {
+  const designV2 = useDesignV2();
   const rows = referrals.map((referral) => {
     const progress = progressByReferral[referral.id] ?? getReferralProgress(referral);
     return {
@@ -81,6 +84,7 @@ export default function ReferralWorklist({
                   {workspaceIdentityDetail(referral, county) ? (
                     <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
                   ) : null}
+                  {designV2 ? <span className="mt-1.5 block"><QuickNoteLine referralId={referral.id} compact /></span> : null}
                   {!isClientChartWorkspace(referral) && referral.priority !== "standard" ? (
                     <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{referral.priority} priority</span>
                   ) : null}
@@ -116,6 +120,7 @@ function CompactReferralRow({
   county: string;
   onOpen: () => void;
 }) {
+  const designV2 = useDesignV2();
   return (
     <button
       type="button"
@@ -135,6 +140,7 @@ function CompactReferralRow({
             {workspaceIdentityDetail(referral, county) ? (
               <span className="mt-1 block truncate text-[10px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
             ) : null}
+            {designV2 ? <span className="mt-1.5 block"><QuickNoteLine referralId={referral.id} compact /></span> : null}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
