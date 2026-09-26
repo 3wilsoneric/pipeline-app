@@ -778,6 +778,11 @@
     .verticalFlow .actions > .utilityTab:hover:not(:disabled) { background: var(--color-segment); color: var(--color-ink); }
     .verticalFlow .actions > .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-ink); font-weight: 600; }
     .verticalFlow .actions > .createTab.createTab { margin: 4px 0 10px; }
+    .verticalFlow > .stepContinue { display: flex; justify-content: flex-end; margin-top: 16px; }
+    .verticalFlow > .stepContinue > button { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 20px; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink); font-size: var(--text-value); font-weight: 600; }
+    .verticalFlow > .stepContinue > button svg { color: var(--color-link); }
+    .verticalFlow > .stepContinue > button:hover { border-color: var(--color-ink-muted); box-shadow: var(--shadow-card-hover); }
+    .verticalFlow > .stepContinue > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
     /* A new referral's only step is Intake, and it is the one in progress. */
     .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
     .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tab-ink); }

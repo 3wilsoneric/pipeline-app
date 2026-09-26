@@ -538,6 +538,11 @@
   .questionPage > * { max-width: 780px; margin-inline: auto; }
   .sectionHeading { margin: 0 0 16px; color: #22362e; font-size: 20px; font-weight: 650; letter-spacing: -.01em; line-height: 1.35; }
   .sectionHeading:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; border-radius: 3px; }
+  /* Prepare on one page: each preparation group opens with its name; jumps land below the sticky header. */
+  /* The section picker stays in view while the page scrolls, so "n / 5" follows along. */
+  [data-assessment-stacked] .navigation { position: sticky; top: 0; z-index: 4; background: var(--color-paper); box-shadow: 0 1px 0 var(--color-paper-rule); }
+  .groupHeading { margin: 36px 0 12px; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); scroll-margin-top: 120px; }
+  [data-assessment-question-page] > .groupHeading:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
   .sectionSteps { display: flex; flex: 0 0 auto; align-items: center; gap: 16px; margin-left: auto; }
   .stepPosition { min-width: 48px; color: #6a766f; font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
   .stepPosition strong { color: #30483b; font-weight: 650; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
 import {
   assessmentInterviewFieldLabel,
@@ -101,6 +101,8 @@ export type WorkingSectionProps = WorkingData & {
   onReview: (field: AssessmentToolFieldKey, action: "accept" | "reject") => void;
   /** Redesign: the client's last signed assessment, offered per question while it is empty. */
   priorAnswers?: PriorAnswers;
+  /** Prepare on one page: a group heading before the first question of each preparation group. */
+  groupHeadings?: ReadonlyMap<AssessmentToolFieldKey, { key: string; label: string }>;
   /** The referral intake's current answers, offered where this assessment is still empty. */
   intakeAnswers?: Partial<AssessmentToolData>;
   /** Redesign: referral summary and documents shown at the top of Current information. */
@@ -178,13 +180,15 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
     {!props.preparing ? <CapturedAssessmentAnswers {...props} questions={props.referenceQuestions ?? questions} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} /> : null}
   </>;
 
-  return <div data-assessment-working-section data-assessment-section={props.section} data-assessment-phase={props.preparing ? "preparation" : "interview"} className={`${styles.book} ${props.preparing ? styles.preparing : ""}`}>
+  return <div data-assessment-working-section data-assessment-stacked={props.groupHeadings ? true : undefined} data-assessment-section={props.section} data-assessment-phase={props.preparing ? "preparation" : "interview"} className={`${styles.book} ${props.preparing ? styles.preparing : ""}`}>
     {renderReference()}
     <div data-guide-target="assessment-fields" data-assessment-question-editor className={styles.editor}>
       <div ref={editor} tabIndex={-1} role="region" aria-label={`${props.sectionLabel ?? "Assessment"} questions`} className={styles.questionPage} data-assessment-question-page>
       {props.preparing && props.sectionLabel ? <h3 ref={sectionHeading} tabIndex={-1} data-assessment-section-heading className={styles.sectionHeading}>{props.sectionLabel}</h3> : null}
       {!groups.length ? <p className={styles.empty}>{isAssessmentFinalized(props.assessment) ? "Review this section in Current information." : "This section is complete. Review the reference, or continue to the next section."}</p> : null}
-      {groups.map((group) => <section key={group.label} aria-label={group.label} className={styles.questionGroup}>
+      {groups.map((group) => <Fragment key={group.label}>
+      {props.groupHeadings?.get(group.questions[0].field) ? <h3 tabIndex={-1} data-assessment-group-heading={props.groupHeadings.get(group.questions[0].field)!.key} className={`${styles.sectionHeading} ${styles.groupHeading}`}>{props.groupHeadings.get(group.questions[0].field)!.label}</h3> : null}
+      <section aria-label={group.label} className={styles.questionGroup}>
         <div className={styles.fields}>
           {group.questions.map((question) => {
             const answer = <>
@@ -198,7 +202,8 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
               : <div key={question.field} className={question.span === "full" ? styles.fullField : undefined}>{answer}</div>;
           })}
         </div>
-      </section>)}
+      </section>
+      </Fragment>)}
       </div>
     </div>
   </div>;

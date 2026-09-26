@@ -202,6 +202,13 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Assessment is manila. Decision and Finish & send are manila until a decision is recorded, then green for Accept and red for Deny, in both the folder and the rail. Intake and Chart stay blue. This supersedes the rose Assessment, amber Decision, and green Finish & send from "Stage color families" for the record pages.
 - The record page carries `data-decision-outcome` from the referral's recorded decision (or its accepted or declined status).
 
+## Less pagination (owner, 2026-09-26: "middle option ... less pagination ... saving can keep happening as you scroll")
+
+- Saving never depended on changing pages: intake fields and assessment answers each save as they are left (the assessment also keeps an offline copy). So removing pages changes layout only.
+- Prepare assessment is one scrolling page: the five groups stack with their names as headings; the section picker stays at the top while scrolling, follows the scroll, and jumps to a group. There is no Previous or Next section; the bottom bar keeps Open interview. Phones and practice keep the paged view.
+- The interview stays paged by topic, one topic of the conversation at a time. Revisit if staff ask for it on one page too.
+- Each record step ends with a "Next: <step>" button below its folder, the same action as the rail's, so a record reads from Chart to Finish & send without scrolling back up.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.

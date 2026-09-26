@@ -3127,6 +3127,12 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           </div>
         ) : null}
+        {/* Each step ends by leading into the next one, so the record reads top to bottom (owner, 2026-09-26). */}
+        {verticalFlow && nextWorkspaceStep && displayedPage !== "files" && displayedPage !== "activity" ? <div className={workspaceFolderStyles.stepContinue}>
+          <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
+            Next: {nextWorkspaceStep.label}<ArrowRight size={17} aria-hidden="true" />
+          </button>
+        </div> : null}
       </div>
       {renderCreationHandoff()}
       {deleteDialogOpen && loadedReferral ? (
