@@ -184,6 +184,11 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Headings tracked slightly tighter, with Inter's clearer letterforms (single-story a, open digits).
 - Tokens and one type rule only; markup and copy unchanged.
 
+## Step folders (owner, 2026-09-26: "bring back the folder effect for the intake through decision")
+
+- Each record step (Intake, Chart, Assessment, Decision, Finish & send) is a folder in its step color instead of a flat wash: a tab at the top left with the step's name, the back panel showing as a darker band above the front flap, and the step's pages inside as white cards. This supersedes the flat wash from "Record layout" (three layers) but keeps its color mapping.
+- The folder colors mix from the step color (front 15%, back 28%, rim 45% into paper), so every step matches without new tokens. The tab label is the section's existing name. Wide screens only; phones keep their layout.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.
