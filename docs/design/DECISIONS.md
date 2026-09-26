@@ -216,6 +216,7 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The Chart and the Assessment are one editor: it draws the Chart into the Chart folder and the questions into the Assessment folder, so there is never a second copy of the assessment that could save over the first.
 - Files, Activity, and Edit referral details stay their own views; the record stays mounted underneath and comes back as it was. Imported, historical, and practice workspaces, and phones, keep the page-by-page layout.
 - A link to a step or an assessment section lands on it; opening the Chart never pulls the page down to a remembered section.
+- Saving has one deliberate place (owner: "if we need a save, or a collection area that will help, then let's make it deliberate"): a panel in the rail for the whole record. It reads "All changes saved" when all is well, "Saving..." while something is in flight, "Saved on this device · waiting to sync" when a change is kept in the browser and retried automatically, and "Not saved to Pipeline" when a save failed; under it, each affected part (referral details, assessment, decision paperwork) with its existing message and its fix (Retry, Open Assessment, Open decision). On the one-page record it replaces the separate save notices above each page.
 
 ## Out of scope (owner, 2026-09-24)
 

@@ -5,7 +5,7 @@ import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import { useHandoffRecipients } from "./useHandoffRecipients";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type SetStateAction } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type ReactNode, type SetStateAction } from "react";
 import {
   ArrowRight,
   CalendarClock,
@@ -2718,11 +2718,12 @@ export default function ReferralPacketCanvas({
               </div>
             ) : null}
 
+            {recordStack && stackVisible && editingControlsVisible ? renderSaveCenter() : null}
             {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
                 explain conflicting edits (renderWorkspaceConflicts). */}
             {renderWorkspaceActions()}
           </div>
-          {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
+          {editingControlsVisible && !stackVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
             <WorkspaceSaveStatus
               status={saveStatus}
               error={saveError}
@@ -2906,6 +2907,34 @@ export default function ReferralPacketCanvas({
                 />
             </PacketPage>
   );
+  // One place for the whole record's saving (owner, 2026-09-26: "if we need a save, or a collection area
+  // that will help, then let's make it deliberate"): one line when all is well; what is saving or failed,
+  // and how to fix it, when not. Uses each part's existing save state and wording.
+  const renderSaveCenter = () => {
+    const assessment = assessmentSaveForCurrent;
+    const decision = decisionSaveForCurrent;
+    const parts: { key: string; failed: boolean; text: string; action?: ReactNode }[] = [];
+    if (saveError || isSaving || hasPendingWorkspaceChanges) parts.push({ key: "referral", failed: Boolean(saveError), text: saveError || saveStatus,
+      action: saveError && hasReferral && hasPendingWorkspaceChanges ? <button type="button" onClick={() => void saveWorkspaceDraft()} disabled={isSaving}>Retry</button> : undefined });
+    if (assessment && (assessment.error || assessment.pendingOfflineSaves > 0 || assessment.appointmentSaving || assessment.appointmentDraft)) parts.push({ key: "assessment", failed: assessment.error,
+      text: assessment.error ? "Assessment needs attention. Check its save status." : assessment.pendingOfflineSaves > 0 ? `${assessment.pendingOfflineSaves} assessment change${assessment.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessment.appointmentSaving ? "Assessment appointment saving…" : "Assessment appointment draft is not booked.",
+      action: <button type="button" onClick={() => openPage(2)}>Open Assessment</button> });
+    if (decision && (decision.failed > 0 || decision.pending > 0)) parts.push({ key: "decision", failed: decision.failed > 0,
+      text: decision.failed > 0 ? `${decision.failed} paperwork change${decision.failed === 1 ? "" : "s"} not saved. Open Decision to retry.` : `${decision.pending} paperwork change${decision.pending === 1 ? "" : "s"} saving or queued…`,
+      action: decision.failed > 0 ? <button type="button" onClick={() => openPage("workflow")}>Open decision</button> : undefined });
+    const failed = parts.some((part) => part.failed);
+    // Kept safely in this browser and retried automatically: say so rather than spinning.
+    const deviceOnly = !failed && (saveStatus === deviceOnlySaveStatus || (assessment?.pendingOfflineSaves ?? 0) > 0);
+    const saving = !failed && !deviceOnly && (parts.length > 0 || Boolean(assessment?.dirty) || emailSending);
+    const Icon = failed ? CircleAlert : saving ? LoaderCircle : deviceOnly ? UploadCloud : CheckCircle2;
+    return <section aria-label="Saving" data-save-center data-state={failed ? "failed" : deviceOnly ? "waiting" : saving ? "saving" : "saved"} className={workspaceFolderStyles.saveCenter}>
+      <p role={failed ? "alert" : "status"} aria-live="polite" className={workspaceFolderStyles.saveCenterSummary}>
+        <Icon size={15} aria-hidden="true" className={saving ? "motion-safe:animate-spin" : undefined} />
+        {failed ? "Not saved to Pipeline" : deviceOnly ? "Saved on this device · waiting to sync" : saving ? "Saving..." : "All changes saved"}
+      </p>
+      {parts.length ? <ul>{parts.map((part) => <li key={part.key} data-failed={part.failed || undefined}><span>{part.text}</span>{part.action}</li>)}</ul> : null}
+    </section>;
+  };
   const renderChartDocuments = () => loadedReferral && displayedPage === 3 ? renderDocumentUpload(true) : undefined;
 
   const renderIntakePage = () => (
@@ -3108,13 +3137,13 @@ export default function ReferralPacketCanvas({
           {accessError} <button type="button" onClick={() => { setAccessChecking(true); setAccessRetry((retry) => retry + 1); }} disabled={accessChecking} className="font-bold underline underline-offset-2 disabled:opacity-50">{accessChecking ? "Checking access..." : "Retry access check"}</button>
         </div> : null}
 
-        {decisionSaveForCurrent && decisionSaveNotice ? <div role={decisionSaveForCurrent.failed > 0 ? "alert" : "status"} className="mb-3 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
+        {!stackVisible && decisionSaveForCurrent && decisionSaveNotice ? <div role={decisionSaveForCurrent.failed > 0 ? "alert" : "status"} className="mb-3 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
           {decisionSaveForCurrent.failed > 0
             ? `${decisionSaveForCurrent.failed} paperwork change${decisionSaveForCurrent.failed === 1 ? "" : "s"} not saved. Open Decision to retry.`
             : `${decisionSaveForCurrent.pending} paperwork change${decisionSaveForCurrent.pending === 1 ? "" : "s"} saving or queued…`}
         </div> : null}
 
-        {assessmentSaveForCurrent && assessmentSaveNotice ? <div role={assessmentSaveForCurrent.error ? "alert" : "status"} className="mb-3 flex flex-wrap items-center justify-between gap-2 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
+        {!stackVisible && assessmentSaveForCurrent && assessmentSaveNotice ? <div role={assessmentSaveForCurrent.error ? "alert" : "status"} className="mb-3 flex flex-wrap items-center justify-between gap-2 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
           <span>{assessmentSaveForCurrent.error ? "Assessment needs attention. Check its save status." : assessmentSaveForCurrent.pendingOfflineSaves > 0 ? `${assessmentSaveForCurrent.pendingOfflineSaves} assessment change${assessmentSaveForCurrent.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessmentSaveForCurrent.appointmentSaving ? "Assessment appointment saving…" : assessmentSaveForCurrent.appointmentDraft ? "Assessment appointment draft is not booked." : "Assessment changes not yet saved."}</span>
           <button type="button" onClick={() => void navigatePage(2)} className="min-h-11 font-semibold text-[#08735e] underline underline-offset-2 focus-visible:outline-2">Open Assessment</button>
         </div> : null}

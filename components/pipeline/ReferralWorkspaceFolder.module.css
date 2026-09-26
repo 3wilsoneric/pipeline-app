@@ -779,6 +779,17 @@
     .verticalFlow .actions > .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-ink); font-weight: 600; }
     .verticalFlow .actions > .createTab.createTab { margin: 4px 0 10px; }
     /* Set well apart from the step above: a divider, then a large button (owner: "bigger, more separation"). */
+    /* The record's saving, in one place in the rail: a quiet line when saved; details and fixes when not. */
+    .verticalFlow .saveCenter { margin: 4px 0 2px; padding: 8px 10px; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); }
+    .verticalFlow .saveCenter[data-state="failed"] { border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-paper)); background: var(--color-danger-soft); }
+    .verticalFlow .saveCenterSummary { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; line-height: var(--text-label--line-height); }
+    .verticalFlow .saveCenter[data-state="saved"] .saveCenterSummary svg { color: var(--color-status-done); }
+    .verticalFlow .saveCenter[data-state="failed"] .saveCenterSummary { color: var(--color-danger); }
+    .verticalFlow .saveCenter ul { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--color-paper-rule); list-style: none; }
+    .verticalFlow .saveCenter li { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; color: var(--color-ink-2); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+    .verticalFlow .saveCenter li[data-failed] { color: var(--color-danger); }
+    .verticalFlow .saveCenter li button { min-height: 28px; color: var(--color-link); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+    .verticalFlow .saveCenter li button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
     /* One-page record: each stacked folder keeps its own step color, whichever step the rail shows. */
     .verticalFlow > [data-record-step] { scroll-margin-top: 12px; }
     .verticalFlow > [data-record-step] + [data-record-step] { margin-top: 28px; }
