@@ -2301,9 +2301,9 @@ export default function AssessmentWorkspace({
     <section data-guide-target="assessment-review" aria-label="Assessment chart review" className={workingStyles.chartReview}>
             {chartDocuments}
             {renderChartReviewToolbar()}
-            {assessmentReview ? renderReviewOverview() : renderUnansweredEntry()}
+            {assessmentReview ? renderReviewOverview() : designV2 ? null : renderUnansweredEntry()}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>
-            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} contactActions={renderChartScheduling()} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
+            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} contactActions={renderChartScheduling()} assessmentEntry={designV2 && !assessmentReview ? renderUnansweredEntry() : undefined} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
               onEditAssessmentField={!isBusy && !isRecommendationPending && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
                 if (!canLeaveRecommendationReview()) return;
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, Check, Circle, Minus } from "lucide-react";
 
 import { fetchPipelineJson, readPipelineJsonCache, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
@@ -72,9 +72,10 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
 
 // "Where this referral stands" (docs/design/DECISIONS.md, "Chart as home"): the Decision page's own
 // milestones, plus the recommendation, admission date, and EHR handoff, so the Chart ends as the whole story.
-export function ReferralStandingGlance({ referralId }: { referralId: number }) {
+export function ReferralStandingGlance({ referralId, children }: { referralId: number; children?: ReactNode }) {
   const workflow = useReferralWorkflow(referralId);
-  if (!workflow) return null;
+  // The appointment (children) never waits on the workflow read.
+  if (!workflow) return children ? <section className={styles.glance}><div className={styles.appointment}>{children}</div></section> : null;
   const steps = decisionProgressSteps(workflow);
   const { recommendation, decision, referral } = workflow;
   const handoff = referral.ehrHandoff;
@@ -96,6 +97,7 @@ export function ReferralStandingGlance({ referralId }: { referralId: number }) {
       {referral.admissionDate ? <div><dt>Admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
       {decision?.outcome === "accepted" && handoff ? <div><dt>EHR handoff</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}
     </dl> : null}
+    {children ? <div className={styles.appointment}>{children}</div> : null}
   </section>;
 }
 

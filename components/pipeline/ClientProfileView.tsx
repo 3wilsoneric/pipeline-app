@@ -242,7 +242,11 @@ function ResidentProfile({
     chart.sections,
     profile.pipeline.assessments,
   );
-  const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at);
+  // Redesign Chart home: this referral's files and signed assessment already show above
+  // (Documents, Assessment summary, Assessment), so only other episodes' records repeat here.
+  const homeChart = useDesignV2() && Boolean(intakeReferral);
+  const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at && !(homeChart && assessment.referral_id === sourceReferralId));
+  const otherDocuments = homeChart ? profile.pipeline.documents.filter((document) => document.referralId !== sourceReferralId) : profile.pipeline.documents;
   const referralEditActions: ChartEditActions | undefined = onEditReferralField
     ? Object.fromEntries(Object.entries(referralChartEditFields).map(([label, field]) => [label, () => onEditReferralField(field)])) : undefined;
   // The summary may belong to a connected census record or another episode.
@@ -326,11 +330,11 @@ function ResidentProfile({
             ) : null}
           </ProfileSection> : null}
 
-          <ClientFilesSection
+          {!homeChart || client.source_documents.length || otherDocuments.length ? <ClientFilesSection
             canonicalClientId={client.canonical_client_id}
             sourceDocuments={client.source_documents}
-            referralDocuments={profile.pipeline.documents}
-          />
+            referralDocuments={otherDocuments}
+          /> : null}
           <ClientRecordedInformation profile={profile} sourceReferralId={sourceReferralId} editActions={referralEditActions} intakeReferral={intakeReferral} />
 
           {!intakeReferral && !pipelineOnly && client.canonical_client_id ? (
@@ -348,7 +352,7 @@ function ClientRecordedInformation({ profile, sourceReferralId, editActions, int
   const client = profile.client;
   // The redesign's Chart already names the referral and shows its summary near the top; don't repeat them here.
   const quiet = useDesignV2() && Boolean(intakeReferral);
-  const referralSections = clientReferralSections(profile, intakeReferral, quiet ? ["summary"] : []);
+  const referralSections = clientReferralSections(profile, intakeReferral, quiet ? ["summary", "decision"] : []);
   return <>
     {referralSections.length > 0 ? <ProfileSection title="Referral information" detail={intakeReferral && !quiet ? "Other recorded referral details" : undefined}>
       <CuratedClientRecord sections={referralSections} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} hideSingleLabel={quiet} />

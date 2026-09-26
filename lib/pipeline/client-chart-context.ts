@@ -87,7 +87,8 @@ export function clientReferralSections(profile: UnifiedClientProfileResponse, su
     key: `referral:${referral.id}`,
     label: `Workspace #${referral.id} · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
     facts: [
-      ...(referral.admissionDecision ? [
+      // "decision": the Chart's status card already shows this referral's decision and recommendation.
+      ...(summarized?.id === referral.id && alsoSummarized.includes("decision") ? [] : referral.admissionDecision ? [
         { label: "Decision", value: referral.admissionDecision.outcome === "accepted" ? "Accept" : "Deny" },
         { label: "Decision reason", value: referral.admissionDecision.reasonNote },
         { label: "Decision recorded by", value: referral.admissionDecision.decidedByName },

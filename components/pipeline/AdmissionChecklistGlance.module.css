@@ -32,3 +32,8 @@ li[data-complete="true"] .item strong { color: var(--color-ink-2); font-weight: 
 .facts dd { margin: 4px 0 0; color: var(--color-ink); font-size: var(--text-value); line-height: 20px; font-weight: 600; overflow-wrap: anywhere; white-space: pre-line; }
 .facts dd > span { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 400; }
 .summaryFacts { margin-top: 0; }
+
+/* The appointment row moved in from the contacts band: flush with the card, one line when it fits. */
+.appointment { margin-top: 14px; }
+.glance > .appointment:first-child { margin-top: 0; }
+.appointment > div { padding: 0; }
