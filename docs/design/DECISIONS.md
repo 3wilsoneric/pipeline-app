@@ -163,6 +163,11 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The Chart ends with this referral's full assessment: the original assessment record with its fields, sections, and edit pencils. It is closed by default under its "Assessment" header with the signed or in-progress status, so the checklist and summary still lead. The Assessment tab stays the place to fill it in.
 - No repeats (owner: "no more lines and copy and attention grabbers ... just have it function better"). The "Assessment answers: n of 84 recorded" line and its review link move from the top to just above the Assessment section. The assessment appointment moves from under Contact information into "Where this referral stands". The lower Client files list and Assessments list leave out this referral's own files and signed assessment, which already show above, and disappear when nothing else is left. Referral information leaves out this referral's decision and recommendation facts, which the status card shows. Nothing new is added.
 
+## Rail steps and presence (owner, 2026-09-26: "is the editing thing necessary? i think not")
+
+- The record rail has no "is editing" pills. Saves still refuse and explain conflicting edits. The current design keeps its presence notice.
+- Assessment, Decision, and Finish & send sit directly under Chart with smaller markers, joined by one line from the Chart icon and with no divider between, so they read as the steps that build the Chart.
+
 ## Out of scope (owner, 2026-09-24)
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.

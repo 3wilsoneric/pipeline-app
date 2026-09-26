@@ -2679,18 +2679,8 @@ export default function ReferralPacketCanvas({
               </div>
             ) : null}
 
-            {/* Redesign: presence rides in the tab row so no notice separates the tabs from the folder. */}
-            {designV2 && presence.length > 0 ? (
-              <div className={workspaceFolderStyles.presence} aria-live="polite" aria-label="People editing this workspace">
-                {presence.map((item) => (
-                  <span key={item.lease_id}>
-                    <span aria-hidden="true" />
-                    {item.actor_name} is editing {presenceSectionLabel(item.section)}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
+            {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
+                explain conflicting edits (renderWorkspaceConflicts). */}
             {renderWorkspaceActions()}
           </div>
           {editingControlsVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
