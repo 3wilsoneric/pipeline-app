@@ -8,7 +8,7 @@
 :where(html:not([data-design="v2"])) {
   .workMode { display: flex; flex-wrap: wrap; flex-shrink: 0; align-items: center; gap: 8px 20px; padding: 12px 24px; border-bottom: 1px solid #dce4e0; background: #fff; }
   .phaseSummary { flex: 1 1 320px; min-width: 0; }
-  .prepActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+  .prepActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
   .appointment { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
   .appointment > span { font-size: 12px; font-weight: 600; color: #64736b; }
   .appointment > strong { grid-row: 2; font-size: 14px; font-weight: 650; color: #294d3e; line-height: 1.5; font-variant-numeric: tabular-nums; }
@@ -414,13 +414,15 @@
 :where(html[data-design="v2"]) {
   .workMode { display: flex; flex-wrap: wrap; flex-shrink: 0; align-items: center; gap: 8px 20px; padding: 14px 24px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-paper); }
   .phaseSummary { flex: 1 1 320px; min-width: 0; }
-  .prepActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+  .prepActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
   .appointment { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
   .appointment > span { font-size: 12px; font-weight: 600; color: var(--color-ink-muted); }
   .appointment > strong { grid-row: 2; font-size: 14px; font-weight: 650; color: #294d3e; line-height: 1.5; font-variant-numeric: tabular-nums; }
   .editAppointment { grid-column: 2; grid-row: 1 / 3; align-self: center; }
   .editAppointment button { min-width: 44px; min-height: 44px; padding: 8px; border-radius: 5px; color: var(--color-link); font-size: 14px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
   .editAppointment button:hover { background: var(--color-primary-soft); }
+  /* Beside the appointment it names, the calendar icon would repeat it; alone in the interview it says what Edit changes. */
+  .editAppointment button svg { display: none; }
   .editAppointment button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   .phaseSteps { display: flex; align-items: center; gap: 12px; margin: 0; padding: 0; list-style: none; color: var(--color-ink-muted); }
   .phaseSteps li { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 550; }
@@ -435,8 +437,10 @@
   .beginAssessment:hover { background: color-mix(in srgb, var(--color-action) 85%, black); }
   .beginAssessment:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
   .beginAssessment:disabled { opacity: .6; }
-  .scheduleAction button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-link); font-size: 15px; font-weight: 600; }
-  .scheduleAction button:hover { background: var(--color-primary-soft); }
+  /* Same secondary button as Chart beside it. */
+  .scheduleAction button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; }
+  .scheduleAction button svg { color: var(--color-link); }
+  .scheduleAction button:hover { border-color: var(--color-ink-muted); color: var(--color-ink); }
   .scheduleAction button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
   .scheduleAction button:disabled { opacity: .6; }
   .workMode .startPending { flex-basis: 100%; color: #8b4d18; }
@@ -454,17 +458,19 @@
     background: transparent;
   }
   .sectionTitle { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
-  .sectionRail { display: flex; gap: 4px; padding-left: 2px; }
+  /* The n / N chip already gives the position; the segmented rail repeated it. */
+  .sectionRail { display: none; }
   .sectionRail > span { width: 22px; height: 6px; border-radius: var(--radius-chip); background: var(--color-track); }
   .sectionRail > span[data-state="past"] { background: var(--color-folder-edge); }
   .sectionRail > span[data-state="current"] { width: 40px; background: var(--color-stage-rose); }
   .sectionPicker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
   .sectionPosition { flex-shrink: 0; padding: 3px 8px; border-radius: var(--radius-chip); background: var(--color-stage-rose-tile); color: var(--color-stage-rose); font-size: var(--text-label); font-weight: 600; line-height: var(--text-label--line-height); font-variant-numeric: tabular-nums; }
   .sectionProgress { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; min-width: 132px; max-width: 38%; color: var(--color-ink-muted); font-size: var(--text-value); line-height: 1.5; font-variant-numeric: tabular-nums; }
-  .sectionProgress strong { color: var(--color-ink); font-size: 22px; font-weight: 700; }
+  .sectionProgress { gap: 10px; font-size: var(--text-label); }
+  .sectionProgress strong { color: var(--color-ink); font-size: var(--text-value); font-weight: 700; }
   .sectionProgress small { display: block; color: var(--color-stage-orange); font-size: var(--text-meta); }
   /* Recorded answers as a ring beside the count. */
-  .progressTrack { order: -1; flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: conic-gradient(var(--color-stage-rose) var(--recorded, 0%), var(--color-track) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); }
+  .progressTrack { order: -1; flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: conic-gradient(var(--color-stage-rose) var(--recorded, 0%), var(--color-track) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); }
   .progressTrack > span { display: none; }
   .sectionPicker select {
     width: fit-content;
@@ -543,22 +549,37 @@
   .withNotebook[data-notebook-open] { grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); }
   .withNotebook > :first-child { min-width: 0; }
   /* Interview: notes and Current information as tabs in the column beside the questions. */
-  .referenceTabs { position: sticky; top: 132px; display: flex; flex-direction: column; gap: 8px; align-self: start; min-width: 0; }
+  .referenceTabs { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 8px; align-self: start; min-width: 0; }
   .referenceTabList { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-paper); background: var(--color-segment); }
   .referenceTabList button { flex: 1; min-height: 34px; padding: 0 10px; border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; white-space: nowrap; }
   .referenceTabList button[aria-selected="true"] { background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink); }
   .referenceTabList button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
-  .referenceTabs [data-client-notes][data-interview-notebook] { position: static; max-height: calc(100dvh - 220px); }
-  /* The tab already names the notes; keep only the save status in the notebook header. */
+  /* Fits between the sticky section header and the save bar, so the save status stays in view. */
+  .referenceTabs [data-client-notes] { position: static; max-height: calc(100dvh - 360px); }
+  /* The tab already names the notes: no header band; the save status sits quietly under the headings. */
   .referenceTabs [data-client-notes] h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .referenceTabs .reference.reference { position: relative; top: auto; margin-top: 42px; max-height: calc(100dvh - 260px); }
+  .referenceTabs [data-client-notes] > header { order: 2; min-height: 36px; padding: 0 14px; border-top: 1px solid var(--color-paper-rule); border-bottom: 0; background: transparent; }
+  .referenceTabs [data-client-notes] > header [role="status"] { margin-left: 0; }
+  /* In the tabs, Current information is the same plain card as the notes: the tab names it, so no folder tab
+     above it; Expand stays in a quiet bar; short answers sit under their label in the narrow column. */
+  .referenceTabs .reference.reference { position: relative; top: auto; margin-top: 0; padding: 0; max-height: calc(100dvh - 360px); border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .referenceTabs .reference .referenceContent { border-radius: var(--radius-paper); }
+  .referenceTabs .reference .referenceHeader { position: static; justify-content: flex-end; min-height: 36px; margin: 0; padding: 0 8px 0 14px; border: 0; border-bottom: 1px solid var(--color-paper-rule); border-radius: var(--radius-paper) var(--radius-paper) 0 0; background: var(--color-sheet); }
+  .referenceTabs .reference .referenceHeader h4 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .referenceTabs .reference .readingPage { padding: 0 14px 14px; }
+  .referenceTabs .reference .referenceWidth { min-height: 32px; padding-inline: 8px; border-radius: var(--radius-input); color: var(--color-link); font-size: var(--text-meta); font-weight: 600; }
+  .referenceTabs .reference .referenceWidth:hover { background: var(--color-segment); }
+  .referenceTabs .reference .answer.answer { display: block; padding: 14px 0; padding-right: 0; }
+  .referenceTabs .reference .answer .answerLabel svg { position: static; }
+  .referenceTabs .reference .answer .answerValue { margin-top: 4px; font-size: var(--text-value); font-weight: 400; line-height: 1.5; }
   /* Prepare on one page: each preparation group opens with its name; jumps land below the sticky header. */
   /* The section picker stays in view while the page scrolls, so "n / 5" follows along. */
   [data-assessment-stacked] .navigation { position: sticky; top: 0; z-index: 4; background: var(--color-paper); box-shadow: 0 1px 0 var(--color-paper-rule); }
   /* Current information stays beside the questions while the page scrolls and follows the current topic. */
   [data-assessment-stacked] .reference { position: sticky; top: 132px; align-self: start; max-height: calc(100dvh - 250px); overflow: auto; }
   .groupHeading { margin: 36px 0 12px; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); scroll-margin-top: 120px; }
-  [data-assessment-question-page] > .groupHeading:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+  /* The sticky section picker already names the first group; keep its heading for jumps and screen readers only. */
+  [data-assessment-question-page] > .groupHeading:first-of-type { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip-path: inset(50%); border: 0; white-space: nowrap; }
   .sectionSteps { display: flex; flex: 0 0 auto; align-items: center; gap: 16px; margin-left: auto; }
   .stepPosition { min-width: 48px; color: #6a766f; font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
   .stepPosition strong { color: #30483b; font-weight: 650; }

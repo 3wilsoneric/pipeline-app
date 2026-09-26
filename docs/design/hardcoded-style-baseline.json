@@ -1,6 +1,6 @@
 {
   "totals": {
-    "hex": 5459,
+    "hex": 5452,
     "radius": 314
   },
   "files": {
@@ -27,7 +27,7 @@
       "hex": 3
     },
     "app/pipeline-surfaces.css": {
-      "hex": 136,
+      "hex": 131,
       "radius": 31
     },
     "components/auth/AuthenticationBrand.tsx": {
@@ -67,7 +67,7 @@
       "radius": 14
     },
     "components/pipeline/AssessmentPreparation.module.css": {
-      "hex": 112,
+      "hex": 111,
       "radius": 10
     },
     "components/pipeline/AssessmentSchedulingDialogs.tsx": {
@@ -172,7 +172,7 @@
       "hex": 12
     },
     "components/pipeline/MeetClientEmailPage.module.css": {
-      "hex": 174,
+      "hex": 173,
       "radius": 28
     },
     "components/pipeline/OperationsDashboard.tsx": {

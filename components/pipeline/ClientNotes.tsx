@@ -43,7 +43,9 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
   useLayoutEffect(() => {
     if (!current || !list.current) return;
     const heading = list.current.querySelector<HTMLElement>(`[data-note-heading="${current}"]`);
-    if (heading) list.current.scrollTo({ top: heading.offsetTop - 8, behavior: "smooth" });
+    if (!heading) return;
+    const top = heading.getBoundingClientRect().top - list.current.getBoundingClientRect().top + list.current.scrollTop;
+    list.current.scrollTo({ top: Math.max(0, top - 6), behavior: "smooth" });
   }, [current]);
 
   const StatusIcon = notes.status === "failed" ? AlertTriangle : notes.status === "waiting" ? CloudUpload : notes.status === "saved" ? Check : LoaderCircle;
