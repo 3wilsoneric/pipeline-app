@@ -76,7 +76,9 @@ test.describe("assessor meeting fields", () => {
       await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
       await page.goto(assessmentUrl);
       await expect(editor).toBeVisible();
-      await editor.getByRole("button", { name: "All questions", exact: true }).click();
+      // The redesign reopens the Assessment step where it was left; closing the interview left it in All questions.
+      const allQuestions = editor.getByRole("button", { name: "All questions", exact: true });
+      if (await allQuestions.count()) await allQuestions.click();
       await find("Injection frequency");
       await expect(editor.getByRole("textbox", { name: "Injection frequency", exact: true })).toHaveValue(entries[0][2]);
       const saved = await read();

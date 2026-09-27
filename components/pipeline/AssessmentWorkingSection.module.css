@@ -945,3 +945,17 @@
   .chartScheduling button:hover { border-color: var(--color-focus); color: #0f6f5e; }
   .chartScheduling button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
+
+/* Full-screen interview look (docs/design/DECISIONS.md, "Full-screen interview"). Redesign only, top level because
+   the switch lives on <html>. The page is the soft app background; a white top bar with the Assessment step's
+   manila line runs edge to edge; the chart side is a manila sheet and the questions a white sheet; the bottom bar
+   runs edge to edge. The full-screen page pads 48px left (rail handle) and 32px right; the bars reach past that. */
+:global(html[data-design="v2"][data-interview-focus]) .navigation[data-with-work-mode] { min-height: 64px; margin: 0 -32px 0 -48px; padding: 10px 32px 10px 48px; border-top: 3px solid var(--color-manila); border-bottom: 1px solid var(--color-card-border); background: var(--color-paper); box-shadow: 0 1px 3px rgb(15 23 42 / 0.05); }
+:global(html[data-design="v2"][data-interview-focus]) .navigation[data-with-work-mode] .focusTitle { font-size: var(--text-section); }
+:global(html[data-design="v2"][data-interview-focus]) .readingMain { background: transparent; }
+:global(html[data-design="v2"][data-interview-focus] section[data-assessment-view="assessment"]) { border-top: 0; background: transparent; box-shadow: none; }
+:global(html[data-design="v2"][data-interview-focus]) .book[data-split] { row-gap: 20px; padding: 0 0 24px; background: transparent; }
+:global(html[data-design="v2"][data-interview-focus]) .book[data-split] .editor { margin-left: 20px; padding: 0; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+:global(html[data-design="v2"][data-interview-focus]) .book[data-split] .questionPage { padding: 28px 32px 36px; }
+:global(html[data-design="v2"][data-interview-focus]) .footer[aria-label="Assessment actions"] { margin: 0 -32px 0 -48px; padding-inline: 48px 32px; border-top: 1px solid var(--color-card-border); background: var(--color-paper); box-shadow: 0 -1px 3px rgb(15 23 42 / 0.04); }
+

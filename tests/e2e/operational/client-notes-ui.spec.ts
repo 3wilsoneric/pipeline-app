@@ -53,8 +53,12 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await expect(line).toHaveAttribute("aria-valuenow", "45");
   const questions = await page.locator("[data-assessment-question-editor]").first().boundingBox();
   expect(questions!.width).toBeGreaterThan(420);
-  // Full screen (docs/design/DECISIONS.md, "Full-screen interview"): on in the interview, the close button and
-  // Escape leave it and stay on the interview; it comes back on the next visit to the interview.
+  // An answer shows in the chart text as soon as it is recorded.
+  await page.getByRole("textbox", { name: "Current location" }).fill("Board and care in Turlock");
+  await page.keyboard.press("Tab");
+  await expect(split.locator('[data-split-topic="identity"]')).toContainText("Board and care in Turlock");
+  // Full screen (docs/design/DECISIONS.md, "Full-screen interview"): the interview is always full screen; closing it
+  // (the button or Escape) goes to All questions, and Interview comes straight back.
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-interview-focus", "true");
   // The record rail waits as a handle at the left edge and slides out on hover.
@@ -69,25 +73,17 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await expect(headerRow.getByRole("button", { name: "Schedule interview" })).toHaveCount(0);
   await headerRow.getByRole("button", { name: "Close", exact: true }).click();
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
-  await expect(split).toBeVisible();
-  // Leaving is remembered: it does not come back by itself, on a return to the interview or after a reload.
-  await page.getByRole("button", { name: "All questions", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Interview", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Interview", exact: true }).click();
-  await expect(headerRow.getByRole("button", { name: "Expand", exact: true })).toBeVisible();
-  await expect(root).not.toHaveAttribute("data-interview-focus", "true");
-  await headerRow.getByRole("button", { name: "Expand", exact: true }).click();
   await expect(root).toHaveAttribute("data-interview-focus", "true");
   await page.keyboard.press("Escape");
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
+  // After a reload the Assessment step reopens where the person left it: All questions.
   await page.reload();
-  await expect(headerRow.getByRole("button", { name: "Expand", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
-  // An answer shows in the chart text as soon as it is recorded.
-  await page.getByRole("textbox", { name: "Current location" }).fill("Board and care in Turlock");
-  await page.keyboard.press("Tab");
-  await expect(split.locator('[data-split-topic="identity"]')).toContainText("Board and care in Turlock");
   // Preparing: the notebook sits to the right and can be hidden and brought back.
-  await page.getByRole("button", { name: "All questions", exact: true }).click();
   await expect(page.locator("[data-client-notes]")).toBeVisible();
   await page.getByRole("button", { name: "Hide notes" }).click();
   await expect(page.locator("[data-client-notes]")).toHaveCount(0);
@@ -101,7 +97,10 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
   // Saved notes come back after a reload.
   await page.reload();
-  await expect(page.locator(`[data-note-heading="${firstKey}"]`)).toContainText("Client prefers");
+  // Beside the questions only the topic in view shows; View all lists every heading wherever the page reopened.
+  const reopened = page.locator("[data-client-notes]").first();
+  await reopened.getByRole("button", { name: "View all", exact: true }).click();
+  await expect(reopened.locator(`[data-note-heading="${firstKey}"]`)).toContainText("Client prefers");
   expect(errors).toEqual([]);
   await context.close();
 });

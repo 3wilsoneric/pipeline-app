@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral } from "../support/operational-api";
+import { preparationGroupForSection } from "../../../lib/assessment/assessment-preparation";
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
 // Full-screen interview edge cases (docs/design/DECISIONS.md, "Full-screen interview"): what people actually do
@@ -32,9 +33,7 @@ test.describe("full-screen interview", () => {
       // Covered app controls are out of reach, not just out of sight.
       await expect.poll(() => appBarCovered(page)).toBe(true);
 
-      // Leaving and coming back keeps the topic in view and puts focus on the control that undoes it.
-      // The picker holds the chosen topic while the page scrolls there (no flicking through the topics passed),
-      // and closing before the scroll arrives still lands on it.
+      // The picker holds the chosen topic while the page scrolls there (no flicking through the topics passed).
       await picker.selectOption("medication");
       const seen = await page.evaluate(async () => {
         const select = document.querySelector<HTMLSelectElement>('select[aria-label="Assessment section"]')!;
@@ -43,25 +42,26 @@ test.describe("full-screen interview", () => {
         return [...values];
       });
       expect(seen).toEqual(["medication"]);
+
+      // Closing (even before the scroll arrives) goes to All questions on the matching group, with focus on
+      // Interview; Interview goes straight back to the same topic, full screen.
       await picker.selectOption("behavioral_risk");
       await page.mouse.move(900, 500);
       await bar.getByRole("button", { name: "Close", exact: true }).click();
-      await expect(picker).toHaveValue("behavioral_risk");
-      await expect(page.locator('[data-assessment-group-heading="behavioral_risk"]')).toBeInViewport();
-      await bar.getByRole("button", { name: "Expand", exact: true }).click();
-      await picker.selectOption("medication");
-      await expect(page.locator('[data-assessment-group-heading="medication"]')).toBeInViewport();
-      await bar.getByRole("button", { name: "Close", exact: true }).click();
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
-      await expect(picker).toHaveValue("medication");
-      await expect(page.locator('[data-assessment-group-heading="medication"]')).toBeInViewport();
-      await expect(bar.getByRole("button", { name: "Expand", exact: true })).toBeFocused();
+      const group = preparationGroupForSection("behavioral_risk").key;
+      await expect(picker).toHaveValue(group);
+      await expect(page.locator(`[data-assessment-group-heading="${group}"]`)).toBeInViewport();
+      const interview = page.getByRole("button", { name: "Interview", exact: true });
+      await expect(interview).toBeFocused();
       await expect.poll(() => appBarCovered(page)).toBe(false);
-      await bar.getByRole("button", { name: "Expand", exact: true }).click();
+      await interview.click();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
-      await expect(picker).toHaveValue("medication");
-      await expect(page.locator('[data-assessment-group-heading="medication"]')).toBeInViewport();
-      await expect(bar.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+      await expect(picker).toHaveValue("behavioral_risk");
+      await page.keyboard.press("Escape");
+      await expect(root).not.toHaveAttribute("data-interview-focus", "true");
+      await interview.click();
+      await expect(root).toHaveAttribute("data-interview-focus", "true");
 
       // A document opened from the chart side shows over full screen; Escape closes only the document.
       const documentButton = page.locator("[data-interview-split]").getByRole("button", { name: /^Preview / }).first();

@@ -961,7 +961,7 @@
    Assessment folder becomes the whole window; the app bar, the rail and the folder's tab and edges step away
    until it is closed. At the top level because the switch lives on <html> itself. */
 @media (min-width: 1024px) {
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section { position: fixed; inset: 0; z-index: 90; margin: 0; padding: 0 28px 0 48px; overflow-y: auto; overscroll-behavior: contain; border: 0; border-radius: 0; background: var(--color-paper); box-shadow: none; animation: interview-focus-in var(--duration-move) var(--ease-open); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section { position: fixed; inset: 0; z-index: 90; margin: 0; padding: 0 32px 0 48px; overflow-y: auto; overscroll-behavior: contain; border: 0; border-radius: 0; background: var(--color-page); box-shadow: none; animation: interview-focus-in var(--duration-move) var(--ease-open); }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section::before,
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section::after { display: none; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section :is(.connectedFolder, .connectedFolder > div, .connectedFolder > div > div) { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }

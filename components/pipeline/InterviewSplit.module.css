@@ -51,3 +51,10 @@
 
 /* Full screen: the top bar already names the client. */
 :global(html[data-interview-focus]) .name { display: none; }
+
+/* Full screen: the chart side is a manila sheet beside the white question sheet; the line sits in the gap. */
+:global(html[data-design="v2"][data-interview-focus]) .pane { padding-right: 0; }
+:global(html[data-design="v2"][data-interview-focus]) .text { padding: 20px 18px 24px 22px; border: 1px solid color-mix(in srgb, var(--color-manila) 32%, var(--color-card-border)); border-bottom: 0; border-radius: var(--radius-paper) var(--radius-paper) 0 0; background: color-mix(in srgb, var(--color-manila) 7%, var(--color-paper)); }
+:global(html[data-design="v2"][data-interview-focus]) .notes { padding: 12px 18px 16px 22px; border: 1px solid color-mix(in srgb, var(--color-manila) 32%, var(--color-card-border)); border-radius: 0 0 var(--radius-paper) var(--radius-paper); background: var(--color-paper); }
+:global(html[data-design="v2"][data-interview-focus]) .divider { margin-right: -17px; }
+
