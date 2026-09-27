@@ -1,0 +1,50 @@
+/* Split interview (docs/design/DECISIONS.md, "Split interview"). Redesign only.
+   Left: the Chart as plain text (labels over values, no cards), the current topic's notes docked below.
+   One vertical line between the halves; it widens and darkens when it can be dragged. */
+
+.pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
+
+.text { flex: 1; min-height: 0; padding: 4px 8px 32px 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.name { margin: 0 0 18px; color: var(--color-ink); font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: 700; overflow-wrap: anywhere; }
+
+.group + .group, .context, .assessment { margin-top: 22px; }
+.group h4, .assessment > h4 { margin: 0 0 10px; color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; }
+.group dl, .topic dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 24px; margin: 0; }
+.group dl > div, .topic dl > div { min-width: 0; }
+.text dt { color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; }
+.text dd { margin: 2px 0 0; color: var(--color-ink); font-size: var(--text-value); line-height: 21px; white-space: pre-line; overflow-wrap: anywhere; }
+.text dd > span { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+
+/* The referral summary and documents keep their own look, flush with the text. */
+.context > * { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+
+.assessment { padding-top: 22px; border-top: 1px solid var(--color-paper-rule); }
+.topic { position: relative; padding: 10px 0 12px 14px; scroll-margin-top: 12px; }
+.topic::before { content: ""; position: absolute; top: 12px; bottom: 12px; left: 0; width: 2px; border-radius: var(--radius-chip); background: var(--color-paper-rule); }
+.topic[data-current]::before { width: 3px; background: var(--color-link); }
+.topic h5 { margin: 0; color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; }
+.topic[data-current] h5 { color: var(--color-ink); font-weight: 700; }
+.topic dl { margin-top: 8px; }
+
+/* The current topic's notes: part of the left side, not a separate card. */
+.notes { flex: 0 1 auto; min-height: 0; max-height: 40%; display: flex; padding-top: 12px; border-top: 1px solid var(--color-paper-rule); }
+.notes > [data-client-notes] { position: static; flex: 1; min-height: 0; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.notes > [data-client-notes] > header { min-height: 36px; padding: 0 0 4px; border: 0; background: transparent; }
+.notes > [data-client-notes] > div { padding: 0; }
+.notes > [data-client-notes] [data-note-heading] { padding-inline: 0; }
+.notes [data-client-notes] [data-note-heading] textarea { min-height: 88px; }
+
+/* The line between the halves. The hit area is wider than the line. */
+.divider { position: absolute; top: 0; right: 0; bottom: 0; width: 13px; margin-right: -7px; cursor: col-resize; touch-action: none; }
+.divider::before { content: ""; position: absolute; top: 0; bottom: 0; left: 6px; width: 1px; background: var(--color-card-border); transition: background var(--duration-fade) ease, width var(--duration-fade) ease, left var(--duration-fade) ease; }
+.divider:hover::before, .divider:focus-visible::before, .divider:active::before { left: 5px; width: 3px; background: var(--color-link); }
+.divider:focus-visible { outline: none; }
+
+@media (max-width: 1023px) {
+  .pane { position: static; align-self: stretch; width: 100%; height: auto; margin-bottom: 20px; padding: 0 0 20px; border-bottom: 1px solid var(--color-paper-rule); }
+  .text { overflow: visible; }
+  .notes { max-height: none; }
+  .divider { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .divider::before { transition: none; } }
+@media (forced-colors: active) { .divider::before { background: CanvasText; } .topic[data-current]::before { background: Highlight; } }

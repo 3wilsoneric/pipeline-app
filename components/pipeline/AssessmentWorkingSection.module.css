@@ -548,6 +548,15 @@
   .withNotebook { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: start; }
   .withNotebook[data-notebook-open] { grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); }
   .withNotebook > :first-child { min-width: 0; }
+  /* Split interview (docs/design/DECISIONS.md, "Split interview"): the Chart as text on the left at the dragged
+     width, one line, the questions on the right. */
+  @media (min-width: 1024px) {
+    .book[data-split]:not(.preparing) { grid-template-columns: minmax(0, var(--split, 50%)) minmax(min(440px, 60%), 1fr); column-gap: 0; }
+    .book[data-split]:not(.preparing) .editor { padding-left: 32px; }
+  }
+  @media (max-width: 1023px) {
+    .book[data-split]:not(.preparing) { grid-template-columns: minmax(0, 1fr); }
+  }
   /* Interview: notes and Current information as tabs in the column beside the questions. */
   .referenceTabs { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 8px; align-self: start; min-width: 0; }
   .referenceTabList { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-paper); background: var(--color-segment); }
@@ -605,7 +614,7 @@
   [data-assessment-stacked] .reference { position: sticky; top: 132px; align-self: start; max-height: calc(100dvh - 250px); overflow: auto; }
   .groupHeading { margin: 36px 0 12px; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); scroll-margin-top: 120px; }
   /* The sticky section picker already names the first group; keep its heading for jumps and screen readers only. */
-  [data-assessment-question-page] > .groupHeading:first-of-type { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip-path: inset(50%); border: 0; white-space: nowrap; }
+  [data-assessment-question-page] > .groupHeading:first-of-type { height: 1px; margin: 0 0 -1px; padding: 0; overflow: hidden; clip-path: inset(50%); border: 0; white-space: nowrap; }
   .sectionSteps { display: flex; flex: 0 0 auto; align-items: center; gap: 16px; margin-left: auto; }
   .stepPosition { min-width: 48px; color: #6a766f; font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
   .stepPosition strong { color: #30483b; font-weight: 650; }

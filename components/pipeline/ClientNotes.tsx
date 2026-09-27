@@ -40,6 +40,10 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
   // list to navigate (owner, 2026-09-26); "View all" opens every heading.
   const [viewAll, setViewAll] = useState(false);
   const focused = currentKeys.length > 0 && !viewAll;
+  // The note being typed in stays on screen while the questions scroll to another topic, so it never swaps
+  // out from under the cursor; the new topic's note appears once the person leaves this one.
+  const [typingIn, setTypingIn] = useState<string | null>(null);
+  const shownKeys = focused ? (typingIn && !currentKeys.includes(typingIn) ? [typingIn] : currentKeys) : null;
   const list = useRef<HTMLDivElement>(null);
   const current = currentKeys[0];
 
@@ -65,7 +69,7 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
     </header>
     {notes.loadFailed ? <p role="alert" className={styles.notice}>Notes could not be loaded. Reload to try again.</p> : null}
     <div ref={list} className={styles.blocks} data-focused={focused || undefined}>
-      {headings.filter((heading) => !focused || currentKeys.includes(heading.key)).map((heading) => {
+      {headings.filter((heading) => !shownKeys || shownKeys.includes(heading.key)).map((heading) => {
         const body = notes.entries[heading.key]?.body ?? "";
         const isCurrent = currentKeys.includes(heading.key);
         const open = focused || (opened[heading.key] ?? (isCurrent || (heading.key === "before" && !current)));
@@ -80,7 +84,7 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
             {!open && body ? <span className={styles.preview}>{body.split("\n").find((line) => line.trim())}</span> : null}
           </button>}
           {open ? <NoteField id={fieldId} label={heading.label} value={body} disabled={notes.readOnly || !notes.loaded}
-            onChange={(value) => notes.change(heading.key, value)} onBlur={() => notes.flush(heading.key)} /> : null}
+            onChange={(value) => notes.change(heading.key, value)} onFocus={() => setTypingIn(heading.key)} onBlur={() => { setTypingIn(null); notes.flush(heading.key); }} /> : null}
           {conflict ? <div role="alert" className={styles.conflict}>
             <p>These notes were changed on another screen by {conflict.theirs.updated_by_name}.</p>
             <div>
@@ -96,9 +100,9 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
 }
 
 // Grows with its text so a heading's notes read as a page, not a scrolling box.
-function NoteField({ id, label, value, disabled, onChange, onBlur }: {
+function NoteField({ id, label, value, disabled, onChange, onFocus, onBlur }: {
   id: string; label: string; value: string; disabled: boolean;
-  onChange: (value: string) => void; onBlur: () => void;
+  onChange: (value: string) => void; onFocus?: () => void; onBlur: () => void;
 }) {
   const field = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -109,7 +113,7 @@ function NoteField({ id, label, value, disabled, onChange, onBlur }: {
   }, [value]);
   return <textarea ref={field} id={id} aria-label={`${label} notes`} value={value} disabled={disabled}
     maxLength={noteBlockMaxLength} placeholder="Type notes" spellCheck className={styles.field}
-    onChange={(event) => onChange(event.target.value)} onBlur={onBlur} />;
+    onChange={(event) => onChange(event.target.value)} onFocus={onFocus} onBlur={onBlur} />;
 }
 
 // Shown in place of the column while it is hidden.

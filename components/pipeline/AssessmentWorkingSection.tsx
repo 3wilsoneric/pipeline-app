@@ -106,6 +106,8 @@ export type WorkingSectionProps = WorkingData & {
   priorAnswers?: PriorAnswers;
   /** Interview: the client's notes, shown as a tab beside Current information. */
   notebook?: React.ReactNode;
+  /** Redesign interview: the Chart as text beside the questions, in place of the tabs (docs/design/DECISIONS.md, "Split interview"). */
+  split?: React.ReactNode;
   /** One page of groups: each question's group (preparation group or interview topic), for headings. */
   groupHeadings?: ReadonlyMap<AssessmentToolFieldKey, { key: string; label: string }>;
   /** The referral intake's current answers, offered where this assessment is still empty. */
@@ -182,12 +184,12 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
 
   const renderReference = () => <>
     {props.questionNavigation?.(props.preparing ? <CapturedAssessmentAnswers {...props} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} /> : undefined)}
-    {!props.preparing ? (props.notebook
+    {!props.preparing ? props.split ?? (props.notebook
       ? <ReferenceTabs notebook={props.notebook} information={<CapturedAssessmentAnswers {...props} questions={props.referenceQuestions ?? questions} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} />} />
       : <CapturedAssessmentAnswers {...props} questions={props.referenceQuestions ?? questions} data={referenceData} recorded={recorded} onEdit={props.onReferenceEdit ?? ((field) => setLocalTarget({ field }))} />) : null}
   </>;
 
-  return <div data-assessment-working-section data-assessment-stacked={props.groupHeadings ? true : undefined} data-assessment-section={props.section} data-assessment-phase={props.preparing ? "preparation" : "interview"} className={`${styles.book} ${props.preparing ? styles.preparing : ""}`}>
+  return <div data-assessment-working-section data-split={props.split && !props.preparing ? true : undefined} data-assessment-stacked={props.groupHeadings ? true : undefined} data-assessment-section={props.section} data-assessment-phase={props.preparing ? "preparation" : "interview"} className={`${styles.book} ${props.preparing ? styles.preparing : ""}`}>
     {renderReference()}
     <div data-guide-target="assessment-fields" data-assessment-question-editor className={styles.editor}>
       <div ref={editor} tabIndex={-1} role="region" aria-label={`${props.sectionLabel ?? "Assessment"} questions`} className={styles.questionPage} data-assessment-question-page>

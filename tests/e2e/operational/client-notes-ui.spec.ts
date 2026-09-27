@@ -3,7 +3,7 @@ import { createOperationalAssessment, createOperationalReferral } from "../suppo
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
 // Client notes in the redesign (docs/design/DECISIONS.md, "Notes"): beside the questions, following the
-// topic, saving while typing, as a tab in the interview and a column while preparing.
+// topic, saving while typing, docked under the chart text in the interview and a column while preparing.
 test("client notes follow the topic, saves while typing, and fits beside the questions", async ({ browser, baseURL }) => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true" || process.env.PIPELINE_DESIGN_V2 !== "true", "Run with the operational configuration and PIPELINE_DESIGN_V2=true.");
   test.setTimeout(120_000);
@@ -22,27 +22,41 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   const notebook = page.locator("[data-client-notes]");
   await expect(notebook).toBeVisible();
   await expect(notebook).toContainText("All notes saved");
-  const first = notebook.locator("[data-note-heading][data-current] textarea");
-  await expect(first).toBeVisible();
+  await expect(notebook.locator("[data-note-heading][data-current] textarea")).toBeVisible();
   const firstKey = await notebook.locator("[data-note-heading][data-current]").getAttribute("data-note-heading");
+  // By its heading: once typing starts the note stays put even if the questions scroll to another topic.
+  const first = notebook.locator(`[data-note-heading="${firstKey}"] textarea`);
   await first.click();
   await first.pressSequentially("Client prefers to be called Sam. Lives with sister.", { delay: 5 });
   await expect(first).toBeFocused();
   await expect.poll(async () => ((await (await assessor.get(`/api/referrals/${referral.id}/notes`)).json()).blocks as { block_key: string; body: string }[]).find((block) => block.block_key === firstKey)?.body, { timeout: 8_000 }).toBe("Client prefers to be called Sam. Lives with sister.");
   await expect(notebook).toContainText("All notes saved");
 
-  // Jumping to another topic: the notebook follows.
+  // Jumping to another topic: the notebook follows once the person leaves the note (a note being typed in stays put).
+  await first.blur();
   const picker = page.getByRole("combobox", { name: "Assessment section" });
   await picker.selectOption("medication");
   await expect(notebook.locator('[data-note-heading="topic:medication"][data-current] textarea')).toBeVisible();
 
-  // Interview: notes and Current information are tabs beside the questions.
-  await page.getByRole("tab", { name: "Current information" }).click();
-  await expect(notebook).toBeHidden();
-  await page.getByRole("tab", { name: "Notes", exact: true }).click();
-  await expect(notebook).toBeVisible();
+  // Interview (docs/design/DECISIONS.md, "Split interview"): the Chart as text on the left with the notes docked
+  // under it, one line, the questions on the right; the line resizes with the keyboard and resets.
+  const split = page.locator("[data-interview-split]");
+  await expect(split).toBeVisible();
+  await expect(split.locator("[data-client-notes]")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Assessment sections" }).getByRole("button", { name: "Chart", exact: true })).toHaveCount(0);
+  const line = split.getByRole("separator", { name: "Chart" });
+  await expect(line).toHaveAttribute("aria-valuenow", "45");
+  await line.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(line).toHaveAttribute("aria-valuenow", "47");
+  await page.keyboard.press("Enter");
+  await expect(line).toHaveAttribute("aria-valuenow", "45");
   const questions = await page.locator("[data-assessment-question-editor]").first().boundingBox();
-  expect(questions!.width).toBeGreaterThan(500);
+  expect(questions!.width).toBeGreaterThan(420);
+  // An answer shows in the chart text as soon as it is recorded.
+  await page.getByRole("textbox", { name: "Current location" }).fill("Board and care in Turlock");
+  await page.keyboard.press("Tab");
+  await expect(split.locator('[data-split-topic="identity"]')).toContainText("Board and care in Turlock");
   // Preparing: the notebook sits to the right and can be hidden and brought back.
   await page.getByRole("button", { name: "All questions", exact: true }).click();
   await expect(page.locator("[data-client-notes]")).toBeVisible();

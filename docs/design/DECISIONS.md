@@ -124,6 +124,13 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The interview header row drops its fractions and step numbers (owner, 2026-09-26): section position, recorded count, and the 1 and 2 markers are hidden; screen readers still hear the position and count. The Chart button and drawer stay as above (a mini folder from the rail was tried and reverted).
 - Intake answers too (owner, 2026-09-26): intake data added or changed after the assessment started is offered where the assessment is still empty, as "Suggested from referral records" with Use, ahead of the last assessment. The server credits it to the intake (the same provenance a seeded answer gets) only when the saved value equals the referral's current value; anything else saves as entered by the person. The assessor is never offered.
 
+
+## Split interview (owner, 2026-09-26: "a bi-screen chart and the interview ... give it a shot, go intense"; trial)
+
+- On a wide screen (1024px and up) the interview is two halves with one vertical line between them. Left: the Chart as plain text, labels over values with no cards or buttons: the client's name, the filled-in referral facts under the chart's own group titles, the referral summary and documents, then this assessment's recorded answers by topic. Only what is filled in shows; a topic with nothing recorded stays out, so the left side never reads as a list to navigate. It scrolls on its own and brings the topic being asked to the top, marked with a line.
+- The current topic's notes are docked at the foot of the left side. A note being typed in stays on screen even if the questions scroll to another topic, so it never swaps out from under the cursor.
+- The line can be dragged (30 to 70 percent), moved with the arrow keys (Shift for bigger steps, Home and End for the limits), and double-clicked or Enter to reset to 45 percent; the width is remembered on the device. The questions keep at least 440px.
+- The interview header has no Chart button while the split is on, since the chart is on screen; the Notes / Current information tabs give way to the split. Below 1024px the chart text sits above the questions.
 ## Sidebar (owner, 2026-09-24)
 
 - The rail is warm paper with a thin edge.

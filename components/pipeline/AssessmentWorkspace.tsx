@@ -126,6 +126,7 @@ import { useDesignV2 } from "@/components/design/DesignSwitch";
 import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
 import InterviewContext from "@/components/pipeline/InterviewContext";
 import ChartPeek from "@/components/pipeline/ChartPeek";
+import InterviewSplit from "@/components/pipeline/InterviewSplit";
 import ClientNotes, { ClientNotesReopen } from "@/components/pipeline/ClientNotes";
 import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
@@ -2250,7 +2251,7 @@ export default function AssessmentWorkspace({
   // Redesign interview: the All questions / Interview switch and its actions share the sticky section row, so the
   // page has one in-page navigation row (owner, 2026-09-26: "four layers of nav").
   const workModeInNavigation = designV2 && stackedQuestionsView && !preparing && !phoneInterview;
-  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={canEditClinical ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
+  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={canEditClinical ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
   const railSaveStatus = designV2 && embeddedFolder && !phoneLayout && !trainingAssessmentMode;
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
@@ -2419,6 +2420,8 @@ export default function AssessmentWorkspace({
   // screens, following the topic in view. Phones and practice keep the questions alone for now.
   const notebookAvailable = designV2 && !phoneLayout && !trainingAssessmentMode && Boolean(referralId);
   const notebookTopic = stackedQuestionsView ? spySection : activeSection;
+  // Redesign interview on a wide screen: the Chart as text on the left, the interview on the right (owner, 2026-09-26).
+  const splitInterview = notebookAvailable && stackedQuestionsView && !preparing && Boolean(referral);
   // Preparing has no side column, so the notebook sits to the right; the interview puts it in a tab
   // beside Current information so the questions keep their width.
   const renderNotebook = (onCollapse?: () => void) => <ClientNotes key={referralId} referralId={referralId!} readOnly={!canEditClinical}
@@ -2550,7 +2553,9 @@ export default function AssessmentWorkspace({
               priorAnswers={currentPriorAnswers}
               intakeAnswers={currentIntakeAnswers}
               onUsePriorAnswer={applyPriorAnswer}
-              notebook={notebookAvailable && !preparing ? renderNotebook() : undefined}
+              notebook={notebookAvailable && !preparing && !splitInterview ? renderNotebook() : undefined}
+              split={splitInterview && referral ? <InterviewSplit referral={referral} topics={stackedGroups} data={draft} currentTopic={spySection}
+                context={<InterviewContext key={referral.id} referralId={referral.id} summary={referral.note} />} notes={renderNotebook()} /> : undefined}
               interviewContext={designV2 && referral ? <InterviewContext key={referral.id} referralId={referral.id} summary={referral.note} /> : undefined}
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
               onReferenceEdit={(field) => {
