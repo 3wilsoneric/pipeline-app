@@ -58,7 +58,11 @@ import { getAssessmentCompletionReport } from "@/lib/assessment/assessment-store
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
 import { listWorkspaceMembers } from "@/lib/pipeline/workspace-members";
 import { isAssignableAssessorMember } from "@/lib/pipeline/workspace-member-eligibility";
-import { buildPlatformAdmissionsSummary } from "@/lib/pipeline/platform-admissions-summary";
+import {
+  buildPlatformAdmissionsSummary,
+  type PlatformManagementItem,
+  type PlatformManagementProfile,
+} from "@/lib/pipeline/platform-admissions-summary";
 import { applyPipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type {
   SupervisorExceptionItem,
@@ -79,7 +83,8 @@ export async function getPlatformAdmissionsSummary() {
     now: operational.now,
     referrals: operational.referrals.map((referral) => {
       const work = workByReferral.get(referral.id);
-      const decision = operational.workflowContexts.get(referral.id)?.decision ?? referral.admissionDecision;
+      const workflowContext = operational.workflowContexts.get(referral.id);
+      const decision = workflowContext?.decision ?? referral.admissionDecision;
       const params = new URLSearchParams({ view: "referrals", screen: "packet", referralId: String(referral.id) });
       if (work) applyPipelineWorkspaceLocation(params, work.board.location);
       return {
@@ -100,10 +105,85 @@ export async function getPlatformAdmissionsSummary() {
         hoursSinceUpdate: work?.age_hours ?? 0,
         stale: work?.stale ?? false,
         unassigned: work?.workflow_status === "intake_unassigned",
+        managementProfile: buildPlatformManagementProfile(referral, workflowContext),
         pipelinePath: `/?${params.toString()}`,
       };
     }),
   });
+}
+
+function buildPlatformManagementProfile(
+  referral: Referral,
+  context: WorkflowContext | undefined,
+): PlatformManagementProfile {
+  const signedAssessment = context?.assessmentSigned ? context.assessmentData : null;
+  const requirements = context?.requirements ?? referral.requirements ?? [];
+  const openRequirements = requirements.filter((requirement) => !isRequirementStatusResolved(requirement.status));
+  const assessmentMedications = signedAssessment?.medications_at_intake
+    ?.map((value) => value.trim())
+    .filter(Boolean) ?? [];
+  const referralMedications = splitManagementList(referral.currentMedications);
+  const medications = assessmentMedications.length ? assessmentMedications : referralMedications;
+
+  return {
+    dateOfBirth: signedAssessment?.date_of_birth || referral.dob || null,
+    referralSource: referral.source || signedAssessment?.referring_facility || null,
+    referringCounty: signedAssessment?.county || referral.county || null,
+    payer: referral.payer || null,
+    responsiblePerson: referral.responsiblePerson || null,
+    conservedStatus: signedAssessment?.conservatorship_type || referral.conserved || null,
+    documentStatus: referral.documentStatus || null,
+    assessmentStatus: context?.assessmentStatus ?? null,
+    assessmentSigned: Boolean(context?.assessmentSigned),
+    assessmentDate: context?.assessmentDate ?? signedAssessment?.assessment_date ?? null,
+    openRequirements: openRequirements.length,
+    blockingRequirements: openRequirements.filter((requirement) => requirement.blocker).length,
+    overview: signedAssessment ? compactManagementValues([
+      managementSentence("Current setting", signedAssessment.current_location),
+      managementSentence("Community and routine", signedAssessment.programming_notes),
+      managementSentence("Important supports", signedAssessment.family_involvement || signedAssessment.friendships_social_connections),
+      managementSentence("Goals", signedAssessment.discharge_planning_goals),
+      managementSentence("Placement preferences", signedAssessment.placement_preferences_concerns || signedAssessment.preferred_facility_characteristics),
+    ]).slice(0, 4) : [],
+    supportSnapshot: signedAssessment ? compactManagementItems([
+      managementItem("Primary diagnosis", signedAssessment.primary_diagnosis),
+      managementItem("Current symptoms", signedAssessment.current_symptoms),
+      managementItem("Mobility", signedAssessment.mobility),
+      managementItem("Daily living support", signedAssessment.adl_needs),
+      managementItem("Communication support", signedAssessment.language_barrier_details || signedAssessment.linear_conversation_details),
+      managementItem("Diet", signedAssessment.special_diet_details),
+      managementItem("Medication support", signedAssessment.medication_adherence),
+      managementItem("Current safety measures", signedAssessment.current_safety_measures),
+    ]) : [],
+    medications,
+    medicationSource: medications.length
+      ? (assessmentMedications.length ? "signed_assessment" : "referral")
+      : null,
+  };
+}
+
+function managementSentence(label: string, value: string | null | undefined) {
+  const normalized = value?.trim();
+  return normalized ? `${label}: ${normalized}` : null;
+}
+
+function managementItem(label: string, value: string | null | undefined): PlatformManagementItem | null {
+  const normalized = value?.trim();
+  return normalized ? { label, value: normalized } : null;
+}
+
+function compactManagementValues(values: Array<string | null>) {
+  return values.filter((value): value is string => Boolean(value));
+}
+
+function compactManagementItems(values: Array<PlatformManagementItem | null>) {
+  return values.filter((value): value is PlatformManagementItem => Boolean(value));
+}
+
+function splitManagementList(value: string | null | undefined) {
+  return value
+    ? value.split(/\r?\n|;|\s+\|\s+/).map((item) => item.trim()).filter(Boolean)
+    : [];
 }
 
 export async function getOperationsDashboardSnapshot(
