@@ -38,13 +38,13 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await picker.selectOption("medication");
   await expect(notebook.locator('[data-note-heading="topic:medication"][data-current] textarea')).toBeVisible();
 
-  // Interview (docs/design/DECISIONS.md, "Split interview"): the Chart as text on the left with the notes docked
-  // under it, one line, the questions on the right; the line resizes with the keyboard and resets.
+  // Interview (docs/design/DECISIONS.md, "Split interview"): the information and notes on the left, one line, the
+  // questions on the right; the line resizes with the keyboard and resets.
   const split = page.locator("[data-interview-split]");
   await expect(split).toBeVisible();
   await expect(split.locator("[data-client-notes]")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Assessment sections" }).getByRole("button", { name: "Chart", exact: true })).toHaveCount(0);
-  const line = split.getByRole("separator", { name: "Chart" });
+  const line = split.getByRole("separator", { name: "Current information" });
   await expect(line).toHaveAttribute("aria-valuenow", "45");
   await line.focus();
   await page.keyboard.press("ArrowRight");
@@ -53,36 +53,32 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await expect(line).toHaveAttribute("aria-valuenow", "45");
   const questions = await page.locator("[data-assessment-question-editor]").first().boundingBox();
   expect(questions!.width).toBeGreaterThan(420);
-  // An answer shows in the chart text as soon as it is recorded.
+  // Beside the questions: only the information already filled in for the topic being asked, updated as it is
+  // recorded (docs/design/DECISIONS.md, "Split interview").
+  await picker.selectOption("identity");
+  await expect(split.locator("[data-split-topic]")).toHaveCount(1);
+  await expect(split.locator('[data-split-topic="identity"]')).toBeVisible();
   await page.getByRole("textbox", { name: "Current location" }).fill("Board and care in Turlock");
   await page.keyboard.press("Tab");
   await expect(split.locator('[data-split-topic="identity"]')).toContainText("Board and care in Turlock");
-  // Full screen (docs/design/DECISIONS.md, "Full-screen interview"): the interview is always full screen; closing it
-  // (the button or Escape) goes to All questions, and Interview comes straight back.
+  // Interview layout (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away; the arrow
+  // brings it back and hides it again. Scheduling stays in All questions.
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-interview-focus", "true");
-  // The record rail waits as a handle at the left edge and slides out on hover.
   const railChart = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true });
-  await expect(railChart).not.toBeInViewport();
-  await page.mouse.move(4, 450);
-  await expect(railChart).toBeInViewport();
-  await page.mouse.move(900, 450);
-  await expect(railChart).not.toBeInViewport();
-  // Scheduling stays in All questions; the full-screen interview is for doing it.
+  await expect(railChart).toBeHidden();
+  await page.getByRole("button", { name: "Expand navigation" }).last().click();
+  await expect(railChart).toBeVisible();
+  await page.getByRole("button", { name: "Collapse navigation" }).last().click();
+  await expect(railChart).toBeHidden();
   const headerRow = page.getByRole("navigation", { name: "Assessment sections" });
   await expect(headerRow.getByRole("button", { name: "Schedule interview" })).toHaveCount(0);
-  await headerRow.getByRole("button", { name: "Close", exact: true }).click();
+  // All questions shows the rail again; the Assessment step reopens there after a reload.
+  await page.getByRole("button", { name: "All questions", exact: true }).click();
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Interview", exact: true })).toBeFocused();
-  await page.getByRole("button", { name: "Interview", exact: true }).click();
-  await expect(root).toHaveAttribute("data-interview-focus", "true");
-  await page.keyboard.press("Escape");
-  await expect(root).not.toHaveAttribute("data-interview-focus", "true");
-  // After a reload the Assessment step reopens where the person left it: All questions.
+  await expect(railChart).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(root).not.toHaveAttribute("data-interview-focus", "true");
   // Preparing: the notebook sits to the right and can be hidden and brought back.
   await expect(page.locator("[data-client-notes]")).toBeVisible();
   await page.getByRole("button", { name: "Hide notes" }).click();

@@ -19,7 +19,6 @@ import {
   LoaderCircle,
   Plus,
   RefreshCw,
-  X,
 } from "lucide-react";
 
 import {
@@ -563,48 +562,16 @@ export default function AssessmentWorkspace({
     : conversationSections.map((section) => ({ key: section.key, label: section.label, questions: section.questions, referenceQuestions: section.referenceQuestions })),
   [stackedQuestionsView, preparing, draft, conversationSections]);
   const [spyGroup, setSpyGroup] = useState<AssessmentToolSection | null>(null);
-  // Full-screen interview (docs/design/DECISIONS.md, "Full-screen interview"): the interview is always full screen
-  // on a wide screen, and All questions is always the normal page, so there is one thing to know. The close button
-  // or Escape leaves the interview for All questions, on the matching topic; Interview (or Begin interview) goes back.
+  // Interview layout (docs/design/DECISIONS.md, "Interview layout"): on a wide screen the interview hides the record
+  // rail (an arrow brings it back) so the information and notes sit beside the questions with room to read.
   const wideRecordLayout = useWideRecordLayout();
   const interviewFocus = designV2 && wideRecordLayout && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
     && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive && questionsOnScreen;
-  // Leaving keeps the person's place: the topic in view, and keyboard focus on Interview to go straight back.
-  const interviewFocusSwitch = useRef<{ section: string | null } | null>(null);
-  const noteInterviewPlace = () => {
-    interviewFocusSwitch.current = { section: pickedTopic.current?.key ?? document.querySelector<HTMLSelectElement>('select[aria-label="Assessment section"]')?.value ?? null };
-    pickedTopic.current = null;
-  };
   useLayoutEffect(() => {
     if (!interviewFocus) return;
     const root = document.documentElement;
     root.dataset.interviewFocus = "true";
-    // Everything the full-screen page covers is out of reach for Tab and screen readers too; the rail stays,
-    // since it slides out on hover or focus.
-    const page = document.querySelector<HTMLElement>('[data-record-step="2"] > section');
-    const rail = document.querySelector<HTMLElement>('[data-testid="workspace-folder-header"]');
-    const covered: HTMLElement[] = [];
-    for (let node = page; node?.parentElement && node.parentElement !== document.body; node = node.parentElement) {
-      for (const sibling of Array.from(node.parentElement.children)) {
-        if (sibling === node || !(sibling instanceof HTMLElement) || sibling.inert || (rail && sibling.contains(rail))) continue;
-        sibling.inert = true;
-        covered.push(sibling);
-      }
-    }
-    const onKey = (event: KeyboardEvent) => {
-      // Escape leaves full screen only when nothing else (a dialog, a menu, a picker) is using it.
-      if (event.key !== "Escape" || event.defaultPrevented || document.querySelector("dialog[open], [popover]:popover-open")) return;
-      // In a text box, the first Escape only leaves the box (its answer saves as usual); the next one leaves full screen.
-      const field = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>("input, textarea, select, [contenteditable='true']") : null;
-      if (field) { field.blur(); return; }
-      document.querySelector<HTMLElement>('nav[aria-label="Assessment sections"] button[aria-label="Close"]')?.click();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      delete root.dataset.interviewFocus;
-      covered.forEach((element) => { element.inert = false; });
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => { delete root.dataset.interviewFocus; };
   }, [interviewFocus]);
   const spySection = stackedGroups.find((group) => group.key === spyGroup)?.key ?? stackedGroups[0]?.key ?? visibleSectionKey;
   const nextSection = stackedQuestionsView ? undefined : pageSections[pageIndex + 1];
@@ -644,14 +611,6 @@ export default function AssessmentWorkspace({
     setSpyGroup(key);
     document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-  useLayoutEffect(() => {
-    const change = interviewFocusSwitch.current;
-    if (!change || interviewFocus) return;
-    interviewFocusSwitch.current = null;
-    const key = change.section ? (preparing ? preparationGroupForSection(change.section as AssessmentToolSection).key : change.section) : null;
-    if (key) document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ block: "start" });
-    document.querySelector<HTMLElement>('[aria-label="Preparation and interview"] li:last-child button')?.focus({ preventScroll: true });
-  }, [interviewFocus, preparing]);
   // A link or action that names a section (a deep link, a chart edit, Review unanswered) lands on it.
   useEffect(() => {
     if (!stackedQuestionsView || !workspaceActive || !sectionJumps) return;
@@ -2640,7 +2599,6 @@ export default function AssessmentWorkspace({
               questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation lead={workModeInNavigation ? <>
                 {interviewFocus && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
                 {renderWorkMode()}
-                {interviewFocus ? <button type="button" aria-label="Close" title="Close (Esc)" className={workingStyles.focusClose} onClick={() => { noteInterviewPlace(); changeWorkingMode(true); }}><X size={18} aria-hidden="true" /></button> : null}
               </> : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
@@ -2656,8 +2614,7 @@ export default function AssessmentWorkspace({
               intakeAnswers={currentIntakeAnswers}
               onUsePriorAnswer={applyPriorAnswer}
               notebook={notebookAvailable && !preparing && !splitInterview ? renderNotebook() : undefined}
-              split={splitInterview && referral ? <InterviewSplit referral={referral} topics={stackedGroups} data={draft} currentTopic={spySection}
-                context={<InterviewContext key={referral.id} referralId={referral.id} summary={referral.note} />} notes={renderNotebook()} /> : undefined}
+              split={splitInterview && referral ? <InterviewSplit topics={stackedGroups} data={draft} currentTopic={spySection} notes={renderNotebook()} /> : undefined}
               interviewContext={designV2 && referral ? <InterviewContext key={referral.id} referralId={referral.id} summary={referral.note} /> : undefined}
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
               onReferenceEdit={(field) => {

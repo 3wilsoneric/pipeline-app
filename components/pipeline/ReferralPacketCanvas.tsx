@@ -11,6 +11,8 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   FolderOpen,
   History,
@@ -428,6 +430,8 @@ export default function ReferralPacketCanvas({
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
+  // Interview layout: the record rail is tucked away during the interview; this arrow brings it back (and hides it again).
+  const [interviewRailShown, setInterviewRailShown] = useState(false);
   // Kept-mounted steps: the element the assessment editor draws the Chart into.
   const [chartSlot, setChartSlot] = useState<HTMLElement | null>(null);
 
@@ -2474,6 +2478,9 @@ export default function ReferralPacketCanvas({
     : workspaceSteps;
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
+  // Each visit to a step starts with the rail tucked away during the interview.
+  const [railStep, setRailStep] = useState(displayedPage);
+  if (railStep !== displayedPage) { setRailStep(displayedPage); setInterviewRailShown(false); }
   // Redesign vertical flow (docs/design/DECISIONS.md, "Record layout").
   const verticalFlow = designV2 && !phone;
   const railActivePage = displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage;
@@ -2694,7 +2701,7 @@ export default function ReferralPacketCanvas({
   );
 
   const renderWorkspaceHeader = () => (
-    <div data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined} data-reading-assessment={readingAssessment || undefined}>
+    <div id="workspace-record-rail" data-testid="workspace-folder-header" className={workspaceFolderStyles.header} data-focused={assessmentFocused || undefined} data-reading-assessment={readingAssessment || undefined}>
           <div className={workspaceFolderStyles.tabRow}>
             <h1 data-testid="workspace-identity-title" className={workspaceFolderStyles.identity} title={workspaceTitle}>
               <span className={workspaceFolderStyles.nameLabel}>{workspaceTitle}</span>
@@ -3138,9 +3145,16 @@ export default function ReferralPacketCanvas({
         data-decision-outcome={designV2 ? loadedReferral?.admissionDecision?.outcome ?? (loadedReferral?.workflowStatus === "accepted" || loadedReferral?.workflowStatus === "declined" ? loadedReferral.workflowStatus : undefined) : undefined}
         inert={draftRecoveryLoading}
         aria-busy={draftRecoveryLoading}
+        data-interview-rail-shown={verticalFlow && interviewRailShown ? true : undefined}
         className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${verticalFlow ? workspaceFolderStyles.verticalFlow : ""}`}
       >
         {renderWorkspaceHeader()}
+        {/* Shown only during the interview (styles); same control as the app bar's own collapse arrow. */}
+        {verticalFlow ? <button type="button" data-interview-rail-toggle className={workspaceFolderStyles.interviewRailToggle}
+          aria-label={interviewRailShown ? "Collapse navigation" : "Expand navigation"} title={interviewRailShown ? "Collapse navigation" : "Expand navigation"}
+          aria-expanded={interviewRailShown} aria-controls="workspace-record-rail" onClick={() => setInterviewRailShown((shown) => !shown)}>
+          {interviewRailShown ? <ChevronLeft size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+        </button> : null}
 
         {accessError ? <div role="alert" className="mb-3 border border-[#e2c592] bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold text-[#7a4c0d]">
           {accessError} <button type="button" onClick={() => { setAccessChecking(true); setAccessRetry((retry) => retry + 1); }} disabled={accessChecking} className="font-bold underline underline-offset-2 disabled:opacity-50">{accessChecking ? "Checking access..." : "Retry access check"}</button>

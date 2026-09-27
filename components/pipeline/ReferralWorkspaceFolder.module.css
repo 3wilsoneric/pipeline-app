@@ -957,26 +957,17 @@
   }
 }
 
-/* Full-screen interview (docs/design/DECISIONS.md, "Full-screen interview"). Redesign only, wide screens: the
-   Assessment folder becomes the whole window; the app bar, the rail and the folder's tab and edges step away
-   until it is closed. At the top level because the switch lives on <html> itself. */
+/* Interview layout (docs/design/DECISIONS.md, "Interview layout"). Redesign only, wide screens: during the interview
+   the record rail is tucked away so the information, notes and questions have the room; an arrow at the left edge,
+   like the app bar's own collapse arrow, brings it back and hides it again. Top level because the switch is on <html>. */
+.interviewRailToggle { display: none; }
 @media (min-width: 1024px) {
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section { position: fixed; inset: 0; z-index: 90; margin: 0; padding: 0 32px 0 48px; overflow-y: auto; overscroll-behavior: contain; border: 0; border-radius: 0; background: var(--color-page); box-shadow: none; animation: interview-focus-in var(--duration-move) var(--ease-open); }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section::before,
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section::after { display: none; }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section :is(.connectedFolder, .connectedFolder > div, .connectedFolder > div > div) { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-  /* The record rail waits at the left edge as a slim handle and slides out on hover or keyboard focus
-     (owner, 2026-09-26: "a hover sidebar when we're in full screen"). */
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header { position: fixed; top: 0; bottom: 0; left: 0; z-index: 95; width: 236px; padding: 20px 16px 16px 20px; overflow-y: auto; border-right: 1px solid var(--color-card-border); background: var(--color-page); box-shadow: none; transform: translateX(calc(-100% + 16px)); transition: transform var(--duration-move) var(--ease-open), box-shadow var(--duration-move) ease; }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header::after { content: ""; position: absolute; top: 50%; right: 5px; width: 4px; height: 40px; margin-top: -20px; border-radius: var(--radius-pill); background: var(--color-folder-edge); transition: opacity var(--duration-fade) ease; }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header:is(:hover, :focus-within) { transform: none; box-shadow: var(--shadow-popover); }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header:is(:hover, :focus-within)::after { opacity: 0; }
-  /* The page's own Next button sits under the full-screen page; keep it from showing through while it fades in. */
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .stepContinue { visibility: hidden; }
-  /* In the slid-out rail, no second save status (the bottom bar has it) and no Next pill competing with Review assessment. */
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header :is(.nextStepBar, .saveCenter) { display: none; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow { position: relative; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) { grid-template-columns: 20px minmax(0, 1fr); column-gap: 14px; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) > .header { display: none; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle { position: sticky; top: calc(50vh - 22px); z-index: 21; display: grid; grid-column: 1; grid-row: 1; align-self: start; justify-self: start; place-items: center; width: 20px; height: 44px; margin-top: 30vh; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink-muted); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] > .interviewRailToggle { justify-self: end; margin-right: -30px; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:hover { color: var(--color-ink); border-color: var(--color-ink-muted); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
-/* The page's finished entry animation would otherwise keep the overlay in a layer under the app bar. */
-:global(html[data-design="v2"][data-interview-focus] .pipeline-route-enter) { animation: none; }
-@keyframes interview-focus-in { from { opacity: 0; transform: scale(0.985); } }
-@media (prefers-reduced-motion: reduce) { :global(html[data-interview-focus]) .verticalFlow > .readingPages > section { animation: none; } :global(html[data-interview-focus]) .verticalFlow > .header { transition: none; } }
+

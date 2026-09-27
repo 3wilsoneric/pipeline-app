@@ -593,11 +593,8 @@
   .navigation[data-with-work-mode] .prepActions svg { width: 15px; height: 15px; }
   .navigation[data-with-work-mode] .sectionProgress { order: 2; min-width: 0; max-width: none; margin-left: auto; white-space: nowrap; }
   .navigation[data-with-work-mode] .prepActions { order: 3; }
-  /* Full-screen interview: the client's name leads the bar, the close button ends it. */
+  /* Interview layout: with the rail tucked away, the client's name leads the bar. */
   .focusTitle { order: -1; flex: 0 1 auto; max-width: 280px; margin: 0; padding-right: 16px; overflow: hidden; border-right: 1px solid var(--color-paper-rule); color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-  .focusClose { order: 5; display: grid; flex-shrink: 0; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-input); color: var(--color-ink-muted); }
-  .focusClose:hover { background: var(--color-segment); color: var(--color-ink); }
-  .focusClose:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   /* No fractions or step numbers in the row (owner, 2026-09-26); screen readers still hear the position and count. */
   .navigation[data-with-work-mode] :is(.sectionPosition, .sectionProgress, .progressTrack) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .navigation[data-with-work-mode] .phaseSteps li > span { display: none; }
@@ -945,17 +942,3 @@
   .chartScheduling button:hover { border-color: var(--color-focus); color: #0f6f5e; }
   .chartScheduling button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
-
-/* Full-screen interview look (docs/design/DECISIONS.md, "Full-screen interview"). Redesign only, top level because
-   the switch lives on <html>. The page is the soft app background; a white top bar with the Assessment step's
-   manila line runs edge to edge; the chart side is a manila sheet and the questions a white sheet; the bottom bar
-   runs edge to edge. The full-screen page pads 48px left (rail handle) and 32px right; the bars reach past that. */
-:global(html[data-design="v2"][data-interview-focus]) .navigation[data-with-work-mode] { min-height: 64px; margin: 0 -32px 0 -48px; padding: 10px 32px 10px 48px; border-top: 3px solid var(--color-manila); border-bottom: 1px solid var(--color-card-border); background: var(--color-paper); box-shadow: 0 1px 3px rgb(15 23 42 / 0.05); }
-:global(html[data-design="v2"][data-interview-focus]) .navigation[data-with-work-mode] .focusTitle { font-size: var(--text-section); }
-:global(html[data-design="v2"][data-interview-focus]) .readingMain { background: transparent; }
-:global(html[data-design="v2"][data-interview-focus] section[data-assessment-view="assessment"]) { border-top: 0; background: transparent; box-shadow: none; }
-:global(html[data-design="v2"][data-interview-focus]) .book[data-split] { row-gap: 20px; padding: 0 0 24px; background: transparent; }
-:global(html[data-design="v2"][data-interview-focus]) .book[data-split] .editor { margin-left: 20px; padding: 0; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
-:global(html[data-design="v2"][data-interview-focus]) .book[data-split] .questionPage { padding: 28px 32px 36px; }
-:global(html[data-design="v2"][data-interview-focus]) .footer[aria-label="Assessment actions"] { margin: 0 -32px 0 -48px; padding-inline: 48px 32px; border-top: 1px solid var(--color-card-border); background: var(--color-paper); box-shadow: 0 -1px 3px rgb(15 23 42 / 0.04); }
-

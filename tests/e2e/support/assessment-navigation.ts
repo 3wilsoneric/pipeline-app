@@ -6,15 +6,14 @@ export async function editPreparedAnswer(page: Page, label: string) {
   await recorded.getByRole("button", { name: `Edit ${label}`, exact: true }).click();
 }
 
-// Redesign interview full screen (docs/design/DECISIONS.md, "Full-screen interview") covers the app bar and the
-// record rail; a person closes it (which goes to All questions) before going elsewhere, and so do the tests.
-// No-op when it is not on.
+// Redesign interview layout (docs/design/DECISIONS.md, "Interview layout") tucks the record rail away during the
+// interview; a person opens it with the arrow before choosing another step, and so do the tests. No-op otherwise.
 export async function leaveInterviewFullScreen(page: Page) {
   // It turns on just after a layout change (such as a resize), so give it a moment to appear.
   const on = await page.locator("html[data-interview-focus]").waitFor({ state: "attached", timeout: 1_500 }).then(() => true, () => false);
   if (!on) return;
-  await page.locator('nav[aria-label="Assessment sections"] button[aria-label="Close"]').click();
-  await page.locator("html[data-interview-focus]").waitFor({ state: "detached" });
+  const toggle = page.locator("[data-interview-rail-toggle]");
+  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
 }
 
 export async function openAssessmentChart(page: Page) {

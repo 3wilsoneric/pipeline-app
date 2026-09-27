@@ -4,16 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue, type AssessmentInterviewQuestion } from "@/lib/assessment/assessment-interview-schema";
 import type { AssessmentToolData, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
-import type { Referral } from "@/lib/pipeline/referral-types";
-import { referralCanvasValue, type PersistedCanvasFieldKey } from "@/lib/pipeline/referral-canvas-persistence";
-import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
-import { presentClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { capturedAssessmentAnswer } from "@/components/pipeline/assessment-working-view";
 import styles from "./InterviewSplit.module.css";
 
-// Split interview (docs/design/DECISIONS.md, "Split interview"): the Chart as plain text on the left, a single
-// line, the interview on the right. The left side scrolls on its own, follows the topic being asked, and keeps
-// the notes for that topic docked at its foot. The line can be dragged (or moved with the arrow keys) and
+// Split interview (docs/design/DECISIONS.md, "Split interview"): beside the questions, the information already
+// filled in for the topic being asked (owner, 2026-09-27: "relevant to the information already filled out in that
+// section during the pre-interview"), with that topic's notes docked at its foot. The line can be dragged (or moved with the arrow keys) and
 // double-clicked back to half; the width is remembered on this device.
 
 const widthKey = "pipeline:interview-split";
@@ -21,13 +17,10 @@ const [minWidth, maxWidth, defaultWidth] = [30, 70, 45];
 
 type Topic = { key: AssessmentToolSection; label: string; questions: readonly AssessmentInterviewQuestion[] };
 
-export default function InterviewSplit({ referral, topics, data, currentTopic, context, notes }: {
-  referral: Referral;
+export default function InterviewSplit({ topics, data, currentTopic, notes }: {
   topics: readonly Topic[];
   data: AssessmentToolData;
   currentTopic: AssessmentToolSection;
-  /** Referral summary and documents, shown at the top of the chart text. */
-  context?: ReactNode;
   /** The current topic's notes, docked at the foot of the left side. */
   notes?: ReactNode;
 }) {
@@ -72,15 +65,8 @@ export default function InterviewSplit({ referral, topics, data, currentTopic, c
     return () => { cancelAnimationFrame(frame); window.removeEventListener("scroll", fit, true); window.removeEventListener("resize", fit); };
   }, []);
 
-  // Follow the interview: bring the current topic to the top of the chart text.
-  useLayoutEffect(() => {
-    const scroller = text.current;
-    const block = scroller?.querySelector<HTMLElement>(`[data-split-topic="${currentTopic}"]`);
-    if (!scroller || !block) return;
-    const top = block.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-    // Instant: a second smooth scroll would cancel the page's own smooth scroll to the chosen topic.
-    scroller.scrollTo({ top: Math.max(0, top - 12) });
-  }, [currentTopic]);
+  // A new topic starts at the top of its information.
+  useLayoutEffect(() => { text.current?.scrollTo({ top: 0 }); }, [currentTopic]);
 
   const drag = (event: React.PointerEvent<HTMLDivElement>) => {
     const grid = pane.current?.parentElement;
@@ -96,46 +82,22 @@ export default function InterviewSplit({ referral, topics, data, currentTopic, c
     handle.addEventListener("pointercancel", end);
   };
 
-  const value = (key: PersistedCanvasFieldKey) => {
-    const raw = referralCanvasValue(referral, key)?.trim() ?? "";
-    return raw && (key === "dob" || key === "referralReceived") ? formatProfileDate(raw) ?? raw : raw;
-  };
-  const chartGroups: { title: string; facts: [string, string][] }[] = [
-    { title: "", facts: [["Date of birth", value("dob")], ["Gender", value("gender")]] },
-    { title: "Referral details", facts: [["Assigned assessor", value("owner")], ["Referral received", value("referralReceived")], ["Community", value("community")], ["County", value("county")], ["Referral source", value("referent")], ["Responsible person", value("responsiblePerson")]] },
-    { title: "Contact information", facts: [["Referrer name", value("referrerName")], ["Phone", value("phone")], ["Email", value("email")]] },
-    { title: "Intake information", facts: [["Medications on record", value("currentMedications")], ["Conserved status", referral.conserved === "yes" ? "Yes" : referral.conserved === "no" ? "No" : ""]] },
-  ];
+  // Only this topic's information that is already filled in (from preparing, intake, or earlier in the interview).
+  const topic = topics.find((item) => item.key === currentTopic) ?? topics[0];
+  const answered = topic ? topic.questions.filter((question) => hasAssessmentInterviewValue(data[question.field]) || getAssessmentUnableReason(data, question.field)) : [];
 
-  return <aside ref={pane} aria-label="Chart" className={styles.pane} data-interview-split>
+  return <aside ref={pane} aria-label="Current information" className={styles.pane} data-interview-split>
     <div ref={text} className={styles.text} data-split-chart>
-      <h3 className={styles.name}>{presentClientName(referralCanvasValue(referral, "name"), referral.id)}</h3>
-      {chartGroups.map((group) => {
-        const facts = group.facts.filter(([, fact]) => fact);
-        return facts.length ? <section key={group.title || "identity"} aria-label={group.title || undefined} className={styles.group}>
-          {group.title ? <h4>{group.title}</h4> : null}
-          <dl>{facts.map(([label, fact]) => <div key={label}><dt>{label}</dt><dd>{fact}</dd></div>)}</dl>
-        </section> : null;
-      })}
-      {context ? <div className={styles.context}>{context}</div> : null}
-      {topics.some((topic) => topic.questions.some((question) => hasAssessmentInterviewValue(data[question.field]) || getAssessmentUnableReason(data, question.field))) ? <section aria-label="Assessment" className={styles.assessment}>
-        <h4>Assessment</h4>
-        {topics.map((topic) => {
-          const answered = topic.questions.filter((question) => hasAssessmentInterviewValue(data[question.field]) || getAssessmentUnableReason(data, question.field));
-          // Only what is filled in; a topic with nothing recorded yet stays out, so this never reads as a list to navigate.
-          if (!answered.length) return null;
-          return <section key={topic.key} data-split-topic={topic.key} data-current={topic.key === currentTopic || undefined} aria-label={topic.label} className={styles.topic}>
-            <h5>{topic.label}</h5>
-            <dl>{answered.map((question) => {
-              const reason = getAssessmentUnableReason(data, question.field);
-              return <div key={question.field}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>{capturedAssessmentAnswer(question, data)}{reason ? <span>{reason}</span> : null}</dd></div>;
-            })}</dl>
-          </section>;
-        })}
+      {topic ? <section key={topic.key} data-split-topic={topic.key} data-current aria-label={topic.label} className={styles.topic}>
+        <h3 className={styles.topicTitle}>{topic.label}</h3>
+        {answered.length ? <dl>{answered.map((question) => {
+          const reason = getAssessmentUnableReason(data, question.field);
+          return <div key={question.field}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>{capturedAssessmentAnswer(question, data)}{reason ? <span>{reason}</span> : null}</dd></div>;
+        })}</dl> : <p className={styles.empty}>No information recorded for this section yet.</p>}
       </section> : null}
     </div>
     {notes ? <div className={styles.notes}>{notes}</div> : null}
-    <div role="separator" aria-orientation="vertical" aria-label="Chart" aria-valuemin={minWidth} aria-valuemax={maxWidth} aria-valuenow={width} tabIndex={0}
+    <div role="separator" aria-orientation="vertical" aria-label="Current information" aria-valuemin={minWidth} aria-valuemax={maxWidth} aria-valuenow={width} tabIndex={0}
       className={styles.divider} onPointerDown={drag} onDoubleClick={() => commit(defaultWidth)}
       onKeyDown={(event) => {
         const step = event.shiftKey ? 10 : 2;

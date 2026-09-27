@@ -1,30 +1,16 @@
 /* Split interview (docs/design/DECISIONS.md, "Split interview"). Redesign only.
-   Left: the Chart as plain text (labels over values, no cards), the current topic's notes docked below.
-   One vertical line between the halves; it widens and darkens when it can be dragged. */
+   Left: the information already filled in for the topic being asked (labels over values, no cards), that topic's
+   notes docked below. One vertical line between the halves; it widens and darkens when it can be dragged. */
 
 .pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
 
-.text { flex: 1; min-height: 0; padding: 4px 8px 32px 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.name { margin: 0 0 18px; color: var(--color-ink); font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: 700; overflow-wrap: anywhere; }
-
-.group + .group, .context, .assessment { margin-top: 22px; }
-.group h4, .assessment > h4 { margin: 0 0 10px; color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; }
-.group dl, .topic dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 24px; margin: 0; }
-.group dl > div, .topic dl > div { min-width: 0; }
+.text { flex: 1; min-height: 0; padding: 4px 8px 28px 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.topicTitle { margin: 0 0 14px; color: var(--color-ink); font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: 700; overflow-wrap: anywhere; }
+.topic dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px 24px; margin: 0; }
+.topic dl > div { min-width: 0; }
 .text dt { color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; }
 .text dd { margin: 2px 0 0; color: var(--color-ink); font-size: var(--text-value); line-height: 21px; white-space: pre-line; overflow-wrap: anywhere; }
 .text dd > span { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
-
-/* The referral summary and documents keep their own look, flush with the text. */
-.context > * { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
-
-.assessment { padding-top: 22px; border-top: 1px solid var(--color-paper-rule); }
-.topic { position: relative; padding: 10px 0 12px 14px; scroll-margin-top: 12px; }
-.topic::before { content: ""; position: absolute; top: 12px; bottom: 12px; left: 0; width: 2px; border-radius: var(--radius-chip); background: var(--color-paper-rule); }
-.topic[data-current]::before { width: 3px; background: var(--color-link); }
-.topic h5 { margin: 0; color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; }
-.topic[data-current] h5 { color: var(--color-ink); font-weight: 700; }
-.topic dl { margin-top: 8px; }
 
 /* The current topic's notes: part of the left side, not a separate card. */
 .notes { flex: 0 1 auto; min-height: 0; max-height: 40%; display: flex; padding: 12px 0 16px; border-top: 1px solid var(--color-paper-rule); }
@@ -49,12 +35,4 @@
 @media (prefers-reduced-motion: reduce) { .divider::before { transition: none; } }
 @media (forced-colors: active) { .divider::before { background: CanvasText; } .topic[data-current]::before { background: Highlight; } }
 
-/* Full screen: the top bar already names the client. */
-:global(html[data-interview-focus]) .name { display: none; }
-
-/* Full screen: the chart side is a manila sheet beside the white question sheet; the line sits in the gap. */
-:global(html[data-design="v2"][data-interview-focus]) .pane { padding-right: 0; }
-:global(html[data-design="v2"][data-interview-focus]) .text { padding: 20px 18px 24px 22px; border: 1px solid color-mix(in srgb, var(--color-manila) 32%, var(--color-card-border)); border-bottom: 0; border-radius: var(--radius-paper) var(--radius-paper) 0 0; background: color-mix(in srgb, var(--color-manila) 7%, var(--color-paper)); }
-:global(html[data-design="v2"][data-interview-focus]) .notes { padding: 12px 18px 16px 22px; border: 1px solid color-mix(in srgb, var(--color-manila) 32%, var(--color-card-border)); border-radius: 0 0 var(--radius-paper) var(--radius-paper); background: var(--color-paper); }
-:global(html[data-design="v2"][data-interview-focus]) .divider { margin-right: -17px; }
-
+.empty { margin: 0; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); }
