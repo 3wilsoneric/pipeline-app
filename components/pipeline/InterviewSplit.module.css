@@ -8,7 +8,8 @@
 /* Like notes on a lined notebook page (owner, 2026-09-27): every label and answer sits on a ruled line, a faint
    margin rule on the left, a smaller hand; the section is named by the picker above, not repeated here. */
 .text { --rule: 28px; }
-.topic { min-height: 100%; padding: 0 4px 0 18px; border-left: 2px solid color-mix(in srgb, var(--color-danger) 22%, transparent); background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--color-paper-rule) calc(var(--rule) - 1px) var(--rule)); }
+.page { min-height: 100%; padding: 0 4px 0 18px; border-left: 2px solid color-mix(in srgb, var(--color-danger) 22%, transparent); background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--color-paper-rule) calc(var(--rule) - 1px) var(--rule)); }
+.page:has(textarea:focus) { border-left-color: var(--color-link); }
 .topic dl { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; }
 .topic dl > div { min-width: 0; padding-bottom: var(--rule); }
 .topic dl > div:last-child { padding-bottom: 0; }
@@ -16,13 +17,20 @@
 .text dd { margin: 0; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); white-space: pre-line; overflow-wrap: anywhere; }
 .text dd > span { display: block; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); }
 
-/* The current topic's notes: part of the left side, not a separate card. */
-.notes { flex: 0 1 auto; min-height: 0; max-height: 40%; display: flex; padding: 12px 0 16px; border-top: 1px solid var(--color-paper-rule); }
-.notes > [data-client-notes] { position: static; flex: 1; min-height: 0; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.notes > [data-client-notes] > header { min-height: 36px; padding: 0 0 4px; border: 0; background: transparent; }
-.notes > [data-client-notes] > div { padding: 0; }
-.notes > [data-client-notes] [data-note-heading] { padding-inline: 0; }
-.notes [data-client-notes] [data-note-heading] textarea { min-height: 88px; }
+/* The topic's notes, written below what is known on the same ruled lines (owner, 2026-09-27: "as if you are
+   notating it below"): a small "Notes" line with the save status, then the writing itself, no box. */
+.notes { margin-top: var(--rule); }
+.notes [data-client-notes] { position: static; max-height: none; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.notes [data-client-notes] > header { gap: 10px; min-height: var(--rule); height: var(--rule); padding: 0; border: 0; background: transparent; }
+.notes [data-client-notes] > header h3 { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 600; }
+.notes [data-client-notes] > header h3 svg { width: 13px; height: 13px; }
+.notes [data-client-notes] > header :is(span, button) { font-size: var(--text-meta); line-height: var(--rule); }
+.notes [data-client-notes] > header button { min-height: 0; height: var(--rule); padding: 0 4px; }
+.notes [data-client-notes] > div { padding: 0; overflow: visible; }
+.notes [data-client-notes] [data-note-heading] { padding: 0; border: 0; }
+.notes [data-client-notes] [data-note-heading] > p { display: none; }
+.notes [data-client-notes] [data-note-heading] textarea { min-height: calc(var(--rule) * 6); margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); }
+.notes [data-client-notes] [data-note-heading] textarea:focus { outline: none; }
 
 /* The line between the halves. The hit area is wider than the line. */
 .divider { position: absolute; top: 0; right: 0; bottom: 0; width: 13px; margin-right: -7px; cursor: col-resize; touch-action: none; }

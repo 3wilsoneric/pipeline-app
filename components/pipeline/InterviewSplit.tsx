@@ -88,14 +88,17 @@ export default function InterviewSplit({ topics, data, currentTopic, notes }: {
 
   return <aside ref={pane} aria-label="Current information" className={styles.pane} data-interview-split>
     <div ref={text} className={styles.text} data-split-chart>
+      {/* One lined page: what is already known for this topic, then the notes written below it on the same ruling. */}
+      <div className={styles.page}>
       {topic ? <section key={topic.key} data-split-topic={topic.key} data-current aria-label={topic.label} className={styles.topic}>
         {answered.length ? <dl>{answered.map((question) => {
           const reason = getAssessmentUnableReason(data, question.field);
           return <div key={question.field}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>{capturedAssessmentAnswer(question, data)}{reason ? <span>{reason}</span> : null}</dd></div>;
         })}</dl> : <p className={styles.empty}>No information recorded for this section yet.</p>}
       </section> : null}
+      {notes ? <div className={styles.notes}>{notes}</div> : null}
+      </div>
     </div>
-    {notes ? <div className={styles.notes}>{notes}</div> : null}
     <div role="separator" aria-orientation="vertical" aria-label="Current information" aria-valuemin={minWidth} aria-valuemax={maxWidth} aria-valuenow={width} tabIndex={0}
       className={styles.divider} onPointerDown={drag} onDoubleClick={() => commit(defaultWidth)}
       onKeyDown={(event) => {
