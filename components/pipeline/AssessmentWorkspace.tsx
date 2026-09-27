@@ -332,6 +332,7 @@ function assessmentWorkspacePermissions(
 }
 
 const interviewFocusKey = "pipeline:interview-full-screen";
+const assessmentModeKey = "pipeline:assessment-mode:";
 
 export default function AssessmentWorkspace({
   workspaceActive = true,
@@ -513,6 +514,19 @@ export default function AssessmentWorkspace({
   // another step and back returns to the same mode instead of the default.
   const linkedMode = initialLocation?.assessmentMode === "prepare" ? "prepare" : initialLocation?.assessmentMode === "interview" ? "assessment" : null;
   if (designV2 && selectedId && linkedMode && notebookPage?.assessmentId !== selectedId) setNotebookPage({ assessmentId: selectedId, view: linkedMode });
+  // Redesign: the Assessment step reopens in the mode last used for this assessment on this device (All questions
+  // or the interview), even after a reload; the first open of an unbegun assessment still starts in All questions.
+  useEffect(() => {
+    if (!designV2 || !selectedId || notebookPage?.assessmentId === selectedId || linkedMode) return;
+    try {
+      const last = window.localStorage.getItem(`${assessmentModeKey}${selectedId}`);
+      if (last === "prepare" || last === "assessment") setNotebookPage({ assessmentId: selectedId, view: last });
+    } catch { /* storage unavailable: the default applies */ }
+  }, [designV2, selectedId, notebookPage, linkedMode]);
+  useEffect(() => {
+    if (!designV2 || !notebookPage || notebookPage.view === "chart") return;
+    try { window.localStorage.setItem(`${assessmentModeKey}${notebookPage.assessmentId}`, notebookPage.view); } catch { /* not remembered */ }
+  }, [designV2, notebookPage]);
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : initialLocation?.assessmentMode === "prepare" ? "prepare" : initialLocation?.assessmentMode === "interview" ? "assessment" : null;
   const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
   const reviewingChart = chartReview ?? notebookView === "chart";
@@ -566,7 +580,8 @@ export default function AssessmentWorkspace({
   // Switching in or out keeps the person's place: the topic in view and keyboard focus on the matching control.
   const interviewFocusSwitch = useRef<{ section: string | null } | null>(null);
   const chooseInterviewFocus = useCallback((on: boolean) => {
-    interviewFocusSwitch.current = { section: document.querySelector<HTMLSelectElement>('select[aria-label="Assessment section"]')?.value ?? null };
+    interviewFocusSwitch.current = { section: pickedTopic.current?.key ?? document.querySelector<HTMLSelectElement>('select[aria-label="Assessment section"]')?.value ?? null };
+    pickedTopic.current = null;
     setInterviewFocusPreferred(on);
     try { window.localStorage.setItem(interviewFocusKey, on ? "on" : "off"); } catch { /* not remembered */ }
   }, []);
@@ -607,12 +622,27 @@ export default function AssessmentWorkspace({
   const previousSection = stackedQuestionsView ? undefined : pageSections[pageIndex - 1];
   const stackedQuestions = useMemo(() => stackedGroups.flatMap((group) => group.questions), [stackedGroups]);
   const stackedHeadings = useMemo(() => new Map(stackedGroups.flatMap((group) => group.questions.map((question) => [question.field, { key: group.key, label: group.label }] as const))), [stackedGroups]);
+  // While the page scrolls to a topic someone picked, the picker holds that topic rather than flicking through
+  // the ones passed on the way; the hold ends when the scroll settles or the person scrolls themselves.
+  const pickedTopic = useRef<{ key: AssessmentToolSection; until: number } | null>(null);
+  useEffect(() => {
+    const release = () => { pickedTopic.current = null; };
+    window.addEventListener("scrollend", release, true);
+    window.addEventListener("wheel", release, { capture: true, passive: true });
+    window.addEventListener("touchstart", release, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("scrollend", release, true);
+      window.removeEventListener("wheel", release, true);
+      window.removeEventListener("touchstart", release, true);
+    };
+  }, []);
   // The section picker follows the scroll: the group whose heading most recently passed the top third.
   useEffect(() => {
     if (!stackedQuestionsView) return;
     const headings = [...document.querySelectorAll<HTMLElement>("[data-assessment-group-heading]")];
     if (!headings.length) return;
     const observer = new IntersectionObserver((entries) => {
+      if (pickedTopic.current && performance.now() < pickedTopic.current.until) return;
       const visible = entries.filter((entry) => entry.isIntersecting).sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
       if (visible) setSpyGroup(visible.target.getAttribute("data-assessment-group-heading") as AssessmentToolSection);
     }, { rootMargin: "0px 0px -66% 0px" });
@@ -621,6 +651,7 @@ export default function AssessmentWorkspace({
   }, [stackedQuestionsView, stackedHeadings]);
   const jumpToGroup = (section: AssessmentToolSection) => {
     const key = preparing ? preparationGroupForSection(section).key : section;
+    pickedTopic.current = { key, until: performance.now() + 1500 };
     setSpyGroup(key);
     document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };

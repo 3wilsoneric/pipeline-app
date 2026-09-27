@@ -33,10 +33,24 @@ test.describe("full-screen interview", () => {
       await expect.poll(() => appBarCovered(page)).toBe(true);
 
       // Leaving and coming back keeps the topic in view and puts focus on the control that undoes it.
+      // The picker holds the chosen topic while the page scrolls there (no flicking through the topics passed),
+      // and closing before the scroll arrives still lands on it.
       await picker.selectOption("medication");
-      await expect(picker).toHaveValue("medication");
-      await expect(page.locator('[data-assessment-group-heading="medication"]')).toBeInViewport();
+      const seen = await page.evaluate(async () => {
+        const select = document.querySelector<HTMLSelectElement>('select[aria-label="Assessment section"]')!;
+        const values = new Set<string>();
+        for (let frame = 0; frame < 20; frame++) { values.add(select.value); await new Promise((resolve) => requestAnimationFrame(resolve)); }
+        return [...values];
+      });
+      expect(seen).toEqual(["medication"]);
+      await picker.selectOption("behavioral_risk");
       await page.mouse.move(900, 500);
+      await bar.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(picker).toHaveValue("behavioral_risk");
+      await expect(page.locator('[data-assessment-group-heading="behavioral_risk"]')).toBeInViewport();
+      await bar.getByRole("button", { name: "Expand", exact: true }).click();
+      await picker.selectOption("medication");
+      await expect(page.locator('[data-assessment-group-heading="medication"]')).toBeInViewport();
       await bar.getByRole("button", { name: "Close", exact: true }).click();
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
       await expect(picker).toHaveValue("medication");
@@ -93,6 +107,15 @@ test.describe("full-screen interview", () => {
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
       await expect(rail.getByRole("button", { name: "Chart", exact: true })).toBeInViewport();
       await expectNoCoveredControls(page);
+      await rail.getByRole("button", { name: "Assessment", exact: true }).click();
+      await expect(root).toHaveAttribute("data-interview-focus", "true");
+
+      // After a reload on another step, Assessment reopens in the interview, the mode last used here.
+      await page.mouse.move(4, 450);
+      await rail.getByRole("button", { name: "Chart", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+      await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
       await rail.getByRole("button", { name: "Assessment", exact: true }).click();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
 
