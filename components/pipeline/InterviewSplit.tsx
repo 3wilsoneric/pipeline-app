@@ -63,7 +63,7 @@ export default function InterviewSplit({ referral, topics, data, currentTopic, c
         if (!window.matchMedia("(min-width: 1024px)").matches) { element.style.height = ""; return; }
         const footer = element.closest("[data-assessment-view]")?.querySelector<HTMLElement>('[aria-label="Assessment actions"]');
         const bottom = footer ? footer.getBoundingClientRect().top : window.innerHeight;
-        element.style.height = `${Math.max(320, bottom - element.getBoundingClientRect().top - 16)}px`;
+        element.style.height = `${Math.max(320, bottom - element.getBoundingClientRect().top)}px`;
       });
     };
     fit();

@@ -248,6 +248,16 @@
   .chartReview [data-assessment-record] > section > dl { row-gap: 14px; }
   .chartReview [data-assessment-record] dd { margin-top: 3px; line-height: 1.6; }
   .footer [data-assessment-primary-action] > button, .phonePreparationSteps [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; height: auto; padding: 10px 16px; border: 1px solid #007254; border-radius: 5px; background: #007e60; color: #fff; font-size: 14px; font-weight: 600; }
+  /* Bottom bar, wide screens (owner, 2026-09-26: "this area needs some work"): even padding, the main action a
+     size that sits inside the bar, and the save status and Details as matching quiet controls. */
+  @media (min-width: 1024px) {
+    .footer[aria-label="Assessment actions"] { min-height: 64px; padding: 10px 24px; column-gap: 8px; box-shadow: none; }
+    .footer[aria-label="Assessment actions"] .footerUtilities { gap: 4px; }
+    .footer[aria-label="Assessment actions"] .saveRecovery, .footer[aria-label="Assessment actions"] .footerUtilities > details > summary { min-height: 40px; margin: 0; padding: 0 12px; border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 500; }
+    .footer[aria-label="Assessment actions"] .saveRecovery:hover, .footer[aria-label="Assessment actions"] .footerUtilities > details > summary:hover, .footer[aria-label="Assessment actions"] .footerUtilities > details[open] > summary { background: var(--color-segment); color: var(--color-ink); }
+    .footer[aria-label="Assessment actions"] [data-guide-target="assessment-save-status"] { font-size: var(--text-label); }
+    .footer[aria-label="Assessment actions"] [data-assessment-primary-action] > button { min-height: 44px; padding: 0 20px; font-size: var(--text-value); }
+  }
   .phonePreparationSteps { flex-shrink: 0; padding: 8px 12px; border-top: 1px solid #dce3de; background: #fff; }
   .phonePreparationSteps :is(button, select):focus-visible { outline: 2px solid #087e64; outline-offset: 2px; }
   .footer [data-assessment-primary-action] > button:not(:disabled):hover { background: #006e53; }
