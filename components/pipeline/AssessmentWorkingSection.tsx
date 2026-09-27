@@ -34,8 +34,12 @@ import { useDesignV2 } from "@/components/design/DesignSwitch";
 type WorkingData = { data: AssessmentToolData; pending: readonly AssessmentToolFieldKey[] };
 type QuestionTarget = { field: AssessmentToolFieldKey };
 
-export function AssessmentWorkingNavigation({ data, pending, activeSection, guideTargets, onSectionChange, preparing = false, recordedAnswers, lead }: WorkingData & {
+const allQuestionsChoice = "all-questions";
+
+export function AssessmentWorkingNavigation({ data, pending, activeSection, guideTargets, onSectionChange, preparing = false, recordedAnswers, lead, onAllQuestions }: WorkingData & {
   recordedAnswers?: React.ReactNode;
+  /** Redesign interview: All questions as the first choice in the section dropdown, in place of the trail. */
+  onAllQuestions?: () => void;
   /** Redesign interview: the All questions / Interview switch and its actions, placed in this row. */
   lead?: React.ReactNode;
   preparing?: boolean;
@@ -50,7 +54,11 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
   const total = sections[index].questions.length;
   const picker = <label className={styles.sectionPicker}>
       <span className={styles.sectionPosition} aria-label={`Section ${index + 1} of ${sections.length}`}>{index + 1} / {sections.length}</span>
-      <select aria-label="Assessment section" data-guide-target={["assessment-section-nav", ...Object.values(guideTargets)].join(" ")} value={activeSection} onChange={(event) => onSectionChange(event.target.value as AssessmentToolSection)}>
+      <select aria-label="Assessment section" data-guide-target={["assessment-section-nav", ...Object.values(guideTargets)].join(" ")} value={activeSection} onChange={(event) => {
+        if (onAllQuestions && event.target.value === allQuestionsChoice) { onAllQuestions(); return; }
+        onSectionChange(event.target.value as AssessmentToolSection);
+      }}>
+        {onAllQuestions ? <option value={allQuestionsChoice}>All questions</option> : null}
         {sections.map((section) => <option key={section.key} value={section.key}>{section.label}</option>)}
       </select>
     </label>;

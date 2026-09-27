@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openAllQuestions } from "../support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral } from "../support/operational-api";
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
@@ -32,6 +33,14 @@ test.describe("interview layout", () => {
       await expect(info.locator("[data-client-notes]")).toContainText("All notes saved");
       await expect(rail).toBeHidden();
 
+      // No All questions / Interview trail in the interview bar; the dropdown lists All questions first, then the
+      // sections, and choosing a section snaps straight to it.
+      await expect(bar.getByRole("button", { name: "Interview", exact: true })).toBeHidden();
+      await expect(picker.locator("option").first()).toHaveText("All questions");
+      await picker.selectOption("physical_health");
+      await expect(page.locator('[data-assessment-group-heading="physical_health"]')).toBeInViewport({ timeout: 300 });
+      await picker.selectOption("identity");
+
       // The information follows the topic: only that topic, only what is filled in.
       await expect(info.locator('[data-split-topic="identity"]')).toContainText("Operational Referral");
       await picker.selectOption("medication");
@@ -64,7 +73,7 @@ test.describe("interview layout", () => {
       await expect(rail).toBeHidden();
 
       // All questions is the normal page with the rail; Interview tucks it away again.
-      await bar.getByRole("button", { name: "All questions", exact: true }).click();
+      await openAllQuestions(page);
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeVisible();
       await page.getByRole("button", { name: "Interview", exact: true }).click();
@@ -100,7 +109,7 @@ test.describe("interview layout", () => {
       await progress.getByRole("button", { name: "Begin interview", exact: true }).click();
       await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
       await expect(page.locator("html")).toHaveAttribute("data-interview-focus", "true");
-      await page.getByRole("button", { name: "All questions", exact: true }).click();
+      await openAllQuestions(page);
       // Back in All questions after the interview began: nothing to schedule, no appointment line.
       await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
       await expect(page.getByRole("button", { name: /Schedule interview|Edit assessment appointment/ })).toHaveCount(0);

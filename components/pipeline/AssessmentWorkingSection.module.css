@@ -584,8 +584,13 @@
   .navigation[data-with-work-mode] .phaseSteps li > span { width: 18px; height: 18px; font-size: var(--text-meta); }
   .navigation[data-with-work-mode] .sectionTitle { padding-left: 14px; }
   .navigation[data-with-work-mode] .sectionPosition { padding: 1px 6px; background: transparent; color: var(--color-ink-muted); font-size: var(--text-label); }
-  .navigation[data-with-work-mode] .sectionPicker select.sectionPicker, .navigation[data-with-work-mode] .sectionPicker select { min-height: 36px; padding-block: 0; border-color: transparent; background: transparent; font-size: var(--text-section); line-height: var(--text-section--line-height); letter-spacing: 0; }
-  .navigation[data-with-work-mode] .sectionPicker select:hover { border-color: var(--color-control-border); }
+  /* The section name is plainly a dropdown (owner, 2026-09-27: "should be that drop down that you can click and it
+     snaps there"): a bordered control with its arrow; choosing a section jumps straight to it. */
+  .navigation[data-with-work-mode] .sectionPicker select { min-height: 40px; padding: 0 10px 0 12px; border: 1px solid var(--color-control-border); background-color: var(--color-paper); box-shadow: var(--shadow-card); cursor: pointer; font-size: var(--text-section); line-height: var(--text-section--line-height); letter-spacing: 0; }
+  .navigation[data-with-work-mode] .sectionPicker select:hover { border-color: var(--color-ink-muted); }
+  /* The All questions / Interview trail is not needed here; All questions is the first choice in the dropdown. */
+  .navigation[data-with-work-mode] .phaseSummary { display: none; }
+  .navigation[data-with-work-mode] .sectionTitle { padding-left: 0; border-left: 0; }
   .navigation[data-with-work-mode] .sectionProgress { font-size: var(--text-label); }
   .navigation[data-with-work-mode] .sectionProgress strong { font-size: var(--text-label); }
   .navigation[data-with-work-mode] .prepActions { gap: 6px; }

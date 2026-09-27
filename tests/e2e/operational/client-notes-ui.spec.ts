@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openAllQuestions } from "../support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral } from "../support/operational-api";
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
@@ -74,7 +75,7 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   const headerRow = page.getByRole("navigation", { name: "Assessment sections" });
   await expect(headerRow.getByRole("button", { name: "Schedule interview" })).toHaveCount(0);
   // All questions shows the rail again; the Assessment step reopens there after a reload.
-  await page.getByRole("button", { name: "All questions", exact: true }).click();
+  await openAllQuestions(page);
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
   await expect(railChart).toBeVisible();
   await page.reload();

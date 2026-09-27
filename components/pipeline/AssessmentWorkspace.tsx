@@ -609,7 +609,8 @@ export default function AssessmentWorkspace({
     const key = preparing ? preparationGroupForSection(section).key : section;
     pickedTopic.current = { key, until: performance.now() + 1500 };
     setSpyGroup(key);
-    document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Snaps straight to the chosen section (owner, 2026-09-27: "click and it snaps there").
+    document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ block: "start" });
   };
   // A link or action that names a section (a deep link, a chart edit, Review unanswered) lands on it.
   useEffect(() => {
@@ -2596,7 +2597,7 @@ export default function AssessmentWorkspace({
               onAllQuestions={() => changeWorkingMode(true)}
               required={requiredInterviewFields}
               target={workingTarget}
-              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation lead={workModeInNavigation ? <>
+              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation onAllQuestions={workModeInNavigation ? () => changeWorkingMode(true) : undefined} lead={workModeInNavigation ? <>
                 {interviewFocus && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
                 {renderWorkMode()}
               </> : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
