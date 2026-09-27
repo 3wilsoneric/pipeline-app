@@ -24,6 +24,24 @@ const referral = (overrides) => ({
   hoursSinceUpdate: 30,
   stale: false,
   unassigned: false,
+  managementProfile: {
+    dateOfBirth: "1981-04-03",
+    referralSource: "County behavioral health",
+    referringCounty: "Contra Costa",
+    payer: "Private pay",
+    responsiblePerson: "Morgan Lee",
+    conservedStatus: "no",
+    documentStatus: "Reviewed",
+    assessmentStatus: "complete",
+    assessmentSigned: true,
+    assessmentDate: "2026-09-18",
+    openRequirements: 2,
+    blockingRequirements: 1,
+    overview: ["Current setting: acute psychiatric hospital"],
+    supportSnapshot: [{ label: "Mobility", value: "Independent" }],
+    medications: ["Medication A", "Medication B"],
+    medicationSource: "signed_assessment",
+  },
   pipelinePath: "/?view=referrals&screen=packet&referralId=1",
   ...overrides,
 });
@@ -68,7 +86,25 @@ test("snapshots the live board by column and status with client identity and dri
   assert.deepEqual(summary.history.month_outcomes, { month: "2026-09", received: 5, accepted: 2, declined: 1, admitted: 1 });
   assert.equal(summary.history.decision_timing.decisions_counted, 4);
   assert.equal(summary.history.decision_timing.median_days_to_decision, 4.5);
-  assert.equal(summary.contract_version, "2.1");
+  assert.deepEqual(newest.management_profile, {
+    date_of_birth: "1981-04-03",
+    referral_source: "County behavioral health",
+    referring_county: "Contra Costa",
+    payer: "Private pay",
+    responsible_person: "Morgan Lee",
+    conserved_status: "no",
+    document_status: "Reviewed",
+    assessment_status: "complete",
+    assessment_signed: true,
+    assessment_date: "2026-09-18",
+    open_requirements: 2,
+    blocking_requirements: 1,
+    overview: ["Current setting: acute psychiatric hospital"],
+    support_snapshot: [{ label: "Mobility", value: "Independent" }],
+    medications: ["Medication A", "Medication B"],
+    medication_source: "signed_assessment",
+  });
+  assert.equal(summary.contract_version, "3.0");
 });
 
 test("uses an explicit fallback when the referral has no recorded name", () => {

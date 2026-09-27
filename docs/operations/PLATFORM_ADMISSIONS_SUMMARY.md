@@ -14,12 +14,17 @@ referral side of it through one server-to-server endpoint:
   status; `board.cards` gives one row per referral on the board with its
   client name, column, status, next action, destination community, owner, days
   open, days since update, stale/unassigned/move-in-overdue flags, and a relative
-  `pipeline_path` that opens it in Pipeline (max 300 rows, oldest first).
+  `pipeline_path` that opens it in Pipeline (max 300 rows, oldest first). Each
+  row also carries one bounded `management_profile`: intake identity and
+  placement facts, workflow readiness counts, a medication handoff, and—only
+  after the assessment is signed—the same capped overview and support fields
+  used to prepare Meet the Client.
   `metrics`, `upcoming_admissions`, and `history` (six-month counts and median
-  days to decision) sit beside it. The client name is PHI and the endpoint is
-  therefore limited to the authenticated Platform integration; DOB, contact
-  details, referral sources, notes, and documents remain outside this board
-  contract.
+  days to decision) sit beside it. The card and management profile contain PHI
+  and are therefore limited to the authenticated Platform integration. Raw
+  referral notes, contact details, uploaded documents, extraction evidence,
+  and unsigned assessment narrative remain outside this contract. Arrays and
+  text lengths are capped before transmission.
 - **Builder:** `lib/pipeline/platform-admissions-summary.ts` (pure);
   loader: `getPlatformAdmissionsSummary` in `lib/pipeline/operations-snapshot.ts`.
 - **Statuses:** the board's own details, with three renamed for leadership

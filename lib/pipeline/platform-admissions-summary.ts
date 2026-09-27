@@ -1,10 +1,11 @@
 // Live snapshot of the referral board for the authenticated Alamo Platform.
-// Rows include the client name needed to identify and work the referral,
-// alongside column, status, community, owner, ages, flags, and a link back
-// into Pipeline. Platform documents the consumer side in
+// Rows include the identity, bounded management chart, and workflow fields
+// needed to identify and manage the referral. Raw notes, documents, contacts,
+// extraction evidence, and unsigned assessment narrative stay in Pipeline.
+// Platform documents the consumer side in
 // alamo-platform-app/docs/platform/admissions-zone.md.
 
-export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "2.1";
+export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.0";
 
 const DAY_MS = 86_400_000;
 const TREND_MONTHS = 6;
@@ -49,8 +50,33 @@ export type PlatformSummaryReferral = {
   hoursSinceUpdate: number;
   stale: boolean;
   unassigned: boolean;
+  managementProfile: PlatformManagementProfile;
   /** Relative Pipeline path that opens this referral where the work is. */
   pipelinePath: string;
+};
+
+export type PlatformManagementItem = {
+  label: string;
+  value: string;
+};
+
+export type PlatformManagementProfile = {
+  dateOfBirth: string | null;
+  referralSource: string | null;
+  referringCounty: string | null;
+  payer: string | null;
+  responsiblePerson: string | null;
+  conservedStatus: string | null;
+  documentStatus: string | null;
+  assessmentStatus: string | null;
+  assessmentSigned: boolean;
+  assessmentDate: string | null;
+  openRequirements: number;
+  blockingRequirements: number;
+  overview: string[];
+  supportSnapshot: PlatformManagementItem[];
+  medications: string[];
+  medicationSource: "signed_assessment" | "referral" | null;
 };
 
 export type PlatformAdmissionsSummaryInput = {
@@ -139,6 +165,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
           unassigned: referral.unassigned,
           move_in_overdue: awaiting && Boolean(planned && planned < today),
         },
+        management_profile: normalizeManagementProfile(referral.managementProfile),
         pipeline_path: referral.pipelinePath,
       };
     })
@@ -192,6 +219,45 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       },
     },
   };
+}
+
+function normalizeManagementProfile(profile: PlatformManagementProfile) {
+  return {
+    date_of_birth: boundedText(profile.dateOfBirth, 40),
+    referral_source: boundedText(profile.referralSource, 160),
+    referring_county: boundedText(profile.referringCounty, 120),
+    payer: boundedText(profile.payer, 160),
+    responsible_person: boundedText(profile.responsiblePerson, 160),
+    conserved_status: boundedText(profile.conservedStatus, 80),
+    document_status: boundedText(profile.documentStatus, 80),
+    assessment_status: boundedText(profile.assessmentStatus, 80),
+    assessment_signed: profile.assessmentSigned,
+    assessment_date: boundedText(profile.assessmentDate, 40),
+    open_requirements: safeCount(profile.openRequirements),
+    blocking_requirements: safeCount(profile.blockingRequirements),
+    overview: profile.overview
+      .map((value) => boundedText(value, 320))
+      .filter((value): value is string => Boolean(value))
+      .slice(0, 4),
+    support_snapshot: profile.supportSnapshot
+      .map((item) => ({ label: boundedText(item.label, 80), value: boundedText(item.value, 320) }))
+      .filter((item): item is { label: string; value: string } => Boolean(item.label && item.value))
+      .slice(0, 8),
+    medications: profile.medications
+      .map((value) => boundedText(value, 160))
+      .filter((value): value is string => Boolean(value))
+      .slice(0, 16),
+    medication_source: profile.medicationSource,
+  };
+}
+
+function boundedText(value: string | null | undefined, maximumLength: number) {
+  const normalized = value?.trim();
+  return normalized ? normalized.slice(0, maximumLength) : null;
+}
+
+function safeCount(value: number) {
+  return Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
 export type PlatformAdmissionsSummary = ReturnType<typeof buildPlatformAdmissionsSummary>;
