@@ -5,31 +5,35 @@
 .pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
 
 .text { flex: 1; min-height: 0; padding: 0 8px 0 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-/* Like notes on a lined notebook page (owner, 2026-09-27): every label and answer sits on a ruled line, a faint
-   margin rule on the left, a smaller hand; the section is named by the picker above, not repeated here. */
-.text { --rule: 28px; }
-.page { min-height: 100%; padding: 0 4px 0 18px; border-left: 2px solid color-mix(in srgb, var(--color-danger) 22%, transparent); background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--color-paper-rule) calc(var(--rule) - 1px) var(--rule)); }
-.page:has(textarea:focus) { border-left-color: var(--color-link); }
+/* Like a clinical progress-notes form (owner, 2026-09-27: "a bit more medical chart"): a boxed sheet with a narrow
+   label column, a vertical rule, answers in the right column on tight blue-green ruling; the notes continue in the
+   same columns below. The section is named by the picker above, not repeated here. */
+.text { --rule: 26px; --label: 136px; --chart-rule: color-mix(in srgb, var(--color-link) 14%, var(--color-paper)); --chart-edge: color-mix(in srgb, var(--color-link) 32%, var(--color-card-border)); }
+.page { min-height: 100%; border: 1px solid var(--chart-edge); border-top-width: 3px; background:
+  linear-gradient(to right, transparent calc(var(--label) - 1px), var(--chart-edge) calc(var(--label) - 1px) var(--label), transparent var(--label)),
+  repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--chart-rule) calc(var(--rule) - 1px) var(--rule)),
+  var(--color-paper); }
+.page:has(textarea:focus) { border-color: var(--color-link); }
 .topic dl { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; }
-.topic dl > div { min-width: 0; padding-bottom: var(--rule); }
-.topic dl > div:last-child { padding-bottom: 0; }
-.text dt { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 600; }
-.text dd { margin: 0; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); white-space: pre-line; overflow-wrap: anywhere; }
+.topic dl > div { display: grid; grid-template-columns: var(--label) minmax(0, 1fr); min-width: 0; }
+.text dt { padding: 0 10px; overflow: hidden; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-overflow: ellipsis; white-space: nowrap; }
+.text dd { margin: 0; padding: 0 10px 0 12px; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); white-space: pre-line; overflow-wrap: anywhere; }
 .text dd > span { display: block; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); }
 
-/* The topic's notes, written below what is known on the same ruled lines (owner, 2026-09-27: "as if you are
-   notating it below"): a small "Notes" line with the save status, then the writing itself, no box. */
+/* The topic's notes continue the form below what is known (owner, 2026-09-27: "as if you are notating it below"):
+   "Notes" in the label column with the save status beside it, then the writing in the answer column, no box. */
 .notes { margin-top: var(--rule); }
 .notes [data-client-notes] { position: static; max-height: none; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.notes [data-client-notes] > header { gap: 10px; min-height: var(--rule); height: var(--rule); padding: 0; border: 0; background: transparent; }
-.notes [data-client-notes] > header h3 { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 600; }
-.notes [data-client-notes] > header h3 svg { width: 13px; height: 13px; }
+.notes [data-client-notes] > header { gap: 10px; min-height: var(--rule); height: var(--rule); padding: 0 10px 0 0; border: 0; background: transparent; }
+.notes [data-client-notes] > header h3 { flex: 0 0 var(--label); padding: 0 10px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.notes [data-client-notes] > header h3 svg { display: none; }
 .notes [data-client-notes] > header :is(span, button) { font-size: var(--text-meta); line-height: var(--rule); }
+.notes [data-client-notes] > header [role="status"] { margin-left: 12px; }
 .notes [data-client-notes] > header button { min-height: 0; height: var(--rule); padding: 0 4px; }
 .notes [data-client-notes] > div { padding: 0; overflow: visible; }
 .notes [data-client-notes] [data-note-heading] { padding: 0; border: 0; }
 .notes [data-client-notes] [data-note-heading] > p { display: none; }
-.notes [data-client-notes] [data-note-heading] textarea { min-height: calc(var(--rule) * 6); margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); }
+.notes [data-client-notes] [data-note-heading] textarea { width: calc(100% - var(--label)); min-height: calc(var(--rule) * 8); margin: 0 0 0 var(--label); padding: 0 10px 0 12px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); }
 .notes [data-client-notes] [data-note-heading] textarea:focus { outline: none; }
 
 /* The line between the halves. The hit area is wider than the line. */
@@ -47,4 +51,4 @@
 @media (prefers-reduced-motion: reduce) { .divider::before { transition: none; } }
 @media (forced-colors: active) { .divider::before { background: CanvasText; } .topic[data-current]::before { background: Highlight; } }
 
-.empty { margin: 0; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--rule); }
+.empty { margin: 0 0 0 var(--label); padding: 0 10px 0 12px; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--rule); }
