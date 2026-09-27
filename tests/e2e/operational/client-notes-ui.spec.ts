@@ -64,13 +64,23 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await expect(railChart).toBeInViewport();
   await page.mouse.move(900, 450);
   await expect(railChart).not.toBeInViewport();
-  await page.getByRole("button", { name: "Close", exact: true }).click();
+  // Scheduling stays in All questions; the full-screen interview is for doing it.
+  const headerRow = page.getByRole("navigation", { name: "Assessment sections" });
+  await expect(headerRow.getByRole("button", { name: "Schedule interview" })).toHaveCount(0);
+  await headerRow.getByRole("button", { name: "Close", exact: true }).click();
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
   await expect(split).toBeVisible();
+  // Leaving is remembered: it does not come back by itself, on a return to the interview or after a reload.
   await page.getByRole("button", { name: "All questions", exact: true }).click();
   await page.getByRole("button", { name: "Interview", exact: true }).click();
+  await expect(headerRow.getByRole("button", { name: "Expand", exact: true })).toBeVisible();
+  await expect(root).not.toHaveAttribute("data-interview-focus", "true");
+  await headerRow.getByRole("button", { name: "Expand", exact: true }).click();
   await expect(root).toHaveAttribute("data-interview-focus", "true");
   await page.keyboard.press("Escape");
+  await expect(root).not.toHaveAttribute("data-interview-focus", "true");
+  await page.reload();
+  await expect(headerRow.getByRole("button", { name: "Expand", exact: true })).toBeVisible();
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
   // An answer shows in the chart text as soon as it is recorded.
   await page.getByRole("textbox", { name: "Current location" }).fill("Board and care in Turlock");

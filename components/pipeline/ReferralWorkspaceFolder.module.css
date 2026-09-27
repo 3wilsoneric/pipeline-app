@@ -971,6 +971,10 @@
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header::after { content: ""; position: absolute; top: 50%; right: 5px; width: 4px; height: 40px; margin-top: -20px; border-radius: var(--radius-pill); background: var(--color-folder-edge); transition: opacity var(--duration-fade) ease; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header:is(:hover, :focus-within) { transform: none; box-shadow: var(--shadow-popover); }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header:is(:hover, :focus-within)::after { opacity: 0; }
+  /* The page's own Next button sits under the full-screen page; keep it from showing through while it fades in. */
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .stepContinue { visibility: hidden; }
+  /* In the slid-out rail, no second save status (the bottom bar has it) and no Next pill competing with Review assessment. */
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header :is(.nextStepBar, .saveCenter) { display: none; }
 }
 /* The page's finished entry animation would otherwise keep the overlay in a layer under the app bar. */
 :global(html[data-design="v2"][data-interview-focus] .pipeline-route-enter) { animation: none; }

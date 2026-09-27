@@ -18,6 +18,7 @@ import {
   FileSpreadsheet,
   LoaderCircle,
   Plus,
+  Maximize2,
   RefreshCw,
   X,
 } from "lucide-react";
@@ -328,6 +329,8 @@ function assessmentWorkspacePermissions(
   };
 }
 
+const interviewFocusKey = "pipeline:interview-full-screen";
+
 export default function AssessmentWorkspace({
   workspaceActive = true,
   workbookImport,
@@ -542,17 +545,21 @@ export default function AssessmentWorkspace({
   [stackedQuestionsView, preparing, draft, conversationSections]);
   const [spyGroup, setSpyGroup] = useState<AssessmentToolSection | null>(null);
   // Full-screen interview (docs/design/DECISIONS.md, "Full-screen interview"): the split interview takes the whole
-  // window while it is on screen. The close button or Escape leaves it for this visit; it comes back the next time
-  // the person returns to the interview.
+  // window while it is on screen. It starts on; leaving it (the close button or Escape) is remembered on this
+  // device, so it does not come back by itself, and the expand button turns it on again.
   const interviewFocusEligible = designV2 && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
     && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive;
-  const [interviewFocusClosed, setInterviewFocusClosed] = useState(false);
-  const [interviewFocusSeen, setInterviewFocusSeen] = useState(interviewFocusEligible);
-  if (interviewFocusSeen !== interviewFocusEligible) {
-    setInterviewFocusSeen(interviewFocusEligible);
-    if (!interviewFocusEligible) setInterviewFocusClosed(false);
-  }
-  const interviewFocus = interviewFocusEligible && !interviewFocusClosed;
+  const [interviewFocusPreferred, setInterviewFocusPreferred] = useState(true);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(interviewFocusKey) === "off") setInterviewFocusPreferred(false);
+    } catch { /* storage unavailable: full screen stays the default */ }
+  }, []);
+  const chooseInterviewFocus = useCallback((on: boolean) => {
+    setInterviewFocusPreferred(on);
+    try { window.localStorage.setItem(interviewFocusKey, on ? "on" : "off"); } catch { /* not remembered */ }
+  }, []);
+  const interviewFocus = interviewFocusEligible && interviewFocusPreferred;
   useEffect(() => {
     if (!interviewFocus) return;
     const root = document.documentElement;
@@ -560,11 +567,11 @@ export default function AssessmentWorkspace({
     const onKey = (event: KeyboardEvent) => {
       // Escape leaves full screen only when nothing else (a dialog, a menu, a picker) is using it.
       if (event.key !== "Escape" || event.defaultPrevented || document.querySelector("dialog[open], [popover]:popover-open")) return;
-      setInterviewFocusClosed(true);
+      chooseInterviewFocus(false);
     };
     window.addEventListener("keydown", onKey);
     return () => { delete root.dataset.interviewFocus; window.removeEventListener("keydown", onKey); };
-  }, [interviewFocus]);
+  }, [interviewFocus, chooseInterviewFocus]);
   const spySection = stackedGroups.find((group) => group.key === spyGroup)?.key ?? stackedGroups[0]?.key ?? visibleSectionKey;
   const nextSection = stackedQuestionsView ? undefined : pageSections[pageIndex + 1];
   const previousSection = stackedQuestionsView ? undefined : pageSections[pageIndex - 1];
@@ -2276,7 +2283,7 @@ export default function AssessmentWorkspace({
   // Redesign interview: the All questions / Interview switch and its actions share the sticky section row, so the
   // page has one in-page navigation row (owner, 2026-09-26: "four layers of nav").
   const workModeInNavigation = designV2 && stackedQuestionsView && !preparing && !phoneInterview;
-  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={canEditClinical ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
+  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={canEditClinical && !interviewFocus ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
   // In full screen the rail is hidden, so the bottom bar shows the save status again.
   const railSaveStatus = designV2 && embeddedFolder && !phoneLayout && !trainingAssessmentMode && !interviewFocus;
   const renderSaveStatus = () => (
@@ -2568,7 +2575,8 @@ export default function AssessmentWorkspace({
               questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation lead={workModeInNavigation ? <>
                 {interviewFocus && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
                 {renderWorkMode()}
-                {interviewFocus ? <button type="button" aria-label="Close" title="Close (Esc)" className={workingStyles.focusClose} onClick={() => setInterviewFocusClosed(true)}><X size={18} aria-hidden="true" /></button> : null}
+                {interviewFocus ? <button type="button" aria-label="Close" title="Close (Esc)" className={workingStyles.focusClose} onClick={() => chooseInterviewFocus(false)}><X size={18} aria-hidden="true" /></button>
+                  : interviewFocusEligible ? <button type="button" aria-label="Expand" title="Expand" className={workingStyles.focusClose} onClick={() => chooseInterviewFocus(true)}><Maximize2 size={16} aria-hidden="true" /></button> : null}
               </> : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
