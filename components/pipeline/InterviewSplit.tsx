@@ -13,7 +13,7 @@ import styles from "./InterviewSplit.module.css";
 // double-clicked back to half; the width is remembered on this device.
 
 const widthKey = "pipeline:interview-split";
-const [minWidth, maxWidth, defaultWidth] = [30, 70, 45];
+const [minWidth, maxWidth, defaultWidth] = [28, 70, 38];
 
 type Topic = { key: AssessmentToolSection; label: string; questions: readonly AssessmentInterviewQuestion[] };
 

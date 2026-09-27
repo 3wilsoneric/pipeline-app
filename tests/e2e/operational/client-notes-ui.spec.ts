@@ -45,12 +45,12 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await expect(split.locator("[data-client-notes]")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Assessment sections" }).getByRole("button", { name: "Chart", exact: true })).toHaveCount(0);
   const line = split.getByRole("separator", { name: "Current information" });
-  await expect(line).toHaveAttribute("aria-valuenow", "45");
+  await expect(line).toHaveAttribute("aria-valuenow", "38");
   await line.focus();
   await page.keyboard.press("ArrowRight");
-  await expect(line).toHaveAttribute("aria-valuenow", "47");
+  await expect(line).toHaveAttribute("aria-valuenow", "40");
   await page.keyboard.press("Enter");
-  await expect(line).toHaveAttribute("aria-valuenow", "45");
+  await expect(line).toHaveAttribute("aria-valuenow", "38");
   const questions = await page.locator("[data-assessment-question-editor]").first().boundingBox();
   expect(questions!.width).toBeGreaterThan(420);
   // Beside the questions: only the information already filled in for the topic being asked, updated as it is
