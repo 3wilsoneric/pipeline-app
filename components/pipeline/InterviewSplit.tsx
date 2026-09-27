@@ -89,7 +89,6 @@ export default function InterviewSplit({ topics, data, currentTopic, notes }: {
   return <aside ref={pane} aria-label="Current information" className={styles.pane} data-interview-split>
     <div ref={text} className={styles.text} data-split-chart>
       {topic ? <section key={topic.key} data-split-topic={topic.key} data-current aria-label={topic.label} className={styles.topic}>
-        <h3 className={styles.topicTitle}>{topic.label}</h3>
         {answered.length ? <dl>{answered.map((question) => {
           const reason = getAssessmentUnableReason(data, question.field);
           return <div key={question.field}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>{capturedAssessmentAnswer(question, data)}{reason ? <span>{reason}</span> : null}</dd></div>;

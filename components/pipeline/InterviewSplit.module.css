@@ -5,12 +5,15 @@
 .pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
 
 .text { flex: 1; min-height: 0; padding: 4px 8px 28px 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.topicTitle { margin: 0 0 14px; color: var(--color-ink); font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: 700; overflow-wrap: anywhere; }
-.topic dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px 24px; margin: 0; }
-.topic dl > div { min-width: 0; }
+.topic dl { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; }
+/* One answer per row, the value large and dark, the label small above it, a hairline between rows (owner, 2026-09-27:
+   "make the info per section very readable and clear"); the section is named by the picker above, not repeated here. */
+.topic dl > div { min-width: 0; padding: 14px 0; border-bottom: 1px solid var(--color-paper-rule); }
+.topic dl > div:first-child { padding-top: 4px; }
+.topic dl > div:last-child { border-bottom: 0; }
 .text dt { color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; }
-.text dd { margin: 2px 0 0; color: var(--color-ink); font-size: var(--text-value); line-height: 21px; white-space: pre-line; overflow-wrap: anywhere; }
-.text dd > span { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.text dd { margin: 4px 0 0; color: var(--color-ink); font-size: var(--text-section); line-height: 1.5; font-weight: 500; white-space: pre-line; overflow-wrap: anywhere; }
+.text dd > span { display: block; margin-top: 4px; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 400; }
 
 /* The current topic's notes: part of the left side, not a separate card. */
 .notes { flex: 0 1 auto; min-height: 0; max-height: 40%; display: flex; padding: 12px 0 16px; border-top: 1px solid var(--color-paper-rule); }
