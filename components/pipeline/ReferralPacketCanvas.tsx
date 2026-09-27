@@ -2493,9 +2493,12 @@ export default function ReferralPacketCanvas({
   // Redesign vertical flow (docs/design/DECISIONS.md, "Record layout").
   const verticalFlow = designV2 && !phone;
   const railActivePage = displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage;
-  const railStepIndex = navigableWorkspaceSteps.findIndex((step) => step.page === railActivePage);
-  const nextWorkspaceStep = railStepIndex >= 0 ? navigableWorkspaceSteps[railStepIndex + 1] : undefined;
   const railProgress = verticalFlow ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined;
+  // Redesign: a finished step is filed into the Chart and drops off the rail (docs/design/DECISIONS.md, "Chart built
+  // by the process"); the step on screen stays listed so the person can see where they are.
+  const railSteps = railProgress ? navigableWorkspaceSteps.filter((step) => railProgress[String(step.page)] !== "done" || step.page === railActivePage) : navigableWorkspaceSteps;
+  const railStepIndex = railSteps.findIndex((step) => step.page === railActivePage);
+  const nextWorkspaceStep = railStepIndex >= 0 ? railSteps[railStepIndex + 1] : undefined;
   const railDone = railProgress ? Object.values(railProgress).filter((state) => state === "done").length : 0;
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const readingDecision = displayedPage === "workflow" && Boolean(loadedReferral);
@@ -2723,7 +2726,7 @@ export default function ReferralPacketCanvas({
             ) : null}
             {/* Client notes: beside the questions on the Assessment step; from this button everywhere else. */}
             {verticalFlow && loadedReferral && displayedPage !== 2 ? <ClientNotesButton key={loadedReferral.id} referralId={loadedReferral.id} readOnly={permissionReadOnly} /> : null}
-            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
+            <WorkspaceStageNavigation steps={railSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>
                 <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
@@ -2893,6 +2896,7 @@ export default function ReferralPacketCanvas({
                   onSummaryChange={setAssessmentSummary}
                   onSaveStateChange={(state) => setAssessmentSaveState({ referralId: referralWorkspaceId, ...state })}
                   onContinueToWorkflow={() => openPage("workflow")}
+                  onOpenFinish={() => openPage("email")}
                   onOpenWorkspace={() => openPage(3)}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
                   onActiveSectionChange={(section, location) => {

@@ -182,6 +182,8 @@ type AssessmentWorkspaceProps = {
   onSaveStateChange?: (state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord, referral?: Referral) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
+  /** Redesign Chart: the way back into a filed Finish & send step. */
+  onOpenFinish?: () => void;
   onOpenWorkspace?: () => void;
   onActiveSectionChange?: (section: AssessmentToolSection, location: PipelineWorkspaceLocation) => void;
   onOpenAssignedWork?: () => void | Promise<void>;
@@ -370,6 +372,7 @@ export default function AssessmentWorkspace({
   onSaveStateChange,
   onAssessmentSaved,
   onContinueToWorkflow,
+  onOpenFinish,
   onOpenWorkspace,
   onOpenAssignedWork,
   onActiveSectionChange,
@@ -566,7 +569,9 @@ export default function AssessmentWorkspace({
   // rail (an arrow brings it back) so the information and notes sit beside the questions with room to read.
   const wideRecordLayout = useWideRecordLayout();
   const interviewFocus = designV2 && wideRecordLayout && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
-    && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive && questionsOnScreen;
+    && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive && questionsOnScreen
+    // Only while an interview can still be done: a signed assessment is a finished record, shown with the rail.
+    && Boolean(selected) && !selected?.signed_at;
   useLayoutEffect(() => {
     if (!interviewFocus) return;
     const root = document.documentElement;
@@ -2193,7 +2198,7 @@ export default function AssessmentWorkspace({
 
   // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): before the editor's own chart
   // review exists, the Chart slot shows the plain chart, so the Chart is always on the page.
-  const plainStackedChart = chartSlot ? createPortal(<>{designV2 ? null : chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} />{designV2 ? chartDocuments : null}</>, chartSlot) : null;
+  const plainStackedChart = chartSlot ? createPortal(<>{designV2 ? null : chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessment={designV2 && !trainingAssessmentMode ? selected ?? undefined : undefined} onOpenDecision={onContinueToWorkflow && !trainingAssessmentMode ? onContinueToWorkflow : undefined} onOpenAssessment={onOpenAssessment && !trainingAssessmentMode ? onOpenAssessment : undefined} onOpenFinish={onOpenFinish} />{designV2 ? chartDocuments : null}</>, chartSlot) : null;
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
     return (<>{plainStackedChart}
       <AssessmentEmpty
@@ -2469,7 +2474,8 @@ export default function AssessmentWorkspace({
                 onOpenAssessment?.();
               } : undefined}
               assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)}
-              onOpenDecision={onContinueToWorkflow && !trainingAssessmentMode ? continueToWorkflow : undefined} />
+              onOpenDecision={onContinueToWorkflow && !trainingAssessmentMode ? continueToWorkflow : undefined}
+              onOpenAssessment={onOpenAssessment && !trainingAssessmentMode ? onOpenAssessment : undefined} onOpenFinish={onOpenFinish} />
             </div>
             {designV2 ? chartDocuments : null}
           </section>
