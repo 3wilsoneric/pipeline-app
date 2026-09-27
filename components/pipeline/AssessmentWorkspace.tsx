@@ -567,6 +567,9 @@ export default function AssessmentWorkspace({
     const onKey = (event: KeyboardEvent) => {
       // Escape leaves full screen only when nothing else (a dialog, a menu, a picker) is using it.
       if (event.key !== "Escape" || event.defaultPrevented || document.querySelector("dialog[open], [popover]:popover-open")) return;
+      // In a text box, the first Escape only leaves the box (its answer saves as usual); the next one leaves full screen.
+      const field = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>("input, textarea, select, [contenteditable='true']") : null;
+      if (field) { field.blur(); return; }
       chooseInterviewFocus(false);
     };
     window.addEventListener("keydown", onKey);
@@ -2299,7 +2302,10 @@ export default function AssessmentWorkspace({
           <span className="sr-only">Open Excel and recovery</span>
           </button>
           {renderReturnToInterview()}
-          {embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
+          {/* Redesign: while answering, Details would hold only the interview date, so the date sits in the bar itself. */}
+          {embeddedFolder && designV2 && !reviewingChart && !(selected.signed_at && canAddAddendum)
+            ? <button type="button" className={workingStyles.saveRecovery} onClick={() => setShowInterviewDate(true)}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
+            : embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
         </div>
   );
 
