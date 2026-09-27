@@ -122,7 +122,7 @@ import { AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pi
 import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
 import AssessmentExcelBackup from "@/components/pipeline/AssessmentExcelBackup";
 import { validateAssessmentPatchRequest } from "@/lib/assessment/assessment-validation";
-import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
+import { usePhoneAssessment, useWideRecordLayout } from "@/components/pipeline/use-phone-layout";
 import phoneStyles from "@/components/pipeline/AssessmentPhoneInterview.module.css";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
 import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
@@ -163,6 +163,8 @@ type AssessmentWorkspaceProps = {
   chartSlot?: HTMLElement | null;
   /** Kept-mounted steps: false while another step (Chart, Decision) is the one opened, so sections don't move it. */
   sectionJumps?: boolean;
+  /** Kept-mounted steps: false while this workspace only draws the Chart step, so the questions are not on screen. */
+  questionsOnScreen?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onOpenChart?: () => void;
   onReviewAssessment?: () => void;
@@ -359,6 +361,7 @@ export default function AssessmentWorkspace({
   chartDocuments,
   chartSlot,
   sectionJumps = true,
+  questionsOnScreen = true,
   onEditReferralField,
   onOpenChart,
   onReviewAssessment,
@@ -506,6 +509,10 @@ export default function AssessmentWorkspace({
   }, [designV2, trainingAssessmentMode, selectedId]);
   const currentPriorAnswers = priorAnswers?.assessmentId === selectedId ? priorAnswers.prior ?? undefined : undefined;
   const currentIntakeAnswers = priorAnswers?.assessmentId === selectedId ? priorAnswers.intake : undefined;
+  // Redesign: a link that opens the interview (or All questions) is remembered like a click, so stepping to
+  // another step and back returns to the same mode instead of the default.
+  const linkedMode = initialLocation?.assessmentMode === "prepare" ? "prepare" : initialLocation?.assessmentMode === "interview" ? "assessment" : null;
+  if (designV2 && selectedId && linkedMode && notebookPage?.assessmentId !== selectedId) setNotebookPage({ assessmentId: selectedId, view: linkedMode });
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : initialLocation?.assessmentMode === "prepare" ? "prepare" : initialLocation?.assessmentMode === "interview" ? "assessment" : null;
   const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
   const reviewingChart = chartReview ?? notebookView === "chart";
@@ -547,23 +554,39 @@ export default function AssessmentWorkspace({
   // Full-screen interview (docs/design/DECISIONS.md, "Full-screen interview"): the split interview takes the whole
   // window while it is on screen. It starts on; leaving it (the close button or Escape) is remembered on this
   // device, so it does not come back by itself, and the expand button turns it on again.
-  const interviewFocusEligible = designV2 && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
-    && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive;
+  const wideRecordLayout = useWideRecordLayout();
+  const interviewFocusEligible = designV2 && wideRecordLayout && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
+    && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive && questionsOnScreen;
   const [interviewFocusPreferred, setInterviewFocusPreferred] = useState(true);
   useEffect(() => {
     try {
       if (window.localStorage.getItem(interviewFocusKey) === "off") setInterviewFocusPreferred(false);
     } catch { /* storage unavailable: full screen stays the default */ }
   }, []);
+  // Switching in or out keeps the person's place: the topic in view and keyboard focus on the matching control.
+  const interviewFocusSwitch = useRef<{ section: string | null } | null>(null);
   const chooseInterviewFocus = useCallback((on: boolean) => {
+    interviewFocusSwitch.current = { section: document.querySelector<HTMLSelectElement>('select[aria-label="Assessment section"]')?.value ?? null };
     setInterviewFocusPreferred(on);
     try { window.localStorage.setItem(interviewFocusKey, on ? "on" : "off"); } catch { /* not remembered */ }
   }, []);
   const interviewFocus = interviewFocusEligible && interviewFocusPreferred;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!interviewFocus) return;
     const root = document.documentElement;
     root.dataset.interviewFocus = "true";
+    // Everything the full-screen page covers is out of reach for Tab and screen readers too; the rail stays,
+    // since it slides out on hover or focus.
+    const page = document.querySelector<HTMLElement>('[data-record-step="2"] > section');
+    const rail = document.querySelector<HTMLElement>('[data-testid="workspace-folder-header"]');
+    const covered: HTMLElement[] = [];
+    for (let node = page; node?.parentElement && node.parentElement !== document.body; node = node.parentElement) {
+      for (const sibling of Array.from(node.parentElement.children)) {
+        if (sibling === node || !(sibling instanceof HTMLElement) || sibling.inert || (rail && sibling.contains(rail))) continue;
+        sibling.inert = true;
+        covered.push(sibling);
+      }
+    }
     const onKey = (event: KeyboardEvent) => {
       // Escape leaves full screen only when nothing else (a dialog, a menu, a picker) is using it.
       if (event.key !== "Escape" || event.defaultPrevented || document.querySelector("dialog[open], [popover]:popover-open")) return;
@@ -573,7 +596,11 @@ export default function AssessmentWorkspace({
       chooseInterviewFocus(false);
     };
     window.addEventListener("keydown", onKey);
-    return () => { delete root.dataset.interviewFocus; window.removeEventListener("keydown", onKey); };
+    return () => {
+      delete root.dataset.interviewFocus;
+      covered.forEach((element) => { element.inert = false; });
+      window.removeEventListener("keydown", onKey);
+    };
   }, [interviewFocus, chooseInterviewFocus]);
   const spySection = stackedGroups.find((group) => group.key === spyGroup)?.key ?? stackedGroups[0]?.key ?? visibleSectionKey;
   const nextSection = stackedQuestionsView ? undefined : pageSections[pageIndex + 1];
@@ -597,6 +624,13 @@ export default function AssessmentWorkspace({
     setSpyGroup(key);
     document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  useLayoutEffect(() => {
+    const change = interviewFocusSwitch.current;
+    if (!change) return;
+    interviewFocusSwitch.current = null;
+    if (change.section) document.querySelector(`[data-assessment-group-heading="${change.section}"]`)?.scrollIntoView({ block: "start" });
+    document.querySelector<HTMLElement>(`nav[aria-label="Assessment sections"] button[aria-label="${interviewFocus ? "Close" : "Expand"}"]`)?.focus({ preventScroll: true });
+  }, [interviewFocus]);
   // A link or action that names a section (a deep link, a chart edit, Review unanswered) lands on it.
   useEffect(() => {
     if (!stackedQuestionsView || !workspaceActive || !sectionJumps) return;

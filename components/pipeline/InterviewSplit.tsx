@@ -78,7 +78,8 @@ export default function InterviewSplit({ referral, topics, data, currentTopic, c
     const block = scroller?.querySelector<HTMLElement>(`[data-split-topic="${currentTopic}"]`);
     if (!scroller || !block) return;
     const top = block.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-    scroller.scrollTo({ top: Math.max(0, top - 12), behavior: "smooth" });
+    // Instant: a second smooth scroll would cancel the page's own smooth scroll to the chosen topic.
+    scroller.scrollTo({ top: Math.max(0, top - 12) });
   }, [currentTopic]);
 
   const drag = (event: React.PointerEvent<HTMLDivElement>) => {

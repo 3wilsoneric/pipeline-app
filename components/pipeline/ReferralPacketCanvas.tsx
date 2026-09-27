@@ -2867,6 +2867,7 @@ export default function ReferralPacketCanvas({
                   {...assessmentChartProps(Boolean(chartSlot))}
                   chartSlot={chartSlot}
                   sectionJumps={!chartSlot || displayedPage === 2}
+                  questionsOnScreen={!chartSlot || displayedPage === 2}
                   chartDocuments={renderChartDocuments()}
                   onOpenChart={() => openPage(3)}
                   onReviewAssessment={() => openPage(2, undefined, "review")}

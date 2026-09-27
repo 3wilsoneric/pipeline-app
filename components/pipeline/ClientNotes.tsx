@@ -53,7 +53,8 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
     const heading = list.current.querySelector<HTMLElement>(`[data-note-heading="${current}"]`);
     if (!heading) return;
     const top = heading.getBoundingClientRect().top - list.current.getBoundingClientRect().top + list.current.scrollTop;
-    list.current.scrollTo({ top: Math.max(0, top - 6), behavior: "smooth" });
+    // Instant, so it never cancels the page's own smooth scroll to the chosen topic.
+    list.current.scrollTo({ top: Math.max(0, top - 6) });
   }, [current, focused]);
 
   const StatusIcon = notes.status === "failed" ? AlertTriangle : notes.status === "waiting" ? CloudUpload : notes.status === "saved" ? Check : LoaderCircle;
