@@ -57,6 +57,13 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   // Escape leave it and stay on the interview; it comes back on the next visit to the interview.
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-interview-focus", "true");
+  // The record rail waits as a handle at the left edge and slides out on hover.
+  const railChart = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true });
+  await expect(railChart).not.toBeInViewport();
+  await page.mouse.move(4, 450);
+  await expect(railChart).toBeInViewport();
+  await page.mouse.move(900, 450);
+  await expect(railChart).not.toBeInViewport();
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
   await expect(split).toBeVisible();

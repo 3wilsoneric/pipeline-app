@@ -961,12 +961,18 @@
    Assessment folder becomes the whole window; the app bar, the rail and the folder's tab and edges step away
    until it is closed. At the top level because the switch lives on <html> itself. */
 @media (min-width: 1024px) {
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section { position: fixed; inset: 0; z-index: 90; margin: 0; padding: 0 28px; overflow-y: auto; overscroll-behavior: contain; border: 0; border-radius: 0; background: var(--color-paper); box-shadow: none; animation: interview-focus-in var(--duration-move) var(--ease-open); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section { position: fixed; inset: 0; z-index: 90; margin: 0; padding: 0 28px 0 48px; overflow-y: auto; overscroll-behavior: contain; border: 0; border-radius: 0; background: var(--color-paper); box-shadow: none; animation: interview-focus-in var(--duration-move) var(--ease-open); }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section::before,
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section::after { display: none; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section :is(.connectedFolder, .connectedFolder > div, .connectedFolder > div > div) { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  /* The record rail waits at the left edge as a slim handle and slides out on hover or keyboard focus
+     (owner, 2026-09-26: "a hover sidebar when we're in full screen"). */
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header { position: fixed; top: 0; bottom: 0; left: 0; z-index: 95; width: 236px; padding: 20px 16px 16px 20px; overflow-y: auto; border-right: 1px solid var(--color-card-border); background: var(--color-page); box-shadow: none; transform: translateX(calc(-100% + 16px)); transition: transform var(--duration-move) var(--ease-open), box-shadow var(--duration-move) ease; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header::after { content: ""; position: absolute; top: 50%; right: 5px; width: 4px; height: 40px; margin-top: -20px; border-radius: var(--radius-pill); background: var(--color-folder-edge); transition: opacity var(--duration-fade) ease; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header:is(:hover, :focus-within) { transform: none; box-shadow: var(--shadow-popover); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header:is(:hover, :focus-within)::after { opacity: 0; }
 }
 /* The page's finished entry animation would otherwise keep the overlay in a layer under the app bar. */
 :global(html[data-design="v2"][data-interview-focus] .pipeline-route-enter) { animation: none; }
 @keyframes interview-focus-in { from { opacity: 0; transform: scale(0.985); } }
-@media (prefers-reduced-motion: reduce) { :global(html[data-interview-focus]) .verticalFlow > .readingPages > section { animation: none; } }
+@media (prefers-reduced-motion: reduce) { :global(html[data-interview-focus]) .verticalFlow > .readingPages > section { animation: none; } :global(html[data-interview-focus]) .verticalFlow > .header { transition: none; } }

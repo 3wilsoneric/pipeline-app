@@ -136,6 +136,7 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 
 - On a wide screen the split interview takes the whole window whenever the interview is on screen: the app bar, the record rail, and the folder's tab and edges step away. The pinned bar leads with the client's name, then All questions / Interview, the section, Schedule interview, and a close button (X, "Close", tooltip "Close (Esc)").
 - The close button or Escape leaves full screen and stays on the same question; Escape does nothing to full screen while a dialog, menu, or picker is open, so closing one of those never also closes full screen. Leaving holds for this visit; it comes back the next time the person returns to the interview (for example, All questions then Interview).
+- The record rail waits at the left edge as a slim handle and slides out over the page on hover or keyboard focus, then tucks back (owner, 2026-09-26: "a hover sidebar when we're in full screen"); the page content sits a little further right to leave room for the handle. Choosing another step there leaves full screen for that step.
 - With the rail out of view, the bottom bar shows the save status text again ("All changes saved" and so on) while full screen is on.
 - It is the app's own full screen, not the browser's, so it survives a reload and never covers the rest of the computer. It sits under the app's dialogs (they still open on top).
 ## Sidebar (owner, 2026-09-24)
