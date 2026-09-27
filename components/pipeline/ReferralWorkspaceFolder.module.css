@@ -956,3 +956,17 @@
     .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section > div > section { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
   }
 }
+
+/* Full-screen interview (docs/design/DECISIONS.md, "Full-screen interview"). Redesign only, wide screens: the
+   Assessment folder becomes the whole window; the app bar, the rail and the folder's tab and edges step away
+   until it is closed. At the top level because the switch lives on <html> itself. */
+@media (min-width: 1024px) {
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section { position: fixed; inset: 0; z-index: 90; margin: 0; padding: 0 28px; overflow-y: auto; overscroll-behavior: contain; border: 0; border-radius: 0; background: var(--color-paper); box-shadow: none; animation: interview-focus-in var(--duration-move) var(--ease-open); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section::before,
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section::after { display: none; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .readingPages > section :is(.connectedFolder, .connectedFolder > div, .connectedFolder > div > div) { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+}
+/* The page's finished entry animation would otherwise keep the overlay in a layer under the app bar. */
+:global(html[data-design="v2"][data-interview-focus] .pipeline-route-enter) { animation: none; }
+@keyframes interview-focus-in { from { opacity: 0; transform: scale(0.985); } }
+@media (prefers-reduced-motion: reduce) { :global(html[data-interview-focus]) .verticalFlow > .readingPages > section { animation: none; } }

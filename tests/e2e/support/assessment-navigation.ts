@@ -6,7 +6,18 @@ export async function editPreparedAnswer(page: Page, label: string) {
   await recorded.getByRole("button", { name: `Edit ${label}`, exact: true }).click();
 }
 
+// Redesign interview full screen (docs/design/DECISIONS.md, "Full-screen interview") covers the app bar and the
+// record rail; a person closes it before going elsewhere, and so do the tests. No-op when it is not on.
+export async function leaveInterviewFullScreen(page: Page) {
+  // It turns on just after a layout change (such as a resize), so give it a moment to appear.
+  const on = await page.locator("html[data-interview-focus]").waitFor({ state: "attached", timeout: 1_500 }).then(() => true, () => false);
+  if (!on) return;
+  await page.locator('nav[aria-label="Assessment sections"] button[aria-label="Close"]').click();
+  await page.locator("html[data-interview-focus]").waitFor({ state: "detached" });
+}
+
 export async function openAssessmentChart(page: Page) {
+  await leaveInterviewFullScreen(page);
   const stagePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await stagePicker.isVisible()) {
     await stagePicker.selectOption({ label: "Chart" });

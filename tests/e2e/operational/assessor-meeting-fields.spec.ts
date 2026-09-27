@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { leaveInterviewFullScreen } from "../support/assessment-navigation";
 import { actorApiContext, operationalActorHeaders, requireOperationalBaseURL } from "../support/pipeline-actors";
 import { createOperationalAssessment, createOperationalReferral, signOperationalAssessment } from "../support/operational-api";
 import { assessmentToolFieldDefinitions } from "../../../lib/assessment/assessment-tool-schema";
@@ -69,6 +70,7 @@ test.describe("assessor meeting fields", () => {
       await search.fill("");
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 1440, height: 900 });
+      await leaveInterviewFullScreen(page);
       const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
       await stages.getByRole("button", { name: "Chart", exact: true }).click();
       await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");

@@ -48,3 +48,6 @@
 }
 @media (prefers-reduced-motion: reduce) { .divider::before { transition: none; } }
 @media (forced-colors: active) { .divider::before { background: CanvasText; } .topic[data-current]::before { background: Highlight; } }
+
+/* Full screen: the top bar already names the client. */
+:global(html[data-interview-focus]) .name { display: none; }

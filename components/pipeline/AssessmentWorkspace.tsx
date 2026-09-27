@@ -19,6 +19,7 @@ import {
   LoaderCircle,
   Plus,
   RefreshCw,
+  X,
 } from "lucide-react";
 
 import {
@@ -540,6 +541,30 @@ export default function AssessmentWorkspace({
     : conversationSections.map((section) => ({ key: section.key, label: section.label, questions: section.questions, referenceQuestions: section.referenceQuestions })),
   [stackedQuestionsView, preparing, draft, conversationSections]);
   const [spyGroup, setSpyGroup] = useState<AssessmentToolSection | null>(null);
+  // Full-screen interview (docs/design/DECISIONS.md, "Full-screen interview"): the split interview takes the whole
+  // window while it is on screen. The close button or Escape leaves it for this visit; it comes back the next time
+  // the person returns to the interview.
+  const interviewFocusEligible = designV2 && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
+    && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive;
+  const [interviewFocusClosed, setInterviewFocusClosed] = useState(false);
+  const [interviewFocusSeen, setInterviewFocusSeen] = useState(interviewFocusEligible);
+  if (interviewFocusSeen !== interviewFocusEligible) {
+    setInterviewFocusSeen(interviewFocusEligible);
+    if (!interviewFocusEligible) setInterviewFocusClosed(false);
+  }
+  const interviewFocus = interviewFocusEligible && !interviewFocusClosed;
+  useEffect(() => {
+    if (!interviewFocus) return;
+    const root = document.documentElement;
+    root.dataset.interviewFocus = "true";
+    const onKey = (event: KeyboardEvent) => {
+      // Escape leaves full screen only when nothing else (a dialog, a menu, a picker) is using it.
+      if (event.key !== "Escape" || event.defaultPrevented || document.querySelector("dialog[open], [popover]:popover-open")) return;
+      setInterviewFocusClosed(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => { delete root.dataset.interviewFocus; window.removeEventListener("keydown", onKey); };
+  }, [interviewFocus]);
   const spySection = stackedGroups.find((group) => group.key === spyGroup)?.key ?? stackedGroups[0]?.key ?? visibleSectionKey;
   const nextSection = stackedQuestionsView ? undefined : pageSections[pageIndex + 1];
   const previousSection = stackedQuestionsView ? undefined : pageSections[pageIndex - 1];
@@ -2252,7 +2277,8 @@ export default function AssessmentWorkspace({
   // page has one in-page navigation row (owner, 2026-09-26: "four layers of nav").
   const workModeInNavigation = designV2 && stackedQuestionsView && !preparing && !phoneInterview;
   const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={canEditClinical ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
-  const railSaveStatus = designV2 && embeddedFolder && !phoneLayout && !trainingAssessmentMode;
+  // In full screen the rail is hidden, so the bottom bar shows the save status again.
+  const railSaveStatus = designV2 && embeddedFolder && !phoneLayout && !trainingAssessmentMode && !interviewFocus;
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
           <button type="button" className={workingStyles.saveRecovery} title="Excel workbook, backup & recovery" aria-haspopup="dialog" onClick={() => setRecoveryToolsAssessment(selected.assessment_id)}>
@@ -2539,7 +2565,11 @@ export default function AssessmentWorkspace({
               onAllQuestions={() => changeWorkingMode(true)}
               required={requiredInterviewFields}
               target={workingTarget}
-              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation lead={workModeInNavigation ? renderWorkMode() : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
+              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation lead={workModeInNavigation ? <>
+                {interviewFocus && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
+                {renderWorkMode()}
+                {interviewFocus ? <button type="button" aria-label="Close" title="Close (Esc)" className={workingStyles.focusClose} onClick={() => setInterviewFocusClosed(true)}><X size={18} aria-hidden="true" /></button> : null}
+              </> : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               onChange={updateField}

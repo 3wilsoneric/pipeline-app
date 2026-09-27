@@ -131,6 +131,13 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The current topic's notes are docked at the foot of the left side. A note being typed in stays on screen even if the questions scroll to another topic, so it never swaps out from under the cursor.
 - The line can be dragged (30 to 70 percent), moved with the arrow keys (Shift for bigger steps, Home and End for the limits), and double-clicked or Enter to reset to 45 percent; the width is remembered on the device. The questions keep at least 440px.
 - The interview header has no Chart button while the split is on, since the chart is on screen; the Notes / Current information tabs give way to the split. Below 1024px the chart text sits above the questions.
+
+## Full-screen interview (owner, 2026-09-26: "made it full screen when in interview, easy to leave though")
+
+- On a wide screen the split interview takes the whole window whenever the interview is on screen: the app bar, the record rail, and the folder's tab and edges step away. The pinned bar leads with the client's name, then All questions / Interview, the section, Schedule interview, and a close button (X, "Close", tooltip "Close (Esc)").
+- The close button or Escape leaves full screen and stays on the same question; Escape does nothing to full screen while a dialog, menu, or picker is open, so closing one of those never also closes full screen. Leaving holds for this visit; it comes back the next time the person returns to the interview (for example, All questions then Interview).
+- With the rail out of view, the bottom bar shows the save status text again ("All changes saved" and so on) while full screen is on.
+- It is the app's own full screen, not the browser's, so it survives a reload and never covers the rest of the computer. It sits under the app's dialogs (they still open on top).
 ## Sidebar (owner, 2026-09-24)
 
 - The rail is warm paper with a thin edge.

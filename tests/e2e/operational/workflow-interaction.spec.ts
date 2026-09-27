@@ -1,5 +1,6 @@
 import { confirmReferralFileLabels } from "../support/referral-upload";
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { leaveInterviewFullScreen } from "../support/assessment-navigation";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
@@ -363,6 +364,7 @@ test.describe("workflow interaction and durable feedback", () => {
       });
       const answer = "Synthetic unsaved answer must remain visible.";
       await chart.getByRole("textbox", { name: "Prior placements", exact: true }).fill(answer);
+      await leaveInterviewFullScreen(page);
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await expect(chart).toHaveCount(0);
       await expect(page.getByRole("alert").filter({ hasText: "Some edits are only in this open tab." })).toBeVisible();
@@ -371,6 +373,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(chart).toBeVisible();
       await expect(chart.getByRole("textbox", { name: "Prior placements", exact: true })).toHaveValue(answer);
       await page.unroute(`**/api/assessments/${assessmentId}`);
+      await leaveInterviewFullScreen(page);
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await expect(chart).toHaveCount(0);
       await expect.poll(async () => (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_placements).toBe(answer);

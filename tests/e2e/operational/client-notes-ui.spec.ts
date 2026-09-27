@@ -53,6 +53,18 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await expect(line).toHaveAttribute("aria-valuenow", "45");
   const questions = await page.locator("[data-assessment-question-editor]").first().boundingBox();
   expect(questions!.width).toBeGreaterThan(420);
+  // Full screen (docs/design/DECISIONS.md, "Full-screen interview"): on in the interview, the close button and
+  // Escape leave it and stay on the interview; it comes back on the next visit to the interview.
+  const root = page.locator("html");
+  await expect(root).toHaveAttribute("data-interview-focus", "true");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(root).not.toHaveAttribute("data-interview-focus", "true");
+  await expect(split).toBeVisible();
+  await page.getByRole("button", { name: "All questions", exact: true }).click();
+  await page.getByRole("button", { name: "Interview", exact: true }).click();
+  await expect(root).toHaveAttribute("data-interview-focus", "true");
+  await page.keyboard.press("Escape");
+  await expect(root).not.toHaveAttribute("data-interview-focus", "true");
   // An answer shows in the chart text as soon as it is recorded.
   await page.getByRole("textbox", { name: "Current location" }).fill("Board and care in Turlock");
   await page.keyboard.press("Tab");

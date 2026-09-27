@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { leaveInterviewFullScreen } from "../support/assessment-navigation";
 import { calendarToday } from "../../../lib/pipeline/calendar-date";
 import { actorApiContext, actorPage, operationalActorHeaders, requireOperationalBaseURL } from "../support/pipeline-actors";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment, submitOperationalRecommendation, transitionOperationalReferral } from "../support/operational-api";
@@ -86,6 +87,7 @@ test.describe("uninterrupted workflow", () => {
       await expect.poll(async () => (await (await api.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements).toBe("Newer answer typed while the earlier save returns.");
       await expect(editor.getByRole("button", { name: "Keep mine", exact: true })).toHaveCount(0);
       await expect(answer).toHaveValue("Newer answer typed while the earlier save returns.");
+      await leaveInterviewFullScreen(page);
       await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
     } finally { releaseSync(); await context.close(); await api.dispose(); }

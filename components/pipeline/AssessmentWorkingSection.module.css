@@ -591,6 +591,11 @@
   .navigation[data-with-work-mode] .prepActions svg { width: 15px; height: 15px; }
   .navigation[data-with-work-mode] .sectionProgress { order: 2; min-width: 0; max-width: none; margin-left: auto; white-space: nowrap; }
   .navigation[data-with-work-mode] .prepActions { order: 3; margin-left: auto; }
+  /* Full-screen interview: the client's name leads the bar, the close button ends it. */
+  .focusTitle { order: -1; flex: 0 1 auto; max-width: 280px; margin: 0; padding-right: 16px; overflow: hidden; border-right: 1px solid var(--color-paper-rule); color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .focusClose { order: 5; display: grid; flex-shrink: 0; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-input); color: var(--color-ink-muted); }
+  .focusClose:hover { background: var(--color-segment); color: var(--color-ink); }
+  .focusClose:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   /* No fractions or step numbers in the row (owner, 2026-09-26); screen readers still hear the position and count. */
   .navigation[data-with-work-mode] :is(.sectionPosition, .sectionProgress, .progressTrack) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .navigation[data-with-work-mode] .phaseSteps li > span { display: none; }
